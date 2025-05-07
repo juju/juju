@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
@@ -36,7 +36,7 @@ func (s *deleteImageSuite) SetUpTest(c *tc.C) {
 			s.deletedIds = append(s.deletedIds, imageId)
 			return nil
 		},
-		Stub: &jujutesting.Stub{},
+		Stub: &testhelpers.Stub{},
 	}
 }
 
@@ -87,7 +87,7 @@ func (s *deleteImageSuite) assertDeleteImageMetadataErr(c *tc.C, errorMsg string
 }
 
 type mockDeleteAPI struct {
-	*jujutesting.Stub
+	*testhelpers.Stub
 
 	delete func(imageId string) error
 }

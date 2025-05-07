@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -30,10 +29,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type resourceServiceSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state               *MockState
 	resourceStoreGetter *MockResourceStoreGetter

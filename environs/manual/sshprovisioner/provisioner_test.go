@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/agent"
@@ -30,13 +29,14 @@ import (
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
 
 type provisionerSuite struct {
-	jujutesting.LoggingCleanupSuite
+	testhelpers.LoggingCleanupSuite
 }
 
 var _ = tc.Suite(&provisionerSuite{})

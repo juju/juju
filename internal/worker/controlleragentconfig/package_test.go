@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 func TestPackage(t *testing.T) {
@@ -19,7 +19,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger logger.Logger
 }

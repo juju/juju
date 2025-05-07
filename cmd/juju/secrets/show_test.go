@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
@@ -15,12 +14,13 @@ import (
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
 
 type ShowSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	store      *jujuclient.MemStore
 	secretsAPI *mocks.MockListSecretsAPI
 }

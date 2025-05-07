@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	envtesting "github.com/juju/testing"
 	"github.com/juju/utils/v4/exec"
 	"go.uber.org/mock/gomock"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm/hooks"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -314,7 +314,7 @@ func (ctx *MockContext) ModelType() model.ModelType {
 }
 
 type RunMockContextSuite struct {
-	envtesting.IsolationSuite
+	testhelpers.IsolationSuite
 	paths runnertesting.RealPaths
 }
 

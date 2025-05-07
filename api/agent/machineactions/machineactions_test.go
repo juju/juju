@@ -10,16 +10,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api/agent/machineactions"
 	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
 type ClientSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ClientSuite{})
@@ -27,13 +27,13 @@ var _ = tc.Suite(&ClientSuite{})
 func (s *ClientSuite) TestWatchFails(c *tc.C) {
 	tag := names.NewMachineTag("2")
 	expectErr := errors.Errorf("kuso")
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.WatchActionNotifications",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		}},
 	}}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -56,13 +56,13 @@ func (s *ClientSuite) TestWatchResultError(c *tc.C) {
 		Message: "rigged",
 		Code:    params.CodeNotAssigned,
 	}
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.WatchActionNotifications",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		}},
 	}}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -82,13 +82,13 @@ func (s *ClientSuite) TestWatchResultError(c *tc.C) {
 
 func (s *ClientSuite) TestWatchResultTooMany(c *tc.C) {
 	tag := names.NewMachineTag("2")
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.WatchActionNotifications",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		}},
 	}}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -107,13 +107,13 @@ func (s *ClientSuite) TestWatchResultTooMany(c *tc.C) {
 
 func (s *ClientSuite) TestActionBeginSuccess(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.BeginActions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		}},
 	}}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -133,14 +133,14 @@ func (s *ClientSuite) TestActionBeginSuccess(c *tc.C) {
 
 func (s *ClientSuite) TestActionBeginError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.BeginActions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		}},
 	}}
 	expectedErr := errors.Errorf("blam")
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -156,7 +156,7 @@ func (s *ClientSuite) TestActionBeginError(c *tc.C) {
 
 func (s *ClientSuite) TestActionBeginResultError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.BeginActions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
@@ -166,7 +166,7 @@ func (s *ClientSuite) TestActionBeginResultError(c *tc.C) {
 		Message: "rigged",
 		Code:    params.CodeNotAssigned,
 	}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -186,13 +186,13 @@ func (s *ClientSuite) TestActionBeginResultError(c *tc.C) {
 
 func (s *ClientSuite) TestActionBeginTooManyResults(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.BeginActions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		}},
 	}}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -213,7 +213,7 @@ func (s *ClientSuite) TestActionFinishSuccess(c *tc.C) {
 	status := "stubstatus"
 	actionResults := map[string]interface{}{"stub": "stub"}
 	message := "stubmsg"
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.FinishActions",
 		Args: []interface{}{"", params.ActionExecutionResults{
 			Results: []params.ActionExecutionResult{{
@@ -224,7 +224,7 @@ func (s *ClientSuite) TestActionFinishSuccess(c *tc.C) {
 			}},
 		}},
 	}}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -243,7 +243,7 @@ func (s *ClientSuite) TestActionFinishSuccess(c *tc.C) {
 
 func (s *ClientSuite) TestActionFinishError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.FinishActions",
 		Args: []interface{}{"", params.ActionExecutionResults{
 			Results: []params.ActionExecutionResult{{
@@ -255,7 +255,7 @@ func (s *ClientSuite) TestActionFinishError(c *tc.C) {
 		}},
 	}}
 	expectedErr := errors.Errorf("blam")
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -271,7 +271,7 @@ func (s *ClientSuite) TestActionFinishError(c *tc.C) {
 
 func (s *ClientSuite) TestActionFinishResultError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.FinishActions",
 		Args: []interface{}{"", params.ActionExecutionResults{
 			Results: []params.ActionExecutionResult{{
@@ -286,7 +286,7 @@ func (s *ClientSuite) TestActionFinishResultError(c *tc.C) {
 		Message: "rigged",
 		Code:    params.CodeNotAssigned,
 	}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -306,7 +306,7 @@ func (s *ClientSuite) TestActionFinishResultError(c *tc.C) {
 
 func (s *ClientSuite) TestActionFinishTooManyResults(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.FinishActions",
 		Args: []interface{}{"", params.ActionExecutionResults{
 			Results: []params.ActionExecutionResult{{
@@ -317,7 +317,7 @@ func (s *ClientSuite) TestActionFinishTooManyResults(c *tc.C) {
 			}},
 		}},
 	}}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -335,7 +335,7 @@ func (s *ClientSuite) TestActionFinishTooManyResults(c *tc.C) {
 
 func (s *ClientSuite) TestGetActionSuccess(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.Actions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
@@ -343,7 +343,7 @@ func (s *ClientSuite) TestGetActionSuccess(c *tc.C) {
 	}}
 	expectedName := "ack"
 	expectedParams := map[string]interface{}{"floob": "zgloob"}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	parallel := true
 	group := "group"
@@ -375,14 +375,14 @@ func (s *ClientSuite) TestGetActionSuccess(c *tc.C) {
 
 func (s *ClientSuite) TestGetActionError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.Actions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		}},
 	}}
 	expectedErr := errors.Errorf("blam")
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -399,7 +399,7 @@ func (s *ClientSuite) TestGetActionError(c *tc.C) {
 
 func (s *ClientSuite) TestGetActionResultError(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.Actions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
@@ -409,7 +409,7 @@ func (s *ClientSuite) TestGetActionResultError(c *tc.C) {
 		Message: "rigged",
 		Code:    params.CodeNotAssigned,
 	}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -431,13 +431,13 @@ func (s *ClientSuite) TestGetActionResultError(c *tc.C) {
 
 func (s *ClientSuite) TestGetActionTooManyResults(c *tc.C) {
 	tag := names.NewActionTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.Actions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		}},
 	}}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -456,7 +456,7 @@ func (s *ClientSuite) TestGetActionTooManyResults(c *tc.C) {
 
 func (s *ClientSuite) TestRunningActionSuccess(c *tc.C) {
 	tag := names.NewMachineTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.RunningActions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
@@ -466,7 +466,7 @@ func (s *ClientSuite) TestRunningActionSuccess(c *tc.C) {
 		{Action: &params.Action{Name: "foo"}},
 		{Action: &params.Action{Name: "baz"}},
 	}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -488,14 +488,14 @@ func (s *ClientSuite) TestRunningActionSuccess(c *tc.C) {
 
 func (s *ClientSuite) TestRunningActionsError(c *tc.C) {
 	tag := names.NewMachineTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.RunningActions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		}},
 	}}
 	expectedErr := errors.Errorf("blam")
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -512,7 +512,7 @@ func (s *ClientSuite) TestRunningActionsError(c *tc.C) {
 
 func (s *ClientSuite) TestRunningActionsResultError(c *tc.C) {
 	tag := names.NewMachineTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.RunningActions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
@@ -522,7 +522,7 @@ func (s *ClientSuite) TestRunningActionsResultError(c *tc.C) {
 		Message: "rigged",
 		Code:    params.CodeNotAssigned,
 	}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -544,13 +544,13 @@ func (s *ClientSuite) TestRunningActionsResultError(c *tc.C) {
 
 func (s *ClientSuite) TestRunningActionsTooManyResults(c *tc.C) {
 	tag := names.NewMachineTag(uuid.MustNewUUID().String())
-	expectedCalls := []jujutesting.StubCall{{
+	expectedCalls := []testhelpers.StubCall{{
 		FuncName: "MachineActions.RunningActions",
 		Args: []interface{}{"", params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		}},
 	}}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)

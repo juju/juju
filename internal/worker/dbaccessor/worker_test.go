@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/database/dqlite"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -204,7 +204,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *tc.C) {
 	// This is the first config change, which has incomplete cluster config.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 
@@ -220,7 +220,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *tc.C) {
 	// The node should start subsequently.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 
@@ -377,13 +377,13 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *tc
 	// None of the cause reconfiguration.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 }
@@ -468,7 +468,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *tc.C) {
 	// Push a config change notification to simulate a move into HA.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 }
@@ -528,7 +528,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	// loopback binding is preferred.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 }

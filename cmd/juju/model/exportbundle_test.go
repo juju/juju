@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -22,7 +22,7 @@ import (
 type ExportBundleCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fakeBundle *fakeExportBundleClient
-	stub       *jujutesting.Stub
+	stub       *testhelpers.Stub
 	store      *jujuclient.MemStore
 }
 
@@ -30,7 +30,7 @@ var _ = tc.Suite(&ExportBundleCommandSuite{})
 
 func (s *ExportBundleCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.stub = &jujutesting.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.fakeBundle = &fakeExportBundleClient{
 		Stub: s.stub,
 	}
@@ -86,7 +86,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *tc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store))
 	c.Assert(err, tc.ErrorIsNil)
-	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
+	s.fakeBundle.CheckCalls(c, []testhelpers.StubCall{
 		{"ExportBundle", []interface{}{false}},
 	})
 
@@ -129,7 +129,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *tc.C) {
 		"- []\n"
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store), "--filename", s.fakeBundle.filename)
 	c.Assert(err, tc.ErrorIsNil)
-	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
+	s.fakeBundle.CheckCalls(c, []testhelpers.StubCall{
 		{"ExportBundle", []interface{}{false}},
 	})
 
@@ -163,7 +163,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *
 	s.fakeBundle.result = "fake-data"
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store), "--filename", s.fakeBundle.filename)
 	c.Assert(err, tc.ErrorIsNil)
-	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
+	s.fakeBundle.CheckCalls(c, []testhelpers.StubCall{
 		{"ExportBundle", []interface{}{false}},
 	})
 
@@ -179,7 +179,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleIncludeCharmDefaults(c *tc.C)
 	s.fakeBundle.result = "fake-data"
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store), "--include-charm-defaults", "--filename", s.fakeBundle.filename)
 	c.Assert(err, tc.ErrorIsNil)
-	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
+	s.fakeBundle.CheckCalls(c, []testhelpers.StubCall{
 		{"ExportBundle", []interface{}{true}},
 	})
 
@@ -191,7 +191,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleIncludeCharmDefaults(c *tc.C)
 }
 
 type fakeExportBundleClient struct {
-	*jujutesting.Stub
+	*testhelpers.Stub
 	result   string
 	filename string
 }

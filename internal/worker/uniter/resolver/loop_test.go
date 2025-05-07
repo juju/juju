@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/mutex/v2"
 	"github.com/juju/tc"
-	envtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -293,7 +293,7 @@ func (s *LoopSuite) TestNextOpFails(c *tc.C) {
 func (s *LoopSuite) TestCheckCharmUpgradeUpgradeCharmHook(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Kind:      operation.Continue,
@@ -307,7 +307,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeUpgradeCharmHook(c *tc.C) {
 func (s *LoopSuite) TestCheckCharmUpgradeSameURL(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Kind:      operation.Continue,
@@ -326,7 +326,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeSameURL(c *tc.C) {
 func (s *LoopSuite) TestCheckCharmUpgradeNotInstalled(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Kind: operation.Continue,
 		},
@@ -344,7 +344,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeNotInstalled(c *tc.C) {
 func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Started:   true,
@@ -383,7 +383,7 @@ func (s *LoopSuite) testCheckCharmUpgradeDoesNothing(c *tc.C) {
 func (s *LoopSuite) TestCheckCharmUpgrade(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Kind:      operation.Continue,
@@ -401,7 +401,7 @@ func (s *LoopSuite) TestCheckCharmUpgrade(c *tc.C) {
 func (s *LoopSuite) TestCheckCharmUpgradeMissingCharmDir(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Kind:      operation.Continue,
@@ -419,7 +419,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeMissingCharmDir(c *tc.C) {
 func (s *LoopSuite) TestCheckCharmInstallMissingCharmDirInstallHookFail(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: false,
 			Kind:      operation.RunHook,
@@ -439,7 +439,7 @@ func (s *LoopSuite) TestCheckCharmInstallMissingCharmDirInstallHookFail(c *tc.C)
 func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Started:   true,
@@ -460,7 +460,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *tc.C) {
 func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *tc.C, op string) {
 	s.opFactory = &mockOpFactory{
 		Factory: nil,
-		Stub:    envtesting.Stub{},
+		Stub:    testhelpers.Stub{},
 		op:      mockOp{},
 	}
 	s.resolver = resolver.ResolverFunc(func(
@@ -486,7 +486,7 @@ func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *tc.C, op string) {
 func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Started: true,
 			Kind:    operation.Continue,

@@ -7,8 +7,9 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package querylogger -destination logger_mock_test.go github.com/juju/juju/core/logger Logger
@@ -19,7 +20,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	clock  *MockClock
 	timer  *MockTimer

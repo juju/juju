@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
@@ -45,6 +44,7 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	corestorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
@@ -1647,7 +1647,7 @@ func bootstrapContext(c *tc.C) (environs.BootstrapContext, *simplestreams.Simple
 }
 
 type BootstrapContextSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&BootstrapContextSuite{})

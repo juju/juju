@@ -10,13 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/machiner"
@@ -253,12 +253,12 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *tc.C) {
 	err = stopWorker(worker)
 	c.Check(err, tc.ErrorIsNil)
 
-	s.accessor.CheckCalls(c, []jujutesting.StubCall{{
+	s.accessor.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Machine",
 		Args:     []interface{}{s.machineTag},
 	}})
 
-	s.accessor.machine.CheckCalls(c, []jujutesting.StubCall{{
+	s.accessor.machine.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
 	}, {
 		FuncName: "Watch",
@@ -298,12 +298,12 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *tc.C) {
 	err = stopWorker(worker)
 	c.Check(err, tc.ErrorIsNil)
 
-	s.accessor.CheckCalls(c, []jujutesting.StubCall{{
+	s.accessor.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Machine",
 		Args:     []interface{}{s.machineTag},
 	}})
 
-	s.accessor.machine.CheckCalls(c, []jujutesting.StubCall{{
+	s.accessor.machine.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
 	}, {
 		FuncName: "Watch",

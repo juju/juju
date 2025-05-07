@@ -6,7 +6,6 @@ package applicationoffers_test
 import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -18,6 +17,7 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -28,7 +28,7 @@ const (
 )
 
 type baseSuite struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authorizer *testing.FakeAuthorizer
 

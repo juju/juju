@@ -17,7 +17,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"gopkg.in/macaroon.v2"
@@ -35,6 +34,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -45,7 +45,7 @@ import (
 type Suite struct {
 	coretesting.BaseSuite
 	clock         *testclock.Clock
-	stub          *jujutesting.Stub
+	stub          *testhelpers.Stub
 	connection    *stubConnection
 	connectionErr error
 	facade        *stubMasterFacade
@@ -65,7 +65,7 @@ var (
 	modelVersion        = semversion.MustParse("1.2.4")
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
-	apiOpenControllerCall = jujutesting.StubCall{
+	apiOpenControllerCall = testhelpers.StubCall{
 		FuncName: "apiOpen",
 		Args: []interface{}{
 			&api.Info{
@@ -77,13 +77,13 @@ var (
 			migration.ControllerDialOpts(),
 		},
 	}
-	importCall = jujutesting.StubCall{
+	importCall = testhelpers.StubCall{
 		FuncName: "MigrationTarget.Import",
 		Args: []interface{}{
 			params.SerializedModel{Bytes: fakeModelBytes},
 		},
 	}
-	activateCall = jujutesting.StubCall{
+	activateCall = testhelpers.StubCall{
 		FuncName: "MigrationTarget.Activate",
 		Args: []interface{}{
 			params.ActivateModelArgs{
@@ -96,13 +96,13 @@ var (
 			},
 		},
 	}
-	checkMachinesCall = jujutesting.StubCall{
+	checkMachinesCall = testhelpers.StubCall{
 		FuncName: "MigrationTarget.CheckMachines",
 		Args: []interface{}{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
-	adoptResourcesCall = jujutesting.StubCall{
+	adoptResourcesCall = testhelpers.StubCall{
 		FuncName: "MigrationTarget.AdoptResources",
 		Args: []interface{}{
 			params.AdoptResourcesArgs{
@@ -111,25 +111,25 @@ var (
 			},
 		},
 	}
-	latestLogTimeCall = jujutesting.StubCall{
+	latestLogTimeCall = testhelpers.StubCall{
 		FuncName: "MigrationTarget.LatestLogTime",
 		Args: []interface{}{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
-	apiCloseCall = jujutesting.StubCall{FuncName: "Connection.Close"}
-	abortCall    = jujutesting.StubCall{
+	apiCloseCall = testhelpers.StubCall{FuncName: "Connection.Close"}
+	abortCall    = testhelpers.StubCall{
 		FuncName: "MigrationTarget.Abort",
 		Args: []interface{}{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
-	watchStatusLockdownCalls = []jujutesting.StubCall{
+	watchStatusLockdownCalls = []testhelpers.StubCall{
 		{FuncName: "facade.Watch", Args: nil},
 		{FuncName: "facade.MigrationStatus", Args: nil},
 		{FuncName: "guard.Lockdown", Args: nil},
 	}
-	prechecksCalls = []jujutesting.StubCall{
+	prechecksCalls = []testhelpers.StubCall{
 		{FuncName: "facade.ModelInfo", Args: nil},
 		{FuncName: "facade.Prechecks", Args: []interface{}{}},
 		apiOpenControllerCall,
@@ -149,14 +149,14 @@ var (
 		}}},
 		apiCloseCall,
 	}
-	abortCalls = []jujutesting.StubCall{
+	abortCalls = []testhelpers.StubCall{
 		{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORT}},
 		apiOpenControllerCall,
 		abortCall,
 		apiCloseCall,
 		{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORTDONE}},
 	}
-	openDestLogStreamCall = jujutesting.StubCall{FuncName: "ConnectControllerStream", Args: []interface{}{
+	openDestLogStreamCall = testhelpers.StubCall{FuncName: "ConnectControllerStream", Args: []interface{}{
 		"/migrate/logtransfer",
 		url.Values{},
 		http.Header{
@@ -169,7 +169,7 @@ func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Now())
-	s.stub = new(jujutesting.Stub)
+	s.stub = new(testhelpers.Stub)
 	s.connection = &stubConnection{
 		c:             c,
 		stub:          s.stub,
@@ -241,18 +241,18 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 	assertExpectedCallArgs(c, s.stub, joinCalls(
 		// Wait for migration to start.
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 		},
 
 		// QUIESCE
 		prechecksCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.WatchMinionReports", Args: nil},
 			{FuncName: "facade.MinionReports", Args: nil},
 		},
 		prechecksCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.IMPORT}},
 
 			//IMPORT
@@ -330,12 +330,12 @@ func (s *Suite) TestIncompatibleTarget(c *tc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		// Wait for migration to start.
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 		},
 
 		// QUIESCE
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.ModelInfo", Args: nil},
 			{FuncName: "facade.Prechecks", Args: []interface{}{}},
 			apiOpenControllerCall,
@@ -354,7 +354,7 @@ func (s *Suite) TestMigrationResume(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.WatchMinionReports", Args: nil},
 			{FuncName: "facade.MinionReports", Args: nil},
@@ -391,7 +391,7 @@ func (s *Suite) TestPreviouslyAbortedMigration(c *tc.C) {
 func (s *Suite) TestPreviouslyCompletedMigration(c *tc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.DONE))
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
-	s.stub.CheckCalls(c, []jujutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "facade.Watch", Args: nil},
 		{FuncName: "facade.MigrationStatus", Args: nil},
 	})
@@ -407,7 +407,7 @@ func (s *Suite) TestStatusError(c *tc.C) {
 	s.facade.statusErr = errors.New("splat")
 
 	s.checkWorkerErr(c, "retrieving migration status: splat")
-	s.stub.CheckCalls(c, []jujutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "facade.Watch", Args: nil},
 		{FuncName: "facade.MigrationStatus", Args: nil},
 	})
@@ -436,7 +436,7 @@ func (s *Suite) TestUnlockError(c *tc.C) {
 	s.config.Guard = guard
 
 	s.checkWorkerErr(c, "pow")
-	s.stub.CheckCalls(c, []jujutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "facade.Watch", Args: nil},
 		{FuncName: "facade.MigrationStatus", Args: nil},
 		{FuncName: "guard.Unlock", Args: nil},
@@ -473,11 +473,11 @@ func (s *Suite) TestQUIESCEFailedAgent(c *tc.C) {
 
 	expectedCalls := joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 		},
 		prechecksCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.WatchMinionReports", Args: nil},
 			{FuncName: "facade.MinionReports", Args: nil},
 		},
@@ -494,7 +494,7 @@ func (s *Suite) TestQUIESCEWrongController(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.ModelInfo", Args: nil},
 			{FuncName: "facade.Prechecks", Args: []interface{}{}},
@@ -512,7 +512,7 @@ func (s *Suite) TestQUIESCESourceChecksFail(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.ModelInfo", Args: nil},
 			{FuncName: "facade.Prechecks", Args: []interface{}{}},
@@ -528,7 +528,7 @@ func (s *Suite) TestQUIESCEModelInfoFail(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.ModelInfo", Args: nil},
 		},
@@ -543,7 +543,7 @@ func (s *Suite) TestQUIESCETargetChecksFail(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	assertExpectedCallArgs(c, s.stub, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 		},
 		prechecksCalls,
@@ -558,7 +558,7 @@ func (s *Suite) TestProcessRelationsFailure(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.ProcessRelations", Args: []interface{}{""}},
 		},
@@ -573,7 +573,7 @@ func (s *Suite) TestExportFailure(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.Export", Args: nil},
 		},
@@ -588,7 +588,7 @@ func (s *Suite) TestAPIOpenFailure(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.Export", Args: nil},
 			apiOpenControllerCall,
@@ -606,7 +606,7 @@ func (s *Suite) TestImportFailure(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.Export", Args: nil},
 			apiOpenControllerCall,
@@ -648,7 +648,7 @@ func (s *Suite) TestVALIDATIONFailedAgent(c *tc.C) {
 	c.Check(errors.Cause(err), tc.Equals, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.WatchMinionReports", Args: nil},
 			{FuncName: "facade.MinionReports", Args: nil},
@@ -665,7 +665,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.WatchMinionReports", Args: nil},
 			{FuncName: "facade.MinionReports", Args: nil},
@@ -689,7 +689,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.WatchMinionReports", Args: nil},
 			{FuncName: "facade.MinionReports", Args: nil},
@@ -714,7 +714,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *tc.C) {
 	s.checkWorkerReturns(c, s.connection.checkMachineErr)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.WatchMinionReports", Args: nil},
 			{FuncName: "facade.MinionReports", Args: nil},
@@ -746,7 +746,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.WatchMinionReports", Args: nil},
 			{FuncName: "facade.MinionReports", Args: nil},
@@ -779,7 +779,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.WatchMinionReports", Args: nil},
 			{FuncName: "facade.MinionReports", Args: nil},
@@ -823,7 +823,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *tc.C) {
 
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.WatchMinionReports", Args: nil},
 			apiOpenControllerCall,
@@ -891,7 +891,7 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *tc.C, authUser names.UserTag) {
 	}
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{
 				FuncName: "apiOpen",
@@ -927,7 +927,7 @@ func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *tc.C) {
 	s.checkWorkerReturns(c, s.connectionErr)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 		},
@@ -941,7 +941,7 @@ func (s *Suite) TestLogTransferErrorGettingStartTime(c *tc.C) {
 	s.checkWorkerReturns(c, s.connection.latestLogErr)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
@@ -957,7 +957,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogSource(c *tc.C) {
 	s.checkWorkerReturns(c, s.facade.streamErr)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
@@ -974,7 +974,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *tc.C) {
 	s.checkWorkerReturns(c, s.connection.streamErr)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
@@ -994,7 +994,7 @@ func (s *Suite) TestLogTransferErrorWriting(c *tc.C) {
 	s.checkWorkerReturns(c, s.connection.logStream.writeErr)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
@@ -1031,7 +1031,7 @@ func (s *Suite) TestLogTransferSendsRecords(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
@@ -1099,7 +1099,7 @@ func (s *Suite) TestLogTransferChecksLatestTime(c *tc.C) {
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
+		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
@@ -1170,7 +1170,7 @@ func (s *Suite) checkMinionWaitGetError(c *tc.C, phase coremigration.Phase) {
 // expected arguments. It ignores the facade versions map on the Prechecks
 // call because that's an implementation detail of the api facade, not the
 // worker. As long as it's non-zero, otherwise we don't care.
-func assertExpectedCallArgs(c *tc.C, stub *jujutesting.Stub, expectedCalls []jujutesting.StubCall) {
+func assertExpectedCallArgs(c *tc.C, stub *testhelpers.Stub, expectedCalls []testhelpers.StubCall) {
 	stub.CheckCallNames(c, callNames(expectedCalls)...)
 	for i, call := range expectedCalls {
 		stubCall := stub.Calls()[i]
@@ -1187,7 +1187,7 @@ func assertExpectedCallArgs(c *tc.C, stub *jujutesting.Stub, expectedCalls []juj
 	}
 }
 
-func stubCallNames(stub *jujutesting.Stub) []string {
+func stubCallNames(stub *testhelpers.Stub) []string {
 	var out []string
 	for _, call := range stub.Calls() {
 		out = append(out, call.FuncName)
@@ -1195,12 +1195,12 @@ func stubCallNames(stub *jujutesting.Stub) []string {
 	return out
 }
 
-func newStubGuard(stub *jujutesting.Stub) *stubGuard {
+func newStubGuard(stub *testhelpers.Stub) *stubGuard {
 	return &stubGuard{stub: stub}
 }
 
 type stubGuard struct {
-	stub        *jujutesting.Stub
+	stub        *testhelpers.Stub
 	unlockErr   error
 	lockdownErr error
 }
@@ -1215,7 +1215,7 @@ func (g *stubGuard) Unlock() error {
 	return g.unlockErr
 }
 
-func newStubMasterFacade(stub *jujutesting.Stub) *stubMasterFacade {
+func newStubMasterFacade(stub *testhelpers.Stub) *stubMasterFacade {
 	return &stubMasterFacade{
 		stub:           stub,
 		watcherChanges: make(chan struct{}, 999),
@@ -1230,7 +1230,7 @@ func newStubMasterFacade(stub *jujutesting.Stub) *stubMasterFacade {
 type stubMasterFacade struct {
 	migrationmaster.Facade
 
-	stub *jujutesting.Stub
+	stub *testhelpers.Stub
 
 	watcherChanges chan struct{}
 	watchErr       error
@@ -1433,7 +1433,7 @@ func (w *mockWatcher) Changes() watcher.NotifyChannel {
 type stubConnection struct {
 	c *tc.C
 	api.Connection
-	stub                *jujutesting.Stub
+	stub                *testhelpers.Stub
 	prechecksErr        error
 	importErr           error
 	processRelationsErr error
@@ -1520,7 +1520,7 @@ func (c *stubConnection) ConnectControllerStream(_ context.Context, path string,
 	return c.logStream, nil
 }
 
-func makeStubUploadBinaries(stub *jujutesting.Stub) func(context.Context, migration.UploadBinariesConfig, logger.Logger) error {
+func makeStubUploadBinaries(stub *testhelpers.Stub) func(context.Context, migration.UploadBinariesConfig, logger.Logger) error {
 	return func(_ context.Context, config migration.UploadBinariesConfig, _ logger.Logger) error {
 		stub.AddCall(
 			"UploadBinaries",
@@ -1545,14 +1545,14 @@ var fakeCharmService = struct{ migrationmaster.CharmService }{}
 
 var fakeAgentBinaryStore = struct{ migration.AgentBinaryStore }{}
 
-func joinCalls(allCalls ...[]jujutesting.StubCall) (out []jujutesting.StubCall) {
+func joinCalls(allCalls ...[]testhelpers.StubCall) (out []testhelpers.StubCall) {
 	for _, calls := range allCalls {
 		out = append(out, calls...)
 	}
 	return
 }
 
-func callNames(calls []jujutesting.StubCall) []string {
+func callNames(calls []testhelpers.StubCall) []string {
 	var out []string
 	for _, call := range calls {
 		out = append(out, call.FuncName)

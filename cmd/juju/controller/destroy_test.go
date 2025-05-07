@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller/controller"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -59,7 +59,7 @@ type baseDestroySuite struct {
 
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	cloud        environscloudspec.CloudSpec
 	blocks       []params.ModelBlockInfo
 	envStatus    map[string]base.ModelStatus
@@ -122,7 +122,7 @@ func (f *fakeDestroyAPI) AllModels(ctx context.Context) ([]base.UserModel, error
 
 // fakeModelConfigAPI mocks out the controller model config API
 type fakeModelConfigAPI struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	env map[string]interface{}
 }
 

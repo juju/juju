@@ -8,17 +8,17 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apimocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/common"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type apiaddresserSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&apiaddresserSuite{})
@@ -107,7 +107,7 @@ func (s *apiaddresserSuite) TestWatchAPIHostPorts(c *tc.C) {
 	for i := 0; i < 2; i++ {
 		select {
 		case <-w.Changes():
-		case <-time.After(jujutesting.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fail()
 		}
 	}

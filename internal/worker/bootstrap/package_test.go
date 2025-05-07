@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -35,7 +35,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	dataDir string
 

@@ -11,12 +11,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/caasapplication"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasunitterminationworker"
 )
 
@@ -100,7 +100,7 @@ func (c *mockAgentConfig) Tag() names.Tag {
 }
 
 type mockState struct {
-	jujutesting.Stub
+	testhelpers.Stub
 
 	termination caasapplication.UnitTermination
 }
@@ -111,7 +111,7 @@ func (s *mockState) UnitTerminating(_ context.Context, tag names.UnitTag) (caasa
 }
 
 type mockTerminator struct {
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (t *mockTerminator) Terminate() error {

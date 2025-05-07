@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -17,10 +16,11 @@ import (
 	"github.com/juju/juju/domain/modelprovider"
 	"github.com/juju/juju/environs/cloudspec"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type serviceSuite struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&serviceSuite{})

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
@@ -29,19 +28,20 @@ import (
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
 
 type ClientSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ClientSuite{})
 
-func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *jujutesting.Stub) {
-	var stub jujutesting.Stub
+func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *testhelpers.Stub) {
+	var stub testhelpers.Stub
 	apiCaller := apitesting.BestVersionCaller{APICallerFunc: apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return errors.New("boom")
@@ -95,7 +95,7 @@ func (s *ClientSuite) TestImport(c *tc.C) {
 	err := client.Import(context.Background(), []byte("foo"))
 
 	expectedArg := params.SerializedModel{Bytes: []byte("foo")}
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationTarget.Import", Args: []interface{}{"", expectedArg}},
 	})
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -129,14 +129,14 @@ func (s *ClientSuite) TestActivate(c *tc.C) {
 		SourceCACert:    "cacert",
 		CrossModelUUIDs: relatedModels,
 	}
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationTarget.Activate", Args: []interface{}{"", expectedArg}},
 	})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *ClientSuite) TestOpenLogTransferStream(c *tc.C) {
-	caller := fakeConnector{Stub: &jujutesting.Stub{}}
+	caller := fakeConnector{Stub: &testhelpers.Stub{}}
 	client := migrationtarget.NewClient(caller)
 	stream, err := client.OpenLogTransferStream(context.Background(), "bad-dad")
 	c.Assert(stream, tc.IsNil)
@@ -149,7 +149,7 @@ func (s *ClientSuite) TestOpenLogTransferStream(c *tc.C) {
 }
 
 func (s *ClientSuite) TestLatestLogTime(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	t1 := time.Date(2016, 12, 1, 10, 31, 0, 0, time.UTC)
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -185,7 +185,7 @@ func (s *ClientSuite) TestAdoptResources(c *tc.C) {
 }
 
 func (s *ClientSuite) TestCheckMachines(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		target, ok := result.(*params.ErrorResults)
 		c.Assert(ok, tc.IsTrue)
@@ -299,9 +299,9 @@ func (s *ClientSuite) TestCACert(c *tc.C) {
 	c.Assert(r, tc.Equals, "foo cert")
 }
 
-func (s *ClientSuite) AssertModelCall(c *tc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error, expectError bool) {
+func (s *ClientSuite) AssertModelCall(c *tc.C, stub *testhelpers.Stub, tag names.ModelTag, call string, err error, expectError bool) {
 	expectedArg := params.ModelArgs{ModelTag: tag.String()}
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationTarget." + call, Args: []interface{}{"", expectedArg}},
 	})
 	if expectError {
@@ -314,7 +314,7 @@ func (s *ClientSuite) AssertModelCall(c *tc.C, stub *jujutesting.Stub, tag names
 type fakeConnector struct {
 	base.APICaller
 
-	*jujutesting.Stub
+	*testhelpers.Stub
 }
 
 func (fakeConnector) BestFacadeVersion(string) int {

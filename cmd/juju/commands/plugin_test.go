@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -42,7 +42,7 @@ func (suite *PluginSuite) SetUpTest(c *tc.C) {
 		path = "/bin:/usr/bin:%s"
 	}
 
-	os.Setenv("PATH", fmt.Sprintf(path, jujutesting.HomePath()))
+	os.Setenv("PATH", fmt.Sprintf(path, testhelpers.HomePath()))
 
 	jujuclienttesting.SetupMinimalFileStore(c)
 }
@@ -235,7 +235,7 @@ func (suite *PluginSuite) TestJujuControllerEnvVars(c *tc.C) {
 }
 
 func (suite *PluginSuite) makePlugin(fullName, script string, perm os.FileMode) {
-	filename := jujutesting.HomePath(fullName)
+	filename := testhelpers.HomePath(fullName)
 	content := fmt.Sprintf("#!/bin/bash --norc\n%s", script)
 	os.WriteFile(filename, []byte(content), perm)
 }
@@ -297,13 +297,13 @@ func (suite *PluginSuite) makeFullPlugin(params PluginParams) {
 	// Create a new template and parse the plugin into it.
 	t := template.Must(template.New("plugin").Parse(pluginTemplate))
 	content := &bytes.Buffer{}
-	filename := jujutesting.HomePath("juju-" + params.Name)
+	filename := testhelpers.HomePath("juju-" + params.Name)
 	// Create the files in the temp dirs, so we don't pollute the working space
 	if params.Creates != "" {
-		params.Creates = jujutesting.HomePath(params.Creates)
+		params.Creates = testhelpers.HomePath(params.Creates)
 	}
 	if params.DependsOn != "" {
-		params.DependsOn = jujutesting.HomePath(params.DependsOn)
+		params.DependsOn = testhelpers.HomePath(params.DependsOn)
 	}
 	t.Execute(content, params)
 	os.WriteFile(filename, content.Bytes(), 0755)

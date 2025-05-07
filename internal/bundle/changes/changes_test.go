@@ -16,17 +16,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/charm"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type changesSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&changesSuite{})

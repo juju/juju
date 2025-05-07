@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/removal/service State
@@ -21,7 +21,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state *MockState
 	clock *MockClock

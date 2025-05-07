@@ -11,12 +11,12 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -396,7 +396,7 @@ func (s *listSuite) TestListPreservesRegionOrder(c *tc.C) {
 }
 
 type fakeListCloudsAPI struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	controllerClouds map[names.CloudTag]jujucloud.Cloud
 }
 

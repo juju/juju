@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/os/v2"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -123,7 +123,7 @@ func (s *getToolsSuite) TestToolsError(c *tc.C) {
 }
 
 type findToolsSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	toolsStorageGetter *mocks.MockToolsStorageGetter
 	urlGetter          *mocks.MockToolsURLGetter

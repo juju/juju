@@ -9,11 +9,11 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
@@ -21,7 +21,7 @@ import (
 var _ = tc.Suite(&upgradeValidationSuite{})
 
 type upgradeValidationSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *tc.C) {

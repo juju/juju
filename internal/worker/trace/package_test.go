@@ -10,13 +10,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package trace -destination clock_mock_test.go github.com/juju/clock Clock,Timer
@@ -29,7 +29,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger logger.Logger
 

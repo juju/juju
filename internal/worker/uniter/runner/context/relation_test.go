@@ -7,19 +7,19 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/rpc/params"
 )
 
 type ContextRelationSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	rel     *uniterapi.MockRelation
 	relUnit *uniterapi.MockRelationUnit
 }

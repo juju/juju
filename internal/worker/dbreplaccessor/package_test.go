@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbreplaccessor DBApp,NodeManager,TrackedDB
@@ -30,7 +30,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger logger.Logger
 
@@ -99,7 +99,7 @@ func (s *dbBaseSuite) TearDownTest(c *tc.C) {
 func ensureStartup(c *tc.C, w *dbReplWorker) {
 	select {
 	case <-w.dbReplReady:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for Dqlite node start")
 	}
 }

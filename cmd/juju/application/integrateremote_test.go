@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -202,7 +202,7 @@ func (s *baseAddRemoteRelationSuite) assertFailAddRelationTwoRemoteApplications(
 
 // mockAddRelationAPI contains a stub api used for integrate cmd tests.
 type mockAddRelationAPI struct {
-	jtesting.Stub
+	testhelpers.Stub
 
 	// addRelation can be defined by tests to test different integrate outcomes.
 	addRelation func(endpoints, viaCidrs []string) (*params.AddRelationResults, error)

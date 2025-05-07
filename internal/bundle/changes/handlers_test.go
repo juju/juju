@@ -7,14 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type resolverSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&resolverSuite{})

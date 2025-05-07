@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/cloud"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/gce/google"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -115,7 +115,7 @@ func (c credentialInvalidator) InvalidateCredentials(ctx context.Context, reason
 }
 
 type BaseSuiteUnpatched struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	ControllerUUID string
 	Config         *config.Config

@@ -8,19 +8,19 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
 
 type ListSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	store             *jujuclient.MemStore
 	secretBackendsAPI *secretbackends.MockListSecretBackendsAPI
 }

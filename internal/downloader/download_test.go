@@ -10,15 +10,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/internal/downloader"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
 type DownloadSuite struct {
 	testing.BaseSuite
-	jujutesting.HTTPSuite
+	testhelpers.HTTPSuite
 }
 
 func (s *DownloadSuite) SetUpSuite(c *tc.C) {
@@ -52,7 +52,7 @@ func (s *DownloadSuite) URL(c *tc.C, path string) *url.URL {
 
 func (s *DownloadSuite) testDownload(c *tc.C, hostnameVerification bool) {
 	tmp := c.MkDir()
-	jujutesting.Server.Response(200, nil, []byte("archive"))
+	testhelpers.Server.Response(200, nil, []byte("archive"))
 	d := downloader.StartDownload(
 		downloader.Request{
 			URL:       s.URL(c, "/archive.tgz"),
@@ -77,7 +77,7 @@ func (s *DownloadSuite) TestDownloadWithDisablingSSLHostnameVerification(c *tc.C
 }
 
 func (s *DownloadSuite) TestDownloadError(c *tc.C) {
-	jujutesting.Server.Response(404, nil, nil)
+	testhelpers.Server.Response(404, nil, nil)
 	tmp := c.MkDir()
 	d := downloader.StartDownload(
 		downloader.Request{
@@ -93,9 +93,9 @@ func (s *DownloadSuite) TestDownloadError(c *tc.C) {
 }
 
 func (s *DownloadSuite) TestVerifyValid(c *tc.C) {
-	stub := &jujutesting.Stub{}
+	stub := &testhelpers.Stub{}
 	tmp := c.MkDir()
-	jujutesting.Server.Response(200, nil, []byte("archive"))
+	testhelpers.Server.Response(200, nil, []byte("archive"))
 	dl := downloader.StartDownload(
 		downloader.Request{
 			URL:       s.URL(c, "/archive.tgz"),
@@ -114,9 +114,9 @@ func (s *DownloadSuite) TestVerifyValid(c *tc.C) {
 }
 
 func (s *DownloadSuite) TestVerifyInvalid(c *tc.C) {
-	stub := &jujutesting.Stub{}
+	stub := &testhelpers.Stub{}
 	tmp := c.MkDir()
-	jujutesting.Server.Response(200, nil, []byte("archive"))
+	testhelpers.Server.Response(200, nil, []byte("archive"))
 	invalid := errors.NotValidf("oops")
 	dl := downloader.StartDownload(
 		downloader.Request{
@@ -138,7 +138,7 @@ func (s *DownloadSuite) TestVerifyInvalid(c *tc.C) {
 
 func (s *DownloadSuite) TestAbort(c *tc.C) {
 	tmp := c.MkDir()
-	jujutesting.Server.Response(200, nil, []byte("archive"))
+	testhelpers.Server.Response(200, nil, []byte("archive"))
 	abort := make(chan struct{})
 	close(abort)
 	dl := downloader.StartDownload(

@@ -8,15 +8,15 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	coretesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type AuthFuncSuite struct {
-	coretesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authorizer common.Authorizer
 }

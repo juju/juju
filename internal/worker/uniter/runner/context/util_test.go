@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
@@ -100,7 +100,7 @@ func (m hookCommitMatcher) String() string {
 // BaseHookContextSuite contains shared setup for various other test suites. Test
 // methods should not be added to this type, because they'll get run repeatedly.
 type BaseHookContextSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	secretMetadata map[string]jujuc.SecretMetadata
 	secrets        *runnertesting.SecretsContextAccessor
 	clock          *testclock.Clock

@@ -5,11 +5,12 @@ package model_test
 
 import (
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type destroyModelSuite struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	//modelManager *mockModelManager
 }

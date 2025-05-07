@@ -5,18 +5,18 @@ package secrets_test
 
 import (
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type grantSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	store      *jujuclient.MemStore
 	secretsAPI *mocks.MockGrantRevokeSecretsAPI
 }
@@ -66,7 +66,7 @@ func (s *grantSuite) TestGrantEmptyData(c *tc.C) {
 }
 
 type revokeSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	store      *jujuclient.MemStore
 	secretsAPI *mocks.MockGrantRevokeSecretsAPI
 }

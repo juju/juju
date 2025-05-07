@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"go.uber.org/mock/gomock"
@@ -19,12 +18,13 @@ import (
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	workertrace "github.com/juju/juju/internal/worker/trace"
 )
 
 type manifoldSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	store *MockExpiryStore
 }

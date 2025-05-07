@@ -7,8 +7,9 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination state_mock_test.go github.com/juju/juju/domain/credential/service State,WatcherFactory,MachineService,MachineState
@@ -19,7 +20,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state          *MockState
 	validator      *MockCredentialValidator

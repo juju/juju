@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
@@ -21,7 +21,7 @@ func TestPackage(t *testing.T) {
 }
 
 type BaseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *BaseSuite) NewUpdateMachineLinkLayerOp(

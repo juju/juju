@@ -6,10 +6,10 @@ package upgradevalidation_test
 import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 	"github.com/juju/juju/state"
@@ -26,7 +26,7 @@ func makeBases(os string, vers []string) []state.Base {
 var _ = tc.Suite(&migrateSuite{})
 
 type migrateSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	st           *mocks.MockState
 	agentService *mocks.MockModelAgentService

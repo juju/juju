@@ -25,7 +25,6 @@ import (
 	"github.com/juju/mutex/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
@@ -46,6 +45,7 @@ import (
 	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/downloader"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers/filetesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -1462,7 +1462,7 @@ func (s upgradeCharm) step(c *tc.C, ctx *testContext) {
 type verifyCharm struct {
 	revision          int
 	attemptedRevision int
-	checkFiles        ft.Entries
+	checkFiles        filetesting.Entries
 }
 
 func (s verifyCharm) step(c *tc.C, ctx *testContext) {

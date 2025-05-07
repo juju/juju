@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api/base"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -31,7 +31,7 @@ import (
 )
 
 type diffSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	apiRoot     *mockAPIRoot
 	charmHub    *mockCharmHub
 	modelClient *mockModelClient
@@ -576,7 +576,7 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 }
 
 type mockModelClient struct {
-	stub        jujutesting.Stub
+	stub        testhelpers.Stub
 	constraints constraints.Value
 }
 
@@ -591,7 +591,7 @@ func (s *mockModelClient) Close() error {
 }
 
 type mockCharmHub struct {
-	stub   jujutesting.Stub
+	stub   testhelpers.Stub
 	url    *charm.URL
 	origin commoncharm.Origin
 	bundle *mockBundle
@@ -619,7 +619,7 @@ func (b *mockBundle) ContainsOverlays() bool  { return false }
 type mockAPIRoot struct {
 	base.APICallCloser
 
-	stub      jujutesting.Stub
+	stub      testhelpers.Stub
 	responses map[string]interface{}
 }
 

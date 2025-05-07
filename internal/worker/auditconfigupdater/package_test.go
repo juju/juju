@@ -7,10 +7,10 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -22,7 +22,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	agent       *MockAgent
 	agentConfig *MockConfig

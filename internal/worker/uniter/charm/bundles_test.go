@@ -13,19 +13,19 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v4"
 
 	jujucharm "github.com/juju/juju/internal/charm"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/downloader"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/testcharms"
 )
 
 type BundlesDirSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&BundlesDirSuite{})
@@ -140,7 +140,7 @@ func assertCharm(c *tc.C, bun charm.Bundle, sch *charmtesting.CharmDir) {
 }
 
 type ClearDownloadsSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ClearDownloadsSuite{})

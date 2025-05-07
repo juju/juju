@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cloud"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/ec2" // needed when getting valid local credentials
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -27,7 +27,7 @@ import (
 var _ = tc.Suite(&ModelCredentialCommandSuite{})
 
 type ModelCredentialCommandSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	store *jujuclient.MemStore
 
@@ -141,7 +141,7 @@ func (s *ModelCredentialCommandSuite) assertCredentialNotFound(c *tc.C, expected
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 	s.modelClient.CheckNoCalls(c)
-	s.cloudClient.CheckCalls(c, []jujutesting.StubCall{
+	s.cloudClient.CheckCalls(c, []testhelpers.StubCall{
 		{"UserCredentials", []interface{}{
 			names.NewUserTag("admin"),
 			names.NewCloudTag("aws"),
@@ -183,14 +183,14 @@ func (s *ModelCredentialCommandSuite) assertRemoteCredentialFound(c *tc.C, expec
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expectedStderr)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 
-	s.modelClient.CheckCalls(c, []jujutesting.StubCall{
+	s.modelClient.CheckCalls(c, []testhelpers.StubCall{
 		{"ChangeModelCredential", []interface{}{
 			testing.ModelTag,
 			credentialTag,
 		}},
 		{"Close", nil},
 	})
-	s.cloudClient.CheckCalls(c, []jujutesting.StubCall{
+	s.cloudClient.CheckCalls(c, []testhelpers.StubCall{
 		{"UserCredentials", []interface{}{
 			names.NewUserTag("admin"),
 			names.NewCloudTag("aws"),
@@ -210,7 +210,7 @@ Changed cloud credential on model "admin/mymodel" to "credential".
 `[1:])
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.modelClient.CheckCalls(c, []jujutesting.StubCall{
+	s.modelClient.CheckCalls(c, []testhelpers.StubCall{
 		{"ChangeModelCredential", []interface{}{
 			testing.ModelTag,
 			names.NewCloudCredentialTag("aws/admin/credential"),
@@ -248,7 +248,7 @@ func (s *ModelCredentialCommandSuite) assertLocalCredentialUsed(c *tc.C, expecte
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expectedStderr)
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 
-	s.cloudClient.CheckCalls(c, []jujutesting.StubCall{
+	s.cloudClient.CheckCalls(c, []testhelpers.StubCall{
 		{"UserCredentials", []interface{}{
 			names.NewUserTag("admin"),
 			names.NewCloudTag("aws"),
@@ -267,7 +267,7 @@ func (s *ModelCredentialCommandSuite) newSetCredentialCommand() cmd.Command {
 }
 
 type fakeModelClient struct {
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (f *fakeModelClient) Close() error {
@@ -281,7 +281,7 @@ func (f *fakeModelClient) ChangeModelCredential(ctx context.Context, model names
 }
 
 type fakeCloudClient struct {
-	jujutesting.Stub
+	testhelpers.Stub
 
 	userCredentials []names.CloudCredentialTag
 }
@@ -303,7 +303,7 @@ func (f *fakeCloudClient) AddCredential(ctx context.Context, tag string, credent
 
 type fakeRoot struct {
 	base.APICaller
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (f *fakeRoot) Close() error {

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v4/exec"
 
 	actionapi "github.com/juju/juju/api/client/action"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -70,7 +70,7 @@ func (s *BaseActionSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
-	return jujutesting.PatchValue(action.NewActionAPIClient,
+	return testhelpers.PatchValue(action.NewActionAPIClient,
 		func(ctx context.Context, c *action.ActionCommandBase) (action.APIClient, error) {
 			return client, nil
 		},

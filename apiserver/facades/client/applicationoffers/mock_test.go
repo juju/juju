@@ -11,7 +11,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jtesting "github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -36,7 +36,7 @@ const (
 )
 
 type stubApplicationOffers struct {
-	jtesting.Stub
+	testhelpers.Stub
 	jujucrossmodel.ApplicationOffers
 
 	applicationOffer func(name string) (*jujucrossmodel.ApplicationOffer, error)
@@ -264,7 +264,7 @@ func (st *mockStatePool) Get(modelUUID string) (applicationoffers.Backend, func(
 
 type mockBakeryService struct {
 	authentication.ExpirableStorageBakery
-	jtesting.Stub
+	testhelpers.Stub
 	caveats map[string][]checkers.Caveat
 }
 

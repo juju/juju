@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -25,10 +24,11 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type relationServiceSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state              *MockState
 	subordinateCreator *MockSubordinateCreator

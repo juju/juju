@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/lxd"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -50,7 +50,7 @@ func (s *environInstSuite) TestInstancesAPI(c *tc.C) {
 	ids := []instance.Id{"spam", "eggs", "ham"}
 	s.Env.Instances(context.Background(), ids)
 
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "AliveContainers",
 		Args: []interface{}{
 			s.Prefix(),

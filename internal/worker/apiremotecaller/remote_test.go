@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type RemoteSuite struct {
@@ -39,7 +39,7 @@ func (s *RemoteSuite) TestNotConnectedConnection(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	ctx, cancel := context.WithTimeout(context.Background(), jujutesting.ShortWait)
+	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.ShortWait)
 	defer cancel()
 
 	var called bool
@@ -74,7 +74,7 @@ func (s *RemoteSuite) TestConnect(c *tc.C) {
 
 	select {
 	case <-s.apiConnect:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for API connect")
 	}
 
@@ -197,7 +197,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 		// Wait for the first connection to be enqueued.
 		select {
 		case <-seq:
-		case <-time.After(jujutesting.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for first connection to be cancelled")
 		}
 
@@ -208,7 +208,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 		})
 		select {
 		case res <- err:
-		case <-time.After(jujutesting.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out sending result")
 		}
 	}()
@@ -221,13 +221,13 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 	}()
 	select {
 	case <-sync:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for connections to finish")
 	}
 
 	select {
 	case <-seq:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for first connection to be cancelled")
 	}
 
@@ -236,7 +236,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 	// This is our sequence point to ensure that we connect.
 	select {
 	case <-s.apiConnect:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for API connect")
 	}
 
@@ -245,7 +245,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 	select {
 	case err := <-res:
 		c.Assert(err, tc.ErrorIsNil)
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for connection")
 	}
 
@@ -263,7 +263,7 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *tc.C) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(jujutesting.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for context to be done")
 			}
 		}
@@ -294,7 +294,7 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *tc.C) {
 
 	select {
 	case <-s.apiConnect:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for API connect")
 	}
 
@@ -320,7 +320,7 @@ func (s *RemoteSuite) TestConnectBlocks(c *tc.C) {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(jujutesting.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for context to be done")
 		}
 		return nil
@@ -373,7 +373,7 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 
 	select {
 	case <-s.apiConnect:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for API connect")
 	}
 

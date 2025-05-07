@@ -7,17 +7,17 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
 
 type machineUpgraderSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&machineUpgraderSuite{})

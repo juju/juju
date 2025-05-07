@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -71,7 +71,7 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *tc.C) {
 	}
 }
 
-func (s *ConfigSuite) addFiles(c *tc.C, files ...jujutesting.TestFile) {
+func (s *ConfigSuite) addFiles(c *tc.C, files ...testhelpers.TestFile) {
 	for _, f := range files {
 		err := os.WriteFile(osenv.JujuXDGDataHomePath(f.Name), []byte(f.Data), 0666)
 		c.Assert(err, tc.IsNil)
@@ -79,7 +79,7 @@ func (s *ConfigSuite) addFiles(c *tc.C, files ...jujutesting.TestFile) {
 }
 
 func (s *ConfigSuite) TestDefaultConfigReadsDefaultCACertKeyFiles(c *tc.C) {
-	s.addFiles(c, []jujutesting.TestFile{
+	s.addFiles(c, []testhelpers.TestFile{
 		{"ca-cert.pem", testing.CACert},
 		{"ca-private-key.pem", testing.CAKey},
 	}...)
@@ -92,7 +92,7 @@ func (s *ConfigSuite) TestDefaultConfigReadsDefaultCACertKeyFiles(c *tc.C) {
 }
 
 func (s *ConfigSuite) TestConfigReadsCACertKeyFilesFromPaths(c *tc.C) {
-	s.addFiles(c, []jujutesting.TestFile{
+	s.addFiles(c, []testhelpers.TestFile{
 		{"ca-cert-2.pem", testing.OtherCACert},
 		{"ca-private-key-2.pem", testing.OtherCAKey},
 	}...)

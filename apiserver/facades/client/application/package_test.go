@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -18,6 +17,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService
@@ -33,7 +33,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	api *APIBase
 

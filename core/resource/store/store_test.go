@@ -5,15 +5,15 @@ package store_test
 
 import (
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/core/resource/store/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type resourcesStoreSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&resourcesStoreSuite{})

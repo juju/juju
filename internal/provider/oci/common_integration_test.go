@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"go.uber.org/mock/gomock"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/oci"
 	ocitesting "github.com/juju/juju/internal/provider/oci/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 )
@@ -267,7 +267,7 @@ func listShapesResponse() []ociCore.Shape {
 }
 
 type commonSuite struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	testInstanceID  string
 	testCompartment string

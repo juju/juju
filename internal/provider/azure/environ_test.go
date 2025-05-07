@@ -25,7 +25,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
@@ -50,6 +49,7 @@ import (
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 	"github.com/juju/juju/internal/ssh"
 	jujustorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
@@ -627,7 +627,7 @@ func assertRequestBody(c *tc.C, req *http.Request, expect interface{}) {
 }
 
 type mockClock struct {
-	jtesting.Stub
+	testhelpers.Stub
 	*testclock.Clock
 }
 
@@ -887,9 +887,9 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *tc.C) {
 			`waiting for common resources to be created: `+
 			`max duration exceeded: deployment incomplete`)
 
-	var expectedCalls []jtesting.StubCall
+	var expectedCalls []testhelpers.StubCall
 	for i := 0; i < failures; i++ {
-		expectedCalls = append(expectedCalls, jtesting.StubCall{
+		expectedCalls = append(expectedCalls, testhelpers.StubCall{
 			FuncName: "After", Args: []interface{}{5 * time.Second},
 		})
 	}

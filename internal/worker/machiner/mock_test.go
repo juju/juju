@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/rpc/params"
 )
@@ -33,7 +33,7 @@ func (w *mockWatcher) Wait() error {
 
 type mockMachine struct {
 	machiner.Machine
-	jujutesting.Stub
+	testhelpers.Stub
 	watcher mockWatcher
 	life    life.Value
 }
@@ -77,7 +77,7 @@ func (m *mockMachine) Watch(_ context.Context) (watcher.NotifyWatcher, error) {
 }
 
 type mockMachineAccessor struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	machine mockMachine
 }
 

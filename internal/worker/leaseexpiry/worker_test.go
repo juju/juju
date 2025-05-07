@@ -9,18 +9,18 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/trace"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujujujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 )
 
 type workerSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&workerSuite{})

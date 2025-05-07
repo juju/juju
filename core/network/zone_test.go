@@ -5,13 +5,13 @@ package network
 
 import (
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type zoneSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	zones AvailabilityZones
 }

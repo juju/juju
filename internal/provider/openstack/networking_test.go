@@ -8,16 +8,16 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type networkingSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	base    *MockNetworkingBase
 	neutron *MockNetworkingNeutron

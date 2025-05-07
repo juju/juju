@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -31,6 +30,7 @@ import (
 	_ "github.com/juju/juju/internal/provider/ec2"
 	_ "github.com/juju/juju/internal/provider/maas"
 	_ "github.com/juju/juju/internal/provider/openstack"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	jtesting "github.com/juju/juju/juju/testing"
@@ -39,7 +39,7 @@ import (
 )
 
 type ListModelsWithInfoSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	st   *mockState
 	cred cloud.Credential

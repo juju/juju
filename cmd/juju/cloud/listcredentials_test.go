@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujucloud "github.com/juju/juju/cloud"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -556,7 +556,7 @@ func (s *listCredentialsSuite) listCredentialsWithStore(c *tc.C, store jujuclien
 }
 
 type mockAPI struct {
-	jujutesting.Stub
+	testhelpers.Stub
 
 	credentialContentsF func(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
 }

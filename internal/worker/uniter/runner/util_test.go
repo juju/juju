@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v4/fs"
 	"go.uber.org/mock/gomock"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner"
@@ -39,7 +39,7 @@ var (
 )
 
 type ContextSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	paths          runnertesting.RealPaths
 	factory        runner.Factory

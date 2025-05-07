@@ -6,17 +6,17 @@ package secretbackends_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type modelSecretBackendCommandSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	store      *jujuclient.MemStore
 	secretsAPI *secretbackends.MockModelSecretBackendAPI
 }

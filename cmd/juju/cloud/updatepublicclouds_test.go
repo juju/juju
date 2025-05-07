@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -38,7 +38,7 @@ func (s *updatePublicCloudsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.api = &fakeUpdatePublicCloudAPI{
-		Stub:         jujutesting.Stub{},
+		Stub:         testhelpers.Stub{},
 		cloudsF:      func() (map[names.CloudTag]jujucloud.Cloud, error) { return nil, nil },
 		updateCloudF: func(cloud jujucloud.Cloud) error { return nil },
 	}
@@ -282,7 +282,7 @@ List of public clouds on controller "mycontroller" is up to date, see `[1:]+"`ju
 }
 
 type fakeUpdatePublicCloudAPI struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	cloudsF      func() (map[names.CloudTag]jujucloud.Cloud, error)
 	updateCloudF func(cloud jujucloud.Cloud) error
 }

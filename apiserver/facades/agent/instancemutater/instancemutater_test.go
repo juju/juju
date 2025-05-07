@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	coretesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -26,13 +25,14 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type instanceMutaterAPISuite struct {
-	coretesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authorizer         *facademocks.MockAuthorizer
 	entity             *mocks.MockEntity

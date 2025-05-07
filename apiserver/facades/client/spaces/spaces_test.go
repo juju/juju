@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -1078,7 +1078,7 @@ func (s *LegacySuite) TestCreateSpacesBlocked(c *tc.C) {
 }
 
 type mockBlockChecker struct {
-	jtesting.Stub
+	testhelpers.Stub
 }
 
 func (c *mockBlockChecker) ChangeAllowed(ctx context.Context) error {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -22,12 +21,13 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // Test the internal functionality of the complex watchers.
 
 type watcherSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state          *MockState
 	watcherFactory *MockWatcherFactory

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -32,7 +32,7 @@ func Test(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	agentBinaryStore     *MockAgentBinaryStore
 	storage              *MockAgentBinaryStorage

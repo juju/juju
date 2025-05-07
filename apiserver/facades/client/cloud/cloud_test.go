@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/facades/client/cloud"
@@ -28,12 +27,13 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type cloudSuite struct {
-	jujutesting.LoggingCleanupSuite
+	testhelpers.LoggingCleanupSuite
 
 	cloudAccessService *mocks.MockCloudAccessService
 	cloudService       *mocks.MockCloudService

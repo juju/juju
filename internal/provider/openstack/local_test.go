@@ -36,7 +36,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/cloud"
@@ -69,6 +68,7 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
@@ -205,7 +205,7 @@ func makeMockAdaptor() *mockAdaptor {
 	}
 }
 
-func overrideCinderProvider(s *jujutesting.CleanupSuite, adaptor *mockAdaptor) {
+func overrideCinderProvider(s *testhelpers.CleanupSuite, adaptor *mockAdaptor) {
 	s.PatchValue(openstack.NewOpenstackStorage, func(*openstack.Environ) (openstack.OpenstackStorage, error) {
 		return adaptor, nil
 	})

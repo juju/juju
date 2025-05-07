@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -35,7 +35,7 @@ type ModelsSuite struct {
 var _ = tc.Suite(&ModelsSuite{})
 
 type fakeModelMgrAPIClient struct {
-	*jujutesting.Stub
+	*testhelpers.Stub
 
 	err   error
 	infos []params.ModelInfoResult
@@ -208,7 +208,7 @@ func (s *ModelsSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.api = &fakeModelMgrAPIClient{
-		Stub: &jujutesting.Stub{},
+		Stub: &testhelpers.Stub{},
 	}
 	s.api.infos = convert(models)
 
@@ -615,7 +615,7 @@ func (s *ModelsSuite) TestModelsWithOneModelInError(c *tc.C) {
 
 func (s *ModelsSuite) TestAllModels(c *tc.C) {
 	assertAPICallsArgs := func(all bool) {
-		s.api.CheckCalls(c, []jujutesting.StubCall{{
+		s.api.CheckCalls(c, []testhelpers.StubCall{{
 			"ListModelSummaries", []interface{}{"admin", all},
 		}, {
 			"Close", []interface{}{},

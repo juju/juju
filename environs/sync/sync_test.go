@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v4/tar"
 	"go.uber.org/mock/gomock"
 
@@ -32,6 +31,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/names"
@@ -255,10 +255,10 @@ func bundleTools(c *tc.C) (semversion.Binary, bool, string, error) {
 }
 
 type badBuildSuite struct {
-	jujutesting.LoggingSuite
-	jujutesting.CleanupSuite
+	testhelpers.LoggingSuite
+	testhelpers.CleanupSuite
 	envtesting.ToolsFixture
-	jujutesting.PatchExecHelper
+	testhelpers.PatchExecHelper
 }
 
 var badGo = `
@@ -327,7 +327,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *tc.C) {
 }
 
 func (s *badBuildSuite) patchExecCommand(c *tc.C) {
-	execCommand := s.GetExecCommand(jujutesting.PatchExecConfig{
+	execCommand := s.GetExecCommand(testhelpers.PatchExecConfig{
 		Stdout: coretesting.CurrentVersion().String(),
 		Args:   make(chan []string, 2),
 	})

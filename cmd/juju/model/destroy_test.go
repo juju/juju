@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -21,6 +20,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -29,7 +29,7 @@ import (
 type DestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api             *fakeAPI
-	stub            *jutesting.Stub
+	stub            *testhelpers.Stub
 	budgetAPIClient *mockBudgetAPIClient
 	store           *jujuclient.MemStore
 
@@ -40,7 +40,7 @@ var _ = tc.Suite(&DestroySuite{})
 
 // fakeDestroyAPI mocks out the client API
 type fakeAPI struct {
-	*jutesting.Stub
+	*testhelpers.Stub
 	statusCallCount    int
 	modelInfoErr       []*params.Error
 	modelStatusPayload []base.ModelStatus
@@ -79,7 +79,7 @@ func (f *fakeAPI) ModelStatus(_ context.Context, models ...names.ModelTag) ([]ba
 
 func (s *DestroySuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.stub = &jutesting.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.api = &fakeAPI{
 		Stub: s.stub,
 	}
@@ -178,7 +178,7 @@ func (s *DestroySuite) TestDestroy(c *tc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
 	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
-	s.stub.CheckCalls(c, []jutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel",
 			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
@@ -191,7 +191,7 @@ func (s *DestroySuite) TestDestroyWithPartModelUUID(c *tc.C) {
 	_, err := s.runDestroyCommand(c, "test2-uu", "--no-prompt")
 	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
-	s.stub.CheckCalls(c, []jutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel",
 			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
@@ -205,7 +205,7 @@ func (s *DestroySuite) TestDestroyWithForce(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
-	s.stub.CheckCalls(c, []jutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
@@ -219,7 +219,7 @@ func (s *DestroySuite) TestDestroyWithForceTimeout(c *tc.C) {
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
 	timeout := 30 * time.Minute
-	s.stub.CheckCalls(c, []jutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, (*time.Duration)(nil), &timeout}},
 	})
 }
@@ -239,7 +239,7 @@ func (s *DestroySuite) TestDestroyWithForceNoWait(c *tc.C) {
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
 	maxWait := 0 * time.Second
-	s.stub.CheckCalls(c, []jutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, &maxWait, (*time.Duration)(nil)}},
 	})
 }
@@ -268,7 +268,7 @@ func (s *DestroySuite) TestDestroyDestroyStorage(c *tc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--destroy-storage")
 	c.Assert(err, tc.ErrorIsNil)
 	destroyStorage := true
-	s.stub.CheckCalls(c, []jutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
@@ -278,7 +278,7 @@ func (s *DestroySuite) TestDestroyReleaseStorage(c *tc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt", "--release-storage")
 	c.Assert(err, tc.ErrorIsNil)
 	destroyStorage := false
-	s.stub.CheckCalls(c, []jutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
@@ -320,7 +320,7 @@ func (s *DestroySuite) TestDestroyDestroyFlagUnspecifiedWithStorageNotDetachable
 	_, err := s.runDestroyCommand(c, "test2", "--no-prompt")
 	c.Assert(err, tc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
-	s.stub.CheckCalls(c, []jutesting.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel",
 			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
@@ -402,7 +402,7 @@ func (s *DestroySuite) TestBlockedDestroy(c *tc.C) {
 
 // mockBudgetAPIClient implements the budgetAPIClient interface.
 type mockBudgetAPIClient struct {
-	*jutesting.Stub
+	*testhelpers.Stub
 }
 
 func (c *mockBudgetAPIClient) DeleteBudget(model string) (string, error) {

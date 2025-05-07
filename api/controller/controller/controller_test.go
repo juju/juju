@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
@@ -23,19 +22,20 @@ import (
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	proxyfactory "github.com/juju/juju/internal/proxy/factory"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
 type Suite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&Suite{})
 
 func (s *Suite) TestDestroyController(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 11,
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -58,7 +58,7 @@ func (s *Suite) TestDestroyController(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "Controller.DestroyController", Args: []interface{}{params.DestroyControllerArgs{
 			DestroyModels:  true,
 			DestroyStorage: &destroyStorage,
@@ -100,7 +100,7 @@ func (s *Suite) checkInitiateMigration(c *tc.C, spec controller.MigrationSpec) {
 	id, err := client.InitiateMigration(context.Background(), spec)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(id, tc.Equals, "id")
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "Controller.InitiateMigration", Args: []interface{}{specToArgs(spec)}},
 	})
 }
@@ -242,9 +242,9 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 }
 
 func makeInitiateMigrationClient(results params.InitiateMigrationResults) (
-	*controller.Client, *jujutesting.Stub,
+	*controller.Client, *testhelpers.Stub,
 ) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(
 		func(objType string, version int, id, request string, arg, result interface{}) error {
 			stub.AddCall(objType+"."+request, arg)

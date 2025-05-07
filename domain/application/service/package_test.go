@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go -source=./service.go
@@ -38,7 +38,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelID model.UUID
 

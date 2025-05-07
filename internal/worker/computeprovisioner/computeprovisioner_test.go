@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -39,6 +38,7 @@ import (
 	environmocks "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/computeprovisioner"
@@ -46,7 +46,7 @@ import (
 )
 
 type CommonProvisionerSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	controllerAPI  *MockControllerAPI
 	machineService *MockMachineService

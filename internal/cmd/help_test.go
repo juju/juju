@@ -8,14 +8,14 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	gitjujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type HelpCommandSuite struct {
-	gitjujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&HelpCommandSuite{})

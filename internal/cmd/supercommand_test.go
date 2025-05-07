@@ -13,10 +13,10 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	gitjujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
@@ -42,7 +42,7 @@ other = missing
 }
 
 type SuperCommandSuite struct {
-	gitjujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	ctx *cmd.Context
 }

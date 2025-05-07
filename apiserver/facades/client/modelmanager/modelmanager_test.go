@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -45,6 +44,7 @@ import (
 	_ "github.com/juju/juju/internal/provider/ec2"
 	_ "github.com/juju/juju/internal/provider/maas"
 	_ "github.com/juju/juju/internal/provider/openstack"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
@@ -66,7 +66,7 @@ func createArgs(owner names.UserTag) params.ModelCreateArgs {
 }
 
 type modelManagerSuite struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	st                   *mockState
 	ctlrSt               *mockState
@@ -824,7 +824,7 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *tc.C) {
 	tag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f000")
 	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: tag.String()}}}
 	results := s.api.DumpModels(context.Background(), models)
-	s.st.CheckCalls(c, []jtesting.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "ControllerTag", Args: nil},
 		{FuncName: "GetBackend", Args: []interface{}{tag.Id()}},
 	})

@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
@@ -26,7 +26,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	lock           *MockLock
 	agent          *MockAgent

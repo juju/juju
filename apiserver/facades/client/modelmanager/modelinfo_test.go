@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
@@ -39,6 +38,7 @@ import (
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
@@ -404,7 +404,7 @@ func (s *modelInfoSuite) TestModelInfo(c *tc.C) {
 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
 	_true := true
 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
-	s.st.CheckCalls(c, []jujutesting.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "ControllerTag", Args: nil},
 		{FuncName: "GetBackend", Args: []interface{}{s.st.model.cfg.UUID()}},
 		{FuncName: "Model", Args: nil},
@@ -418,7 +418,7 @@ func (s *modelInfoSuite) TestModelInfo(c *tc.C) {
 
 func (s *modelInfoSuite) assertModelInfo(c *tc.C, got, expected params.ModelInfo) {
 	c.Assert(got, tc.DeepEquals, expected)
-	s.st.model.CheckCalls(c, []jujutesting.StubCall{
+	s.st.model.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "UUID", Args: nil},
 		{FuncName: "Name", Args: nil},
 		{FuncName: "Type", Args: nil},
@@ -1103,7 +1103,7 @@ type unitRetriever interface {
 }
 
 type mockState struct {
-	jujutesting.Stub
+	testhelpers.Stub
 
 	environs.EnvironConfigGetter
 	common.APIHostPortsForAgentsGetter
@@ -1324,7 +1324,7 @@ func (m *mockMachine) Status() (status.StatusInfo, error) {
 }
 
 type mockModel struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	owner               names.UserTag
 	life                state.Life
 	tag                 names.ModelTag
@@ -1402,7 +1402,7 @@ func (m *mockModel) SetCloudCredential(tag names.CloudCredentialTag) (bool, erro
 }
 
 type mockModelUser struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	userName    string
 	displayName string
 	access      permission.Access

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/agent/provisioner"
@@ -19,12 +18,13 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
 
 type provisionerSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&provisionerSuite{})

@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -175,7 +175,7 @@ Cloud "garage-maas" updated on controller "mycontroller" using client cloud defi
 }
 
 type fakeUpdateCloudAPI struct {
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (api *fakeUpdateCloudAPI) Close() error {

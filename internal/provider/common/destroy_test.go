@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/core/instance"
 	jujuversion "github.com/juju/juju/core/version"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -161,7 +161,7 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *tc.C) {
 
 	// common.Destroy will ignore machine-scoped storage providers.
 	storageProvider.CheckCallNames(c, "Dynamic", "Scope", "Supports", "VolumeSource")
-	volumeSource.CheckCalls(c, []jujutesting.StubCall{
+	volumeSource.CheckCalls(c, []testhelpers.StubCall{
 		{"ListVolumes", []interface{}{context.Background()}},
 		{"DestroyVolumes", []interface{}{context.Background(), []string{"vol-0", "vol-1", "vol-2"}}},
 	})

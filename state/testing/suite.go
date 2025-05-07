@@ -12,12 +12,12 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
@@ -151,7 +151,7 @@ func (s *StateSuite) WaitForModelWatchersIdle(c *tc.C, modelUUID string) {
 		}
 	}()
 
-	timeout := time.After(jujutesting.LongWait)
+	timeout := time.After(testhelpers.LongWait)
 	for {
 		loop := time.After(10 * time.Millisecond)
 		select {

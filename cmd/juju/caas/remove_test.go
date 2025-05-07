@@ -9,17 +9,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type fakeCredentialStore struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	*jujuclient.MemStore
 }
 
@@ -39,7 +39,7 @@ func (fcs *fakeCredentialStore) UpdateCredential(cloudName string, details cloud
 }
 
 type removeCAASSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	fakeCloudAPI       *fakeRemoveCloudAPI
 	cloudMetadataStore *fakeCloudMetadataStore
 	store              *fakeCredentialStore
@@ -49,7 +49,7 @@ var _ = tc.Suite(&removeCAASSuite{})
 
 type fakeRemoveCloudAPI struct {
 	caas.RemoveCloudAPI
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (api *fakeRemoveCloudAPI) RemoveCloud(ctx context.Context, cloud string) error {
@@ -69,7 +69,7 @@ func (s *removeCAASSuite) SetUpTest(c *tc.C) {
 	}
 
 	var logger loggo.Logger
-	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
+	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: testhelpers.NewCallMocker(logger)}
 
 	k8sCloud := cloud.Cloud{Name: "myk8s", Type: "kubernetes"}
 	initialCloudMap := map[string]cloud.Cloud{"myk8s": k8sCloud}

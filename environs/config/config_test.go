@@ -15,7 +15,6 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -615,7 +615,7 @@ var configTests = []configTest{
 }
 
 func (s *ConfigSuite) TestConfig(c *tc.C) {
-	files := []jujutesting.TestFile{
+	files := []testhelpers.TestFile{
 		{Name: ".ssh/id_dsa.pub", Data: "dsa"},
 		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
 		{Name: ".ssh/id_ed25519.pub", Data: "ed25519\n"},
@@ -888,7 +888,7 @@ var validationTests = []validationTest{{
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *tc.C) {
-	files := []jujutesting.TestFile{
+	files := []testhelpers.TestFile{
 		{Name: ".ssh/identity.pub", Data: "identity"},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
@@ -940,7 +940,7 @@ var configValidateCloudInitUserDataTests = []configValidateCloudInitUserDataTest
 }
 
 func (s *ConfigSuite) TestValidateCloudInitUserData(c *tc.C) {
-	files := []jujutesting.TestFile{
+	files := []testhelpers.TestFile{
 		{Name: ".ssh/id_dsa.pub", Data: "dsa"},
 		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
 		{Name: ".ssh/identity.pub", Data: "identity"},
@@ -970,7 +970,7 @@ func (test configValidateCloudInitUserDataTest) checkNew(c *tc.C) {
 }
 
 func (s *ConfigSuite) addJujuFiles(c *tc.C) {
-	s.FakeHomeSuite.Home.AddFiles(c, []jujutesting.TestFile{
+	s.FakeHomeSuite.Home.AddFiles(c, []testhelpers.TestFile{
 		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
 	}...)
 }

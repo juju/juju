@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -616,7 +616,7 @@ func (s *ProviderFunctionalSuite) TestValidateCloudEmptyAuthNonLocal(c *tc.C) {
 
 type mockContext struct {
 	context.Context
-	jtesting.Stub
+	testhelpers.Stub
 }
 
 func (c *mockContext) Verbosef(f string, args ...interface{}) {

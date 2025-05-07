@@ -15,7 +15,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -272,7 +272,7 @@ func (s *BaseSuiteUnpatched) NewInstance(c *tc.C, name string) *environInstance 
 type BaseSuite struct {
 	BaseSuiteUnpatched
 
-	Stub   *jujutesting.Stub
+	Stub   *testhelpers.Stub
 	Client *StubClient
 	Common *stubCommon
 }
@@ -289,7 +289,7 @@ func (s *BaseSuite) SetUpTest(c *tc.C) {
 func (s *BaseSuite) SetupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.BaseSuiteUnpatched.SetupMocks(c)
 
-	s.Stub = &jujutesting.Stub{}
+	s.Stub = &testhelpers.Stub{}
 	s.Client = &StubClient{
 		Stub:               s.Stub,
 		StorageIsSupported: true,
@@ -373,7 +373,7 @@ func (ecfg *Config) Validate() error {
 }
 
 type stubCommon struct {
-	stub *jujutesting.Stub
+	stub *testhelpers.Stub
 
 	BootstrapResult *environs.BootstrapResult
 }
@@ -397,7 +397,7 @@ func (sc *stubCommon) DestroyEnv(ctx context.Context) error {
 }
 
 type StubClient struct {
-	*jujutesting.Stub
+	*testhelpers.Stub
 
 	Containers         []lxd.Container
 	Container          *lxd.Container

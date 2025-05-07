@@ -10,7 +10,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -437,7 +437,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *tc.C, modelTag names.ModelTag,
 
 type fakeProvider struct {
 	environs.EnvironProvider
-	jujutesting.Stub
+	testhelpers.Stub
 	environ *fakeEnviron
 }
 
@@ -465,7 +465,7 @@ func (p *fakeProvider) Version() int {
 
 type fakeEnviron struct {
 	environs.Environ
-	*jujutesting.Stub
+	*testhelpers.Stub
 	provider *fakeProvider
 }
 

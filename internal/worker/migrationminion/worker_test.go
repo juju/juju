@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/migrationminion"
@@ -43,7 +43,7 @@ var (
 type Suite struct {
 	coretesting.BaseSuite
 	config migrationminion.Config
-	stub   *jujutesting.Stub
+	stub   *testhelpers.Stub
 	client *stubMinionClient
 	guard  *stubGuard
 	agent  *stubAgent
@@ -54,7 +54,7 @@ var _ = tc.Suite(&Suite{})
 
 func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.stub = new(jujutesting.Stub)
+	s.stub = new(testhelpers.Stub)
 	s.client = newStubMinionClient(s.stub)
 	s.guard = newStubGuard(s.stub)
 	s.agent = newStubAgent()
@@ -367,7 +367,7 @@ func (s *Suite) TestVALIDATIONRetrySucceed(c *tc.C) {
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
 	}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	stub.SetErrors(errors.New("nope"), errors.New("not yet"), nil)
 	s.config.ValidateMigration = func(context.Context, base.APICaller) error {
 		stub.AddCall("ValidateMigration")
@@ -495,7 +495,7 @@ func (s *Suite) waitForStubCalls(c *tc.C, expectedCallNames []string) {
 	waitForStubCalls(c, s.stub, expectedCallNames...)
 }
 
-func waitForStubCalls(c *tc.C, stub *jujutesting.Stub, expectedCallNames ...string) {
+func waitForStubCalls(c *tc.C, stub *testhelpers.Stub, expectedCallNames ...string) {
 	var callNames []string
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		callNames = stubCallNames(stub)
@@ -507,7 +507,7 @@ func waitForStubCalls(c *tc.C, stub *jujutesting.Stub, expectedCallNames ...stri
 }
 
 // Make this a feature of stub
-func stubCallNames(stub *jujutesting.Stub) []string {
+func stubCallNames(stub *testhelpers.Stub) []string {
 	var out []string
 	for _, call := range stub.Calls() {
 		out = append(out, call.FuncName)
@@ -521,12 +521,12 @@ func calculateSleepTime(i int) time.Duration {
 	return retry.ExpBackoff(100*time.Millisecond, 25*time.Second, 1.6, false)(0, i+1)
 }
 
-func newStubGuard(stub *jujutesting.Stub) *stubGuard {
+func newStubGuard(stub *testhelpers.Stub) *stubGuard {
 	return &stubGuard{stub: stub}
 }
 
 type stubGuard struct {
-	stub        *jujutesting.Stub
+	stub        *testhelpers.Stub
 	unlockErr   error
 	lockdownErr error
 }
@@ -541,7 +541,7 @@ func (g *stubGuard) Unlock() error {
 	return g.unlockErr
 }
 
-func newStubMinionClient(stub *jujutesting.Stub) *stubMinionClient {
+func newStubMinionClient(stub *testhelpers.Stub) *stubMinionClient {
 	return &stubMinionClient{
 		stub:    stub,
 		watcher: newStubWatcher(),
@@ -549,7 +549,7 @@ func newStubMinionClient(stub *jujutesting.Stub) *stubMinionClient {
 }
 
 type stubMinionClient struct {
-	stub     *jujutesting.Stub
+	stub     *testhelpers.Stub
 	watcher  *stubWatcher
 	watchErr error
 }
@@ -655,7 +655,7 @@ func (mc *stubAgentConfig) Dir() string {
 
 type stubConnection struct {
 	api.Connection
-	stub *jujutesting.Stub
+	stub *testhelpers.Stub
 }
 
 func (c *stubConnection) Close() error {

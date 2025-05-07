@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/application/modelmigration ImportService,ExportService
@@ -31,7 +31,7 @@ func TestPackage(t *testing.T) {
 }
 
 type exportSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	exportService *MockExportService
 }

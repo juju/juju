@@ -17,7 +17,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -50,6 +49,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
@@ -82,7 +82,7 @@ var _ = tc.Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) SetUpSuite(c *tc.C) {
 	storageDir := c.MkDir()
-	restorer := jtesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
+	restorer := testhelpers.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, tc.ErrorIsNil)
 	s.toolsStorage = stor

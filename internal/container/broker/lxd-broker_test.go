@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/broker/mocks"
 	"github.com/juju/juju/internal/container/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -96,7 +96,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *tc.C) {
 	machineId := "1/lxd/0"
 	containerTag := names.NewMachineTag("1-lxd-0")
 	s.startInstance(c, broker, machineId)
-	s.api.CheckCalls(c, []jujutesting.StubCall{{
+	s.api.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ContainerConfig",
 	}, {
 		FuncName: "PrepareHost",

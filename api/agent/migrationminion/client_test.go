@@ -9,24 +9,24 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/agent/migrationminion"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type ClientSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ClientSuite{})
 
 func (s *ClientSuite) TestWatch(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		switch request {
@@ -55,7 +55,7 @@ func (s *ClientSuite) TestWatch(c *tc.C) {
 	select {
 	case err := <-errC:
 		c.Assert(err, tc.ErrorMatches, "boom")
-		expectedCalls := []jujutesting.StubCall{
+		expectedCalls := []testhelpers.StubCall{
 			{FuncName: "Migrationminion.Watch", Args: []interface{}{"", nil}},
 			{FuncName: "MigrationStatusWatcher.Next", Args: []interface{}{"abc", nil}},
 			{FuncName: "MigrationStatusWatcher.Stop", Args: []interface{}{"abc", nil}},
@@ -84,7 +84,7 @@ func (s *ClientSuite) TestWatchErr(c *tc.C) {
 }
 
 func (s *ClientSuite) TestReport(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, arg)
 		return nil
@@ -94,7 +94,7 @@ func (s *ClientSuite) TestReport(c *tc.C) {
 	err := client.Report(context.Background(), "id", migration.IMPORT, true)
 	c.Assert(err, tc.ErrorIsNil)
 
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMinion.Report", Args: []interface{}{params.MinionReport{
 			MigrationId: "id",
 			Phase:       "IMPORT",

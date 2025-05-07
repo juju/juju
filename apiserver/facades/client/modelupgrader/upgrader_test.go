@@ -5,11 +5,12 @@ package modelupgrader
 
 import (
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type modelUpgradeSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&modelUpgradeSuite{})

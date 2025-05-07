@@ -18,12 +18,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	exttest "github.com/juju/testing"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/names"
 )
@@ -33,7 +33,7 @@ type buildSuite struct {
 	restore  func()
 	cwd      string
 	filePath string
-	exttest.PatchExecHelper
+	testhelpers.PatchExecHelper
 }
 
 var _ = tc.Suite(&buildSuite{})
@@ -150,7 +150,7 @@ func (b *buildSuite) TestGetVersionFromJujud(c *tc.C) {
 	}
 
 	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := b.GetExecCommand(testhelpers.PatchExecConfig{
 		Stderr: "hey, here's some logging you should ignore",
 		Stdout: ver.String(),
 		Args:   argsCh,
@@ -176,7 +176,7 @@ func (b *buildSuite) TestGetVersionFromJujud(c *tc.C) {
 
 func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *tc.C) {
 	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := b.GetExecCommand(testhelpers.PatchExecConfig{
 		Stderr: "hey, here's some logging",
 		Stdout: "oops, not a valid version",
 		Args:   argsCh,
@@ -201,7 +201,7 @@ func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *tc.C) {
 
 func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *tc.C) {
 	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := b.GetExecCommand(testhelpers.PatchExecConfig{
 		Stderr:   "the stderr",
 		Stdout:   "the stdout",
 		ExitCode: 1,
@@ -229,7 +229,7 @@ func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *tc.C) {
 }
 
 func (b *buildSuite) TestGetVersionFromJujudNoJujud(c *tc.C) {
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := b.GetExecCommand(testhelpers.PatchExecConfig{
 		ExitCode: 1,
 	})
 	b.PatchValue(&tools.ExecCommand, execCommand)
@@ -396,7 +396,7 @@ func (b *buildSuite) patchExecCommand(c *tc.C, release, arch string) {
 		Release: release,
 		Arch:    arch,
 	}
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := b.GetExecCommand(testhelpers.PatchExecConfig{
 		Stdout: ver.String(),
 		Args:   make(chan []string, 2),
 	})

@@ -6,17 +6,17 @@ package secretbackends_test
 import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type RemoveSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	store                   *jujuclient.MemStore
 	removeSecretBackendsAPI *secretbackends.MockRemoveSecretBackendsAPI
 }

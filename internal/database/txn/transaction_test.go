@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/mattn/go-sqlite3"
 	"go.uber.org/mock/gomock"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/database/txn"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type transactionRunnerSuite struct {
@@ -115,7 +115,7 @@ func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *tc.C) {
 			close(sync)
 
 			select {
-			case <-time.After(jujutesting.ShortWait):
+			case <-time.After(testhelpers.ShortWait):
 			case <-step:
 			}
 			return nil
@@ -130,7 +130,7 @@ func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *tc.C) {
 		// second one.
 		select {
 		case <-sync:
-		case <-time.After(jujutesting.ShortWait):
+		case <-time.After(testhelpers.ShortWait):
 			c.Fatal("should not be called")
 		}
 
@@ -156,7 +156,7 @@ func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *tc.C) {
 	}()
 	select {
 	case <-wait:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("failed waiting to complete")
 	}
 }

@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 func TestPackage(t *testing.T) {
@@ -25,7 +26,7 @@ func (*ImportTest) TestImports(c *tc.C) {
 	// This breaks the link for now.
 	const jujuPkgPrefix = "github.com/juju/juju/"
 
-	found, err := jujutesting.FindImports("github.com/juju/juju/core/user", jujuPkgPrefix)
+	found, err := testhelpers.FindImports("github.com/juju/juju/core/user", jujuPkgPrefix)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// This package should only depend on other core packages.

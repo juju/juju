@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api/agent/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -24,7 +24,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 type clientSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&clientSuite{})

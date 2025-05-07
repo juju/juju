@@ -15,7 +15,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -33,7 +33,7 @@ import (
 
 type MainSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	jujutesting.PatchExecHelper
+	testhelpers.PatchExecHelper
 }
 
 var _ = tc.Suite(&MainSuite{})
@@ -219,11 +219,11 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *tc.C) {
 	argChan := make(chan []string, 1)
 	// we shouldn't actually be running anything, but if we do, this will
 	// provide some consistent results.
-	execCommand := s.GetExecCommand(jujutesting.PatchExecConfig{
+	execCommand := s.GetExecCommand(testhelpers.PatchExecConfig{
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
 	})
-	stub := &jujutesting.Stub{}
+	stub := &testhelpers.Stub{}
 	s.PatchValue(&cloud.NewUpdatePublicCloudsCommand, func() cmd.Command {
 		return &stubCommand{stub: stub}
 	})
@@ -242,7 +242,7 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *tc.C) {
 		})
 
 	var code int
-	stdout, stderr := jujutesting.CaptureOutput(c, func() {
+	stdout, stderr := testhelpers.CaptureOutput(c, func() {
 		code = jujuMain{
 			execCommand: execCommand,
 		}.Run([]string{"juju", "version"})
@@ -258,7 +258,7 @@ Since Juju 4 is being run for the first time, it has downloaded the latest publi
 
 func (s *MainSuite) assertRunUpdateCloud(c *tc.C, expectedCalled bool) {
 	argChan := make(chan []string, 1)
-	execCommand := s.GetExecCommand(jujutesting.PatchExecConfig{
+	execCommand := s.GetExecCommand(testhelpers.PatchExecConfig{
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
 	})
@@ -270,7 +270,7 @@ func (s *MainSuite) assertRunUpdateCloud(c *tc.C, expectedCalled bool) {
 			return nil, "", nil
 		})
 	var code int
-	jujutesting.CaptureOutput(c, func() {
+	testhelpers.CaptureOutput(c, func() {
 		code = jujuMain{
 			execCommand: execCommand,
 		}.Run([]string{"juju", "version"})
@@ -592,7 +592,7 @@ command\.(.|\n)*`)
 }
 
 func (s *MainSuite) TestRegisterCommands(c *tc.C) {
-	stub := &jujutesting.Stub{}
+	stub := &testhelpers.Stub{}
 
 	registry := &stubRegistry{stub: stub}
 	registry.names = append(registry.names, "help")          // implicit
@@ -607,7 +607,7 @@ func (s *MainSuite) TestRegisterCommands(c *tc.C) {
 }
 
 func (s *MainSuite) TestRegisterCommandsWhitelist(c *tc.C) {
-	stubRegistry := &stubRegistry{stub: &jujutesting.Stub{}}
+	stubRegistry := &stubRegistry{stub: &testhelpers.Stub{}}
 	registry := jujuCommandRegistry{
 		commandRegistry: stubRegistry,
 		whitelist:       set.NewStrings("status"),
@@ -619,7 +619,7 @@ func (s *MainSuite) TestRegisterCommandsWhitelist(c *tc.C) {
 
 func (s *MainSuite) TestRegisterCommandsEmbedded(c *tc.C) {
 	store := jujuclienttesting.MinimalStore()
-	stubRegistry := &stubRegistry{stub: &jujutesting.Stub{}}
+	stubRegistry := &stubRegistry{stub: &testhelpers.Stub{}}
 	registry := jujuCommandRegistry{
 		commandRegistry: stubRegistry,
 		embedded:        true,
@@ -627,7 +627,7 @@ func (s *MainSuite) TestRegisterCommandsEmbedded(c *tc.C) {
 		excluded:        set.NewStrings(),
 	}
 	stubCmd := &stubCommand{
-		stub: &jujutesting.Stub{},
+		stub: &testhelpers.Stub{},
 		info: &cmd.Info{
 			Name: "test",
 		},

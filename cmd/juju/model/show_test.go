@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/common"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -132,7 +132,7 @@ func (s *ShowCommandSuite) SetUpTest(c *tc.C) {
 func (s *ShowCommandSuite) TestShow(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newShowCommand())
 	c.Assert(err, tc.ErrorIsNil)
-	s.fake.CheckCalls(c, []jujutesting.StubCall{
+	s.fake.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
 		{"Close", nil},
 	})
@@ -141,7 +141,7 @@ func (s *ShowCommandSuite) TestShow(c *tc.C) {
 func (s *ShowCommandSuite) TestShowWithPartModelUUID(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newShowCommand(), "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
-	s.fake.CheckCalls(c, []jujutesting.StubCall{
+	s.fake.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
 		{"Close", nil},
 	})
@@ -693,7 +693,7 @@ func noOpRefresh(_ context.Context, _ jujuclient.ClientStore, _ string) error {
 type attrs map[string]interface{}
 
 type fakeModelShowClient struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	info  params.ModelInfo
 	err   *params.Error
 	infos []params.ModelInfoResult

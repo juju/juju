@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
@@ -35,13 +35,13 @@ import (
 )
 
 type ClientSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&ClientSuite{})
 
 func (s *ClientSuite) TestWatch(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
@@ -59,7 +59,7 @@ func (s *ClientSuite) TestWatch(c *tc.C) {
 	w, err := client.Watch(context.Background())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatch)
-	stub.CheckCalls(c, []jujutesting.StubCall{{FuncName: "MigrationMaster.Watch", Args: []interface{}{"", nil}}})
+	stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "MigrationMaster.Watch", Args: []interface{}{"", nil}}})
 }
 
 func (s *ClientSuite) TestWatchCallError(c *tc.C) {
@@ -126,7 +126,7 @@ func (s *ClientSuite) TestMigrationStatus(c *tc.C) {
 }
 
 func (s *ClientSuite) TestSetPhase(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
@@ -135,7 +135,7 @@ func (s *ClientSuite) TestSetPhase(c *tc.C) {
 	err := client.SetPhase(context.Background(), migration.QUIESCE)
 	c.Assert(err, tc.ErrorIsNil)
 	expectedArg := params.SetMigrationPhaseArgs{Phase: "QUIESCE"}
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.SetPhase", Args: []interface{}{"", expectedArg}},
 	})
 }
@@ -150,7 +150,7 @@ func (s *ClientSuite) TestSetPhaseError(c *tc.C) {
 }
 
 func (s *ClientSuite) TestSetStatusMessage(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
@@ -159,7 +159,7 @@ func (s *ClientSuite) TestSetStatusMessage(c *tc.C) {
 	err := client.SetStatusMessage(context.Background(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	expectedArg := params.SetMigrationStatusMessageArgs{Message: "foo"}
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.SetStatusMessage", Args: []interface{}{"", expectedArg}},
 	})
 }
@@ -174,7 +174,7 @@ func (s *ClientSuite) TestSetStatusMessageError(c *tc.C) {
 }
 
 func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	owner := names.NewUserTag("owner")
 	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -191,7 +191,7 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 	model, err := client.ModelInfo(context.Background())
 	c.Assert(err, tc.ErrorIsNil)
 
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.ModelInfo", Args: []interface{}{"", nil}},
 	})
 	c.Check(model, tc.DeepEquals, migration.ModelInfo{
@@ -210,7 +210,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 	serialized, err := description.Serialize(modelDescription)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	owner := names.NewUserTag("owner")
 	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -228,7 +228,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 	model, err := client.ModelInfo(context.Background())
 	c.Assert(err, tc.ErrorIsNil)
 
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.ModelInfo", Args: []interface{}{"", nil}},
 	})
 	c.Check(model, tc.DeepEquals, migration.ModelInfo{
@@ -242,7 +242,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 }
 
 func (s *ClientSuite) TestSourceControllerInfo(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.MigrationSourceInfo)) = params.MigrationSourceInfo{
@@ -256,7 +256,7 @@ func (s *ClientSuite) TestSourceControllerInfo(c *tc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	info, relatedModels, err := client.SourceControllerInfo(context.Background())
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.SourceControllerInfo", Args: []interface{}{"", nil}},
 	})
 	c.Check(err, tc.ErrorIsNil)
@@ -270,7 +270,7 @@ func (s *ClientSuite) TestSourceControllerInfo(c *tc.C) {
 }
 
 func (s *ClientSuite) TestPrechecks(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return errors.New("blam")
@@ -279,13 +279,13 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	err := client.Prechecks(context.Background())
 	c.Check(err, tc.ErrorMatches, "blam")
 	expectedArg := params.PrechecksArgs{}
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.Prechecks", Args: []interface{}{"", expectedArg}},
 	})
 }
 
 func (s *ClientSuite) TestProcessRelations(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
@@ -306,7 +306,7 @@ func (s *ClientSuite) TestProcessRelationsError(c *tc.C) {
 }
 
 func (s *ClientSuite) TestExport(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 
 	fpHash := charmresource.NewFingerprintHash()
 	appFp := fpHash.Fingerprint()
@@ -341,7 +341,7 @@ func (s *ClientSuite) TestExport(c *tc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	out, err := client.Export(context.Background())
 	c.Assert(err, tc.ErrorIsNil)
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.Export", Args: []interface{}{"", nil}},
 	})
 	c.Assert(out, tc.DeepEquals, migration.SerializedModel{
@@ -404,7 +404,7 @@ func (s *ClientSuite) TestOpenResource(c *tc.C) {
 }
 
 func (s *ClientSuite) TestReap(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
@@ -412,7 +412,7 @@ func (s *ClientSuite) TestReap(c *tc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.Reap(context.Background())
 	c.Check(err, tc.ErrorIsNil)
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.Reap", Args: []interface{}{"", nil}},
 	})
 }
@@ -427,7 +427,7 @@ func (s *ClientSuite) TestReapError(c *tc.C) {
 }
 
 func (s *ClientSuite) TestWatchMinionReports(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
@@ -446,7 +446,7 @@ func (s *ClientSuite) TestWatchMinionReports(c *tc.C) {
 	w, err := client.WatchMinionReports(context.Background())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatch)
-	stub.CheckCalls(c, []jujutesting.StubCall{{FuncName: "MigrationMaster.WatchMinionReports", Args: []interface{}{"", nil}}})
+	stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "MigrationMaster.WatchMinionReports", Args: []interface{}{"", nil}}})
 }
 
 func (s *ClientSuite) TestWatchMinionReportsError(c *tc.C) {
@@ -459,7 +459,7 @@ func (s *ClientSuite) TestWatchMinionReportsError(c *tc.C) {
 }
 
 func (s *ClientSuite) TestMinionReports(c *tc.C) {
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		out := result.(*params.MinionReports)
@@ -486,7 +486,7 @@ func (s *ClientSuite) TestMinionReports(c *tc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	out, err := client.MinionReports(context.Background())
 	c.Assert(err, tc.ErrorIsNil)
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.MinionReports", Args: []interface{}{"", nil}},
 	})
 	c.Assert(out, tc.DeepEquals, migration.MinionReports{

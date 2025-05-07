@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"gopkg.in/yaml.v2"
 	storagev1 "k8s.io/api/storage/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,12 +22,13 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/maas"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
 type updateCAASSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	dir                           string
 	fakeCloudAPI                  *fakeUpdateCloudAPI
 	fakeK8sClusterMetadataChecker *fakeK8sClusterMetadataChecker
@@ -39,7 +39,7 @@ type updateCAASSuite struct {
 var _ = tc.Suite(&updateCAASSuite{})
 
 type fakeUpdateCloudAPI struct {
-	*jujutesting.CallMocker
+	*testhelpers.CallMocker
 	caas.UpdateCloudAPI
 
 	cloud       cloud.Cloud
@@ -105,9 +105,9 @@ func (s *updateCAASSuite) SetUpTest(c *tc.C) {
 	var logger loggo.Logger
 	s.clientStore = NewMockClientStore()
 	s.fakeCloudAPI = &fakeUpdateCloudAPI{
-		CallMocker: jujutesting.NewCallMocker(logger),
+		CallMocker: testhelpers.NewCallMocker(logger),
 	}
-	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
+	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: testhelpers.NewCallMocker(logger)}
 
 	defaultClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: "gce", Regions: set.NewStrings("us-east1"),
@@ -116,7 +116,7 @@ func (s *updateCAASSuite) SetUpTest(c *tc.C) {
 		},
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
-		CallMocker: jujutesting.NewCallMocker(logger),
+		CallMocker: testhelpers.NewCallMocker(logger),
 	}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 
@@ -301,7 +301,7 @@ func (s *updateCAASSuite) TestBuiltinToController(c *tc.C) {
 		Cloud: "microk8s",
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
-		CallMocker: jujutesting.NewCallMocker(logger),
+		CallMocker: testhelpers.NewCallMocker(logger),
 	}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(microk8sClusterMetadata, nil)
 
@@ -336,7 +336,7 @@ func (s *updateCAASSuite) TestAffectedModels(c *tc.C) {
 		Cloud: "microk8s",
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
-		CallMocker: jujutesting.NewCallMocker(logger),
+		CallMocker: testhelpers.NewCallMocker(logger),
 	}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(microk8sClusterMetadata, nil)
 
@@ -366,7 +366,7 @@ func (s *updateCAASSuite) TestUpdateCredentialError(c *tc.C) {
 		Cloud: "microk8s",
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
-		CallMocker: jujutesting.NewCallMocker(logger),
+		CallMocker: testhelpers.NewCallMocker(logger),
 	}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(microk8sClusterMetadata, nil)
 

@@ -8,9 +8,10 @@ import (
 	time "time"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiremotecaller -destination package_mocks_test.go github.com/juju/juju/internal/worker/apiremotecaller RemoteServer
@@ -24,7 +25,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	clock      *MockClock
 	remote     *MockRemoteServer
@@ -57,7 +58,7 @@ func (s *baseSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateStarted)
-	case <-time.After(jujutesting.ShortWait * 10):
+	case <-time.After(testhelpers.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
@@ -66,7 +67,7 @@ func (s *baseSuite) ensureChanged(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateChanged)
-	case <-time.After(jujutesting.ShortWait * 10):
+	case <-time.After(testhelpers.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }

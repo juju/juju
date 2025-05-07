@@ -6,17 +6,17 @@ package context
 import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	envtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&PortRangeChangeRecorderSuite{})
 
 type PortRangeChangeRecorderSuite struct {
-	envtesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 type portRangeTest struct {

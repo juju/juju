@@ -4,13 +4,14 @@
 package caasapplicationprovisioner_test
 
 import (
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type mockNotifyWorker struct {
 	worker.Worker
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (w *mockNotifyWorker) Notify() {

@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -25,11 +24,12 @@ import (
 	"github.com/juju/juju/domain/access/service"
 	auth "github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujujujutesting "github.com/juju/juju/internal/testing"
 )
 
 type workerSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger        logger.Logger
 	accessService *MockAccessService

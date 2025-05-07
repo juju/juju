@@ -5,14 +5,14 @@ package upgradevalidation_test
 
 import (
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 )
 
 type versionSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&versionSuite{})
@@ -63,7 +63,7 @@ func (s *versionSuite) TestUpgradeControllerAllowed(c *tc.C) {
 func (s *versionSuite) assertUpgradeControllerAllowed(c *tc.C, i int, t versionCheckTC) {
 	c.Logf("testing %d", i)
 
-	restore := jujutesting.PatchValue(&upgradevalidation.MinAgentVersions, map[int]semversion.Number{
+	restore := testhelpers.PatchValue(&upgradevalidation.MinAgentVersions, map[int]semversion.Number{
 		3: semversion.MustParse("2.9.36"),
 	})
 	defer restore()

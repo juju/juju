@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jt "github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -42,7 +42,7 @@ func (s *fakeStore) RemoveController(name string) error {
 }
 
 type UnregisterSuite struct {
-	jt.IsolationSuite
+	testhelpers.IsolationSuite
 	store *fakeStore
 }
 

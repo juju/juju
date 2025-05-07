@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 	"github.com/juju/worker/v4"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -48,7 +48,7 @@ func (s *periodicWorkerSuite) TestWait(c *tc.C) {
 }
 
 type testNextPeriod struct {
-	jtesting.Stub
+	testhelpers.Stub
 }
 
 func (t *testNextPeriod) nextPeriod(period time.Duration, jitter float64) time.Duration {
@@ -79,7 +79,7 @@ func (s *periodicWorkerSuite) TestWaitWithJitter(c *tc.C) {
 	}
 
 	tPeriod := &testNextPeriod{}
-	cleanup := jtesting.PatchValue(&nextPeriod, tPeriod.nextPeriod)
+	cleanup := testhelpers.PatchValue(&nextPeriod, tPeriod.nextPeriod)
 	defer cleanup()
 
 	w := NewPeriodicWorker(doWork, testing.ShortWait, NewTimer, Jitter(0.2))
@@ -101,7 +101,7 @@ func (s *periodicWorkerSuite) TestWaitWithJitter(c *tc.C) {
 
 	// We expect to see 2 calls to nextPeriod, corresponding to 2 calls to doWork. We then expect to see no more calls
 	// to nextPeriod because we have Kill()ed the worker.
-	tPeriod.CheckCalls(c, []jtesting.StubCall{{
+	tPeriod.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "nextPeriod",
 		Args:     []interface{}{testing.ShortWait, float64(0.2)},
 	}, {

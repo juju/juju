@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"gopkg.in/yaml.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -29,13 +28,14 @@ import (
 	_ "github.com/juju/juju/internal/provider/manual"
 	_ "github.com/juju/juju/internal/provider/openstack"
 	_ "github.com/juju/juju/internal/provider/vsphere"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
 type addSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	store     *jujuclient.MemStore
 	addCloudF func(cloud jujucloud.Cloud, force bool) error
@@ -58,34 +58,34 @@ func (s *addSuite) runCommand(c *tc.C, cloudMetadataStore cloud.CloudMetadataSto
 
 func newFakeCloudMetadataStore() *fakeCloudMetadataStore {
 	var logger loggo.Logger
-	return &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
+	return &fakeCloudMetadataStore{CallMocker: testhelpers.NewCallMocker(logger)}
 }
 
 type fakeCloudMetadataStore struct {
-	*jujutesting.CallMocker
+	*testhelpers.CallMocker
 }
 
 func (f *fakeCloudMetadataStore) ReadCloudData(path string) ([]byte, error) {
 	results := f.MethodCall(f, "ReadCloudData", path)
 	if results[0] == nil {
-		return nil, jujutesting.TypeAssertError(results[1])
+		return nil, testhelpers.TypeAssertError(results[1])
 	}
-	return []byte(results[0].(string)), jujutesting.TypeAssertError(results[1])
+	return []byte(results[0].(string)), testhelpers.TypeAssertError(results[1])
 }
 
 func (f *fakeCloudMetadataStore) PublicCloudMetadata(searchPaths ...string) (result map[string]jujucloud.Cloud, fallbackUsed bool, _ error) {
 	results := f.MethodCall(f, "PublicCloudMetadata", searchPaths)
-	return results[0].(map[string]jujucloud.Cloud), results[1].(bool), jujutesting.TypeAssertError(results[2])
+	return results[0].(map[string]jujucloud.Cloud), results[1].(bool), testhelpers.TypeAssertError(results[2])
 }
 
 func (f *fakeCloudMetadataStore) PersonalCloudMetadata() (map[string]jujucloud.Cloud, error) {
 	results := f.MethodCall(f, "PersonalCloudMetadata")
-	return results[0].(map[string]jujucloud.Cloud), jujutesting.TypeAssertError(results[1])
+	return results[0].(map[string]jujucloud.Cloud), testhelpers.TypeAssertError(results[1])
 }
 
 func (f *fakeCloudMetadataStore) WritePersonalCloudMetadata(cloudsMap map[string]jujucloud.Cloud) error {
 	results := f.MethodCall(f, "WritePersonalCloudMetadata", cloudsMap)
-	return jujutesting.TypeAssertError(results[0])
+	return testhelpers.TypeAssertError(results[0])
 }
 
 func (f *fakeCloudMetadataStore) ParseOneCloud(data []byte) (jujucloud.Cloud, error) {
@@ -94,7 +94,7 @@ func (f *fakeCloudMetadataStore) ParseOneCloud(data []byte) (jujucloud.Cloud, er
 		fmt.Printf("ParseOneCloud()\n(%s)\n", string(data))
 		return jujucloud.Cloud{}, errors.New("ParseOneCloud failed, not enough results")
 	}
-	return results[0].(jujucloud.Cloud), jujutesting.TypeAssertError(results[1])
+	return results[0].(jujucloud.Cloud), testhelpers.TypeAssertError(results[1])
 }
 
 func (s *addSuite) TestAddBadArgs(c *tc.C) {
@@ -311,7 +311,7 @@ func (s *addSuite) TestAddNewInvalidAuthType(c *tc.C) {
 }
 
 type fakeAddCloudAPI struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	addCloudF func(cloud jujucloud.Cloud, force bool) error
 }
 
@@ -371,7 +371,7 @@ func (s *addSuite) setupControllerCloudScenario(c *tc.C) (string, *cloud.AddClou
 
 func (s *addSuite) setupControllerCloudScenarioWithFile(c *tc.C, cloudsFile string) (string, *cloud.AddCloudCommand, *jujuclient.MemStore, *fakeAddCloudAPI, jujucloud.Credential, func() int) {
 	api := &fakeAddCloudAPI{
-		Stub:      jujutesting.Stub{},
+		Stub:      testhelpers.Stub{},
 		addCloudF: s.addCloudF,
 	}
 	return s.setupControllerCloudScenarioWithClientAndFile(c,
@@ -1031,7 +1031,7 @@ func (*addSuite) TestInteractiveOpenstackCloudCert(c *tc.C) {
 }
 
 type addOpenStackSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&addOpenStackSuite{})

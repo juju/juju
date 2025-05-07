@@ -11,11 +11,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -138,7 +138,7 @@ func (s *ReplSuite) assertHelp(c *tc.C, helpArg string) {
 		}.Run([]string{"juju", helpArg})
 	}
 
-	stdout, _ := jujutesting.CaptureOutput(c, f)
+	stdout, _ := testhelpers.CaptureOutput(c, f)
 	s.assertOutMatches(c, stdout,
 		".*When run without arguments, Juju will enter an interactive shell.*")
 }
@@ -153,7 +153,7 @@ func (s *ReplSuite) TestJujuCommandHelp(c *tc.C) {
 		}.Run([]string{"juju", "help", "status"})
 	}
 
-	stdout, _ := jujutesting.CaptureOutput(c, f)
+	stdout, _ := testhelpers.CaptureOutput(c, f)
 	s.assertOutMatches(c, stdout,
 		"Usage: juju status.*")
 }

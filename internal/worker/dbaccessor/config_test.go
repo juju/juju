@@ -8,11 +8,12 @@ import (
 	"path"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type configSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	configPath string
 }

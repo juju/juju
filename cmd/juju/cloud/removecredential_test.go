@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -216,7 +216,7 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredentialForce(c *tc.C) {
 }
 
 type fakeRemoveCredentialAPI struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	revokeCredentialF func(tag names.CloudCredentialTag) error
 	clouds            func() (map[names.CloudTag]jujucloud.Cloud, error)
 }

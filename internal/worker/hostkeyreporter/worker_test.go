@@ -11,18 +11,18 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
 )
 
 type Suite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	dir    string
-	stub   *jujutesting.Stub
+	stub   *testhelpers.Stub
 	facade *stubFacade
 	config hostkeyreporter.Config
 }
@@ -47,7 +47,7 @@ func (s *Suite) SetUpTest(c *tc.C) {
 	writeKey("rsa")
 	writeKey("ecdsa")
 
-	s.stub = new(jujutesting.Stub)
+	s.stub = new(testhelpers.Stub)
 	s.facade = newStubFacade(s.stub)
 	s.config = hostkeyreporter.Config{
 		Facade:    s.facade,
@@ -98,19 +98,19 @@ func (s *Suite) TestSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.Equals, dependency.ErrUninstall)
-	s.stub.CheckCalls(c, []jujutesting.StubCall{{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		"ReportKeys", []interface{}{"42", []string{"dsa", "ecdsa", "rsa"}},
 	}})
 }
 
-func newStubFacade(stub *jujutesting.Stub) *stubFacade {
+func newStubFacade(stub *testhelpers.Stub) *stubFacade {
 	return &stubFacade{
 		stub: stub,
 	}
 }
 
 type stubFacade struct {
-	stub      *jujutesting.Stub
+	stub      *testhelpers.Stub
 	reportErr error
 }
 

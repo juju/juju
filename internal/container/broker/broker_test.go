@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jtesting "github.com/juju/testing"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/arch"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/container/broker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -91,7 +91,7 @@ func (f *fakeAddr) String() string {
 var _ net.Addr = (*fakeAddr)(nil)
 
 type fakeAPI struct {
-	*jtesting.Stub
+	*testhelpers.Stub
 
 	fakeContainerConfig params.ContainerConfig
 	fakeInterfaceInfo   corenetwork.InterfaceInfo
@@ -133,7 +133,7 @@ func fakeContainerConfig() params.ContainerConfig {
 
 func NewFakeAPI() *fakeAPI {
 	return &fakeAPI{
-		Stub:                &jtesting.Stub{},
+		Stub:                &testhelpers.Stub{},
 		fakeContainerConfig: fakeContainerConfig(),
 		fakeInterfaceInfo:   fakeInterfaceInfo,
 	}
@@ -210,7 +210,7 @@ func (f *fakeAPI) GetContainerProfileInfo(ctx context.Context, containerTag name
 }
 
 type fakeContainerManager struct {
-	jtesting.Stub
+	testhelpers.Stub
 }
 
 func (m *fakeContainerManager) CreateContainer(_ context.Context,

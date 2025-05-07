@@ -8,18 +8,18 @@ import (
 	"path/filepath"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type updateSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	store      *jujuclient.MemStore
 	secretsAPI *mocks.MockUpdateSecretsAPI
 }

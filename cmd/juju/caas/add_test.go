@@ -17,7 +17,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 	storagev1 "k8s.io/api/storage/v1"
@@ -33,12 +32,13 @@ import (
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
 type addCAASSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	dir                           string
 	publicCloudMap                map[string]cloud.Cloud
 	initialCloudMap               map[string]cloud.Cloud
@@ -107,39 +107,39 @@ users:
 `
 
 type fakeCloudMetadataStore struct {
-	*jujutesting.CallMocker
+	*testhelpers.CallMocker
 }
 
 func (f *fakeCloudMetadataStore) ReadCloudData(path string) ([]byte, error) {
 	results := f.MethodCall(f, "ReadCloudData", path)
 	if results[0] == nil {
-		return nil, jujutesting.TypeAssertError(results[1])
+		return nil, testhelpers.TypeAssertError(results[1])
 	}
-	return []byte(results[0].(string)), jujutesting.TypeAssertError(results[1])
+	return []byte(results[0].(string)), testhelpers.TypeAssertError(results[1])
 }
 
 func (f *fakeCloudMetadataStore) ParseOneCloud(data []byte) (cloud.Cloud, error) {
 	results := f.MethodCall(f, "ParseOneCloud", data)
-	return results[0].(cloud.Cloud), jujutesting.TypeAssertError(results[1])
+	return results[0].(cloud.Cloud), testhelpers.TypeAssertError(results[1])
 }
 
 func (f *fakeCloudMetadataStore) PublicCloudMetadata(searchPaths ...string) (result map[string]cloud.Cloud, fallbackUsed bool, _ error) {
 	results := f.MethodCall(f, "PublicCloudMetadata", searchPaths)
-	return results[0].(map[string]cloud.Cloud), results[1].(bool), jujutesting.TypeAssertError(results[2])
+	return results[0].(map[string]cloud.Cloud), results[1].(bool), testhelpers.TypeAssertError(results[2])
 }
 
 func (f *fakeCloudMetadataStore) PersonalCloudMetadata() (map[string]cloud.Cloud, error) {
 	results := f.MethodCall(f, "PersonalCloudMetadata")
-	return results[0].(map[string]cloud.Cloud), jujutesting.TypeAssertError(results[1])
+	return results[0].(map[string]cloud.Cloud), testhelpers.TypeAssertError(results[1])
 }
 
 func (f *fakeCloudMetadataStore) WritePersonalCloudMetadata(cloudsMap map[string]cloud.Cloud) error {
 	results := f.MethodCall(f, "WritePersonalCloudMetadata", cloudsMap)
-	return jujutesting.TypeAssertError(results[0])
+	return testhelpers.TypeAssertError(results[0])
 }
 
 type fakeAddCloudAPI struct {
-	*jujutesting.CallMocker
+	*testhelpers.CallMocker
 	caas.AddCloudAPI
 	isCloudRegionRequired bool
 	authTypes             []cloud.AuthType
@@ -163,24 +163,24 @@ func (api *fakeAddCloudAPI) AddCredential(ctx context.Context, tag string, crede
 }
 
 type fakeK8sClusterMetadataChecker struct {
-	*jujutesting.CallMocker
+	*testhelpers.CallMocker
 	k8s.ClusterMetadataChecker
 	existingSC bool
 }
 
 func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(ctx context.Context, storageClass string) (result *k8s.ClusterMetadata, err error) {
 	results := api.MethodCall(api, "GetClusterMetadata")
-	return results[0].(*k8s.ClusterMetadata), jujutesting.TypeAssertError(results[1])
+	return results[0].(*k8s.ClusterMetadata), testhelpers.TypeAssertError(results[1])
 }
 
 func (api *fakeK8sClusterMetadataChecker) CheckDefaultWorkloadStorage(cluster string, storageProvisioner *k8s.StorageProvisioner) error {
 	results := api.MethodCall(api, "CheckDefaultWorkloadStorage")
-	return jujutesting.TypeAssertError(results[0])
+	return testhelpers.TypeAssertError(results[0])
 }
 
 func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) (*k8s.StorageProvisioner, bool, error) {
 	results := api.MethodCall(api, "EnsureStorageProvisioner", cfg)
-	return results[0].(*k8s.StorageProvisioner), api.existingSC, jujutesting.TypeAssertError(results[1])
+	return results[0].(*k8s.StorageProvisioner), api.existingSC, testhelpers.TypeAssertError(results[1])
 }
 
 func fakeNewK8sClientConfig(_ string, _ io.Reader, contextName, clusterName string, _ clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
@@ -298,7 +298,7 @@ func (s *addCAASSuite) SetUpTest(c *tc.C) {
 
 	var logger loggo.Logger
 	s.fakeCloudAPI = &fakeAddCloudAPI{
-		CallMocker: jujutesting.NewCallMocker(logger),
+		CallMocker: testhelpers.NewCallMocker(logger),
 		authTypes: []cloud.AuthType{
 			cloud.EmptyAuthType,
 			cloud.AccessKeyAuthType,
@@ -308,7 +308,7 @@ func (s *addCAASSuite) SetUpTest(c *tc.C) {
 			names.NewCloudCredentialTag("aws/other/secrets"),
 		},
 	}
-	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
+	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: testhelpers.NewCallMocker(logger)}
 
 	defaultClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: "gce", Regions: set.NewStrings("us-east1"),
@@ -317,7 +317,7 @@ func (s *addCAASSuite) SetUpTest(c *tc.C) {
 		},
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
-		CallMocker: jujutesting.NewCallMocker(logger),
+		CallMocker: testhelpers.NewCallMocker(logger),
 		existingSC: true,
 	}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)

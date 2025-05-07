@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/domain/upgrade"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -20,7 +20,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseServiceSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	upgradeUUID    upgrade.UUID
 	controllerUUID string

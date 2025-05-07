@@ -9,17 +9,17 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type AddSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	store                *jujuclient.MemStore
 	addSecretBackendsAPI *secretbackends.MockAddSecretBackendsAPI
 }

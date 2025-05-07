@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/kr/pretty"
 
 	corebase "github.com/juju/juju/core/base"
@@ -16,10 +15,11 @@ import (
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type diffSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	logger logger.Logger
 }
 

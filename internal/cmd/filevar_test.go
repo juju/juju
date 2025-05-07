@@ -12,15 +12,15 @@ import (
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type FileVarSuite struct {
-	gitjujutesting.FakeHomeSuite
+	testhelpers.FakeHomeSuite
 	ctx         *cmd.Context
 	ValidPath   string
 	InvalidPath string // invalid path refers to a file which is not readable

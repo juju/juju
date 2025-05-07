@@ -11,18 +11,18 @@ import (
 	"github.com/juju/mutex/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/container/broker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type fakePrepareAPI struct {
-	*jujutesting.Stub
+	*testhelpers.Stub
 	requestedBridges []network.DeviceToBridge
 }
 
@@ -45,17 +45,17 @@ func (api *fakePrepareAPI) SetHostMachineNetworkConfig(ctx context.Context, tag 
 }
 
 type hostPreparerSuite struct {
-	Stub *jujutesting.Stub
+	Stub *testhelpers.Stub
 }
 
 var _ = tc.Suite(&hostPreparerSuite{})
 
 func (s *hostPreparerSuite) SetUpTest(c *tc.C) {
-	s.Stub = &jujutesting.Stub{}
+	s.Stub = &testhelpers.Stub{}
 }
 
 type stubReleaser struct {
-	*jujutesting.Stub
+	*testhelpers.Stub
 }
 
 func (r *stubReleaser) Release() {
@@ -74,7 +74,7 @@ func (s *hostPreparerSuite) acquireStubLock(_ string, _ <-chan struct{}) (func()
 }
 
 type stubBridger struct {
-	*jujutesting.Stub
+	*testhelpers.Stub
 }
 
 var _ network.Bridger = (*stubBridger)(nil)
@@ -88,7 +88,7 @@ func (br *stubBridger) Bridge(devices []network.DeviceToBridge) error {
 }
 
 type cannedNetworkObserver struct {
-	*jujutesting.Stub
+	*testhelpers.Stub
 	config []params.NetworkConfig
 }
 
@@ -130,7 +130,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	// If HostChangesForContainer returns nothing to change, then we don't
 	// instantiate a Bridger, or do any bridging.
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
 			FuncName: "AcquireLock",
 		}, {
@@ -187,7 +187,7 @@ func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *tc.C) {
 	// This should be the normal flow if there are changes necessary. We read
 	// the changes, grab a bridger, then acquire a lock, do the bridging,
 	// observe the results, report the results, and release the lock.
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
 			FuncName: "AcquireLock",
 		}, {
@@ -217,7 +217,7 @@ func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *tc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
 	c.Assert(err, tc.ErrorIsNil)
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
 			FuncName: "AcquireLock",
 		}, {
@@ -248,7 +248,7 @@ func (s *hostPreparerSuite) TestPrepareHostChangesUnsupported(c *tc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
 	c.Assert(err, tc.ErrorMatches, "unable to setup network: container address allocation not supported")
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
 			FuncName: "AcquireLock",
 		}, {
@@ -276,7 +276,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *tc.C) {
 	err := preparer.Prepare(context.Background(), containerTag)
 	c.Check(err, tc.ErrorMatches, ".*unable to find python interpreter")
 
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
 			FuncName: "AcquireLock",
 		}, {
@@ -304,7 +304,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoLock(c *tc.C) {
 	err := preparer.Prepare(context.Background(), containerTag)
 	c.Check(err, tc.ErrorMatches, `failed to acquire machine lock for bridging: timeout acquiring mutex`)
 
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
 			FuncName: "AcquireLock",
 		},
@@ -325,7 +325,7 @@ func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *tc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
 	c.Check(err, tc.ErrorMatches, `failed to bridge devices: script invocation error: IOError`)
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
 			FuncName: "AcquireLock",
 		}, {
@@ -360,7 +360,7 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *tc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
 	c.Check(err, tc.ErrorMatches, `cannot discover observed network config: cannot get network interfaces: enoent`)
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
 			FuncName: "AcquireLock",
 		}, {
@@ -394,7 +394,7 @@ func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *tc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
 	c.Check(err, tc.ErrorMatches, `failure`)
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
 			FuncName: "AcquireLock",
 		}, {
@@ -441,7 +441,7 @@ func (s *hostPreparerSuite) TestPrepareHostCancel(c *tc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
 	c.Check(err, tc.ErrorMatches, `failed to acquire machine lock for bridging: AcquireLock cancelled`)
-	s.Stub.CheckCalls(c, []jujutesting.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
 			FuncName: "AcquireLockFunc",
 		},

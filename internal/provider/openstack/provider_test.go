@@ -13,7 +13,6 @@ import (
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
@@ -24,11 +23,12 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // localTests contains tests which do not require a live service or test double to run.
 type localTests struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&localTests{})
@@ -629,7 +629,7 @@ var handlerFunc = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) 
 })
 
 type providerUnitTests struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&providerUnitTests{})

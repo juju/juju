@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/core/model"
 	jujuversion "github.com/juju/juju/core/version"
@@ -20,6 +19,7 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/keys"
@@ -187,7 +187,7 @@ func (*OpenSuite) TestDestroyNotFound(c *tc.C) {
 
 type destroyControllerEnv struct {
 	environs.Environ
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (e *destroyControllerEnv) DestroyController(ctx context.Context, uuid string) error {

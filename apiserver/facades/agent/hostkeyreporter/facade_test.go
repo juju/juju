@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -57,7 +57,7 @@ func (s *facadeSuite) TestReportKeys(c *tc.C) {
 			{Error: nil},
 		},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{{
+	s.backend.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "SetSSHHostKeys",
 		Args: []interface{}{
 			names.NewMachineTag("1"),
@@ -67,7 +67,7 @@ func (s *facadeSuite) TestReportKeys(c *tc.C) {
 }
 
 type mockBackend struct {
-	stub jujutesting.Stub
+	stub testhelpers.Stub
 }
 
 func (backend *mockBackend) SetSSHHostKeys(tag names.MachineTag, keys state.SSHHostKeys) error {

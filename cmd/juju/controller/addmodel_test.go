@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/ec2"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -377,7 +377,7 @@ func (s *AddModelSuite) TestDefaultCloudRegionPassedThrough(c *tc.C) {
 	_, err := s.run(c, "test", "us-west-1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.fakeCloudAPI.CheckCalls(c, []jujutesting.StubCall{
+	s.fakeCloudAPI.CheckCalls(c, []testhelpers.StubCall{
 		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
 		{"Clouds", nil},
 		{"Cloud", []interface{}{names.NewCloudTag("aws")}},
@@ -395,7 +395,7 @@ func (s *AddModelSuite) TestNoDefaultCloudRegion(c *tc.C) {
 you do not have add-model access to any clouds on this controller.
 Please ask the controller administrator to grant you add-model permission
 for a particular cloud to which you want to add a model.`[1:])
-	s.fakeCloudAPI.CheckCalls(c, []jujutesting.StubCall{
+	s.fakeCloudAPI.CheckCalls(c, []testhelpers.StubCall{
 		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
 		{"Clouds", nil},
 	})
@@ -418,7 +418,7 @@ Cloud  Regions
 aws    us-east-1, us-west-1
 lxd    
 `[1:])
-	s.fakeCloudAPI.CheckCalls(c, []jujutesting.StubCall{
+	s.fakeCloudAPI.CheckCalls(c, []testhelpers.StubCall{
 		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
 		{"Clouds", nil},
 		{"Cloud", []interface{}{names.NewCloudTag("aws")}},
@@ -726,7 +726,7 @@ type fakeCloudAPI struct {
 	clouds map[names.CloudTag]cloud.Cloud
 	cloud  *cloud.Cloud
 	controller.CloudAPI
-	jujutesting.Stub
+	testhelpers.Stub
 	authTypes   []cloud.AuthType
 	credentials []names.CloudCredentialTag
 }
@@ -776,7 +776,7 @@ func (c *fakeCloudAPI) AddCredential(ctx context.Context, tag string, credential
 }
 
 type fakeProviderRegistry struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	environs.ProviderRegistry
 	provider environs.EnvironProvider
 }
@@ -787,7 +787,7 @@ func (r *fakeProviderRegistry) Provider(providerType string) (environs.EnvironPr
 }
 
 type fakeProvider struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	environs.EnvironProvider
 	detected *cloud.CloudCredential
 }

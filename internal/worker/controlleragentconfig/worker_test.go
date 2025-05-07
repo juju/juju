@@ -16,9 +16,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	coretesting "github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type workerSuite struct {
@@ -118,7 +119,7 @@ func (s *workerSuite) TestReloadRequestAfterDeath(c *tc.C) {
 	select {
 	case state := <-states:
 		c.Fatalf("should not have received state %q", state)
-	case <-time.After(coretesting.ShortWait * 10):
+	case <-time.After(testhelpers.ShortWait * 10):
 	}
 }
 
@@ -138,7 +139,7 @@ func (s *workerSuite) TestWatchWithNoChange(c *tc.C) {
 	select {
 	case <-changes:
 		c.Fatal("should not have received a change")
-	case <-time.After(coretesting.ShortWait * 10):
+	case <-time.After(testhelpers.ShortWait * 10):
 	}
 }
 
@@ -163,7 +164,7 @@ func (s *workerSuite) TestWatchWithSubscribe(c *tc.C) {
 	select {
 	case <-changes:
 		count++
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatal("should have received a change")
 	}
 
@@ -172,7 +173,7 @@ func (s *workerSuite) TestWatchWithSubscribe(c *tc.C) {
 	select {
 	case <-watcher.Done():
 		c.Fatalf("should not have received a done signal")
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 	}
 
 	workertest.CleanKill(c, w)
@@ -203,7 +204,7 @@ func (s *workerSuite) TestWatchAfterUnsubscribe(c *tc.C) {
 	select {
 	case _, ok := <-changes:
 		c.Assert(ok, tc.IsFalse)
-	case <-time.After(coretesting.ShortWait * 10):
+	case <-time.After(testhelpers.ShortWait * 10):
 	}
 
 	ensureDone(c, watcher)
@@ -228,7 +229,7 @@ func (s *workerSuite) TestWatchWithKilledWorker(c *tc.C) {
 	select {
 	case _, ok := <-changes:
 		c.Assert(ok, tc.IsFalse)
-	case <-time.After(coretesting.ShortWait * 10):
+	case <-time.After(testhelpers.ShortWait * 10):
 	}
 
 	ensureDone(c, watcher)
@@ -266,7 +267,7 @@ func (s *workerSuite) TestWatchMultiple(c *tc.C) {
 			case _, ok := <-changes:
 				atomic.AddInt64(&count, 1)
 				c.Assert(ok, tc.IsTrue)
-			case <-time.After(coretesting.ShortWait * 10):
+			case <-time.After(testhelpers.ShortWait * 10):
 				c.Fatal("should have received a change")
 			}
 		}(watchers[i])
@@ -280,7 +281,7 @@ func (s *workerSuite) TestWatchMultiple(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for changes to finish")
 	}
 
@@ -328,7 +329,7 @@ func (s *workerSuite) TestWatchMultipleWithUnsubscribe(c *tc.C) {
 			case _, ok := <-changes:
 				atomic.AddInt64(&count, 1)
 				c.Assert(ok, tc.IsTrue)
-			case <-time.After(coretesting.ShortWait * 10):
+			case <-time.After(testhelpers.ShortWait * 10):
 				c.Fatal("should have received a change")
 			}
 		}(i, watchers[i])
@@ -342,7 +343,7 @@ func (s *workerSuite) TestWatchMultipleWithUnsubscribe(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for changes to finish")
 	}
 
@@ -377,7 +378,7 @@ func (s *workerSuite) ensureStartup(c *tc.C, states chan string) {
 	select {
 	case state := <-states:
 		c.Assert(state, tc.Equals, stateStarted)
-	case <-time.After(coretesting.ShortWait * 10):
+	case <-time.After(testhelpers.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
@@ -386,7 +387,7 @@ func (s *workerSuite) ensureReload(c *tc.C, states chan string) {
 	select {
 	case state := <-states:
 		c.Assert(state, tc.Equals, stateReload)
-	case <-time.After(coretesting.ShortWait * 100):
+	case <-time.After(testhelpers.ShortWait * 100):
 		c.Fatalf("timed out waiting for reload")
 	}
 }
@@ -411,7 +412,7 @@ func (s *workerSuite) ensureEndpointNotFound(c *tc.C, socket, method string) {
 func ensureDone(c *tc.C, watcher ConfigWatcher) {
 	select {
 	case <-watcher.Done():
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatal("should have received a done signal")
 	}
 }

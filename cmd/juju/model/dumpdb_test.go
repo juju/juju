@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -45,7 +45,7 @@ func (s *DumpDBCommandSuite) SetUpTest(c *tc.C) {
 func (s *DumpDBCommandSuite) TestDumpDB(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewDumpDBCommandForTest(&s.fake, s.store))
 	c.Assert(err, tc.ErrorIsNil)
-	s.fake.CheckCalls(c, []jujutesting.StubCall{
+	s.fake.CheckCalls(c, []testhelpers.StubCall{
 		{"DumpModelDB", []interface{}{testing.ModelTag}},
 		{"Close", nil},
 	})
@@ -59,7 +59,7 @@ models:
 }
 
 type fakeDumpDBClient struct {
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (f *fakeDumpDBClient) Close() error {

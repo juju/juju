@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 
@@ -24,6 +23,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jt "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
 )
@@ -56,8 +56,8 @@ func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 			Tag:                    machine,
 			Password:               "sekrit",
 			Nonce:                  "unused",
-			Controller:             jt.ControllerTag,
-			Model:                  jt.ModelTag,
+			Controller:             testhelpers.ControllerTag,
+			Model:                  testhelpers.ModelTag,
 			APIAddresses:           []string{"a1:123", "a2:123"},
 			CACert:                 "fake CACert",
 			UpgradedToVersion:      jv.Current,
