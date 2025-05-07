@@ -85,6 +85,12 @@ type ApplicationState interface {
 	// - [uniterrors.UnitNotFound] if the unit does not exist
 	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
+	// IsSubordinateApplication returns true if the application is a subordinate
+	// application.
+	// The following errors may be returned:
+	// - [appliationerrors.ApplicationNotFound] if the application does not exist
+	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
+
 	// GetApplicationScaleState looks up the scale state of the specified
 	// application, returning an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application is not found.
@@ -830,6 +836,18 @@ func (s *Service) GetApplicationLife(ctx context.Context, appName string) (corel
 		return "", errors.Errorf("getting life for %q: %w", appName, err)
 	}
 	return appLife.Value()
+}
+
+// IsSubordinateApplication returns true if the application is a subordinate
+// application.
+// The following errors may be returned:
+// - [appliationerrors.ApplicationNotFound] if the application does not exist
+func (s *Service) IsSubordinateApplication(ctx context.Context, appUUID coreapplication.ID) (bool, error) {
+	subordinate, err := s.st.IsSubordinateApplication(ctx, appUUID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return subordinate, nil
 }
 
 // SetApplicationScale sets the application's desired scale value, returning an error

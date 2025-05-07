@@ -235,6 +235,12 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
 
+	// IsSubordinateApplication returns true if the application is a subordinate
+	// application.
+	// The following errors may be returned:
+	// - [appliationerrors.ApplicationNotFound] if the application does not exist
+	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
+
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
 	// instances that specify which sources (spaces or CIDRs) can access the

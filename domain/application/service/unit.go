@@ -145,9 +145,6 @@ type UnitState interface {
 	// The principal-subordinate relationship is also recorded.
 	AddSubordinateUnit(context.Context, application.SubordinateUnitArg) (coreunit.Name, error)
 
-	// IsSubordinateApplication returns true if the application is a subordinate application.
-	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
-
 	// GetMachineNetNodeUUIDFromName returns the net node UUID for the named
 	// machine. The following errors may be returned: -
 	// [applicationerrors.MachineNotFound] if the machine does not exist

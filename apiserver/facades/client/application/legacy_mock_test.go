@@ -574,44 +574,6 @@ func (c *MockApplicationEndpointsCall) DoAndReturn(f func() ([]relation.Endpoint
 	return c
 }
 
-// IsPrincipal mocks base method.
-func (m *MockApplication) IsPrincipal() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsPrincipal")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsPrincipal indicates an expected call of IsPrincipal.
-func (mr *MockApplicationMockRecorder) IsPrincipal() *MockApplicationIsPrincipalCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsPrincipal", reflect.TypeOf((*MockApplication)(nil).IsPrincipal))
-	return &MockApplicationIsPrincipalCall{Call: call}
-}
-
-// MockApplicationIsPrincipalCall wrap *gomock.Call
-type MockApplicationIsPrincipalCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationIsPrincipalCall) Return(arg0 bool) *MockApplicationIsPrincipalCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationIsPrincipalCall) Do(f func() bool) *MockApplicationIsPrincipalCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationIsPrincipalCall) DoAndReturn(f func() bool) *MockApplicationIsPrincipalCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // IsRemote mocks base method.
 func (m *MockApplication) IsRemote() bool {
 	m.ctrl.T.Helper()

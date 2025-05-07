@@ -45,7 +45,6 @@ type Application interface {
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
 	Endpoints() ([]relation.Endpoint, error)
-	IsPrincipal() bool
 	IsRemote() bool
 	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
 	SetConstraints(constraints.Value) error

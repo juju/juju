@@ -33,6 +33,7 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	domaintesting "github.com/juju/juju/domain/testing"
+	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -101,6 +102,22 @@ func (s *serviceSuite) TestGetApplicationLife(c *gc.C) {
 
 	_, err = s.svc.GetApplicationLife(context.Background(), "bar")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *serviceSuite) TestIsSubordinateApplicationForPrincipal(c *gc.C) {
+	appID := s.createApplication(c, "foo")
+
+	subordinate, err := s.svc.IsSubordinateApplication(context.Background(), appID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subordinate, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestIsSubordinateApplicationForSubordinate(c *gc.C) {
+	appID := s.createSubordinateApplication(c, "foo")
+
+	subordinate, err := s.svc.IsSubordinateApplication(context.Background(), appID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subordinate, jc.IsTrue)
 }
 
 func (s *serviceSuite) TestDestroyApplication(c *gc.C) {
@@ -633,7 +650,15 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C)
 }
 
 func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
-	appID, err := s.svc.CreateApplication(context.Background(), name, &stubCharm{}, corecharm.Origin{
+	return s.createApplicationWithCharm(c, name, &stubCharm{}, units...)
+}
+
+func (s *serviceSuite) createSubordinateApplication(c *gc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
+	return s.createApplicationWithCharm(c, name, &stubCharm{subordinate: true}, units...)
+}
+
+func (s *serviceSuite) createApplicationWithCharm(c *gc.C, name string, ch internalcharm.Charm, units ...service.AddUnitArg) coreapplication.ID {
+	appID, err := s.svc.CreateApplication(context.Background(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
 			Channel:      "24.04",
