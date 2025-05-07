@@ -201,7 +201,7 @@ func (s *stateSuite) createUnit(c *gc.C) unit.Name {
 	charmUUID, err := applicationSt.GetCharmIDByApplicationName(ctx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitNames, err := applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{})
+	unitNames, err := applicationSt.AddIAASUnits(ctx, appID, charmUUID, application.AddUnitArg{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitNames, gc.HasLen, 1)
 	unitName := unitNames[0]

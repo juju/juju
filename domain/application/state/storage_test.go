@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"path/filepath"
 
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
@@ -81,7 +80,7 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 	c.Assert(err, jc.ErrorIsNil)
 
 	appUUID, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
-		c.MkDir(), chStorage, addStorageArgs), nil)
+		chStorage, addStorageArgs), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var charmUUID string
@@ -170,7 +169,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnrecognisedStorage(c *
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
-		c.MkDir(), chStorage, addStorageArgs), nil)
+		chStorage, addStorageArgs), nil)
 	c.Assert(err, gc.ErrorMatches, `.*storage \["foo"\] is not supported`)
 }
 
@@ -184,7 +183,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStorageButCharmHasNone(
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
-		c.MkDir(), []charm.Storage{}, addStorageArgs), nil)
+		[]charm.Storage{}, addStorageArgs), nil)
 	c.Assert(err, gc.ErrorMatches, `.*storage \["foo"\] is not supported`)
 }
 
@@ -206,7 +205,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnitsAndStorageInvalidC
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
-		c.MkDir(), chStorage, addStorageArgs), []application.AddUnitArg{{}})
+		chStorage, addStorageArgs), []application.AddUnitArg{{}})
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidStorageCount)
 
 }
@@ -216,8 +215,6 @@ type baseStorageSuite struct {
 
 	state *State
 
-	storageParentDir string
-
 	storageInstCount int
 	filesystemCount  int
 }
@@ -226,8 +223,6 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-
-	s.storageParentDir = c.MkDir()
 }
 
 type charmStorageArg struct {
@@ -602,7 +597,7 @@ func (s *caasStorageSuite) TestAttachStorageBadMountPoint(c *gc.C) {
 	s.createFilesystem(c, storageUUID)
 
 	ctx := context.Background()
-	err := s.state.AttachStorage(ctx, "/var/lib/juju/storage", storageUUID, unitUUID)
+	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidStorageMountPoint)
 }
 
@@ -613,7 +608,7 @@ func (s *caasStorageSuite) TestAttachStorageFilesystemAlreadyAttached(c *gc.C) {
 	s.createFilesystem(c, storageUUID, filesystemAttachmentArg{unitUUID: unitUUID})
 
 	ctx := context.Background()
-	err := s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unitUUID)
+	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.FilesystemAlreadyAttached)
 }
 
@@ -622,7 +617,7 @@ func (s *baseStorageSuite) TestAttachStorageUnitNotFound(c *gc.C) {
 	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, nil)
 
 	ctx := context.Background()
-	err := s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unittesting.GenUnitUUID(c))
+	err := s.state.AttachStorage(ctx, storageUUID, unittesting.GenUnitUUID(c))
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -637,7 +632,7 @@ UPDATE unit SET life_id = ? WHERE unit.name = ?`, 1, "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, nil)
 
-	err = s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unitUUID)
+	err = s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
@@ -646,7 +641,7 @@ func (s *baseStorageSuite) TestAttachStorageNotFound(c *gc.C) {
 	s.createStorageInstance(c, "pgdata", charmUUID, nil)
 
 	ctx := context.Background()
-	err := s.state.AttachStorage(ctx, s.storageParentDir, storagetesting.GenStorageUUID(c), unitUUID)
+	err := s.state.AttachStorage(ctx, storagetesting.GenStorageUUID(c), unitUUID)
 	c.Assert(err, jc.ErrorIs, storageerrors.StorageNotFound)
 }
 
@@ -661,7 +656,7 @@ UPDATE storage_instance SET life_id = ? WHERE uuid = ?`, 1, storageUUID)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unitUUID)
+	err = s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.StorageNotAlive)
 }
 
@@ -671,9 +666,9 @@ func (s *baseStorageSuite) TestAttachStorageTwice(c *gc.C) {
 	s.createFilesystem(c, storageUUID)
 
 	ctx := context.Background()
-	err := s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unitUUID)
+	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unitUUID)
+	err = s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.StorageAlreadyAttached)
 }
 
@@ -687,11 +682,11 @@ func (s *baseStorageSuite) TestAttachStorageExceedsMaxCount(c *gc.C) {
 	s.createFilesystem(c, storageUUID3)
 
 	ctx := context.Background()
-	err := s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unitUUID)
+	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.AttachStorage(ctx, s.storageParentDir, storageUUID2, unitUUID)
+	err = s.state.AttachStorage(ctx, storageUUID2, unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.AttachStorage(ctx, s.storageParentDir, storageUUID3, unitUUID)
+	err = s.state.AttachStorage(ctx, storageUUID3, unitUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidStorageCount)
 }
 
@@ -726,7 +721,7 @@ INSERT INTO charm_storage (
 
 	storageUUID := s.createStorageInstance(c, "other", charmUUID2, nil)
 
-	err = s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unitUUID)
+	err = s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.StorageNameNotSupported)
 }
 
@@ -791,7 +786,7 @@ func (s *caasStorageSuite) TestCreateApplicationWithUnitsAndStorage(c *gc.C) {
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
-		s.storageParentDir, chStorage, addStorageArgs), []application.AddUnitArg{{}})
+		chStorage, addStorageArgs), []application.AddUnitArg{{}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -896,7 +891,7 @@ WHERE charm_uuid = ?`, charmUUID)
 	c.Assert(ok, jc.IsTrue)
 	s.assertStorageAttached(c, unitUUID, storageUUID)
 	s.assertFilesystemAttachment(c, unitUUID, storageUUID, filesystemAttachment{
-		MountPoint:           filepath.Join(s.storageParentDir, "logs/2"),
+		MountPoint:           "/var/lib/juju/storage/logs/2",
 		ReadOnly:             false,
 		LifeID:               life.Alive,
 		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
@@ -905,7 +900,7 @@ WHERE charm_uuid = ?`, charmUUID)
 	c.Assert(ok, jc.IsTrue)
 	s.assertStorageAttached(c, unitUUID, storageUUID)
 	s.assertFilesystemAttachment(c, unitUUID, storageUUID, filesystemAttachment{
-		MountPoint:           filepath.Join(s.storageParentDir, "cache/3"),
+		MountPoint:           "/var/lib/juju/storage/cache/3",
 		ReadOnly:             false,
 		LifeID:               life.Alive,
 		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
@@ -991,7 +986,7 @@ func (s *iaasStorageSuite) TestAttachStorageFilesystem(c *gc.C) {
 	s.createFilesystem(c, storageUUID)
 
 	ctx := context.Background()
-	err := s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unitUUID)
+	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertStorageAttached(c, unitUUID, storageUUID)
@@ -1008,7 +1003,7 @@ func (s *iaasStorageSuite) TestAttachStorageVolume(c *gc.C) {
 	s.createVolume(c, storageUUID)
 
 	ctx := context.Background()
-	err := s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unitUUID)
+	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertStorageAttached(c, unitUUID, storageUUID)
@@ -1025,7 +1020,7 @@ func (s *iaasStorageSuite) TestAttachStorageVolumeBackedFilesystem(c *gc.C) {
 	s.createVolume(c, storageUUID)
 
 	ctx := context.Background()
-	err := s.state.AttachStorage(ctx, s.storageParentDir, storageUUID, unitUUID)
+	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertStorageAttached(c, unitUUID, storageUUID)

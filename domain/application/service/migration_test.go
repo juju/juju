@@ -491,7 +491,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		Settings: application.ApplicationSettings{
 			Trust: true,
 		},
-		StorageParentDir: application.StorageParentDir,
 	}
 	s.state.EXPECT().InsertMigratingApplication(gomock.Any(), "ubuntu", args).Return(id, nil)
 
@@ -572,8 +571,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 			PasswordHash:  "passwordhash",
 			HashAlgorithm: 0,
 		}),
-		StorageParentDir: application.StorageParentDir,
-		Principal:        "principal/0",
+		Principal: "principal/0",
 	}}
 	c.Check(receivedUnitArgs, gc.DeepEquals, expectedUnitArgs)
 }

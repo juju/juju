@@ -1979,7 +1979,7 @@ func (s *stateSuite) createApplication(c *gc.C, name string, l life.Life, subord
 	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitNames, err := appState.AddIAASUnits(ctx, "", appID, charmUUID, units...)
+	unitNames, err := appState.AddIAASUnits(ctx, appID, charmUUID, units...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var unitUUIDs = make([]coreunit.UUID, len(units))

@@ -214,7 +214,7 @@ func (s *modelStateSuite) createTestingUnitForApplication(
 	charmUUID, err := appState.GetCharmIDByApplicationName(context.Background(), appName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitNames, err := appState.AddIAASUnits(context.Background(), "", appID, charmUUID, application.AddUnitArg{})
+	unitNames, err := appState.AddIAASUnits(context.Background(), appID, charmUUID, application.AddUnitArg{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitNames, gc.HasLen, 1)
 	unitName := unitNames[0]

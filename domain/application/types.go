@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/resource"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -66,8 +65,6 @@ type AddApplicationArg struct {
 	// StoragePoolKind holds a mapping of the kind of storage supported
 	// by the named storage pool / provider type.
 	StoragePoolKind map[string]storage.StorageKind
-	// StorageParentDir is the parent directory for mounting charm storage.
-	StorageParentDir string
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
@@ -188,20 +185,16 @@ type AddUnitArg struct {
 	Placement   deployment.Placement
 }
 
-// StorageParentDir is the parent directory for mounting charm storage.
-var StorageParentDir = paths.StorageDir(paths.OSUnixLike)
-
 // InsertUnitArg is used to insert a fully populated unit.
 // Used by import and when registering a CAAS unit.
 type InsertUnitArg struct {
-	UnitName         coreunit.Name
-	CloudContainer   *CloudContainer
-	Password         *PasswordInfo
-	Constraints      constraints.Constraints
-	Placement        deployment.Placement
-	Storage          []ApplicationStorageArg
-	StoragePoolKind  map[string]storage.StorageKind
-	StorageParentDir string
+	UnitName        coreunit.Name
+	CloudContainer  *CloudContainer
+	Password        *PasswordInfo
+	Constraints     constraints.Constraints
+	Placement       deployment.Placement
+	Storage         []ApplicationStorageArg
+	StoragePoolKind map[string]storage.StorageKind
 	UnitStatusArg
 }
 
@@ -215,14 +208,13 @@ type RegisterCAASUnitParams struct {
 // RegisterCAASUnitArg contains parameters for introducing
 // a k8s unit representing a new pod to the model.
 type RegisterCAASUnitArg struct {
-	UnitName         coreunit.Name
-	PasswordHash     string
-	ProviderID       string
-	Address          *string
-	Ports            *[]string
-	OrderedScale     bool
-	OrderedId        int
-	StorageParentDir string
+	UnitName     coreunit.Name
+	PasswordHash string
+	ProviderID   string
+	Address      *string
+	Ports        *[]string
+	OrderedScale bool
+	OrderedId    int
 	// TODO(storage) - this needs to be wired through to the register CAAS unit workflow.
 	// ObservedAttachedVolumeIDs is the filesystem attachments observed to be attached
 	// by the infrastructure, used to map existing attachments.
@@ -371,14 +363,13 @@ type ExportUnit struct {
 
 // ImportUnitArg is used to import a unit.
 type ImportUnitArg struct {
-	UnitName         coreunit.Name
-	CloudContainer   *CloudContainer
-	Password         *PasswordInfo
-	Constraints      constraints.Constraints
-	Machine          machine.Name
-	Storage          []ApplicationStorageArg
-	StoragePoolKind  map[string]storage.StorageKind
-	StorageParentDir string
+	UnitName        coreunit.Name
+	CloudContainer  *CloudContainer
+	Password        *PasswordInfo
+	Constraints     constraints.Constraints
+	Machine         machine.Name
+	Storage         []ApplicationStorageArg
+	StoragePoolKind map[string]storage.StorageKind
 	// Principal contains the name of the units principal unit. If the unit is
 	// not a subordinate, this field is empty.
 	Principal coreunit.Name
@@ -418,8 +409,6 @@ type InsertApplicationArgs struct {
 	// StoragePoolKind holds a mapping of the kind of storage supported
 	// by the named storage pool / provider type.
 	StoragePoolKind map[string]storage.StorageKind
-	// StorageParentDir is the parent directory for mounting charm storage.
-	StorageParentDir string
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName

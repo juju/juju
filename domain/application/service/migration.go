@@ -404,7 +404,6 @@ func makeInsertApplicationArg(
 		Channel:          channelArg,
 		EndpointBindings: args.EndpointBindings,
 		Resources:        makeResourcesArgs(args.ResolvedResources),
-		StorageParentDir: application.StorageParentDir,
 		Config:           applicationConfig,
 		Settings:         args.ApplicationSettings,
 		PeerRelations:    args.PeerRelations,
@@ -453,10 +452,9 @@ func makeUnitArgs(units []ImportUnitArg, charmUUID corecharm.ID) ([]application.
 	for i, u := range units {
 
 		arg := application.ImportUnitArg{
-			UnitName:         u.UnitName,
-			StorageParentDir: application.StorageParentDir,
-			Machine:          u.Machine,
-			Principal:        u.Principal,
+			UnitName:  u.UnitName,
+			Machine:   u.Machine,
+			Principal: u.Principal,
 		}
 		if u.CloudContainer != nil {
 			arg.CloudContainer = makeCloudContainerArg(u.UnitName, *u.CloudContainer)

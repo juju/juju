@@ -286,7 +286,7 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application
 // doesn't exist.
 // If no units are provided, it will return nil.
-func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appName string, units ...AddUnitArg) error {
+func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
 	if len(units) == 0 {
 		return nil
 	}
@@ -327,9 +327,9 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 
 	var unitNames []coreunit.Name
 	if modelType == coremodel.IAAS {
-		unitNames, err = s.st.AddIAASUnits(ctx, storageParentDir, appUUID, charmUUID, args...)
+		unitNames, err = s.st.AddIAASUnits(ctx, appUUID, charmUUID, args...)
 	} else {
-		unitNames, err = s.st.AddCAASUnits(ctx, storageParentDir, appUUID, charmUUID, args...)
+		unitNames, err = s.st.AddCAASUnits(ctx, appUUID, charmUUID, args...)
 	}
 	if err != nil {
 		return errors.Errorf("adding units to application %q: %w", appName, err)
@@ -446,9 +446,8 @@ func (s *ProviderService) RegisterCAASUnit(
 		return "", "", errors.Errorf("generating unit password: %w", err)
 	}
 	registerArgs := application.RegisterCAASUnitArg{
-		ProviderID:       params.ProviderID,
-		StorageParentDir: application.StorageParentDir,
-		PasswordHash:     password.AgentPasswordHash(pass),
+		ProviderID:   params.ProviderID,
+		PasswordHash: password.AgentPasswordHash(pass),
 	}
 
 	// We don't support anything other that statefulsets.
