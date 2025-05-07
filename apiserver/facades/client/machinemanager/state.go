@@ -53,7 +53,6 @@ type Machine interface {
 	Containers() ([]string, error)
 	Principals() []string
 	IsManager() bool
-	ApplicationNames() ([]string, error)
 	InstanceStatus() (status.StatusInfo, error)
 	SetInstanceStatus(sInfo status.StatusInfo) error
 }

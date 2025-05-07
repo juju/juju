@@ -12,15 +12,12 @@ import (
 
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
 // Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
 type Backend interface {
-	AllApplications() ([]*state.Application, error)
-	AllUnits() ([]*state.Unit, error)
 	AllRemoteApplications() ([]commoncrossmodel.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
 	AllIPAddresses() ([]*state.Address, error)
@@ -30,20 +27,12 @@ type Backend interface {
 	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTimestamp() (*time.Time, error)
 	HAPrimaryMachine() (names.MachineTag, error)
-	Machine(string) (*state.Machine, error)
 	MachineConstraints() (*state.MachineConstraints, error)
 }
 
 // MongoSession provides a way to get the status for the mongo replicaset.
 type MongoSession interface {
 	CurrentStatus() (*replicaset.Status, error)
-}
-
-// Unit represents a state.Unit.
-type Unit interface {
-	Life() state.Life
-	IsPrincipal() bool
-	PublicAddress() (network.SpaceAddress, error)
 }
 
 // TODO - CAAS(ericclaudejones): This should contain state alone, model will be
