@@ -369,6 +369,8 @@ func (m *stateSuite) TestGetModelSeedInformationNotActivated(c *gc.C) {
 		CredentialName:  "foobar",
 		Name:            "my-amazing-model",
 		Type:            coremodel.IAAS,
+		OwnerName:       m.userName,
+		Owner:           m.userUUID,
 	})
 }
 
@@ -396,6 +398,8 @@ func (m *stateSuite) TestGetModelSeedInformationActivated(c *gc.C) {
 		CredentialName:  "foobar",
 		Name:            "my-test-model",
 		Type:            coremodel.IAAS,
+		OwnerName:       m.userName,
+		Owner:           m.userUUID,
 	})
 }
 

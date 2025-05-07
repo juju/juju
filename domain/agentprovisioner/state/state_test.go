@@ -12,6 +12,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/domain/modelagent"
@@ -108,6 +109,8 @@ func (s *suite) TestModelID(c *gc.C) {
 	// Create model info.
 	modelID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	userUUID := usertesting.GenUserUUID(c)
+	userName := usertesting.GenNewName(c, "tlm")
 	err := modelSt.Create(context.Background(), model.ModelDetailArgs{
 		UUID:           modelID,
 		AgentVersion:   semversion.Number{Major: 4, Minor: 21, Patch: 67},
@@ -117,6 +120,8 @@ func (s *suite) TestModelID(c *gc.C) {
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",
 		CloudType:      "ec2",
+		OwnerName:      userName,
+		Owner:          userUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -276,6 +276,8 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 		UUID:            m.UUID,
 		ControllerUUID:  m.ControllerUUID,
 		Name:            m.Name,
+		OwnerName:       m.OwnerName,
+		Owner:           m.Owner,
 		Type:            m.Type,
 		Cloud:           m.Cloud,
 		CloudType:       m.CloudType,

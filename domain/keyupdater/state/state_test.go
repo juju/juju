@@ -98,7 +98,8 @@ func (s *stateSuite) TestCheckMachineDoesNotExist(c *gc.C) {
 
 func (s *stateSuite) TestGetModelId(c *gc.C) {
 	mst := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	modelUUID := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
 		UUID:            modelUUID,
@@ -106,6 +107,8 @@ func (s *stateSuite) TestGetModelId(c *gc.C) {
 		AgentStream:     modelagent.AgentStreamReleased,
 		ControllerUUID:  uuid.MustNewUUID(),
 		Name:            "my-awesome-model",
+		OwnerName:       ownerName,
+		Owner:           ownerUUID,
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
 		CloudType:       "ec2",

@@ -84,6 +84,14 @@ type ModelDetailArgs struct {
 	// Must not be empty for a valid struct.
 	Name string
 
+	// OwnerName is the owner of the model.
+	OwnerName user.Name
+
+	// Owner is the uuid of the user that owns this model in the Juju
+	// controller. Prefer this value over [ModelDetailArgs.OwnerName] when
+	// referencing the owner in the controller.
+	Owner user.UUID
+
 	// Type is the type of the model.
 	// Type must satisfy IsValid() for a valid struct.
 	Type coremodel.ModelType

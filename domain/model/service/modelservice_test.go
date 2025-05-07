@@ -20,6 +20,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
+	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/constraints"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -666,10 +667,14 @@ func (s *providerModelServiceSuite) TestCreateModel(c *gc.C) {
 
 	controllerUUID := uuid.MustNewUUID()
 	modelUUID := modeltesting.GenModelUUID(c)
+	ownerUUID := usertesting.GenUserUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
 	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
 		UUID:           modelUUID,
 		ControllerUUID: controllerUUID,
 		Name:           "my-awesome-model",
+		OwnerName:      ownerName,
+		Owner:          ownerUUID,
 		Cloud:          "aws",
 		CloudType:      "ec2",
 		CloudRegion:    "myregion",
@@ -679,6 +684,8 @@ func (s *providerModelServiceSuite) TestCreateModel(c *gc.C) {
 		UUID:           modelUUID,
 		ControllerUUID: controllerUUID,
 		Name:           "my-awesome-model",
+		OwnerName:      ownerName,
+		Owner:          ownerUUID,
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",
 		CloudType:      "ec2",
@@ -710,9 +717,13 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *g
 
 	controllerUUID := uuid.MustNewUUID()
 	modelUUID := modeltesting.GenModelUUID(c)
+	ownerUUID := usertesting.GenUserUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
 	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
 		UUID:           modelUUID,
 		Name:           "my-awesome-model",
+		OwnerName:      ownerName,
+		Owner:          ownerUUID,
 		ControllerUUID: controllerUUID,
 		Cloud:          "aws",
 		CloudType:      "ec2",
@@ -723,6 +734,8 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *g
 		UUID:           modelUUID,
 		ControllerUUID: controllerUUID,
 		Name:           "my-awesome-model",
+		OwnerName:      ownerName,
+		Owner:          ownerUUID,
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",
 		CloudType:      "ec2",

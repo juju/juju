@@ -46,13 +46,17 @@ func (s *modelSuite) createTestModel(c *gc.C) coremodel.UUID {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	id := modeltesting.GenModelUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:            id,
+		UUID:            uuid,
 		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
+		OwnerName:       ownerName,
+		Owner:           ownerUUID,
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
 		CloudType:       "ec2",
@@ -62,20 +66,24 @@ func (s *modelSuite) createTestModel(c *gc.C) coremodel.UUID {
 	}
 	err := state.Create(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	return id
+	return uuid
 }
 
 func (s *modelSuite) TestCreateAndReadModel(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	id := modeltesting.GenModelUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:            id,
+		UUID:            uuid,
 		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
+		OwnerName:       ownerName,
+		Owner:           ownerUUID,
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
 		CloudType:       "ec2",
@@ -90,7 +98,7 @@ func (s *modelSuite) TestCreateAndReadModel(c *gc.C) {
 	model, err := state.GetModel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(model, jc.DeepEquals, coremodel.ModelInfo{
-		UUID:            id,
+		UUID:            uuid,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
@@ -107,13 +115,17 @@ func (s *modelSuite) TestDeleteModel(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	id := modeltesting.GenModelUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:            id,
+		UUID:            uuid,
 		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
+		OwnerName:       ownerName,
+		Owner:           ownerUUID,
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
 		CloudType:       "ec2",
@@ -124,10 +136,10 @@ func (s *modelSuite) TestDeleteModel(c *gc.C) {
 	err := state.Create(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = state.Delete(context.Background(), id)
+	err = state.Delete(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = state.Delete(context.Background(), id)
+	err = state.Delete(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 
 	// Check that it was written correctly.
@@ -141,13 +153,17 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 
 	// Ensure that we can't create the same model twice.
 
-	id := modeltesting.GenModelUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:           id,
+		UUID:           uuid,
 		AgentStream:    modelagent.AgentStreamReleased,
 		AgentVersion:   jujuversion.Current,
 		ControllerUUID: s.controllerUUID,
 		Name:           "my-awesome-model",
+		OwnerName:      ownerName,
+		Owner:          ownerUUID,
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",
 		CloudType:      "ec2",
@@ -165,11 +181,15 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 
 	// Ensure that you can only ever insert one model.
 
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	err := state.Create(context.Background(), model.ModelDetailArgs{
 		UUID:         modeltesting.GenModelUUID(c),
 		AgentStream:  modelagent.AgentStreamReleased,
 		AgentVersion: jujuversion.Current,
 		Name:         "my-awesome-model",
+		OwnerName:    ownerName,
+		Owner:        ownerUUID,
 		Type:         coremodel.IAAS,
 		Cloud:        "aws",
 		CloudType:    "ec2",
@@ -182,6 +202,8 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 		AgentStream:  modelagent.AgentStreamReleased,
 		AgentVersion: jujuversion.Current,
 		Name:         "my-awesome-model",
+		OwnerName:    ownerName,
+		Owner:        ownerUUID,
 		Type:         coremodel.IAAS,
 		Cloud:        "aws",
 		CloudType:    "ec2",
@@ -196,13 +218,17 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 
 	// Ensure that you can't update it.
 
-	id := modeltesting.GenModelUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	err := state.Create(context.Background(), model.ModelDetailArgs{
-		UUID:           id,
+		UUID:           uuid,
 		AgentStream:    modelagent.AgentStreamReleased,
 		AgentVersion:   jujuversion.Current,
 		ControllerUUID: s.controllerUUID,
 		Name:           "my-awesome-model",
+		OwnerName:      ownerName,
+		Owner:          ownerUUID,
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",
 		CloudType:      "ec2",
@@ -211,7 +237,7 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
-	_, err = db.ExecContext(context.Background(), "UPDATE model SET name = 'new-name' WHERE uuid = $1", id)
+	_, err = db.ExecContext(context.Background(), "UPDATE model SET name = 'new-name' WHERE uuid = $1", uuid)
 	c.Assert(err, gc.ErrorMatches, `model table is immutable, only insertions are allowed`)
 }
 
@@ -226,12 +252,16 @@ func (s *modelSuite) CreateModelWithEmptyCloudRegion(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	id := modeltesting.GenModelUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	err := state.Create(context.Background(), model.ModelDetailArgs{
-		UUID:         id,
+		UUID:         uuid,
 		AgentStream:  modelagent.AgentStreamReleased,
 		AgentVersion: jujuversion.Current,
 		Name:         "my-awesome-model",
+		OwnerName:    ownerName,
+		Owner:        ownerUUID,
 		Type:         coremodel.IAAS,
 		Cloud:        "aws",
 		CloudType:    "ec2",
@@ -253,12 +283,16 @@ func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 
 	// Ensure that you can't update it.
 
-	id := modeltesting.GenModelUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	err := state.Create(context.Background(), model.ModelDetailArgs{
-		UUID:         id,
+		UUID:         uuid,
 		AgentStream:  modelagent.AgentStreamReleased,
 		AgentVersion: jujuversion.Current,
 		Name:         "my-awesome-model",
+		OwnerName:    ownerName,
+		Owner:        ownerUUID,
 		Type:         coremodel.IAAS,
 		Cloud:        "aws",
 		CloudType:    "ec2",
@@ -267,7 +301,7 @@ func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
-	_, err = db.ExecContext(context.Background(), "DELETE FROM model WHERE uuid = $1", id)
+	_, err = db.ExecContext(context.Background(), "DELETE FROM model WHERE uuid = $1", uuid)
 	c.Assert(err, gc.ErrorMatches, `model table is immutable, only insertions are allowed`)
 }
 
@@ -564,14 +598,18 @@ func (s *modelSuite) TestGetModelCloudType(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	id := modeltesting.GenModelUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
-		UUID:            id,
+		UUID:            uuid,
 		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "mymodel",
+		OwnerName:       ownerName,
+		Owner:           ownerUUID,
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
 		CloudType:       cloudType,
@@ -600,6 +638,8 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
 		UUID:            uuid,
@@ -607,6 +647,8 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *gc.C) {
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "mymodel",
+		OwnerName:       ownerName,
+		Owner:           ownerUUID,
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
 		CloudType:       cloudType,
@@ -644,6 +686,8 @@ func (s *modelSuite) TestIsControllerModelTrue(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
 		UUID:              uuid,
@@ -651,6 +695,8 @@ func (s *modelSuite) TestIsControllerModelTrue(c *gc.C) {
 		AgentVersion:      jujuversion.Current,
 		ControllerUUID:    s.controllerUUID,
 		Name:              "mycontrollermodel",
+		OwnerName:         ownerName,
+		Owner:             ownerUUID,
 		Type:              coremodel.IAAS,
 		Cloud:             "aws",
 		CloudType:         cloudType,
@@ -672,6 +718,8 @@ func (s *modelSuite) TestIsControllerModelFalse(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
 		UUID:              uuid,
@@ -679,6 +727,8 @@ func (s *modelSuite) TestIsControllerModelFalse(c *gc.C) {
 		AgentVersion:      jujuversion.Current,
 		ControllerUUID:    s.controllerUUID,
 		Name:              "mycontrollermodel",
+		OwnerName:         ownerName,
+		Owner:             ownerUUID,
 		Type:              coremodel.IAAS,
 		Cloud:             "aws",
 		CloudType:         cloudType,
@@ -722,6 +772,8 @@ func (s *modelSuite) TestGetControllerUUID(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
 		UUID:              uuid,
@@ -730,6 +782,8 @@ func (s *modelSuite) TestGetControllerUUID(c *gc.C) {
 		ControllerUUID:    s.controllerUUID,
 		Name:              "mycontrollermodel",
 		Type:              coremodel.CAAS,
+		OwnerName:         ownerName,
+		Owner:             ownerUUID,
 		Cloud:             "aws",
 		CloudType:         cloudType,
 		CloudRegion:       "myregion",

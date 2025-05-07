@@ -4,11 +4,13 @@
 --
 -- The model table primarily is used to drive the provider tracker. The model
 -- table should *not* be changed in a patch/build release. The only time to make
--- changes to this table is during a major/minor release. 
+-- changes to this table is during a major/minor release.
 CREATE TABLE model (
     uuid TEXT NOT NULL PRIMARY KEY,
     controller_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
+    owner_name TEXT NOT NULL,
+    owner_uuid TEXT NOT NULL,
     type TEXT NOT NULL,
     cloud TEXT NOT NULL,
     cloud_type TEXT NOT NULL,

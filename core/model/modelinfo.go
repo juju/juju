@@ -20,6 +20,13 @@ type ModelInfo struct {
 	// Name is the name of the model.
 	Name string
 
+	// OwnerName is the owner of the model.
+	OwnerName user.Name
+
+	// Owner is the owner uuid of the model. Prefer this value over
+	// [ModelInfo.Owner] when referencing users in the controller.
+	Owner user.UUID
+
 	// Type is the type of the model.
 	Type ModelType
 
@@ -33,9 +40,17 @@ type ModelInfo struct {
 	CloudRegion string
 
 	// CredentialOwner is the owner of the model.
+	//
+	// Deprecated: (tlm) This value should not be used in place of the model's
+	// owner. This value is also likely to change over the life of a model and
+	// shouldn't be considered up to date. This field will be removed soon.
 	CredentialOwner user.Name
 
 	// Credential name is the name of the credential to use for the model.
+	//
+	// Deprecated: (tlm) This value should not be used as it isn't considered
+	// static over the life of the model and may change. Do not rely on this
+	// value as it may not be correct.
 	CredentialName string
 
 	// IsControllerModel is a boolean value that indicates if the model is the

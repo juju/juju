@@ -303,6 +303,8 @@ type dbReadOnlyModel struct {
 	UUID              string         `db:"uuid"`
 	ControllerUUID    string         `db:"controller_uuid"`
 	Name              string         `db:"name"`
+	OwnerName         string         `db:"owner_name"`
+	OwnerUUID         string         `db:"owner_uuid"`
 	Type              string         `db:"type"`
 	Cloud             string         `db:"cloud"`
 	CloudType         string         `db:"cloud_type"`

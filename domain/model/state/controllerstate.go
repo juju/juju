@@ -447,6 +447,7 @@ WHERE uuid = $dbModel.uuid
 	info := coremodel.ModelInfo{
 		UUID:           coremodel.UUID(model.UUID),
 		Name:           model.Name,
+		Owner:          user.UUID(model.OwnerUUID),
 		Type:           coremodel.ModelType(model.ModelType),
 		Cloud:          model.CloudName,
 		CloudType:      model.CloudType,
@@ -454,11 +455,20 @@ WHERE uuid = $dbModel.uuid
 		CredentialName: model.CredentialName.String,
 	}
 
-	if owner := model.CredentialOwnerName; owner != "" {
-		info.CredentialOwner, err = user.NewName(owner)
+	owner, err := user.NewName(model.OwnerName)
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Errorf(
+			"parsing model %q owner username %q: %w",
+			model.UUID, model.OwnerName, err,
+		)
+	}
+	info.OwnerName = owner
+
+	if model.CredentialOwnerName.Valid {
+		info.CredentialOwner, err = user.NewName(model.CredentialOwnerName.String)
 		if err != nil {
 			return coremodel.ModelInfo{}, errors.Errorf(
-				"parsing model %q owner username %q: %w",
+				"parsing model %q credential owner username %q: %w",
 				model.UUID, owner, err)
 
 		}
@@ -931,29 +941,29 @@ func (s *State) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 		return nil, errors.Capture(err)
 	}
 
-	rval := []coremodel.Model{}
+	var result []dbModel
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var result []dbModel
-		if err := tx.Query(ctx, modelStmt).GetAll(&result); errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		for _, r := range result {
-			model, err := r.toCoreModel()
-			if err != nil {
-				return errors.Capture(err)
-			}
-
-			rval = append(rval, model)
+		err := tx.Query(ctx, modelStmt).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
 		}
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, errors.Errorf("getting all models: %w", err)
+	}
+
+	rval := make([]coremodel.Model, 0, len(result))
+	for i, r := range result {
+		model, err := r.toCoreModel()
+		if err != nil {
+			return nil, errors.Errorf(
+				"converting database result %d for model %q to core model type: %w",
+				i, r.UUID, err,
+			)
+		}
+		rval = append(rval, model)
 	}
 
 	return rval, nil

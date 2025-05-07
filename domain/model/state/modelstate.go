@@ -922,6 +922,8 @@ func InsertModelInfo(
 		UUID:           args.UUID.String(),
 		ControllerUUID: args.ControllerUUID.String(),
 		Name:           args.Name,
+		OwnerName:      args.OwnerName.String(),
+		OwnerUUID:      args.Owner.String(),
 		Type:           args.Type.String(),
 		Cloud:          args.Cloud,
 		CloudType:      args.CloudType,

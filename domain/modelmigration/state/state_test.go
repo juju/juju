@@ -39,13 +39,17 @@ func (s *migrationSuite) SetUpTest(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	id := modeltesting.GenModelUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
+	ownerName := usertesting.GenNewName(c, "tlm")
+	ownerUUID := usertesting.GenUserUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:            id,
+		UUID:            uuid,
 		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
+		OwnerName:       ownerName,
+		Owner:           ownerUUID,
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
 		CloudType:       "ec2",

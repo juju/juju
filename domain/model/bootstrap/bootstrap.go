@@ -181,6 +181,8 @@ func CreateLocalModelRecordWithAgentStream(
 			UUID:              m.UUID,
 			ControllerUUID:    controllerUUID,
 			Name:              m.Name,
+			OwnerName:         m.OwnerName,
+			Owner:             m.Owner,
 			Type:              m.ModelType,
 			Cloud:             m.Cloud,
 			CloudRegion:       m.CloudRegion,
