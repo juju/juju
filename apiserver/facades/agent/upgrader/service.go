@@ -90,3 +90,11 @@ type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
 	ModelConfig(ctx context.Context) (*config.Config, error)
 }
+
+// ApplicationService provides access to the application service.
+type ApplicationService interface {
+	// GetUnitMachineName gets the name of the unit's machine. If the unit's
+	// machine cannot be found [applicationerrors.UnitMachineNotAssigned] is
+	// returned.
+	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (machine.Name, error)
+}
