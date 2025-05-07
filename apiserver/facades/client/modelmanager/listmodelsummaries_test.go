@@ -99,7 +99,6 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil,
 		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser,
 	)
 
@@ -140,7 +139,6 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil,
 		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser,
 	)
 }

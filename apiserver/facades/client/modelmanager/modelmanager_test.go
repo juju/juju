@@ -222,7 +222,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, common.NewBlockChecker(s.blockCommandService),
+		common.NewBlockChecker(s.blockCommandService),
 		s.authoriser,
 	)
 
@@ -244,7 +244,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 			ApplicationService:   s.applicationService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, common.NewBlockChecker(s.blockCommandService),
+		common.NewBlockChecker(s.blockCommandService),
 		s.authoriser,
 	)
 
@@ -274,7 +274,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			ApplicationService:   s.applicationService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, common.NewBlockChecker(s.blockCommandService),
+		common.NewBlockChecker(s.blockCommandService),
 		s.authoriser,
 	)
 }
@@ -302,8 +302,8 @@ func (s *modelManagerSuite) expectCreateModel(
 	}
 
 	// Get the default cloud name and credential.
-	s.modelService.EXPECT().DefaultModelCloudInfoAndCredential(
-		gomock.Any()).Return("dummy", "dummy-region", defaultCred, nil)
+	s.modelService.EXPECT().DefaultModelCloudInfo(
+		gomock.Any()).Return("dummy", "dummy-region", nil)
 	// Get the uuid of the model owner.
 	s.accessService.EXPECT().GetUserByName(
 		gomock.Any(), ownerName,
@@ -326,6 +326,7 @@ func (s *modelManagerSuite) expectCreateModel(
 		Name:        "foo",
 		UUID:        modelUUID,
 		Owner:       ownerUUID,
+		OwnerName:   ownerName,
 		Cloud:       expectedCloudName,
 		CloudRegion: expectedCloudRegion,
 	}
@@ -813,8 +814,8 @@ func (s *modelManagerSuite) TestDumpModelUsers(c *gc.C) {
 func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.modelService.EXPECT().DefaultModelCloudInfoAndCredential(
-		gomock.Any()).Return("dummy", "dummy-region", credential.Key{}, nil)
+	s.modelService.EXPECT().DefaultModelCloudInfo(
+		gomock.Any()).Return("dummy", "dummy-region", nil)
 
 	addModelUser := names.NewUserTag("add-model")
 
@@ -929,12 +930,9 @@ func (s *modelManagerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	st := commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
-	ctlrSt := commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
 
 	domainServices := s.ControllerDomainServices(c)
 
-	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
-	toolsFinder := common.NewToolsFinder(s.controllerConfigService, st, urlGetter, s.store, nil)
 	s.modelmanager = modelmanager.NewModelManagerAPI(
 		context.Background(),
 		mockCredentialShim{ModelManagerBackend: st},
@@ -952,7 +950,6 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			ObjectStore:          &mockObjectStore{},
 			ApplicationService:   s.applicationService,
 		},
-		toolsFinder,
 		common.NewBlockChecker(s.blockCommandService),
 		s.authoriser,
 	)
@@ -973,8 +970,8 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	ownerUUID := usertesting.GenUserUUID(c)
 
 	// Get the default cloud name and credential.
-	s.modelService.EXPECT().DefaultModelCloudInfoAndCredential(
-		gomock.Any()).Return("dummy", "dummy-region", credential.Key{}, nil)
+	s.modelService.EXPECT().DefaultModelCloudInfo(
+		gomock.Any()).Return("dummy", "dummy-region", nil)
 	// Get the uuid of the model owner.
 	s.accessService.EXPECT().GetUserByName(
 		gomock.Any(), ownerName,

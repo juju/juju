@@ -46,23 +46,8 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	domainServices := ctx.DomainServices()
-	controllerConfigService := domainServices.ControllerConfig()
-
 	st := ctx.State()
 	pool := ctx.StatePool()
-
-	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), systemState)
-	toolsFinder := common.NewToolsFinder(
-		controllerConfigService, st, urlGetter,
-		ctx.ControllerObjectStore(),
-		domainServices.AgentBinary(),
-	)
 
 	model, err := st.Model()
 	if err != nil {
@@ -91,6 +76,8 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		return svc.Status(), nil
 	}
 
+	domainServices := ctx.DomainServices()
+
 	return NewModelManagerAPI(
 		stdCtx,
 		backend,
@@ -105,7 +92,6 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 			DomainServicesGetter: domainServicesGetter,
 			CredentialService:    domainServices.Credential(),
 			ModelService:         domainServices.Model(),
-			ModelAgentService:    domainServices.Agent(),
 			ModelDefaultsService: domainServices.ModelDefaults(),
 			AccessService:        domainServices.Access(),
 			ObjectStore:          ctx.ObjectStore(),
@@ -114,7 +100,6 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 			MachineService:       domainServices.Machine(),
 			ApplicationService:   domainServices.Application(),
 		},
-		toolsFinder,
 		common.NewBlockChecker(domainServices.BlockCommand()),
 		auth,
 	), nil

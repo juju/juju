@@ -74,15 +74,11 @@ type ModelManagerAPI struct {
 	applicationService   ApplicationService
 	credentialService    CredentialService
 	modelService         ModelService
-	modelAgentService    ModelAgentService
 	modelDefaultsService ModelDefaultsService
 	secretBackendService SecretBackendService
 
 	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error)
 	store         objectstore.ObjectStore
-
-	// ToolsFinder is used to find tools for a given version.
-	toolsFinder common.ToolsFinder
 
 	controllerUUID uuid.UUID
 }
@@ -98,7 +94,6 @@ func NewModelManagerAPI(
 	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	controllerUUID uuid.UUID,
 	services Services,
-	toolsFinder common.ToolsFinder,
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
 ) *ModelManagerAPI {
@@ -111,11 +106,9 @@ func NewModelManagerAPI(
 		modelExporter:        modelExporter,
 		credentialService:    services.CredentialService,
 		applicationService:   services.ApplicationService,
-		modelAgentService:    services.ModelAgentService,
 		store:                services.ObjectStore,
 		check:                blockChecker,
 		authorizer:           authorizer,
-		toolsFinder:          toolsFinder,
 		apiUser:              apiUser,
 		isAdmin:              isAdmin,
 		modelService:         services.ModelService,
@@ -182,7 +175,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// Juju users when creating their first models we allow them to omit this
 	// information from the model creation args. If they have done exactly this
 	// we will try and apply the defaults where authorisation allows us to.
-	defaultCloudName, defaultCloudRegion, _, err := m.modelService.DefaultModelCloudInfoAndCredential(ctx)
+	defaultCloudName, defaultCloudRegion, err := m.modelService.DefaultModelCloudInfo(ctx)
 	if err != nil {
 		return result, errors.New("cannot find default model cloud and credential")
 	}
@@ -196,11 +189,11 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		}
 	} else {
 		cloudTag = names.NewCloudTag(defaultCloudName)
-		if args.CloudRegion == "" {
-			// We only set a cloud region default if the user has not supplied one and
-			// the cloud to use is the same as that of defaultCloudName.
-			args.CloudRegion = defaultCloudRegion
-		}
+	}
+	// We only set a cloud region default if the user has not supplied one and
+	// the cloud to use is the same as that of defaultCloudName.
+	if args.CloudRegion == "" && cloudTag.Id() == defaultCloudName {
+		args.CloudRegion = defaultCloudRegion
 	}
 
 	if !m.isAdmin {
@@ -302,14 +295,12 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotatef(err, "reloading spaces for model %q", creationArgs.Name)
 	}
 
-	modelTag := names.NewModelTag(modelUUID.String())
-
 	newConfig, err := modelDomainServices.Config().ModelConfig(ctx)
 	if err != nil {
 		return result, errors.Annotatef(err, "getting config for %q", creationArgs.Name)
 	}
 
-	modelInfo, err := m.getModelInfo(ctx, modelTag, true)
+	modelInfo, err := m.getModelInfo(ctx, modelUUID)
 	if err != nil {
 		return result, err
 	}
@@ -714,7 +705,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 		Results: make([]params.ModelInfoResult, len(args.Entities)),
 	}
 
-	canWrite := func(tag names.ModelTag) bool {
+	checkWritePermission := func(tag names.ModelTag) bool {
 		if m.isAdmin {
 			return true
 		}
@@ -732,8 +723,15 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
+		canWrite := checkWritePermission(tag)
+		if !canWrite {
+			// If the logged in user does not have at least read permission, we return an error.
+			if err := m.authorizer.HasPermission(ctx, permission.WriteAccess, tag); err != nil {
+				return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+			}
+		}
 
-		modelInfo, err := m.getModelInfo(ctx, tag, false)
+		modelInfo, err := m.getModelInfo(ctx, coremodel.UUID(tag.Id()))
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -749,7 +747,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			valid := !cred.Invalid
 			modelInfo.CloudCredentialValidity = &valid
 		}
-		if canWrite(tag) {
+		if canWrite {
 			st, release, err := m.state.GetBackend(tag.Id())
 			if errors.Is(err, errors.NotFound) {
 				return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
@@ -806,29 +804,9 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 	return results, nil
 }
 
-func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, modelCreator bool) (params.ModelInfo, error) {
-	// If the user is a controller superuser, they are considered a model
-	// admin.
-	adminAccess := m.isAdmin || modelCreator
-	if !adminAccess {
-		// otherwise we do a check to see if the user has admin access to the model
-		err := m.authorizer.HasPermission(ctx, permission.AdminAccess, tag)
-		adminAccess = err == nil
-	}
-	// Admin users also have write access to the model.
-	writeAccess := adminAccess
-	if !writeAccess {
-		// Otherwise we do a check to see if the user has write access to the model.
-		err := m.authorizer.HasPermission(ctx, permission.WriteAccess, tag)
-		writeAccess = err == nil
-	}
+func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.UUID) (params.ModelInfo, error) {
+	modelTag := names.NewModelTag(modelUUID.String())
 
-	// If the logged in user does not have at least read permission, we return an error.
-	if err := m.authorizer.HasPermission(ctx, permission.ReadAccess, tag); !writeAccess && err != nil {
-		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
-	}
-
-	modelUUID := coremodel.UUID(tag.Id())
 	modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
 	if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
@@ -895,7 +873,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 
-	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, tag, user.NameFromTag(m.apiUser), adminAccess)
+	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, modelTag, user.NameFromTag(m.apiUser), m.isAdmin)
 	if err != nil {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}
