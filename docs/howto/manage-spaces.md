@@ -10,6 +10,7 @@ Juju can deploy to an IPv6 stack or an IPv4 stack, but not both at once (i.e., d
 
 ```
 
+(add-a-space)=
 ## Add a space
 
 Spaces are created with the `add-space` command. The following example creates a new space called `db-space` and associates the `172.31.0.0/20` subnet with it:
@@ -92,7 +93,7 @@ Spaces can also be renamed during controller configuration, via the `juju-ha-spa
 
 ## Remove a space
 
-You can delete a space using the `remove-space` command. 
+You can delete a space using the `remove-space` command.
 
 ```text
 $ juju remove-space public-space

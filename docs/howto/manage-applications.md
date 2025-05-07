@@ -5,6 +5,7 @@
 
 This document shows how to manage applications with Juju.
 
+(deploy-an-application)=
 ## Deploy an application
 
 To deploy an application, find and deploy a charm / bundle that delivers it.
@@ -279,6 +280,7 @@ Every time a unit is added to an application, Juju will spread out that applicat
 
 > See more: [Charmhub | `wordpress`](https://charmhub.io/wordpress), [Charmhub | `mediawiki`](https://charmhub.io/mediawiki), [Charmhub | `haproxy`](https://charmhub.io/haproxy)
 
+(integrate-an-application-with-another-application)=
 ## Integrate an application with another application
 
 > See more: {ref}`manage-relations`

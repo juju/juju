@@ -3,7 +3,7 @@
 
 > See also: {ref}`juju-cli`
 
-
+(install-juju)=
 ## Install `juju`
 
 ``````{tabs}
