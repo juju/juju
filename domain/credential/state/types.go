@@ -4,6 +4,8 @@
 package state
 
 import (
+	"database/sql"
+
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/internal/errors"
 )
@@ -103,12 +105,16 @@ type CredentialAttribute struct {
 	Value string `db:"value"`
 }
 
+type credentialInvalidReason struct {
+	Reason string `db:"invalid_reason"`
+}
+
 type credentialUUID struct {
 	UUID string `db:"uuid"`
 }
 
 type modelCredentialUUID struct {
-	UUID string `db:"cloud_credential_uuid"`
+	UUID sql.NullString `db:"cloud_credential_uuid"`
 }
 
 // dbCloudName represents the name of a cloud.
@@ -180,6 +186,18 @@ type credentialKey struct {
 	OwnerName      string `db:"owner_name"`
 }
 
+// modelCredentialStatus represents the cloud credential key and validity status
+// of the credential that is being used by a model. The members of this type
+// are considered optional with sql null types. If the values are null it
+// indicates that the model has no cloud credential set and that the cloud
+// supports empty auth type.
+type modelCredentialStatus struct {
+	CredentialName sql.NullString `db:"cloud_credential_name"`
+	CloudName      sql.NullString `db:"cloud_credential_cloud_name"`
+	OwnerName      sql.NullString `db:"cloud_credential_owner_name"`
+	Invalid        sql.NullBool   `db:"cloud_credential_invalid"`
+}
+
 type modelNameAndUUID struct {
 	Name string `db:"name"`
 	UUID string `db:"uuid"`
@@ -192,4 +210,8 @@ type ownerName struct {
 type ownerAndCloudName struct {
 	OwnerName string `db:"owner_name"`
 	CloudName string `db:"cloud_name"`
+}
+
+type modelUUID struct {
+	UUID string `db:"uuid"`
 }

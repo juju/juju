@@ -696,7 +696,7 @@ func (s *modelSuite) TestGetControllerUUID(c *gc.C) {
 		AgentVersion:      jujuversion.Current,
 		ControllerUUID:    s.controllerUUID,
 		Name:              "mycontrollermodel",
-		Type:              coremodel.IAAS,
+		Type:              coremodel.CAAS,
 		Cloud:             "aws",
 		CloudType:         cloudType,
 		CloudRegion:       "myregion",
@@ -710,4 +710,45 @@ func (s *modelSuite) TestGetControllerUUID(c *gc.C) {
 	controllerUUID, err := state.GetControllerUUID(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(controllerUUID, gc.Equals, s.controllerUUID)
+}
+
+// TestGetModelType is testing the happy path of getting the model type for the
+// current model.
+func (s *modelSuite) TestGetModelType(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	uuid := modeltesting.GenModelUUID(c)
+	cloudType := "ec2"
+	args := model.ModelDetailArgs{
+		UUID:              uuid,
+		AgentStream:       modelagent.AgentStreamReleased,
+		AgentVersion:      jujuversion.Current,
+		ControllerUUID:    s.controllerUUID,
+		Name:              "mycontrollermodel",
+		Type:              coremodel.CAAS,
+		Cloud:             "aws",
+		CloudType:         cloudType,
+		CloudRegion:       "myregion",
+		CredentialOwner:   usertesting.GenNewName(c, "myowner"),
+		CredentialName:    "mycredential",
+		IsControllerModel: false,
+	}
+	err := state.Create(context.Background(), args)
+	c.Check(err, jc.ErrorIsNil)
+
+	modelType, err := state.GetModelType(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(modelType, gc.Equals, coremodel.CAAS)
+}
+
+// TestGetModelTypeNotFound is testing the error path of getting the model type
+// when no model record has been created. This is expected to provide an error
+// that satisfies [modelerrors.NotFound].
+func (s *modelSuite) TestGetModelTypeNotFound(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	_, err := state.GetModelType(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }

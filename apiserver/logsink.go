@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/logsink"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -46,8 +47,9 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	}
 	defer func() { _ = st.Release() }()
 
+	modelUUID, _ := httpcontext.RequestModelUUID(req.Context())
 	s.entity = entity.Tag().String()
-	s.modelUUID = coremodel.UUID(st.ModelUUID())
+	s.modelUUID = coremodel.UUID(modelUUID)
 
 	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), s.modelUUID); err != nil {
 		return errors.Trace(err)

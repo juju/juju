@@ -8784,65 +8784,7 @@
         "Description": "",
         "Version": 1,
         "Schema": {
-            "type": "object",
-            "properties": {
-                "InvalidateModelCredential": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/InvalidateCredentialArg"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResult"
-                        }
-                    }
-                }
-            },
-            "definitions": {
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "InvalidateCredentialArg": {
-                    "type": "object",
-                    "properties": {
-                        "reason": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
-                }
-            }
+            "type": "object"
         }
     },
     {

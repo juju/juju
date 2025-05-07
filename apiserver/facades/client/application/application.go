@@ -108,10 +108,6 @@ type CaasBrokerInterface interface {
 
 func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, error) {
 
-	storageAccess, err := getStorageState(ctx.State())
-	if err != nil {
-		return nil, errors.Annotate(err, "getting state")
-	}
 	domainServices := ctx.DomainServices()
 	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
 
@@ -125,6 +121,11 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting model info: %w", err)
+	}
+
+	storageAccess, err := getStorageState(ctx.State(), modelInfo.Type)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting state")
 	}
 
 	leadershipReader, err := ctx.LeadershipReader()

@@ -79,7 +79,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	secretBackendService := domainServices.SecretBackend()
 	return NewModelManagerAPI(
 		stdCtx,
-		backend.(StateBackend),
+		backend,
 		func(c context.Context, modelUUID coremodel.UUID, legacyState facade.LegacyStateExporter) (ModelExporter, error) {
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},

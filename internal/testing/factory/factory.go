@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -30,7 +32,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
@@ -123,7 +124,7 @@ type RelationParams struct {
 
 type ModelParams struct {
 	Type                    state.ModelType
-	UUID                    *uuid.UUID
+	UUID                    coremodel.UUID
 	Name                    string
 	Owner                   names.Tag
 	ConfigAttrs             testing.Attrs
@@ -341,15 +342,12 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		cfgType = "kubernetes"
 	}
 
-	var modelUUID uuid.UUID
-	if params.UUID != nil {
-		modelUUID = *params.UUID
-	} else {
-		modelUUID = uuid.MustNewUUID()
+	if params.UUID == coremodel.UUID("") {
+		params.UUID = modeltesting.GenModelUUID(c)
 	}
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": params.Name,
-		"uuid": modelUUID.String(),
+		"uuid": params.UUID.String(),
 		"type": cfgType,
 	}.Merge(params.ConfigAttrs))
 	controller := state.NewController(factory.pool)

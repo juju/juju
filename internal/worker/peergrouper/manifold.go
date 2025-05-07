@@ -13,10 +13,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	coremodel "github.com/juju/juju/core/model"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
-	"github.com/juju/juju/state"
 )
 
 // ManifoldConfig holds the information necessary to run a peergrouper
@@ -72,7 +73,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
-func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -93,7 +94,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 
 	controllerConfigService := domainServices.ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context)
+	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -110,12 +111,15 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 
 	mongoSession := st.MongoSession()
 	agentConfig := agent.CurrentConfig()
-	model, err := st.Model()
+
+	ctrlModel, err := domainServices.Model().ControllerModel(ctx)
 	if err != nil {
 		_ = stTracker.Done()
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Errorf(
+			"getting controller model to determine high availability support: %w", err,
+		)
 	}
-	supportsHA := model.Type() != state.ModelTypeCAAS
+	supportsHA := ctrlModel.ModelType != coremodel.CAAS
 
 	w, err := config.NewWorker(Config{
 		State:                   StateShim{st},

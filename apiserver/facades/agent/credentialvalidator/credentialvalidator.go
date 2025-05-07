@@ -13,47 +13,69 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
+	corecredential "github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
-// CredentialService provides access to perform credentials operations.
+// CredentialService exposes service methods for interacting with any model's
+// credentials. This is used to define the exact interface that is required by
+// [credentialServiceShim].
 type CredentialService interface {
-	// CloudCredential returns the cloud credential for the given tag.
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
-
-	// InvalidateCredential marks the cloud credential for the given key as invalid.
-	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
-}
-
-// CloudService provides access to clouds.
-type CloudService interface {
-	// Cloud returns the named cloud.
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-}
-
-// ModelService provides access to the model.
-type ModelService interface {
-	// WatchModelCloudCredential returns a new NotifyWatcher watching for changes that
-	// result in the cloud spec for a model changing. The changes watched for are:
-	// - updates to model cloud.
-	// - updates to model credential.
-	// - changes to the credential set on a model.
+	// GetModelCredentialStatus returns the credential key that is in use by the
+	// model and also a bool indicating if the credential is considered valid.
 	// The following errors can be expected:
-	// - [modelerrors.NotFound] when the model is not found.
-	WatchModelCloudCredential(ctx context.Context, modelUUID model.UUID) (watcher.NotifyWatcher, error)
+	// - [credentialerrors.ModelCredentialNotSet] when the model does not have
+	// any credential set.
+	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
+	// not exist.
+	GetModelCredentialStatus(context.Context, coremodel.UUID) (corecredential.Key, bool, error)
+
+	// InvalidateModelCredential marks the cloud credential that is being used
+	// by the model uuid as invalid. This will affect all models that are using
+	// the credential.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/core/errors.NotValid] when the modelUUID is not
+	// valid.
+	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
+	// not exist.
+	InvalidateModelCredential(context.Context, coremodel.UUID, string) error
 }
 
-// ModelInfoService provides access to the model info.
-type ModelInfoService interface {
-	// GetModelInfo returns the readonly model information for the model in
-	// question.
-	GetModelInfo(ctx context.Context) (model.ModelInfo, error)
+// credentialServiceShim is a shim that implements the [ModelCredentialService]
+// on top of an existing [CredentialService]. This exists so that the caller
+// is scoped to that of a single model and cannot move sideways to other models
+// in the controller.
+type credentialServiceShim struct {
+	modelUUID coremodel.UUID
+	service   CredentialService
+}
+
+// ModelCredentialService exposes State methods needed by credential manager.
+type ModelCredentialService interface {
+	// GetModelCredentialStatus returns the credential key that is in use by the
+	// model and also a bool indicating of the credential is considered valid.
+	// The following errors can be expected:
+	// - [credentialerrors.ModelCredentialNotSet] when the model does not have
+	// any credential set.
+	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
+	// not exist.
+	GetModelCredentialStatus(context.Context) (corecredential.Key, bool, error)
+
+	// InvalidateModelCredential marks the cloud credential that is in by the
+	// model as invalid. This will affect all models that are using the
+	// credential.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/core/errors.NotValid] when the modelUUID is not
+	// valid.
+	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
+	// not exist.
+	InvalidateModelCredential(context.Context, string) error
 }
 
 // CredentialValidatorAPIV2 implements the credential validator API V2.
@@ -63,31 +85,57 @@ type CredentialValidatorAPIV2 struct {
 
 // CredentialValidatorAPI implements the credential validator API.
 type CredentialValidatorAPI struct {
-	logger                       logger.Logger
-	cloudService                 CloudService
-	credentialService            CredentialService
-	modelService                 ModelService
-	modelInfoService             ModelInfoService
+	credentialService            ModelCredentialService
+	modelTag                     names.ModelTag
 	modelCredentialWatcherGetter func(ctx context.Context) (watcher.NotifyWatcher, error)
 	watcherRegistry              facade.WatcherRegistry
 }
 
-func internalNewCredentialValidatorAPI(
-	cloudService CloudService, credentialService CredentialService,
-	modelService ModelService,
-	modelInfoService ModelInfoService,
+// GetModelCredentialStatus returns the credential key that is in use by the
+// model and also a bool indicating of the credential is considered valid.
+// The following errors can be expected:
+// - [credentialerrors.ModelCredentialNotSet] when the model does not have
+// any credential set.
+// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
+// not exist.
+//
+// Implements [ModelCredentialService].
+func (s *credentialServiceShim) GetModelCredentialStatus(
+	ctx context.Context,
+) (corecredential.Key, bool, error) {
+	return s.service.GetModelCredentialStatus(ctx, s.modelUUID)
+}
+
+// InvalidateModelCredential marks the cloud credential that is in use for
+// by the model as invalid. This will affect all models that are using the
+// credential.
+// The following errors can be expected:
+// - [github.com/juju/juju/core/errors.NotValid] when the modelUUID is not
+// valid.
+// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does
+// not exist.
+// - [github.com/juju/juju/domain/credential/errors.ModelCredentialNotSet] when
+// the model has no cloud credential set.
+//
+// Implements [ModelCredentialService].
+func (s *credentialServiceShim) InvalidateModelCredential(
+	ctx context.Context,
+	reason string,
+) error {
+	return s.service.InvalidateModelCredential(ctx, s.modelUUID, reason)
+}
+
+func NewCredentialValidatorAPI(
+	modelUUID coremodel.UUID,
+	credentialService ModelCredentialService,
 	modelCredentialWatcherGetter func(ctx context.Context) (watcher.NotifyWatcher, error),
 	watcherRegistry facade.WatcherRegistry,
-	logger logger.Logger,
 ) *CredentialValidatorAPI {
 	return &CredentialValidatorAPI{
-		cloudService:                 cloudService,
+		modelTag:                     names.NewModelTag(modelUUID.String()),
 		credentialService:            credentialService,
-		modelService:                 modelService,
-		modelInfoService:             modelInfoService,
 		modelCredentialWatcherGetter: modelCredentialWatcherGetter,
 		watcherRegistry:              watcherRegistry,
-		logger:                       logger,
 	}
 }
 
@@ -147,110 +195,35 @@ func (api *CredentialValidatorAPIV2) WatchCredential(ctx context.Context, tag pa
 
 // ModelCredential returns cloud credential information for a  model.
 func (api *CredentialValidatorAPI) ModelCredential(ctx context.Context) (params.ModelCredential, error) {
-	c, err := api.modelCredential(ctx)
+	exists := true
+	credKey, valid, err := api.credentialService.GetModelCredentialStatus(ctx)
+	switch {
+	case errors.Is(err, credentialerrors.ModelCredentialNotSet):
+		valid = true
+		exists = false
+	case errors.Is(err, modelerrors.NotFound):
+		return params.ModelCredential{}, internalerrors.New(
+			"model does not exist",
+		).Add(coreerrors.NotFound)
+	case err != nil:
+		return params.ModelCredential{}, internalerrors.Errorf(
+			"getting model credential status information: %w", err,
+		)
+	}
+
+	credTag, err := credKey.Tag()
 	if err != nil {
-		return params.ModelCredential{}, apiservererrors.ServerError(err)
+		return params.ModelCredential{}, internalerrors.Errorf(
+			"parsing credential key %q to tag: %w", credKey, err,
+		)
 	}
 
 	return params.ModelCredential{
-		Model:           c.Model.String(),
-		CloudCredential: c.CredentialTag.String(),
-		Exists:          c.Exists,
-		Valid:           c.Valid,
+		Model:           api.modelTag.String(),
+		CloudCredential: credTag.String(),
+		Exists:          exists,
+		Valid:           valid,
 	}, nil
-}
-
-// modelCredential stores model's cloud credential information.
-type modelCredential struct {
-	// Model is a model tag.
-	Model names.ModelTag
-
-	// Exists indicates whether the model has  a cloud credential.
-	// On some clouds, that only require "empty" auth, cloud credential
-	// is not needed for the models to function properly.
-	Exists bool
-
-	// CredentialTag is a cloud credential tag.
-	CredentialTag names.CloudCredentialTag
-
-	// Valid indicates that this model's cloud authentication is valid.
-	//
-	// If this model has a cloud credential setup,
-	// then this property indicates that this credential itself is valid.
-	//
-	// If this model has no cloud credential, then this property indicates
-	// whether or not it is valid for this model to have no credential.
-	// There are some clouds that do not require auth and, hence,
-	// models on these clouds do not require credentials.
-	//
-	// If a model is on the cloud that does require credential and
-	// the model's credential is not set, this property will be set to 'false'.
-	Valid bool
-}
-
-func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*modelCredential, error) {
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	exists := modelInfo.CredentialName != ""
-	modelTag := names.NewModelTag(modelInfo.UUID.String())
-
-	result := &modelCredential{Model: modelTag, Exists: exists}
-	if !exists {
-		// A model credential is not set, we must check if the model
-		// is on the cloud that requires a credential.
-		supportsEmptyAuth, err := api.cloudSupportsNoAuth(ctx, modelInfo.Cloud)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result.Valid = supportsEmptyAuth
-		if !supportsEmptyAuth {
-			// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
-			api.logger.Warningf(ctx, "model credential is not set for the model but the cloud requires it")
-		}
-		return result, nil
-	}
-
-	modelCredentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: modelInfo.CredentialOwner,
-		Name:  modelInfo.CredentialName,
-	}
-
-	modelCredentialTag, err := modelCredentialKey.Tag()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result.CredentialTag = modelCredentialTag
-
-	credential, err := api.credentialService.CloudCredential(ctx, modelCredentialKey)
-	if err != nil {
-		if !errors.Is(err, credentialerrors.CredentialNotFound) {
-			return nil, errors.Trace(err)
-		}
-		// In this situation, a model refers to a credential that does not exist in credentials collection.
-		// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
-		api.logger.Warningf(ctx, "cloud credential reference is set for the model but the credential content is no longer on the controller")
-		result.Valid = false
-		return result, nil
-	}
-	result.Valid = !credential.Invalid
-
-	return result, nil
-}
-
-func (api *CredentialValidatorAPI) cloudSupportsNoAuth(ctx context.Context, cloudName string) (bool, error) {
-	cl, err := api.cloudService.Cloud(ctx, cloudName)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	for _, authType := range cl.AuthTypes {
-		if authType == cloud.EmptyAuthType {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 // WatchModelCredential returns a NotifyWatcher that watches what cloud credential a model uses.
@@ -272,18 +245,22 @@ func (api *CredentialValidatorAPI) WatchModelCredential(ctx context.Context) (pa
 // This is only used by 3.6 agents and can be dropped in 4.x when we no
 // longer need to support migrating 3.6 models.
 func (api *CredentialValidatorAPIV2) InvalidateModelCredential(ctx context.Context, args params.InvalidateCredentialArg) (params.ErrorResult, error) {
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return params.ErrorResult{}, errors.Trace(err)
+	err := api.credentialService.InvalidateModelCredential(ctx, args.Reason)
+	switch {
+	case errors.Is(err, modelerrors.NotFound):
+		return params.ErrorResult{
+			Error: apiservererrors.ParamsErrorf(
+				params.CodeNotFound,
+				"model does not exist",
+			),
+		}, nil
+	// We don't care if the model has no credential set. We just ignore the
+	// error and treat this as a noop.
+	case errors.Is(err, credentialerrors.ModelCredentialNotSet):
+		return params.ErrorResult{}, nil
+	case err != nil:
+		return params.ErrorResult{}, err
 	}
-	modelCredentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: modelInfo.CredentialOwner,
-		Name:  modelInfo.CredentialName,
-	}
-	err = api.credentialService.InvalidateCredential(ctx, modelCredentialKey, args.Reason)
-	if err != nil {
-		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
-	}
+
 	return params.ErrorResult{}, nil
 }

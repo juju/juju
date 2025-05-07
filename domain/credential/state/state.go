@@ -15,13 +15,14 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/user"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	userstate "github.com/juju/juju/domain/access/state"
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
@@ -88,6 +89,77 @@ AND    cloud_name = $credentialKey.cloud_name
 		return "", errors.Errorf("fetching cloud credential %q: %w", key, err)
 	}
 	return corecredential.UUID(result.UUID), nil
+}
+
+// GetModelCredentialStatus returns the credential key and validity status for
+// the credential that is in use for the model. This func will only work with
+// models that are active. True is returned for credentials that are valid and
+// false for credentials that are considered invalid.
+// The following errors can be expected:
+// - [modelerrors.NotFound] if no model exists for the provided uuid.
+// - [credentialerrors.ModelCredentialNotSet] when the model does not have a
+// credential set. This is common when the cloud supports empty auth type.
+func (st *State) GetModelCredentialStatus(
+	ctx context.Context,
+	uuid coremodel.UUID,
+) (corecredential.Key, bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return corecredential.Key{}, false, errors.Capture(err)
+	}
+
+	modelUUID := modelUUID{UUID: uuid.String()}
+	vals := modelCredentialStatus{}
+	stmt, err := st.Prepare(`
+SELECT &modelCredentialStatus.*
+FROM   v_model
+WHERE  uuid = $modelUUID.uuid`,
+		modelUUID, vals,
+	)
+	if err != nil {
+		return corecredential.Key{}, false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, modelUUID).Get(&vals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"model %q does not exist", uuid,
+			).Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting model %q credential status: %w", uuid, err,
+			)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return corecredential.Key{}, false, errors.Capture(err)
+	}
+
+	if !vals.CredentialName.Valid ||
+		!vals.CloudName.Valid ||
+		!vals.OwnerName.Valid {
+		return corecredential.Key{}, false, errors.Errorf(
+			"model %q does not have a credential set", uuid,
+		).Add(credentialerrors.ModelCredentialNotSet)
+	}
+
+	owner, err := coreuser.NewName(vals.OwnerName.String)
+	if err != nil {
+		return corecredential.Key{}, false, errors.Errorf(
+			"parsing owner name %q for model %q cloud credential: %w",
+			vals.OwnerName.String, uuid, err,
+		)
+	}
+	credKey := corecredential.Key{
+		Name:  vals.CredentialName.String,
+		Cloud: vals.CloudName.String,
+		Owner: owner,
+	}
+
+	return credKey, !vals.Invalid.Bool, nil
 }
 
 // UpsertCloudCredential adds or updates a cloud credential with the given name,
@@ -325,60 +397,126 @@ WHERE  cloud.name = $dbCloudName.name
 	return result, errors.Capture(err)
 }
 
-// InvalidateCloudCredential marks a cloud credential with the given name, cloud and owner. as invalid.
-func (st *State) InvalidateCloudCredential(ctx context.Context, key corecredential.Key, reason string) error {
+// invalidateCloudCredential invalidates the provided cloud credential
+// identified by uuid.
+// The following errors can be expected:
+// - [credentialerrors.NotFound] when no credential is found for the
+// given uuid.
+func (st *State) invalidateCloudCredential(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid corecredential.UUID,
+	reason string,
+) error {
+	credentialUUID := credentialUUID{UUID: uuid.String()}
+	invalidReason := credentialInvalidReason{Reason: reason}
+	q := `
+UPDATE cloud_credential
+SET    invalid = true, invalid_reason = $credentialInvalidReason.invalid_reason
+WHERE  uuid = $credentialUUID.uuid
+`
+	stmt, err := st.Prepare(q, credentialUUID, invalidReason)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, stmt, credentialUUID, invalidReason).Get(&outcome)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	n, err := outcome.Result().RowsAffected()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if n == 0 {
+		return errors.Errorf(
+			"credential %q does not exist", uuid,
+		).Add(credentialerrors.NotFound)
+	}
+	return nil
+}
+
+// InvalidateCloudCredential marks a cloud credential for the provided uuid as
+// invalid.
+// The following errors can be expected:
+// - [credentialerrors.NotFound] when no credential is found for the
+// given uuid.
+func (st *State) InvalidateCloudCredential(ctx context.Context, uuid corecredential.UUID, reason string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	q := `
-UPDATE cloud_credential
-SET    invalid = true, invalid_reason = $M.invalid_reason
-FROM cloud
-WHERE  cloud_credential.name = $M.credential_name
-AND    cloud_credential.owner_uuid = (
-    SELECT uuid
-    FROM user
-    WHERE user.name = $M.owner
-	AND user.removed = false
-)
-AND    cloud_credential.cloud_uuid = (
-    SELECT uuid FROM cloud
-    WHERE name = $M.cloud_name
-)`
-	stmt, err := st.Prepare(q, sqlair.M{})
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.invalidateCloudCredential(ctx, tx, uuid, reason)
+	})
+}
+
+// InvalidateModelCloudCredential marks the cloud credential that is in use by
+// the given model as invalid. This will affect not just the model used to find
+// the cloud credential but all models that are using the same cloud credential
+// as the model provided.
+//
+// This function will only work with models that are active.
+// The following errors can be expected:
+// - [modelerrors.NotFound] if the no model exists for the provided uuid.
+// - [credentialerrors.ModelCredentialNotSet] when the model does not have a
+// cloud credential set.
+func (st *State) InvalidateModelCloudCredential(
+	ctx context.Context,
+	uuid coremodel.UUID,
+	reason string,
+) error {
+	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var outcome sqlair.Outcome
-		terms := sqlair.M{
-			"credential_name": key.Name,
-			"cloud_name":      key.Cloud,
-			"owner":           key.Owner.Name(),
+	modelUUID := modelUUID{UUID: uuid.String()}
+	modelCredentialUUID := modelCredentialUUID{}
+	stmt, err := st.Prepare(`
+SELECT &modelCredentialUUID.*
+FROM   v_model
+WHERE  uuid = $modelUUID.uuid`,
+		modelUUID, modelCredentialUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, modelUUID).Get(&modelCredentialUUID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf(
+				"model %q does not exist", uuid,
+			).Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting cloud credential uuid for model %q: %w",
+				uuid, err,
+			)
 		}
-		terms["invalid_reason"] = reason
-		err = tx.Query(ctx, stmt, terms).Get(&outcome)
-		if err != nil {
-			return errors.Capture(err)
+
+		// The model doesn't have a credential set so we return a
+		// [credentialerrors.ModelCredentialNotSet] error to let the caller
+		// decide what this implies.
+		if !modelCredentialUUID.UUID.Valid {
+			return errors.Errorf(
+				"model %q does not have a cloud credential set", uuid,
+			).Add(credentialerrors.ModelCredentialNotSet)
 		}
-		n, err := outcome.Result().RowsAffected()
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if n < 1 {
-			return errors.Errorf("credential %q for cloud %q owned by %q %w", key.Name, key.Cloud, key.Owner, coreerrors.NotFound)
-		}
-		return nil
+		return st.invalidateCloudCredential(
+			ctx,
+			tx,
+			corecredential.UUID(modelCredentialUUID.UUID.String),
+			reason,
+		)
 	})
-	return errors.Capture(err)
 }
 
 // CloudCredentialsForOwner returns the owner's cloud credentials for a given
 // cloud, keyed by credential name.
-func (st *State) CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]credential.CloudCredentialResult, error) {
+func (st *State) CloudCredentialsForOwner(ctx context.Context, owner coreuser.Name, cloudName string) (map[string]credential.CloudCredentialResult, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -494,7 +632,7 @@ AND    cc.name = $credentialKey.name
 	if len(dbRows) == 0 {
 		return credential.CloudCredentialResult{}, errors.Errorf(
 			"%w: credential %q for cloud %q owned by %q",
-			credentialerrors.CredentialNotFound, key.Name, key.Cloud, key.Owner)
+			credentialerrors.NotFound, key.Name, key.Cloud, key.Owner)
 
 	}
 	creds, err := dbRows.ToCloudCredentials(key.Cloud, dbAuthTypes, keyValues)
@@ -578,7 +716,7 @@ WHERE  uuid = $M.id
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
-func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[corecredential.Key]credential.CloudCredentialResult, error) {
+func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner coreuser.Name) (map[corecredential.Key]credential.CloudCredentialResult, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -675,8 +813,8 @@ WHERE  cloud_credential.uuid = $credentialUUID.uuid
 	updateModelStmt, err := st.Prepare(`
 UPDATE model
 SET    cloud_credential_uuid = NULL
-WHERE  cloud_credential_uuid = $modelCredentialUUID.cloud_credential_uuid
-`, modelCredentialUUID{})
+WHERE  cloud_credential_uuid = $credentialUUID.uuid
+`, credentialUUID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -688,13 +826,12 @@ WHERE  cloud_credential_uuid = $modelCredentialUUID.cloud_credential_uuid
 		}
 
 		// Remove the credential from any models using it.
-		modelCredUUID := modelCredentialUUID{UUID: uuid.String()}
-		err = tx.Query(ctx, updateModelStmt, modelCredUUID).Run()
+		credUUID := credentialUUID{UUID: uuid.String()}
+		err = tx.Query(ctx, updateModelStmt, credUUID).Run()
 		if err != nil {
 			return errors.Errorf("reseting model credentials: %w", err)
 		}
 
-		credUUID := credentialUUID{UUID: uuid.String()}
 		if err := tx.Query(ctx, credAttrDeleteStmt, credUUID).Run(); err != nil {
 			return errors.Errorf("deleting credential attributes: %w", err)
 		}

@@ -158,7 +158,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	err = json.Unmarshal(plaintext, &responsePayload)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responsePayload.CACert, gc.Equals, coretesting.CACert)
-	c.Assert(responsePayload.ControllerUUID, gc.Equals, s.ControllerModel(c).ControllerUUID())
+	c.Assert(responsePayload.ControllerUUID, gc.Equals, s.ControllerUUID)
 	if hasProxy {
 		c.Assert(responsePayload.ProxyConfig, gc.DeepEquals, &params.Proxy{
 			Type: "kubernetes-port-forward", Config: rawConfig,

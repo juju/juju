@@ -59,6 +59,12 @@ type ModelState interface {
 	// set for the model.
 	GetModelConstraints(context.Context) (constraints.Constraints, error)
 
+	// GetModelType returns the [coremodel.ModelType] for the current model.
+	// The following errors can be expected:
+	// - [modelerrors.NotFound] when no read only model has been established in
+	// the model's state layer.
+	GetModelType(context.Context) (coremodel.ModelType, error)
+
 	// SetModelConstraints sets the model constraints to the new values removing
 	// any previously set values.
 	// The following error types can be expected:
@@ -197,8 +203,15 @@ func (s *ModelService) GetModelMetrics(ctx context.Context) (coremodel.ModelMetr
 	return s.modelSt.GetModelMetrics(ctx)
 }
 
+// GetModelType returns the [coremodel.ModelType] for the current model.
+// The following errors can be expected:
+// - [modelerrors.NotFound] when the model does not exist.
+func (s *ModelService) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
+	return s.modelSt.GetModelType(ctx)
+}
+
 // CreateModel is responsible for creating a new model within the model
-// database.
+// database, using the input agent version.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists] when the model uuid is already in use.
@@ -226,8 +239,8 @@ func (s *ModelService) CreateModelWithAgentVersion(
 	return s.CreateModelWithAgentVersionStream(ctx, agentVersion, defaultAgentStream)
 }
 
-// CreateModelForVersion is responsible for creating a new model within the
-// model database, using the input agent version and agent stream.
+// CreateModelWithAgentVersionStream is responsible for creating a new model
+// within the model database, using the input agent version and agent stream.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists] when the model uuid is already in use.

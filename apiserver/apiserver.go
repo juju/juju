@@ -679,11 +679,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 
 	var endpoints []apihttp.Endpoint
-	systemState, err := srv.shared.statePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerModelUUID := systemState.ModelUUID()
+	controllerModelUUID := srv.shared.controllerModelUUID
 
 	httpAuthenticator := authentication.HTTPStrategicAuthenticator(srv.httpAuthenticators)
 
@@ -718,7 +714,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			} else {
 				h = &httpcontext.ControllerModelHandler{
 					Handler:             h,
-					ControllerModelUUID: coremodel.UUID(controllerModelUUID),
+					ControllerModelUUID: controllerModelUUID,
 				}
 			}
 		}
@@ -752,7 +748,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
-		controllerModelUUID,
+		controllerModelUUID.String(),
 	)
 	logSinkAuthorizer := tagKindAuthorizer(stateauthenticator.AgentTags)
 	logTransferHandler := logsink.NewHTTPHandler(
@@ -762,7 +758,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		httpCtxt.stop(),
 		nil, // no rate-limiting
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
-		controllerModelUUID,
+		controllerModelUUID.String(),
 	)
 
 	charmsObjectsAuthorizer := tagKindAuthorizer{names.UserTagKind}
@@ -859,7 +855,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	), "units")
 
 	controllerAdminAuthorizer := controllerAdminAuthorizer{
-		controllerTag: systemState.ControllerTag(),
+		controllerTag: names.NewControllerTag(srv.shared.controllerUUID),
 	}
 
 	migrateObjectsCharmsHTTPHandler := srv.monitoredHandler(objects.NewObjectsCharmHTTPHandler(

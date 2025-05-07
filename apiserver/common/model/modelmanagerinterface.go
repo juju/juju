@@ -41,7 +41,6 @@ type ModelManagerBackend interface {
 	IsController() bool
 	ControllerNodes() ([]ControllerNode, error)
 	Unit(name string) (*state.Unit, error)
-	Name() string
 	ModelTag() names.ModelTag
 	AllMachines() (machines []Machine, err error)
 	AllFilesystems() ([]state.Filesystem, error)
@@ -90,7 +89,6 @@ type Model interface {
 	// TODO(aflynn): ControllerUUID is only here because the EnvironConfigGetter
 	// needs a Model with this model. Once this is gone ControllerUUID can be
 	// removed from this interface.
-	ControllerUUID() string
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }
 
@@ -229,11 +227,6 @@ func (st modelManagerStateShim) GetModel(modelUUID string) (Model, func() bool, 
 // Model implements ModelManagerBackend.
 func (st modelManagerStateShim) Model() (Model, error) {
 	return modelShim{Model: st.model}, nil
-}
-
-// Name implements ModelManagerBackend.
-func (st modelManagerStateShim) Name() string {
-	return st.model.Name()
 }
 
 func (st modelManagerStateShim) ControllerNodes() ([]ControllerNode, error) {

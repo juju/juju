@@ -50,15 +50,17 @@ func (s leadershipPinningBackend) Machine(name string) (LeadershipMachine, error
 // This signature is suitable for facade registration.
 func NewLeadershipPinningFromContext(ctx facade.ModelContext) (*LeadershipPinning, error) {
 	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	pinner, err := ctx.LeadershipPinner()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewLeadershipPinning(leadershipPinningBackend{st}, model.ModelTag(), pinner, ctx.Auth())
+	modelTag := names.NewModelTag(ctx.ModelUUID().String())
+	return NewLeadershipPinning(
+		leadershipPinningBackend{st},
+		modelTag,
+		pinner,
+		ctx.Auth(),
+	)
 }
 
 // NewLeadershipPinning creates and returns a new leadership API from the

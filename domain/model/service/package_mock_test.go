@@ -545,6 +545,45 @@ func (c *MockModelStateGetModelMetricsCall) DoAndReturn(f func(context.Context) 
 	return c
 }
 
+// GetModelType mocks base method.
+func (m *MockModelState) GetModelType(arg0 context.Context) (model.ModelType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelType", arg0)
+	ret0, _ := ret[0].(model.ModelType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelType indicates an expected call of GetModelType.
+func (mr *MockModelStateMockRecorder) GetModelType(arg0 any) *MockModelStateGetModelTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelType", reflect.TypeOf((*MockModelState)(nil).GetModelType), arg0)
+	return &MockModelStateGetModelTypeCall{Call: call}
+}
+
+// MockModelStateGetModelTypeCall wrap *gomock.Call
+type MockModelStateGetModelTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetModelTypeCall) Return(arg0 model.ModelType, arg1 error) *MockModelStateGetModelTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetModelTypeCall) Do(f func(context.Context) (model.ModelType, error)) *MockModelStateGetModelTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetModelTypeCall) DoAndReturn(f func(context.Context) (model.ModelType, error)) *MockModelStateGetModelTypeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsControllerModel mocks base method.
 func (m *MockModelState) IsControllerModel(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
@@ -1186,45 +1225,6 @@ func (c *MockStateGetModelLifeCall) Do(f func(context.Context, model.UUID) (life
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetModelLifeCall) DoAndReturn(f func(context.Context, model.UUID) (life.Life, error)) *MockStateGetModelLifeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetModelType mocks base method.
-func (m *MockState) GetModelType(arg0 context.Context, arg1 model.UUID) (model.ModelType, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelType", arg0, arg1)
-	ret0, _ := ret[0].(model.ModelType)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetModelType indicates an expected call of GetModelType.
-func (mr *MockStateMockRecorder) GetModelType(arg0, arg1 any) *MockStateGetModelTypeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelType", reflect.TypeOf((*MockState)(nil).GetModelType), arg0, arg1)
-	return &MockStateGetModelTypeCall{Call: call}
-}
-
-// MockStateGetModelTypeCall wrap *gomock.Call
-type MockStateGetModelTypeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelTypeCall) Return(arg0 model.ModelType, arg1 error) *MockStateGetModelTypeCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelTypeCall) Do(f func(context.Context, model.UUID) (model.ModelType, error)) *MockStateGetModelTypeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelTypeCall) DoAndReturn(f func(context.Context, model.UUID) (model.ModelType, error)) *MockStateGetModelTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

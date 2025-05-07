@@ -167,7 +167,7 @@ type dbModelNameAndOwner struct {
 
 // dbModelType represents the model type from the model table.
 type dbModelType struct {
-	Type string `db:"model_type"`
+	Type string `db:"type"`
 }
 
 // dbModelSummary stores the information from the model table for a model

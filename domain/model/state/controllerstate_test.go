@@ -411,15 +411,6 @@ func (m *stateSuite) TestGetModelSeedInformationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (m *stateSuite) TestGetModelType(c *gc.C) {
-	runner := m.TxnRunnerFactory()
-
-	modelSt := NewState(runner)
-	modelType, err := modelSt.GetModelType(context.Background(), m.uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelType, gc.Equals, coremodel.IAAS)
-}
-
 func (m *stateSuite) TestGetModelNotFound(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 	modelSt := NewState(runner)
@@ -1640,9 +1631,9 @@ func (s *stateSuite) TestGetModelStateInvalidCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	credentialSt := credentialstate.NewState(s.TxnRunnerFactory())
-	err = credentialSt.InvalidateCloudCredential(
+	err = credentialSt.InvalidateModelCloudCredential(
 		context.Background(),
-		m.Credential,
+		m.UUID,
 		"test-invalid",
 	)
 	c.Assert(err, jc.ErrorIsNil)

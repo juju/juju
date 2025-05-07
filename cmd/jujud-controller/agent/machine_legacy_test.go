@@ -237,16 +237,11 @@ func (s *MachineLegacySuite) TestHostedModelWorkers(c *gc.C) {
 		return &minModelWorkersEnviron{}, nil
 	})
 
-	st, closer := s.setupNewModel(c)
-	defer closer()
-
-	uuid := st.ModelUUID()
-
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackModels(c, tracker, iaasModelManifolds)
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
+	matcher := agenttest.NewWorkerMatcher(c, tracker, s.DefaultModelUUID.String(),
 		append(alwaysModelWorkers, aliveModelWorkers...))
 	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
@@ -261,22 +256,6 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *g
 	s.PatchValue(&newEnvirons, func(context.Context, environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	st := f.MakeModel(c, &factory.ModelParams{
-		ConfigAttrs: coretesting.Attrs{
-			"max-action-results-age":  "2h",
-			"max-action-results-size": "4M",
-		},
-		CloudCredential: testing.DefaultCredentialTag,
-	})
-	defer func() {
-		err := st.Close()
-		c.Check(err, jc.ErrorIsNil)
-	}()
-
-	uuid := st.ModelUUID()
 
 	// invalidate cloud credential for this model
 	domainServices := s.ControllerDomainServices(c)
@@ -293,7 +272,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *g
 	remainingWorkers := set.NewStrings(expectedWorkers...).Difference(
 		set.NewStrings(requireValidCredentialModelWorkers...))
 
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
+	matcher := agenttest.NewWorkerMatcher(c, tracker, s.DefaultModelUUID.String(), remainingWorkers.SortedValues())
 	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
@@ -333,8 +312,6 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 		c.Check(err, jc.ErrorIsNil)
 	}()
 
-	uuid := st.ModelUUID()
-
 	// remove cloud credential used by this model but keep model reference to it
 	err = domainServices.Credential().RemoveCloudCredential(ctx, key)
 	c.Assert(err, jc.ErrorIsNil)
@@ -348,7 +325,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 	// only the workers that don't require a valid credential should remain.
 	remainingWorkers := set.NewStrings(expectedWorkers...).Difference(
 		set.NewStrings(requireValidCredentialModelWorkers...))
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
+	matcher := agenttest.NewWorkerMatcher(c, tracker, s.DefaultModelUUID.String(), remainingWorkers.SortedValues())
 
 	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
@@ -360,7 +337,6 @@ func (s *MachineLegacySuite) TestMigratingModelWorkers(c *gc.C) {
 
 	st, closer := s.setupNewModel(c)
 	defer closer()
-	modelUUID := st.ModelUUID()
 
 	tracker := agenttest.NewEngineTracker()
 
@@ -395,7 +371,7 @@ func (s *MachineLegacySuite) TestMigratingModelWorkers(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	matcher := agenttest.NewWorkerMatcher(c, tracker, modelUUID,
+	matcher := agenttest.NewWorkerMatcher(c, tracker, s.DefaultModelUUID.String(),
 		append(alwaysModelWorkers, migratingModelWorkers...))
 	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
@@ -659,6 +635,7 @@ func (s *MachineLegacySuite) setupNewModel(c *gc.C) (newSt *state.State, closer 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	newSt = f.MakeModel(c, &factory.ModelParams{
+		UUID: s.DefaultModelUUID,
 		ConfigAttrs: coretesting.Attrs{
 			"max-action-results-age":  "2h",
 			"max-action-results-size": "4M",

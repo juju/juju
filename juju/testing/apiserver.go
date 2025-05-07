@@ -573,7 +573,7 @@ func (s *ApiServerSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) 
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce", st.ModelUUID()), machine
+	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce", s.ControllerModelUUID()), machine
 }
 
 // StatePool returns the server's state pool.

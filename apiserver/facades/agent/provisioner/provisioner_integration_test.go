@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -539,11 +538,7 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-
-	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
+	svc := s.ControllerDomainServices(c)
 	machineService := svc.Machine()
 
 	now := time.Now()
@@ -552,7 +547,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err = s.machines[0].SetInstanceStatus(sInfo)
+	err := s.machines[0].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
@@ -1094,16 +1089,12 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
-	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-
 	st := s.ControllerModel(c).State()
-
-	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
+	svc := s.ControllerDomainServices(c)
 	machineService := svc.Machine()
 	storageService := svc.Storage()
 
-	err = storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
+	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), map[string]any{
 		"storage-default-block-source": "static-pool",
@@ -1227,12 +1218,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
-	st := s.ControllerModel(c).State()
-
-	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-
-	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
+	svc := s.ControllerDomainServices(c)
 	machineService := svc.Machine()
 
 	// Provision 2 machines first.

@@ -12,11 +12,15 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
+	credentialtesting "github.com/juju/juju/core/credential/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/credential"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
@@ -142,8 +146,10 @@ func (s *serviceSuite) TestRemoveCloudCredentialInvalidID(c *gc.C) {
 func (s *serviceSuite) TestInvalidateCloudCredential(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	uuid := credentialtesting.GenCredentialUUID(c)
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
-	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), key, "gone bad")
+	s.state.EXPECT().CredentialUUIDForKey(gomock.Any(), key).Return(uuid, nil)
+	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), uuid, "gone bad")
 
 	err := s.service(c).InvalidateCredential(context.Background(), key, "gone bad")
 	c.Assert(err, jc.ErrorIsNil)
@@ -375,4 +381,141 @@ func (s *serviceSuite) TestCheckAndRevokeCredentialInvalidID(c *gc.C) {
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
 	err := s.service(c).CheckAndRevokeCredential(context.Background(), key, false)
 	c.Assert(err, gc.ErrorMatches, "invalid id revoking cloud credential.*")
+}
+
+// TestInvalidateModelCloudCredentialNotFound is asserting that if we try and
+// invalidate the cloud credential for a model that doesn't exist we get back
+// an error satisfying [modelerrors.NotValid].
+func (s *serviceSuite) TestInvalidateModelCloudCredentialNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.state.EXPECT().InvalidateModelCloudCredential(
+		gomock.Any(),
+		modelUUID,
+		gomock.Any(),
+	).Return(modelerrors.NotFound)
+	err := s.service(c).InvalidateModelCredential(
+		context.Background(),
+		modelUUID,
+		"some reason",
+	)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestInvalidateModelCloudCredentialNotSet is asserting that if we try to
+// invalidate the cloud credential for a model and the model has no cloud
+// credential set then we get back an error satisfying
+// [credentialerrors.ModelCredentialNotSet].
+func (s *serviceSuite) TestInvalidateModelCloudCredentialNotSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.state.EXPECT().InvalidateModelCloudCredential(
+		gomock.Any(),
+		modelUUID,
+		gomock.Any(),
+	).Return(credentialerrors.ModelCredentialNotSet)
+	err := s.service(c).InvalidateModelCredential(
+		context.Background(),
+		modelUUID,
+		"some reason",
+	)
+	c.Check(err, jc.ErrorIs, credentialerrors.ModelCredentialNotSet)
+}
+
+// TestInvalidateModelCloudCredenntialInvalidModelUUID is asserting that if we
+// try to invalidate the cloud credential associated with a model and the model
+// model uuid provided is invalid no operation is performed and the error we get
+// back satisfies [coreerrors.NotValid].
+func (s *serviceSuite) TestInvalidateModelCloudCredenntialInvalidModelUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := coremodel.UUID("invalid")
+
+	err := s.service(c).InvalidateModelCredential(
+		context.Background(),
+		modelUUID,
+		"some reason",
+	)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestInvalidateModelCloudCredential asserts the happy path of invalidating the
+// cloud credential associated with a model.
+func (s serviceSuite) TestInvalidateModelCloudCredential(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.state.EXPECT().InvalidateModelCloudCredential(
+		gomock.Any(),
+		modelUUID,
+		"some reason",
+	).Return(nil)
+
+	err := s.service(c).InvalidateModelCredential(
+		context.Background(),
+		modelUUID,
+		"some reason",
+	)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestModelCredentialStatus represents a test for the happy path of getting
+// the credential key and validity status of a model's credential.
+func (s *serviceSuite) TestModelCredentialStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	credentialKey := corecredential.Key{
+		Cloud: "cirrus",
+		Owner: usertesting.GenNewName(c, "bob"),
+		Name:  "foobar",
+	}
+
+	s.state.EXPECT().GetModelCredentialStatus(gomock.Any(), modelUUID).Return(
+		credentialKey, true, nil,
+	)
+	key, valid, err := s.service(c).GetModelCredentialStatus(context.Background(), modelUUID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(key, gc.Equals, credentialKey)
+	c.Check(valid, jc.IsTrue)
+
+	// Check the invalid case as well to be complete.
+	s.state.EXPECT().GetModelCredentialStatus(gomock.Any(), modelUUID).Return(
+		credentialKey, false, nil,
+	)
+	key, valid, err = s.service(c).GetModelCredentialStatus(context.Background(), modelUUID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(key, gc.Equals, credentialKey)
+	c.Check(valid, jc.IsFalse)
+}
+
+// TestModelCredentialStatusNotFound asserts that if we ask for the credential
+// and status of a model that doesn't exist the error returned satisfies
+// [modelerrors.NotFound].
+func (s *serviceSuite) TestModelCredentialStatusNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.state.EXPECT().GetModelCredentialStatus(gomock.Any(), modelUUID).Return(
+		corecredential.Key{}, false, modelerrors.NotFound,
+	)
+	_, _, err := s.service(c).GetModelCredentialStatus(context.Background(), modelUUID)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestModelCredentialStatusNotSet asserts that we ask for the credential and
+// status of a model's credential but no credential has been set on the model an
+// error is returned that satisfies [credentialerrors.ModelCredentialNotSet].
+func (s *serviceSuite) TestModelCredentialStatusNotSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.state.EXPECT().GetModelCredentialStatus(gomock.Any(), modelUUID).Return(
+		corecredential.Key{}, false, credentialerrors.ModelCredentialNotSet,
+	)
+	_, _, err := s.service(c).GetModelCredentialStatus(context.Background(), modelUUID)
+	c.Check(err, jc.ErrorIs, credentialerrors.ModelCredentialNotSet)
 }

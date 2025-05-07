@@ -628,11 +628,9 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	modelUUID := testing.GenModelUUID(c)
 	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
 
-	stModelUUID, err := uuid.UUIDFromString(modelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
 	ownerName := usertesting.GenNewName(c, "modelOwner")
 	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID:  ptr(stModelUUID),
+		UUID:  modelUUID,
 		Name:  name,
 		Owner: names.NewUserTag(ownerName.Name()),
 	})
@@ -752,7 +750,7 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 	err := st.Login(context.Background(), jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRemoteModel(c, st, s.ControllerModel(c).ModelTag())
+	s.assertRemoteModel(c, st, names.NewModelTag(s.ControllerModelUUID()))
 }
 
 func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
@@ -839,11 +837,8 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	// part in a service domain, a model with the same uuid is required
 	// in both places for the test to work. Necessary after model config
 	// was move to the domain services.
-	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
-
 	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID: &modelUUID,
+		UUID: s.DefaultModelUUID,
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
 		},
@@ -858,7 +853,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 
 	st := s.openModelAPIWithoutLogin(c, s.DefaultModelUUID.String())
 
-	err = st.Login(context.Background(), machine.Tag(), pass, "test-nonce", nil)
+	err := st.Login(context.Background(), machine.Tag(), pass, "test-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -870,17 +865,15 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	// part in a service domain, a model with the same uuid is required
 	// in both places for the test to work. Necessary after model config
 	// was move to the domain services.
-	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
 	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID: &modelUUID,
+		UUID: s.DefaultModelUUID,
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
 		},
 	})
 	defer modelState.Close()
 
-	f2, release := s.NewFactory(c, modelState.ModelUUID())
+	f2, release := s.NewFactory(c, s.DefaultModelUUID.String())
 	defer release()
 	machine, pass := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
 
@@ -907,10 +900,8 @@ func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 	modelUUID := testing.GenModelUUID(c)
 	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
 
-	stModelUUID, err := uuid.UUIDFromString(modelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
 	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID: ptr(stModelUUID),
+		UUID: modelUUID,
 		Name: name,
 	})
 	defer modelState.Close()
@@ -940,11 +931,9 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 	// part in a service domain, a model with the same uuid is required
 	// in both places for the test to work. Necessary after model config
 	// was move to the domain services.
-	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
-	hostedModelState := f.MakeModel(c, &factory.ModelParams{UUID: &modelUUID})
+	hostedModelState := f.MakeModel(c, &factory.ModelParams{UUID: s.DefaultModelUUID})
 	defer hostedModelState.Close()
-	f2, release := s.NewFactory(c, hostedModelState.ModelUUID())
+	f2, release := s.NewFactory(c, s.DefaultModelUUID.String())
 	defer release()
 
 	// Create a hosted model with an unprovisioned machine that has the
@@ -973,16 +962,14 @@ func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 	modelUUID := testing.GenModelUUID(c)
 	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
 
-	stModelUUID, err := uuid.UUIDFromString(modelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
 	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID: ptr(stModelUUID),
+		UUID: modelUUID,
 		Name: name,
 	})
 	defer modelState.Close()
 
 	st := s.openModelAPIWithoutLogin(c, modelUUID.String())
-	err = st.Login(context.Background(), machine.Tag(), pass, "nonce", nil)
+	err := st.Login(context.Background(), machine.Tag(), pass, "nonce", nil)
 	assertInvalidEntityPassword(c, err)
 }
 

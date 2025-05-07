@@ -117,11 +117,13 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 // anything real. It's enough to let test some basic functionality though.
 func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf services.DomainServices) (*apiHandler, *common.Resources) {
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, st, loggertesting.WrapCheckLog(c))
+	modelInfo, err := sf.ModelInfo().GetModelInfo(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
 		context.Background(),
 		pool,
-		model.UUID(st.ModelUUID()),
+		modelInfo.UUID,
 		sf.ControllerConfig(),
 		nil,
 		sf.Access(),
@@ -155,7 +157,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 		nil,
 		nil,
 		nil,
-		model.UUID(st.ModelUUID()),
+		modelInfo.UUID,
 		false,
 		6543,
 		"testing.invalid:1234",

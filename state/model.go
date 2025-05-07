@@ -384,11 +384,6 @@ func (m *Model) Tag() names.Tag {
 	return m.ModelTag()
 }
 
-// Kind returns a human readable name identifying the model kind.
-func (m *Model) Kind() string {
-	return m.Tag().Kind()
-}
-
 // ModelTag is the concrete model tag for this model.
 func (m *Model) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.doc.UUID)
@@ -412,11 +407,6 @@ func (m *Model) SetPassword(password string) error {
 	}
 	m.doc.PasswordHash = passwordHash
 	return nil
-}
-
-// PasswordHash returns the password hash set on the model document
-func (m *Model) PasswordHash() string {
-	return m.doc.PasswordHash
 }
 
 // String returns the model name.
@@ -589,41 +579,6 @@ func (m *Model) LatestToolsVersion() semversion.Number {
 // controller.
 func (m *Model) EnvironVersion() int {
 	return m.doc.EnvironVersion
-}
-
-// SetEnvironVersion sets the model's current environ version. The value
-// must be monotonically increasing.
-func (m *Model) SetEnvironVersion(v int) error {
-	mOrig := m
-	mCopy := *m
-	m = &mCopy // copy so we can refresh without affecting the original m
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := m.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		if v < m.doc.EnvironVersion {
-			return nil, errors.Errorf(
-				"cannot set environ version to %v, which is less than the current version %v",
-				v, m.doc.EnvironVersion,
-			)
-		}
-		if v == m.doc.EnvironVersion {
-			return nil, jujutxn.ErrNoOperations
-		}
-		return []txn.Op{{
-			C:      modelsC,
-			Id:     m.doc.UUID,
-			Assert: bson.D{{"environ-version", m.doc.EnvironVersion}},
-			Update: bson.D{{"$set", bson.D{{"environ-version", v}}}},
-		}}, nil
-	}
-	if err := m.st.db().Run(buildTxn); err != nil {
-		return errors.Trace(err)
-	}
-	mOrig.doc.EnvironVersion = v
-	return nil
 }
 
 // globalKey returns the global database key for the model.

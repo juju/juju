@@ -19,8 +19,17 @@ type ProviderState interface {
 	// CloudCredential returns the cloud credential for the given key.
 	CloudCredential(ctx context.Context, key corecredential.Key) (credential.CloudCredentialResult, error)
 
-	// InvalidateCloudCredential marks the cloud credential for the given key as invalid.
-	InvalidateCloudCredential(ctx context.Context, key corecredential.Key, reason string) error
+	// CredentialUUIDForKey finds and returns the uuid for the cloud credential
+	// identified by key. If no credential is found then an error of
+	// [github.com/juju/juju/domain/credential/errors.NotFound] is returned.
+	CredentialUUIDForKey(context.Context, corecredential.Key) (corecredential.UUID, error)
+
+	// InvalidateCloudCredential marks a cloud credential for the provided uuid as
+	// invalid.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/domain/credential/errors.NotFound] when no
+	// credential is found for the given uuid.
+	InvalidateCloudCredential(ctx context.Context, uuid corecredential.UUID, reason string) error
 
 	// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
 	WatchCredential(
@@ -58,11 +67,18 @@ func (s *ProviderService) CloudCredential(ctx context.Context, key corecredentia
 }
 
 // InvalidateCredential marks the cloud credential for the given key as invalid.
+// The following errors can be expected:
+// - [github.com/juju/juju/domain/credential/errors.NotFound] when the
+// credential specified by key does not exist.
 func (s *ProviderService) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) error {
 	if err := key.Validate(); err != nil {
 		return errors.Errorf("invalidating cloud credential with invalid key: %w", err)
 	}
-	return s.st.InvalidateCloudCredential(ctx, key, reason)
+	uuid, err := s.st.CredentialUUIDForKey(ctx, key)
+	if err != nil {
+		return errors.Errorf("getting credential uuid for key %q: %w", key, err)
+	}
+	return s.st.InvalidateCloudCredential(ctx, uuid, reason)
 }
 
 // WatchableProviderService provides the API for working with credentials and

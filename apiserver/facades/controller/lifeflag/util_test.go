@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/facade"
+	coremodel "github.com/juju/juju/core/model"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -30,16 +31,13 @@ func auth(modelManager bool) facade.Authorizer {
 
 // mockBackend implements lifeflag.Backend for the tests' convenience.
 type mockBackend struct {
-	exist bool
-	watch bool
-}
-
-func (mock *mockBackend) ModelUUID() string {
-	return coretesting.ModelTag.Id()
+	exist  bool
+	watch  bool
+	entity names.Tag
 }
 
 func (mock *mockBackend) FindEntity(tag names.Tag) (state.Entity, error) {
-	if tag != coretesting.ModelTag {
+	if tag != mock.entity {
 		panic("should never happen -- bad auth somewhere")
 	}
 	if !mock.exist {
@@ -102,6 +100,6 @@ func entities(tags ...string) params.Entities {
 	return entities
 }
 
-func modelEntity() params.Entities {
-	return entities(coretesting.ModelTag.String())
+func modelEntity(modelUUID coremodel.UUID) params.Entities {
+	return entities(names.NewModelTag(modelUUID.String()).String())
 }

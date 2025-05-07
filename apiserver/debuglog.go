@@ -21,6 +21,7 @@ import (
 	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/logtailer"
@@ -119,6 +120,8 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		defer st.Release()
 
+		modelUUID, _ := httpcontext.RequestModelUUID(req.Context())
+
 		params, err := readDebugLogParams(req.URL.Query())
 		if err != nil {
 			socket.sendError(err)
@@ -131,10 +134,9 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		logTailerFunc := func(p logtailer.LogTailerParams) (logtailer.LogTailer, error) {
 			// TODO (stickupkid): This should come from the logsink directly, to
 			// prevent unfettered access.
-			var modelUUID string
 			logFile := filepath.Join(h.logDir, "logsink.log")
-			if !p.Firehose {
-				modelUUID = st.ModelUUID()
+			if p.Firehose {
+				modelUUID = ""
 			}
 
 			return logtailer.NewLogTailer(modelUUID, logFile, p)
