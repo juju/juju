@@ -163,6 +163,18 @@ type ApplicationService interface {
 
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
 	GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error)
+
+	// WatchApplicationConfigHash watches for changes to the specified application's
+	// config hash.
+	WatchApplicationConfigHash(ctx context.Context, name string) (watcher.StringsWatcher, error)
+
+	// WatchUnitAddressesHash watches for changes to the specified unit's
+	// addresses hash, as well as changes to the endpoint bindings for the spaces
+	// the addresses belong to.
+	//
+	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
+	// will be returned.
+	WatchUnitAddressesHash(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
 }
 
 type ResolveService interface {

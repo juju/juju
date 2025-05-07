@@ -46,7 +46,6 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statewatcher "github.com/juju/juju/state/watcher"
 )
 
 // UniterAPI implements the latest version (v21) of the Uniter API.
@@ -2419,8 +2418,8 @@ func (u *UniterAPI) goalStateUnits(ctx context.Context, app *state.Application, 
 // needs to be run (or whether this was just an agent restart with no
 // substantive config change).
 func (u *UniterAPI) WatchConfigSettingsHash(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
-		return unit.WatchConfigSettingsHash()
+	getWatcher := func(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
+		return u.applicationService.WatchApplicationConfigHash(ctx, unitName.Application())
 	}
 	result, err := u.watchHashes(ctx, args, getWatcher)
 	if err != nil {
@@ -2434,8 +2433,8 @@ func (u *UniterAPI) WatchConfigSettingsHash(ctx context.Context, args params.Ent
 // uniter can use the hash to determine whether the actual values have
 // changed since it last saw the config.
 func (u *UniterAPI) WatchTrustConfigSettingsHash(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
-		return unit.WatchApplicationConfigSettingsHash()
+	getWatcher := func(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
+		return u.applicationService.WatchApplicationConfigHash(ctx, unitName.Application())
 	}
 	result, err := u.watchHashes(ctx, args, getWatcher)
 	if err != nil {
@@ -2449,24 +2448,14 @@ func (u *UniterAPI) WatchTrustConfigSettingsHash(ctx context.Context, args param
 // change. The uniter can use the hash to determine whether the actual
 // address values have changed since it last saw the config.
 func (u *UniterAPI) WatchUnitAddressesHash(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
-		if !unit.ShouldBeAssigned() {
-			app, err := unit.Application()
-			if err != nil {
-				return nil, err
-			}
-			return app.WatchServiceAddressesHash(), nil
-		}
-		return unit.WatchMachineAndEndpointAddressesHash()
-	}
-	result, err := u.watchHashes(ctx, args, getWatcher)
+	result, err := u.watchHashes(ctx, args, u.applicationService.WatchUnitAddressesHash)
 	if err != nil {
 		return params.StringsWatchResults{}, errors.Trace(err)
 	}
 	return result, nil
 }
 
-func (u *UniterAPI) watchHashes(ctx context.Context, args params.Entities, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (params.StringsWatchResults, error) {
+func (u *UniterAPI) watchHashes(ctx context.Context, args params.Entities, getWatcher func(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -2493,20 +2482,25 @@ func (u *UniterAPI) watchHashes(ctx context.Context, args params.Entities, getWa
 	return result, nil
 }
 
-func (u *UniterAPI) watchOneUnitHashes(ctx context.Context, tag names.UnitTag, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (string, []string, error) {
-	unit, err := u.getLegacyUnit(ctx, tag)
+func (u *UniterAPI) watchOneUnitHashes(ctx context.Context, tag names.UnitTag, getWatcher func(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)) (string, []string, error) {
+	unitName, err := coreunit.NewName(tag.Id())
 	if err != nil {
-		return "", nil, err
+		return "", nil, internalerrors.Capture(err)
 	}
-	w, err := getWatcher(unit)
+	w, err := getWatcher(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return "", nil, errors.NotFoundf("unit %q", unitName)
+	}
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", nil, internalerrors.Capture(err)
 	}
-	// Consume the initial event.
-	if changes, ok := <-w.Changes(); ok {
-		return u.resources.Register(w), changes, nil
+
+	id, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, u.watcherRegistry, w)
+	if err != nil {
+		return "", nil, internalerrors.Errorf("starting hash watcher: %w", err)
 	}
-	return "", nil, statewatcher.EnsureErr(w)
+
+	return id, changes, nil
 }
 
 // CloudAPIVersion returns the cloud API version, if available.

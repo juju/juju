@@ -428,6 +428,117 @@ func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) TestWatchConfiSettingsHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-postgresql-0"},
+	}}
+
+	// Arrange: expect a watcher for mysql
+	ch := make(chan []string, 1)
+	w := watchertest.NewMockStringsWatcher(ch)
+	s.applicationService.EXPECT().WatchApplicationConfigHash(gomock.Any(), "mysql").Return(w, nil)
+	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
+	ch <- []string{"change1"}
+
+	// Arrange: wordpress/0 is unauthorised.
+	s.badTag = names.NewUnitTag("wordpress/0")
+
+	// Arrange: expect a state error for postgresql
+	s.applicationService.EXPECT().WatchApplicationConfigHash(gomock.Any(), "postgresql").Return(nil, applicationerrors.UnitNotFound)
+
+	result, err := s.uniter.WatchConfigSettingsHash(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{
+				StringsWatcherId: "1",
+				Changes:          []string{"change1"},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError(`unit "postgresql/0"`)},
+		},
+	})
+}
+
+func (s *uniterSuite) TestWatchTrustConfiSettingsHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-postgresql-0"},
+	}}
+
+	// Arrange: expect a watcher for mysql
+	ch := make(chan []string, 1)
+	w := watchertest.NewMockStringsWatcher(ch)
+	s.applicationService.EXPECT().WatchApplicationConfigHash(gomock.Any(), "mysql").Return(w, nil)
+	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
+	ch <- []string{"change1"}
+
+	// Arrange: wordpress/0 is unauthorised.
+	s.badTag = names.NewUnitTag("wordpress/0")
+
+	// Arrange: expect a state error for postgresql
+	s.applicationService.EXPECT().WatchApplicationConfigHash(gomock.Any(), "postgresql").Return(nil, applicationerrors.UnitNotFound)
+
+	result, err := s.uniter.WatchTrustConfigSettingsHash(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{
+				StringsWatcherId: "1",
+				Changes:          []string{"change1"},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError(`unit "postgresql/0"`)},
+		},
+	})
+}
+
+func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-postgresql-0"},
+	}}
+
+	// Arrange: expect a watcher for mysql/0
+	ch := make(chan []string, 1)
+	w := watchertest.NewMockStringsWatcher(ch)
+	s.applicationService.EXPECT().WatchUnitAddressesHash(gomock.Any(), coreunit.Name("mysql/0")).Return(w, nil)
+	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
+	ch <- []string{"change1"}
+
+	// Arrange: wordpress/0 is unauthorised.
+	s.badTag = names.NewUnitTag("wordpress/0")
+
+	// Arrange: expect a state error for postgresql/0
+	s.applicationService.EXPECT().WatchUnitAddressesHash(gomock.Any(), coreunit.Name("postgresql/0")).Return(nil, applicationerrors.UnitNotFound)
+
+	result, err := s.uniter.WatchUnitAddressesHash(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{
+				StringsWatcherId: "1",
+				Changes:          []string{"change1"},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError(`unit "postgresql/0"`)},
+		},
+	})
+}
+
 func (s *uniterSuite) expectGetUnitPrincipal(c *gc.C, unitName, principalName coreunit.Name, ok bool, err error) {
 	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).Return(principalName, ok, err)
 }
