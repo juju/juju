@@ -45,7 +45,7 @@ check_scp_using_openssh() {
 	scp_file="test-scp.txt"
 
 	# Check that we can copy a file to the remote host then copy it back.
-	echo hello > $scp_file
+	echo hello >$scp_file
 	jump_host=admin@"$controller_address"
 
 	scp_wrapper_with_proxy "$jump_host" test-scp.txt ubuntu@"$virtual_hostname":$scp_file

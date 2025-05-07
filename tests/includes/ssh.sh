@@ -19,10 +19,10 @@ make_proxy_command() {
 }
 
 ssh_wrapper_with_proxy() {
-    local jump_host=$1
-    shift # Remove jump_host from arguments
+	local jump_host=$1
+	shift # Remove jump_host from arguments
 
-    ssh "${ssh_flags[@]}" -o ProxyCommand="$(make_proxy_command "$jump_host")" "$@"
+	ssh "${ssh_flags[@]}" -o ProxyCommand="$(make_proxy_command "$jump_host")" "$@"
 }
 
 scp_wrapper_with_proxy() {
