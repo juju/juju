@@ -300,11 +300,6 @@ func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ..
 		return errors.Errorf("getting application %q id: %w", appName, err)
 	}
 
-	charmUUID, err := s.st.GetCharmIDByApplicationName(ctx, appName)
-	if err != nil {
-		return errors.Errorf("getting charm %q id: %w", appName, err)
-	}
-
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
 		return errors.Errorf("getting model type: %w", err)
@@ -327,9 +322,9 @@ func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ..
 
 	var unitNames []coreunit.Name
 	if modelType == coremodel.IAAS {
-		unitNames, err = s.st.AddIAASUnits(ctx, appUUID, charmUUID, args...)
+		unitNames, err = s.st.AddIAASUnits(ctx, appUUID, args...)
 	} else {
-		unitNames, err = s.st.AddCAASUnits(ctx, appUUID, charmUUID, args...)
+		unitNames, err = s.st.AddCAASUnits(ctx, appUUID, args...)
 	}
 	if err != nil {
 		return errors.Errorf("adding units to application %q: %w", appName, err)
