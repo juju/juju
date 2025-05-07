@@ -438,12 +438,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 			DownloadSize:       info.DownloadInfo.DownloadSize,
 		}
 	}
-
-	unitName, err := coreunit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
-	if err != nil {
-		return "", errors.Errorf("creating unit name %q: %w", bootstrap.ControllerApplicationName, err)
-	}
-	_, err = b.applicationService.CreateApplication(ctx,
+	_, err := b.applicationService.CreateApplication(ctx,
 		bootstrap.ControllerApplicationName,
 		info.Charm,
 		origin,
@@ -460,10 +455,18 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 				Since:  ptr(b.clock.Now()),
 			},
 		},
-		applicationservice.AddUnitArg{UnitName: unitName},
+		applicationservice.AddUnitArg{},
 	)
 	if err != nil {
 		return "", errors.Errorf("creating controller application: %w", err)
+	}
+
+	// We can deduce that the unit name must be controller/0 since we're
+	// currently bootstrapping the controller, so this unit is the first unit
+	// to be created.
+	unitName, err := coreunit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
+	if err != nil {
+		return "", errors.Errorf("creating unit name %q: %w", bootstrap.ControllerApplicationName, err)
 	}
 	return unitName, nil
 }

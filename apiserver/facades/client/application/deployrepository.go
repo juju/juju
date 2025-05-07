@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -58,8 +57,6 @@ type DeployFromRepository interface {
 type DeployFromRepositoryState interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	Machine(string) (Machine, error)
-
-	ReadSequence(name string) (int, error)
 }
 
 // DeployFromRepositoryAPI provides the deploy from repository
@@ -122,13 +119,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	// To ensure dqlite unit names match those created in mongo, grab the next unit
-	// sequence number before writing the mongo units.
-	nextUnitNum, err := api.state.ReadSequence(dt.applicationName)
-	if err != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
-	}
-
 	_, err = api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
@@ -154,12 +144,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			unitPlacement = dt.placement[i]
 		}
 
-		unitName, err := unit.NewNameFromParts(dt.applicationName, nextUnitNum+i)
-		if err != nil {
-			return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
-		}
 		unitArgs[i] = applicationservice.AddUnitArg{
-			UnitName:  unitName,
 			Placement: unitPlacement,
 		}
 	}

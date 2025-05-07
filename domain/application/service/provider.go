@@ -325,17 +325,19 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 		return errors.Errorf("making unit args: %w", err)
 	}
 
+	var unitNames []coreunit.Name
 	if modelType == coremodel.IAAS {
-		err = s.st.AddIAASUnits(ctx, storageParentDir, appUUID, charmUUID, args...)
+		unitNames, err = s.st.AddIAASUnits(ctx, storageParentDir, appUUID, charmUUID, args...)
 	} else {
-		err = s.st.AddCAASUnits(ctx, storageParentDir, appUUID, charmUUID, args...)
+		unitNames, err = s.st.AddCAASUnits(ctx, storageParentDir, appUUID, charmUUID, args...)
 	}
 	if err != nil {
 		return errors.Errorf("adding units to application %q: %w", appName, err)
 	}
 
-	for _, arg := range args {
-		if err := s.recordStatusHistory(ctx, arg.UnitName, arg.UnitStatusArg); err != nil {
+	for i, name := range unitNames {
+		arg := args[i]
+		if err := s.recordStatusHistory(ctx, name, arg.UnitStatusArg); err != nil {
 			return errors.Errorf("recording status history: %w", err)
 		}
 	}

@@ -145,9 +145,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	u := applicationservice.AddUnitArg{
-		UnitName: "mariadb/0",
-	}
+	u := applicationservice.AddUnitArg{}
 	_, err := appService.CreateApplication(ctx, "mariadb", &stubCharm{}, corecharm.Origin{
 		Source: corecharm.Local,
 		Platform: corecharm.Platform{

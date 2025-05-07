@@ -401,7 +401,6 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 2)
 	s.expectCharmMeta("foo", nil, 8)
-	s.expectReadSequence("foo", 1)
 	s.expectAddApplication()
 	s.expectCreateApplicationForDeploy("foo", nil)
 
@@ -447,7 +446,6 @@ func (s *applicationSuite) TestDeployWithPendingResources(c *gc.C) {
 			Name: "bar",
 		},
 	}, 8)
-	s.expectReadSequence("foo", 1)
 	s.expectAddApplication()
 	s.expectCreateApplicationForDeploy("foo", nil)
 
@@ -488,7 +486,6 @@ func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *gc.C) {
 			Name: "bar",
 		},
 	}, 8)
-	s.expectReadSequence("foo", 1)
 	resourceUUID := testing.GenResourceUUID(c)
 	s.expectDeletePendingResources([]resource.UUID{resourceUUID})
 	s.expectAddApplication()
@@ -1182,10 +1179,6 @@ func (s *applicationSuite) expectApplication(c *gc.C, name string) {
 
 func (s *applicationSuite) expectApplicationNotFound(c *gc.C, name string) {
 	s.backend.EXPECT().Application(name).Return(nil, errors.NotFoundf("application %q", name))
-}
-
-func (s *applicationSuite) expectReadSequence(name string, seqResult int) {
-	s.backend.EXPECT().ReadSequence(name).Return(seqResult, nil)
 }
 
 func (s *applicationSuite) expectAddApplication() {

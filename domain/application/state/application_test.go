@@ -316,7 +316,6 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *gc.C) {
 		Channel: channel,
 	}
 	us := []application.AddUnitArg{{
-		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusExecuting,
@@ -334,10 +333,10 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *gc.C) {
 	}}
 	ctx := context.Background()
 
-	_, err := s.state.CreateApplication(ctx, "666", a, us)
+	_, err := s.state.CreateApplication(ctx, "foo", a, us)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
-	s.assertApplication(c, "666", platform, channel, scale, false)
+	s.assertApplication(c, "foo", platform, channel, scale, false)
 }
 
 func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {

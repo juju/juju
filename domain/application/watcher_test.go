@@ -122,37 +122,22 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 
 	var unitID1, unitID2, unitID3 string
 	setup := func(c *gc.C) {
-		u1 := service.AddUnitArg{
-			UnitName: "foo/666",
-		}
-		u2 := service.AddUnitArg{
-			UnitName: "foo/667",
-		}
-		u3 := service.AddUnitArg{
-			UnitName: "bar/666",
-		}
-		u4 := service.AddUnitArg{
-			UnitName: "bar/667",
-		}
-		u5 := service.AddUnitArg{
-			UnitName: "bar/668",
-		}
 
 		storageDir := c.MkDir()
 		ctx := context.Background()
-		err := svc.AddUnits(ctx, storageDir, "foo", u1, u2)
+		err := svc.AddUnits(ctx, storageDir, "foo", service.AddUnitArg{}, service.AddUnitArg{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = svc.AddUnits(ctx, storageDir, "bar", u3, u4, u5)
+		err = svc.AddUnits(ctx, storageDir, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/666").Scan(&unitID1); err != nil {
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/0").Scan(&unitID1); err != nil {
 				return errors.Capture(err)
 			}
-			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&unitID2); err != nil {
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/1").Scan(&unitID2); err != nil {
 				return errors.Capture(err)
 			}
-			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "bar/667").Scan(&unitID3); err != nil {
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "bar/1").Scan(&unitID3); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -168,7 +153,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 		setup(c)
 		// Update non app unit first up.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/668"); err != nil {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/0"); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -182,7 +167,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	})
 	harness.AddTest(func(c *gc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "foo/666"); err != nil {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "foo/0"); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -195,7 +180,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	})
 	harness.AddTest(func(c *gc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/666"); err != nil {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/0"); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -221,7 +206,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID1); err != nil {
 				return errors.Capture(err)
 			}
-			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/666"); err != nil {
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/0"); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -233,7 +218,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	harness.AddTest(func(c *gc.C) {
 		// Updating different app unit with > 0 app units remaining - no change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/667"); err != nil {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/1"); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -245,7 +230,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	harness.AddTest(func(c *gc.C) {
 		// Removing non app unit - no change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/666"); err != nil {
+			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/0"); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -269,7 +254,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID2); err != nil {
 				return errors.Capture(err)
 			}
-			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/667"); err != nil {
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE name=?", "foo/1"); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -326,23 +311,14 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 
 	var unitID1, unitID2 string
 	setup := func(c *gc.C) {
-		u1 := service.AddUnitArg{
-			UnitName: "foo/666",
-		}
-		u2 := service.AddUnitArg{
-			UnitName: "foo/667",
-		}
-		u3 := service.AddUnitArg{
-			UnitName: "bar/666",
-		}
-		s.createApplication(c, svc, "foo", u1, u2)
-		s.createApplication(c, svc, "bar", u3)
+		s.createApplication(c, svc, "foo", service.AddUnitArg{}, service.AddUnitArg{})
+		s.createApplication(c, svc, "bar", service.AddUnitArg{})
 
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/666").Scan(&unitID1); err != nil {
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/0").Scan(&unitID1); err != nil {
 				return errors.Capture(err)
 			}
-			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&unitID2); err != nil {
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/1").Scan(&unitID2); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -480,9 +456,7 @@ WHERE uuid=?`, id0.String())
 	// Add another application with an available charm.
 	// Available charms are not pending charms!
 	harness.AddTest(func(c *gc.C) {
-		id2 = s.createApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{
-			UnitName: "foo/668",
-		})
+		id2 = s.createApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{})
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -714,9 +688,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *gc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	_ = s.createApplication(c, svc, appName, service.AddUnitArg{
-		UnitName: "foo/0",
-	})
+	_ = s.createApplication(c, svc, appName, service.AddUnitArg{})
 
 	ctx := context.Background()
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
@@ -738,9 +710,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *gc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createApplication(c, svc, appName, service.AddUnitArg{
-		UnitName: "foo/0",
-	})
+	appID := s.createApplication(c, svc, appName, service.AddUnitArg{})
 	// Create an ip address for the unit.
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -827,9 +797,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *gc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createApplication(c, svc, appName, service.AddUnitArg{
-		UnitName: "foo/0",
-	})
+	appID := s.createApplication(c, svc, appName, service.AddUnitArg{})
 
 	ctx := context.Background()
 
@@ -995,15 +963,12 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *gc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	unitName := unit.Name("foo/0")
-	otherUnitName := unit.Name("foo/1")
-	s.createApplication(c, svc, appName, service.AddUnitArg{
-		UnitName: unitName,
-	}, service.AddUnitArg{
-		UnitName: otherUnitName,
-	})
+	s.createApplication(c, svc, appName, service.AddUnitArg{}, service.AddUnitArg{})
 
 	ctx := context.Background()
+
+	unitName := unit.Name("foo/0")
+	otherUnitName := unit.Name("foo/1")
 
 	unitUUID, err := svc.GetUnitUUID(ctx, unitName)
 	c.Assert(err, jc.ErrorIsNil)

@@ -34,7 +34,7 @@ func (s *stateSuite) TestSetUnitPassword(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
-	unitName := s.createUnit(c, 0)
+	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +74,7 @@ func (s *stateSuite) TestMatchesUnitPasswordHash(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
-	unitName := s.createUnit(c, 0)
+	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,7 +102,7 @@ func (s *stateSuite) TestMatchesUnitPasswordHashInvalidPassword(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
-	unitName := s.createUnit(c, 0)
+	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,7 +121,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
-	unitName := s.createUnit(c, 0)
+	unitName := s.createUnit(c)
 
 	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -142,7 +142,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	s.createApplication(c)
-	s.createUnit(c, 0)
+	s.createUnit(c)
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -189,11 +189,9 @@ func (s *stateSuite) createApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) createUnit(c *gc.C, num int) unit.Name {
+func (s *stateSuite) createUnit(c *gc.C) unit.Name {
 	netNodeUUID := uuid.MustNewUUID().String()
 
-	unitName, err := unit.NewNameFromParts("foo", num)
-	c.Assert(err, jc.ErrorIsNil)
 	ctx := context.Background()
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -203,8 +201,10 @@ func (s *stateSuite) createUnit(c *gc.C, num int) unit.Name {
 	charmUUID, err := applicationSt.GetCharmIDByApplicationName(ctx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{UnitName: unitName})
+	unitNames, err := applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitNames, gc.HasLen, 1)
+	unitName := unitNames[0]
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err = tx.ExecContext(ctx, "INSERT INTO net_node VALUES (?) ON CONFLICT DO NOTHING", netNodeUUID)

@@ -128,8 +128,6 @@ func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, r
 // to the net node with uuid `netNodeUUID`.
 func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit.UUID {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
-	c.Assert(err, jc.ErrorIsNil)
 	ctx := context.Background()
 
 	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
@@ -146,14 +144,15 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{
-		UnitName: unitName,
+	unitNames, err := applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{
 		Placement: deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: machineName.String(),
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitNames, gc.HasLen, 1)
+	unitName := unitNames[0]
 	s.unitCount++
 
 	var unitUUID coreunit.UUID

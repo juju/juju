@@ -986,9 +986,7 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 		logger,
 	)
 
-	unitName, err := unit.NewNameFromParts(appName, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = svc.CreateApplication(context.Background(),
+	_, err := svc.CreateApplication(context.Background(),
 		appName,
 		&stubCharm{},
 		corecharm.Origin{
@@ -1008,7 +1006,7 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 				DownloadSize:       1000,
 			},
 		},
-		applicationservice.AddUnitArg{UnitName: unitName},
+		applicationservice.AddUnitArg{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -203,13 +203,10 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnitsAndStorageInvalidC
 			Count:          200,
 		},
 	}
-	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
-		c.MkDir(), chStorage, addStorageArgs), []application.AddUnitArg{u1})
+		c.MkDir(), chStorage, addStorageArgs), []application.AddUnitArg{{}})
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidStorageCount)
 
 }
@@ -791,13 +788,10 @@ func (s *caasStorageSuite) TestCreateApplicationWithUnitsAndStorage(c *gc.C) {
 			Count:          1,
 		},
 	}
-	u1 := application.AddUnitArg{
-		UnitName: "foo/666",
-	}
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
-		s.storageParentDir, chStorage, addStorageArgs), []application.AddUnitArg{u1})
+		s.storageParentDir, chStorage, addStorageArgs), []application.AddUnitArg{{}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -815,7 +809,7 @@ WHERE name=?`, "foo").Scan(&charmUUID)
 		return tx.QueryRowContext(ctx, `
 SELECT uuid
 FROM unit
-WHERE name=?`, "foo/666").Scan(&unitUUID)
+WHERE name=?`, "foo/0").Scan(&unitUUID)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

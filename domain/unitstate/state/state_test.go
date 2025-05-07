@@ -69,7 +69,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.unitName = unittesting.GenNewName(c, "app/0")
-	unitArgs := []application.AddUnitArg{{UnitName: s.unitName}}
+	unitArgs := []application.AddUnitArg{{}}
 
 	ctx := context.Background()
 	_, err = appState.CreateApplication(ctx, "app", appArg, unitArgs)
