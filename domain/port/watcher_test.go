@@ -144,7 +144,7 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitNames, err := applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{
+	unitNames, err := applicationSt.AddIAASUnits(ctx, appID, charmUUID, application.AddUnitArg{
 		Placement: deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: machineName.String(),

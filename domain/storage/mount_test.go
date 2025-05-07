@@ -18,24 +18,24 @@ type mountSuite struct {
 var _ = gc.Suite(&mountSuite{})
 
 func (s *mountSuite) TestMountPointSingleton(c *gc.C) {
-	path, err := storage.FilesystemMountPoint("/var/lib/juju/storage", "here", 1, "data/0")
+	path, err := storage.FilesystemMountPoint("here", 1, "data/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.Equals, "here")
 }
 
 func (s *mountSuite) TestMountPointLocation(c *gc.C) {
-	path, err := storage.FilesystemMountPoint("/var/lib/juju/storage", "/path/to/here", 2, "data/0")
+	path, err := storage.FilesystemMountPoint("/path/to/here", 2, "data/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.Equals, "/path/to/here/data/0")
 }
 
 func (s *mountSuite) TestMountPointNoLocation(c *gc.C) {
-	path, err := storage.FilesystemMountPoint("/var/lib/juju/storage", "", 2, "data/0")
+	path, err := storage.FilesystemMountPoint("", 2, "data/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.Equals, "/var/lib/juju/storage/data/0")
 }
 
 func (s *mountSuite) TestBadMountPoint(c *gc.C) {
-	_, err := storage.FilesystemMountPoint("/var/lib/juju/storage", "/var/lib/juju/storage/here", 1, "data/0")
+	_, err := storage.FilesystemMountPoint("/var/lib/juju/storage/here", 1, "data/0")
 	c.Assert(err, gc.ErrorMatches, "invalid location .*")
 }

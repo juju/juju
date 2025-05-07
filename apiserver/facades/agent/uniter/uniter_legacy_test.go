@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
-	domainapplication "github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	portservice "github.com/juju/juju/domain/port/service"
@@ -529,7 +528,7 @@ func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	_, err := s.machineService.CreateMachine(context.Background(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.applicationService.AddUnits(context.Background(), "mysql", domainapplication.StorageParentDir,
+	err = s.applicationService.AddUnits(context.Background(), "mysql",
 		applicationservice.AddUnitArg{})
 	c.Assert(err, jc.ErrorIsNil)
 

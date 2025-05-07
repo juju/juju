@@ -423,7 +423,7 @@ func (st *State) importCAASUnit(
 	if err != nil {
 		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
 	}
-	err = st.attachUnitStorage(ctx, tx, args.StorageParentDir, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
+	err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
 	if err != nil {
 		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
 	}

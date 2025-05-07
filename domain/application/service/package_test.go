@@ -54,7 +54,6 @@ type baseSuite struct {
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	clock                 *testclock.Clock
-	storageParentDir      string
 
 	service *ProviderService
 }
@@ -68,7 +67,6 @@ func (s *baseSuite) setupMocksWithProvider(
 	ctrl := gomock.NewController(c)
 
 	s.modelID = modeltesting.GenModelUUID(c)
-	s.storageParentDir = c.MkDir()
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
@@ -116,7 +114,6 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHis
 	ctrl := gomock.NewController(c)
 
 	s.modelID = modeltesting.GenModelUUID(c)
-	s.storageParentDir = c.MkDir()
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)

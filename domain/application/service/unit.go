@@ -33,14 +33,14 @@ type UnitState interface {
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	AddIAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
+	AddIAASUnits(context.Context, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
 
 	// AddCAASUnits adds the specified units to the application, returning their
 	// names. If the application is not found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	AddCAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
+	AddCAASUnits(context.Context, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
 
 	// InsertMigratingIAASUnits inserts the fully formed units for the specified
 	// IAAS application. This is only used when inserting units during model

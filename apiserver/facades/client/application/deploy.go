@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
-	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -273,7 +272,7 @@ func (api *APIBase) addUnits(
 			Placement: unitPlacement,
 		}
 
-		if err := api.applicationService.AddUnits(ctx, domainapplication.StorageParentDir, appName, unitArg); err != nil {
+		if err := api.applicationService.AddUnits(ctx, appName, unitArg); err != nil {
 			return nil, internalerrors.Errorf("adding unit to application %q: %w", appName, err)
 		}
 		units[i] = unit

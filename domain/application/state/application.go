@@ -287,12 +287,11 @@ func (st *State) insertApplicationUnits(
 			return errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 		}
 		insertUnits[i] = application.InsertUnitArg{
-			UnitName:         unitName,
-			Constraints:      unit.Constraints,
-			Placement:        unit.Placement,
-			Storage:          args.Storage,
-			StoragePoolKind:  args.StoragePoolKind,
-			StorageParentDir: args.StorageParentDir,
+			UnitName:        unitName,
+			Constraints:     unit.Constraints,
+			Placement:       unit.Placement,
+			Storage:         args.Storage,
+			StoragePoolKind: args.StoragePoolKind,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus:    unit.UnitStatusArg.AgentStatus,
 				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,

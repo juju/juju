@@ -153,7 +153,6 @@ INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
 
 func (s *baseSuite) addApplicationArgForStorage(c *gc.C,
 	name string,
-	storageParentDir string,
 	charmStorage []charm.Storage,
 	addStorageArgs []application.ApplicationStorageArg) application.AddApplicationArg {
 	platform := deployment.Platform{
@@ -188,11 +187,10 @@ func (s *baseSuite) addApplicationArgForStorage(c *gc.C,
 			DownloadURL:        "http://example.com/charm",
 			DownloadSize:       666,
 		},
-		Scale:            1,
-		Channel:          channel,
-		Storage:          addStorageArgs,
-		StoragePoolKind:  make(map[string]storage.StorageKind),
-		StorageParentDir: storageParentDir,
+		Scale:           1,
+		Channel:         channel,
+		Storage:         addStorageArgs,
+		StoragePoolKind: make(map[string]storage.StorageKind),
 	}
 	registry := storage.ChainedProviderRegistry{
 		dummystorage.StorageProviders(),

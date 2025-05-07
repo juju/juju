@@ -251,14 +251,13 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *gc.C) {
 	s.createScalingApplication(c, "foo", life.Alive, 1)
 
 	p := application.RegisterCAASUnitArg{
-		UnitName:         "foo/666",
-		PasswordHash:     "passwordhash",
-		ProviderID:       "some-id",
-		Address:          ptr("10.6.6.6"),
-		Ports:            ptr([]string{"666"}),
-		OrderedScale:     true,
-		OrderedId:        0,
-		StorageParentDir: c.MkDir(),
+		UnitName:     "foo/666",
+		PasswordHash: "passwordhash",
+		ProviderID:   "some-id",
+		Address:      ptr("10.6.6.6"),
+		Ports:        ptr([]string{"666"}),
+		OrderedScale: true,
+		OrderedId:    0,
 	}
 	err := s.state.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -327,14 +326,13 @@ func (s *unitStateSuite) TestRegisterCAASUnitAlreadyExists(c *gc.C) {
 	})
 
 	p := application.RegisterCAASUnitArg{
-		UnitName:         unitName,
-		PasswordHash:     "passwordhash",
-		ProviderID:       "some-id",
-		Address:          ptr("10.6.6.6"),
-		Ports:            ptr([]string{"666"}),
-		OrderedScale:     true,
-		OrderedId:        0,
-		StorageParentDir: c.MkDir(),
+		UnitName:     unitName,
+		PasswordHash: "passwordhash",
+		ProviderID:   "some-id",
+		Address:      ptr("10.6.6.6"),
+		Ports:        ptr([]string{"666"}),
+		OrderedScale: true,
+		OrderedId:    0,
 	}
 	err := s.state.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -377,14 +375,13 @@ func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
-		UnitName:         coreunit.Name("foo/0"),
-		PasswordHash:     "passwordhash",
-		ProviderID:       "foo-0",
-		Address:          ptr("10.6.6.6"),
-		Ports:            ptr([]string{"666"}),
-		OrderedScale:     true,
-		OrderedId:        0,
-		StorageParentDir: c.MkDir(),
+		UnitName:     coreunit.Name("foo/0"),
+		PasswordHash: "passwordhash",
+		ProviderID:   "foo-0",
+		Address:      ptr("10.6.6.6"),
+		Ports:        ptr([]string{"666"}),
+		OrderedScale: true,
+		OrderedId:    0,
 	}
 	err = s.state.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
@@ -395,14 +392,13 @@ func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotALive(c *gc.C) {
 		UnitName: "foo/0",
 	})
 	p := application.RegisterCAASUnitArg{
-		UnitName:         "foo/0",
-		PasswordHash:     "passwordhash",
-		ProviderID:       "foo-0",
-		Address:          ptr("10.6.6.6"),
-		Ports:            ptr([]string{"666"}),
-		OrderedScale:     true,
-		OrderedId:        0,
-		StorageParentDir: c.MkDir(),
+		UnitName:     "foo/0",
+		PasswordHash: "passwordhash",
+		ProviderID:   "foo-0",
+		Address:      ptr("10.6.6.6"),
+		Ports:        ptr([]string{"666"}),
+		OrderedScale: true,
+		OrderedId:    0,
 	}
 
 	err := s.state.RegisterCAASUnit(context.Background(), "foo", p)
@@ -424,14 +420,13 @@ WHERE application_uuid = ?`, 1, 3, appUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
-		UnitName:         "foo/2",
-		PasswordHash:     "passwordhash",
-		ProviderID:       "foo-2",
-		Address:          ptr("10.6.6.6"),
-		Ports:            ptr([]string{"666"}),
-		OrderedScale:     true,
-		OrderedId:        2,
-		StorageParentDir: c.MkDir(),
+		UnitName:     "foo/2",
+		PasswordHash: "passwordhash",
+		ProviderID:   "foo-2",
+		Address:      ptr("10.6.6.6"),
+		Ports:        ptr([]string{"666"}),
+		OrderedScale: true,
+		OrderedId:    2,
 	}
 
 	err = s.state.RegisterCAASUnit(context.Background(), "foo", p)
@@ -453,14 +448,13 @@ WHERE application_uuid = ?`, true, 3, 1, appUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
-		UnitName:         "foo/2",
-		PasswordHash:     "passwordhash",
-		ProviderID:       "foo-2",
-		Address:          ptr("10.6.6.6"),
-		Ports:            ptr([]string{"666"}),
-		OrderedScale:     true,
-		OrderedId:        2,
-		StorageParentDir: c.MkDir(),
+		UnitName:     "foo/2",
+		PasswordHash: "passwordhash",
+		ProviderID:   "foo-2",
+		Address:      ptr("10.6.6.6"),
+		Ports:        ptr([]string{"666"}),
+		OrderedScale: true,
+		OrderedId:    2,
 	}
 
 	err = s.state.RegisterCAASUnit(context.Background(), "foo", p)
@@ -759,7 +753,7 @@ func (s *unitStateSuite) assertUnitStatus(c *gc.C, statusType, unitUUID coreunit
 func (s *unitStateSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
 	uuid := testing.GenApplicationUUID(c)
 	charmUUID := charmtesting.GenCharmID(c)
-	_, err := s.state.AddIAASUnits(context.Background(), c.MkDir(), uuid, charmUUID, application.AddUnitArg{})
+	_, err := s.state.AddIAASUnits(context.Background(), uuid, charmUUID, application.AddUnitArg{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -769,7 +763,7 @@ func (s *unitStateSuite) TestAddUnitsApplicationNotAlive(c *gc.C) {
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, application.AddUnitArg{})
+	_, err = s.state.AddIAASUnits(context.Background(), appID, charmUUID, application.AddUnitArg{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
@@ -807,9 +801,9 @@ func (s *unitStateSuite) assertAddUnits(c *gc.C, modelType model.ModelType) {
 
 	var unitNames []coreunit.Name
 	if modelType == model.IAAS {
-		unitNames, err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
+		unitNames, err = s.state.AddIAASUnits(context.Background(), appID, charmUUID, u)
 	} else {
-		unitNames, err = s.state.AddCAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
+		unitNames, err = s.state.AddCAASUnits(context.Background(), appID, charmUUID, u)
 	}
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitNames, gc.HasLen, 1)

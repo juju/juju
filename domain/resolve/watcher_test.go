@@ -167,7 +167,7 @@ func (s *watcherSuite) createApplication(c *gc.C, name string, units ...applicat
 	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitNames, err := appState.AddIAASUnits(ctx, "", appID, charmUUID, units...)
+	unitNames, err := appState.AddIAASUnits(ctx, appID, charmUUID, units...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var unitUUIDs = make([]coreunit.UUID, len(units))
