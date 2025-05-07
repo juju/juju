@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
@@ -79,7 +80,7 @@ type modelManagerSuite struct {
 	domainServices       *mocks.MockModelDomainServices
 	applicationService   *mocks.MockApplicationService
 	blockCommandService  *mocks.MockBlockCommandService
-	statusService        *mocks.MockStatusService
+	modelInfoService     *mocks.MockModelInfoService
 	authoriser           apiservertesting.FakeAuthorizer
 	api                  *modelmanager.ModelManagerAPI
 	caasApi              *modelmanager.ModelManagerAPI
@@ -103,7 +104,6 @@ func (s *modelManagerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.blockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	s.machineService = mocks.NewMockMachineService(ctrl)
-	s.statusService = mocks.NewMockStatusService(ctrl)
 	s.domainServices = mocks.NewMockModelDomainServices(ctrl)
 	s.modelStatusAPI = mocks.NewMockModelStatusAPI(ctrl)
 
@@ -371,23 +371,22 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 
 	// Expect calls to get various model services.
-	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
 	networkService := mocks.NewMockNetworkService(ctrl)
 
 	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
-	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService).AnyTimes()
+	modelDomainServices.EXPECT().ModelInfo().Return(s.modelInfoService).AnyTimes()
 	modelDomainServices.EXPECT().Network().Return(networkService)
 	modelDomainServices.EXPECT().Config().Return(s.modelConfigService).AnyTimes()
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 
 	// Expect calls to functions of the model services.
-	modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
-	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
+	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
 		Status: status.Available,
 		Since:  time.Now(),
 	}, nil)
-	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
 		// Use a version we shouldn't have now to ensure we're using the
 		// ModelAgentService rather than the ModelInfo data.
 		AgentVersion:   semversion.MustParse("2.6.5"),
@@ -438,6 +437,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 	}
 
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
 
 	_, err := s.api.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -454,7 +454,10 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 		Name:     "foo",
 		OwnerTag: "user-admin",
 	}
+
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
+
 	_, err := s.api.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -470,7 +473,10 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *gc.C) {
 		Name:     "foo",
 		OwnerTag: "user-admin",
 	}
+
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
+
 	_, err := s.api.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -478,6 +484,69 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *gc.C) {
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, names.NewCloudCredentialTag(
 		"dummy/admin/some-credential",
 	))
+}
+
+func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *gc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	cloudCredental := credential.Key{
+		Cloud: "dummy",
+		Owner: user.AdminUserName,
+		Name:  "some-credential",
+	}
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin",
+		Config: map[string]interface{}{
+			"bar":                  "baz",
+			config.AgentVersionKey: jujuversion.Current.String(),
+		},
+		CloudTag:           "cloud-dummy",
+		CloudRegion:        "qux",
+		CloudCredentialTag: "cloudcred-dummy_admin_some-credential",
+	}
+
+	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
+	s.modelInfoService.EXPECT().CreateModelWithAgentVersion(gomock.Any(), jujuversion.Current).Return(nil)
+
+	_, err := s.api.CreateModel(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newModelArgs := s.getModelArgs(c)
+	c.Assert(newModelArgs.CloudName, gc.Equals, "dummy")
+}
+
+func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *gc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	cloudCredental := credential.Key{
+		Cloud: "dummy",
+		Owner: user.AdminUserName,
+		Name:  "some-credential",
+	}
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin",
+		Config: map[string]interface{}{
+			"bar":                  "baz",
+			config.AgentVersionKey: jujuversion.Current.String(),
+			config.AgentStreamKey:  "released",
+		},
+		CloudTag:           "cloud-dummy",
+		CloudRegion:        "qux",
+		CloudCredentialTag: "cloudcred-dummy_admin_some-credential",
+	}
+
+	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
+	s.modelInfoService.EXPECT().CreateModelWithAgentVersionStream(gomock.Any(), jujuversion.Current, coreagentbinary.AgentStreamReleased).Return(nil)
+
+	_, err := s.api.CreateModel(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newModelArgs := s.getModelArgs(c)
+	c.Assert(newModelArgs.CloudName, gc.Equals, "dummy")
 }
 
 // TODO (tlm): Have disabled the below test as it is almost impossible to mock

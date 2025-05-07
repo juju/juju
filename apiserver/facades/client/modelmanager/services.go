@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
@@ -165,9 +166,42 @@ type ModelDefaultsService interface {
 // ModelInfoService defines a interface for interacting with the underlying
 // state.
 type ModelInfoService interface {
-	// CreateModel is responsible for adding the details of the model
-	// that is being created.
+	// CreateModel is responsible for creating a new model within the model
+	// database. Upon creating the model any information required in the model's
+	// provider will be initialised.
+	//
+	// The following error types can be expected to be returned:
+	// - [github.com/juju/juju/domain/model/errors.AlreadyExists] when the model
+	// uuid is already in use.
 	CreateModel(context.Context) error
+
+	// CreateModelWithAgentVersion is responsible for creating a new model within
+	// the model database using the specified agent version. Upon creating the
+	// model any information required in the model's provider will be
+	// initialised.
+	//
+	// The following error types can be expected to be returned:
+	// - [github.com/juju/juju/domain/model/errors.AlreadyExists] when the model
+	// uuid is already in use.
+	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotSupported]
+	// when the agent version is not supported.
+	CreateModelWithAgentVersion(context.Context, semversion.Number) error
+
+	// CreateModelWithAgentVersionStream is responsible for creating a new model
+	// within the model database using the specified agent version and agent
+	// stream. Upon creating the model any information required in the model's
+	// provider will be initialised.
+	//
+	// The following error types can be expected to be returned:
+	// - [github.com/juju/juju/domain/model/errors.AlreadyExists] when the model
+	// uuid is already in use.
+	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotSupported]
+	// when the agent version is not supported.
+	// - [github.com/juju/juju/core/errors.NotValid] when the agent stream is
+	// not valid.
+	CreateModelWithAgentVersionStream(
+		context.Context, semversion.Number, agentbinary.AgentStream,
+	) error
 
 	// DeleteModel is responsible for deleting a model.
 	DeleteModel(context.Context) error

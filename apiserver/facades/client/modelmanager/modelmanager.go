@@ -17,11 +17,13 @@ import (
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
@@ -274,16 +276,41 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	modelInfoService := modelDomainServices.ModelInfo()
-	modelConfigService := modelDomainServices.Config()
-
-	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
-		return result, errors.Annotatef(err, "setting model config for model %q", creationArgs.Name)
-	}
 
 	// Create the model information in the model database.
-	if err := modelInfoService.CreateModel(ctx); err != nil {
-		return result, errors.Annotatef(err, "creating model info for model %q", creationArgs.Name)
+	// modelInfoCreate will be calling one of the Create* funcs on the model
+	// info service. When handling the error we need to handle the total set of
+	// possabilities.
+	err = m.createModelInfo(ctx, args.Config, modelDomainServices.ModelInfo())
+	switch {
+	case errors.Is(err, modelerrors.AlreadyExists):
+		return result, apiservererrors.ParamsErrorf(
+			params.CodeAlreadyExists,
+			"model %q for owner %q already exists in model database",
+			creationArgs.Name, ownerTag.Name(),
+		)
+	case errors.Is(err, modelerrors.AgentVersionNotSupported):
+		return result, apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"supplied agent version for new model %q is not supported: %s",
+			creationArgs.Name, err.Error(),
+		)
+	case errors.Is(err, coreerrors.NotValid):
+		return result, apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"supplied agent stream for new model %q is not supported: %s",
+			creationArgs.Name, err.Error(),
+		)
+	case err != nil:
+		return result, internalerrors.Errorf(
+			"creating information records for new model %q: %w",
+			creationArgs.Name, err,
+		)
+	}
+
+	modelConfigService := modelDomainServices.Config()
+	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
+		return result, errors.Annotatef(err, "setting model config for model %q", creationArgs.Name)
 	}
 
 	if err := activator(ctx); err != nil {
@@ -329,6 +356,71 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	defer st.Close()
 
 	return modelInfo, nil
+}
+
+// createModelInfo establishes a new model within the model database.
+// This is required when creating new models as it seeds the model's controller
+// information to the model database and also establishes any provider resources
+// required by the model.
+func (m *ModelManagerAPI) createModelInfo(
+	ctx context.Context,
+	configArgs map[string]any,
+	modelInfoService ModelInfoService,
+) error {
+	suppliedAgentVersion := semversion.Zero
+	if agentVersionVal, exists := configArgs[config.AgentVersionKey]; exists {
+		agentVersionStr, isStr := agentVersionVal.(string)
+		if !isStr {
+			return internalerrors.New(
+				"cannot understand agent version value for new model",
+			).Add(coreerrors.NotValid)
+		}
+		var err error
+		suppliedAgentVersion, err = semversion.Parse(agentVersionStr)
+		if err != nil {
+			return internalerrors.Errorf(
+				"parsing agent version value for new model: %w", err,
+			)
+		}
+		delete(configArgs, config.AgentVersionKey)
+	}
+
+	suppliedAgentStream := coreagentbinary.AgentStream("")
+	if agentStreamVal, exists := configArgs[config.AgentStreamKey]; exists {
+		agentStreamStr, isStr := agentStreamVal.(string)
+		if !isStr {
+			return internalerrors.New(
+				"cannot understand agent stream value for new model",
+			).Add(coreerrors.NotValid)
+		}
+		suppliedAgentStream = coreagentbinary.AgentStream(agentStreamStr)
+		delete(configArgs, config.AgentStreamKey)
+	}
+
+	// If the user has supplied both a target agent version and agent stream
+	if suppliedAgentVersion != semversion.Zero &&
+		suppliedAgentStream != coreagentbinary.AgentStream("") {
+		return modelInfoService.CreateModelWithAgentVersionStream(
+			ctx, suppliedAgentVersion, suppliedAgentStream,
+		)
+	}
+
+	// If the user has supplied a target agent version but no agent stream
+	if suppliedAgentVersion != semversion.Zero &&
+		suppliedAgentStream == coreagentbinary.AgentStream("") {
+		return modelInfoService.CreateModelWithAgentVersion(
+			ctx, suppliedAgentVersion,
+		)
+	}
+
+	// If the user has supplied an agent stream and not target agent version.
+	if suppliedAgentVersion == semversion.Zero &&
+		suppliedAgentStream != coreagentbinary.AgentStream("") {
+		// TODO: We don't have a way to set just the agent stream.
+	}
+
+	// If the user has supplied nothing.
+	return modelInfoService.CreateModel(ctx)
 }
 
 func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity) ([]byte, error) {
