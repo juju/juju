@@ -704,12 +704,12 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		AgentVersion:      semversion.MustParse(v.TargetVersion),
 	}
 
-	if owner := m.CredentialOwner; owner != "" {
-		info.CredentialOwner, err = user.NewName(owner)
+	if m.CredentialOwner.Valid {
+		info.CredentialOwner, err = user.NewName(m.CredentialOwner.String)
 		if err != nil {
 			return coremodel.ModelInfo{}, errors.Errorf(
 				"parsing model %q owner username %q: %w",
-				m.UUID, owner, err,
+				m.UUID, m.CredentialOwner.String, err,
 			)
 		}
 	} else {
@@ -931,9 +931,12 @@ func InsertModelInfo(
 			Valid:  args.CloudRegion != "",
 			String: args.CloudRegion,
 		},
-		CredentialOwner:   args.CredentialOwner.Name(),
 		CredentialName:    args.CredentialName,
 		IsControllerModel: args.IsControllerModel,
+	}
+
+	if !args.CredentialOwner.IsZero() {
+		m.CredentialOwner = sql.NullString{Valid: true, String: args.CredentialOwner.Name()}
 	}
 
 	roStmt, err := preparer.Prepare("INSERT INTO model (*) VALUES ($dbReadOnlyModel.*)", m)

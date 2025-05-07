@@ -53,7 +53,7 @@ type dbModel struct {
 	CredentialCloudName sql.NullString `db:"cloud_credential_cloud_name"`
 
 	// CredentialOwnerName is the owner of the model cloud credential.
-	CredentialOwnerName string `db:"cloud_credential_owner_name"`
+	CredentialOwnerName sql.NullString `db:"cloud_credential_owner_name"`
 
 	// OwnerUUID is the uuid of the user that owns this model in the Juju controller.
 	OwnerUUID string `db:"owner_uuid"`
@@ -71,8 +71,8 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 		return coremodel.Model{}, errors.Capture(err)
 	}
 	var credOwnerName user.Name
-	if m.CredentialOwnerName != "" {
-		credOwnerName, err = user.NewName(m.CredentialOwnerName)
+	if m.CredentialOwnerName.Valid {
+		credOwnerName, err = user.NewName(m.CredentialOwnerName.String)
 		if err != nil {
 			return coremodel.Model{}, errors.Capture(err)
 		}
@@ -309,7 +309,7 @@ type dbReadOnlyModel struct {
 	Cloud             string         `db:"cloud"`
 	CloudType         string         `db:"cloud_type"`
 	CloudRegion       sql.NullString `db:"cloud_region"`
-	CredentialOwner   string         `db:"credential_owner"`
+	CredentialOwner   sql.NullString `db:"credential_owner"`
 	CredentialName    string         `db:"credential_name"`
 	IsControllerModel bool           `db:"is_controller_model"`
 }
