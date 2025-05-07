@@ -698,7 +698,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		Type:              coremodel.ModelType(m.Type),
 		Cloud:             m.Cloud,
 		CloudType:         m.CloudType,
-		CloudRegion:       m.CloudRegion,
+		CloudRegion:       m.CloudRegion.String,
 		CredentialName:    m.CredentialName,
 		IsControllerModel: m.IsControllerModel,
 		AgentVersion:      semversion.MustParse(v.TargetVersion),
@@ -774,8 +774,8 @@ func (s *ModelState) GetModelCloudType(ctx context.Context) (string, error) {
 		return "", errors.Capture(err)
 	}
 
-	m := dbReadOnlyModel{}
-	stmt, err := s.Prepare(`SELECT &dbReadOnlyModel.cloud_type FROM model`, m)
+	m := dbModelCloudType{}
+	stmt, err := s.Prepare(`SELECT &dbModelCloudType.* FROM model`, m)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -792,7 +792,7 @@ func (s *ModelState) GetModelCloudType(ctx context.Context) (string, error) {
 		return "", errors.Capture(err)
 	}
 
-	return m.CloudType, nil
+	return m.Type, nil
 }
 
 // GetModelType returns the [coremodel.ModelType] for the current model.
@@ -919,13 +919,16 @@ func InsertModelInfo(
 	}
 
 	m := dbReadOnlyModel{
-		UUID:              args.UUID.String(),
-		ControllerUUID:    args.ControllerUUID.String(),
-		Name:              args.Name,
-		Type:              args.Type.String(),
-		Cloud:             args.Cloud,
-		CloudType:         args.CloudType,
-		CloudRegion:       args.CloudRegion,
+		UUID:           args.UUID.String(),
+		ControllerUUID: args.ControllerUUID.String(),
+		Name:           args.Name,
+		Type:           args.Type.String(),
+		Cloud:          args.Cloud,
+		CloudType:      args.CloudType,
+		CloudRegion: sql.NullString{
+			Valid:  args.CloudRegion != "",
+			String: args.CloudRegion,
+		},
 		CredentialOwner:   args.CredentialOwner.Name(),
 		CredentialName:    args.CredentialName,
 		IsControllerModel: args.IsControllerModel,

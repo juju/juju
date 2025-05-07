@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -212,6 +213,38 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 	db := s.DB()
 	_, err = db.ExecContext(context.Background(), "UPDATE model SET name = 'new-name' WHERE uuid = $1", id)
 	c.Assert(err, gc.ErrorMatches, `model table is immutable, only insertions are allowed`)
+}
+
+// CreateModelWithEmptyCloudRegion is a regression test to make sure that we set
+// cloud region to null in the database when the supplied value is not set.
+// Cloud region should be a null field in the database when it is not set for
+// the value. Due to the way with which this value is retrieved from the
+// controller database [ModelState.Create] was getting fed with the zero value
+// string for cloud region and this is what we ended up being set. In this case
+// we want to set the column to NULL so that is has correct meaning in the DDL.
+func (s *modelSuite) CreateModelWithEmptyCloudRegion(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	id := modeltesting.GenModelUUID(c)
+	err := state.Create(context.Background(), model.ModelDetailArgs{
+		UUID:         id,
+		AgentStream:  modelagent.AgentStreamReleased,
+		AgentVersion: jujuversion.Current,
+		Name:         "my-awesome-model",
+		Type:         coremodel.IAAS,
+		Cloud:        "aws",
+		CloudType:    "ec2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var cloudRegionVal sql.NullString
+	err = s.DB().QueryRowContext(
+		context.Background(),
+		`SELECT cloud_region FROM model`,
+	).Scan(&cloudRegionVal)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cloudRegionVal.Valid, jc.IsFalse)
 }
 
 func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {

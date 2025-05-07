@@ -300,16 +300,16 @@ func (info *dbModelUserInfo) toModelUserInfo() (coremodel.ModelUserInfo, error) 
 }
 
 type dbReadOnlyModel struct {
-	UUID              string `db:"uuid"`
-	ControllerUUID    string `db:"controller_uuid"`
-	Name              string `db:"name"`
-	Type              string `db:"type"`
-	Cloud             string `db:"cloud"`
-	CloudType         string `db:"cloud_type"`
-	CloudRegion       string `db:"cloud_region"`
-	CredentialOwner   string `db:"credential_owner"`
-	CredentialName    string `db:"credential_name"`
-	IsControllerModel bool   `db:"is_controller_model"`
+	UUID              string         `db:"uuid"`
+	ControllerUUID    string         `db:"controller_uuid"`
+	Name              string         `db:"name"`
+	Type              string         `db:"type"`
+	Cloud             string         `db:"cloud"`
+	CloudType         string         `db:"cloud_type"`
+	CloudRegion       sql.NullString `db:"cloud_region"`
+	CredentialOwner   string         `db:"credential_owner"`
+	CredentialName    string         `db:"credential_name"`
+	IsControllerModel bool           `db:"is_controller_model"`
 }
 
 type dbModelMetrics struct {
@@ -320,6 +320,10 @@ type dbModelMetrics struct {
 
 type dbCloudType struct {
 	Type string `db:"type"`
+}
+
+type dbModelCloudType struct {
+	Type string `db:"cloud_type"`
 }
 
 type dbName struct {
