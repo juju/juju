@@ -1,0 +1,9 @@
+# Replace juju/testing/filetesting with internal/testhelpers/filetesting
+@@
+var ft, x identifier
+@@
+-import ft "github.com/juju/testing/filetesting"
++import "github.com/juju/juju/internal/testhelpers/filetesting"
+
+-ft.x
++filetesting.x
