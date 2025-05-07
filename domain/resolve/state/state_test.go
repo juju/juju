@@ -403,10 +403,7 @@ func (s *stateSuite) createApplication(c *gc.C, name string, units ...applicatio
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, name)
-	c.Assert(err, jc.ErrorIsNil)
-
-	unitNames, err := appState.AddIAASUnits(ctx, appID, charmUUID, units...)
+	unitNames, err := appState.AddIAASUnits(ctx, appID, units...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var unitUUIDs = make([]coreunit.UUID, len(units))

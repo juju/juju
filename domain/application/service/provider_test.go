@@ -14,7 +14,6 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -1447,7 +1446,6 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
-	charmUUID := charmtesting.GenCharmID(c)
 
 	now := ptr(s.clock.Now())
 	u := []application.AddUnitArg{{
@@ -1465,11 +1463,10 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	}}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
 	s.expectEmptyUnitConstraints(c, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, charmUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, _ corecharm.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -1493,7 +1490,6 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
-	charmUUID := charmtesting.GenCharmID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	now := ptr(s.clock.Now())
@@ -1533,11 +1529,10 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 	}}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
 	s.expectAppConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, charmUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, _ corecharm.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -1564,7 +1559,6 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
-	charmUUID := charmtesting.GenCharmID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	now := ptr(s.clock.Now())
@@ -1600,11 +1594,10 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 	}}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
 	s.expectModelConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, charmUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, _ corecharm.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -1628,7 +1621,6 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
-	charmUUID := charmtesting.GenCharmID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	now := ptr(s.clock.Now())
@@ -1651,11 +1643,10 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 	}}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, charmUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, _ corecharm.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -1734,11 +1725,9 @@ func (s *providerServiceSuite) TestAddUnitsGetModelTypeError(c *gc.C) {
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
-	charmUUID := charmtesting.GenCharmID(c)
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", errors.Errorf("boom"))
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
 
 	err := s.service.AddUnits(context.Background(), "ubuntu", AddUnitArg{})
 	c.Assert(err, gc.ErrorMatches, ".*boom")
@@ -1758,12 +1747,10 @@ func (s *providerServiceSuite) TestAddUnitsInvalidPlacement(c *gc.C) {
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
-	charmUUID := charmtesting.GenCharmID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	placement := &instance.Placement{
@@ -1776,29 +1763,6 @@ func (s *providerServiceSuite) TestAddUnitsInvalidPlacement(c *gc.C) {
 	}
 	err := s.service.AddUnits(context.Background(), "ubuntu", a)
 	c.Assert(err, gc.ErrorMatches, ".*invalid placement.*")
-}
-
-func (s *providerServiceSuite) TestAddUnitsGetCharmIDByApplicationNameError(c *gc.C) {
-	ctrl := s.setupMocksWithProvider(c,
-		func(ctx context.Context) (Provider, error) {
-			return s.provider, nil
-		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
-		},
-		func(ctx context.Context) (CAASApplicationProvider, error) {
-			return s.caasApplicationProvider, nil
-		})
-	defer ctrl.Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-	charmUUID := charmtesting.GenCharmID(c)
-
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, errors.Errorf("boom"))
-
-	err := s.service.AddUnits(context.Background(), "ubuntu", AddUnitArg{})
-	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
 
 func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSupported(c *gc.C) {

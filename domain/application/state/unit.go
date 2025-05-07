@@ -13,7 +13,6 @@ import (
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
@@ -537,7 +536,7 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) AddIAASUnits(
-	ctx context.Context, appUUID coreapplication.ID, charmUUID corecharm.ID, args ...application.AddUnitArg,
+	ctx context.Context, appUUID coreapplication.ID, args ...application.AddUnitArg,
 ) ([]coreunit.Name, error) {
 	if len(args) == 0 {
 		return nil, nil
@@ -585,7 +584,7 @@ func (st *State) AddIAASUnits(
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) AddCAASUnits(
-	ctx context.Context, appUUID coreapplication.ID, charmUUID corecharm.ID, args ...application.AddUnitArg,
+	ctx context.Context, appUUID coreapplication.ID, args ...application.AddUnitArg,
 ) ([]coreunit.Name, error) {
 	if len(args) == 0 {
 		return nil, nil

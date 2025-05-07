@@ -133,9 +133,6 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit
 	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	charmUUID, err := applicationSt.GetCharmIDByApplicationName(ctx, appName)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Ensure that we place the unit on the same machine as the net node.
 	var machineName machine.Name
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -144,7 +141,7 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitNames, err := applicationSt.AddIAASUnits(ctx, appID, charmUUID, application.AddUnitArg{
+	unitNames, err := applicationSt.AddIAASUnits(ctx, appID, application.AddUnitArg{
 		Placement: deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: machineName.String(),
