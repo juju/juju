@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/agree/agree"
 	"github.com/juju/juju/cmd/juju/agree/listagreements"
+	"github.com/juju/juju/cmd/juju/annotations"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
@@ -357,6 +358,11 @@ func registerCommands(r commandRegistry) {
 	// the Dashboard.
 	// Update allowedEmbeddedCommands in apiserver.go
 	r.Register(newVersionCommand())
+
+	// Annotation commands.
+	r.Register(annotations.NewGetAnnotationsCommand())
+	r.Register(annotations.NewSetAnnotationsCommand())
+
 	// Creation commands.
 	r.Register(newBootstrapCommand())
 	r.Register(application.NewAddRelationCommand())
