@@ -40,7 +40,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
@@ -1053,7 +1052,7 @@ func (api *APIBase) applicationSetCharm(
 			storageDirectives[name] = sc
 		}
 	}
-	if err := api.applicationService.SetApplicationCharm(ctx, params.AppName, applicationservice.UpdateCharmParams{
+	if err := api.applicationService.SetApplicationCharm(ctx, params.AppName, application.UpdateCharmParams{
 		Charm:               newCharm,
 		Storage:             storageDirectives,
 		CharmUpgradeOnError: params.Force.ForceUnits,

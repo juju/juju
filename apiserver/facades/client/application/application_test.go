@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
 	coreunit "github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -1315,7 +1316,7 @@ func (s *applicationSuite) expectSetCharm(c *gc.C, name string, fn func(*gc.C, s
 	})
 
 	// TODO (stickupkid): This isn't actually checking much here...
-	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), name, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, params applicationservice.UpdateCharmParams) error {
+	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), name, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, params domainapplication.UpdateCharmParams) error {
 		c.Assert(params.Charm, gc.DeepEquals, &domainCharm{
 			charm: s.charm,
 			locator: applicationcharm.CharmLocator{
