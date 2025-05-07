@@ -49,10 +49,6 @@ type ManifoldConfig struct {
 	// to run the server and other worker dependencies.
 	NewServerWorker func(ServerWorkerConfig) (worker.Worker, error)
 
-	// NewSSHServerListener is the function that creates a listener, based on
-	// an existing listener for the server worker.
-	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
-
 	// Logger is the logger to use for the worker.
 	Logger Logger
 }
@@ -70,9 +66,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
-	}
-	if config.NewSSHServerListener == nil {
-		return errors.NotValidf("nil NewSSHServerListener")
 	}
 	return nil
 }
@@ -112,11 +105,10 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 	}
 
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
-		NewServerWorker:      config.NewServerWorker,
-		Logger:               config.Logger,
-		FacadeClient:         client,
-		NewSSHServerListener: config.NewSSHServerListener,
-		SessionHandler:       &stubSessionHandler{},
+		NewServerWorker: config.NewServerWorker,
+		Logger:          config.Logger,
+		FacadeClient:    client,
+		SessionHandler:  &stubSessionHandler{},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -86,9 +86,8 @@ func newServerWorkerConfig(
 	modifier func(*ServerWorkerConfig),
 ) *ServerWorkerConfig {
 	cfg := &ServerWorkerConfig{
-		Logger:               l,
-		JumpHostKey:          j,
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger:      l,
+		JumpHostKey: j,
 	}
 
 	modifier(cfg)
@@ -114,12 +113,6 @@ func (s *sshServerSuite) TestValidate(c *gc.C) {
 	})
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	// Test no NewSSHServerListener.
-	cfg = newServerWorkerConfig(l, "NewSSHServerListener", func(cfg *ServerWorkerConfig) {
-		cfg.NewSSHServerListener = nil
-	})
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
 	// Test no FacadeClient.
 	cfg = newServerWorkerConfig(l, "NewSSHServerListener", func(cfg *ServerWorkerConfig) {
 		cfg.FacadeClient = nil
@@ -140,7 +133,6 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 		Listener:                 listener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
@@ -222,7 +214,6 @@ func (s *sshServerSuite) TestSSHPublicKeyHandler(c *gc.C) {
 		Listener:                 listener,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		FacadeClient:             s.facadeClient,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		SessionHandler:           s.sessionHandler,
 	})
@@ -295,7 +286,6 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 		Listener:                 listener,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		MaxConcurrentConnections: maxConcurrentConnections,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
@@ -351,7 +341,6 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		Listener:                 listener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
@@ -423,7 +412,6 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 		Listener:                 listener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
