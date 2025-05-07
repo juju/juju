@@ -56,17 +56,18 @@ func SetModelConfig(
 		attrs[config.TypeKey] = m.ModelType
 		attrs[config.NameKey] = m.Name
 
-		// TODO (tlm): Currently the Juju client passes agent version to a
-		// bootstrap controller via model config. Yep very very very silly.
-		// This needs a bit more modelling in DQlite before to change the flow.
-		// To make it more digestible of the bootstrap code we are throwing it
-		// away here.
+		// TODO(tlm): Currently the Juju client passes agent version and stream
+		// to a bootstrapped controller via model config. We want to move away
+		// from this pattern over time but until the client can be refactored we
+		// remove the values from model config as they get set as first class
+		// values in the model database.
 		//
 		// What needs to happen:
-		// - model agent version in the model database correctly.
 		// - change any client code that is passing the value via config.
-		// - add migration logic to get rid of agent version out of config.
+		// - add migration logic to get rid of agent version and stream out of
+		// config.
 		delete(attrs, config.AgentVersionKey)
+		delete(attrs, config.AgentStreamKey)
 
 		cfg, err := config.New(config.NoDefaults, attrs)
 		if err != nil {

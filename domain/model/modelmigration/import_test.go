@@ -117,6 +117,13 @@ func (i *importSuite) TestModelOwnerNoExist(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
+// TestModelCreate is asserting the happy path of importing a model from
+// description and the values that go into creating the model in the various
+// model services.
+//
+// Specifically with this test we want to assert the following behaviours:
+// - If no agent stream is specified in the model's config then a default stream
+// of [agentbinary.AgentStreamReleased] is used.
 func (i *importSuite) TestModelCreate(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	userUUID, err := coreuser.NewUUID()
@@ -150,6 +157,89 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		activated = true
 		return nil
 	}
+
+	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
+	i.modelDetailService.EXPECT().CreateModelWithAgentVersionStream(
+		gomock.Any(),
+		jujuversion.Current,
+		// This is important as we want to see when no agent stream has been set
+		// in the imported model's config that a default value of
+		// [agentbinary.AgentStreamReleased] is chosen.
+		agentbinary.AgentStreamReleased,
+	).Return(nil)
+
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]any{
+			config.NameKey:         "test-model",
+			config.UUIDKey:         modelUUID.String(),
+			config.AgentVersionKey: jujuversion.Current.String(),
+		},
+		Cloud:       "aws",
+		CloudRegion: "region1",
+		Owner:       "tlm",
+		Type:        coremodel.CAAS.String(),
+	})
+
+	model.SetCloudCredential(description.CloudCredentialArgs{
+		Owner: "tlm",
+		Cloud: "aws",
+		Name:  "my-credential",
+	})
+
+	importOp := &importModelOperation{
+		userService:            i.userService,
+		modelImportService:     i.modelImportService,
+		modelDetailServiceFunc: func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
+	}
+
+	coordinator := modelmigration.NewCoordinator(
+		loggertesting.WrapCheckLog(c),
+		modelmigrationtesting.IgnoredSetupOperation(importOp),
+	)
+	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(activated, jc.IsTrue)
+}
+
+// TestModelCreateWithAgentStream is asserting the happy path of importing a
+// model from description. Specifically with this test we want to see that if
+// the model being imported has their agent stream set in model config that this
+// value is used when creating the model.
+func (i *importSuite) TestModelCreateWithAgentStream(c *gc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	userUUID, err := coreuser.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer i.setupMocks(c).Finish()
+	i.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "tlm")).Return(
+		coreuser.User{
+			UUID: userUUID,
+		},
+		nil,
+	)
+
+	args := model.ModelImportArgs{
+		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
+			Cloud:       "aws",
+			CloudRegion: "region1",
+			Credential: credential.Key{
+				Name:  "my-credential",
+				Owner: usertesting.GenNewName(c, "tlm"),
+				Cloud: "aws",
+			},
+			Name:  "test-model",
+			Owner: userUUID,
+		},
+		UUID: modelUUID,
+	}
+
+	activated := false
+	activator := func(_ context.Context) error {
+		activated = true
+		return nil
+	}
+
+	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
 	i.modelDetailService.EXPECT().CreateModelWithAgentVersionStream(

@@ -13,6 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
@@ -377,6 +378,31 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 	)
 	// Add the correct error detail when restoring this test.
 	c.Assert(err, gc.NotNil)
+}
+
+// TestCreateModelForVersionInvalidStream is testing that when
+// [ModelService.CreateModelForVersionAndStream] is called with an agent stream
+// that isn't understood or supported we get back an error that satisfies
+// [modelerrors.AgentStreamNotValid].
+func (s *modelServiceSuite) TestCreateModelForVersionInvalidStream(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), modelUUID).Return(coremodel.ModelInfo{}, nil)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	err := svc.CreateModelWithAgentVersionStream(
+		context.Background(),
+		jujuversion.Current,
+		agentbinary.AgentStream("bad stream"),
+	)
+	c.Check(err, jc.ErrorIs, modelerrors.AgentStreamNotValid)
 }
 
 func (s *modelServiceSuite) TestDeleteModel(c *gc.C) {

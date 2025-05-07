@@ -17,7 +17,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	coreagent "github.com/juju/juju/core/agent"
-	"github.com/juju/juju/core/agentbinary"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
@@ -257,6 +257,20 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		return nil, fmt.Errorf("%w %q during bootstrap", modelerrors.AgentVersionNotSupported, agentVersion)
 	}
 
+	// localModelRecordOP defines the bootstrap operation that should be run
+	// to establish the local model record in the controller model's database.
+	// We have two variants of this to handle the case when the user as set a
+	// custom agent stream to use for the controller model.
+	localModelRecordOp := modelbootstrap.CreateLocalModelRecord(
+		controllerModelUUID, controllerUUID, agentVersion,
+	)
+	if stateParams.ControllerModelConfig.AgentStream() != "" {
+		agentStream := coreagentbinary.AgentStream(stateParams.ControllerModelConfig.AgentStream())
+		localModelRecordOp = modelbootstrap.CreateLocalModelRecordWithAgentStream(
+			controllerModelUUID, controllerUUID, agentVersion, agentStream,
+		)
+	}
+
 	databaseBootstrapOptions := []database.BootstrapOpt{
 		// The controller config needs to be inserted before the admin users
 		// because the admin users permissions require the controller UUID.
@@ -269,7 +283,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		modeldefaultsbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),
 		controllerModelCreateFunc,
-		modelbootstrap.CreateLocalModelRecord(controllerModelUUID, controllerUUID, agentVersion, agentbinary.AgentStreamReleased),
+		localModelRecordOp,
 		modelbootstrap.SetModelConstraints(stateParams.ModelConstraints),
 		modelconfigbootstrap.SetModelConfig(
 			controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),
