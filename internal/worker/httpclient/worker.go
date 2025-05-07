@@ -76,17 +76,23 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*httpClientWorker,
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:  "http-client",
+		Clock: cfg.Clock,
+		IsFatal: func(err error) bool {
+			return false
+		},
+		RestartDelay: time.Second * 10,
+		Logger:       internalworker.WrapLogger(cfg.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &httpClientWorker{
-		internalStates: internalStates,
-		cfg:            cfg,
-		runner: worker.NewRunner(worker.RunnerParams{
-			Clock: cfg.Clock,
-			IsFatal: func(err error) bool {
-				return false
-			},
-			RestartDelay: time.Second * 10,
-			Logger:       internalworker.WrapLogger(cfg.Logger),
-		}),
+		internalStates:     internalStates,
+		cfg:                cfg,
+		runner:             runner,
 		httpClientRequests: make(chan httpClientRequest),
 	}
 
@@ -107,12 +113,14 @@ func (w *httpClientWorker) loop() (err error) {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
+	ctx := w.catacomb.Context(context.Background())
+
 	for {
 		select {
 		// The following ensures that all httpClientRequests are serialised and
 		// processed in order.
 		case req := <-w.httpClientRequests:
-			if err := w.initHTTPClient(req.purpose); err != nil {
+			if err := w.initHTTPClient(ctx, req.purpose); err != nil {
 				select {
 				case req.done <- errors.Trace(err):
 				case <-w.catacomb.Dying():
@@ -222,8 +230,8 @@ func (w *httpClientWorker) workerFromCache(purpose corehttp.Purpose) (corehttp.H
 	return nil, nil
 }
 
-func (w *httpClientWorker) initHTTPClient(purpose corehttp.Purpose) error {
-	err := w.runner.StartWorker(purpose.String(), func() (worker.Worker, error) {
+func (w *httpClientWorker) initHTTPClient(ctx context.Context, purpose corehttp.Purpose) error {
+	err := w.runner.StartWorker(ctx, purpose.String(), func(ctx context.Context) (worker.Worker, error) {
 		// TODO (stickupkid): We can pass in additional configuration here if
 		// needed.
 		httpClient := w.cfg.NewHTTPClient(purpose, internalhttp.WithLogger(w.cfg.Logger))

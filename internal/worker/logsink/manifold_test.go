@@ -103,7 +103,9 @@ func (s *ManifoldSuite) newWorker(config Config) (worker.Worker, error) {
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return worker.NewRunner(worker.RunnerParams{}), nil
+	return worker.NewRunner(worker.RunnerParams{
+		Name: "log-sink",
+	})
 }
 
 var expectedInputs = []string{}

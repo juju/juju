@@ -160,11 +160,11 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	return unit, nil
 }
 
-func (a *UnitAgent) start() (worker.Worker, error) {
-	a.logger.Tracef(context.TODO(), "starting workers for %q", a.name)
+func (a *UnitAgent) start(ctx context.Context) (worker.Worker, error) {
+	a.logger.Tracef(ctx, "starting workers for %q", a.name)
 	loggerContext, bufferedLogger, closeLogging, err := a.initLogging()
 	if err != nil {
-		a.logger.Tracef(context.TODO(), "init logging failed %s", err)
+		a.logger.Tracef(ctx, "init logging failed %s", err)
 		return nil, errors.Trace(err)
 	}
 
@@ -184,12 +184,12 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 	// There will only be an error if the required configuration
 	// values are not passed in.
 	if err != nil {
-		a.logger.Tracef(context.TODO(), "creating machine lock failed %s", err)
+		a.logger.Tracef(ctx, "creating machine lock failed %s", err)
 		return nil, errors.Trace(err)
 	}
 
 	// construct unit agent manifold
-	a.logger.Tracef(context.TODO(), "creating unit manifolds for %q", a.name)
+	a.logger.Tracef(ctx, "creating unit manifolds for %q", a.name)
 	manifolds := a.unitManifolds(UnitManifoldsConfig{
 		LoggerContext:       loggerContext,
 		Agent:               a,
@@ -210,10 +210,10 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 		return nil, err
 	}
 
-	a.logger.Tracef(context.TODO(), "installing manifolds for %q", a.name)
+	a.logger.Tracef(ctx, "installing manifolds for %q", a.name)
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
-			a.logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
+			a.logger.Errorf(ctx, "while stopping engine with bad manifolds: %v", err)
 		}
 		return nil, err
 	}
@@ -240,9 +240,9 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 		// but continue. It is very unlikely to happen in the real world
 		// as the only issue is connecting to the abstract domain socket
 		// and the agent is controlled by by the OS to only have one.
-		a.logger.Errorf(context.TODO(), "failed to start introspection worker: %v", err)
+		a.logger.Errorf(ctx, "failed to start introspection worker: %v", err)
 	}
-	a.logger.Tracef(context.TODO(), "engine for %q running", a.name)
+	a.logger.Tracef(ctx, "engine for %q running", a.name)
 	return engine, nil
 }
 

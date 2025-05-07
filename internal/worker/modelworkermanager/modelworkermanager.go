@@ -139,27 +139,33 @@ func New(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	m := &modelWorkerManager{
-		config: config,
-		runner: worker.NewRunner(worker.RunnerParams{
-			IsFatal: neverFatal,
-			ShouldRestart: func(err error) bool {
-				return !errors.Is(err, database.ErrDBDead)
-			},
-			MoreImportant: neverImportant,
-			RestartDelay:  config.ErrorDelay,
-			Logger:        internalworker.WrapLogger(config.Logger),
-		}),
+
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:    "model-worker-manager",
+		IsFatal: neverFatal,
+		ShouldRestart: func(err error) bool {
+			return !errors.Is(err, database.ErrDBDead)
+		},
+		MoreImportant: neverImportant,
+		RestartDelay:  config.ErrorDelay,
+		Logger:        internalworker.WrapLogger(config.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	err := catacomb.Invoke(catacomb.Plan{
+	m := &modelWorkerManager{
+		config: config,
+		runner: runner,
+	}
+
+	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &m.catacomb,
 		Work: m.loop,
 		Init: []worker.Worker{
 			m.runner,
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return m, nil
@@ -247,7 +253,7 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 
 	// If the worker is already running, this will return an AlreadyExists
 	// error and the start function will not be called.
-	if err := m.runner.StartWorker(modelUUID, func() (worker.Worker, error) {
+	if err := m.runner.StartWorker(ctx, modelUUID, func(ctx context.Context) (worker.Worker, error) {
 		return newWorker(ctx)
 	}); !errors.Is(err, errors.AlreadyExists) {
 		return errors.Trace(err)

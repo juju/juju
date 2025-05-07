@@ -118,32 +118,38 @@ func NewWorker(cfg WorkerConfig) (*dbReplWorker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	w := &dbReplWorker{
-		cfg: cfg,
-		dbReplRunner: worker.NewRunner(worker.RunnerParams{
-			Clock: cfg.Clock,
-			// If a worker goes down, we've attempted multiple retries and in
-			// that case we do want to cause the dbaccessor to go down. This
-			// will then bring up a new dqlite app.
-			IsFatal: func(err error) bool {
-				// If a database is dead we should not kill the worker of the
-				// runner.
-				if errors.Is(err, database.ErrDBDead) {
-					return false
-				}
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:  "dbreplaccessor",
+		Clock: cfg.Clock,
+		// If a worker goes down, we've attempted multiple retries and in
+		// that case we do want to cause the dbaccessor to go down. This
+		// will then bring up a new dqlite app.
+		IsFatal: func(err error) bool {
+			// If a database is dead we should not kill the worker of the
+			// runner.
+			if errors.Is(err, database.ErrDBDead) {
+				return false
+			}
 
-				// If there is a rebind during starting up a worker the dbApp
-				// will be nil. In this case, we'll return ErrTryAgain. In this
-				// case we don't want to kill the worker. We'll force the
-				// worker to try again.
-				return !errors.Is(err, errTryAgain)
-			},
-			ShouldRestart: func(err error) bool {
-				return !errors.Is(err, database.ErrDBDead)
-			},
-			RestartDelay: time.Second * 1,
-			Logger:       internalworker.WrapLogger(cfg.Logger),
-		}),
+			// If there is a rebind during starting up a worker the dbApp
+			// will be nil. In this case, we'll return ErrTryAgain. In this
+			// case we don't want to kill the worker. We'll force the
+			// worker to try again.
+			return !errors.Is(err, errTryAgain)
+		},
+		ShouldRestart: func(err error) bool {
+			return !errors.Is(err, database.ErrDBDead)
+		},
+		RestartDelay: time.Second * 1,
+		Logger:       internalworker.WrapLogger(cfg.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	w := &dbReplWorker{
+		cfg:            cfg,
+		dbReplRunner:   runner,
 		dbReplReady:    make(chan struct{}),
 		dbReplRequests: make(chan dbRequest),
 		driverName:     fmt.Sprintf("dqlite-%d", 1000+rand.IntN(1000000)),
@@ -167,12 +173,15 @@ func (w *dbReplWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		// The following ensures that all dbReplRequests are serialised and
 		// processed in order.
 		case req := <-w.dbReplRequests:
-			if err := w.openDatabase(req.namespace); err != nil {
+			if err := w.openDatabase(ctx, req.namespace); err != nil {
 				select {
 				case req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace):
 				case <-w.catacomb.Dying():
@@ -313,11 +322,11 @@ func (w *dbReplWorker) joinExistingDqliteCluster() error {
 // it is safe to return ErrDying if the catacomb is dying when we detect a nil
 // database or ErrTryAgain to force the runner to retry starting the worker
 // again.
-func (w *dbReplWorker) openDatabase(namespace string) error {
+func (w *dbReplWorker) openDatabase(ctx context.Context, namespace string) error {
 	// Note: Do not be tempted to create the worker outside of the StartWorker
 	// function. This will create potential data race if openDatabase is called
 	// multiple times for the same namespace.
-	err := w.dbReplRunner.StartWorker(namespace, func() (worker.Worker, error) {
+	err := w.dbReplRunner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 		if w.dbApp == nil {
 			// If the dbApp is nil then we're shutting down.
 			select {
@@ -327,9 +336,6 @@ func (w *dbReplWorker) openDatabase(namespace string) error {
 				return nil, errTryAgain
 			}
 		}
-
-		ctx, cancel := w.scopedContext()
-		defer cancel()
 
 		return w.cfg.NewDBReplWorker(ctx,
 			w.dbApp, namespace,

@@ -193,14 +193,18 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	// we really want to use wall clocks. Otherwise the events never get
 	// noticed. The clocks in the runner and the txn watcher are used to
 	// control polling, and never return the actual times.
-	pool.watcherRunner = worker.NewRunner(worker.RunnerParams{
+	pool.watcherRunner, err = worker.NewRunner(worker.RunnerParams{
+		Name:         "state-pool-txn-watcher",
 		Logger:       internalworker.WrapLogger(internallogger.GetLogger("juju.state.pool.txnwatcher")),
 		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
 		RestartDelay: time.Second,
 		Clock:        args.Clock,
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	pool.txnWatcherSession = args.MongoSession.Copy()
-	if err = pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+	if err = pool.watcherRunner.StartWorker(context.TODO(), txnLogWorker, func(ctx context.Context) (worker.Worker, error) {
 		return watcher.NewTxnWatcher(
 			watcher.TxnWatcherConfig{
 				Session:           pool.txnWatcherSession,

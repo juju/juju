@@ -94,25 +94,29 @@ func newWorker(cfg WorkerConfig, internalState chan string) (*remoteWorker, erro
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:  "remote-worker",
+		Clock: cfg.Clock,
+		IsFatal: func(err error) bool {
+			// TODO (stickupkid): Handle specific errors here.
+			return false
+		},
+		// Backoff for 5 seconds before restarting a worker.
+		// This is a lifetime for the life of an API connection.
+		RestartDelay: time.Second * 5,
+		Logger:       internalworker.WrapLogger(cfg.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	w := &remoteWorker{
-		cfg: cfg,
-		runner: worker.NewRunner(worker.RunnerParams{
-			Clock: cfg.Clock,
-			IsFatal: func(err error) bool {
-				// TODO (stickupkid): Handle specific errors here.
-				return false
-			},
-			// Backoff for 5 seconds before restarting a worker.
-			// This is a lifetime for the life of an API connection.
-			RestartDelay: time.Second * 5,
-			Logger:       internalworker.WrapLogger(cfg.Logger),
-		}),
+		cfg:            cfg,
+		runner:         runner,
 		changes:        make(chan serverChanges),
 		internalStates: internalState,
 		apiRemotes:     make([]RemoteConnection, 0),
 	}
 
-	var err error
 	w.unsubServerDetails, err = cfg.Hub.Subscribe(apiserver.DetailsTopic, w.apiServerChanges)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -186,7 +190,7 @@ func (w *remoteWorker) loop() error {
 			required := make(map[string]RemoteConnection)
 			for target, addresses := range change.servers {
 
-				server, err := w.newRemoteServer(target, addresses)
+				server, err := w.newRemoteServer(ctx, target, addresses)
 				if err != nil {
 					w.cfg.Logger.Errorf(ctx, "failed to start remote worker for %q: %v", target, err)
 					return errors.Trace(err)
@@ -286,16 +290,13 @@ func (w *remoteWorker) apiServerChanges(topic string, details apiserver.Details,
 	}
 }
 
-func (w *remoteWorker) newRemoteServer(controllerID string, addresses []string) (RemoteServer, error) {
+func (w *remoteWorker) newRemoteServer(ctx context.Context, controllerID string, addresses []string) (RemoteServer, error) {
 	// Create a new remote server APIInfo with the target and addresses.
 	apiInfo := *w.cfg.APIInfo
 	apiInfo.Addrs = addresses
 
 	// Start a new worker with the target and addresses.
-	err := w.runner.StartWorker(controllerID, func() (worker.Worker, error) {
-		ctx, cancel := w.scopedContext()
-		defer cancel()
-
+	err := w.runner.StartWorker(ctx, controllerID, func(ctx context.Context) (worker.Worker, error) {
 		w.cfg.Logger.Debugf(ctx, "starting remote worker for %q", controllerID)
 		return w.cfg.NewRemote(RemoteServerConfig{
 			Clock:        w.cfg.Clock,
