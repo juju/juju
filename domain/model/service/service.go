@@ -241,32 +241,31 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
-// DefaultModelCloudInfoAndCredential returns the default cloud name, region name and
-// credential that should be used for newly created models that haven't had
-// either cloud or credential specified. If no default credential is available
-// the zero value of [credential.UUID] will be returned.
+// DefaultModelCloudInfo returns the default cloud name and region name
+// that should be used for newly created models that haven't had
+// either cloud or credential specified.
 //
 // The defaults that are sourced come from the controller's default model. If
 // there is a no controller model a [modelerrors.NotFound] error will be
 // returned.
-func (s *Service) DefaultModelCloudInfoAndCredential(
+func (s *Service) DefaultModelCloudInfo(
 	ctx context.Context,
-) (string, string, credential.Key, error) {
+) (string, string, error) {
 	ctrlUUID, err := s.st.GetControllerModelUUID(ctx)
 	if err != nil {
-		return "", "", credential.Key{}, errors.Errorf(
+		return "", "", errors.Errorf(
 			"getting controller model uuid: %w", err,
 		)
 	}
-	cloudName, regionName, cred, err := s.st.GetModelCloudInfoAndCredential(ctx, ctrlUUID)
+	cloudName, regionName, _, err := s.st.GetModelCloudInfoAndCredential(ctx, ctrlUUID)
 
 	if err != nil {
-		return "", "", credential.Key{}, errors.Errorf(
+		return "", "", errors.Errorf(
 			"getting controller model %q cloud name and credential: %w",
 			ctrlUUID, err,
 		)
 	}
-	return cloudName, regionName, cred, nil
+	return cloudName, regionName, nil
 }
 
 // CreateModel is responsible for creating a new model from start to finish with

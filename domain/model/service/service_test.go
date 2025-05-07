@@ -1025,10 +1025,10 @@ func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *gc.C) {
 	c.Check(err, jc.ErrorIs, modelerrors.CredentialNotValid)
 }
 
-// TestDefaultModelCloudInfoAndCredentialNotFound is a white box test that
+// TestDefaultModelCloudInfoNotFound is a white box test that
 // purposely returns a [modelerrors.NotFound] error when the controller model is
 // asked for. We expect that this error flows back out of the service call.
-func (s *serviceSuite) TestDefaultModelCloudInfoAndCredentialNotFound(c *gc.C) {
+func (s *serviceSuite) TestDefaultModelCloudInfoNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.mockState.EXPECT().GetControllerModelUUID(gomock.Any()).Return(
@@ -1042,7 +1042,7 @@ func (s *serviceSuite) TestDefaultModelCloudInfoAndCredentialNotFound(c *gc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 
-	_, _, _, err := svc.DefaultModelCloudInfoAndCredential(context.Background())
+	_, _, err := svc.DefaultModelCloudInfo(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 
 	// There exists to ways for the controller model to not be found. This is
@@ -1057,13 +1057,13 @@ func (s *serviceSuite) TestDefaultModelCloudInfoAndCredentialNotFound(c *gc.C) {
 		"", "", credential.Key{}, modelerrors.NotFound,
 	)
 
-	_, _, _, err = svc.DefaultModelCloudInfoAndCredential(context.Background())
+	_, _, err = svc.DefaultModelCloudInfo(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-// TestDefaultModelCloudInfoAndCredential is asserting the happy path that when
+// TestDefaultModelCloudInfo is asserting the happy path that when
 // a controller model exists the cloud name and credential are returned.
-func (s *serviceSuite) TestDefaultModelCloudInfoAndCredential(c *gc.C) {
+func (s *serviceSuite) TestDefaultModelCloudInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
@@ -1082,23 +1082,14 @@ func (s *serviceSuite) TestDefaultModelCloudInfoAndCredential(c *gc.C) {
 	)
 	s.mockState.EXPECT().GetModelCloudInfoAndCredential(gomock.Any(), ctrlModelUUID).Return(
 		"test", "test-region", // cloud name and region
-		credential.Key{
-			Cloud: "test",
-			Owner: usertesting.GenNewName(c, "admin"),
-			Name:  "test-cred",
-		},
+		credential.Key{},
 		nil,
 	)
 
-	cloud, region, cred, err := svc.DefaultModelCloudInfoAndCredential(context.Background())
+	cloud, region, err := svc.DefaultModelCloudInfo(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cloud, gc.Equals, "test")
 	c.Check(region, gc.Equals, "test-region")
-	c.Check(cred, jc.DeepEquals, credential.Key{
-		Cloud: "test",
-		Owner: usertesting.GenNewName(c, "admin"),
-		Name:  "test-cred",
-	})
 }
 
 // TestWatchActivatedModels verifies that WatchActivatedModels correctly sets up a watcher
