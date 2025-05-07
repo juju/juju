@@ -855,7 +855,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	), "units")
 
 	controllerAdminAuthorizer := controllerAdminAuthorizer{
-		controllerTag: names.NewControllerTag(controllerModelUUID.String()),
+		controllerTag: names.NewControllerTag(srv.shared.controllerUUID),
 	}
 
 	migrateObjectsCharmsHTTPHandler := srv.monitoredHandler(objects.NewObjectsCharmHTTPHandler(
