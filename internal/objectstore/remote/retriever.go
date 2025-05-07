@@ -63,6 +63,20 @@ type BlobRetriever struct {
 
 // NewBlobRetriever creates a new BlobRetriever.
 func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "blob-retriever",
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return false
+		},
+		Clock:  clock,
+		Logger: internalworker.WrapLogger(logger),
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 	w := &BlobRetriever{
 		namespace:        namespace,
 		newBlobsClient:   newBlobsClient,
@@ -70,16 +84,7 @@ func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespa
 		clock:            clock,
 		logger:           logger,
 
-		runner: worker.NewRunner(worker.RunnerParams{
-			IsFatal: func(err error) bool {
-				return false
-			},
-			ShouldRestart: func(err error) bool {
-				return false
-			},
-			Clock:  clock,
-			Logger: internalworker.WrapLogger(logger),
-		}),
+		runner: runner,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -128,7 +133,7 @@ func (r *BlobRetriever) spawn(ctx context.Context, remotes []apiremotecaller.Rem
 		index := atomic.AddUint64(&r.index, 1)
 		indexes[index] = struct{}{}
 
-		if err := r.runner.StartWorker(name(index, sha256), func() (worker.Worker, error) {
+		if err := r.runner.StartWorker(ctx, name(index, sha256), func(ctx context.Context) (worker.Worker, error) {
 			return newRetriever(index, remote, r.newBlobsClient, r.clock, r.logger), nil
 		}); errors.Is(err, jujuerrors.AlreadyExists) {
 			return nil, nil, errors.Errorf("retriever %d already exists", index)

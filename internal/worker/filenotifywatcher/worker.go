@@ -4,6 +4,8 @@
 package filenotifywatcher
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -59,14 +61,20 @@ func newWorker(cfg WorkerConfig) (*fileNotifyWorker, error) {
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "file-notify-watcher",
+		// Prevent the runner from restarting the worker, if one of the
+		// workers dies, we want to stop the whole thing.
+		IsFatal: func(err error) bool { return false },
+		Clock:   cfg.Clock,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &fileNotifyWorker{
-		cfg: cfg,
-		runner: worker.NewRunner(worker.RunnerParams{
-			// Prevent the runner from restarting the worker, if one of the
-			// workers dies, we want to stop the whole thing.
-			IsFatal: func(err error) bool { return false },
-			Clock:   cfg.Clock,
-		}),
+		cfg:    cfg,
+		runner: runner,
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -115,7 +123,7 @@ func (w *fileNotifyWorker) Changes(fileName string) (<-chan bool, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if err := w.runner.StartWorker(fileName, func() (worker.Worker, error) {
+	if err := w.runner.StartWorker(context.TODO(), fileName, func(ctx context.Context) (worker.Worker, error) {
 		return watcher, nil
 	}); err != nil {
 		return nil, errors.Annotatef(err, "starting worker for fileName %q", fileName)

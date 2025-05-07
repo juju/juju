@@ -96,20 +96,26 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*configWorker, err
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:  "controller-agent-config",
+		Clock: cfg.Clock,
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return false
+		},
+		Logger: internalworker.WrapLogger(cfg.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &configWorker{
 		internalStates:  internalStates,
 		cfg:             cfg,
 		reloadRequested: make(chan struct{}),
-		runner: worker.NewRunner(worker.RunnerParams{
-			Clock: cfg.Clock,
-			IsFatal: func(err error) bool {
-				return false
-			},
-			ShouldRestart: func(err error) bool {
-				return false
-			},
-			Logger: internalworker.WrapLogger(cfg.Logger),
-		}),
+		runner:          runner,
 	}
 
 	sl, err := cfg.NewSocketListener(socketlistener.Config{
@@ -180,9 +186,11 @@ func (w *configWorker) Wait() error {
 // Watcher returns a Watcher for watching for changes to the agent
 // controller config.
 func (w *configWorker) Watcher() (ConfigWatcher, error) {
+	ctx := w.catacomb.Context(context.Background())
+
 	unique := atomic.AddInt64(&w.unique, 1)
 	namespace := fmt.Sprintf("watcher-%d", unique)
-	err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
+	err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 		return newSubscription(), nil
 	})
 	if err != nil {

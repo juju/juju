@@ -63,21 +63,27 @@ func New(
 	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc,
 	clock clock.Clock,
 ) (worker.Worker, error) {
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "external-controller-updater",
+		// One of the controller watchers fails should not prevent the others
+		// from running.
+		IsFatal: func(error) bool { return false },
+
+		// If the API connection fails, try again in 1 minute.
+		RestartDelay: time.Minute,
+		Clock:        clock,
+		Logger:       internalworker.WrapLogger(logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := updaterWorker{
 		watchExternalControllers:           externalControllers.WatchExternalControllers,
 		externalControllerInfo:             externalControllers.ExternalControllerInfo,
 		setExternalControllerInfo:          externalControllers.SetExternalControllerInfo,
 		newExternalControllerWatcherClient: newExternalControllerWatcherClient,
-		runner: worker.NewRunner(worker.RunnerParams{
-			// One of the controller watchers fails should not
-			// prevent the others from running.
-			IsFatal: func(error) bool { return false },
-
-			// If the API connection fails, try again in 1 minute.
-			RestartDelay: time.Minute,
-			Clock:        clock,
-			Logger:       internalworker.WrapLogger(logger),
-		}),
+		runner:                             runner,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -154,7 +160,7 @@ func (w *updaterWorker) loop() error {
 				}
 				logger.Infof(ctx, "starting watcher for external controller %q", tag.Id())
 				watchers.Add(tag)
-				if err := w.runner.StartWorker(tag.Id(), func() (worker.Worker, error) {
+				if err := w.runner.StartWorker(ctx, tag.Id(), func(ctx context.Context) (worker.Worker, error) {
 					return newControllerWatcher(
 						tag,
 						w.setExternalControllerInfo,

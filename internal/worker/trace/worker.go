@@ -105,17 +105,23 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*tracerWorker, err
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:  "tracer",
+		Clock: cfg.Clock,
+		IsFatal: func(err error) bool {
+			return false
+		},
+		RestartDelay: time.Second * 10,
+		Logger:       internalworker.WrapLogger(cfg.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &tracerWorker{
 		internalStates: internalStates,
 		cfg:            cfg,
-		tracerRunner: worker.NewRunner(worker.RunnerParams{
-			Clock: cfg.Clock,
-			IsFatal: func(err error) bool {
-				return false
-			},
-			RestartDelay: time.Second * 10,
-			Logger:       internalworker.WrapLogger(cfg.Logger),
-		}),
+		tracerRunner:   runner,
 		tracerRequests: make(chan traceRequest),
 	}
 
@@ -141,12 +147,15 @@ func (w *tracerWorker) loop() (err error) {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		// The following ensures that all tracerRequests are serialised and
 		// processed in order.
 		case req := <-w.tracerRequests:
-			if err := w.initTracer(req.namespace); err != nil {
+			if err := w.initTracer(ctx, req.namespace); err != nil {
 				select {
 				case req.done <- errors.Trace(err):
 				case <-w.catacomb.Dying():
@@ -253,11 +262,8 @@ func (w *tracerWorker) workerFromCache(namespace coretrace.TaggedTracerNamespace
 	return nil, nil
 }
 
-func (w *tracerWorker) initTracer(namespace coretrace.TaggedTracerNamespace) error {
-	err := w.tracerRunner.StartWorker(namespace.String(), func() (worker.Worker, error) {
-		ctx, cancel := w.scopedContext()
-		defer cancel()
-
+func (w *tracerWorker) initTracer(ctx context.Context, namespace coretrace.TaggedTracerNamespace) error {
+	err := w.tracerRunner.StartWorker(ctx, namespace.String(), func(ctx context.Context) (worker.Worker, error) {
 		return w.cfg.NewTracerWorker(
 			ctx,
 			namespace,

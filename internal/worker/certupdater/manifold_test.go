@@ -89,7 +89,10 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 
 func (s *ManifoldSuite) newWorker(config certupdater.Config) (worker.Worker, error) {
 	s.stub.MethodCall(s, "NewWorker", config)
-	w := worker.NewRunner(worker.RunnerParams{})
+	w, err := worker.NewRunner(worker.RunnerParams{Name: "test"})
+	if err != nil {
+		return nil, err
+	}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 	return w, nil
 }

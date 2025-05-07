@@ -178,15 +178,20 @@ func SafeModeMachineAgentFactoryFn(
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 ) safeModeMachineAgentFactoryFnType {
 	return func(agentTag names.Tag, isCaasAgent bool) (*SafeModeMachineAgent, error) {
+		runner, err := worker.NewRunner(worker.RunnerParams{
+			Name:          "safemode",
+			IsFatal:       agenterrors.IsFatal,
+			MoreImportant: agenterrors.MoreImportant,
+			RestartDelay:  internalworker.RestartDelay,
+			Logger:        internalworker.WrapLogger(logger),
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return NewSafeModeMachineAgent(
 			agentTag,
 			agentConfWriter,
-			worker.NewRunner(worker.RunnerParams{
-				IsFatal:       agenterrors.IsFatal,
-				MoreImportant: agenterrors.MoreImportant,
-				RestartDelay:  internalworker.RestartDelay,
-				Logger:        internalworker.WrapLogger(logger),
-			}),
+			runner,
 			newDBWorkerFunc,
 			isCaasAgent,
 		)
@@ -264,7 +269,7 @@ func (a *SafeModeMachineAgent) Run(ctx *cmd.Context) (err error) {
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), agentConfig)
 
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
-	_ = a.runner.StartWorker("engine", createEngine)
+	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
@@ -292,8 +297,8 @@ func (a *SafeModeMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 
 func (a *SafeModeMachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion semversion.Number,
-) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) {
+) func(ctx context.Context) (worker.Worker, error) {
+	return func(ctx context.Context) (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
 			dependency.DefaultMetrics(),
 			internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),

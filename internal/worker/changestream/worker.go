@@ -4,6 +4,8 @@
 package changestream
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -80,28 +82,34 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "change-stream",
+		// Prevent the runner from restarting the worker, if one of the
+		// workers dies, we want to stop the whole thing.
+		IsFatal: func(err error) bool {
+			return false
+		},
+		// ShouldRestart is used to determine if the worker should be
+		// restarted. We only want to restart the worker if the error is not
+		// ErrDBDead and ErrDBNotFound.
+		// The ErrDBNotFound error can be returned if the namespace doesn't
+		// exist and so can not be retrieved. When this happens, we do not
+		// want to restart the worker and instead return the error to the
+		// caller.
+		// The caller can retry if they want, but internally to the
+		// changestream, the worker is dead.
+		ShouldRestart: func(err error) bool {
+			return !(errors.Is(err, coredatabase.ErrDBDead) || errors.Is(err, coredatabase.ErrDBNotFound))
+		},
+		Clock: cfg.Clock,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &changeStreamWorker{
-		cfg: cfg,
-		runner: worker.NewRunner(worker.RunnerParams{
-			// Prevent the runner from restarting the worker, if one of the
-			// workers dies, we want to stop the whole thing.
-			IsFatal: func(err error) bool {
-				return false
-			},
-			// ShouldRestart is used to determine if the worker should be
-			// restarted. We only want to restart the worker if the error is not
-			// ErrDBDead and ErrDBNotFound.
-			// The ErrDBNotFound error can be returned if the namespace doesn't
-			// exist and so can not be retrieved. When this happens, we do not
-			// want to restart the worker and instead return the error to the
-			// caller.
-			// The caller can retry if they want, but internally to the
-			// changestream, the worker is dead.
-			ShouldRestart: func(err error) bool {
-				return !(errors.Is(err, coredatabase.ErrDBDead) || errors.Is(err, coredatabase.ErrDBNotFound))
-			},
-			Clock: cfg.Clock,
-		}),
+		cfg:    cfg,
+		runner: runner,
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -148,7 +156,7 @@ func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.Watc
 	}
 
 	// If the worker doesn't exist yet, create it.
-	if err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
+	if err := w.runner.StartWorker(context.TODO(), namespace, func(ctx context.Context) (worker.Worker, error) {
 		db, err := w.cfg.DBGetter.GetDB(namespace)
 		if err != nil {
 			return nil, errors.Trace(err)

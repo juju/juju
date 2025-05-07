@@ -79,20 +79,26 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*storageRegistryWo
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:  "storage-registry",
+		Clock: cfg.Clock,
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return !errors.Is(err, database.ErrDBDead)
+		},
+		RestartDelay: time.Second * 10,
+		Logger:       internalworker.WrapLogger(cfg.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &storageRegistryWorker{
-		internalStates: internalStates,
-		cfg:            cfg,
-		runner: worker.NewRunner(worker.RunnerParams{
-			Clock: cfg.Clock,
-			IsFatal: func(err error) bool {
-				return false
-			},
-			ShouldRestart: func(err error) bool {
-				return !errors.Is(err, database.ErrDBDead)
-			},
-			RestartDelay: time.Second * 10,
-			Logger:       internalworker.WrapLogger(cfg.Logger),
-		}),
+		internalStates:          internalStates,
+		cfg:                     cfg,
+		runner:                  runner,
 		storageRegistryRequests: make(chan storageRegistryRequest),
 	}
 
@@ -113,12 +119,15 @@ func (w *storageRegistryWorker) loop() (err error) {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		// The following ensures that all storageRegistryRequests are serialised and
 		// processed in order.
 		case req := <-w.storageRegistryRequests:
-			if err := w.initStorageRegistry(req.namespace); err != nil {
+			if err := w.initStorageRegistry(ctx, req.namespace); err != nil {
 				select {
 				case req.done <- errors.Trace(err):
 				case <-w.catacomb.Dying():
@@ -226,13 +235,10 @@ func (w *storageRegistryWorker) workerFromCache(namespace string) (storage.Provi
 	return nil, nil
 }
 
-func (w *storageRegistryWorker) initStorageRegistry(namespace string) error {
+func (w *storageRegistryWorker) initStorageRegistry(ctx context.Context, namespace string) error {
 	runner := providertracker.ProviderRunner[storage.ProviderRegistry](w.cfg.ProviderFactory, namespace)
 
-	err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
-		ctx, cancel := w.scopedContext()
-		defer cancel()
-
+	err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 		storageRegistry, err := runner(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)

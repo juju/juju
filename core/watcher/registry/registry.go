@@ -67,14 +67,20 @@ func NewRegistry(clock clock.Clock, opts ...Option) (*Registry, error) {
 		opt(o)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "watcher-registry",
+		// Prevent the runner from restarting the worker, if one of the
+		// workers dies, we want to stop the whole thing.
+		IsFatal:       func(err error) bool { return false },
+		ShouldRestart: func(err error) bool { return false },
+		Clock:         clock,
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	r := &Registry{
-		runner: worker.NewRunner(worker.RunnerParams{
-			// Prevent the runner from restarting the worker, if one of the
-			// workers dies, we want to stop the whole thing.
-			IsFatal:       func(err error) bool { return false },
-			ShouldRestart: func(err error) bool { return false },
-			Clock:         clock,
-		}),
+		runner:         runner,
 		watcherWrapper: watcherLogDecorator(o.logger),
 	}
 
@@ -110,7 +116,7 @@ func (r *Registry) Register(w worker.Worker) (string, error) {
 	nsCounter := atomic.AddInt64(&r.namespaceCounter, 1)
 	namespace := fmt.Sprintf("%s-%d", DefaultNamespace, nsCounter)
 
-	err := r.register(namespace, w)
+	err := r.register(context.TODO(), namespace, w)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -127,11 +133,11 @@ func (r *Registry) RegisterNamed(namespace string, w worker.Worker) error {
 		return errors.Errorf("namespace %q %w", namespace, coreerrors.NotValid)
 	}
 
-	return r.register(namespace, w)
+	return r.register(context.TODO(), namespace, w)
 }
 
-func (r *Registry) register(namespace string, w worker.Worker) error {
-	err := r.runner.StartWorker(namespace, func() (worker.Worker, error) {
+func (r *Registry) register(ctx context.Context, namespace string, w worker.Worker) error {
+	err := r.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 		return r.watcherWrapper(w)
 	})
 	if err != nil {

@@ -167,7 +167,9 @@ func New(config Config) (*Worker, error) {
 
 	runner := config.Runner
 	if runner == nil {
-		runner = worker.NewRunner(worker.RunnerParams{
+		var err error
+		runner, err = worker.NewRunner(worker.RunnerParams{
+			Name:   "remote-relations",
 			Clock:  config.Clock,
 			Logger: internalworker.WrapLogger(config.Logger),
 
@@ -178,6 +180,9 @@ func New(config Config) (*Worker, error) {
 			// For any failures, try again in 15 seconds.
 			RestartDelay: 15 * time.Second,
 		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	w := &Worker{
 		config:     config,
@@ -296,7 +301,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 			}
 		}
 
-		startFunc := func() (worker.Worker, error) {
+		startFunc := func(ctx context.Context) (worker.Worker, error) {
 			appWorker := &remoteApplicationWorker{
 				offerUUID:                         remoteApp.OfferUUID,
 				applicationName:                   remoteApp.Name,
@@ -323,7 +328,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 		logger.Debugf(ctx, "starting watcher for remote application %q", name)
 		// Start the application worker to watch for things like new relations.
 		w.offerUUIDs[name] = remoteApp.OfferUUID
-		if err := w.runner.StartWorker(name, startFunc); err != nil {
+		if err := w.runner.StartWorker(ctx, name, startFunc); err != nil {
 			if errors.Is(err, errors.AlreadyExists) {
 				w.logger.Debugf(ctx, "already running remote application worker for %q", name)
 			} else {

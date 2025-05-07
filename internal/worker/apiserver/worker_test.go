@@ -109,7 +109,12 @@ func (s *workerFixture) newServer(ctx context.Context, config coreapiserver.Serv
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	w := worker.NewRunner(worker.RunnerParams{})
+	w, err := worker.NewRunner(worker.RunnerParams{
+		Name: "apiserver",
+	})
+	if err != nil {
+		return nil, err
+	}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 	return w, nil
 }

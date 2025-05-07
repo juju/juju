@@ -75,7 +75,7 @@ type CAASBroker interface {
 // Runner exposes functionalities of a worker.Runner.
 type Runner interface {
 	Worker(id string, abort <-chan struct{}) (worker.Worker, error)
-	StartWorker(id string, startFunc func() (worker.Worker, error)) error
+	StartWorker(ctx context.Context, id string, startFunc func(context.Context) (worker.Worker, error)) error
 	StopAndRemoveWorker(id string, abort <-chan struct{}) error
 	worker.Worker
 }
@@ -105,14 +105,17 @@ type provisioner struct {
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
 func NewProvisionerWorker(config Config) (worker.Worker, error) {
-	return newProvisionerWorker(config,
-		worker.NewRunner(worker.RunnerParams{
-			Clock:        config.Clock,
-			IsFatal:      func(error) bool { return false },
-			RestartDelay: 3 * time.Second,
-			Logger:       internalworker.WrapLogger(config.Logger.Child("runner")),
-		}),
-	)
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:         "provisioner",
+		Clock:        config.Clock,
+		IsFatal:      func(error) bool { return false },
+		RestartDelay: 3 * time.Second,
+		Logger:       internalworker.WrapLogger(config.Logger.Child("runner")),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newProvisionerWorker(config, runner)
 }
 
 func newProvisionerWorker(
@@ -217,7 +220,7 @@ func (p *provisioner) loop() error {
 				}
 				startFunc := p.newAppWorker(config)
 				p.logger.Debugf(ctx, "starting app worker %q", appName)
-				err = p.runner.StartWorker(appName, startFunc)
+				err = p.runner.StartWorker(ctx, appName, startFunc)
 				if err != nil {
 					return errors.Trace(err)
 				}
