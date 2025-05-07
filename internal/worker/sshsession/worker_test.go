@@ -334,11 +334,8 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 	ephemeralPublicKey, err := gossh.NewPublicKey(testKey.Public())
 	c.Assert(err, jc.ErrorIsNil)
 
-	innerChan := make(chan []string)
-	go func() {
-		innerChan <- []string{connID, connID}
-	}()
-	stringChan := watcher.StringsChannel(innerChan)
+	watcherChan := make(chan []string)
+	stringChan := watcher.StringsChannel(watcherChan)
 
 	s.watcher.EXPECT().Wait().AnyTimes()
 	s.watcher.EXPECT().Kill().AnyTimes()
@@ -362,16 +359,25 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 	// Setup an in-memory conn getter to stub the controller and SSHD side.
 	connSSHD1, workerConnSSHD1 := net.Pipe()
 	workerControllerConn1, controllerConn1 := net.Pipe()
-	s.connectionGetter.EXPECT().GetSSHDConnection().Return(workerConnSSHD1, nil)
-	s.connectionGetter.EXPECT().GetControllerConnection(gomock.Any(), gomock.Any(), "17022").
-		Return(workerControllerConn1, nil)
 
 	connSSHD2, workerConnSSHD2 := net.Pipe()
 	workerControllerConn2, controllerConn2 := net.Pipe()
 
-	s.connectionGetter.EXPECT().GetSSHDConnection().Return(workerConnSSHD2, nil)
-	s.connectionGetter.EXPECT().GetControllerConnection(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(workerControllerConn2, nil)
+	workerSSHConns := make(chan net.Conn)
+	workerControllerConns := make(chan net.Conn)
+
+	s.connectionGetter.EXPECT().GetSSHDConnection().DoAndReturn(
+		func() (net.Conn, error) {
+			conn := <-workerSSHConns
+			return conn, nil
+		},
+	).Times(2)
+	s.connectionGetter.EXPECT().GetControllerConnection(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_, _, _ string) (net.Conn, error) {
+			conn := <-workerControllerConns
+			return conn, nil
+		},
+	).Times(2)
 
 	w, err := NewWorker(WorkerConfig{
 		Logger:               l,
@@ -384,6 +390,26 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 	workertest.CheckAlive(c, w)
 
+	ready := make(chan struct{})
+	// Here we sequence the order of connections to ensure that
+	// controllerConn1 is associated with connSSHD1 and
+	// controllerConn2 is associated with connSSHD2.
+	go func() {
+		watcherChan <- []string{connID}
+		workerControllerConns <- workerControllerConn1
+		workerSSHConns <- workerConnSSHD1
+
+		watcherChan <- []string{connID}
+		workerControllerConns <- workerControllerConn2
+		workerSSHConns <- workerConnSSHD2
+		close(ready)
+	}()
+
+	select {
+	case <-ready:
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for test setup")
+	}
 	// test the second pipe is working even if the first one is blocked.
 	go func() {
 		// use a different error var to avoid shadowing the others
