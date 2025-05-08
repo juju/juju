@@ -179,7 +179,8 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// we will try and apply the defaults where authorisation allows us to.
 	defaultCloudName, defaultCloudRegion, err := m.modelService.DefaultModelCloudInfo(ctx)
 	if err != nil {
-		return result, errors.Errorf("cannot find default model cloud and credential")
+		logger.Warningf(ctx, "failed to get default model cloud info: %v", err)
+		return result, internalerrors.Errorf("cannot find default model cloud and credential")
 	}
 
 	var cloudTag names.CloudTag
@@ -920,7 +921,11 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 		ProviderType:   model.CloudType,
 	}
 
-	if cloudCredentialTag, err := model.Credential.Tag(); err == nil {
+	cloudCredentialTag, err := model.Credential.Tag()
+	if err != nil {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+	if !cloudCredentialTag.IsZero() {
 		info.CloudCredentialTag = cloudCredentialTag.String()
 	}
 

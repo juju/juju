@@ -257,7 +257,7 @@ func (s *Service) DefaultModelCloudInfo(
 			"getting controller model uuid: %w", err,
 		)
 	}
-	cloudName, regionName,  err := s.st.GetModelCloudInfo(ctx, ctrlUUID)
+	cloudName, regionName, err := s.st.GetModelCloudInfo(ctx, ctrlUUID)
 
 	if err != nil {
 		return "", "", errors.Errorf(

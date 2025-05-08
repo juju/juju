@@ -317,45 +317,6 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 	return m.recorder
 }
 
-// ControllerModel mocks base method.
-func (m *MockModelService) ControllerModel(arg0 context.Context) (model.Model, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerModel", arg0)
-	ret0, _ := ret[0].(model.Model)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerModel indicates an expected call of ControllerModel.
-func (mr *MockModelServiceMockRecorder) ControllerModel(arg0 any) *MockModelServiceControllerModelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerModel", reflect.TypeOf((*MockModelService)(nil).ControllerModel), arg0)
-	return &MockModelServiceControllerModelCall{Call: call}
-}
-
-// MockModelServiceControllerModelCall wrap *gomock.Call
-type MockModelServiceControllerModelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelServiceControllerModelCall) Return(arg0 model.Model, arg1 error) *MockModelServiceControllerModelCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelServiceControllerModelCall) Do(f func(context.Context) (model.Model, error)) *MockModelServiceControllerModelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceControllerModelCall) DoAndReturn(f func(context.Context) (model.Model, error)) *MockModelServiceControllerModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CreateModel mocks base method.
 func (m *MockModelService) CreateModel(arg0 context.Context, arg1 model0.GlobalModelCreationArgs) (model.UUID, func(context.Context) error, error) {
 	m.ctrl.T.Helper()
