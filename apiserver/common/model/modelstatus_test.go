@@ -148,7 +148,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 		},
 	}
 
-	s.statusService.EXPECT().GetModelInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
+	s.statusService.EXPECT().GetModelStatusInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
 		Type: coremodel.IAAS,
 	}, nil)
 
