@@ -497,6 +497,7 @@ def generate_hook_command_docs():
 
     print("generated hook command list")
 
-generate_cli_docs()
-generate_controller_config_docs()
-generate_hook_command_docs()
+if __name__ == "__main__":
+    generate_cli_docs()
+    generate_controller_config_docs()
+    generate_hook_command_docs()
