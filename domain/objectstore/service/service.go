@@ -55,9 +55,19 @@ type State interface {
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error
 
+	// GetActiveDrainingPhase returns the active draining phase of the object
+	// store.
+	GetActiveDrainingPhase(ctx context.Context) (string, objectstore.Phase, error)
+
+	// SetDrainingPhase sets the phase of the object store to draining.
+	SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error
+
 	// InitialWatchStatement returns the table and the initial watch statement
 	// for the persistence metadata.
 	InitialWatchStatement() (string, string)
+
+	// InitialWatchDrainingTable returns the table for the draining phase.
+	InitialWatchDrainingTable() string
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -71,6 +81,14 @@ type WatcherFactory interface {
 		initialQuery eventsource.NamespaceQuery,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
+
+	// NewNotifyWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
 }
 
 // Service provides the API for working with the objectstore.
@@ -210,6 +228,46 @@ func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 	return nil
 }
 
+// SetDrainingPhase sets the phase of the object store to draining.
+func (s *Service) SetDrainingPhase(ctx context.Context, phase objectstore.Phase) error {
+	if !phase.IsValid() {
+		return errors.Errorf("invalid phase %q", phase)
+	}
+
+	uuid, current, err := s.st.GetActiveDrainingPhase(ctx)
+	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
+		uuid, err := objectstore.NewUUID()
+		if err != nil {
+			return errors.Errorf("creating new uuid: %w", err)
+		}
+
+		return s.st.SetDrainingPhase(ctx, uuid.String(), phase)
+	} else if err != nil {
+		return errors.Errorf("getting active draining phase: %w", err)
+	}
+
+	if _, err := current.TransitionTo(phase); errors.Is(err, objectstore.ErrTerminalPhase) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("transitioning phase: %w", err)
+	}
+
+	// Set the phase in the state.
+	if err := s.st.SetDrainingPhase(ctx, uuid, phase); err != nil {
+		return errors.Errorf("setting draining phase: %w", err)
+	}
+	return nil
+}
+
+// GetDrainingPhase returns the phase of the object store.
+func (s *Service) GetDrainingPhase(ctx context.Context) (objectstore.Phase, error) {
+	_, phase, err := s.st.GetActiveDrainingPhase(ctx)
+	if err != nil {
+		return "", errors.Errorf("getting draining phase: %w", err)
+	}
+	return phase, nil
+}
+
 // WatchableService provides the API for working with the objectstore
 // and the ability to create watchers.
 type WatchableService struct {
@@ -234,6 +292,16 @@ func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	table, stmt := s.st.InitialWatchStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges(stmt),
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
+}
+
+// WatchDraining returns a watcher that watches the draining phase of the
+// object store. The watcher emits the phase changes that either have been
+// added or removed.
+func (s *WatchableService) WatchDraining(ctx context.Context) (watcher.Watcher[struct{}], error) {
+	table := s.st.InitialWatchDrainingTable()
+	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
 }

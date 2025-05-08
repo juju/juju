@@ -16,7 +16,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_status,model_migration_minion_sync
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/upgrade-triggers.gen.go -package=triggers -tables=upgrade_info,upgrade_info_controller_node
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/secret-triggers.gen.go -package=triggers -tables=secret_backend_rotation,model_secret_backend
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-triggers.gen.go -package=triggers -tables=model
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-authorized-keys-triggers.gen.go -package=triggers -tables=model_authorized_keys
@@ -38,6 +38,7 @@ const (
 	tableCloudCredentialAttribute
 	tableUpgradeInfoControllerNode
 	tableObjectStoreMetadata
+	tableObjectStoreDrainInfo
 	tableSecretBackendRotation
 	tableModelSecretBackend
 	tableModelMetadata
@@ -90,6 +91,7 @@ func ControllerDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),
 		triggers.ChangeLogTriggersForUpgradeInfoControllerNode("upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableObjectStoreMetadata),
+		triggers.ChangeLogTriggersForObjectStoreDrainInfo("uuid", tableObjectStoreDrainInfo),
 		triggers.ChangeLogTriggersForSecretBackendRotation("backend_uuid", tableSecretBackendRotation),
 		triggers.ChangeLogTriggersForModelSecretBackend("model_uuid", tableModelSecretBackend),
 		triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
