@@ -129,6 +129,7 @@ func newWorker(config Config, internalState chan string) (*Worker, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "async-charm-downloader",
 		Site: &cd.catacomb,
 		Work: cd.loop,
 		Init: []worker.Worker{cd.runner},

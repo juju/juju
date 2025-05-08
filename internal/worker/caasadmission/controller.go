@@ -44,6 +44,7 @@ func NewController(
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-admission",
 		Site: &c.catacomb,
 		Work: c.makeLoop(admissionCreator,
 			admissionHandler(logger, rbacMapper, labelVersion),

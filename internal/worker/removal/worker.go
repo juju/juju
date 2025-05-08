@@ -83,6 +83,7 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "removal",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{w.runner},

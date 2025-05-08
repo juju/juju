@@ -118,6 +118,7 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "provider-tracker",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{

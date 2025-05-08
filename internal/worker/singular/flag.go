@@ -90,6 +90,7 @@ func NewFlagWorker(ctx context.Context, config FlagConfig) (worker.Worker, error
 	flag.valid = valid
 
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "singular",
 		Site: &flag.catacomb,
 		Work: flag.run,
 	})

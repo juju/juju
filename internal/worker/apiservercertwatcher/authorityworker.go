@@ -45,6 +45,7 @@ func newPKIAuthorityWorker() (*PKIAuthorityWorker, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "pki-authority",
 		Site: &agentWatcher.catacomb,
 		Work: agentWatcher.loop,
 	}); err != nil {

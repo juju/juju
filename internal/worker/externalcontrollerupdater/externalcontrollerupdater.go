@@ -86,6 +86,7 @@ func New(
 		runner:                             runner,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "external-controller-updater",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{w.runner},
@@ -205,6 +206,7 @@ func newControllerWatcher(
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "external-controller-watcher",
 		Site: &cw.catacomb,
 		Work: cw.loop,
 	}); err != nil {

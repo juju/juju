@@ -31,6 +31,7 @@ func NewModelFirewallRulesWatcher(modelConfigService ModelConfigService) (*model
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "model-firewall-rules-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

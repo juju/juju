@@ -40,6 +40,7 @@ func NewWorkerForTest(config Config, f ApplicationWorkerCreator) (worker.Worker,
 	}
 	p := newFirewaller(config, f)
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-firewaller",
 		Site: &p.catacomb,
 		Work: p.loop,
 	})

@@ -132,6 +132,7 @@ func newWorker(cfg WorkerConfig, internalState chan string) (*remoteWorker, erro
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "api-remote-worker",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{

@@ -129,6 +129,7 @@ func newTrackerWorker(ctx context.Context, config TrackerConfig, internalStates 
 		providerGetter:   getter,
 	}
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "provider-tracker",
 		Site: &t.catacomb,
 		Work: t.loop,
 	})

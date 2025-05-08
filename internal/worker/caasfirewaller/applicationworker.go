@@ -69,6 +69,7 @@ func newApplicationWorker(
 		logger:         logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-firewaller-application",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {

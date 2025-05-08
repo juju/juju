@@ -152,6 +152,7 @@ func New(config Config) (worker.Worker, error) {
 		processed: make(map[string]migration.Phase),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "migration-minion",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

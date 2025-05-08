@@ -190,6 +190,7 @@ func New(config Config) (*Worker, error) {
 		runner:     runner,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "remote-relations",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{w.runner},
@@ -317,6 +318,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 				logger:                            logger,
 			}
 			if err := catacomb.Invoke(catacomb.Plan{
+				Name: "remote-application",
 				Site: &appWorker.catacomb,
 				Work: appWorker.loop,
 			}); err != nil {

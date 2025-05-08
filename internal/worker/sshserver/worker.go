@@ -103,6 +103,7 @@ func NewServerWrapperWorker(config ServerWrapperWorkerConfig) (worker.Worker, er
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "ssh-server",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {

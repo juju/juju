@@ -195,6 +195,7 @@ func New(config Config) (*Worker, error) {
 		logger: logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "migration-master",
 		Site: &w.catacomb,
 		Work: w.run,
 	})

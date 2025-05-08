@@ -81,6 +81,7 @@ func NewEgressAddressWatcher(backend State, modelConfigService ModelConfigServic
 		knownModelEgress:   set.NewStrings(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "egress-address-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})
@@ -452,6 +453,7 @@ func newMachineAddressWorker(machine Machine, out chan<- string) (*machineAddres
 		out:     out,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "machine-address-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

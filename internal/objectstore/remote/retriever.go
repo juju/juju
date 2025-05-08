@@ -88,6 +88,7 @@ func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespa
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "blob-retriever",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{w.runner},

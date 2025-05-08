@@ -86,6 +86,7 @@ func newControllerWorker(base *upgradesteps.BaseWorker, upgradeService UpgradeSe
 		logger:         base.Logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "controller-upgrade",
 		Site: &w.catacomb,
 		Work: w.run,
 	}); err != nil {

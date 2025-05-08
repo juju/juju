@@ -160,6 +160,7 @@ func New(config Config) (worker.Worker, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "model-worker-manager",
 		Site: &m.catacomb,
 		Work: m.loop,
 		Init: []worker.Worker{

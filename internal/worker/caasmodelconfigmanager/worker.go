@@ -101,6 +101,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		registryFunc: config.RegistryFunc,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-model-config-manager",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})
