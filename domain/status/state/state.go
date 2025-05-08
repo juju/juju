@@ -42,10 +42,10 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 	}
 }
 
-// GetModelInfo returns information about the current model.
+// GetModelStatusInfo returns information about the current model.
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model does not exist.
-func (st *State) GetModelInfo(ctx context.Context) (status.ModelStatusInfo, error) {
+func (st *State) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return status.ModelStatusInfo{}, errors.Capture(err)

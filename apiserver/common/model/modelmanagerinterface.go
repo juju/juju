@@ -112,10 +112,11 @@ type StatusService interface {
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
 
-	// GetModelInfo returns only basic model information used for displaying model status.
+	// GetModelStatusInfo returns only basic model information used for
+	// displaying model status.
 	// The following error types can be expected to be returned:
 	// - [modelerrors.NotFound]: When the model does not exist.
-	GetModelInfo(context.Context) (domainstatus.ModelStatusInfo, error)
+	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

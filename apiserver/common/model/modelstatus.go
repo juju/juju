@@ -108,7 +108,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	modelInfo, err := statusServiceGetter.GetModelInfo(ctx)
+	modelInfo, err := statusServiceGetter.GetModelStatusInfo(ctx)
 	switch {
 	case errors.Is(err, modelerrors.NotFound):
 		return status, internalerrors.Errorf(

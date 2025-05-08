@@ -52,7 +52,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
-func (s *stateSuite) TestGetModelInfo(c *gc.C) {
+func (s *stateSuite) TestGetModelStatusInfo(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	controllerUUID, err := uuid.NewUUID()
 	c.Check(err, jc.ErrorIsNil)
@@ -66,15 +66,15 @@ func (s *stateSuite) TestGetModelInfo(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	modelInfo, err := s.state.GetModelInfo(context.Background())
+	modelInfo, err := s.state.GetModelStatusInfo(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(modelInfo.Type, gc.Equals, model.IAAS)
 }
 
-func (s *stateSuite) TestGetModelInfoNotFound(c *gc.C) {
+func (s *stateSuite) TestGetModelStatusInfoNotFound(c *gc.C) {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	_, err := state.GetModelInfo(context.Background())
+	_, err := state.GetModelStatusInfo(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 

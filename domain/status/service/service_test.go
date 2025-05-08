@@ -1447,9 +1447,9 @@ func (s *serviceSuite) TestGetModelInfo(c *gc.C) {
 		Type: model.IAAS,
 	}
 
-	s.state.EXPECT().GetModelInfo(gomock.Any()).Return(modelStatusInfo, nil)
+	s.state.EXPECT().GetModelStatusInfo(gomock.Any()).Return(modelStatusInfo, nil)
 
-	modelStatusInfo, err := s.service.GetModelInfo(context.Background())
+	modelStatusInfo, err := s.service.GetModelStatusInfo(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(modelStatusInfo, gc.DeepEquals, modelStatusInfo)
 }
@@ -1457,9 +1457,9 @@ func (s *serviceSuite) TestGetModelInfo(c *gc.C) {
 func (s *serviceSuite) TestGetModelInfoNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetModelInfo(gomock.Any()).Return(status.ModelStatusInfo{}, modelerrors.NotFound)
+	s.state.EXPECT().GetModelStatusInfo(gomock.Any()).Return(status.ModelStatusInfo{}, modelerrors.NotFound)
 
-	_, err := s.service.GetModelInfo(context.Background())
+	_, err := s.service.GetModelStatusInfo(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
