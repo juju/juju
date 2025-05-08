@@ -312,3 +312,5 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 // methods, which sometimes clash with package names. Fix the package to v0.4.0
 // until the issue is resolved.
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
+
+replace gopkg.in/check.v1 => github.com/hpidcock/gc-compat-tc v0.0.0-20250508054543-7d57932bff2c
