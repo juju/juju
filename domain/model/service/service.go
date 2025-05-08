@@ -103,8 +103,15 @@ type State interface {
 	// models exist a zero value slice will be returned.
 	ListAllModels(context.Context) ([]coremodel.Model, error)
 
-	// ListModelIDs returns a list of all model UUIDs.
-	ListModelIDs(context.Context) ([]coremodel.UUID, error)
+	// ListModelUUIDs returns a list of all model UUIDs in the controller that
+	// are active. If no models exist then an empty slice is returned.
+	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
+
+	// ListModelUUIDsForUser returns a slice of model UUIDs that the supplied
+	// user has access to. If the user has no models that they have access to
+	// then an empty slice is returned.
+	// - [accesserrors.UserNotFound] when the user does not exist.
+	ListModelUUIDsForUser(context.Context, coreuser.UUID) ([]coremodel.UUID, error)
 
 	// ListModelsForUser returns a slice of models owned by the user
 	// specified by user id. If no user or models are found an empty slice is
@@ -115,14 +122,6 @@ type State interface {
 	// permissions on the given model UUID.
 	// If the model cannot be found it will return modelerrors.NotFound.
 	GetModelUsers(context.Context, coremodel.UUID) ([]coremodel.ModelUserInfo, error)
-
-	// ListModelSummariesForUser returns a slice of model summaries for a given
-	// user. If no models are found an empty slice is returned.
-	ListModelSummariesForUser(context.Context, coreuser.Name) ([]coremodel.UserModelSummary, error)
-
-	// ListAllModelSummaries returns a slice of model summaries for all models
-	// known to the controller.
-	ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error)
 
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
@@ -483,11 +482,29 @@ func (s *Service) DeleteModel(
 // ListModelUUIDs returns a list of all model UUIDs in the controller that are
 // active.
 func (s *Service) ListModelUUIDs(ctx context.Context) ([]coremodel.UUID, error) {
-	uuids, err := s.st.ListModelIDs(ctx)
+	uuids, err := s.st.ListModelUUIDs(ctx)
 	if err != nil {
-		return nil, errors.Errorf("getting list of model id's: %w", err)
+		return nil, errors.Errorf("getting list of model uuids for controller: %w", err)
 	}
 	return uuids, nil
+}
+
+// ListModelUUIDsForUser returns a list of model UUIDs that the supplied user
+// has access to. If the user supplied does not have access to any models then
+// an empty slice is returned.
+// The following errors can be expected:
+// - [github.com/juju/juju/core/errors.NotValid] when the user uuid supplied is
+// not valid.
+// - [accesserrors.UserNotFound] when the user does not exist.
+func (s *Service) ListModelUUIDsForUser(
+	ctx context.Context,
+	userUUID coreuser.UUID,
+) ([]coremodel.UUID, error) {
+	if err := userUUID.Validate(); err != nil {
+		return nil, errors.Errorf("validating user uuid: %w", err)
+	}
+
+	return s.st.ListModelUUIDsForUser(ctx, userUUID)
 }
 
 // ListAllModels  lists all models in the controller. If no models exist then
@@ -569,21 +586,6 @@ func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, na
 		"getting info of user %q on model %q: %w",
 		name, modelUUID, err,
 	)
-}
-
-// ListModelSummariesForUser returns a slice of model summaries for a given
-// user. If no models are found an empty slice is returned.
-func (s *Service) ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error) {
-	if userName.IsZero() {
-		return nil, errors.New("empty username").Add(accesserrors.UserNameNotValid)
-	}
-	return s.st.ListModelSummariesForUser(ctx, userName)
-}
-
-// ListAllModelSummaries returns a slice of model summaries for all models
-// known to the controller.
-func (s *Service) ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error) {
-	return s.st.ListAllModelSummaries(ctx)
 }
 
 // UpdateCredential is responsible for updating the cloud credential

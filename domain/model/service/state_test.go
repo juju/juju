@@ -74,6 +74,14 @@ func (d *dummyState) CloudType(
 	return "aws", nil
 }
 
+func (d *dummyState) ListModelUUIDs(_ context.Context) ([]coremodel.UUID, error) {
+	return nil, nil
+}
+
+func (d *dummyState) ListModelUUIDsForUser(_ context.Context, _ user.UUID) ([]coremodel.UUID, error) {
+	return nil, nil
+}
+
 func (d *dummyState) Create(
 	_ context.Context,
 	modelID coremodel.UUID,
