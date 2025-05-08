@@ -173,11 +173,14 @@ type dbModelType struct {
 // dbUserModelSummary is summary of the information for a model from the
 // perspective of a user that has access to the model.
 type dbUserModelSummary struct {
-	// Access is the access level the supplied user has on this model
+	// Access is the access level the supplied user has on this model.
 	Access permission.Access `db:"access_type"`
 
-	// UserLastConnection is the last time this user has accessed this model
+	// UserLastConnection is the last time this user has accessed this model.
 	UserLastConnection *time.Time `db:"time"`
+
+	// OwnerName is the user name of the model owner.
+	OwnerName string `db:"owner_name"`
 
 	// Model state related members
 
@@ -198,6 +201,8 @@ type dbUserModelSummary struct {
 // dbModelSummary represents the information about a model for a summary that
 // isn't available from the model's own database.
 type dbModelSummary struct {
+	OwnerName string `db:"owner_name"`
+
 	// Model state related members
 
 	// Destroying indicates if the model is in the process of being destroyed.

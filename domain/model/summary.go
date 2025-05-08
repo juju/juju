@@ -37,9 +37,6 @@ type ModelInfoSummary struct {
 	// IsController indicates if the model is a controller.
 	IsController bool
 
-	// OwnerName is the tag of the user that owns the model.
-	OwnerName user.Name
-
 	// AgentVersion is the agent version for this model.
 	AgentVersion semversion.Number
 
@@ -54,6 +51,10 @@ type ModelInfoSummary struct {
 }
 
 type ModelSummary struct {
+	// OwnerName is the name of the owner of the model.
+	OwnerName user.Name
+
+	// State is the state of the model for calculating the model's status.
 	State ModelState
 }
 

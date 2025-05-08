@@ -1492,6 +1492,7 @@ func (m *stateSuite) TestGetUserModelSummary(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(summary, gc.DeepEquals, model.UserModelSummary{
 		ModelSummary: model.ModelSummary{
+			OwnerName: m.userName,
 			State: model.ModelState{
 				Destroying:                   false,
 				HasInvalidCloudCredential:    false,
@@ -1556,6 +1557,7 @@ func (m *stateSuite) TestGetModelSummary(c *gc.C) {
 	summary, err := modelSt.GetModelSummary(context.Background(), m.uuid)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(summary, gc.DeepEquals, model.ModelSummary{
+		OwnerName: m.userName,
 		State: model.ModelState{
 			Destroying:                   false,
 			Migrating:                    false,

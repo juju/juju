@@ -1184,8 +1184,10 @@ func (s *State) GetModelSummary(
 	}
 
 	q := `
-SELECT &dbModelSummary.*
+SELECT (m.owner_name, ms.destroying, ms.cloud_credential_invalid,
+        ms.cloud_credential_invalid_reason, ms.migrating) AS (&dbModelSummary.*)
 FROM v_model_state ms
+JOIN v_model m ON m.uuid = ms.uuid
 WHERE ms.uuid = $dbModelUUID.uuid
 `
 	modelUUIDVal := dbModelUUID{UUID: modelUUID.String()}
@@ -1221,7 +1223,16 @@ WHERE ms.uuid = $dbModelUUID.uuid
 		return model.ModelSummary{}, errors.Capture(err)
 	}
 
+	ownerName, err := user.NewName(modelSummaryVals.OwnerName)
+	if err != nil {
+		return model.ModelSummary{}, errors.Errorf(
+			"parsing model %q owner username %q: %w",
+			modelUUID, modelSummaryVals.OwnerName, err,
+		)
+	}
+
 	return model.ModelSummary{
+		OwnerName: ownerName,
 		State: model.ModelState{
 			Destroying:                   modelSummaryVals.Destroying,
 			HasInvalidCloudCredential:    modelSummaryVals.CredentialInvalid,
@@ -1282,10 +1293,12 @@ func (s *State) GetUserModelSummary(
 
 	q := `
 SELECT    (p.access_type, mll.time, ms.destroying, ms.cloud_credential_invalid,
-           ms.cloud_credential_invalid_reason, ms.migrating) AS (&dbUserModelSummary.*)
+           ms.cloud_credential_invalid_reason, ms.migrating, m.owner_name
+          ) AS (&dbUserModelSummary.*)
 FROM      v_user_auth u
 JOIN      v_permission p ON p.grant_to = u.uuid
 JOIN      v_model_state ms ON ms.uuid = p.grant_on
+JOIN      v_model m ON m.uuid = ms.uuid
 LEFT JOIN model_last_login mll ON ms.uuid = mll.model_uuid AND mll.user_uuid = u.uuid
 WHERE     u.removed = false
 AND       u.uuid = $dbUserUUID.uuid
@@ -1339,8 +1352,17 @@ AND       ms.uuid = $dbModelUUID.uuid
 		return model.UserModelSummary{}, errors.Capture(err)
 	}
 
+	ownerName, err := user.NewName(userModelSummaryVals.OwnerName)
+	if err != nil {
+		return model.UserModelSummary{}, errors.Errorf(
+			"parsing model %q owner username %q: %w",
+			modelUUID, userModelSummaryVals.OwnerName, err,
+		)
+	}
+
 	return model.UserModelSummary{
 		ModelSummary: model.ModelSummary{
+			OwnerName: ownerName,
 			State: model.ModelState{
 				Destroying:                   userModelSummaryVals.Destroying,
 				Migrating:                    userModelSummaryVals.Migrating,

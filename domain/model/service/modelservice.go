@@ -233,10 +233,7 @@ func (s *ModelService) GetModelSummary(
 		CloudRegion:    miSummary.CloudRegion,
 		ControllerUUID: miSummary.ControllerUUID,
 		IsController:   miSummary.IsController,
-		// TODO (tlm): owner is an emerging pattern that we have yet to decided
-		// on for the dqlite implementation. When we can answer this question
-		// from access this can get filled in.
-		OwnerName: coreuser.Name{},
+		OwnerName:      mSummary.OwnerName,
 		// TODO (tlm): Wire up when life is available.
 		Life:         life.Value(""),
 		AgentVersion: miSummary.AgentVersion,
@@ -295,10 +292,7 @@ func (s *ModelService) GetUserModelSummary(
 			CloudRegion:    miSummary.CloudRegion,
 			ControllerUUID: miSummary.ControllerUUID,
 			IsController:   miSummary.IsController,
-			// TODO (tlm): owner is an emerging pattern that we have yet to decided
-			// on for the dqlite implementation. When we can answer this question
-			// from access this can get filled in.
-			OwnerName: coreuser.Name{},
+			OwnerName:      userSummary.OwnerName,
 			// TODO (tlm): Wire up when life is available.
 			Life:         life.Value(""),
 			AgentVersion: miSummary.AgentVersion,
