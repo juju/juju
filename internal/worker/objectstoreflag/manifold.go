@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -102,11 +103,18 @@ func bounceErrChanged(err error) error {
 	return err
 }
 
-func GeObjectStoreServicesFn(getter dependency.Getter, name string, modelUUID model.UUID) (ObjectStoreService, error) {
+// GetObjectStoreServices retrieves the ObjectStoreService using the given
+// service.
+func GeObjectStoreServices(getter dependency.Getter, name string, modelUUID model.UUID) (ObjectStoreService, error) {
 	var objectStoreServiceGetter services.ObjectStoreServicesGetter
 	if err := getter.Get(name, &objectStoreServiceGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return objectStoreServiceGetter.ServicesForModel(modelUUID).ObjectStore(), nil
+}
+
+// IsTerminal checks if the phase is a terminal phase.
+func IsTerminal(phase objectstore.Phase) bool {
+	return phase.IsTerminal()
 }
