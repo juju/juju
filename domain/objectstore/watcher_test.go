@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/domain/objectstore/service"
@@ -116,4 +117,34 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 
 	_, err = svc.GetMetadata(c.Context(), metadata.Path)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
+}
+
+func (s *watcherSuite) TestWatchDraining(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
+
+	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
+		domain.NewWatcherFactory(factory,
+			loggertesting.WrapCheckLog(c),
+		),
+	)
+	watcher, err := svc.WatchDraining(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	harness.AddTest(func(c *gc.C) {
+		err := svc.SetDrainingPhase(context.Background(), objectstore.PhaseDraining)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
+	})
+
+	harness.AddTest(func(c *gc.C) {
+		err := svc.SetDrainingPhase(context.Background(), objectstore.PhaseCompleted)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.Check(watchertest.SliceAssert(struct{}{}))
+	})
+
+	harness.Run(c, struct{}{})
 }

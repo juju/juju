@@ -21,12 +21,13 @@ const (
 	// ErrMissingHash is returned when a hash is missing.
 	ErrMissingHash = errors.ConstError("missing hash")
 
-	// ErrHashPrefixTooShort is returned when the hash prefix is too short. To help
-	// ensure uniqueness, we enforce a minimum length of 7 characters for hash prefixes.
+	// ErrHashPrefixTooShort is returned when the hash prefix is too short. To
+	// help ensure uniqueness, we enforce a minimum length of 7 characters for
+	// hash prefixes.
 	ErrHashPrefixTooShort = errors.ConstError("minimum hash prefix length is 7")
 
-	// ErrInvalidHashPrefix is returned when the hash prefix is invalid for a reason
-	// other than being too short.
+	// ErrInvalidHashPrefix is returned when the hash prefix is invalid for a
+	// reason other than being too short.
 	ErrInvalidHashPrefix = errors.ConstError("invalid hash prefix")
 
 	// ErrInvalidHash is returned when the hash is invalid.
@@ -34,4 +35,12 @@ const (
 
 	// ErrInvalidHashLength is returned when the hash length is invalid.
 	ErrInvalidHashLength = errors.ConstError("invalid hash length")
+
+	// ErrDrainingPhaseNotFound is returned when the draining phase is not
+	// found.
+	ErrDrainingPhaseNotFound = errors.ConstError("draining phase not found")
+
+	// ErrDrainingAlreadyInProgress is returned when the draining phase is
+	// already in progress.
+	ErrDrainingAlreadyInProgress = errors.ConstError("draining already in progress")
 )
