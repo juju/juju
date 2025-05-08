@@ -689,7 +689,7 @@ func (s *Service) decodeUnitStatusDetails(unit status.Unit) (Unit, error) {
 }
 
 // GetModelStatusInfo returns information about the current model for the
-// purpose of reporting it's status.
+// purpose of reporting its status.
 // The following error types can be expected to be returned:
 // - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does
 // not exist.

@@ -277,7 +277,7 @@ type StatusService interface {
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
 
 	// GetModelStatusInfo returns information about the current model for the
-	// purpose of reporting it's status.
+	// purpose of reporting its status.
 	// The following error types can be expected to be returned:
 	// - [modelerrors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)

@@ -85,7 +85,7 @@ func DecodeK8sPodStatus(s int) (K8sPodStatusType, error) {
 }
 
 // ModelStatusInfo represents the basic information about a model for the
-// purpose of reporting it's status.
+// purpose of reporting its status.
 type ModelStatusInfo struct {
 	// Type is the type of the model in question.
 	Type coremodel.ModelType
