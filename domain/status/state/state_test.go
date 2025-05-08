@@ -18,6 +18,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -52,22 +53,22 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *stateSuite) TestGetModelInfo(c *gc.C) {
-	modelUUID := uuid.MustNewUUID()
-	controllerUUID := uuid.MustNewUUID()
+	modelUUID := modeltesting.GenModelUUID(c)
+	controllerUUID, err := uuid.NewUUID()
+	c.Check(err, jc.ErrorIsNil)
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, credential_owner)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2", "owner")
 		`, modelUUID.String(), controllerUUID.String())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	modelInfo, err := s.state.GetModelInfo(context.Background())
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelInfo.Type, gc.Equals, model.IAAS.String())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(modelInfo.Type, gc.Equals, model.IAAS)
 }
 
 func (s *stateSuite) TestGetModelInfoNotFound(c *gc.C) {

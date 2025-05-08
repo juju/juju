@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -41,7 +42,7 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 	}
 }
 
-// GetModelInfo returns only basic model information used for displaying model status.
+// GetModelInfo returns information about the current model.
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model does not exist.
 func (st *State) GetModelInfo(ctx context.Context) (status.ModelStatusInfo, error) {
@@ -60,8 +61,13 @@ FROM   model
 
 	var m modelInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt).Get(&m); errors.Is(err, sqlair.ErrNoRows) {
-			return modelerrors.NotFound
+		err := tx.Query(ctx, stmt).Get(&m)
+		if errors.Is(err, modelerrors.NotFound) {
+			return errors.New("model does not exist").Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting model status information from database: %w", err,
+			)
 		}
 		return err
 	})
@@ -69,8 +75,7 @@ FROM   model
 		return status.ModelStatusInfo{}, errors.Capture(err)
 	}
 
-	modelType := m.ModelType
-	return status.ModelStatusInfo{Type: modelType}, nil
+	return status.ModelStatusInfo{Type: coremodel.ModelType(m.Type)}, nil
 
 }
 

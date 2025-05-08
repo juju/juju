@@ -204,5 +204,5 @@ type applicationNameUnitCount struct {
 }
 
 type modelInfo struct {
-	ModelType string `db:"type"`
+	Type string `db:"type"`
 }
