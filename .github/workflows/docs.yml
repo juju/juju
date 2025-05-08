@@ -23,10 +23,6 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Build Juju client
-        run: |
-          go install -v -tags minimal ./cmd/juju
-
       - name: Install sphinx dependencies
         run: |
           python -m venv venv
