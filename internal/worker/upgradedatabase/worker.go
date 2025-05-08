@@ -66,9 +66,9 @@ type UpgradeService interface {
 
 // ModelService is the interface for the model service.
 type ModelService interface {
-	// ListModeUUIDs returns a list of all model UUIDs that are active in the
+	// ListModelUUIDs returns a list of all model UUIDs that are active in the
 	// controller.
-	ListModeUUIDs(context.Context) ([]coremodel.UUID, error)
+	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
 }
 
 // Config holds the configuration for the worker.
@@ -460,7 +460,7 @@ func (w *upgradeDBWorker) upgradeController(ctx context.Context) error {
 func (w *upgradeDBWorker) upgradeModels(ctx context.Context) error {
 	w.logger.Infof(ctx, "upgrading model databases from: %v to: %v", w.fromVersion, w.toVersion)
 
-	models, err := w.modelService.ListModeUUIDs(ctx)
+	models, err := w.modelService.ListModelUUIDs(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "getting model list")
 	}
