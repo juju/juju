@@ -66,7 +66,7 @@ func (s *stateSuite) TestGetModelInfo(c *gc.C) {
 	modelInfo, err := s.state.GetModelInfo(context.Background())
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelInfo.Type, gc.Equals, string(model.IAAS))
+	c.Assert(modelInfo.Type, gc.Equals, model.IAAS.String())
 }
 
 func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
