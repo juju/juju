@@ -235,7 +235,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		creationArgs.Credential = credential.KeyFromTag(cloudCredentialTag)
 	}
 
-	user, err := m.accessService.GetUserByName(ctx, user.NameFromTag(ownerTag))
+	userUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(ownerTag))
 	switch {
 	case errors.Is(err, accesserrors.UserNotFound):
 		return result, internalerrors.Errorf(
@@ -251,7 +251,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			ownerTag.Name(), args.Name, err,
 		)
 	}
-	creationArgs.Owner = user.UUID
+	creationArgs.Owner = userUUID
 
 	// Create the model in the controller database.
 	modelUUID, activator, err := m.modelService.CreateModel(ctx, creationArgs)
