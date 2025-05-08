@@ -63,7 +63,7 @@ FROM   model
 		if err := tx.Query(ctx, stmt).Get(&m); errors.Is(err, sqlair.ErrNoRows) {
 			return modelerrors.NotFound
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return status.ModelStatusInfo{}, errors.Capture(err)

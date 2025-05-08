@@ -29,6 +29,7 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
@@ -38,7 +39,6 @@ import (
 
 type stateSuite struct {
 	schematesting.ModelSuite
-	modelUUID string
 
 	state *State
 }
@@ -48,23 +48,22 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	modelUUID := uuid.MustNewUUID().String()
-	controllerUUID := uuid.MustNewUUID().String()
+	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
+func (s *stateSuite) TestGetModelInfo(c *gc.C) {
+	modelUUID := uuid.MustNewUUID()
+	controllerUUID := uuid.MustNewUUID()
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, credential_owner)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2", "owner")
-		`, modelUUID, controllerUUID)
+		`, modelUUID.String(), controllerUUID.String())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	s.modelUUID = modelUUID
-}
-
-func (s *stateSuite) TestGetModelInfo(c *gc.C) {
 	modelInfo, err := s.state.GetModelInfo(context.Background())
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -75,7 +74,7 @@ func (s *stateSuite) TestGetModelInfoNotFound(c *gc.C) {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	_, err := state.GetModelInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
