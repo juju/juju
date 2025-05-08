@@ -132,10 +132,14 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 		// Keep the listener and the server alive until the tomb is killed.
 		<-s.tomb.Dying()
 
-		// Wait on the closeAllowed to indicate when we can stop the SSH server.
+		// Wait on the closeAllowed (or a 5 second timeout) to indicate when
+		// we can stop the SSH server.
 		// This ensures we don't face a race condition, closing the server
 		// too quickly after it was started, see listener.go for more details.
-		<-closeAllowed
+		select {
+		case <-closeAllowed:
+		case <-time.After(5 * time.Second):
+		}
 		if err := s.Server.Close(); err != nil {
 			// There's really not a lot we can do if the shutdown fails,
 			// either due to a timeout or another reason. So we simply log it.
