@@ -31,7 +31,7 @@ func (*logSuite) TestLog(c *tc.C) {
 	//c.Assert(c.GetTestLog(), tc.Matches,
 	//	".*DEBUG test message 1\n"+
 	//		".*TRACE juju message 3\n",
-	)
+	//)
 	suite.TearDownSuite(c)
 	logger.Debugf("message 1")
 	logger.Tracef("message 2")

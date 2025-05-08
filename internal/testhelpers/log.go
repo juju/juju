@@ -4,7 +4,6 @@
 package testhelpers
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +12,14 @@ import (
 	"github.com/juju/tc"
 )
 
-var logLocation = flag.Bool("loggo.location", false, "Also log the location of the loggo call")
+var logLocation = false
+
+func init() {
+	switch os.Getenv("TEST_LOGGING_LOCATION") {
+	case "true", "1", "yes":
+		logLocation = true
+	}
+}
 
 // LoggingSuite redirects the juju logger to the test logger
 // when embedded in a gocheck suite type.
@@ -33,7 +39,7 @@ var logConfig = func() string {
 func (w *gocheckWriter) Write(entry loggo.Entry) {
 	filename := filepath.Base(entry.Filename)
 	var message string
-	if *logLocation {
+	if logLocation {
 		message = fmt.Sprintf("%s %s %s:%d %s", entry.Level, entry.Module, filename, entry.Line, entry.Message)
 	} else {
 		message = fmt.Sprintf("%s %s %s", entry.Level, entry.Module, entry.Message)

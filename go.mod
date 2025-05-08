@@ -74,7 +74,6 @@ require (
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
 	github.com/juju/tc v0.0.0-20250507150813-1d13c1fc4d6c
-	github.com/juju/testing v1.2.0
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils/v4 v4.0.3
 	github.com/juju/webbrowser v1.0.0
@@ -220,6 +219,7 @@ require (
 	github.com/juju/loggo v1.0.0 // indirect
 	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
+	github.com/juju/testing v1.2.0 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/utils/v3 v3.2.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect

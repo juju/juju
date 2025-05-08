@@ -6,7 +6,6 @@ package database
 import (
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/tc"
-	"github.com/juju/testing/checkers"
 	"github.com/mattn/go-sqlite3"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -19,17 +18,17 @@ type errorSuite struct {
 var _ = tc.Suite(&errorSuite{})
 
 func (s *errorSuite) TestIsErrConstraintUnique(c *tc.C) {
-	c.Check(IsErrConstraintUnique(nil), checkers.IsFalse)
+	c.Check(IsErrConstraintUnique(nil), tc.IsFalse)
 
 	dErr := dqlite.Error{}
-	c.Check(IsErrConstraintUnique(dErr), checkers.IsFalse)
+	c.Check(IsErrConstraintUnique(dErr), tc.IsFalse)
 
 	dErr.Code = int(sqlite3.ErrConstraintUnique)
-	c.Check(IsErrConstraintUnique(dErr), checkers.IsTrue)
+	c.Check(IsErrConstraintUnique(dErr), tc.IsTrue)
 
 	sErr := sqlite3.Error{}
-	c.Check(IsErrConstraintUnique(sErr), checkers.IsFalse)
+	c.Check(IsErrConstraintUnique(sErr), tc.IsFalse)
 
 	sErr.ExtendedCode = sqlite3.ErrConstraintUnique
-	c.Check(IsErrConstraintUnique(sErr), checkers.IsTrue)
+	c.Check(IsErrConstraintUnique(sErr), tc.IsTrue)
 }

@@ -5,7 +5,6 @@ package access
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing/checkers"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
@@ -43,6 +42,6 @@ func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *tc.C) {
 		}}
 	for i, args := range argsToTest {
 		c.Logf("Test %d", i)
-		c.Check(args.Validate(), checkers.ErrorIs, coreerrors.NotValid)
+		c.Check(args.Validate(), tc.ErrorIs, coreerrors.NotValid)
 	}
 }
