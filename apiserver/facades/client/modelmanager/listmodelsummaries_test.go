@@ -34,7 +34,6 @@ import (
 	_ "github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	jtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -50,6 +49,7 @@ type ListModelsWithInfoSuite struct {
 	mockAccessService       *mocks.MockAccessService
 	mockModelService        *mocks.MockModelService
 	mockBlockCommandService *mocks.MockBlockCommandService
+	mockModelStatusAPI      *mocks.MockModelStatusAPI
 
 	api *modelmanager.ModelManagerAPI
 
@@ -81,27 +81,27 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockAccessService = mocks.NewMockAccessService(ctrl)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
+	s.mockModelStatusAPI = mocks.NewMockModelStatusAPI(ctrl)
 
-	api, err := modelmanager.NewModelManagerAPI(
+	s.api = modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, nil, &mockState{},
+		s.st,
+		true,
+		s.adminUser,
+		s.mockModelStatusAPI,
+		nil,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: nil,
-			CloudService: &mockCloudService{
-				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
-			},
 			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
 			ModelService:         s.mockModelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil,
 		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.api = api
+
 	return ctrl
 }
 
@@ -119,26 +119,28 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 
 func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(
+	isAdmin := s.authoriser.HasPermission(context.Background(),
+		permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID.String()),
+	) == nil
+
+	s.api = modelmanager.NewModelManagerAPI(
 		context.Background(),
-		s.st, nil, &mockState{},
+		s.st,
+		isAdmin,
+		user,
+		s.mockModelStatusAPI,
+		nil,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: nil,
-			CloudService: &mockCloudService{
-				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
-			},
 			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
 			ModelService:         s.mockModelService,
 			ModelDefaultsService: nil,
 			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil,
 		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.api = modelmanager
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {

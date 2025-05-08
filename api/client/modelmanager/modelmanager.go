@@ -92,19 +92,19 @@ func (c *Client) CreateModel(
 func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) {
 	cloud, err := names.ParseCloudTag(modelInfo.CloudTag)
 	if err != nil {
-		return base.ModelInfo{}, err
+		return base.ModelInfo{}, errors.Trace(err)
 	}
 	var credential string
 	if modelInfo.CloudCredentialTag != "" {
 		credTag, err := names.ParseCloudCredentialTag(modelInfo.CloudCredentialTag)
 		if err != nil {
-			return base.ModelInfo{}, err
+			return base.ModelInfo{}, errors.Trace(err)
 		}
 		credential = credTag.Id()
 	}
 	ownerTag, err := names.ParseUserTag(modelInfo.OwnerTag)
 	if err != nil {
-		return base.ModelInfo{}, err
+		return base.ModelInfo{}, errors.Trace(err)
 	}
 	result := base.ModelInfo{
 		Name:            modelInfo.Name,

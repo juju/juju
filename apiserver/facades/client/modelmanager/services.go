@@ -9,23 +9,21 @@ import (
 
 	"github.com/juju/description/v9"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/modeldefaults"
-	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
@@ -83,10 +81,25 @@ type ModelService interface {
 	// CreateModel creates a model returning the resultant model's new ID.
 	CreateModel(context.Context, model.GlobalModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
 
-	// DefaultModelCloudNameAndCredential returns the default cloud name and
-	// credential that should be used for newly created models that haven't had
+	// UpdateCredential is responsible for updating the cloud credential
+	// associated with a model. The cloud credential must be of the same cloud type
+	// as that of the model.
+	// The following error types can be expected to be returned:
+	// - modelerrors.NotFound: When the model does not exist.
+	// - errors.NotFound: When the cloud or credential cannot be found.
+	// - errors.NotValid: When the cloud credential is not of the same cloud as the
+	// model or the model uuid is not valid.
+	UpdateCredential(ctx context.Context, uuid coremodel.UUID, key credential.Key) error
+
+	// Model returns the model associated with the provided uuid.
+	// The following error types can be expected to be returned:
+	// - [modelerrors.NotFound]: When the model does not exist.
+	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
+
+	// DefaultModelCloudInfo returns the default cloud name and region name
+	// that should be used for newly created models that haven't had
 	// either cloud or credential specified.
-	DefaultModelCloudNameAndCredential(context.Context) (string, credential.Key, error)
+	DefaultModelCloudInfo(context.Context) (string, string, error)
 
 	// DeleteModel deletes the give model.
 	DeleteModel(context.Context, coremodel.UUID, ...model.DeleteModelOption) error
@@ -123,16 +136,6 @@ type ModelService interface {
 // ModelDefaultsService defines a interface for interacting with the model
 // defaults.
 type ModelDefaultsService interface {
-	// ModelDefaultsProvider provides a [ModelDefaultsProviderFunc] scoped to the
-	// supplied model. This can be used in the construction of
-	// [github.com/juju/juju/domain/modelconfig/service.Service]. If no model exists
-	// for the specified UUID then the [ModelDefaultsProviderFunc] will return a
-	// error that satisfies
-	// [github.com/juju/juju/domain/model/errors.NotFound].
-	ModelDefaultsProvider(
-		uuid coremodel.UUID,
-	) modeldefaultsservice.ModelDefaultsProviderFunc
-
 	// CloudDefaults returns the default attribute details for a specified cloud.
 	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
 	CloudDefaults(ctx context.Context, cloudName string) (modeldefaults.ModelDefaultAttributes, error)
@@ -158,9 +161,42 @@ type ModelDefaultsService interface {
 // ModelInfoService defines a interface for interacting with the underlying
 // state.
 type ModelInfoService interface {
-	// CreateModel is responsible for adding the details of the model
-	// that is being created.
+	// CreateModel is responsible for creating a new model within the model
+	// database. Upon creating the model any information required in the model's
+	// provider will be initialised.
+	//
+	// The following error types can be expected to be returned:
+	// - [github.com/juju/juju/domain/model/errors.AlreadyExists] when the model
+	// uuid is already in use.
 	CreateModel(context.Context) error
+
+	// CreateModelWithAgentVersion is responsible for creating a new model within
+	// the model database using the specified agent version. Upon creating the
+	// model any information required in the model's provider will be
+	// initialised.
+	//
+	// The following error types can be expected to be returned:
+	// - [github.com/juju/juju/domain/model/errors.AlreadyExists] when the model
+	// uuid is already in use.
+	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotSupported]
+	// when the agent version is not supported.
+	CreateModelWithAgentVersion(context.Context, semversion.Number) error
+
+	// CreateModelWithAgentVersionStream is responsible for creating a new model
+	// within the model database using the specified agent version and agent
+	// stream. Upon creating the model any information required in the model's
+	// provider will be initialised.
+	//
+	// The following error types can be expected to be returned:
+	// - [github.com/juju/juju/domain/model/errors.AlreadyExists] when the model
+	// uuid is already in use.
+	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotSupported]
+	// when the agent version is not supported.
+	// - [github.com/juju/juju/core/errors.NotValid] when the agent stream is
+	// not valid.
+	CreateModelWithAgentVersionStream(
+		context.Context, semversion.Number, agentbinary.AgentStream,
+	) error
 
 	// DeleteModel is responsible for deleting a model.
 	DeleteModel(context.Context) error
@@ -183,19 +219,10 @@ type ModelExporter interface {
 	ExportModelPartial(context.Context, state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 }
 
-// CloudService provides access to clouds.
-type CloudService interface {
-	common.CloudService
-	// ListAll return all clouds.
-	ListAll(ctx context.Context) ([]jujucloud.Cloud, error)
-}
-
 // CredentialService exposes State methods needed by credential manager.
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given key.
 	CloudCredential(ctx context.Context, id credential.Key) (jujucloud.Credential, error)
-	// InvalidateCredential marks the cloud credential for the given key as invalid.
-	InvalidateCredential(ctx context.Context, id credential.Key, reason string) error
 }
 
 // AccessService defines a interface for interacting the users and permissions
@@ -203,11 +230,7 @@ type CredentialService interface {
 type AccessService interface {
 	// GetUserByName returns a User for the given name.
 	GetUserByName(context.Context, coreuser.Name) (coreuser.User, error)
-	// ReadUserAccessLevelForTarget returns the Access level for the given
-	// subject (user) on the given target (model).
-	// If the access level of a user cannot be found then
-	// [github.com/juju/juju/domain/access/errors.AccessNotFound] is returned.
-	ReadUserAccessLevelForTarget(ctx context.Context, subject coreuser.Name, target corepermission.ID) (corepermission.Access, error)
+
 	// UpdatePermission updates the access level for a user of the model.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 	// LastModelLogin will return the last login time of the specified
@@ -236,14 +259,8 @@ type NetworkService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// EnsureDeadMachine sets the provided machine's life status to Dead.
-	// No error is returned if the provided machine doesn't exist, just nothing
-	// gets updated.
-	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
 	// InstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
 	InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
@@ -276,8 +293,6 @@ type Services struct {
 	// DomainServicesGetter is an interface for interacting with a factory for
 	// creating model services.
 	DomainServicesGetter DomainServicesGetter
-	// CloudServices is an interface for interacting with the cloud service.
-	CloudService CloudService
 	// CredentialService is an interface for interacting with the credential
 	// service.
 	CredentialService CredentialService
@@ -301,6 +316,9 @@ type Services struct {
 	// ApplicationService is an interface for interacting with the application
 	// service.
 	ApplicationService ApplicationService
+	// ModelAgentService is an interface for interacting with the model agent
+	// service.
+	ModelAgentService ModelAgentService
 }
 
 // BlockCommandService defines methods for interacting with block commands.

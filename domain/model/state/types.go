@@ -337,6 +337,7 @@ type dbModelNamespace struct {
 
 type dbCloudCredential struct {
 	Name                string         `db:"cloud_name"`
+	CloudRegionName     string         `db:"cloud_region_name"`
 	CredentialName      sql.NullString `db:"cloud_credential_name"`
 	CredentialOwnerName sql.NullString `db:"cloud_credential_owner_name"`
 	CredentialCloudName string         `db:"cloud_credential_cloud_name"`
