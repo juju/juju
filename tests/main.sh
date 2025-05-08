@@ -74,6 +74,8 @@ TEST_NAMES="agents \
             sidecar \
             smoke \
             spaces_ec2 \
+            ssh_iaas \
+            ssh_k8s \
             static_analysis \
             storage \
             unit \
