@@ -26,6 +26,7 @@ func RelationUnitsWatcherFromDomain(source relation.RelationUnitsWatcher) (Relat
 		out:    make(chan params.RelationUnitsChange),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "relation-units-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{source},

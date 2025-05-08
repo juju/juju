@@ -112,6 +112,7 @@ func newMachineWatcher(
 		logger:   logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "storage-provisioner-machine",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

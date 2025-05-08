@@ -215,6 +215,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "firewaller",
 		Site: &fw.catacomb,
 		Work: fw.loop,
 		Init: []worker.Worker{fw.relationWorkerRunner},
@@ -515,6 +516,7 @@ func (fw *Firewaller) startMachine(ctx context.Context, tag names.MachineTag) er
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "firewaller-machine",
 		Site: &machined.catacomb,
 		Work: func() error {
 			return machined.watchLoop(unitw)
@@ -600,6 +602,7 @@ func (fw *Firewaller) startApplication(ctx context.Context, app Application) err
 	fw.applicationids[app.Tag()] = applicationd
 
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "firewaller-application",
 		Site: &applicationd.catacomb,
 		Work: func() error {
 			return applicationd.watchLoop(isExposed, exposedEndpoints)
@@ -1556,6 +1559,7 @@ func (fw *Firewaller) startRelation(ctx context.Context, rel *params.RemoteRelat
 		data.catacomb = catacomb.Catacomb{}
 
 		if err := catacomb.Invoke(catacomb.Plan{
+			Name: "firewaller-relation",
 			Site: &data.catacomb,
 			Work: data.watchLoop,
 		}); err != nil {
@@ -1817,6 +1821,7 @@ func (fw *Firewaller) startRelationPoller(relationKey, remoteAppName string,
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "firewaller-relation-poller",
 		Site: &poller.catacomb,
 		Work: poller.pollLoop,
 	})

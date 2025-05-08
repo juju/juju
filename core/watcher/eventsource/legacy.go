@@ -28,6 +28,7 @@ func NewStringsNotifyWatcher(watcher Watcher[[]string]) (*StringsNotifyWatcher, 
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "strings-notify-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{watcher},
@@ -133,6 +134,7 @@ func NewMultiWatcher[T any](ctx context.Context, applier Applier[T], watchers ..
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "multi-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: workers,

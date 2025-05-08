@@ -65,6 +65,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "model-life",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

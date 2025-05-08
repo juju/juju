@@ -55,6 +55,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		backendInfo: make(map[string]tokenRotateInfo),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "secret-backend-rotate",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

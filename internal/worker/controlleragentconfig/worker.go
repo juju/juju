@@ -129,6 +129,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*configWorker, err
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "controller-agent-config",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{

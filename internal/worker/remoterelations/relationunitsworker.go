@@ -66,6 +66,7 @@ func newRelationUnitsWorker(
 		mode:        mode,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "relation-units",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{rrw},

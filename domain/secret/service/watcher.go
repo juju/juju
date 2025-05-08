@@ -200,6 +200,7 @@ func newObsoleteWatcher(
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "obsolete-secret-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{w.sourceWatcher},
@@ -493,6 +494,7 @@ func newSecretStringWatcher[T any](
 		out:            make(chan []T),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "secret-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{sourceWatcher},

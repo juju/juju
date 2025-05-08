@@ -83,6 +83,7 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 			statusOnly: config.StatusOnly,
 		}
 		err := catacomb.Invoke(catacomb.Plan{
+			Name: "caas-application-provisioner",
 			Site: &a.catacomb,
 			Work: a.loop,
 		})

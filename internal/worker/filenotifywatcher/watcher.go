@@ -137,6 +137,7 @@ func NewWatcher(fileName string, opts ...Option) (FileWatcher, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "file-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {

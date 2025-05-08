@@ -52,6 +52,7 @@ func NewCleaner(ctx context.Context, st StateCleaner, clock clock.Clock, logger 
 		logger:  logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "cleaner",
 		Site: &c.catacomb,
 		Work: c.loop,
 		Init: []worker.Worker{watcher},

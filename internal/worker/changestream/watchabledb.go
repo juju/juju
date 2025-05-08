@@ -58,6 +58,7 @@ func NewWatchableDB(
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "watchable-db",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{

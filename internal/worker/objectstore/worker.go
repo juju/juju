@@ -138,6 +138,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "object-store",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{

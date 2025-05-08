@@ -97,6 +97,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*httpClientWorker,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "http-client",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{

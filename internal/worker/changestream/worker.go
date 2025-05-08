@@ -113,6 +113,7 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
+		Name: "change-stream",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{

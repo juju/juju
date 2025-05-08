@@ -240,6 +240,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			shutdownChannel:              make(chan bool, 1),
 		}
 		plan := catacomb.Plan{
+			Name: "uniter",
 			Site: &u.catacomb,
 			Work: func() error {
 				return u.loop(uniterParams.UnitTag)

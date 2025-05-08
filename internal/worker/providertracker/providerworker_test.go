@@ -377,6 +377,7 @@ func (s *providerWorkerSuite) newWorker(c *gc.C, trackerType TrackerType) worker
 				provider: s.environ,
 			}
 			err := catacomb.Invoke(catacomb.Plan{
+				Name: "tracker-worker",
 				Site: &w.catacomb,
 				Work: func() error {
 					<-w.catacomb.Dying()

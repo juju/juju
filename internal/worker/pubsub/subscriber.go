@@ -110,6 +110,7 @@ func newSubscriber(config WorkerConfig) (*subscriber, error) {
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "pubsub-subscriber",
 		Site: &sub.catacomb,
 		Work: sub.loop,
 	})

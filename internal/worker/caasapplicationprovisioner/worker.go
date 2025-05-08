@@ -132,6 +132,7 @@ func newProvisionerWorker(
 		unitFacade:   config.UnitFacade,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-application-provisioner",
 		Site: &p.catacomb,
 		Work: p.loop,
 		Init: []worker.Worker{p.runner},

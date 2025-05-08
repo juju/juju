@@ -53,6 +53,7 @@ func newRemoteRelationsWorker(
 		logger:              logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "remote-relations",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{relationsWatcher},

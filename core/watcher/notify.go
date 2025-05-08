@@ -68,6 +68,7 @@ func NewNotifyWorker(config NotifyConfig) (*NotifyWorker, error) {
 		config: config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "notify-worker",
 		Site: &nw.catacomb,
 		Work: nw.loop,
 	})

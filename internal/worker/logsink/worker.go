@@ -84,6 +84,7 @@ func newWorker(cfg Config, internalState chan string) (worker.Worker, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "log-sink",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{

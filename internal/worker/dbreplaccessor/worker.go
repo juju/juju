@@ -156,6 +156,7 @@ func NewWorker(cfg WorkerConfig) (*dbReplWorker, error) {
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
+		Name: "db-repl-accessor",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{

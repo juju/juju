@@ -103,6 +103,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*storageRegistryWo
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "storage-registry",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{

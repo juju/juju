@@ -85,6 +85,7 @@ func NewRegistry(clock clock.Clock, opts ...Option) (*Registry, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "watcher-registry",
 		Site: &r.catacomb,
 		Work: r.loop,
 		Init: []worker.Worker{

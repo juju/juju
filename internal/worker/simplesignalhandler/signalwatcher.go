@@ -45,6 +45,7 @@ func NewSignalWatcher(
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "signal-watcher",
 		Site: &s.catacomb,
 		Work: s.watch,
 	}); err != nil {

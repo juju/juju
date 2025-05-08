@@ -71,6 +71,7 @@ func New(ctx context.Context, config Config) (*Worker, error) {
 		phase:  phase,
 	}
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "migration-flag",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

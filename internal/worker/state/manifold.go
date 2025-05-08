@@ -114,6 +114,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				setStatePool: config.SetStatePool,
 			}
 			if err := catacomb.Invoke(catacomb.Plan{
+				Name: "state",
 				Site: &w.catacomb,
 				Work: w.loop,
 			}); err != nil {

@@ -45,6 +45,7 @@ func newControllerTracker(node ControllerNode, host ControllerHost, notifyCh cha
 		hasVote:   node.HasVote(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "peergrouper",
 		Site: &m.catacomb,
 		Work: m.loop,
 	})
