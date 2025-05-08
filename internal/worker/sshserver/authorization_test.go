@@ -71,7 +71,9 @@ func (s *authorizationSuite) TestAuthorizerViaJWT(c *gc.C) {
 
 	token, err := jwt.NewBuilder().
 		Subject("alice").
-		Claim(modelTag.String(), permission.AdminAccess).
+		Claim("access", map[string]any{
+			modelTag.String(): string(permission.AdminAccess),
+		}).
 		Build()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -87,7 +89,6 @@ func (s *authorizationSuite) TestAuthorizerViaJWT(c *gc.C) {
 	c.Check(authorizer.authorize(s.ctx, destination), jc.IsTrue)
 	// Test that alice does not have access to arbitrary destinations.
 	c.Check(authorizer.authorize(s.ctx, virtualhostname.Info{}), jc.IsFalse)
-
 }
 
 func (s *authorizationSuite) TestMissingContextValues(c *gc.C) {
