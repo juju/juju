@@ -14,7 +14,7 @@ import (
 
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/storage-triggers.gen.go -package=triggers -tables=block_device,storage_attachment,storage_filesystem,storage_filesystem_attachment,storage_volume,storage_volume_attachment,storage_volume_attachment_plan
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_revision,secret_reference,secret_deleted_value_ref
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet,ip_address
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile
@@ -35,6 +35,7 @@ const (
 const (
 	tableModelConfig tableNamespaceID = iota + reservedCustomNamespaceIDOffset
 	tableModelObjectStoreMetadata
+	tableModelObjectStoreDrainInfo
 	tableBlockDeviceMachine
 	tableStorageAttachment
 	tableFileSystem
@@ -111,6 +112,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForBlockDevice("machine_uuid", tableBlockDeviceMachine),
 		triggers.ChangeLogTriggersForModelConfig("key", tableModelConfig),
 		triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableModelObjectStoreMetadata),
+		triggers.ChangeLogTriggersForObjectStoreDrainInfo("uuid", tableModelObjectStoreDrainInfo),
 		triggers.ChangeLogTriggersForStorageAttachment("storage_instance_uuid", tableStorageAttachment),
 		triggers.ChangeLogTriggersForStorageFilesystem("uuid", tableFileSystem),
 		triggers.ChangeLogTriggersForStorageFilesystemAttachment("uuid", tableFileSystemAttachment),

@@ -42,6 +42,46 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// GetActiveDrainingPhase mocks base method.
+func (m *MockState) GetActiveDrainingPhase(arg0 context.Context) (string, objectstore.Phase, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveDrainingPhase", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(objectstore.Phase)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetActiveDrainingPhase indicates an expected call of GetActiveDrainingPhase.
+func (mr *MockStateMockRecorder) GetActiveDrainingPhase(arg0 any) *MockStateGetActiveDrainingPhaseCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveDrainingPhase", reflect.TypeOf((*MockState)(nil).GetActiveDrainingPhase), arg0)
+	return &MockStateGetActiveDrainingPhaseCall{Call: call}
+}
+
+// MockStateGetActiveDrainingPhaseCall wrap *gomock.Call
+type MockStateGetActiveDrainingPhaseCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetActiveDrainingPhaseCall) Return(arg0 string, arg1 objectstore.Phase, arg2 error) *MockStateGetActiveDrainingPhaseCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetActiveDrainingPhaseCall) Do(f func(context.Context) (string, objectstore.Phase, error)) *MockStateGetActiveDrainingPhaseCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetActiveDrainingPhaseCall) DoAndReturn(f func(context.Context) (string, objectstore.Phase, error)) *MockStateGetActiveDrainingPhaseCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMetadata mocks base method.
 func (m *MockState) GetMetadata(arg0 context.Context, arg1 string) (objectstore.Metadata, error) {
 	m.ctrl.T.Helper()
@@ -155,6 +195,44 @@ func (c *MockStateGetMetadataBySHA256PrefixCall) Do(f func(context.Context, stri
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetMetadataBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (objectstore.Metadata, error)) *MockStateGetMetadataBySHA256PrefixCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchDrainingTable mocks base method.
+func (m *MockState) InitialWatchDrainingTable() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchDrainingTable")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// InitialWatchDrainingTable indicates an expected call of InitialWatchDrainingTable.
+func (mr *MockStateMockRecorder) InitialWatchDrainingTable() *MockStateInitialWatchDrainingTableCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchDrainingTable", reflect.TypeOf((*MockState)(nil).InitialWatchDrainingTable))
+	return &MockStateInitialWatchDrainingTableCall{Call: call}
+}
+
+// MockStateInitialWatchDrainingTableCall wrap *gomock.Call
+type MockStateInitialWatchDrainingTableCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchDrainingTableCall) Return(arg0 string) *MockStateInitialWatchDrainingTableCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchDrainingTableCall) Do(f func() string) *MockStateInitialWatchDrainingTableCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchDrainingTableCall) DoAndReturn(f func() string) *MockStateInitialWatchDrainingTableCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -314,6 +392,44 @@ func (c *MockStateRemoveMetadataCall) DoAndReturn(f func(context.Context, string
 	return c
 }
 
+// SetDrainingPhase mocks base method.
+func (m *MockState) SetDrainingPhase(arg0 context.Context, arg1 string, arg2 objectstore.Phase) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetDrainingPhase", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetDrainingPhase indicates an expected call of SetDrainingPhase.
+func (mr *MockStateMockRecorder) SetDrainingPhase(arg0, arg1, arg2 any) *MockStateSetDrainingPhaseCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDrainingPhase", reflect.TypeOf((*MockState)(nil).SetDrainingPhase), arg0, arg1, arg2)
+	return &MockStateSetDrainingPhaseCall{Call: call}
+}
+
+// MockStateSetDrainingPhaseCall wrap *gomock.Call
+type MockStateSetDrainingPhaseCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetDrainingPhaseCall) Return(arg0 error) *MockStateSetDrainingPhaseCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetDrainingPhaseCall) Do(f func(context.Context, string, objectstore.Phase) error) *MockStateSetDrainingPhaseCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetDrainingPhaseCall) DoAndReturn(f func(context.Context, string, objectstore.Phase) error) *MockStateSetDrainingPhaseCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockWatcherFactory is a mock of WatcherFactory interface.
 type MockWatcherFactory struct {
 	ctrl     *gomock.Controller
@@ -377,6 +493,50 @@ func (c *MockWatcherFactoryNewNamespaceWatcherCall) Do(f func(eventsource.Namesp
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockWatcherFactoryNewNamespaceWatcherCall) DoAndReturn(f func(eventsource.NamespaceQuery, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[[]string], error)) *MockWatcherFactoryNewNamespaceWatcherCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NewNotifyWatcher mocks base method.
+func (m *MockWatcherFactory) NewNotifyWatcher(arg0 eventsource.FilterOption, arg1 ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "NewNotifyWatcher", varargs...)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewNotifyWatcher indicates an expected call of NewNotifyWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewNotifyWatcher(arg0 any, arg1 ...any) *MockWatcherFactoryNewNotifyWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNotifyWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNotifyWatcher), varargs...)
+	return &MockWatcherFactoryNewNotifyWatcherCall{Call: call}
+}
+
+// MockWatcherFactoryNewNotifyWatcherCall wrap *gomock.Call
+type MockWatcherFactoryNewNotifyWatcherCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockWatcherFactoryNewNotifyWatcherCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockWatcherFactoryNewNotifyWatcherCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockWatcherFactoryNewNotifyWatcherCall) Do(f func(eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewNotifyWatcherCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockWatcherFactoryNewNotifyWatcherCall) DoAndReturn(f func(eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewNotifyWatcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

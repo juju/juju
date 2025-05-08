@@ -483,3 +483,48 @@ func (s *stateSuite) TestListMetadataNoRows(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(metadatas, tc.HasLen, 0)
 }
+
+func (s *stateSuite) TestGetActiveDrainingPhase(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, _, err := st.GetActiveDrainingPhase(context.Background())
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
+
+	err = st.SetDrainingPhase(context.Background(), "foo", coreobjectstore.PhaseDraining)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, phase, err := st.GetActiveDrainingPhase(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(phase, gc.Equals, coreobjectstore.PhaseDraining)
+}
+
+func (s *stateSuite) TestSetDrainingPhase(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.SetDrainingPhase(context.Background(), "foo", coreobjectstore.PhaseDraining)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, phase, err := st.GetActiveDrainingPhase(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(phase, gc.Equals, coreobjectstore.PhaseDraining)
+
+	err = st.SetDrainingPhase(context.Background(), "foo", coreobjectstore.PhaseCompleted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, err = st.GetActiveDrainingPhase(context.Background())
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
+}
+
+func (s *stateSuite) TestSetDrainingPhaseWithMultipleActive(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.SetDrainingPhase(context.Background(), "foo", coreobjectstore.PhaseDraining)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, phase, err := st.GetActiveDrainingPhase(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(phase, gc.Equals, coreobjectstore.PhaseDraining)
+
+	err = st.SetDrainingPhase(context.Background(), "bar", coreobjectstore.PhaseDraining)
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
+}
