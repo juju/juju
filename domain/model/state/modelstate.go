@@ -905,11 +905,17 @@ func (s *ModelState) GetModelInfoSummary(
 
 	// TODO (tlm): We need to provide a core count ¯\_(ツ)_/¯
 	stmt, err := s.Prepare(`
-SELECT &dbModelInfoSummary.*,
-	   (SELECT count(*) FROM machine) AS &dbModelSummaryCount.machine_count,
-	   (SELECT 0) AS &dbModelSummaryCount.core_count,
-	   (SELECT count(*) FROM unit) AS &dbModelSummaryCount.unit_count,
-FROM   model, agent_version
+WITH machine_count AS (
+	SELECT count(*) AS machine_count FROM machine
+),
+unit_count AS (
+	SELECT count(*) AS unit_count FROM unit
+),
+core_count AS (
+SELECT 0 AS core_count
+)
+SELECT &dbModelInfoSummary.*, &dbModelCountSummary.*
+FROM   model, agent_version, machine_count, unit_count, core_count
 `,
 		dbModelInfoSummary{}, dbModelCountSummary{},
 	)

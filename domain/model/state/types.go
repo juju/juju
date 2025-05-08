@@ -219,8 +219,6 @@ type dbModelSummary struct {
 type dbModelInfoSummary struct {
 	UUID               string         `db:"uuid"`
 	Name               string         `db:"name"`
-	OwnerName          string         `db:"owner_name"`
-	OwnerUUID          string         `db:"owner_uuid"`
 	Type               string         `db:"type"`
 	ControllerUUID     string         `db:"controller_uuid"`
 	Cloud              string         `db:"cloud"`
