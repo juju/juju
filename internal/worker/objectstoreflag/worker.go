@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/model"
@@ -48,9 +49,9 @@ func (config Config) Validate() error {
 	return nil
 }
 
-// New returns a Worker that tracks the result of the configured
-// Check on the Model's migration phase, as exposed by the Facade.
-func New(ctx context.Context, config Config) (*Worker, error) {
+// NewWorker returns a Worker that tracks the result of the configured
+// Check on the object store draining phase.
+func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
