@@ -122,25 +122,25 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 func (s *watcherSuite) TestWatchDraining(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
-	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
+	svc := service.NewWatchableDrainingService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
 	)
-	watcher, err := svc.WatchDraining(context.Background())
+	watcher, err := svc.WatchDraining(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *tc.C) {
-		err := svc.SetDrainingPhase(context.Background(), objectstore.PhaseDraining)
+		err := svc.SetDrainingPhase(c.Context(), objectstore.PhaseDraining)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		err := svc.SetDrainingPhase(context.Background(), objectstore.PhaseCompleted)
+		err := svc.SetDrainingPhase(c.Context(), objectstore.PhaseCompleted)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))

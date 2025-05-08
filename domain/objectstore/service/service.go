@@ -228,8 +228,55 @@ func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 	return nil
 }
 
+// WatchableService provides the API for working with the objectstore
+// and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the input state.
+func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st: st,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// Watch returns a watcher that emits the path changes that either have been
+// added or removed.
+func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
+	// TODO (stickupkid): Wire up context.Context to the watcher.
+	table, stmt := s.st.InitialWatchStatement()
+	return s.watcherFactory.NewNamespaceWatcher(
+		eventsource.InitialNamespaceChanges(stmt),
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
+}
+
+// WatchableDrainingService provides the API for working with the objectstore
+// and the ability to create watchers and drain the object store.
+type WatchableDrainingService struct {
+	WatchableService
+}
+
+// NewWatchableDrainingService returns a new service reference wrapping the
+// input state.
+func NewWatchableDrainingService(st State, watcherFactory WatcherFactory) *WatchableDrainingService {
+	return &WatchableDrainingService{
+		WatchableService: WatchableService{
+			Service: Service{
+				st: st,
+			},
+			watcherFactory: watcherFactory,
+		},
+	}
+}
+
 // SetDrainingPhase sets the phase of the object store to draining.
-func (s *Service) SetDrainingPhase(ctx context.Context, phase objectstore.Phase) error {
+func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase objectstore.Phase) error {
 	if !phase.IsValid() {
 		return errors.Errorf("invalid phase %q", phase)
 	}
@@ -260,7 +307,7 @@ func (s *Service) SetDrainingPhase(ctx context.Context, phase objectstore.Phase)
 }
 
 // GetDrainingPhase returns the phase of the object store.
-func (s *Service) GetDrainingPhase(ctx context.Context) (objectstore.Phase, error) {
+func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (objectstore.Phase, error) {
 	_, phase, err := s.st.GetActiveDrainingPhase(ctx)
 	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
 		return objectstore.PhaseUnknown, nil
@@ -270,38 +317,10 @@ func (s *Service) GetDrainingPhase(ctx context.Context) (objectstore.Phase, erro
 	return phase, nil
 }
 
-// WatchableService provides the API for working with the objectstore
-// and the ability to create watchers.
-type WatchableService struct {
-	Service
-	watcherFactory WatcherFactory
-}
-
-// NewWatchableService returns a new service reference wrapping the input state.
-func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableService {
-	return &WatchableService{
-		Service: Service{
-			st: st,
-		},
-		watcherFactory: watcherFactory,
-	}
-}
-
-// Watch returns a watcher that emits the path changes that either have been
-// added or removed.
-func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
-	// TODO (stickupkid): Wire up context.Context to the watcher.
-	table, stmt := s.st.InitialWatchStatement()
-	return s.watcherFactory.NewNamespaceWatcher(
-		eventsource.InitialNamespaceChanges(stmt),
-		eventsource.NamespaceFilter(table, changestream.All),
-	)
-}
-
 // WatchDraining returns a watcher that watches the draining phase of the
 // object store. The watcher emits the phase changes that either have been
 // added or removed.
-func (s *WatchableService) WatchDraining(ctx context.Context) (watcher.Watcher[struct{}], error) {
+func (s *WatchableDrainingService) WatchDraining(ctx context.Context) (watcher.Watcher[struct{}], error) {
 	table := s.st.InitialWatchDrainingTable()
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.NamespaceFilter(table, changestream.All),
