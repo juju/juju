@@ -13,12 +13,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	statusservice "github.com/juju/juju/domain/status/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
+	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
 )
 
 type ManifoldSuite struct {
@@ -35,9 +39,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) validConfig(c *gc.C) caasapplicationprovisioner.ManifoldConfig {
 	return caasapplicationprovisioner.ManifoldConfig{
-		APICallerName: "api-caller",
-		BrokerName:    "broker",
-		ClockName:     "clock",
+		APICallerName:      "api-caller",
+		BrokerName:         "broker",
+		ClockName:          "clock",
+		DomainServicesName: "domain-services",
 		NewWorker: func(config caasapplicationprovisioner.Config) (worker.Worker, error) {
 			return nil, nil
 		},
@@ -74,6 +79,11 @@ func (s *ManifoldSuite) TestMissingLogger(c *gc.C) {
 	s.checkNotValid(c, "nil Logger not valid")
 }
 
+func (s *ManifoldSuite) TestMissingDomainServicesName(c *gc.C) {
+	s.config.DomainServicesName = ""
+	s.checkNotValid(c, "empty DomainServicesName not valid")
+}
+
 func (s *ManifoldSuite) checkNotValid(c *gc.C, expect string) {
 	err := s.config.Validate()
 	c.Check(err, gc.ErrorMatches, expect)
@@ -81,6 +91,13 @@ func (s *ManifoldSuite) checkNotValid(c *gc.C, expect string) {
 }
 
 func (s *ManifoldSuite) TestStart(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockDomainServices := mocks.NewMockModelDomainServices(ctrl)
+	mockDomainServices.EXPECT().Application().Return(&applicationservice.WatchableService{})
+	mockDomainServices.EXPECT().Status().Return(&statusservice.LeadershipService{})
+
 	called := false
 	s.config.NewWorker = func(config caasapplicationprovisioner.Config) (worker.Worker, error) {
 		called = true
@@ -91,16 +108,19 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		mc.AddExpr(`_.Logger`, gc.NotNil)
 		mc.AddExpr(`_.NewAppWorker`, gc.NotNil)
 		mc.AddExpr(`_.UnitFacade`, gc.NotNil)
+		mc.AddExpr(`_.ApplicationService`, gc.NotNil)
+		mc.AddExpr(`_.StatusService`, gc.NotNil)
 		c.Check(config, mc, caasapplicationprovisioner.Config{
 			ModelTag: names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		})
 		return nil, nil
 	}
 	manifold := caasapplicationprovisioner.Manifold(s.config)
-	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
-		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
-		"broker":     struct{ caas.Broker }{},
-		"clock":      struct{ clock.Clock }{},
+	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]any{
+		"api-caller":      struct{ base.APICaller }{&mockAPICaller{}},
+		"broker":          struct{ caas.Broker }{},
+		"clock":           struct{ clock.Clock }{},
+		"domain-services": mockDomainServices,
 	}))
 	c.Assert(w, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
