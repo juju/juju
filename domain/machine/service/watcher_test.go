@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -13,11 +14,10 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/machine/testing"
-	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
 type mapperSuite struct {
-	schematesting.ModelSuite
+	jujutesting.IsolationSuite
 
 	state *MockState
 }
@@ -53,7 +53,7 @@ func (s *mapperSuite) TestUuidToNameMapper(c *gc.C) {
 	service := s.getService()
 
 	// Act
-	changesOut, err := service.uuidToNameMapper(noContainersFilter)(context.Background(), s.TxnRunner(), changesIn)
+	changesOut, err := service.uuidToNameMapper(noContainersFilter)(context.Background(), changesIn)
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil)

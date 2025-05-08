@@ -112,7 +112,7 @@ func (w *NotifyWatcher) loop() error {
 			}
 
 			// Allow the possibility of the mapper to drop/filter events.
-			changed, err := w.mapper(ctx, w.watchableDB, changes)
+			changed, err := w.mapper(ctx, changes)
 			if err != nil {
 				return errors.Capture(err)
 			}

@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testing"
@@ -49,7 +48,7 @@ func (s *notifySuite) TestNotificationsByNamespaceFilter(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(ctx context.Context, _ database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(ctx context.Context, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		if len(e) != 1 {
 			c.Fatalf("expected 1 event, got %d", len(e))
 		}
@@ -130,7 +129,7 @@ func (s *notifySuite) TestNotificationsByPredicateFilter(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(ctx context.Context, _ database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(ctx context.Context, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		if len(e) != 1 {
 			c.Fatalf("expected 1 event, got %d", len(e))
 		}
@@ -205,7 +204,7 @@ func (s *notifySuite) TestNotificationsByMapperError(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(_ context.Context, _ database.TxnRunner, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(_ context.Context, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		return nil, errors.Errorf("boom")
 	}, PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
 	defer workertest.DirtyKill(c, w)

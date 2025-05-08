@@ -46,12 +46,12 @@ func (w *BaseWatcher) Wait() error {
 // of change events. This allows modification or dropping of events if
 // necessary. When zero events returned, no change will be emitted.
 // The inverse is also possible, allowing fake events to be added to the stream.
-type Mapper func(context.Context, database.TxnRunner, []changestream.ChangeEvent) ([]changestream.ChangeEvent, error)
+type Mapper func(context.Context, []changestream.ChangeEvent) ([]changestream.ChangeEvent, error)
 
 // defaultMapper is the default mapper used by the watchers.
 // It will always return the same change events, allowing all events to be sent.
 func defaultMapper(
-	_ context.Context, _ database.TxnRunner, events []changestream.ChangeEvent,
+	_ context.Context, events []changestream.ChangeEvent,
 ) ([]changestream.ChangeEvent, error) {
 	return events, nil
 }
@@ -59,7 +59,7 @@ func defaultMapper(
 // FilterEvents drops events that do not match the filter.
 func FilterEvents(filter func(changestream.ChangeEvent) bool) Mapper {
 	return func(
-		_ context.Context, _ database.TxnRunner, events []changestream.ChangeEvent,
+		_ context.Context, events []changestream.ChangeEvent,
 	) ([]changestream.ChangeEvent, error) {
 		var filtered []changestream.ChangeEvent
 		for _, event := range events {

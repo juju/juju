@@ -11,7 +11,6 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/watcher"
@@ -174,7 +173,7 @@ func (e changeEventShim) Changed() string {
 // the events, those events are omitted.
 func (s *WatchableService) uuidToNameMapper(filter func(string, machine.Name) bool) eventsource.Mapper {
 	return func(
-		ctx context.Context, _ database.TxnRunner, events []changestream.ChangeEvent,
+		ctx context.Context, events []changestream.ChangeEvent,
 	) ([]changestream.ChangeEvent, error) {
 		// Generate a slice of UUIDs and placeholders for our query
 		// and index the events by those UUIDs.

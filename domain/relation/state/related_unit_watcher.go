@@ -52,7 +52,7 @@ func (st *State) InitialWatchRelatedUnits(unitName coreunit.Name, relationUUID c
 				errors.Capture(err)
 		},
 		// Mapper.
-		func(ctx context.Context, _ database.TxnRunner, events []changestream.ChangeEvent) ([]changestream.
+		func(ctx context.Context, events []changestream.ChangeEvent) ([]changestream.
 			ChangeEvent, error) {
 			db, err := st.DB()
 			if err != nil {

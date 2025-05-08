@@ -11,14 +11,12 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/logger/testing"
 )
 
 type lifeWatcherSuite struct {
 	dbLifeValues map[string]life.Life
-	db           coredatabase.TxnRunner
 }
 
 type changeEvent struct {
@@ -40,7 +38,7 @@ func (c changeEvent) Changed() string {
 
 var _ = gc.Suite(&lifeWatcherSuite{})
 
-func (s *lifeWatcherSuite) lifeGetter(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]life.Life, error) {
+func (s *lifeWatcherSuite) lifeGetter(ctx context.Context, ids []string) (map[string]life.Life, error) {
 	result := make(map[string]life.Life)
 	for _, id := range ids {
 		if l, ok := s.dbLifeValues[id]; ok {
@@ -58,7 +56,7 @@ func (s *lifeWatcherSuite) TestInitial(c *gc.C) {
 	in := []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Create},
 	}
-	out, err := f(context.Background(), s.db, in)
+	out, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Create},
@@ -74,13 +72,13 @@ func (s *lifeWatcherSuite) TestChangeNoUpdate(c *gc.C) {
 	in := []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Create},
 	}
-	_, err := f(context.Background(), s.db, in)
+	_, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 
 	in = []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Update},
 	}
-	out, err := f(context.Background(), s.db, in)
+	out, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.HasLen, 0)
 }
@@ -94,7 +92,7 @@ func (s *lifeWatcherSuite) TestChangeDying(c *gc.C) {
 	in := []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Create},
 	}
-	_, err := f(context.Background(), s.db, in)
+	_, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.dbLifeValues = map[string]life.Life{
@@ -103,7 +101,7 @@ func (s *lifeWatcherSuite) TestChangeDying(c *gc.C) {
 	in = []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Update},
 	}
-	out, err := f(context.Background(), s.db, in)
+	out, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Update},
@@ -119,7 +117,7 @@ func (s *lifeWatcherSuite) TestChangeDead(c *gc.C) {
 	in := []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Create},
 	}
-	_, err := f(context.Background(), s.db, in)
+	_, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.dbLifeValues = map[string]life.Life{
@@ -128,7 +126,7 @@ func (s *lifeWatcherSuite) TestChangeDead(c *gc.C) {
 	in = []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Update},
 	}
-	out, err := f(context.Background(), s.db, in)
+	out, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Update},
@@ -144,13 +142,13 @@ func (s *lifeWatcherSuite) TestChangNotDeadRemoved(c *gc.C) {
 	in := []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Create},
 	}
-	_, err := f(context.Background(), s.db, in)
+	_, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 
 	in = []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Delete},
 	}
-	out, err := f(context.Background(), s.db, in)
+	out, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Delete},
@@ -166,7 +164,7 @@ func (s *lifeWatcherSuite) TestChangeDeadRemoved(c *gc.C) {
 	in := []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Create},
 	}
-	_, err := f(context.Background(), s.db, in)
+	_, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.dbLifeValues = map[string]life.Life{
@@ -175,7 +173,7 @@ func (s *lifeWatcherSuite) TestChangeDeadRemoved(c *gc.C) {
 	in = []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Delete},
 	}
-	out, err := f(context.Background(), s.db, in)
+	out, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Delete},
@@ -191,13 +189,13 @@ func (s *lifeWatcherSuite) TestChangeDifferentIdUpdated(c *gc.C) {
 	in := []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Create},
 	}
-	_, err := f(context.Background(), s.db, in)
+	_, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 
 	in = []changestream.ChangeEvent{
 		changeEvent{changed: "1", ctype: changestreamtesting.Update},
 	}
-	out, err := f(context.Background(), s.db, in)
+	out, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.HasLen, 0)
 }
@@ -211,13 +209,13 @@ func (s *lifeWatcherSuite) TestChangeDifferentIdRemoved(c *gc.C) {
 	in := []changestream.ChangeEvent{
 		changeEvent{changed: "0", ctype: changestreamtesting.Create},
 	}
-	_, err := f(context.Background(), s.db, in)
+	_, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 
 	in = []changestream.ChangeEvent{
 		changeEvent{changed: "1", ctype: changestreamtesting.Delete},
 	}
-	out, err := f(context.Background(), s.db, in)
+	out, err := f(context.Background(), in)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.HasLen, 0)
 }

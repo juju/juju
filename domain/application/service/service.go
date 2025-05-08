@@ -195,7 +195,7 @@ func NewWatchableService(
 
 // WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
 func (s *WatchableService) WatchApplicationUnitLife(appName string) (watcher.StringsWatcher, error) {
-	lifeGetter := func(ctx context.Context, db database.TxnRunner, ids []string) (map[string]life.Life, error) {
+	lifeGetter := func(ctx context.Context, ids []string) (map[string]life.Life, error) {
 		unitUUIDs, err := transform.SliceOrErr(ids, coreunit.ParseID)
 		if err != nil {
 			return nil, err
@@ -232,7 +232,7 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 	currentScale := scaleState.Scale
 
 	mask := changestream.Changed
-	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		newScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -261,7 +261,7 @@ func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Contex
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		query,
-		func(ctx context.Context, _ database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			return s.watchApplicationsWithPendingCharmsMapper(ctx, changes)
 		},
 		eventsource.NamespaceFilter(table, changestream.Changed),
@@ -413,7 +413,7 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 
 			return initialResults, nil
 		},
-		func(ctx context.Context, _ database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			// If there are no changes, return no changes.
 			if len(changes) == 0 {
 				return nil, nil
@@ -486,7 +486,7 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 
 			return initialResults, nil
 		},
-		func(ctx context.Context, _ database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			// If there are no changes, return no changes.
 			if len(changes) == 0 {
 				return nil, nil
