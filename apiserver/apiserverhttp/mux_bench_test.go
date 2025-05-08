@@ -7,41 +7,34 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"testing"
 
 	"github.com/bmizerany/pat"
-	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/internal/testhelpers"
 )
 
-type MuxBenchSuite struct {
-	testhelpers.IsolationSuite
-}
-
-var _ = tc.Suite(&MuxBenchSuite{})
-
-func (s *MuxBenchSuite) BenchmarkMux(c *tc.C) {
+func BenchmarkMux(b *testing.B) {
 	mux := apiserverhttp.NewMux()
 	mux.AddHandler("GET", "/hello/:name", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	s.benchmarkMux(c, mux)
+	benchmarkMux(b, mux)
 }
 
-func (s *MuxBenchSuite) BenchmarkPatMux(c *tc.C) {
+func BenchmarkPatMux(b *testing.B) {
 	mux := pat.New()
 	mux.Add("GET", "/hello/:name", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	s.benchmarkMux(c, mux)
+	benchmarkMux(b, mux)
 }
 
-func (s *MuxBenchSuite) benchmarkMux(c *tc.C, mux http.Handler) {
+func benchmarkMux(b *testing.B, mux http.Handler) {
 	req := newRequest("GET", "/hello/blake", nil)
-	c.ResetTimer()
+	b.ResetTimer()
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for n := 0; n < c.N; n++ {
+			for n := 0; n < b.N; n++ {
 				mux.ServeHTTP(nil, req)
 			}
 		}()

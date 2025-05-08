@@ -73,11 +73,11 @@ require (
 	github.com/juju/replicaset/v3 v3.0.1
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
-	github.com/juju/tc v0.0.0-20250507150813-1d13c1fc4d6c
+	github.com/juju/tc v0.0.0-20250508065900-0387ec067c01
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils/v4 v4.0.3
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v4 v4.0.0
+	github.com/juju/worker/v4 v4.0.1
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.3.1
 	github.com/lestrrat-go/jwx/v2 v2.0.21
@@ -313,4 +313,4 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 // until the issue is resolved.
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
 
-replace gopkg.in/check.v1 => github.com/hpidcock/gc-compat-tc v0.0.0-20250508054543-7d57932bff2c
+replace gopkg.in/check.v1 => github.com/hpidcock/gc-compat-tc v0.0.0-20250508070538-894dc8262d3d

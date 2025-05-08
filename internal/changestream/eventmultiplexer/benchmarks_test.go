@@ -6,6 +6,7 @@ package eventmultiplexer
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -14,14 +15,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testhelpers"
 )
-
-type benchSuite struct {
-	testhelpers.IsolationSuite
-}
-
-var _ = tc.Suite(&benchSuite{})
 
 type mockMetrics struct {
 }
@@ -32,19 +26,20 @@ func (*mockMetrics) SubscriptionsClear()                              {}
 func (*mockMetrics) DispatchDurationObserve(val float64, failed bool) {}
 func (*mockMetrics) DispatchErrorsInc()                               {}
 
-func benchmarkSignal(c *tc.C, changes ChangeSet) {
+func benchmarkSignal(b *testing.B, changes ChangeSet) {
+	c := &tc.TBC{TB: b}
 	sub := newSubscription(0, func() {})
 	defer workertest.CleanKill(c, sub)
 
 	ctx := context.Background()
 
-	done := consume(c, sub)
+	done := consume(b, sub)
 	defer close(done)
 
 	// Reset the timer so that we don't include the setup in the benchmark.
-	c.ResetTimer()
+	b.ResetTimer()
 
-	for i := 0; i < c.N; i++ {
+	for i := 0; i < b.N; i++ {
 		sub.dispatch(ctx, changes)
 	}
 
@@ -63,7 +58,7 @@ func create(size int) ChangeSet {
 	return changes
 }
 
-func consume(c *tc.C, sub changestream.Subscription) chan<- struct{} {
+func consume(b *testing.B, sub changestream.Subscription) chan<- struct{} {
 	done := make(chan struct{})
 	go func() {
 		for {
@@ -77,37 +72,38 @@ func consume(c *tc.C, sub changestream.Subscription) chan<- struct{} {
 	return done
 }
 
-func (s *benchSuite) BenchmarkSignal_1(c *tc.C) {
-	benchmarkSignal(c, create(1))
+func BenchmarkSignal_1(b *testing.B) {
+	benchmarkSignal(b, create(1))
 }
 
-func (s *benchSuite) BenchmarkSignal_10(c *tc.C) {
-	benchmarkSignal(c, create(10))
+func BenchmarkSignal_10(b *testing.B) {
+	benchmarkSignal(b, create(10))
 }
 
-func (s *benchSuite) BenchmarkSignal_100(c *tc.C) {
-	benchmarkSignal(c, create(100))
+func BenchmarkSignal_100(b *testing.B) {
+	benchmarkSignal(b, create(100))
 }
 
-func (s *benchSuite) BenchmarkSignal_1000(c *tc.C) {
-	benchmarkSignal(c, create(1000))
+func BenchmarkSignal_1000(b *testing.B) {
+	benchmarkSignal(b, create(1000))
 }
 
-func benchmarkSubscriptions(c *tc.C, numSubs, numEvents int, ns string) {
+func benchmarkSubscriptions(b *testing.B, numSubs, numEvents int, ns string) {
+	c := &tc.TBC{TB: b}
 	terms := make(chan changestream.Term)
 
 	em, err := New(stream{
 		terms: terms,
-	}, clock.WallClock, &mockMetrics{}, loggertesting.WrapCheckLog(c))
-	c.Assert(err, tc.IsNil)
+	}, clock.WallClock, &mockMetrics{}, loggertesting.WrapCheckLog(b))
+	tc.Assert(b, err, tc.IsNil)
 	defer workertest.CleanKill(c, em)
 
-	completed := make([]chan<- struct{}, numSubs)
+	completed := make([]chan<- struct{}, 0, numSubs)
 	for i := 0; i < numSubs; i++ {
 		sub, err := em.Subscribe(changestream.Namespace(ns, changestreamtesting.Update))
 		c.Assert(err, tc.IsNil)
 
-		done := consume(c, sub)
+		done := consume(b, sub)
 		completed = append(completed, done)
 	}
 
@@ -121,109 +117,109 @@ func benchmarkSubscriptions(c *tc.C, numSubs, numEvents int, ns string) {
 
 	changes := create(numEvents)
 
-	c.ResetTimer()
+	b.ResetTimer()
 
-	for i := 0; i < c.N; i++ {
+	for i := 0; i < b.N; i++ {
 		terms <- term{changes: changes}
 	}
 
 	workertest.CleanKill(c, em)
 }
 
-func (s *benchSuite) BenchmarkMatching_1_1(c *tc.C) {
-	benchmarkSubscriptions(c, 1, 1, "test")
+func BenchmarkMatching_1_1(b *testing.B) {
+	benchmarkSubscriptions(b, 1, 1, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_1_10(c *tc.C) {
-	benchmarkSubscriptions(c, 1, 10, "test")
+func BenchmarkMatching_1_10(b *testing.B) {
+	benchmarkSubscriptions(b, 1, 10, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_1_100(c *tc.C) {
-	benchmarkSubscriptions(c, 1, 100, "test")
+func BenchmarkMatching_1_100(b *testing.B) {
+	benchmarkSubscriptions(b, 1, 100, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_10_1(c *tc.C) {
-	benchmarkSubscriptions(c, 10, 1, "test")
+func BenchmarkMatching_10_1(b *testing.B) {
+	benchmarkSubscriptions(b, 10, 1, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_10_10(c *tc.C) {
-	benchmarkSubscriptions(c, 10, 10, "test")
+func BenchmarkMatching_10_10(b *testing.B) {
+	benchmarkSubscriptions(b, 10, 10, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_10_100(c *tc.C) {
-	benchmarkSubscriptions(c, 10, 100, "test")
+func BenchmarkMatching_10_100(b *testing.B) {
+	benchmarkSubscriptions(b, 10, 100, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_100_1(c *tc.C) {
-	benchmarkSubscriptions(c, 100, 1, "test")
+func BenchmarkMatching_100_1(b *testing.B) {
+	benchmarkSubscriptions(b, 100, 1, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_100_10(c *tc.C) {
-	benchmarkSubscriptions(c, 100, 10, "test")
+func BenchmarkMatching_100_10(b *testing.B) {
+	benchmarkSubscriptions(b, 100, 10, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_100_100(c *tc.C) {
-	benchmarkSubscriptions(c, 100, 100, "test")
+func BenchmarkMatching_100_100(b *testing.B) {
+	benchmarkSubscriptions(b, 100, 100, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_1000_1(c *tc.C) {
-	benchmarkSubscriptions(c, 1000, 1, "test")
+func BenchmarkMatching_1000_1(b *testing.B) {
+	benchmarkSubscriptions(b, 1000, 1, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_1000_10(c *tc.C) {
-	benchmarkSubscriptions(c, 1000, 10, "test")
+func BenchmarkMatching_1000_10(b *testing.B) {
+	benchmarkSubscriptions(b, 1000, 10, "test")
 }
 
-func (s *benchSuite) BenchmarkMatching_1000_100(c *tc.C) {
-	benchmarkSubscriptions(c, 1000, 100, "test")
+func BenchmarkMatching_1000_100(b *testing.B) {
+	benchmarkSubscriptions(b, 1000, 100, "test")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_1_1(c *tc.C) {
-	benchmarkSubscriptions(c, 1, 1, "bar")
+func BenchmarkNonMatching_1_1(b *testing.B) {
+	benchmarkSubscriptions(b, 1, 1, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_1_10(c *tc.C) {
-	benchmarkSubscriptions(c, 1, 10, "bar")
+func BenchmarkNonMatching_1_10(b *testing.B) {
+	benchmarkSubscriptions(b, 1, 10, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_1_100(c *tc.C) {
-	benchmarkSubscriptions(c, 1, 100, "bar")
+func BenchmarkNonMatching_1_100(b *testing.B) {
+	benchmarkSubscriptions(b, 1, 100, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_10_1(c *tc.C) {
-	benchmarkSubscriptions(c, 10, 1, "bar")
+func BenchmarkNonMatching_10_1(b *testing.B) {
+	benchmarkSubscriptions(b, 10, 1, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_10_10(c *tc.C) {
-	benchmarkSubscriptions(c, 10, 10, "bar")
+func BenchmarkNonMatching_10_10(b *testing.B) {
+	benchmarkSubscriptions(b, 10, 10, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_10_100(c *tc.C) {
-	benchmarkSubscriptions(c, 10, 100, "bar")
+func BenchmarkNonMatching_10_100(b *testing.B) {
+	benchmarkSubscriptions(b, 10, 100, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_100_1(c *tc.C) {
-	benchmarkSubscriptions(c, 100, 1, "bar")
+func BenchmarkNonMatching_100_1(b *testing.B) {
+	benchmarkSubscriptions(b, 100, 1, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_100_10(c *tc.C) {
-	benchmarkSubscriptions(c, 100, 10, "bar")
+func BenchmarkNonMatching_100_10(b *testing.B) {
+	benchmarkSubscriptions(b, 100, 10, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_100_100(c *tc.C) {
-	benchmarkSubscriptions(c, 100, 100, "bar")
+func BenchmarkNonMatching_100_100(b *testing.B) {
+	benchmarkSubscriptions(b, 100, 100, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_1000_1(c *tc.C) {
-	benchmarkSubscriptions(c, 1000, 1, "bar")
+func BenchmarkNonMatching_1000_1(b *testing.B) {
+	benchmarkSubscriptions(b, 1000, 1, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_1000_10(c *tc.C) {
-	benchmarkSubscriptions(c, 1000, 10, "bar")
+func BenchmarkNonMatching_1000_10(b *testing.B) {
+	benchmarkSubscriptions(b, 1000, 10, "bar")
 }
 
-func (s *benchSuite) BenchmarkNonMatching_1000_100(c *tc.C) {
-	benchmarkSubscriptions(c, 1000, 100, "bar")
+func BenchmarkNonMatching_1000_100(b *testing.B) {
+	benchmarkSubscriptions(b, 1000, 100, "bar")
 }
 
 type stream struct {
