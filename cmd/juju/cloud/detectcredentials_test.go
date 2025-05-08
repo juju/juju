@@ -222,11 +222,11 @@ func (s *detectCredentialsSuite) TestDetectCredentialUnknownCloud(c *tc.C) {
 		expectedStderr: `
 
 1. credential (new)
-Select a credential to save by number, or type Q to quit:
-Select the cloud it belongs to, or type Q to quit [test-cloud]:
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit [test-cloud]: 
 
 1. credential (new)
-Select a credential to save by number, or type Q to quit:
+Select a credential to save by number, or type Q to quit: 
 `[1:],
 		expectedWarn: "cloud foo not valid",
 	})
@@ -238,11 +238,11 @@ func (s *detectCredentialsSuite) TestDetectCredentialInvalidCloud(c *tc.C) {
 		expectedStderr: `
 
 1. credential (new)
-Select a credential to save by number, or type Q to quit:
-Select the cloud it belongs to, or type Q to quit [test-cloud]:
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit [test-cloud]: 
 
 1. credential (new)
-Select a credential to save by number, or type Q to quit:
+Select a credential to save by number, or type Q to quit: 
 `[1:],
 		expectedWarn: `chosen credential not compatible with "another-provider" cloud`,
 	})
@@ -323,12 +323,12 @@ func (s *detectCredentialsSuite) TestDetectCredentialCloudMismatch(c *tc.C) {
 
 1. credential 2 (new)
 2. credential 1 (new)
-Select a credential to save by number, or type Q to quit:
-Select the cloud it belongs to, or type Q to quit []:
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit []: 
 
 1. credential 2 (new)
 2. credential 1 (new)
-Select a credential to save by number, or type Q to quit:
+Select a credential to save by number, or type Q to quit: 
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, ``)
 	c.Assert(s.store.Credentials, tc.HasLen, 0)
@@ -349,8 +349,8 @@ func (s *detectCredentialsSuite) TestDetectCredentialQuitOnCloud(c *tc.C) {
 
 1. credential a (new)
 2. credential b (new)
-Select a credential to save by number, or type Q to quit:
-Select the cloud it belongs to, or type Q to quit []:
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit []: 
 `[1:])
 	c.Assert(s.store.Credentials, tc.HasLen, 0)
 }
@@ -420,12 +420,12 @@ Looking for cloud and credential information on local client...
 Looking for cloud information on controller "controller"...
 
 1. credential (new)
-Select a credential to save by number, or type Q to quit:
-Select the cloud it belongs to, or type Q to quit [test-cloud]:
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit [test-cloud]: 
 Saved credential to cloud test-cloud locally
 
 1. credential (existing, will overwrite)
-Select a credential to save by number, or type Q to quit:
+Select a credential to save by number, or type Q to quit: 
 
 Controller credential "blah" for user "admin@local" for cloud "test-cloud" on controller "controller" loaded.
 For more information, see 'juju show-credential test-cloud blah'.
@@ -489,11 +489,11 @@ func (s *detectCredentialsSuite) TestRemoteLoadNoRemoteCloud(c *tc.C) {
 	s.assertAutoloadCredentials(c, `
 
 1. credential (new)
-Select a credential to save by number, or type Q to quit:
-Select the cloud it belongs to, or type Q to quit [test-cloud]:
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit [test-cloud]: 
 
 1. credential (new)
-Select a credential to save by number, or type Q to quit:
+Select a credential to save by number, or type Q to quit: 
 
 Cloud "test-cloud" does not exist on the controller: not uploading credentials for it...
 Use 'juju clouds' to view all available clouds and 'juju add-cloud' to add missing ones.
@@ -504,12 +504,12 @@ func (s *detectCredentialsSuite) TestDetectCredentialClientOnly(c *tc.C) {
 	s.assertAutoloadCredentials(c, `
 
 1. credential (new)
-Select a credential to save by number, or type Q to quit:
-Select the cloud it belongs to, or type Q to quit [test-cloud]:
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit [test-cloud]: 
 Saved credential to cloud test-cloud locally
 
 1. credential (existing, will overwrite)
-Select a credential to save by number, or type Q to quit:
+Select a credential to save by number, or type Q to quit: 
 `[1:],
 		"--client")
 }

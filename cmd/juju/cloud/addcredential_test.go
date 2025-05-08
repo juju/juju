@@ -245,11 +245,11 @@ Regions
   anotherregion
   specialregion
 
-Select region [any region, credential is not region specific]:
+Select region [any region, credential is not region specific]: 
 Using auth-type "userpass".
 
 Enter username: 
-Enter password:
+Enter password: 
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:])
@@ -268,11 +268,11 @@ Regions
 
 Select region [any region, credential is not region specific]: provided region "notknownregion" for cloud "somecloud" not valid
 
-Select region [any region, credential is not region specific]:
+Select region [any region, credential is not region specific]: 
 Using auth-type "userpass".
 
 Enter username: 
-Enter password:
+Enter password: 
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:])
@@ -290,7 +290,7 @@ User specified region "specialregion", using it.
 Using auth-type "userpass".
 
 Enter username: 
-Enter password:
+Enter password: 
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:])
@@ -391,7 +391,7 @@ Enter credential name:
 Using auth-type "userpass".
 
 Enter username: 
-Enter password:
+Enter password: 
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:]
@@ -406,7 +406,7 @@ Using auth-type "userpass".
 
 Enter username: 
 Enter username: 
-Enter password:
+Enter password: 
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:]
@@ -421,9 +421,9 @@ Auth Types
   userpass
   access-key
 
-Select auth type [userpass]:
+Select auth type [userpass]: 
 Enter username: 
-Enter password:
+Enter password: 
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:]
@@ -499,7 +499,7 @@ func (s *addCredentialSuite) TestAddCredentialInteractiveHiddenFile(c *tc.C) {
 Enter credential name: 
 Using auth-type "interactive".
 
-Enter the path to the username file:
+Enter the path to the username file: 
 Credential "wallyworld" added locally for cloud "somecloud".
 
 `[1:])
@@ -560,7 +560,7 @@ Auth Types
   userpass
   interactive
 
-Select auth type [interactive]:
+Select auth type [interactive]: 
 Enter username: 
 Credential "bobscreds" added locally for cloud "somecloud".
 
@@ -592,11 +592,11 @@ func (s *addCredentialSuite) TestAddCredentialReplace(c *tc.C) {
 	expected := `
 Enter credential name: 
 A credential "fred" already exists locally on this client.
-Replace local credential? (y/N):
+Replace local credential? (y/N): 
 Using auth-type "userpass".
 
 Enter username: 
-Enter password:
+Enter password: 
 Credential "fred" updated locally for cloud "somecloud".
 
 `[1:]
@@ -615,7 +615,7 @@ func (s *addCredentialSuite) TestAddCredentialReplaceDecline(c *tc.C) {
 	expected := `
 Enter credential name: 
 A credential "fred" already exists locally on this client.
-Replace local credential? (y/N):
+Replace local credential? (y/N): 
 `[1:]
 	s.assertAddUserpassCredential(c, "fred\nn\n", &cred, expected)
 }
@@ -759,7 +759,7 @@ func (s *addCredentialSuite) TestAddGCEFileCredentials(c *tc.C) {
 Enter credential name: 
 Using auth-type "jsonfile".
 
-Enter path to the credential file:
+Enter path to the credential file: 
 Credential "blah" added locally for cloud "somecloud".
 
 `[1:]
@@ -853,7 +853,7 @@ func (s *addCredentialSuite) TestAddRemoteFromFile(c *tc.C) {
 Enter credential name: 
 Using auth-type "jsonfile".
 
-Enter path to the credential file:
+Enter path to the credential file: 
 `[1:]
 	stderr := `
 Using cloud "somecloud" from the controller to verify credentials.
@@ -945,7 +945,7 @@ func (s *addCredentialSuite) TestAddRemoteNoRemoteCloud(c *tc.C) {
 Enter credential name: 
 Using auth-type "jsonfile".
 
-Enter path to the credential file:
+Enter path to the credential file: 
 No cloud "somecloud" found on the controller "controller": credentials are not uploaded.
 Use 'juju clouds -c controller' to see what clouds are available on the controller.
 User 'juju add-cloud somecloud -c controller' to add your cloud to the controller.

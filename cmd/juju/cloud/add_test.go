@@ -492,7 +492,7 @@ func (s *addSuite) TestAddToControllerMissingCredential(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Contains, `
 Cloud "garage-maas" added to controller "mycontroller".
-To upload a credential to the controller for cloud "garage-maas", use
+To upload a credential to the controller for cloud "garage-maas", use 
 * 'add-model' with --credential option or
 * 'add-credential -c garage-maas'.
 `[1:])
