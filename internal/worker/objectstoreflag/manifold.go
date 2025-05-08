@@ -16,6 +16,10 @@ import (
 	"github.com/juju/juju/internal/services"
 )
 
+// GetObjectStoreServiceServicesFunc is a function that retrieves the
+// object store services from the dependency getter.
+type GetObjectStoreServiceServicesFunc func(dependency.Getter, string, model.UUID) (ObjectStoreService, error)
+
 // ManifoldConfig holds the dependencies and configuration for a
 // Worker manifold.
 type ManifoldConfig struct {
@@ -23,7 +27,8 @@ type ManifoldConfig struct {
 	ObjectStoreServicesName string
 	Check                   Predicate
 
-	NewWorker func(context.Context, Config) (worker.Worker, error)
+	GeObjectStoreServicesFn GetObjectStoreServiceServicesFunc
+	NewWorker               func(context.Context, Config) (worker.Worker, error)
 }
 
 // validate is called by start to check for bad configuration.
@@ -36,6 +41,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Check == nil {
 		return errors.NotValidf("nil Check")
+	}
+	if config.GeObjectStoreServicesFn == nil {
+		return errors.NotValidf("nil GeObjectStoreServicesFn")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -54,18 +62,16 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var objectStoreServiceGetter services.ObjectStoreServicesGetter
-	if err := getter.Get(config.ObjectStoreServicesName, &objectStoreServiceGetter); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	agentConfig := agent.CurrentConfig()
 	modelUUID := model.UUID(agentConfig.Model().Id())
 
-	objectStoreService := objectStoreServiceGetter.ServicesForModel(modelUUID)
+	objectStoreService, err := config.GeObjectStoreServicesFn(getter, config.ObjectStoreServicesName, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	worker, err := config.NewWorker(context, Config{
-		ObjectStoreService: objectStoreService.ObjectStore(),
+		ObjectStoreService: objectStoreService,
 		ModelUUID:          modelUUID,
 		Check:              config.Check,
 	})
@@ -94,4 +100,13 @@ func bounceErrChanged(err error) error {
 		return dependency.ErrBounce
 	}
 	return err
+}
+
+func GeObjectStoreServicesFn(getter dependency.Getter, name string, modelUUID model.UUID) (ObjectStoreService, error) {
+	var objectStoreServiceGetter services.ObjectStoreServicesGetter
+	if err := getter.Get(name, &objectStoreServiceGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return objectStoreServiceGetter.ServicesForModel(modelUUID).ObjectStore(), nil
 }
