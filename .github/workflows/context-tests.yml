@@ -144,7 +144,6 @@ jobs:
             if ${{ needs.build.result == 'success' || needs.build.result == 'skipped' }} \
                 && ${{ needs.snap.result == 'success' || needs.snap.result == 'skipped' }} \
                 && ${{ needs.generate.result == 'success' || needs.generate.result == 'skipped' }} \
-                && ${{ needs.docs.result == 'success' || needs.docs.result == 'skipped' }} \
                 && ${{ needs.client.result == 'success' || needs.client.result == 'skipped' }} \
                 && ${{ needs.terraform.result != 'fix me' || needs.terraform.result == 'skipped' }} \
                 && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \
