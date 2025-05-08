@@ -11,7 +11,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/rpc/params"
@@ -81,7 +80,17 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+	isAdmin, err := HasModelAdmin(ctx, c.authorizer, c.backend.ControllerTag(), modelTag)
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	if !isAdmin {
+		return status, apiservererrors.ErrPerm
+	}
+
 	st := c.backend
+
 	if modelTag != c.backend.ModelTag() {
 		otherSt, releaser, err := c.backend.GetBackend(modelTag.Id())
 		if err != nil {
@@ -91,7 +100,9 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		st = otherSt
 	}
 
-	statusServiceGetter, err := c.getStatusService(ctx, coremodel.UUID(modelTag.Id()))
+	modelUUID := coremodel.UUID(modelTag.Id())
+
+	statusServiceGetter, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
@@ -99,15 +110,6 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-
-	isAdmin, err := HasModelAdmin(ctx, c.authorizer, c.backend.ControllerTag(), modelTag)
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	if !isAdmin {
-		return status, apiservererrors.ErrPerm
-	}
-
 	machines, err := st.AllMachines()
 	if err != nil {
 		return status, errors.Trace(err)
@@ -119,8 +121,6 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 			hostedMachineCount++
 		}
 	}
-
-	modelUUID := coremodel.UUID(modelTag.Id())
 
 	statusService, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
@@ -161,15 +161,11 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	}
 	modelFilesystems := ModelFilesystemInfo(filesystems)
 
-	model, err := st.Model()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-
+	// TODO: add life and ownertag values when they are supported in model DB
 	result := params.ModelStatus{
 		ModelTag:           tag,
-		OwnerTag:           modelInfo.OwnerTag,
-		Life:               life.Value(model.Life().String()),
+		OwnerTag:           "",
+		Life:               "",
 		Type:               modelInfo.Type,
 		HostedMachineCount: hostedMachineCount,
 		ApplicationCount:   len(applications),

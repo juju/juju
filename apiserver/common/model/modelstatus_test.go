@@ -80,8 +80,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	}
 
 	s.statusService.EXPECT().GetModelInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
-		Type:     string(s.Model.Type()),
-		OwnerTag: s.Model.Owner().String(),
+		Type: coremodel.IAAS.String(),
 	}, nil)
 
 	api := model.NewModelStatusAPI(
@@ -113,8 +112,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	defer st.Close()
 
 	s.statusService.EXPECT().GetModelInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
-		Type:     string(s.Model.Type()),
-		OwnerTag: owner.String(),
+		Type: coremodel.IAAS.String(),
 	}, nil)
 
 	api := model.NewModelStatusAPI(
@@ -161,8 +159,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	}
 
 	s.statusService.EXPECT().GetModelInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
-		Type:     string(s.Model.Type()),
-		OwnerTag: s.Model.Owner().String(),
+		Type: coremodel.IAAS.String(),
 	}, nil)
 
 	modelStatusAPI := model.NewModelStatusAPI(

@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -49,11 +48,13 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
+	controllerUUID := uuid.MustNewUUID()
+
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, credential_owner)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2", "owner")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
+		`, modelUUID.String(), controllerUUID.String())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,7 +67,6 @@ func (s *stateSuite) TestGetModelInfo(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelInfo.Type, gc.Equals, string(model.IAAS))
-	c.Assert(modelInfo.OwnerTag, gc.Equals, "user-owner")
 }
 
 func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {

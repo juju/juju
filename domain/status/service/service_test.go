@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -1443,8 +1444,7 @@ func (s *serviceSuite) TestGetModelInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelStatusInfo := status.ModelStatusInfo{
-		OwnerTag: "owner",
-		Type:     model.IAAS.String(),
+		Type: model.IAAS.String(),
 	}
 
 	s.state.EXPECT().GetModelInfo(gomock.Any()).Return(modelStatusInfo, nil)
@@ -1452,6 +1452,15 @@ func (s *serviceSuite) TestGetModelInfo(c *gc.C) {
 	modelStatusInfo, err := s.service.GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelStatusInfo, gc.DeepEquals, modelStatusInfo)
+}
+
+func (s *serviceSuite) TestGetModelInfoNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelInfo(gomock.Any()).Return(status.ModelStatusInfo{}, modelerrors.NotFound)
+
+	_, err := s.service.GetModelInfo(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {

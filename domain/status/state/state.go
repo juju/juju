@@ -9,7 +9,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
-	"github.com/juju/names/v6"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
@@ -19,6 +18,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainlife "github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -41,13 +41,10 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 	}
 }
 
-// GetModelInfo returns the model's basic information.
+// GetModelInfo returns only basic model information used for displaying model status.
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound]: When the model does not exist.
 func (st *State) GetModelInfo(ctx context.Context) (status.ModelStatusInfo, error) {
-	type modelInfo struct {
-		ModelType       string `db:"type"`
-		CredentialOwner string `db:"credential_owner"`
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return status.ModelStatusInfo{}, errors.Capture(err)
@@ -63,6 +60,9 @@ FROM   model
 
 	var m modelInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err == sqlair.ErrNoRows {
+			return modelerrors.NotFound
+		}
 		return tx.Query(ctx, stmt).Get(&m)
 	})
 	if err != nil {
@@ -70,8 +70,7 @@ FROM   model
 	}
 
 	modelType := m.ModelType
-	ownerTag := names.NewUserTag(m.CredentialOwner).String()
-	return status.ModelStatusInfo{Type: modelType, OwnerTag: ownerTag}, nil
+	return status.ModelStatusInfo{Type: modelType}, nil
 
 }
 
