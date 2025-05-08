@@ -15,12 +15,16 @@ import (
 
 	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
+	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/constraints"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
@@ -820,7 +824,7 @@ func (s *modelServiceSuite) TestIsControllerModelNotFound(c *gc.C) {
 // GetModelType asserts the happy path of getting the models current
 // [coremodel.ModelType]. We are looking to see here that the service correctly
 // passes along the information received from the state layer.
-func (s *modelServiceSuite) GetModelType(c *gc.C) {
+func (s *modelServiceSuite) TestGetModelType(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -844,7 +848,7 @@ func (s *modelServiceSuite) GetModelType(c *gc.C) {
 // current model but it doesn't exist in the state layer we correctly pass only
 // the [modelerrors.NotFound] error received. This fulfills the contract defined
 // for [ModelService.GetModelType].
-func (s *modelServiceSuite) GetModelTypeNotFound(c *gc.C) {
+func (s *modelServiceSuite) TestGetModelTypeNotFound(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -861,4 +865,272 @@ func (s *modelServiceSuite) GetModelTypeNotFound(c *gc.C) {
 
 	_, err := svc.GetModelType(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestGetModelSummaryNotFound is asserting that if we ask for the model summary
+// and the model doesn't exist the caller gets an error satisfying
+// [modelerrors.NotFound].
+func (s *modelServiceSuite) TestGetModelSummaryNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	s.mockControllerState.EXPECT().GetModelSummary(
+		gomock.Any(), modelUUID,
+	).Return(model.ModelSummary{}, modelerrors.NotFound).AnyTimes()
+	s.mockModelState.EXPECT().GetModelInfoSummary(
+		gomock.Any(),
+	).Return(model.ModelInfoSummary{}, modelerrors.NotFound).AnyTimes()
+
+	_, err := svc.GetModelSummary(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestGetModelSummary is asserting the happy path of getting the model summary.
+func (s *modelServiceSuite) TestGetModelSummary(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	controllerUUID, err := uuid.NewUUID()
+	c.Check(err, jc.ErrorIsNil)
+	s.mockModelState.EXPECT().GetModelInfoSummary(gomock.Any()).Return(model.ModelInfoSummary{
+		UUID:           modelUUID,
+		Name:           "my-awesome-model",
+		ControllerUUID: controllerUUID.String(),
+		ModelType:      coremodel.IAAS,
+		CloudName:      "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		AgentVersion:   jujuversion.Current,
+		MachineCount:   10,
+		CoreCount:      10,
+		UnitCount:      10,
+	}, nil)
+	s.mockControllerState.EXPECT().GetModelSummary(gomock.Any(), modelUUID).Return(model.ModelSummary{
+		State: model.ModelState{
+			Destroying:                false,
+			Migrating:                 false,
+			HasInvalidCloudCredential: false,
+		},
+	}, nil)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.Status.Since", jc.Ignore)
+	summary, err := svc.GetModelSummary(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(summary, mc, coremodel.ModelSummary{
+		Name:           "my-awesome-model",
+		UUID:           modelUUID,
+		ModelType:      coremodel.IAAS,
+		CloudName:      "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		ControllerUUID: controllerUUID.String(),
+		IsController:   false,
+		AgentVersion:   jujuversion.Current,
+		Status: corestatus.StatusInfo{
+			Status: corestatus.Available,
+		},
+		MachineCount: 10,
+		CoreCount:    10,
+		UnitCount:    10,
+	})
+}
+
+// TestGetUserModelSummaryModelNotFound is asserting that if a caller asks for a
+// user model summay and the model doesn't exist we get back a
+// [modelerrors.NotFound] error.
+func (s *modelServiceSuite) TestGetUserModelSummaryModelNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	userUUID := usertesting.GenUserUUID(c)
+	s.mockControllerState.EXPECT().GetUserModelSummary(
+		gomock.Any(),
+		userUUID, modelUUID,
+	).Return(model.UserModelSummary{}, modelerrors.NotFound).AnyTimes()
+	s.mockControllerState.EXPECT().GetModelSummary(
+		gomock.Any(), modelUUID,
+	).Return(model.ModelSummary{}, modelerrors.NotFound).AnyTimes()
+
+	_, err := svc.GetUserModelSummary(context.Background(), userUUID)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestGetUserModelSummaryUserNotFound tests that if a model summary is asked
+// for by a caller but the user doesn't exist an error satisfying
+// [accesserrors.UserNotFound] is returned.
+func (s *modelServiceSuite) TestGetUserModelSummaryUserNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	userUUID := usertesting.GenUserUUID(c)
+	s.mockControllerState.EXPECT().GetUserModelSummary(
+		gomock.Any(),
+		userUUID, modelUUID,
+	).Return(model.UserModelSummary{}, accesserrors.UserNotFound)
+	s.mockControllerState.EXPECT().GetModelSummary(
+		gomock.Any(), modelUUID,
+	).Return(model.ModelSummary{}, nil).AnyTimes()
+
+	_, err := svc.GetUserModelSummary(context.Background(), userUUID)
+	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+}
+
+// TestGetUserModelSummaryAccessNotFound tests that if a user model summary is
+// asked for by a caller but the user doesn't have access to the model an error
+// satisfying [accesserrors.AccessNotFound] is returned.
+func (s *modelServiceSuite) TestGetUserModelSummaryAccessNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	userUUID := usertesting.GenUserUUID(c)
+	s.mockControllerState.EXPECT().GetUserModelSummary(
+		gomock.Any(),
+		userUUID, modelUUID,
+	).Return(model.UserModelSummary{}, accesserrors.AccessNotFound)
+	s.mockControllerState.EXPECT().GetModelSummary(
+		gomock.Any(), modelUUID,
+	).Return(model.ModelSummary{}, nil).AnyTimes()
+
+	_, err := svc.GetUserModelSummary(context.Background(), userUUID)
+	c.Check(err, jc.ErrorIs, accesserrors.AccessNotFound)
+}
+
+// TestGetUserModelSummaryUserUUIDNotValid tests that if a user model summary is
+// asked for by a caller but the user UUID is not valid an error satisfying
+// [coreerrors.NotValid] is returned.
+func (s *modelServiceSuite) TestGetUserModelSummaryUserUUIDNotValid(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	_, err := svc.GetUserModelSummary(context.Background(), "")
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestGetUserModelSummary tests the happy path of
+// [ModelService.GetUserModelSummary].
+func (s *modelServiceSuite) TestGetUserModelSummary(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	controllerUUID, err := uuid.NewUUID()
+	c.Check(err, jc.ErrorIsNil)
+	s.mockModelState.EXPECT().GetModelInfoSummary(gomock.Any()).Return(model.ModelInfoSummary{
+		UUID:           modelUUID,
+		Name:           "my-awesome-model",
+		ControllerUUID: controllerUUID.String(),
+		ModelType:      coremodel.IAAS,
+		CloudName:      "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		AgentVersion:   jujuversion.Current,
+		MachineCount:   10,
+		CoreCount:      10,
+		UnitCount:      10,
+	}, nil)
+
+	LastConnection := time.Now()
+	userUUID := usertesting.GenUserUUID(c)
+	s.mockControllerState.EXPECT().GetUserModelSummary(gomock.Any(), userUUID, modelUUID).Return(
+		model.UserModelSummary{
+			ModelSummary: model.ModelSummary{
+				State: model.ModelState{
+					Destroying:                false,
+					Migrating:                 false,
+					HasInvalidCloudCredential: false,
+				},
+			},
+			UserAccess:         corepermission.AddModelAccess,
+			UserLastConnection: &LastConnection,
+		}, nil,
+	)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.Status.Since", jc.Ignore)
+	summary, err := svc.GetUserModelSummary(context.Background(), userUUID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(summary, mc, coremodel.UserModelSummary{
+		UserAccess:         corepermission.AddModelAccess,
+		UserLastConnection: &LastConnection,
+		ModelSummary: coremodel.ModelSummary{
+			Name:           "my-awesome-model",
+			UUID:           modelUUID,
+			ModelType:      coremodel.IAAS,
+			CloudName:      "aws",
+			CloudType:      "ec2",
+			CloudRegion:    "myregion",
+			ControllerUUID: controllerUUID.String(),
+			IsController:   false,
+			AgentVersion:   jujuversion.Current,
+			Status: corestatus.StatusInfo{
+				Status: corestatus.Available,
+			},
+			MachineCount: 10,
+			CoreCount:    10,
+			UnitCount:    10,
+		},
+	})
 }
