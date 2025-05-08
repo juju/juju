@@ -202,30 +202,24 @@ func (m *stateSuite) TestCloudTypeMissing(c *gc.C) {
 	c.Check(ctype, gc.Equals, "")
 }
 
-// TestModelCloudInfoAndCredential tests the happy path for getting a models
+// TestModelCloudInfo tests the happy path for getting a models
 // cloud name and credential.
-func (m *stateSuite) TestModelCloudInfoAndCredential(c *gc.C) {
+func (m *stateSuite) TestModelCloudInfo(c *gc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	// We are relying on the model setup as part of this suite.
-	cloudName, regionName, credentialID, err := st.GetModelCloudInfoAndCredential(
+	cloudName, regionName, err := st.GetModelCloudInfo(
 		context.Background(),
 		m.uuid,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cloudName, gc.Equals, "my-cloud")
 	c.Check(regionName, gc.Equals, "my-region")
-	c.Check(credentialID, gc.Equals, corecredential.Key{
-		Cloud: "my-cloud",
-		Owner: m.userName,
-		Name:  "foobar",
-	})
 }
 
-// TestModelCloudInfoAndCredentialController is testing the cloud name and
-// credential id is returned for the controller model and owner. This is the
-// common pattern that this state func will be used for so we have made a
-// special case to continuously test this.
-func (m *stateSuite) TestModelCloudInfoAndCredentialController(c *gc.C) {
+// TestModelCloudInfoController is testing the cloud name and cloud region returned for
+// the controller model and owner. This is the common pattern that this state func
+// will be used for so we have made a special case to continuously test this.
+func (m *stateSuite) TestModelCloudInfoController(c *gc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	modelUUID := modeltesting.GenModelUUID(c)
 
@@ -256,7 +250,7 @@ func (m *stateSuite) TestModelCloudInfoAndCredentialController(c *gc.C) {
 	err = st.Activate(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloudName, regionName, credentialID, err := st.GetModelCloudInfoAndCredential(
+	cloudName, regionName, err := st.GetModelCloudInfo(
 		context.Background(),
 		modelUUID,
 	)
@@ -264,23 +258,17 @@ func (m *stateSuite) TestModelCloudInfoAndCredentialController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cloudName, gc.Equals, "my-cloud")
 	c.Check(regionName, gc.Equals, "my-region")
-	c.Check(credentialID, gc.Equals, corecredential.Key{
-		Cloud: "my-cloud",
-		Owner: m.userName,
-		Name:  "foobar",
-	})
 }
 
-// TestModelCloudInfoAndCredentialNotFound is testing that if we pass a model
+// TestModelCloudInfoNotFound is testing that if we pass a model
 // that doesn't exist we get back a [modelerrors.NotFound] error.
-func (m *stateSuite) TestModelCloudInfoAndCredentialNotFound(c *gc.C) {
+func (m *stateSuite) TestModelCloudInfoNotFound(c *gc.C) {
 	noExistModelUUID := modeltesting.GenModelUUID(c)
 	st := NewState(m.TxnRunnerFactory())
-	cloudName, regionName, credentialID, err := st.GetModelCloudInfoAndCredential(context.Background(), noExistModelUUID)
+	cloudName, regionName, err := st.GetModelCloudInfo(context.Background(), noExistModelUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 	c.Check(cloudName, gc.Equals, "")
 	c.Check(regionName, gc.Equals, "")
-	c.Check(credentialID.IsZero(), jc.IsTrue)
 }
 
 func (m *stateSuite) TestGetModelCloudAndCredential(c *gc.C) {

@@ -1150,43 +1150,42 @@ func (c *MockStateGetModelCloudAndCredentialCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// GetModelCloudInfoAndCredential mocks base method.
-func (m *MockState) GetModelCloudInfoAndCredential(arg0 context.Context, arg1 model.UUID) (string, string, credential.Key, error) {
+// GetModelCloudInfo mocks base method.
+func (m *MockState) GetModelCloudInfo(arg0 context.Context, arg1 model.UUID) (string, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelCloudInfoAndCredential", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetModelCloudInfo", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(credential.Key)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
-// GetModelCloudInfoAndCredential indicates an expected call of GetModelCloudInfoAndCredential.
-func (mr *MockStateMockRecorder) GetModelCloudInfoAndCredential(arg0, arg1 any) *MockStateGetModelCloudInfoAndCredentialCall {
+// GetModelCloudInfo indicates an expected call of GetModelCloudInfo.
+func (mr *MockStateMockRecorder) GetModelCloudInfo(arg0, arg1 any) *MockStateGetModelCloudInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudInfoAndCredential", reflect.TypeOf((*MockState)(nil).GetModelCloudInfoAndCredential), arg0, arg1)
-	return &MockStateGetModelCloudInfoAndCredentialCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudInfo", reflect.TypeOf((*MockState)(nil).GetModelCloudInfo), arg0, arg1)
+	return &MockStateGetModelCloudInfoCall{Call: call}
 }
 
-// MockStateGetModelCloudInfoAndCredentialCall wrap *gomock.Call
-type MockStateGetModelCloudInfoAndCredentialCall struct {
+// MockStateGetModelCloudInfoCall wrap *gomock.Call
+type MockStateGetModelCloudInfoCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelCloudInfoAndCredentialCall) Return(arg0, arg1 string, arg2 credential.Key, arg3 error) *MockStateGetModelCloudInfoAndCredentialCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
+func (c *MockStateGetModelCloudInfoCall) Return(arg0, arg1 string, arg2 error) *MockStateGetModelCloudInfoCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelCloudInfoAndCredentialCall) Do(f func(context.Context, model.UUID) (string, string, credential.Key, error)) *MockStateGetModelCloudInfoAndCredentialCall {
+func (c *MockStateGetModelCloudInfoCall) Do(f func(context.Context, model.UUID) (string, string, error)) *MockStateGetModelCloudInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelCloudInfoAndCredentialCall) DoAndReturn(f func(context.Context, model.UUID) (string, string, credential.Key, error)) *MockStateGetModelCloudInfoAndCredentialCall {
+func (c *MockStateGetModelCloudInfoCall) DoAndReturn(f func(context.Context, model.UUID) (string, string, error)) *MockStateGetModelCloudInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

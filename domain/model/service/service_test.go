@@ -1053,8 +1053,8 @@ func (s *serviceSuite) TestDefaultModelCloudInfoNotFound(c *gc.C) {
 		ctrlModelUUID,
 		nil,
 	)
-	s.mockState.EXPECT().GetModelCloudInfoAndCredential(gomock.Any(), ctrlModelUUID).Return(
-		"", "", credential.Key{}, modelerrors.NotFound,
+	s.mockState.EXPECT().GetModelCloudInfo(gomock.Any(), ctrlModelUUID).Return(
+		"", "", modelerrors.NotFound,
 	)
 
 	_, _, err = svc.DefaultModelCloudInfo(context.Background())
@@ -1080,9 +1080,8 @@ func (s *serviceSuite) TestDefaultModelCloudInfo(c *gc.C) {
 		ctrlModelUUID,
 		nil,
 	)
-	s.mockState.EXPECT().GetModelCloudInfoAndCredential(gomock.Any(), ctrlModelUUID).Return(
+	s.mockState.EXPECT().GetModelCloudInfo(gomock.Any(), ctrlModelUUID).Return(
 		"test", "test-region", // cloud name and region
-		credential.Key{},
 		nil,
 	)
 

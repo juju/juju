@@ -91,10 +91,10 @@ type State interface {
 	// [modelerrors.NotFound] is returned.
 	GetControllerModelUUID(context.Context) (coremodel.UUID, error)
 
-	// GetModelCloudInfoAndCredential returns the cloud name, cloud region name and credential id
-	// for a model identified by the model uuid. If no model exists for the
+	// GetModelCloudInfo returns the cloud name, cloud region name for a
+	// model identified by the model uuid. If no model exists for the
 	// provided name and user a [modelerrors.NotFound] error is returned.
-	GetModelCloudInfoAndCredential(context.Context, coremodel.UUID) (string, string, credential.Key, error)
+	GetModelCloudInfo(context.Context, coremodel.UUID) (string, string, error)
 
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
@@ -257,7 +257,7 @@ func (s *Service) DefaultModelCloudInfo(
 			"getting controller model uuid: %w", err,
 		)
 	}
-	cloudName, regionName, _, err := s.st.GetModelCloudInfoAndCredential(ctx, ctrlUUID)
+	cloudName, regionName,  err := s.st.GetModelCloudInfo(ctx, ctrlUUID)
 
 	if err != nil {
 		return "", "", errors.Errorf(

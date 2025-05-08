@@ -255,11 +255,11 @@ func (d *dummyState) GetControllerModelUUID(
 	return coremodel.UUID(""), nil
 }
 
-func (d *dummyState) GetModelCloudInfoAndCredential(
+func (d *dummyState) GetModelCloudInfo(
 	_ context.Context,
 	_ coremodel.UUID,
-) (string, string, credential.Key, error) {
-	return "", "", credential.Key{}, errors.Errorf("not implemented")
+) (string, string, error) {
+	return "", "", errors.Errorf("not implemented")
 }
 
 func (d *dummyState) GetModelCloudAndCredential(
