@@ -20,9 +20,9 @@ var importsTests = []struct {
 	prefix  string
 	expect  []string
 }{{
-	pkgName: "github.com/juju/juju/internal/testhelpers",
-	prefix:  "github.com/juju/juju/internal/testhelpers/",
-	expect:  []string{"checkers"},
+	pkgName: "github.com/juju/juju/internal/testhelpers/filetesting",
+	prefix:  "github.com/juju/juju/internal/",
+	expect:  []string{"testhelpers"},
 }, {
 	pkgName: "github.com/juju/juju/internal/testhelpers",
 	prefix:  "github.com/juju/utils/v4/",

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
 	testing "github.com/juju/juju/internal/testhelpers"
 )
 
@@ -284,7 +285,7 @@ func (s *stubSuite) TestSetErrorsTrailingNil(c *tc.C) {
 	s.stub.CheckErrors(c, err, nil)
 }
 
-func (s *stubSuite) checkCallsStandard(c *tc.C) {
+func (s *stubSuite) checkCallsStandard(c testhelpers.StubC) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "first",
 		Args:     []interface{}{"arg"},
@@ -312,8 +313,12 @@ func (s *stubSuite) TestCheckCallsMissingCall(c *tc.C) {
 	s.stub.AddCall("first", "arg")
 	s.stub.AddCall("third")
 
-	c.ExpectFailure(`the "standard" Stub.CheckCalls call should fail`)
-	s.checkCallsStandard(c)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.checkCallsStandard(pc)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`the "standard" Stub.CheckCalls call should fail`))
 }
 
 func (s *stubSuite) TestCheckCallsWrongName(c *tc.C) {
@@ -321,8 +326,12 @@ func (s *stubSuite) TestCheckCallsWrongName(c *tc.C) {
 	s.stub.AddCall("oops", 1, 2, 3)
 	s.stub.AddCall("third")
 
-	c.ExpectFailure(`the "standard" Stub.CheckCalls call should fail`)
-	s.checkCallsStandard(c)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.checkCallsStandard(pc)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`the "standard" Stub.CheckCalls call should fail`))
 }
 
 func (s *stubSuite) TestCheckCallsWrongArgs(c *tc.C) {
@@ -330,8 +339,12 @@ func (s *stubSuite) TestCheckCallsWrongArgs(c *tc.C) {
 	s.stub.AddCall("second", 1, 2, 4)
 	s.stub.AddCall("third")
 
-	c.ExpectFailure(`the "standard" Stub.CheckCalls call should fail`)
-	s.checkCallsStandard(c)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.checkCallsStandard(pc)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`the "standard" Stub.CheckCalls call should fail`))
 }
 
 func (s *stubSuite) checkCallStandard(c *tc.C) {
@@ -349,16 +362,24 @@ func (s *stubSuite) TestCheckCallPass(c *tc.C) {
 }
 
 func (s *stubSuite) TestCheckCallEmpty(c *tc.C) {
-	c.ExpectFailure(`Stub.CheckCall should fail when no calls have been made`)
-	s.stub.CheckCall(c, 0, "aMethod")
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.stub.CheckCall(pc, 0, "aMethod")
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`Stub.CheckCall should fail when no calls have been made`))
 }
 
 func (s *stubSuite) TestCheckCallMissingCall(c *tc.C) {
 	s.stub.AddCall("first", "arg")
 	s.stub.AddCall("third")
 
-	c.ExpectFailure(`the "standard" Stub.CheckCall call should fail here`)
-	s.checkCallStandard(c)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.checkCallsStandard(pc)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`the "standard" Stub.CheckCalls call should fail`))
 }
 
 func (s *stubSuite) TestCheckCallWrongName(c *tc.C) {
@@ -366,8 +387,12 @@ func (s *stubSuite) TestCheckCallWrongName(c *tc.C) {
 	s.stub.AddCall("oops", 1, 2, 3)
 	s.stub.AddCall("third")
 
-	c.ExpectFailure(`the "standard" Stub.CheckCall call should fail here`)
-	s.checkCallStandard(c)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.checkCallsStandard(pc)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`the "standard" Stub.CheckCalls call should fail`))
 }
 
 func (s *stubSuite) TestCheckCallWrongArgs(c *tc.C) {
@@ -375,8 +400,12 @@ func (s *stubSuite) TestCheckCallWrongArgs(c *tc.C) {
 	s.stub.AddCall("second", 1, 2, 4)
 	s.stub.AddCall("third")
 
-	c.ExpectFailure(`the "standard" Stub.CheckCall call should fail here`)
-	s.checkCallStandard(c)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.checkCallsStandard(pc)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`the "standard" Stub.CheckCalls call should fail`))
 }
 
 func (s *stubSuite) TestCheckCallNamesPass(c *tc.C) {
@@ -392,8 +421,12 @@ func (s *stubSuite) TestCheckCallNamesUnexpected(c *tc.C) {
 	s.stub.AddCall("second", 1, 2, 4)
 	s.stub.AddCall("third")
 
-	c.ExpectFailure(`Stub.CheckCall should fail when no calls have been made`)
-	s.stub.CheckCallNames(c)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.stub.CheckCallNames(pc)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`Stub.CheckCall should fail when no expected calls have been made`))
 }
 
 func (s *stubSuite) TestCheckCallNamesEmptyPass(c *tc.C) {
@@ -401,16 +434,24 @@ func (s *stubSuite) TestCheckCallNamesEmptyPass(c *tc.C) {
 }
 
 func (s *stubSuite) TestCheckCallNamesEmptyFail(c *tc.C) {
-	c.ExpectFailure(`Stub.CheckCall should fail when no calls have been made`)
-	s.stub.CheckCallNames(c, "aMethod")
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.stub.CheckCallNames(pc, "aMethod")
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`Stub.CheckCall should fail when no calls have been made`))
 }
 
 func (s *stubSuite) TestCheckCallNamesMissingCall(c *tc.C) {
 	s.stub.AddCall("first", "arg")
 	s.stub.AddCall("third")
 
-	c.ExpectFailure(`the "standard" Stub.CheckCallNames call should fail here`)
-	s.stub.CheckCallNames(c, "first", "second", "third")
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.stub.CheckCallNames(pc, "first", "second", "third")
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`the "standard" Stub.CheckCallNames call should fail here`))
 }
 
 func (s *stubSuite) TestCheckCallNamesWrongName(c *tc.C) {
@@ -418,16 +459,24 @@ func (s *stubSuite) TestCheckCallNamesWrongName(c *tc.C) {
 	s.stub.AddCall("oops", 1, 2, 4)
 	s.stub.AddCall("third")
 
-	c.ExpectFailure(`the "standard" Stub.CheckCallNames call should fail here`)
-	s.stub.CheckCallNames(c, "first", "second", "third")
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.stub.CheckCallNames(pc, "first", "second", "third")
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`the "standard" Stub.CheckCallNames call should fail here`))
 }
 
 func (s *stubSuite) TestCheckNoCalls(c *tc.C) {
 	s.stub.CheckNoCalls(c)
-
 	s.stub.AddCall("method", "arg")
-	c.ExpectFailure(`the "standard" Stub.CheckNoCalls call should fail here`)
-	s.stub.CheckNoCalls(c)
+
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.stub.CheckNoCalls(pc)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf(`the "standard" Stub.CheckNoCalls call should fail here`))
 }
 
 func (s *stubSuite) TestMethodCallsUnordered(c *tc.C) {
@@ -454,16 +503,20 @@ func (s *stubSuite) TestMethodCallsUnorderedDuplicateFail(c *tc.C) {
 	s.stub.AddCall("aFunc", "arg")
 	s.stub.MethodCall(s.stub, "Method2")
 
-	s.stub.CheckCallsUnordered(c, []testing.StubCall{{
-		FuncName: "aFunc",
-		Args:     []interface{}{"arg"},
-	}, {
-		FuncName: "Method1",
-		Args:     []interface{}{1, 2, 3},
-	}, {
-		FuncName: "Method2",
-	}, {
-		FuncName: "Method2",
-	}})
-	c.ExpectFailure("should have failed as expected calls differ from calls made")
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		s.stub.CheckCallsUnordered(pc, []testing.StubCall{{
+			FuncName: "aFunc",
+			Args:     []interface{}{"arg"},
+		}, {
+			FuncName: "Method1",
+			Args:     []interface{}{1, 2, 3},
+		}, {
+			FuncName: "Method2",
+		}, {
+			FuncName: "Method2",
+		}})
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should have failed as expected calls differ from calls made"))
 }

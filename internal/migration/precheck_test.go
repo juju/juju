@@ -230,10 +230,10 @@ func (s *SourcePrecheckSuite) TestIsUpgrading(c *tc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *tc.C) {
-	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
-
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
-	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+	c.Skip("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.checkRebootRequired(c, sourcePrecheck)
 }
@@ -465,10 +465,10 @@ func (s *SourcePrecheckSuite) TestControllerMachineVersionsDoNotMatch(c *tc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *tc.C) {
-	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
-
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
-	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+	c.Skip("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 	s.expectCheckUnitStatuses(nil)
@@ -834,10 +834,10 @@ func (s *TargetPrecheckSuite) TestDying(c *tc.C) {
 }
 
 func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *tc.C) {
-	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
-
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
-	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+	c.Skip("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 

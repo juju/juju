@@ -11,6 +11,11 @@ import (
 	"github.com/juju/tc"
 )
 
+// StubC provides check and assert to Stub test helper.
+type StubC interface {
+	Check(obtained any, checker tc.Checker, args ...any) bool
+}
+
 // StubCall records the name of a called function and the passed args.
 type StubCall struct {
 	// Funcname is the name of the function that was called.
@@ -186,7 +191,7 @@ func (f *Stub) SetErrors(errors ...error) {
 // CheckCalls verifies that the history of calls on the stub's methods
 // matches the expected calls. The receivers are not checked. If they
 // are significant then check Stub.Receivers separately.
-func (f *Stub) CheckCalls(c *tc.C, expected []StubCall) {
+func (f *Stub) CheckCalls(c StubC, expected []StubCall) {
 	if !f.CheckCallNames(c, stubCallNames(expected...)...) {
 		return
 	}
@@ -198,7 +203,7 @@ func (f *Stub) CheckCalls(c *tc.C, expected []StubCall) {
 // are significant then check Stub.Receivers separately.
 // This method explicitly does not check if the calls were made in order, just
 // whether they have been made.
-func (f *Stub) CheckCallsUnordered(c *tc.C, expected []StubCall) {
+func (f *Stub) CheckCallsUnordered(c StubC, expected []StubCall) {
 	// Take a copy of all calls made to the stub.
 	calls := f.calls[:]
 	checkCallMade := func(call StubCall) {
@@ -224,7 +229,7 @@ func (f *Stub) CheckCallsUnordered(c *tc.C, expected []StubCall) {
 // can be checked separately:
 //
 //	c.Check(mystub.Receivers[index], gc.Equals, expected)
-func (f *Stub) CheckCall(c *tc.C, index int, funcName string, args ...interface{}) {
+func (f *Stub) CheckCall(c StubC, index int, funcName string, args ...interface{}) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if !c.Check(index, tc.LessThan, len(f.calls)) {
@@ -240,7 +245,7 @@ func (f *Stub) CheckCall(c *tc.C, index int, funcName string, args ...interface{
 
 // CheckCallNames verifies that the in-order list of called method names
 // matches the expected calls.
-func (f *Stub) CheckCallNames(c *tc.C, expected ...string) bool {
+func (f *Stub) CheckCallNames(c StubC, expected ...string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	funcNames := stubCallNames(f.calls...)
@@ -248,19 +253,19 @@ func (f *Stub) CheckCallNames(c *tc.C, expected ...string) bool {
 }
 
 // CheckNoCalls verifies that none of the stub's methods have been called.
-func (f *Stub) CheckNoCalls(c *tc.C) {
+func (f *Stub) CheckNoCalls(c StubC) {
 	f.CheckCalls(c, nil)
 }
 
 // CheckErrors verifies that the list of errors is matches the expected list.
-func (f *Stub) CheckErrors(c *tc.C, expected ...error) bool {
+func (f *Stub) CheckErrors(c StubC, expected ...error) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return c.Check(f.errors, tc.DeepEquals, expected)
 }
 
 // CheckReceivers verifies that the list of errors is matches the expected list.
-func (f *Stub) CheckReceivers(c *tc.C, expected ...interface{}) bool {
+func (f *Stub) CheckReceivers(c StubC, expected ...interface{}) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return c.Check(f.receivers, tc.DeepEquals, expected)

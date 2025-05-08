@@ -12,6 +12,12 @@ import (
 	"github.com/juju/tc"
 )
 
+// C provides Asset and Check for filetesting test helpers.
+type C interface {
+	Assert(obtained any, checker tc.Checker, args ...any)
+	Check(obtained any, checker tc.Checker, args ...any) bool
+}
+
 // Entry represents a filesystem entity that can be created; and whose
 // correctness can be verified.
 type Entry interface {
@@ -22,12 +28,12 @@ type Entry interface {
 
 	// Create causes the entry to be created, relative to basePath. It returns
 	// a copy of the receiver.
-	Create(c *tc.C, basePath string) Entry
+	Create(c C, basePath string) Entry
 
 	// Check checks that the entry exists, relative to basePath, and matches
 	// the entry that would be created by Create. It returns a copy of the
 	// receiver.
-	Check(c *tc.C, basePath string) Entry
+	Check(c C, basePath string) Entry
 }
 
 var (
@@ -50,7 +56,7 @@ func (e Entries) Paths() []string {
 }
 
 // Create creates every entry relative to basePath and returns a copy of itself.
-func (e Entries) Create(c *tc.C, basePath string) Entries {
+func (e Entries) Create(c C, basePath string) Entries {
 	result := make([]Entry, len(e))
 	for i, entry := range e {
 		result[i] = entry.Create(c, basePath)
@@ -59,7 +65,7 @@ func (e Entries) Create(c *tc.C, basePath string) Entries {
 }
 
 // Check checks every entry relative to basePath and returns a copy of itself.
-func (e Entries) Check(c *tc.C, basePath string) Entries {
+func (e Entries) Check(c C, basePath string) Entries {
 	result := make([]Entry, len(e))
 	for i, entry := range e {
 		result[i] = entry.Check(c, basePath)
@@ -93,7 +99,7 @@ func (d Dir) GetPath() string {
 	return d.Path
 }
 
-func (d Dir) Create(c *tc.C, basePath string) Entry {
+func (d Dir) Create(c C, basePath string) Entry {
 	path := join(basePath, d.Path)
 	err := os.MkdirAll(path, d.Perm)
 	c.Assert(err, tc.IsNil)
@@ -102,7 +108,7 @@ func (d Dir) Create(c *tc.C, basePath string) Entry {
 	return d
 }
 
-func (d Dir) Check(c *tc.C, basePath string) Entry {
+func (d Dir) Check(c C, basePath string) Entry {
 	path := join(basePath, d.Path)
 	fileInfo, err := os.Lstat(path)
 	comment := tc.Commentf("dir %q", path)
@@ -129,7 +135,7 @@ func (f File) GetPath() string {
 	return f.Path
 }
 
-func (f File) Create(c *tc.C, basePath string) Entry {
+func (f File) Create(c C, basePath string) Entry {
 	path := join(basePath, f.Path)
 	err := ioutil.WriteFile(path, []byte(f.Data), f.Perm)
 	c.Assert(err, tc.IsNil)
@@ -138,7 +144,7 @@ func (f File) Create(c *tc.C, basePath string) Entry {
 	return f
 }
 
-func (f File) Check(c *tc.C, basePath string) Entry {
+func (f File) Check(c C, basePath string) Entry {
 	path := join(basePath, f.Path)
 	fileInfo, err := os.Lstat(path)
 	comment := tc.Commentf("file %q", path)
@@ -168,13 +174,13 @@ func (s Symlink) GetPath() string {
 	return s.Path
 }
 
-func (s Symlink) Create(c *tc.C, basePath string) Entry {
+func (s Symlink) Create(c C, basePath string) Entry {
 	err := os.Symlink(s.Link, join(basePath, s.Path))
 	c.Assert(err, tc.IsNil)
 	return s
 }
 
-func (s Symlink) Check(c *tc.C, basePath string) Entry {
+func (s Symlink) Check(c C, basePath string) Entry {
 	path := join(basePath, s.Path)
 	comment := tc.Commentf("symlink %q", path)
 	link, err := os.Readlink(path)
@@ -193,13 +199,13 @@ func (r Removed) GetPath() string {
 	return r.Path
 }
 
-func (r Removed) Create(c *tc.C, basePath string) Entry {
+func (r Removed) Create(c C, basePath string) Entry {
 	err := os.RemoveAll(join(basePath, r.Path))
 	c.Assert(err, tc.IsNil)
 	return r
 }
 
-func (r Removed) Check(c *tc.C, basePath string) Entry {
+func (r Removed) Check(c C, basePath string) Entry {
 	path := join(basePath, r.Path)
 	_, err := os.Lstat(path)
 	// isNotExist allows us to handle the following case:

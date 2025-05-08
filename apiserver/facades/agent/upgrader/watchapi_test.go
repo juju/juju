@@ -55,7 +55,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionMachine(c *tc.C) {
 			select {
 			case ch <- struct{}{}:
 			case <-done:
-				c.ExpectFailure("watcher (unit) did not fire")
+				c.Error("watcher (unit) did not fire")
 			}
 		})
 		return w, nil
@@ -91,7 +91,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionUnit(c *tc.C) {
 			select {
 			case ch <- struct{}{}:
 			case <-done:
-				c.ExpectFailure("watcher (unit) did not fire")
+				c.Error("watcher (unit) did not fire")
 			}
 		})
 		return w, nil
@@ -127,7 +127,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionControllerModelAgent(c *tc.C) {
 			select {
 			case chC <- struct{}{}:
 			case <-done:
-				c.ExpectFailure("watcher (controller) did not fire")
+				c.Error("watcher (controller) did not fire")
 			}
 		})
 		return wc, nil
@@ -138,7 +138,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionControllerModelAgent(c *tc.C) {
 			select {
 			case chM <- struct{}{}:
 			case <-done:
-				c.ExpectFailure("watcher (model) did not fire")
+				c.Error("watcher (model) did not fire")
 			}
 		})
 		return wm, nil

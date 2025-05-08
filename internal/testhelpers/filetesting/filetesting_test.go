@@ -4,14 +4,49 @@
 package filetesting_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"slices"
+	"sync/atomic"
 
 	"github.com/juju/tc"
 
 	ft "github.com/juju/juju/internal/testhelpers/filetesting"
 )
+
+type panicC struct {
+	failed    atomic.Bool
+	errString string
+}
+
+func (pc *panicC) recover() {
+	if err := recover(); err != nil {
+		if !pc.failed.Swap(true) {
+			pc.errString = fmt.Sprintf("%v", err)
+		}
+	}
+}
+
+func (pc *panicC) Assert(obtained any, checker tc.Checker, args ...any) {
+	params := append([]any{obtained}, args...)
+	ok, errString := checker.Check(params, slices.Clone(checker.Info().Params))
+	if !ok {
+		panic(errString)
+	}
+}
+
+func (pc *panicC) Check(obtained any, checker tc.Checker, args ...any) bool {
+	params := append([]any{obtained}, args...)
+	ok, errString := checker.Check(params, slices.Clone(checker.Info().Params))
+	if !ok {
+		if !pc.failed.Swap(true) {
+			pc.errString = errString
+		}
+	}
+	return ok
+}
 
 type EntrySuite struct {
 	basePath string
@@ -40,8 +75,12 @@ func (s *EntrySuite) TestFileCreate(c *tc.C) {
 }
 
 func (s *EntrySuite) TestFileCreateFailure(c *tc.C) {
-	c.ExpectFailure("should fail to create file in missing dir")
-	ft.File{"missing/foobar", "hello", 0644}.Create(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.File{"missing/foobar", "hello", 0644}.Create(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should fail to create file in missing dir"))
 }
 
 func (s *EntrySuite) TestFileCheckSuccess(c *tc.C) {
@@ -50,33 +89,53 @@ func (s *EntrySuite) TestFileCheckSuccess(c *tc.C) {
 }
 
 func (s *EntrySuite) TestFileCheckFailureBadPerm(c *tc.C) {
-	ft.File{"furble", "pingle", 0644}.Create(c, s.basePath)
-	c.ExpectFailure("shouldn't pass with different perms")
-	ft.File{"furble", "pingle", 0740}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.File{"furble", "pingle", 0644}.Create(pc, s.basePath)
+		ft.File{"furble", "pingle", 0740}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("shouldn't pass with different perms"))
 }
 
 func (s *EntrySuite) TestFileCheckFailureBadData(c *tc.C) {
-	ft.File{"furble", "pingle", 0740}.Check(c, s.basePath)
-	c.ExpectFailure("shouldn't pass with different content")
-	ft.File{"furble", "wrongle", 0740}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.File{"furble", "pingle", 0740}.Check(pc, s.basePath)
+		ft.File{"furble", "wrongle", 0740}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("shouldn't pass with different content"))
 }
 
 func (s *EntrySuite) TestFileCheckFailureNoExist(c *tc.C) {
-	c.ExpectFailure("shouldn't find file that does not exist")
-	ft.File{"furble", "pingle", 0740}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.File{"furble", "pingle", 0740}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("shouldn't find file that does not exist"))
 }
 
 func (s *EntrySuite) TestFileCheckFailureSymlink(c *tc.C) {
-	ft.Symlink{"link", "file"}.Create(c, s.basePath)
-	ft.File{"file", "content", 0644}.Create(c, s.basePath)
-	c.ExpectFailure("shouldn't accept symlink, even if pointing to matching file")
-	ft.File{"link", "content", 0644}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Symlink{"link", "file"}.Create(pc, s.basePath)
+		ft.File{"file", "content", 0644}.Create(pc, s.basePath)
+		ft.File{"link", "content", 0644}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("shouldn't accept symlink, even if pointing to matching file"))
 }
 
 func (s *EntrySuite) TestFileCheckFailureDir(c *tc.C) {
-	ft.Dir{"furble", 0740}.Create(c, s.basePath)
-	c.ExpectFailure("shouldn't accept dir")
-	ft.File{"furble", "pingle", 0740}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Dir{"furble", 0740}.Create(pc, s.basePath)
+		ft.File{"furble", "pingle", 0740}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("shouldn't accept dir"))
 }
 
 func (s *EntrySuite) TestDirCreate(c *tc.C) {
@@ -102,8 +161,13 @@ func (s *EntrySuite) TestDirCreateSubdir(c *tc.C) {
 func (s *EntrySuite) TestDirCreateFailure(c *tc.C) {
 	os.Chmod(s.basePath, 0444)
 	defer os.Chmod(s.basePath, 0777)
-	c.ExpectFailure("should fail to create file")
-	ft.Dir{"foobar", 0750}.Create(c, s.basePath)
+
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Dir{"foobar", 0750}.Create(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should fail to create file"))
 }
 
 func (s *EntrySuite) TestDirCheck(c *tc.C) {
@@ -112,27 +176,43 @@ func (s *EntrySuite) TestDirCheck(c *tc.C) {
 }
 
 func (s *EntrySuite) TestDirCheckFailureNoExist(c *tc.C) {
-	c.ExpectFailure("shouldn't find dir that does not exist")
-	ft.Dir{"fooble", 0751}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Dir{"fooble", 0751}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("shouldn't find dir that does not exist"))
 }
 
 func (s *EntrySuite) TestDirCheckFailureBadPerm(c *tc.C) {
-	ft.Dir{"furble", 0740}.Check(c, s.basePath)
-	c.ExpectFailure("shouldn't pass with different perms")
-	ft.Dir{"furble", 0755}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Dir{"furble", 0740}.Check(pc, s.basePath)
+		ft.Dir{"furble", 0755}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("shouldn't pass with different perms"))
 }
 
 func (s *EntrySuite) TestDirCheckFailureSymlink(c *tc.C) {
-	ft.Symlink{"link", "dir"}.Create(c, s.basePath)
-	ft.Dir{"dir", 0644}.Create(c, s.basePath)
-	c.ExpectFailure("shouldn't accept symlink, even if pointing to matching dir")
-	ft.Dir{"link", 0644}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Symlink{"link", "dir"}.Create(pc, s.basePath)
+		ft.Dir{"dir", 0644}.Create(pc, s.basePath)
+		ft.Dir{"link", 0644}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("shouldn't accept symlink, even if pointing to matching dir"))
 }
 
 func (s *EntrySuite) TestDirCheckFailureFile(c *tc.C) {
-	ft.File{"blah", "content", 0644}.Create(c, s.basePath)
-	c.ExpectFailure("shouldn't accept file")
-	ft.Dir{"blah", 0644}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.File{"blah", "content", 0644}.Create(pc, s.basePath)
+		ft.Dir{"blah", 0644}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("shouldn't accept file"))
 }
 
 func (s *EntrySuite) TestSymlinkCreate(c *tc.C) {
@@ -143,8 +223,12 @@ func (s *EntrySuite) TestSymlinkCreate(c *tc.C) {
 }
 
 func (s *EntrySuite) TestSymlinkCreateFailure(c *tc.C) {
-	c.ExpectFailure("should fail to create symlink in missing dir")
-	ft.Symlink{"missing/link", "target"}.Create(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Symlink{"missing/link", "target"}.Create(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should fail to create symlink in missing dir"))
 }
 
 func (s *EntrySuite) TestSymlinkCheck(c *tc.C) {
@@ -153,26 +237,42 @@ func (s *EntrySuite) TestSymlinkCheck(c *tc.C) {
 }
 
 func (s *EntrySuite) TestSymlinkCheckFailureNoExist(c *tc.C) {
-	c.ExpectFailure("should not accept symlink that doesn't exist")
-	ft.Symlink{"link", "target"}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Symlink{"link", "target"}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should not accept symlink that doesn't exist"))
 }
 
 func (s *EntrySuite) TestSymlinkCheckFailureBadTarget(c *tc.C) {
-	ft.Symlink{"link", "target"}.Create(c, s.basePath)
-	c.ExpectFailure("should not accept different target")
-	ft.Symlink{"link", "different"}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Symlink{"link", "target"}.Create(pc, s.basePath)
+		ft.Symlink{"link", "different"}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should not accept different target"))
 }
 
 func (s *EntrySuite) TestSymlinkCheckFailureFile(c *tc.C) {
-	ft.File{"link", "target", 0644}.Create(c, s.basePath)
-	c.ExpectFailure("should not accept plain file")
-	ft.Symlink{"link", "target"}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.File{"link", "target", 0644}.Create(pc, s.basePath)
+		ft.Symlink{"link", "target"}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should not accept plain file"))
 }
 
 func (s *EntrySuite) TestSymlinkCheckFailureDir(c *tc.C) {
-	ft.Dir{"link", 0755}.Create(c, s.basePath)
-	c.ExpectFailure("should not accept dir")
-	ft.Symlink{"link", "different"}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Dir{"link", 0755}.Create(pc, s.basePath)
+		ft.Symlink{"link", "different"}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should not accept dir"))
 }
 
 func (s *EntrySuite) TestRemovedCreate(c *tc.C) {
@@ -189,11 +289,16 @@ func (s *EntrySuite) TestRemovedCreateNothing(c *tc.C) {
 }
 
 func (s *EntrySuite) TestRemovedCreateFailure(c *tc.C) {
-	ft.File{"some-file", "content", 0644}.Create(c, s.basePath)
-	os.Chmod(s.basePath, 0444)
-	defer os.Chmod(s.basePath, 0777)
-	c.ExpectFailure("should fail to remove file")
-	ft.Removed{"some-file"}.Create(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.File{"some-file", "content", 0644}.Create(pc, s.basePath)
+
+		os.Chmod(s.basePath, 0444)
+		defer os.Chmod(s.basePath, 0777)
+		ft.Removed{"some-file"}.Create(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should fail to remove file"))
 }
 
 func (s *EntrySuite) TestRemovedCheck(c *tc.C) {
@@ -206,21 +311,33 @@ func (s *EntrySuite) TestRemovedCheckParentNotDir(c *tc.C) {
 }
 
 func (s *EntrySuite) TestRemovedCheckFailureFile(c *tc.C) {
-	ft.File{"some-file", "", 0644}.Create(c, s.basePath)
-	c.ExpectFailure("should not accept file")
-	ft.Removed{"some-file"}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.File{"some-file", "", 0644}.Create(pc, s.basePath)
+		ft.Removed{"some-file"}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should not accept file"))
 }
 
 func (s *EntrySuite) TestRemovedCheckFailureDir(c *tc.C) {
-	ft.Dir{"some-dir", 0755}.Create(c, s.basePath)
-	c.ExpectFailure("should not accept dir")
-	ft.Removed{"some-dir"}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Dir{"some-dir", 0755}.Create(pc, s.basePath)
+		ft.Removed{"some-dir"}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should not accept dir"))
 }
 
 func (s *EntrySuite) TestRemovedCheckFailureSymlink(c *tc.C) {
-	ft.Symlink{"some-link", "target"}.Create(c, s.basePath)
-	c.ExpectFailure("should not accept symlink")
-	ft.Removed{"some-link"}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Symlink{"some-link", "target"}.Create(pc, s.basePath)
+		ft.Removed{"some-link"}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("should not accept symlink"))
 }
 
 func (s *EntrySuite) TestCreateCheckChainResults(c *tc.C) {
@@ -264,18 +381,26 @@ func (s *EntrySuite) TestEntries(c *tc.C) {
 }
 
 func (s *EntrySuite) TestEntriesCreateFailure(c *tc.C) {
-	c.ExpectFailure("cannot create an entry")
-	ft.Entries{
-		ft.File{"good", "good", 0750},
-		ft.File{"nodir/bad", "bad", 0640},
-	}.Create(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		ft.Entries{
+			ft.File{"good", "good", 0750},
+			ft.File{"nodir/bad", "bad", 0640},
+		}.Create(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("cannot create an entry"))
 }
 
 func (s *EntrySuite) TestEntriesCheckFailure(c *tc.C) {
-	goodFile := ft.File{"good", "good", 0751}.Create(c, s.basePath)
-	c.ExpectFailure("entry does not exist")
-	ft.Entries{
-		goodFile,
-		ft.File{"bad", "", 0750},
-	}.Check(c, s.basePath)
+	pc := &panicC{}
+	func() {
+		defer pc.recover()
+		goodFile := ft.File{"good", "good", 0751}.Create(pc, s.basePath)
+		ft.Entries{
+			goodFile,
+			ft.File{"bad", "", 0750},
+		}.Check(pc, s.basePath)
+	}()
+	c.Assert(pc.failed.Load(), tc.IsTrue, tc.Commentf("entry does not exist"))
 }

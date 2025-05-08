@@ -55,7 +55,7 @@ func (*PatchValueSuite) TestSetMapToNil(c *tc.C) {
 func (*PatchValueSuite) TestSetPanicsWhenNotAssignable(c *tc.C) {
 	i := 99
 	type otherInt int
-	c.Assert(func() { testing.PatchValue(&i, otherInt(88)) }, tc.PanicMatches, `reflect\.Set: value of type testing_test\.otherInt is not assignable to type int`)
+	c.Assert(func() { testing.PatchValue(&i, otherInt(88)) }, tc.PanicMatches, `reflect\.Set: value of type testhelpers_test\.otherInt is not assignable to type int`)
 }
 
 type PatchEnvironmentSuite struct{}

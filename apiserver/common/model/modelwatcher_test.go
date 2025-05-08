@@ -59,7 +59,7 @@ func (s *modelWatcherSuite) TestWatchSuccess(c *tc.C) {
 			select {
 			case ch <- []string{}:
 			case <-done:
-				c.ExpectFailure("watcher did not fire")
+				c.Error("watcher did not fire")
 			}
 		})
 		return w, nil

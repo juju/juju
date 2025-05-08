@@ -99,7 +99,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *tc.C) {
 			select {
 			case ch <- struct{}{}:
 			case <-done:
-				c.ExpectFailure("watcher did not fire")
+				c.Error("watcher did not fire")
 			}
 		})
 		return w, nil
