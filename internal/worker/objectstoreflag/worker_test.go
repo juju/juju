@@ -25,7 +25,7 @@ type workerSuite struct {
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestGetObjectStore(c *gc.C) {
+func (s *workerSuite) TestObjectStoreFlag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
@@ -58,7 +58,7 @@ func (s *workerSuite) TestGetObjectStore(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, ErrChanged)
 }
 
-func (s *workerSuite) TestGetObjectStoreNoChange(c *gc.C) {
+func (s *workerSuite) TestObjectStoreFlagNoChange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})

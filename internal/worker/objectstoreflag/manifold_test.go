@@ -47,6 +47,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.GeObjectStoreServicesFn = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
@@ -57,6 +61,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ObjectStoreServicesName: "object-store-services",
 		Check: func(p objectstore.Phase) bool {
 			return true
+		},
+		GeObjectStoreServicesFn: func(getter dependency.Getter, name string, modelUUID model.UUID) (ObjectStoreService, error) {
+			return s.service, nil
 		},
 		NewWorker: func(ctx context.Context, c Config) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
@@ -81,14 +88,14 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAgentConfig(c)
+	s.expectAgentConfig()
 
 	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
-func (s *manifoldSuite) expectAgentConfig(c *gc.C) {
+func (s *manifoldSuite) expectAgentConfig() {
 	s.agentConfig.EXPECT().Model().Return(names.NewModelTag(uuid.MustNewUUID().String()))
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 }
