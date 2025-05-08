@@ -262,7 +262,9 @@ func (s *Service) SetDrainingPhase(ctx context.Context, phase objectstore.Phase)
 // GetDrainingPhase returns the phase of the object store.
 func (s *Service) GetDrainingPhase(ctx context.Context) (objectstore.Phase, error) {
 	_, phase, err := s.st.GetActiveDrainingPhase(ctx)
-	if err != nil {
+	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
+		return objectstore.PhaseUnknown, nil
+	} else if err != nil {
 		return "", errors.Errorf("getting draining phase: %w", err)
 	}
 	return phase, nil
