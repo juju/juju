@@ -25,7 +25,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/status"
@@ -466,46 +465,6 @@ func (s *uniterSuite) TestWatchConfiSettingsHash(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestPublicAddress(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange:
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-foo-42"},
-	}}
-	s.badTag = names.NewUnitTag("mysql/0")
-	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("wordpress/0")).Return(network.SpaceAddress{
-		SpaceID: network.AlphaSpaceId,
-		Origin:  network.OriginMachine,
-		MachineAddress: network.MachineAddress{
-			Value:      "10.0.0.1",
-			ConfigType: network.ConfigStatic,
-			Type:       network.IPv4Address,
-			Scope:      network.ScopeMachineLocal,
-		},
-	}, nil)
-	expectErr := &params.Error{
-		Code:    params.CodeNoAddressSet,
-		Message: `"unit-foo-42" has no public address set`,
-	}
-	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(network.SpaceAddress{}, network.NoAddressError(""))
-
-	// Act:
-	result, err := s.uniter.PublicAddress(context.Background(), args)
-
-	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Result: "10.0.0.1"},
-			{Error: expectErr},
-		},
-	})
-}
-
 func (s *uniterSuite) TestWatchTrustConfiSettingsHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -539,46 +498,6 @@ func (s *uniterSuite) TestWatchTrustConfiSettingsHash(c *gc.C) {
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError(`unit "postgresql/0"`)},
-		},
-	})
-}
-
-func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange:
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-foo-42"},
-	}}
-	s.badTag = names.NewUnitTag("mysql/0")
-	s.applicationService.EXPECT().GetUnitPrivateAddress(gomock.Any(), coreunit.Name("wordpress/0")).Return(network.SpaceAddress{
-		SpaceID: network.AlphaSpaceId,
-		Origin:  network.OriginMachine,
-		MachineAddress: network.MachineAddress{
-			Value:      "10.0.0.1",
-			ConfigType: network.ConfigStatic,
-			Type:       network.IPv4Address,
-			Scope:      network.ScopeMachineLocal,
-		},
-	}, nil)
-	expectErr := &params.Error{
-		Code:    params.CodeNoAddressSet,
-		Message: `"unit-foo-42" has no private address set`,
-	}
-	s.applicationService.EXPECT().GetUnitPrivateAddress(gomock.Any(), coreunit.Name("foo/42")).Return(network.SpaceAddress{}, network.NoAddressError(""))
-
-	// Act:
-	result, err := s.uniter.PrivateAddress(context.Background(), args)
-
-	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Result: "10.0.0.1"},
-			{Error: expectErr},
 		},
 	})
 }
@@ -618,67 +537,6 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 			{Error: apiservertesting.NotFoundError(`unit "postgresql/0"`)},
 		},
 	})
-}
-
-func (s *uniterSuite) TestNetworkInfo(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange:
-	args := params.NetworkInfoParams{
-		Unit:      "unit-mysql-0",
-		Endpoints: []string{"endpoint1"},
-	}
-	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(network.SpaceAddress{
-		MachineAddress: network.MachineAddress{
-			Value: "10.0.0.1",
-		},
-	}, nil)
-
-	// Act:
-	result, err := s.uniter.NetworkInfo(context.Background(), args)
-
-	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NetworkInfoResults{
-		Results: map[string]params.NetworkInfoResult{
-			"endpoint1": {IngressAddresses: []string{"10.0.0.1"}},
-		},
-	})
-}
-
-func (s *uniterSuite) TestNetworkInfoError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange:
-	args := params.NetworkInfoParams{
-		Unit:      "unit-mysql-0",
-		Endpoints: []string{"endpoint1"},
-	}
-	boom := internalerrors.New("boom")
-	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("mysql/0")).Return(network.SpaceAddress{}, boom)
-
-	// Act:
-	_, err := s.uniter.NetworkInfo(context.Background(), args)
-
-	// Assert:
-	c.Assert(err, jc.ErrorIs, boom)
-}
-
-func (s *uniterSuite) TestNetworkInfoUnauthorized(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange:
-	args := params.NetworkInfoParams{
-		Unit:      "unit-mysql-0",
-		Endpoints: []string{"endpoint1"},
-	}
-	s.badTag = names.NewUnitTag("mysql/0")
-
-	// Act:
-	_, err := s.uniter.NetworkInfo(context.Background(), args)
-
-	// Assert:
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *uniterSuite) expectGetUnitPrincipal(c *gc.C, unitName, principalName coreunit.Name, ok bool, err error) {
@@ -1423,13 +1281,14 @@ func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 }
 
 func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
-	// Arrange
+	c.Skip("Until unit PublicAddress() is implemented in its domain")
+	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	failRelTag := names.NewRelationTag("postgresql:database wordpress:mysql")
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, failRelTag.Id()), "", relationerrors.RelationNotFound)
 
-	// Act
+	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		// relation tag not parsable
 		{Relation: "relation-42", Unit: "unit-wordpress-0"},
@@ -1440,7 +1299,7 @@ func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
 	}}
 	result, err := s.uniter.EnterScope(context.Background(), args)
 
-	// Assert
+	// assert
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1452,22 +1311,22 @@ func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
 }
 
 func (s *uniterRelationSuite) TestEnterScope(c *gc.C) {
-	// Arrange
+	c.Skip("Until unit PublicAddress() is implemented in its domain")
+	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	s.expectGetUnitPublicAddress(coreunit.Name(s.wordpressUnitTag.Id()), "x.x.x.x", nil)
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
 	settings := map[string]string{"ingress-address": "x.x.x.x"}
 	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()), settings, nil)
 
-	// Act
+	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()},
 	}}
 	result, err := s.uniter.EnterScope(context.Background(), args)
 
-	// Assert
+	// assert
 	c.Assert(err, jc.ErrorIsNil)
 	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
 	c.Assert(result, gc.DeepEquals, emptyErrorResults)
@@ -1477,81 +1336,26 @@ func (s *uniterRelationSuite) TestEnterScope(c *gc.C) {
 // returns PotentialRelationUnitNotValid the facade method still returns no
 // error.
 func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid(c *gc.C) {
-	// Arrange
+	c.Skip("Until unit PublicAddress() is implemented in its domain")
+	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectGetUnitPublicAddress(coreunit.Name(s.wordpressUnitTag.Id()), "x.x.x.x", nil)
 	settings := map[string]string{"ingress-address": "x.x.x.x"}
 	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()), settings,
 		relationerrors.PotentialRelationUnitNotValid)
 
-	// Act
+	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()},
 	}}
 	result, err := s.uniter.EnterScope(context.Background(), args)
 
-	// Assert
+	// assert
 	c.Assert(err, jc.ErrorIsNil)
 	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
 	c.Assert(result, gc.DeepEquals, emptyErrorResults)
-
-}
-
-func (s *uniterRelationSuite) TestEnterScopeCannotEnterScope(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-
-	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
-	settings := map[string]string{"ingress-address": "x.x.x.x"}
-
-	s.expectGetUnitPublicAddress(coreunit.Name(s.wordpressUnitTag.Id()), "x.x.x.x", nil)
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()), settings, relationerrors.CannotEnterScopeNotAlive)
-
-	// Act
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()},
-	}}
-	result, err := s.uniter.EnterScope(context.Background(), args)
-
-	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: `cannot enter scope, unit or relation not alive`, Code: params.CodeCannotEnterScope}},
-		},
-	})
-}
-
-func (s *uniterRelationSuite) TestEnterScopeCannotEnterScopeYet(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-
-	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
-	settings := map[string]string{"ingress-address": "x.x.x.x"}
-
-	s.expectGetUnitPublicAddress(coreunit.Name(s.wordpressUnitTag.Id()), "x.x.x.x", nil)
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()), settings, relationerrors.CannotEnterScopeSubordinateNotAlive)
-
-	// Act
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()},
-	}}
-	result, err := s.uniter.EnterScope(context.Background(), args)
-
-	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: `cannot enter scope, subordinate unit exists but is not alive`, Code: params.CodeCannotEnterScopeYet}},
-		},
-	})
 }
 
 // TestLeaveScopeFails tests for unauthorized errors, unit tag
@@ -1904,14 +1708,6 @@ func (s *uniterRelationSuite) expectWatchLifeSuspendedStatus(unitUUID coreunit.U
 
 func (s *uniterRelationSuite) expectWatcherRegistry(watchID string, watch *watchertest.MockStringsWatcher, err error) {
 	s.watcherRegistry.EXPECT().Register(watch).Return(watchID, err).AnyTimes()
-}
-
-func (s *uniterRelationSuite) expectGetUnitPublicAddress(unitName coreunit.Name, addr string, err error) {
-	s.applicationService.EXPECT().GetUnitPublicAddress(gomock.Any(), unitName).Return(network.SpaceAddress{
-		MachineAddress: network.MachineAddress{
-			Value: addr,
-		},
-	}, err)
 }
 
 func (s *uniterRelationSuite) expectWatchRelatedUnitsChange(

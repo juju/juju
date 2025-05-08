@@ -223,6 +223,12 @@ func (s *uniterLegacySuite) TestWatchUnitNoPermission(c *gc.C) {
 	}})
 }
 
+func (s *uniterLegacySuite) TestPublicAddress(c *gc.C) {
+}
+
+func (s *uniterLegacySuite) TestPrivateAddress(c *gc.C) {
+}
+
 func (s *uniterLegacySuite) TestResolvedAPIV6(c *gc.C) {
 }
 

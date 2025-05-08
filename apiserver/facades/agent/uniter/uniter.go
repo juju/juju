@@ -311,25 +311,21 @@ func (u *UniterAPI) PublicAddress(ctx context.Context, args params.Entities) (pa
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		if !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
+		err = apiservererrors.ErrPerm
+		if canAccess(tag) {
+			var unit *state.Unit
+			unit, err = u.getLegacyUnit(ctx, tag)
+			if err == nil {
+				var address network.SpaceAddress
+				address, err = unit.PublicAddress()
+				if err == nil {
+					result.Results[i].Result = address.Value
+				} else if network.IsNoAddressError(err) {
+					err = apiservererrors.NewNoAddressSetError(tag, "public")
+				}
+			}
 		}
-		unitName, err := coreunit.NewName(tag.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		address, err := u.applicationService.GetUnitPublicAddress(ctx, unitName)
-		if network.IsNoAddressError(err) {
-			err = apiservererrors.NewNoAddressSetError(tag, "public")
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		} else if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		result.Results[i].Result = address.Value
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -349,25 +345,21 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		if !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
+		err = apiservererrors.ErrPerm
+		if canAccess(tag) {
+			var unit *state.Unit
+			unit, err = u.getLegacyUnit(ctx, tag)
+			if err == nil {
+				var address network.SpaceAddress
+				address, err = unit.PrivateAddress()
+				if err == nil {
+					result.Results[i].Result = address.Value
+				} else if network.IsNoAddressError(err) {
+					err = apiservererrors.NewNoAddressSetError(tag, "private")
+				}
+			}
 		}
-		unitName, err := coreunit.NewName(tag.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		address, err := u.applicationService.GetUnitPrivateAddress(ctx, unitName)
-		if network.IsNoAddressError(err) {
-			err = apiservererrors.NewNoAddressSetError(tag, "private")
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		} else if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		result.Results[i].Result = address.Value
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1441,16 +1433,20 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return internalerrors.Capture(err)
 	}
 
-	addr, err := u.applicationService.GetUnitPublicAddress(ctx, unitName)
+	unit, err := u.st.Unit(unitTag.Id())
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
 
-	settings := map[string]string{
-		// ingress-address is the preferred settings attribute name as it more accurately
-		// reflects the purpose of the attribute value. We'll deprecate private-address.
-		"ingress-address": addr.String(),
+	addr, err := unit.PublicAddress()
+	if err != nil {
+		return internalerrors.Capture(err)
 	}
+
+	settings := map[string]string{}
+	// ingress-address is the preferred settings attribute name as it more accurately
+	// reflects the purpose of the attribute value. We'll deprecate private-address.
+	settings["ingress-address"] = addr.String()
 
 	err = u.relationService.EnterScope(
 		ctx,
@@ -1466,8 +1462,9 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 	return internalerrors.Capture(err)
 }
 
-// LeaveScope signals each unit has left its scope in the relation for all of
-// the given relation/unit pairs.
+// LeaveScope signals each unit has left its scope in the relation,
+// for all of the given relation/unit pairs. See also
+// state.RelationUnit.LeaveScope().
 func (u *UniterAPI) LeaveScope(ctx context.Context, args params.RelationUnits) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),
@@ -2082,12 +2079,12 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	unitName, err := coreunit.NewName(unitTag.Id())
+	unit, err := u.st.Unit(unitTag.Id())
 	if err != nil {
-		return params.NetworkInfoResults{}, err
+		return params.NetworkInfoResults{}, internalerrors.Capture(err)
 	}
 
-	addr, err := u.applicationService.GetUnitPublicAddress(ctx, unitName)
+	addr, err := unit.PublicAddress()
 	if err != nil {
 		return params.NetworkInfoResults{}, internalerrors.Capture(err)
 	}
