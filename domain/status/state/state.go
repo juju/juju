@@ -62,7 +62,7 @@ FROM   model
 	var m modelInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&m)
-		if errors.Is(err, modelerrors.NotFound) {
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.New("model does not exist").Add(modelerrors.NotFound)
 		} else if err != nil {
 			return errors.Errorf(

@@ -142,6 +142,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 				Error: apiservererrors.ServerError(errors.New(`"fail.me" is not a valid tag`))},
 			{
 				ModelTag: s.Model.ModelTag().String(),
+				OwnerTag: "user-foobar",
 				Type:     string(state.ModelTypeIAAS),
 			},
 		},
