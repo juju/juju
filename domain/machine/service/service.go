@@ -166,6 +166,12 @@ type State interface {
 	// NamespaceForWatchMachineReboot returns the namespace string used for
 	// tracking machine reboot events in the model.
 	NamespaceForWatchMachineReboot() string
+
+	// GetNamesForUUIDs returns a map of machine UUIDs to machine Names based
+	// on the given machine UUIDs.
+	// [machineerrors.MachineNotFound] will be returned if the machine does not
+	// exist.
+	GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (map[string]machine.Name, error)
 }
 
 // Provider represents an underlying cloud provider.
