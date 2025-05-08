@@ -4,7 +4,6 @@
 package state
 
 import (
-	"github.com/juju/juju/core/objectstore"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 )
 
@@ -56,7 +55,7 @@ type dbGetPhaseInfo struct {
 	// UUID is the uuid for the phase info.
 	UUID string `db:"uuid"`
 	// Phase is the phase of the object store.
-	Phase objectstore.Phase `db:"phase"`
+	Phase coreobjectstore.Phase `db:"phase"`
 }
 
 type dbSetPhaseInfo struct {

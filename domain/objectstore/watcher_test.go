@@ -119,7 +119,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
-func (s *watcherSuite) TestWatchDraining(c *gc.C) {
+func (s *watcherSuite) TestWatchDraining(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
 	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
@@ -128,20 +128,20 @@ func (s *watcherSuite) TestWatchDraining(c *gc.C) {
 		),
 	)
 	watcher, err := svc.WatchDraining(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.SetDrainingPhase(context.Background(), objectstore.PhaseDraining)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.SetDrainingPhase(context.Background(), objectstore.PhaseCompleted)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})

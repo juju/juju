@@ -10,7 +10,6 @@ import (
 	"github.com/juju/collections/transform"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/objectstore"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -329,7 +328,7 @@ AND NOT EXISTS (
 }
 
 // SetDrainingPhase sets the phase of the object store to draining.
-func (s *State) SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error {
+func (s *State) SetDrainingPhase(ctx context.Context, uuid string, phase coreobjectstore.Phase) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -370,7 +369,7 @@ ON CONFLICT (uuid) DO UPDATE SET
 }
 
 // GetActiveDrainingPhase returns the phase of the object store.
-func (s *State) GetActiveDrainingPhase(ctx context.Context) (string, objectstore.Phase, error) {
+func (s *State) GetActiveDrainingPhase(ctx context.Context) (string, coreobjectstore.Phase, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", "", errors.Capture(err)
@@ -414,15 +413,15 @@ func (s *State) InitialWatchDrainingTable() string {
 	return "object_store_drain_info"
 }
 
-func encodePhaseTypeID(phase objectstore.Phase) (int, error) {
+func encodePhaseTypeID(phase coreobjectstore.Phase) (int, error) {
 	switch phase {
-	case objectstore.PhaseUnknown:
+	case coreobjectstore.PhaseUnknown:
 		return 0, nil
-	case objectstore.PhaseDraining:
+	case coreobjectstore.PhaseDraining:
 		return 1, nil
-	case objectstore.PhaseError:
+	case coreobjectstore.PhaseError:
 		return 2, nil
-	case objectstore.PhaseCompleted:
+	case coreobjectstore.PhaseCompleted:
 		return 3, nil
 	default:
 		return -1, errors.Errorf("invalid phase %q", phase)
