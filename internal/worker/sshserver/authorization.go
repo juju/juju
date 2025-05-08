@@ -50,6 +50,10 @@ func (a *authorizer) authorize(ctx ssh.Context, destination virtualhostname.Info
 
 func (a *authorizer) checkSSHAccessViaJWT(token jwt.Token, destination virtualhostname.Info) bool {
 	modelTag := names.NewModelTag(destination.ModelUUID())
-
-	return token.PrivateClaims()[modelTag.String()] == permission.AdminAccess
+	accessClaims, ok := token.PrivateClaims()["access"].(map[string]interface{})
+	if !ok || len(accessClaims) == 0 {
+		return false
+	}
+	modelAccess, _ := accessClaims[modelTag.String()].(string)
+	return modelAccess == string(permission.AdminAccess)
 }

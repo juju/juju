@@ -349,7 +349,9 @@ func (s *sshServerSuite) TestPasswordHandler(c *gc.C) {
 	// that authenticated at JIMM.
 	token, err := jwt.NewBuilder().
 		Claim("ssh_public_key", base64.StdEncoding.EncodeToString(s.userSigner.PublicKey().Marshal())).
-		Claim(destinationModel.String(), permission.AdminAccess).
+		Claim("access", map[string]any{
+			destinationModel.String(): string(permission.AdminAccess),
+		}).
 		Subject("an-external-user@canonical"). // This user is not the same user in the initial connection (normally JIMM).
 		Build()
 	c.Assert(err, jc.ErrorIsNil)
