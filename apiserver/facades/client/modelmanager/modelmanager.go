@@ -530,18 +530,48 @@ func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.Mod
 // for all the models known to the controller.
 func (m *ModelManagerAPI) listAllModelSummaries(ctx context.Context) (params.ModelSummaryResults, error) {
 	result := params.ModelSummaryResults{}
-	modelInfos, err := m.modelService.ListAllModelSummaries(ctx)
+	modelUUIDs, err := m.modelService.ListModelUUIDs(ctx)
 	if err != nil {
-		return result, errors.Trace(err)
+		return result, apiservererrors.ServerError(err)
 	}
 
-	result.Results = make([]params.ModelSummaryResult, len(modelInfos))
-	for i, mi := range modelInfos {
-		summary, err := m.makeModelSummary(mi)
+	result.Results = make([]params.ModelSummaryResult, 0, len(modelUUIDs))
+	for _, modelUUID := range modelUUIDs {
+		services, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+		if errors.Is(err, modelerrors.NotFound) {
+			logger.Debugf(
+				ctx,
+				"model %q was removed while compiling model summaries",
+				modelUUID,
+			)
+			continue
+		} else if err != nil {
+			return result, errors.Trace(err)
+		}
+
+		summary, err := services.ModelInfo().GetModelSummary(ctx)
+		if errors.Is(err, modelerrors.NotFound) {
+			logger.Debugf(
+				ctx,
+				"model %q was removed while compiling model summaries",
+				modelUUID,
+			)
+			continue
+		} else if err != nil {
+			return result, errors.Trace(err)
+		}
+
+		paramsSummary, err := makeModelSummary(ctx, summary)
 		if err != nil {
-			result.Results[i] = params.ModelSummaryResult{Error: apiservererrors.ServerError(err)}
+			result.Results = append(
+				result.Results,
+				params.ModelSummaryResult{Error: apiservererrors.ServerError(err)},
+			)
 		} else {
-			result.Results[i] = params.ModelSummaryResult{Result: summary}
+			result.Results = append(
+				result.Results,
+				params.ModelSummaryResult{Result: paramsSummary},
+			)
 		}
 	}
 	return result, nil
@@ -550,30 +580,92 @@ func (m *ModelManagerAPI) listAllModelSummaries(ctx context.Context) (params.Mod
 // listModelSummariesForUser returns the model summary results containing
 // summaries for all the models known to the user.
 func (m *ModelManagerAPI) listModelSummariesForUser(ctx context.Context, tag names.UserTag) (params.ModelSummaryResults, error) {
+	makeErrorReturn := func(err error) error {
+		switch {
+		case errors.Is(err, accesserrors.UserNotFound):
+			return apiservererrors.ParamsErrorf(
+				params.CodeNotFound, "user %q does not exist", tag.Id(),
+			)
+		case errors.Is(err, accesserrors.UserNameNotValid):
+			return apiservererrors.ParamsErrorf(
+				params.CodeNotValid,
+				"user name is not valid",
+			)
+		}
+
+		return internalerrors.Errorf(
+			"listing model summaries for user %q: %w", tag.Id(), err,
+		)
+	}
 	result := params.ModelSummaryResults{}
-	modelInfos, err := m.modelService.ListModelSummariesForUser(ctx, user.NameFromTag(tag))
+	userUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(tag))
 	if err != nil {
-		return result, errors.Trace(err)
+		return result, makeErrorReturn(err)
 	}
 
-	result.Results = make([]params.ModelSummaryResult, len(modelInfos))
-	for i, mi := range modelInfos {
-		summary, err := m.makeUserModelSummary(mi)
-		if err != nil {
-			result.Results[i] = params.ModelSummaryResult{Error: apiservererrors.ServerError(err)}
-		} else {
-			result.Results[i] = params.ModelSummaryResult{Result: summary}
+	userModelUUIDs, err := m.modelService.ListModelUUIDsForUser(ctx, userUUID)
+	if err != nil {
+		return result, makeErrorReturn(err)
+	}
+
+	result.Results = make([]params.ModelSummaryResult, 0, len(userModelUUIDs))
+	for _, modelUUID := range userModelUUIDs {
+		services, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+		if errors.Is(err, modelerrors.NotFound) {
+			logger.Debugf(
+				ctx,
+				"model %q was removed while compiling user %q model summaries",
+				modelUUID, tag.Id(),
+			)
+			continue
+		} else if err != nil {
+			return result, errors.Trace(err)
 		}
+
+		modelSummary, err := services.ModelInfo().GetUserModelSummary(ctx, userUUID)
+		switch {
+		// For these errors it indiciates the the state of the controller has
+		// changed since retrieving the list of model's for the user. That is ok
+		// and we can safely ignore them.
+		case errors.Is(err, modelerrors.NotFound):
+			logger.Debugf(
+				ctx,
+				"model %q was removed while compiling user %q model summaries",
+				modelUUID, tag.Id(),
+			)
+		case errors.Is(err, accesserrors.AccessNotFound):
+			logger.Debugf(
+				ctx,
+				"user %q has had their access to model removed while compiling summaries",
+				tag.Id(), modelUUID,
+			)
+		case err != nil:
+			return result, makeErrorReturn(err)
+		}
+
+		paramsSummary, err := makeUserModelSummary(ctx, modelSummary)
+		if err != nil {
+			result.Results = append(
+				result.Results,
+				params.ModelSummaryResult{
+					Error: apiservererrors.ServerError(err),
+				},
+			)
+			continue
+		}
+		result.Results = append(result.Results, params.ModelSummaryResult{
+			Result: paramsSummary,
+		})
 	}
 	return result, nil
 }
 
-func (m *ModelManagerAPI) makeUserModelSummary(mi coremodel.UserModelSummary) (*params.ModelSummary, error) {
+func makeUserModelSummary(ctx context.Context, mi coremodel.UserModelSummary) (*params.ModelSummary, error) {
 	userAccess, err := commonmodel.EncodeAccess(mi.UserAccess)
 	if err != nil && !errors.Is(err, errors.NotValid) {
 		return nil, errors.Trace(err)
 	}
-	ms, err := m.makeModelSummary(mi.ModelSummary)
+	ms, err := makeModelSummary(ctx, mi.ModelSummary)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -582,7 +674,7 @@ func (m *ModelManagerAPI) makeUserModelSummary(mi coremodel.UserModelSummary) (*
 	return ms, nil
 }
 
-func (m *ModelManagerAPI) makeModelSummary(mi coremodel.ModelSummary) (*params.ModelSummary, error) {
+func makeModelSummary(ctx context.Context, mi coremodel.ModelSummary) (*params.ModelSummary, error) {
 	credTag, err := mi.CloudCredentialKey.Tag()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -663,7 +755,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 		return result, errors.Trace(err)
 	}
 
-	ctrlUser, err := m.accessService.GetUserByName(ctx, user.NameFromTag(userTag))
+	ctrlUserUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(userTag))
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -674,7 +766,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 	if m.isAdmin {
 		models, err = m.modelService.ListAllModels(ctx)
 	} else {
-		models, err = m.modelService.ListModelsForUser(ctx, ctrlUser.UUID)
+		models, err = m.modelService.ListModelsForUser(ctx, ctrlUserUUID)
 	}
 
 	if err != nil {
