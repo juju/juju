@@ -917,7 +917,7 @@ Enter credential name:
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project
-Path:
+Path: 
 `[1:]
 	stderr := `
 Using cloud "remote" from the controller to verify credentials.
@@ -972,7 +972,7 @@ Enter your choice, or type Q|q to quit: Enter credential name:
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project
-Path:
+Path: 
 Credential "blah" added locally for cloud "remote".
 
 `[1:]
@@ -1000,7 +1000,7 @@ Enter credential name:
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project
-Path:
+Path: 
 `[1:]
 	stderr := `
 Using cloud "remote" from the controller to verify credentials.

@@ -126,7 +126,7 @@ func (s *RelationListSuite) TestRelationList(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
-		c.Logf(bufferString(ctx.Stderr))
+		c.Logf("%s", bufferString(ctx.Stderr))
 		c.Assert(code, tc.Equals, t.code)
 		if code == 0 {
 			c.Check(bufferString(ctx.Stderr), tc.Equals, "")

@@ -90,7 +90,7 @@ var addrsChangedTests = []struct {
 
 func (s *APIHelperSuite) TestAddrsChanged(c *tc.C) {
 	for i, test := range addrsChangedTests {
-		c.Logf("test %d: addrsChanged %v %v", i, test.description)
+		c.Logf("test %d: addrsChanged %v", i, test.description)
 		anyChange, differentSet := addrsChanged(test.source, test.target)
 		c.Check(anyChange, tc.Equals, test.changed,
 			tc.Commentf("%v vs %v declared that %t but expected %t",

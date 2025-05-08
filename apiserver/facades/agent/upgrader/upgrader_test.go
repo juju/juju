@@ -261,7 +261,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *tc.C) {
 	api := s.makeMockedUpgraderAPI(c)
 
 	for i, test := range tests {
-		c.Logf("running TestSetToolsRefusesWrongAgent test #d", i)
+		c.Logf("running TestSetToolsRefusesWrongAgent test %d", i)
 		args := params.EntitiesVersion{
 			AgentTools: []params.EntityVersion{{
 				Tag: test.TagToSet.String(),

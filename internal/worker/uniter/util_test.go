@@ -1252,7 +1252,7 @@ func (s waitUnitAgent) step(c *tc.C, ctx *testContext) {
 				continue
 			}
 			if *urlStr != curl(s.charm) {
-				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), urlStr)
+				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), *urlStr)
 				continue
 			}
 			statusInfo, err := s.statusGetter(ctx)()

@@ -73,7 +73,7 @@ func (s *facadeVersionSuite) TestClientSupport(c *tc.C) {
 		},
 	}
 	for _, test := range tests {
-		c.Logf(test.summary)
+		c.Logf("%s", test.summary)
 		c.Check(api.SupportedFacadeVersions()[test.facadeName], Contains, test.apiClientVersion)
 	}
 }

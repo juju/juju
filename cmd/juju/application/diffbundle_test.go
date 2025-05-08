@@ -108,7 +108,7 @@ func (s *diffSuite) TestNotABundle(c *tc.C) {
 	}
 	s.charmHub.stub.SetErrors(nil, errors.NotValidf("not a bundle"))
 	_, err := s.runDiffBundle(c, "prometheus")
-	c.Logf(errors.ErrorStack(err))
+	c.Logf("%s", errors.ErrorStack(err))
 	// Fails because the series that comes back from the charm store
 	// is xenial rather than "bundle" (and there's no local bundle).
 	c.Assert(err, tc.ErrorIs, errors.NotValid)

@@ -218,7 +218,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		PreUpgradeSteps: preUpgradeSteps,
 	})
 	for name, manifold := range manifolds {
-		c.Logf(name)
+		c.Logf("%s", name)
 		if !exempt.Contains(name) {
 			checkContains(c, manifold.Inputs, "migration-fortress")
 			checkContains(c, manifold.Inputs, "migration-inactive-flag")
@@ -276,7 +276,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	bootstrapWorkers := set.NewStrings()
 
 	for name, manifold := range manifolds {
-		c.Logf(name)
+		c.Logf("%s", name)
 		switch {
 		case controllerWorkers.Contains(name):
 			checkContains(c, manifold.Inputs, "is-controller-flag")

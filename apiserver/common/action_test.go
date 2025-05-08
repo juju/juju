@@ -237,7 +237,7 @@ func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *tc.C) {
 		err: "zwoosh",
 	}} {
 		c.Logf("test %d", i)
-		c.Logf(test.tag.String())
+		c.Logf("%s", test.tag.String())
 		result, err := watchOneFn(test.tag)
 		if test.err != "" {
 			c.Check(err, tc.ErrorMatches, test.err)
@@ -274,7 +274,7 @@ func (s *actionsSuite) TestWatchPendingActionsForReceiver(c *tc.C) {
 		err: "zwoosh",
 	}} {
 		c.Logf("test %d", i)
-		c.Logf(test.tag.String())
+		c.Logf("%s", test.tag.String())
 		result, err := watchOneFn(test.tag)
 		if test.err != "" {
 			c.Check(err, tc.ErrorMatches, test.err)

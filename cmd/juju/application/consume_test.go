@@ -73,7 +73,7 @@ func (s *ConsumeSuite) TestInvalidRemoteApplication(c *tc.C) {
 		"unknown:/wherever",
 	}
 	for _, bad := range badApplications {
-		c.Logf(bad)
+		c.Logf("%s", bad)
 		_, err := s.runConsume(c, bad)
 		c.Check(err != nil, tc.IsTrue)
 	}

@@ -103,7 +103,7 @@ func (store *Store) Wait(c *tc.C) {
 	case <-store.done:
 		select {
 		case err := <-store.failed:
-			c.Errorf(err.Error())
+			c.Error(err.Error())
 		default:
 		}
 	case <-time.After(coretesting.LongWait):

@@ -789,7 +789,7 @@ func (s *clientSuite) TestVerifyMAC(c *tc.C) {
 		{"00:50:560:2a:xy:cd", false},
 	}
 	for i, test := range testData {
-		c.Logf("test #%d: MAC=%s expected %s", i, test.Mac, test.Result)
+		c.Logf("test #%d: MAC=%s expected %v", i, test.Mac, test.Result)
 		c.Check(VerifyMAC(test.Mac), tc.Equals, test.Result)
 	}
 }

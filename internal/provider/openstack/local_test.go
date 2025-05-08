@@ -3513,7 +3513,7 @@ func (s *localServerSuite) checkInstanceTags(c *tc.C, env environs.Environ, expe
 	c.Assert(allInstances, tc.Not(tc.HasLen), 0)
 	for _, inst := range allInstances {
 		server := openstack.InstanceServerDetail(inst)
-		c.Logf(string(inst.Id()))
+		c.Logf("%s", string(inst.Id()))
 		c.Check(server.Metadata[tags.JujuController], tc.Equals, expectedController)
 	}
 }
@@ -3526,7 +3526,7 @@ func (s *localServerSuite) checkVolumeTags(c *tc.C, env environs.Environ, expect
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(volumeIds, tc.Not(tc.HasLen), 0)
 	for _, volumeId := range volumeIds {
-		c.Logf(volumeId)
+		c.Logf("%s", volumeId)
 		volume, err := stor.GetVolume(volumeId)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(volume.Metadata[tags.JujuController], tc.Equals, expectedController)
@@ -3540,7 +3540,7 @@ func (s *localServerSuite) checkGroupController(c *tc.C, env environs.Environ, e
 	extractControllerRe, err := regexp.Compile(openstack.GroupControllerPattern)
 	c.Assert(err, tc.ErrorIsNil)
 	for _, group := range groupNames {
-		c.Logf(group)
+		c.Logf("%s", group)
 		controller := extractControllerRe.ReplaceAllString(group, "$controllerUUID")
 		c.Check(controller, tc.Equals, expectedController)
 	}

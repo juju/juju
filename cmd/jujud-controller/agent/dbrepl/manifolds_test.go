@@ -108,7 +108,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	dbUpgradedWorkers := set.NewStrings()
 
 	for name, manifold := range manifolds {
-		c.Logf(name)
+		c.Logf("%s", name)
 		switch {
 		case controllerWorkers.Contains(name):
 			checkContains(c, manifold.Inputs, "is-controller-flag")

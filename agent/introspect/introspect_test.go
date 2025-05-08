@@ -33,7 +33,15 @@ type IntrospectCommandSuite struct {
 
 func (s *IntrospectCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&config.DataDir, c.MkDir())
+	// NOTE: this is not using c.Mkdir() for a reason.
+	// Since unix sockets can't have a file path that is too
+	// long.
+	dir, err := os.MkdirTemp("", "juju-introspection*")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() {
+		_ = os.RemoveAll(dir)
+	})
+	s.PatchValue(&config.DataDir, dir)
 }
 
 var _ = tc.Suite(&IntrospectCommandSuite{})
