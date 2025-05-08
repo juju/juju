@@ -18,7 +18,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	domainstatus "github.com/juju/juju/domain/status"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -79,10 +78,6 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 		Tag: user,
 	}
 
-	s.statusService.EXPECT().GetModelInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
-		Type: coremodel.IAAS.String(),
-	}, nil)
-
 	api := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineServiceGetter,
@@ -110,10 +105,6 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	}
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner})
 	defer st.Close()
-
-	s.statusService.EXPECT().GetModelInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
-		Type: coremodel.IAAS.String(),
-	}, nil)
 
 	api := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
@@ -151,8 +142,6 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 				Error: apiservererrors.ServerError(errors.New(`"fail.me" is not a valid tag`))},
 			{
 				ModelTag: s.Model.ModelTag().String(),
-				Life:     life.Value(s.Model.Life().String()),
-				OwnerTag: s.Model.Owner().String(),
 				Type:     string(state.ModelTypeIAAS),
 			},
 		},

@@ -83,7 +83,7 @@ func DecodeK8sPodStatus(s int) (K8sPodStatusType, error) {
 	}
 }
 
-// ModelStatusInfo represents the basic status information of a model.
+// ModelStatusInfo represents the basic information of a model's status.
 type ModelStatusInfo struct {
 	Type string
 }
