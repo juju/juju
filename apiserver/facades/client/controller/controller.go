@@ -423,7 +423,7 @@ func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBloc
 	}
 
 	// If there are blocks let the user know.
-	uuids, err := c.modelService.ListModelIDs(ctx)
+	uuids, err := c.modelService.ListModelUUIDs(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

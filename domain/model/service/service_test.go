@@ -176,7 +176,7 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exists, jc.IsTrue)
 
-	modelList, err := svc.ListModelIDs(context.Background())
+	modelList, err := svc.ListModelUUIDs(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(len(modelList), gc.Equals, 2)
 }

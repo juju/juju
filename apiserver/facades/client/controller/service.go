@@ -65,8 +65,8 @@ type ModelService interface {
 	// ListAllModels returns a slice of all models in the controller. If no models
 	// exist an empty slice is returned.
 	ListAllModels(ctx context.Context) ([]coremodel.Model, error)
-	// ListModelIDs returns a list of all model UUIDs.
-	ListModelIDs(context.Context) ([]coremodel.UUID, error)
+	// ListModelUUIDs returns a list of all model UUIDs in the controller.
+	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
 }
 
 // ModelInfoService defines domain service methods for managing a model.

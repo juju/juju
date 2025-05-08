@@ -480,10 +480,9 @@ func (s *Service) DeleteModel(
 	return nil
 }
 
-// ListModelIDs returns a list of all model UUIDs in the system that have not been
-// deleted. This list does not represent one or more lifecycle states for
-// models.
-func (s *Service) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
+// ListModelUUIDs returns a list of all model UUIDs in the controller that are
+// active.
+func (s *Service) ListModelUUIDs(ctx context.Context) ([]coremodel.UUID, error) {
 	uuids, err := s.st.ListModelIDs(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting list of model id's: %w", err)
