@@ -1,3 +1,4 @@
+(entity-lifecycle)=
 # Entity lifecycle
 
 In Juju, certain fundamental state entities have "lifecycles". These entities
@@ -74,6 +75,7 @@ container-scoped relation and find that no suitable subordinate already exists.
     principal unit's participation in an Alive relation (implying an Alive
     subordinate application).
 
+(entity-death-and-destruction)=
 ## Entity death and destruction
 
 This section describes in detail the operations associated with the destruction
