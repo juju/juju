@@ -60,10 +60,10 @@ FROM   model
 
 	var m modelInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err == sqlair.ErrNoRows {
+		if err := tx.Query(ctx, stmt).Get(&m); errors.Is(err, sqlair.ErrNoRows) {
 			return modelerrors.NotFound
 		}
-		return tx.Query(ctx, stmt).Get(&m)
+		return nil
 	})
 	if err != nil {
 		return status.ModelStatusInfo{}, errors.Capture(err)
