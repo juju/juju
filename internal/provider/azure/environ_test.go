@@ -1762,7 +1762,6 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *tc.C) {
 			env.Config().Type(),
 			corearch.HostArch())
 		c.Assert(err, tc.ErrorMatches, wantErr)
-		c.SucceedNow()
 		return
 	}
 	// amd64 should pass the rest of the test.
@@ -1828,7 +1827,6 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *tc.C) {
 			env.Config().Type(),
 			corearch.HostArch())
 		c.Assert(err, tc.ErrorMatches, wantErr)
-		c.SucceedNow()
 		return
 	}
 	// amd64 should pass the rest of the test.

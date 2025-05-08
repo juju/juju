@@ -184,7 +184,6 @@ func (s *firewallerBaseSuite) assertIngressRules(c *tc.C, machineId string,
 		s.mu.Lock()
 		got := s.instancePorts[machineId]
 		if expected.EqualTo(got) {
-			c.Succeed()
 			s.mu.Unlock()
 			return
 		}
@@ -204,7 +203,6 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *tc.C, expected firewall.Ingr
 		s.mu.Lock()
 		got := s.envPorts
 		if got.EqualTo(expected) {
-			c.Succeed()
 			s.mu.Unlock()
 			return
 		}
@@ -224,7 +222,6 @@ func (s *firewallerBaseSuite) assertModelIngressRules(c *tc.C, expected firewall
 		s.mu.Lock()
 		got := s.envModelPorts
 		if got.EqualTo(expected) {
-			c.Succeed()
 			s.mu.Unlock()
 			return
 		}
