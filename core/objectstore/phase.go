@@ -42,6 +42,10 @@ func (p Phase) IsTerminal() bool {
 // TransitionTo the new phase if it can transition from the current phase
 // to the new phase.
 func (p Phase) TransitionTo(newPhase Phase) (Phase, error) {
+	if !p.IsValid() {
+		return "", errors.Errorf("invalid phase %q", p)
+	}
+
 	switch p {
 	case PhaseUnknown:
 		if newPhase == PhaseDraining {
@@ -59,10 +63,18 @@ func (p Phase) TransitionTo(newPhase Phase) (Phase, error) {
 		if newPhase.IsTerminal() {
 			return p, ErrTerminalPhase
 		}
-	default:
-		return "", errors.Errorf("invalid phase %q", p)
 	}
 	return "", errors.Errorf("invalid transition from %q to %q", p, newPhase)
+}
+
+// IsValid returns true if the phase is a valid phase.
+func (p Phase) IsValid() bool {
+	switch p {
+	case PhaseUnknown, PhaseDraining, PhaseError, PhaseCompleted:
+		return true
+	default:
+		return false
+	}
 }
 
 // String returns the string representation of the phase.
