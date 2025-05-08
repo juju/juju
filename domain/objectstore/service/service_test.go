@@ -248,7 +248,7 @@ func (s *serviceSuite) TestSetDrainingPhase(c *tc.C) {
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), currentPhase, nil)
 	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(nil)
 
-	err := NewService(s.state).SetDrainingPhase(context.Background(), newPhase)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -260,7 +260,7 @@ func (s *serviceSuite) TestSetDrainingPhaseNoInitial(c *tc.C) {
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return("", "", objectstoreerrors.ErrDrainingPhaseNotFound)
 	s.state.EXPECT().SetDrainingPhase(gomock.Any(), gomock.Any(), newPhase).Return(nil)
 
-	err := NewService(s.state).SetDrainingPhase(context.Background(), newPhase)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -269,7 +269,7 @@ func (s *serviceSuite) TestSetDrainingPhaseInvalid(c *tc.C) {
 
 	phase := objectstore.Phase("invalid")
 
-	err := NewService(s.state).SetDrainingPhase(context.Background(), phase)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), phase)
 	c.Assert(err, tc.ErrorMatches, "invalid phase \"invalid\"")
 }
 
@@ -283,7 +283,7 @@ func (s *serviceSuite) TestSetDrainingPhaseError(c *tc.C) {
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), currentPhase, nil)
 	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(errors.Errorf("boom"))
 
-	err := NewService(s.state).SetDrainingPhase(context.Background(), newPhase)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
@@ -295,7 +295,7 @@ func (s *serviceSuite) TestGetDrainingPhase(c *tc.C) {
 
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), phase, nil)
 
-	p, err := NewService(s.state).GetDrainingPhase(context.Background())
+	p, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(p, tc.Equals, phase)
 }
@@ -308,7 +308,7 @@ func (s *serviceSuite) TestGetDrainingPhaseError(c *tc.C) {
 
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), phase, errors.Errorf("boom"))
 
-	_, err := NewService(s.state).GetDrainingPhase(context.Background())
+	_, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
@@ -319,7 +319,7 @@ func (s *serviceSuite) TestRemoveMetadata(c *tc.C) {
 
 	s.state.EXPECT().RemoveMetadata(gomock.Any(), key).Return(nil)
 
-	err := NewService(s.state).RemoveMetadata(c.Context(), key)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).RemoveMetadata(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

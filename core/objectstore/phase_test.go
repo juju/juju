@@ -5,16 +5,16 @@ package objectstore
 
 import (
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tc "gopkg.in/check.v1"
 )
 
 type phaseSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&phaseSuite{})
+var _ = tc.Suite(&phaseSuite{})
 
-func (s *phaseSuite) TestPhase(c *gc.C) {
+func (s *phaseSuite) TestPhase(c *tc.C) {
 	tests := []struct {
 		value string
 		err   string
@@ -36,15 +36,15 @@ func (s *phaseSuite) TestPhase(c *gc.C) {
 
 		p, err := ParsePhase(test.value)
 		if test.err != "" {
-			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Assert(err, tc.ErrorMatches, test.err)
 			continue
 		}
-		c.Assert(err, gc.IsNil)
-		c.Assert(p.String(), gc.Equals, test.value)
+		c.Assert(err, tc.IsNil)
+		c.Assert(p.String(), tc.Equals, test.value)
 	}
 }
 
-func (s *phaseSuite) TestIsTerminal(c *gc.C) {
+func (s *phaseSuite) TestIsTerminal(c *tc.C) {
 	tests := []struct {
 		value    string
 		expected bool
@@ -65,12 +65,12 @@ func (s *phaseSuite) TestIsTerminal(c *gc.C) {
 		c.Logf("test %d: %s", i, test.value)
 
 		p, err := ParsePhase(test.value)
-		c.Assert(err, gc.IsNil)
-		c.Assert(p.IsTerminal(), gc.Equals, test.expected)
+		c.Assert(err, tc.IsNil)
+		c.Assert(p.IsTerminal(), tc.Equals, test.expected)
 	}
 }
 
-func (s *phaseSuite) TestTransitionTo(c *gc.C) {
+func (s *phaseSuite) TestTransitionTo(c *tc.C) {
 	tests := []struct {
 		from     string
 		to       string
@@ -102,16 +102,16 @@ func (s *phaseSuite) TestTransitionTo(c *gc.C) {
 		c.Logf("test %d: %s -> %s", i, test.from, test.to)
 
 		pFrom, err := ParsePhase(test.from)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		pTo, err := ParsePhase(test.to)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 
 		newPhase, err := pFrom.TransitionTo(pTo)
 		if test.err != "" {
-			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Assert(err, tc.ErrorMatches, test.err)
 			continue
 		}
-		c.Assert(err, gc.IsNil)
-		c.Assert(newPhase.String(), gc.Equals, test.expected)
+		c.Assert(err, tc.IsNil)
+		c.Assert(newPhase.String(), tc.Equals, test.expected)
 	}
 }

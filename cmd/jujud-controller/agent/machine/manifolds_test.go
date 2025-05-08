@@ -416,7 +416,7 @@ func (s *ManifoldsSuite) TestObjectStoreGuardsUsed(c *tc.C) {
 	}
 }
 
-func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
+func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
