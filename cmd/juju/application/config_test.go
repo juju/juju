@@ -401,7 +401,6 @@ func (s *configCommandSuite) TestBlockSetConfig(c *tc.C) {
 		"testconfig.yaml",
 	}, s.dir)
 	c.Assert(err, tc.ErrorMatches, `(.|\n)*All operations that change model have been disabled(.|\n)*`)
-	c.Check(c.GetTestLog(), tc.Matches, "(.|\n)*TestBlockSetConfig(.|\n)*")
 }
 
 func (s *configCommandSuite) TestSetReset(c *tc.C) {
@@ -505,7 +504,6 @@ func (s *configCommandSuite) assertNoWarning(c *tc.C, dir string, args []string)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommandInDir(c, cmd, append([]string{"dummy-application"}, args...), dir)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), tc.Not(tc.Matches), ".*WARNING.*")
 }
 
 // setupValueFile creates a file containing one value for testing

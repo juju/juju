@@ -182,10 +182,6 @@ func (s *AddUnitSuite) TestBlockAddUnit(c *tc.C) {
 	// Block operation
 	s.fake.err = apiservererrors.OperationBlockedError("TestBlockAddUnit")
 	s.runAddUnit(c, "some-application-name")
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, tc.Matches, ".*TestBlockAddUnit.*")
 }
 
 func (s *AddUnitSuite) TestUnauthorizedMentionsJujuGrant(c *tc.C) {

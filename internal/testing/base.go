@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/os/v2/series"
@@ -225,28 +224,6 @@ func diffStrings(c *tc.C, value, expected string) {
 			break
 		}
 	}
-}
-
-// TestCleanup is used to allow DumpTestLogsAfter to take any test suite
-// that supports the standard cleanup function.
-type TestCleanup interface {
-	AddCleanup(func(*tc.C))
-}
-
-// DumpTestLogsAfter will write the test logs to stdout if the timeout
-// is reached.
-func DumpTestLogsAfter(timeout time.Duration, c *tc.C, cleaner TestCleanup) {
-	done := make(chan interface{})
-	go func() {
-		select {
-		case <-time.After(timeout):
-			fmt.Print(c.GetTestLog())
-		case <-done:
-		}
-	}()
-	cleaner.AddCleanup(func(_ *tc.C) {
-		close(done)
-	})
 }
 
 // GetExportedFields return the exported fields of a struct.

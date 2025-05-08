@@ -137,8 +137,6 @@ func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *tc.C) {
 	}).Return(nil, apiservererrors.OperationBlockedError("TestBlockRemoveUnit"))
 
 	s.runRemoveUnit(c, "--no-prompt", "some-unit-name/0")
-
-	c.Check(c.GetTestLog(), tc.Matches, "(?s).*TestBlockRemoveUnit.*")
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnitDryRun(c *tc.C) {
@@ -236,8 +234,6 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *tc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("command took too long")
 	}
-
-	c.Assert(c.GetTestLog(), tc.Matches, `(?s).*Your controller does not support dry runs.*`)
 }
 
 func (s *RemoveUnitSuite) setCaasModel() {

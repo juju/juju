@@ -130,11 +130,6 @@ For now, we're going to skip these tests.
 	// Restart failed workers much faster for the tests.
 	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
 
-	// Most of these tests normally finish sub-second on a fast machine.
-	// If any given test hits a minute, we have almost certainly become
-	// wedged, so dump the logs.
-	coretesting.DumpTestLogsAfter(time.Minute, c, s)
-
 	// Ensure the dummy provider is initialised - no need to actually bootstrap.
 	ctx := envtesting.BootstrapContext(context.Background(), c)
 	err = s.Environ.PrepareForBootstrap(ctx, "controller")
