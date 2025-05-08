@@ -10,21 +10,18 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/services"
 )
 
 // GetObjectStoreServiceServicesFunc is a function that retrieves the
 // object store services from the dependency getter.
-type GetObjectStoreServiceServicesFunc func(dependency.Getter, string, model.UUID) (ObjectStoreService, error)
+type GetObjectStoreServiceServicesFunc func(dependency.Getter, string) (ObjectStoreService, error)
 
 // ManifoldConfig holds the dependencies and configuration for a
 // Worker manifold.
 type ManifoldConfig struct {
-	AgentName               string
 	ObjectStoreServicesName string
 	Check                   Predicate
 
@@ -34,9 +31,6 @@ type ManifoldConfig struct {
 
 // validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if config.ObjectStoreServicesName == "" {
 		return errors.NotValidf("empty ObjectStoreServicesName")
 	}
@@ -58,22 +52,13 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var agent agent.Agent
-	if err := getter.Get(config.AgentName, &agent); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	agentConfig := agent.CurrentConfig()
-	modelUUID := model.UUID(agentConfig.Model().Id())
-
-	objectStoreService, err := config.GeObjectStoreServicesFn(getter, config.ObjectStoreServicesName, modelUUID)
+	objectStoreService, err := config.GeObjectStoreServicesFn(getter, config.ObjectStoreServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	worker, err := config.NewWorker(context, Config{
 		ObjectStoreService: objectStoreService,
-		ModelUUID:          modelUUID,
 		Check:              config.Check,
 	})
 	if err != nil {
@@ -87,7 +72,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.ObjectStoreServicesName,
-			config.AgentName,
 		},
 		Start:  config.start,
 		Output: engine.FlagOutput,
@@ -105,13 +89,13 @@ func bounceErrChanged(err error) error {
 
 // GetObjectStoreServices retrieves the ObjectStoreService using the given
 // service.
-func GeObjectStoreServices(getter dependency.Getter, name string, modelUUID model.UUID) (ObjectStoreService, error) {
-	var objectStoreServiceGetter services.ObjectStoreServicesGetter
-	if err := getter.Get(name, &objectStoreServiceGetter); err != nil {
+func GeObjectStoreServices(getter dependency.Getter, name string) (ObjectStoreService, error) {
+	var services services.ControllerObjectStoreServices
+	if err := getter.Get(name, &services); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return objectStoreServiceGetter.ServicesForModel(modelUUID).ObjectStore(), nil
+	return services.AgentObjectStore(), nil
 }
 
 // IsTerminal checks if the phase is a terminal phase.

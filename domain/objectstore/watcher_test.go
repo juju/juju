@@ -121,7 +121,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 func (s *watcherSuite) TestWatchDraining(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
-	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
+	svc := service.NewWatchableDrainingService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),

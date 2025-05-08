@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -19,7 +18,6 @@ import (
 	objectstore "github.com/juju/juju/core/objectstore"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type manifoldSuite struct {
@@ -33,10 +31,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
-
-	cfg = s.getConfig()
-	cfg.AgentName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.ObjectStoreServicesName = ""
@@ -57,12 +51,11 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:               "agent",
 		ObjectStoreServicesName: "object-store-services",
 		Check: func(p objectstore.Phase) bool {
 			return true
 		},
-		GeObjectStoreServicesFn: func(getter dependency.Getter, name string, modelUUID model.UUID) (ObjectStoreService, error) {
+		GeObjectStoreServicesFn: func(getter dependency.Getter, name string) (ObjectStoreService, error) {
 			return s.service, nil
 		},
 		NewWorker: func(ctx context.Context, c Config) (worker.Worker, error) {
@@ -73,13 +66,12 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":                 s.agent,
 		"object-store-services": &stubObjectStoreServicesGetter{},
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "object-store-services"}
+var expectedInputs = []string{"object-store-services"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
@@ -88,16 +80,9 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAgentConfig()
-
 	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
-}
-
-func (s *manifoldSuite) expectAgentConfig() {
-	s.agentConfig.EXPECT().Model().Return(names.NewModelTag(uuid.MustNewUUID().String()))
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 }
 
 // Note: This replicates the ability to get a controller domain services and
