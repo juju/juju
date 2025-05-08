@@ -94,6 +94,7 @@ import (
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/objectstore"
+	"github.com/juju/juju/internal/worker/objectstoreflag"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/objectstoreservices"
 	"github.com/juju/juju/internal/worker/peergrouper"
@@ -666,7 +667,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            peergrouper.New,
 		})),
 
-		domainServicesName: workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
+		domainServicesName: ifObjectStoreDraining(workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
@@ -682,7 +683,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewDomainServicesGetter:     workerdomainservices.NewDomainServicesGetter,
 			NewControllerDomainServices: workerdomainservices.NewControllerDomainServices,
 			NewModelDomainServices:      workerdomainservices.NewProviderTrackerModelDomainServices,
-		}),
+		})),
 
 		providerDomainServicesName: providerservices.Manifold(providerservices.ManifoldConfig{
 			ChangeStreamName:          changeStreamName,
@@ -805,6 +806,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetControllerConfigService: sshserver.GetControllerConfigService,
 			NewSSHServerListener:       sshserver.NewSSHServerListener,
 		})),
+
+		objectStoreFortressName: ifPrimaryController(fortress.Manifold()),
+		objectStoreDrainingFlagName: objectstoreflag.Manifold(objectstoreflag.ManifoldConfig{
+			AgentName:               agentName,
+			ObjectStoreServicesName: objectStoreServicesName,
+			Check:                   objectstoreflag.IsTerminal,
+			GeObjectStoreServicesFn: objectstoreflag.GeObjectStoreServices,
+			NewWorker:               objectstoreflag.NewWorker,
+		}),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
 			AgentName:                  agentName,
@@ -1271,6 +1281,13 @@ var ifDatabaseUpgradeComplete = engine.Housing{
 	},
 }.Decorate
 
+var ifObjectStoreDraining = engine.Housing{
+	Flags: []string{
+		objectStoreDrainingFlagName,
+	},
+	Occupy: objectStoreFortressName,
+}.Decorate
+
 const (
 	agentName              = "agent"
 	agentConfigUpdaterName = "agent-config-updater"
@@ -1342,6 +1359,8 @@ const (
 	objectStoreName               = "object-store"
 	objectStoreS3CallerName       = "object-store-s3-caller"
 	objectStoreServicesName       = "object-store-services"
+	objectStoreFortressName       = "object-store-fortress"
+	objectStoreDrainingFlagName   = "object-store-draining-flag"
 	peergrouperName               = "peer-grouper"
 	providerDomainServicesName    = "provider-services"
 	providerTrackerName           = "provider-tracker"

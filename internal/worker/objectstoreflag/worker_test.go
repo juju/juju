@@ -91,7 +91,7 @@ func (s *workerSuite) TestObjectStoreFlagNoChange(c *gc.C) {
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
-	w, err := New(context.Background(), Config{
+	w, err := NewWorker(context.Background(), Config{
 		ModelUUID:          modeltesting.GenModelUUID(c),
 		ObjectStoreService: s.service,
 		Check: func(p objectstore.Phase) bool {
