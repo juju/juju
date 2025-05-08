@@ -786,7 +786,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		objectStoreFortressName: ifController(fortress.Manifold()),
 		objectStoreDrainingFlagName: objectstoreflag.Manifold(objectstoreflag.ManifoldConfig{
-			AgentName:               agentName,
 			ObjectStoreServicesName: objectStoreServicesName,
 			Check:                   objectstoreflag.IsTerminal,
 			GeObjectStoreServicesFn: objectstoreflag.GeObjectStoreServices,

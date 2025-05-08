@@ -4,21 +4,20 @@
 package network_test
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 )
 
-var _ = gc.Suite(&bindingsMockSuite{})
+var _ = tc.Suite(&bindingsMockSuite{})
 
 type bindingsMockSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *bindingsMockSuite) TestMapBindingsWithSpaceNames(c *gc.C) {
+func (s *bindingsMockSuite) TestMapBindingsWithSpaceNames(c *tc.C) {
 	infos := s.expectedSpaceInfos()
 
 	initial := map[string]string{
@@ -28,17 +27,17 @@ func (s *bindingsMockSuite) TestMapBindingsWithSpaceNames(c *gc.C) {
 	}
 
 	withSpaceNames, err := network.MapBindingsWithSpaceNames(initial, infos)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := map[string]string{
 		"db":      "two",
 		"testing": "three",
 		"empty":   network.AlphaSpaceName,
 	}
-	c.Check(withSpaceNames, jc.DeepEquals, expected)
+	c.Check(withSpaceNames, tc.DeepEquals, expected)
 }
 
-func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithNoLookup(c *gc.C) {
+func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithNoLookup(c *tc.C) {
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "3",
@@ -46,18 +45,18 @@ func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithNoLookup(c *gc.C) {
 	}
 
 	_, err := network.MapBindingsWithSpaceNames(initial, nil)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithNoBindings(c *gc.C) {
+func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithNoBindings(c *tc.C) {
 	initial := map[string]string{}
 
 	withSpaceNames, err := network.MapBindingsWithSpaceNames(initial, make(network.SpaceInfos, 0))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(withSpaceNames, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(withSpaceNames, tc.HasLen, 0)
 }
 
-func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithEmptyBindings(c *gc.C) {
+func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithEmptyBindings(c *tc.C) {
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "3",
@@ -65,7 +64,7 @@ func (s *bindingsMockSuite) TestMapBindingsWithSpaceNamesWithEmptyBindings(c *gc
 	}
 
 	_, err := network.MapBindingsWithSpaceNames(initial, make(network.SpaceInfos, 0))
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *bindingsMockSuite) expectedSpaceInfos() network.SpaceInfos {

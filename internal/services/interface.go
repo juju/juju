@@ -217,7 +217,7 @@ type ControllerObjectStoreServices interface {
 	// AgentObjectStore returns the object store service.
 	// Primarily used for agent blob store. Although can be used for other
 	// blob related operations.
-	AgentObjectStore() *objectstoreservice.WatchableService
+	AgentObjectStore() *objectstoreservice.WatchableDrainingService
 }
 
 // ObjectStoreServices provides access to the services required by the

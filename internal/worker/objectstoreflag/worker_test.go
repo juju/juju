@@ -7,11 +7,10 @@ import (
 	"context"
 	time "time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/objectstore"
@@ -23,9 +22,9 @@ type workerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestObjectStoreFlag(c *gc.C) {
+func (s *workerSuite) TestObjectStoreFlag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
@@ -55,10 +54,10 @@ func (s *workerSuite) TestObjectStoreFlag(c *gc.C) {
 	}
 
 	err := workertest.CheckKill(c, w)
-	c.Assert(err, jc.ErrorIs, ErrChanged)
+	c.Assert(err, tc.ErrorIs, ErrChanged)
 }
 
-func (s *workerSuite) TestObjectStoreFlagNoChange(c *gc.C) {
+func (s *workerSuite) TestObjectStoreFlagNoChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
@@ -90,7 +89,7 @@ func (s *workerSuite) TestObjectStoreFlagNoChange(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := NewWorker(context.Background(), Config{
 		ModelUUID:          modeltesting.GenModelUUID(c),
 		ObjectStoreService: s.service,
@@ -98,6 +97,6 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 			return p == objectstore.PhaseDraining
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
