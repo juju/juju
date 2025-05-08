@@ -1092,7 +1092,7 @@ func (s *modelServiceSuite) TestGetUserModelSummary(c *gc.C) {
 		UnitCount:      10,
 	}, nil)
 
-	LastConnection := time.Now()
+	lastConnection := time.Now()
 	userUUID := usertesting.GenUserUUID(c)
 	s.mockControllerState.EXPECT().GetUserModelSummary(gomock.Any(), userUUID, modelUUID).Return(
 		model.UserModelSummary{
@@ -1104,7 +1104,7 @@ func (s *modelServiceSuite) TestGetUserModelSummary(c *gc.C) {
 				},
 			},
 			UserAccess:         corepermission.AddModelAccess,
-			UserLastConnection: &LastConnection,
+			UserLastConnection: &lastConnection,
 		}, nil,
 	)
 
@@ -1114,7 +1114,7 @@ func (s *modelServiceSuite) TestGetUserModelSummary(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(summary, mc, coremodel.UserModelSummary{
 		UserAccess:         corepermission.AddModelAccess,
-		UserLastConnection: &LastConnection,
+		UserLastConnection: &lastConnection,
 		ModelSummary: coremodel.ModelSummary{
 			Name:           "my-awesome-model",
 			UUID:           modelUUID,

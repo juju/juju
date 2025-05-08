@@ -739,7 +739,7 @@ func (s *workerSuite) expectControllerDBUpgrade() {
 }
 
 func (s *workerSuite) expectListModelIDs(models []coremodel.UUID) {
-	s.modelService.EXPECT().ListModelIDs(gomock.Any()).Return(models, nil)
+	s.modelService.EXPECT().ListModelUUIDs(gomock.Any()).Return(models, nil)
 
 }
 

@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accesserrors "github.com/juju/juju/domain/access/errors"
-	usererrors "github.com/juju/juju/domain/access/errors"
 	accessstate "github.com/juju/juju/domain/access/state"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
@@ -615,7 +614,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 }
 
 // TestCreateModelWithNonExistentOwner is here to assert that if we try and make
-// a model with a user/owner that does not exist a [usererrors.NotFound] error
+// a model with a user/owner that does not exist a [accesserrors.NotFound] error
 // is returned.
 func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
@@ -632,12 +631,12 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 			SecretBackend: juju.BackendName,
 		},
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
 }
 
 // TestCreateModelWithRemovedOwner is here to test that if we try and create a
 // new model with an owner that has been removed from the Juju user base that
-// the operation fails with a [usererrors.NotFound] error.
+// the operation fails with a [accesserrors.NotFound] error.
 func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := accessState.RemoveUser(context.Background(), m.userName)
@@ -657,7 +656,7 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 			SecretBackend: juju.BackendName,
 		},
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
 }
 
 // TestCreateModelVerifyPermissionSet is here to test that a permission is
@@ -1506,7 +1505,7 @@ func (m *stateSuite) TestGetUserModelSummary(c *gc.C) {
 }
 
 // TestGetUserModelSummaryUserNotFound tests that asking for a model summary for
-// a user that doesn't exist results in a [usererrors.UserNotFound] error.
+// a user that doesn't exist results in a [accesserrors.UserNotFound] error.
 func (m *stateSuite) TestGetUserModelSummaryUserNotFound(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	_, err := modelSt.GetUserModelSummary(
@@ -1514,7 +1513,7 @@ func (m *stateSuite) TestGetUserModelSummaryUserNotFound(c *gc.C) {
 		usertesting.GenUserUUID(c),
 		m.uuid,
 	)
-	c.Check(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
 }
 
 // TestGetUserModelSummaryModelNotFound tests that asking for a model summary

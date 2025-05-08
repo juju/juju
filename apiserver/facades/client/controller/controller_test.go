@@ -466,7 +466,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherBlocks, gc.HasLen, 2)
 
-	s.mockModelService.EXPECT().ListModelIDs(gomock.Any()).Return(
+	s.mockModelService.EXPECT().ListModelUUIDs(gomock.Any()).Return(
 		[]model.UUID{
 			s.DefaultModelUUID,
 		}, nil,

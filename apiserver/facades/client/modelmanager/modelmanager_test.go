@@ -304,9 +304,9 @@ func (s *modelManagerSuite) expectCreateModel(
 	s.modelService.EXPECT().DefaultModelCloudInfo(
 		gomock.Any()).Return("dummy", "dummy-region", nil)
 	// Get the uuid of the model owner.
-	s.accessService.EXPECT().GetUserByName(
+	s.accessService.EXPECT().GetUserUUIDByName(
 		gomock.Any(), ownerName,
-	).Return(user.User{UUID: ownerUUID}, nil)
+	).Return(ownerUUID, nil)
 
 	// Create model in controller database.
 	s.modelService.EXPECT().CreateModel(gomock.Any(), domainmodel.GlobalModelCreationArgs{
@@ -1042,9 +1042,9 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	s.modelService.EXPECT().DefaultModelCloudInfo(
 		gomock.Any()).Return("dummy", "dummy-region", nil)
 	// Get the uuid of the model owner.
-	s.accessService.EXPECT().GetUserByName(
+	s.accessService.EXPECT().GetUserUUIDByName(
 		gomock.Any(), ownerName,
-	).Return(user.User{UUID: ownerUUID}, nil)
+	).Return(ownerUUID, nil)
 
 	// Create model in controller database.
 	s.modelService.EXPECT().CreateModel(gomock.Any(), domainmodel.GlobalModelCreationArgs{

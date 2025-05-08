@@ -238,11 +238,6 @@ type dbModelCountSummary struct {
 	UnitCount    int64 `db:"unit_count"`
 }
 
-// dbUserName represents a user name.
-type dbUserName struct {
-	Name string `db:"name"`
-}
-
 // dbUserUUID represents a user uuid.
 type dbUserUUID struct {
 	UUID string `db:"uuid"`
