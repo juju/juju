@@ -175,19 +175,6 @@ type ApplicationService interface {
 	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
 	// will be returned.
 	WatchUnitAddressesHash(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
-
-	// GetUnitPublicAddress returns the public address for the specified unit.
-	//
-	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist
-	// - [network.NoAddressError] if the unit has no public address associated
-	GetUnitPublicAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error)
-
-	// GetUnitPrivateAddress returns the private address for the specified unit.
-	//
-	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist
-	GetUnitPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error)
 }
 
 type ResolveService interface {
