@@ -807,7 +807,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSSHServerListener:       sshserver.NewSSHServerListener,
 		})),
 
-		objectStoreFortressName: ifPrimaryController(fortress.Manifold()),
+		objectStoreFortressName: ifController(fortress.Manifold()),
 		objectStoreDrainingFlagName: objectstoreflag.Manifold(objectstoreflag.ManifoldConfig{
 			AgentName:               agentName,
 			ObjectStoreServicesName: objectStoreServicesName,
