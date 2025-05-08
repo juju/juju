@@ -968,10 +968,10 @@ func (s *uniterRelationSuite) TestReadSettingsErrUnauthorized(c *tc.C) {
 		},
 	}
 
-	for i, tc := range errAuthTests {
-		c.Logf("test %d: %s", i, tc.description)
-		tc.arrange()
-		args := params.RelationUnits{RelationUnits: []params.RelationUnit{tc.arg}}
+	for i, testCase := range errAuthTests {
+		c.Logf("test %d: %s", i, testCase.description)
+		testCase.arrange()
+		args := params.RelationUnits{RelationUnits: []params.RelationUnit{testCase.arg}}
 		result, err := s.uniter.ReadSettings(context.Background(), args)
 		if c.Check(err, tc.ErrorIsNil) {
 			if !c.Check(result.Results, tc.HasLen, 1) {
@@ -1046,10 +1046,10 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsErrUnauthorized(c *tc.C) {
 		},
 	}
 
-	for i, tc := range errAuthTests {
-		c.Logf("test %d: %s", i, tc.description)
-		tc.arrange()
-		args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{tc.arg}}
+	for i, testCase := range errAuthTests {
+		c.Logf("test %d: %s", i, testCase.description)
+		testCase.arrange()
+		args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{testCase.arg}}
 		result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
 		if c.Check(err, tc.ErrorIsNil) {
 			if !c.Check(result.Results, tc.HasLen, 1) {

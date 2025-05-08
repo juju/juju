@@ -39,7 +39,7 @@ func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *tc.C) {
 		PodName string
 	}
 
-	for _, tc := range []testcase{
+	for _, testCase := range []testcase{
 		{
 			Params: exec.ExecParams{},
 			Err:    "empty commands not valid",
@@ -73,7 +73,7 @@ func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *tc.C) {
 			Err: `podName "pod/" not valid`,
 		},
 	} {
-		c.Check(tc.Params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, tc.Err)
+		c.Check(testCase.Params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, testCase.Err)
 	}
 
 }

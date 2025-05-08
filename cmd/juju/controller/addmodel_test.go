@@ -255,7 +255,7 @@ func (s *AddModelSuite) TestCredentialsOtherUserCredentialNotFound(c *tc.C) {
 	ctx, err := s.run(c, "test", "--credential", "other/secrets")
 	c.Assert(err, tc.DeepEquals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
-Use
+Use 
 * 'juju add-credential -c' to upload a credential to a controller or
 * 'juju autoload-credentials' to add credentials from local files or
 * 'juju add-model --credential' to use a local credential.

@@ -46,9 +46,9 @@ func (*LXDProfileStatusSuite) TestUpgradeStatusFinished(c *tc.C) {
 			output: false,
 		},
 	}
-	for k, tc := range testCases {
-		c.Logf("running test %d with input %q", k, tc.input)
-		c.Assert(lxdprofile.UpgradeStatusFinished(tc.input), tc.Equals, tc.output)
+	for k, testCase := range testCases {
+		c.Logf("running test %d with input %q", k, testCase.input)
+		c.Assert(lxdprofile.UpgradeStatusFinished(testCase.input), tc.Equals, testCase.output)
 	}
 }
 
@@ -82,8 +82,8 @@ func (*LXDProfileStatusSuite) TestUpgradeStatusTerminal(c *tc.C) {
 			output: true,
 		},
 	}
-	for k, tc := range testCases {
-		c.Logf("running test %d with input %q", k, tc.input)
-		c.Assert(lxdprofile.UpgradeStatusTerminal(tc.input), tc.Equals, tc.output)
+	for k, testCase := range testCases {
+		c.Logf("running test %d with input %q", k, testCase.input)
+		c.Assert(lxdprofile.UpgradeStatusTerminal(testCase.input), tc.Equals, testCase.output)
 	}
 }

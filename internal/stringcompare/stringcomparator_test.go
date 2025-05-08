@@ -31,9 +31,9 @@ func (*StringComparatorSuite) TestLevenshteinDistance(c *tc.C) {
 		{"à", "à", 0, "similar unicode strings"},
 	}
 
-	for _, tc := range testCases {
-		c.Check(stringcompare.LevenshteinDistance(tc.input1, tc.input2), tc.Equals, tc.expectedResult,
-			tc.Commentf("Description: %s | Inputs: '%s', '%s'", tc.desc, tc.input1, tc.input2),
+	for _, testCase := range testCases {
+		c.Check(stringcompare.LevenshteinDistance(testCase.input1, testCase.input2), tc.Equals, testCase.expectedResult,
+			tc.Commentf("Description: %s | Inputs: '%s', '%s'", testCase.desc, testCase.input1, testCase.input2),
 		)
 	}
 }

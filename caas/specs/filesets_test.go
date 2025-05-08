@@ -19,7 +19,7 @@ type validateFileSetTc struct {
 }
 
 func (s *typesSuite) TestValidateFileSetV2(c *tc.C) {
-	for i, tc := range []validateTc{
+	for i, testCase := range []validateTc{
 		{
 			spec: &specs.FileSetV2{
 				Name: "file1",
@@ -34,7 +34,7 @@ func (s *typesSuite) TestValidateFileSetV2(c *tc.C) {
 		},
 	} {
 		c.Logf("#%d: testing FileSetV2.Validate", i)
-		c.Check(tc.spec.Validate(), tc.ErrorMatches, tc.errStr)
+		c.Check(testCase.spec.Validate(), tc.ErrorMatches, testCase.errStr)
 	}
 }
 
@@ -47,7 +47,7 @@ func (s *typesSuite) TestValidateFileSet(c *tc.C) {
 		Path: "/foo/bar",
 	}
 	badMultiSource.EmptyDir = &specs.EmptyDirVol{}
-	for i, tc := range []validateFileSetTc{
+	for i, testCase := range []validateFileSetTc{
 		{
 			spec: &specs.FileSet{
 				Name: "file1",
@@ -73,7 +73,7 @@ func (s *typesSuite) TestValidateFileSet(c *tc.C) {
 		},
 	} {
 		c.Logf("#%d: testing FileSet.Validate", i)
-		c.Check(tc.spec.Validate(), tc.ErrorMatches, tc.errStr)
+		c.Check(testCase.spec.Validate(), tc.ErrorMatches, testCase.errStr)
 	}
 }
 
@@ -88,7 +88,7 @@ type comparerFileSetTc struct {
 }
 
 func (s *typesSuite) TestCompareFileSet(c *tc.C) {
-	for i, tc := range []comparerFileSetTc{
+	for i, testCase := range []comparerFileSetTc{
 		{
 			f1: specs.FileSet{
 				Name:      "file1",
@@ -152,7 +152,7 @@ func (s *typesSuite) TestCompareFileSet(c *tc.C) {
 		},
 	} {
 		c.Logf("#%d: testing FileSet.Equal", i)
-		c.Check(tc.f1.Equal(tc.f2), tc.DeepEquals, tc.equal)
+		c.Check(testCase.f1.Equal(testCase.f2), tc.DeepEquals, testCase.equal)
 	}
 }
 
@@ -167,7 +167,7 @@ type comparerFileSetVolTc struct {
 }
 
 func (s *typesSuite) TestCompareFileSetVolume(c *tc.C) {
-	for i, tc := range []comparerFileSetVolTc{
+	for i, testCase := range []comparerFileSetVolTc{
 		{
 			// exactly same.
 			f1: specs.FileSet{
@@ -254,7 +254,7 @@ func (s *typesSuite) TestCompareFileSetVolume(c *tc.C) {
 		},
 	} {
 		c.Logf("#%d: testing FileSet.EqualVolume", i)
-		c.Check(tc.f1.EqualVolume(tc.f2), tc.DeepEquals, tc.equal)
+		c.Check(testCase.f1.EqualVolume(testCase.f2), tc.DeepEquals, testCase.equal)
 	}
 }
 
@@ -268,7 +268,7 @@ type validateVolumeSourceTc struct {
 }
 
 func (s *typesSuite) TestValidateFileSetVolumeSource(c *tc.C) {
-	for i, tc := range []validateVolumeSourceTc{
+	for i, testCase := range []validateVolumeSourceTc{
 		{
 			spec: &specs.VolumeSource{
 				HostPath: &specs.HostPathVol{},
@@ -309,7 +309,7 @@ func (s *typesSuite) TestValidateFileSetVolumeSource(c *tc.C) {
 		},
 	} {
 		c.Logf("#%d: testing VolumeSource.Validate", i)
-		c.Check(tc.spec.Validate("fakeFileSet"), tc.ErrorMatches, tc.errStr)
+		c.Check(testCase.spec.Validate("fakeFileSet"), tc.ErrorMatches, testCase.errStr)
 	}
 }
 

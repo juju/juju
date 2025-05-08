@@ -34,12 +34,12 @@ func (s *containerAgentSuite) TestMainWrapper(c *tc.C) {
 			return 14
 		},
 	}
-	for _, tc := range []mainWrapperTC{
+	for _, testCase := range []mainWrapperTC{
 		{args: []string{"containeragent"}, code: 11},
 		{args: []string{"juju-exec"}, code: 12},
 		{args: []string{"juju-introspect"}, code: 14},
 	} {
-		c.Check(mainWrapper(factory, tc.args), tc.DeepEquals, tc.code)
+		c.Check(mainWrapper(factory, testCase.args), tc.DeepEquals, testCase.code)
 	}
 }
 

@@ -55,27 +55,27 @@ func (s *CancelSuite) TestRun(c *tc.C) {
 	}
 }
 
-func (s *CancelSuite) runTestCase(c *tc.C, tc cancelTestCase) {
+func (s *CancelSuite) runTestCase(c *tc.C, testCase cancelTestCase) {
 	for _, modelFlag := range s.modelFlags {
 		fakeClient := &fakeAPIClient{
 			timeout:       s.clock.NewTimer(5 * time.Second), // 5 second test wait
-			actionResults: tc.results,
+			actionResults: testCase.results,
 		}
 
 		restore := s.patchAPIClient(fakeClient)
 		defer restore()
 
 		s.subcommand, _ = action.NewCancelCommandForTest(s.store)
-		args := append([]string{modelFlag, "admin"}, tc.args...)
+		args := append([]string{modelFlag, "admin"}, testCase.args...)
 		ctx, err := cmdtesting.RunCommand(c, s.subcommand, args...)
-		if tc.expectError == "" {
+		if testCase.expectError == "" {
 			c.Assert(err, tc.ErrorIsNil)
 		} else {
-			c.Assert(err, tc.ErrorMatches, tc.expectError)
+			c.Assert(err, tc.ErrorMatches, testCase.expectError)
 		}
-		if len(tc.results) > 0 {
+		if len(testCase.results) > 0 {
 			out := &bytes.Buffer{}
-			err := cmd.FormatYaml(out, action.ActionResultsToMap(tc.results))
+			err := cmd.FormatYaml(out, action.ActionResultsToMap(testCase.results))
 			c.Check(err, tc.ErrorIsNil)
 			c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, out.String())
 			c.Check(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")

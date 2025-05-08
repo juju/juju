@@ -84,19 +84,19 @@ func (s *SuperCommandSuite) TestDispatch(c *tc.C) {
 		"defenestrate": "defenestrate the juju",
 	}))
 
-	jc, tc, err := initDefenestrate([]string{"defenestrate"})
+	jc, testCommand, err := initDefenestrate([]string{"defenestrate"})
 	c.Assert(err, tc.IsNil)
-	c.Assert(tc.Option, tc.Equals, "")
+	c.Assert(testCommand.Option, tc.Equals, "")
 	info = jc.Info()
 	c.Assert(info.Name, tc.Equals, "jujutest defenestrate")
 	c.Assert(info.Args, tc.Equals, "<something>")
 	c.Assert(info.Doc, tc.Equals, "defenestrate-doc")
 
-	_, tc, err = initDefenestrate([]string{"defenestrate", "--option", "firmly"})
+	_, testCommand, err = initDefenestrate([]string{"defenestrate", "--option", "firmly"})
 	c.Assert(err, tc.IsNil)
-	c.Assert(tc.Option, tc.Equals, "firmly")
+	c.Assert(testCommand.Option, tc.Equals, "firmly")
 
-	_, tc, err = initDefenestrate([]string{"defenestrate", "gibberish"})
+	_, testCommand, err = initDefenestrate([]string{"defenestrate", "gibberish"})
 	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["gibberish"\]`)
 
 	// --description must be used on it's own.
@@ -110,23 +110,23 @@ func (s *SuperCommandSuite) TestDispatch(c *tc.C) {
 
 func (s *SuperCommandSuite) TestUserAliasDispatch(c *tc.C) {
 	// Can still use the full name.
-	jc, tc, err := initDefenestrateWithAliases(c, []string{"defenestrate"})
+	jc, testCommand, err := initDefenestrateWithAliases(c, []string{"defenestrate"})
 	c.Assert(err, tc.IsNil)
-	c.Assert(tc.Option, tc.Equals, "")
+	c.Assert(testCommand.Option, tc.Equals, "")
 	info := jc.Info()
 	c.Assert(info.Name, tc.Equals, "jujutest defenestrate")
 	c.Assert(info.Args, tc.Equals, "<something>")
 	c.Assert(info.Doc, tc.Equals, "defenestrate-doc")
 
-	jc, tc, err = initDefenestrateWithAliases(c, []string{"def"})
+	jc, testCommand, err = initDefenestrateWithAliases(c, []string{"def"})
 	c.Assert(err, tc.IsNil)
-	c.Assert(tc.Option, tc.Equals, "")
+	c.Assert(testCommand.Option, tc.Equals, "")
 	info = jc.Info()
 	c.Assert(info.Name, tc.Equals, "jujutest defenestrate")
 
-	jc, tc, err = initDefenestrateWithAliases(c, []string{"be-firm"})
+	jc, testCommand, err = initDefenestrateWithAliases(c, []string{"be-firm"})
 	c.Assert(err, tc.IsNil)
-	c.Assert(tc.Option, tc.Equals, "firmly")
+	c.Assert(testCommand.Option, tc.Equals, "firmly")
 	info = jc.Info()
 	c.Assert(info.Name, tc.Equals, "jujutest defenestrate")
 

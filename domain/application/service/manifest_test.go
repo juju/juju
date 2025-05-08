@@ -59,17 +59,17 @@ var manifestTestCases = [...]struct {
 }
 
 func (s *manifestSuite) TestConvertManifest(c *tc.C) {
-	for _, tc := range manifestTestCases {
-		c.Logf("Running test case %q", tc.name)
+	for _, testCase := range manifestTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeManifest(tc.input)
+		result, err := decodeManifest(testCase.input)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(result, tc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, testCase.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, warnings, err := encodeManifest(&result)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(converted, tc.DeepEquals, tc.input)
+		c.Check(converted, tc.DeepEquals, testCase.input)
 		c.Check(warnings, tc.HasLen, 0)
 	}
 }

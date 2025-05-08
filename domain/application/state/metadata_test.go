@@ -405,12 +405,12 @@ var metadataDecodeTestCases = [...]struct {
 }
 
 func (s *metadataSuite) TestDecodeMetadata(c *tc.C) {
-	for _, tc := range metadataDecodeTestCases {
-		c.Logf("Running test case %q", tc.name)
+	for _, testCase := range metadataDecodeTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeMetadata(tc.input, tc.inputArgs)
+		result, err := decodeMetadata(testCase.input, testCase.inputArgs)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(result, tc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, testCase.output)
 	}
 }
 

@@ -364,16 +364,16 @@ var metadataTestCases = [...]struct {
 }
 
 func (s *metadataSuite) TestConvertMetadata(c *tc.C) {
-	for _, tc := range metadataTestCases {
-		c.Logf("Running test case %q", tc.name)
+	for _, testCase := range metadataTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeMetadata(tc.input)
+		result, err := decodeMetadata(testCase.input)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(result, tc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, testCase.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, err := encodeMetadata(&result)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(converted, tc.DeepEquals, tc.input)
+		c.Check(converted, tc.DeepEquals, testCase.input)
 	}
 }

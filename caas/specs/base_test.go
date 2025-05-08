@@ -31,7 +31,7 @@ func (s *baseSuite) TestGetVersion(c *tc.C) {
 		version specs.Version
 	}
 
-	for i, tc := range []testcase{
+	for i, testCase := range []testcase{
 		{
 			strSpec: `
 `[1:],
@@ -56,10 +56,10 @@ version: 3
 			version: specs.Version(3),
 		},
 	} {
-		c.Logf("#%d: testing GetVersion: %d", i, tc.version)
-		v, err := specs.GetVersion(tc.strSpec)
+		c.Logf("#%d: testing GetVersion: %d", i, testCase.version)
+		v, err := specs.GetVersion(testCase.strSpec)
 		c.Check(err, tc.ErrorIsNil)
-		c.Check(v, tc.DeepEquals, tc.version)
+		c.Check(v, tc.DeepEquals, testCase.version)
 	}
 }
 
@@ -145,7 +145,7 @@ func (s *baseSuite) TestValidateServiceSpec(c *tc.C) {
 }
 
 func (s *baseSuite) TestValidateContainerSpec(c *tc.C) {
-	for i, tc := range []validateTc{
+	for i, testCase := range []validateTc{
 		{
 			spec: &specs.ContainerSpec{
 				Name: "container1",
@@ -184,11 +184,11 @@ func (s *baseSuite) TestValidateContainerSpec(c *tc.C) {
 		},
 	} {
 		c.Logf("#%d: testing FileSet.Validate", i)
-		err := tc.spec.Validate()
-		if tc.errStr == "" {
+		err := testCase.spec.Validate()
+		if testCase.errStr == "" {
 			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, tc.ErrorMatches, tc.errStr)
+			c.Check(err, tc.ErrorMatches, testCase.errStr)
 		}
 	}
 }

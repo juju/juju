@@ -41,7 +41,7 @@ func (s *execSuite) TestCopyParamsValidate(c *tc.C) {
 		Params exec.CopyParams
 		Err    string
 	}
-	for _, tc := range []testcase{
+	for _, testCase := range []testcase{
 		{
 			Params: exec.CopyParams{},
 			Err:    "path was missing",
@@ -82,7 +82,7 @@ func (s *execSuite) TestCopyParamsValidate(c *tc.C) {
 			Err: "copy either from pod to host or from host to pod",
 		},
 	} {
-		c.Check(tc.Params.Validate(), tc.ErrorMatches, tc.Err)
+		c.Check(testCase.Params.Validate(), tc.ErrorMatches, testCase.Err)
 	}
 
 	// failed: can not copy from a pod to another pod.

@@ -91,16 +91,16 @@ var configTestCases = [...]struct {
 }
 
 func (s *metadataSuite) TestConvertConfig(c *tc.C) {
-	for _, tc := range configTestCases {
-		c.Logf("Running test case %q", tc.name)
+	for _, testCase := range configTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeConfig(tc.input)
+		result, err := decodeConfig(testCase.input)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(result, tc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, testCase.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, err := encodeConfig(&result)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(converted, tc.DeepEquals, tc.input)
+		c.Check(converted, tc.DeepEquals, testCase.input)
 	}
 }

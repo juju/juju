@@ -137,10 +137,10 @@ func (s *HelpCommandSuite) TestRegisterSuperAliasHelp(c *tc.C) {
 		UsagePrefix: "jujutest",
 		Purpose:     "bar functions",
 	})
-	tc.Register(sub)
+	jc.Register(sub)
 	sub.Register(&simple{name: "foo"})
 
-	tc.RegisterSuperAlias("bar-foo", "bar", "foo", nil)
+	jc.RegisterSuperAlias("bar-foo", "bar", "foo", nil)
 
 	for _, test := range []struct {
 		args []string

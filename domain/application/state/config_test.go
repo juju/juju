@@ -152,12 +152,12 @@ var configTestCases = [...]struct {
 }
 
 func (s *configSuite) TestDecodeConfig(c *tc.C) {
-	for _, tc := range configTestCases {
-		c.Logf("Running test case %q", tc.name)
+	for _, testCase := range configTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeConfig(tc.input)
+		result, err := decodeConfig(testCase.input)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(result, tc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, testCase.output)
 	}
 }
 
@@ -220,16 +220,16 @@ var configTypeTestCases = [...]struct {
 }
 
 func (s *configSuite) TestDecodeThenEncodeDefaultValue(c *tc.C) {
-	for _, tc := range configTypeTestCases {
-		c.Logf("Running test case %q", tc.name)
+	for _, testCase := range configTypeTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		decoded, err := decodeConfigDefaultValue(tc.kind, tc.input)
+		decoded, err := decodeConfigDefaultValue(testCase.kind, testCase.input)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(decoded, tc.DeepEquals, tc.output)
+		c.Check(decoded, tc.DeepEquals, testCase.output)
 
 		encoded, err := encodeConfigDefaultValue(decoded)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(encoded, tc.DeepEquals, tc.input)
+		c.Check(encoded, tc.DeepEquals, testCase.input)
 	}
 }
 
@@ -281,12 +281,12 @@ var encodeConfigTypeTestCases = [...]struct {
 }
 
 func (s *configSuite) TestEncodeDefaultValue(c *tc.C) {
-	for _, tc := range encodeConfigTypeTestCases {
-		c.Logf("Running test case %q", tc.name)
+	for _, testCase := range encodeConfigTypeTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		encoded, err := encodeConfigDefaultValue(tc.input)
+		encoded, err := encodeConfigDefaultValue(testCase.input)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(encoded, tc.DeepEquals, tc.output)
+		c.Check(encoded, tc.DeepEquals, testCase.output)
 	}
 }
 

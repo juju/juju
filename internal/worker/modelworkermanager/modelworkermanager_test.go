@@ -387,7 +387,7 @@ func (s *suite) TestReport(c *tc.C) {
 }
 
 type testFunc func(worker.Worker)
-type killFunc func(*tc.C, worker.Worker)
+type killFunc func(workertest.C, worker.Worker)
 
 func (s *suite) runTest(c *tc.C, test testFunc) {
 	s.runKillTest(c, workertest.CleanKill, test)

@@ -1082,7 +1082,7 @@ func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *tc.C) {
 		"uuid": testing.ModelTag.Id(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	warningTxt := `.* unknown config field %q.*`
+	//warningTxt := `.* unknown config field %q.*`
 
 	for i, test := range emptyAttributeTests {
 		c.Logf("test %d: %v\n", i, fmt.Sprintf(test.message, test.aKey))

@@ -56,17 +56,17 @@ var lxdProfileTestCases = [...]struct {
 }
 
 func (s *metadataSuite) TestConvertLXDProfile(c *tc.C) {
-	for _, tc := range lxdProfileTestCases {
-		c.Logf("Running test case %q", tc.name)
+	for _, testCase := range lxdProfileTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeLXDProfile(tc.input)
+		result, err := decodeLXDProfile(testCase.input)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(result, tc.DeepEquals, tc.output)
+		c.Check(result, tc.DeepEquals, testCase.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, err := encodeLXDProfile(&result)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(converted, tc.DeepEquals, tc.input)
+		c.Check(converted, tc.DeepEquals, testCase.input)
 	}
 }
 

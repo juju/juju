@@ -699,11 +699,11 @@ func (s *ConfigSuite) TestCAASImageRepo(c *tc.C) {
 	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
 	s.PatchValue(&registry.DefaultTransport, mockRoundTripper)
 
-	type tc struct {
+	type test struct {
 		content  string
 		expected string
 	}
-	for _, imageRepo := range []tc{
+	for _, imageRepo := range []test{
 		//used to reset since we don't have a --reset option
 		{content: "", expected: ""},
 		{content: "docker.io/juju-operator-repo", expected: ""},

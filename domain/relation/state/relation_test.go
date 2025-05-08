@@ -553,9 +553,9 @@ func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 		},
 	}
 
-	for i, tc := range cases {
-		identifier1 := s.newEndpointIdentifier(c, tc.input1)
-		identifier2 := s.newEndpointIdentifier(c, tc.input2)
+	for i, testCase := range cases {
+		identifier1 := s.newEndpointIdentifier(c, testCase.input1)
+		identifier2 := s.newEndpointIdentifier(c, testCase.input2)
 
 		// Act
 		var uuid1, uuid2 corerelation.EndpointUUID
@@ -567,11 +567,11 @@ func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 		})
 
 		// Assert
-		c.Logf("test %d of %d: %s", i+1, len(cases), tc.description)
-		if c.Check(err, tc.ErrorIsNil, tc.Commentf("(Assert) %s: unexpected error: %s", tc.description,
+		c.Logf("test %d of %d: %s", i+1, len(cases), testCase.description)
+		if c.Check(err, tc.ErrorIsNil, tc.Commentf("(Assert) %s: unexpected error: %s", testCase.description,
 			errors.ErrorStack(err))) {
-			c.Check(uuid1, tc.Equals, uuids[tc.expected1], tc.Commentf("(Assert) %s", tc.description))
-			c.Check(uuid2, tc.Equals, uuids[tc.expected2], tc.Commentf("(Assert) %s", tc.description))
+			c.Check(uuid1, tc.Equals, uuids[testCase.expected1], tc.Commentf("(Assert) %s", testCase.description))
+			c.Check(uuid2, tc.Equals, uuids[testCase.expected2], tc.Commentf("(Assert) %s", testCase.description))
 		}
 	}
 }
@@ -676,9 +676,9 @@ func (s *addRelationSuite) TestInferEndpointsError(c *tc.C) {
 		},
 	}
 
-	for i, tc := range cases {
-		identifier1 := s.newEndpointIdentifier(c, tc.input1)
-		identifier2 := s.newEndpointIdentifier(c, tc.input2)
+	for i, testCase := range cases {
+		identifier1 := s.newEndpointIdentifier(c, testCase.input1)
+		identifier2 := s.newEndpointIdentifier(c, testCase.input2)
 
 		// Act
 		err := db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -687,8 +687,8 @@ func (s *addRelationSuite) TestInferEndpointsError(c *tc.C) {
 		})
 
 		// Assert
-		c.Logf("test %d of %d: %s", i+1, len(cases), tc.description)
-		c.Check(err, tc.ErrorIs, tc.expectedError, tc.Commentf("(Assert) %s", tc.description))
+		c.Logf("test %d of %d: %s", i+1, len(cases), testCase.description)
+		c.Check(err, tc.ErrorIs, testCase.expectedError, tc.Commentf("(Assert) %s", testCase.description))
 	}
 }
 

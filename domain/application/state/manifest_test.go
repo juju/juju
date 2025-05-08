@@ -204,22 +204,22 @@ var encodeManifestTestCases = [...]struct {
 }
 
 func (s *manifestSuite) TestDecodeManifest(c *tc.C) {
-	for _, tc := range decodeManifestTestCases {
-		c.Logf("Running test case %q", tc.name)
+	for _, testCase := range decodeManifestTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		decoded, err := decodeManifest(tc.input)
+		decoded, err := decodeManifest(testCase.input)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(decoded, tc.DeepEquals, tc.output)
+		c.Check(decoded, tc.DeepEquals, testCase.output)
 	}
 }
 
 func (s *manifestSuite) TestEncodeManifest(c *tc.C) {
-	for _, tc := range encodeManifestTestCases {
-		c.Logf("Running test case %q", tc.name)
+	for _, testCase := range encodeManifestTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		encoded, err := encodeManifest(tc.id, tc.input)
+		encoded, err := encodeManifest(testCase.id, testCase.input)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(encoded, tc.DeepEquals, tc.output)
+		c.Check(encoded, tc.DeepEquals, testCase.output)
 	}
 }
 

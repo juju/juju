@@ -70,9 +70,9 @@ func (*LXDProfileNameSuite) TestProfileNames(c *tc.C) {
 			},
 		},
 	}
-	for k, tc := range testCases {
-		c.Logf("running test %d with input %q", k, tc.input)
-		c.Assert(lxdprofile.FilterLXDProfileNames(tc.input), tc.DeepEquals, tc.output)
+	for k, testCase := range testCases {
+		c.Logf("running test %d with input %q", k, testCase.input)
+		c.Assert(lxdprofile.FilterLXDProfileNames(testCase.input), tc.DeepEquals, testCase.output)
 	}
 }
 
@@ -102,9 +102,9 @@ func (*LXDProfileNameSuite) TestIsValidName(c *tc.C) {
 			output: true,
 		},
 	}
-	for k, tc := range testCases {
-		c.Logf("running test %d with input %q", k, tc.input)
-		c.Assert(lxdprofile.IsValidName(tc.input), tc.Equals, tc.output)
+	for k, testCase := range testCases {
+		c.Logf("running test %d with input %q", k, testCase.input)
+		c.Assert(lxdprofile.IsValidName(testCase.input), tc.Equals, testCase.output)
 	}
 }
 
@@ -135,15 +135,15 @@ func (*LXDProfileNameSuite) TestProfileRevision(c *tc.C) {
 			output: 100,
 		},
 	}
-	for k, tc := range testCases {
-		c.Logf("running test %d of %d with input %q", k, len(testCases), tc.input)
-		obtained, err := lxdprofile.ProfileRevision(tc.input)
-		if tc.err != "" {
-			c.Assert(err, tc.ErrorMatches, tc.err)
+	for k, testCase := range testCases {
+		c.Logf("running test %d of %d with input %q", k, len(testCases), testCase.input)
+		obtained, err := lxdprofile.ProfileRevision(testCase.input)
+		if testCase.err != "" {
+			c.Assert(err, tc.ErrorMatches, testCase.err)
 			continue
 		}
 		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(obtained, tc.Equals, tc.output)
+		c.Assert(obtained, tc.Equals, testCase.output)
 	}
 }
 
@@ -177,15 +177,15 @@ func (*LXDProfileNameSuite) TestProfileReplaceRevision(c *tc.C) {
 			output:   lxdprofile.Name("aaa-zzz", "b312--?123!!bb-x__xx-012-y123yy", 312),
 		},
 	}
-	for k, tc := range testCases {
-		c.Logf("running test %d of %d with input %q", k, len(testCases), tc.input)
-		obtained, err := lxdprofile.ProfileReplaceRevision(tc.input, tc.inputRev)
-		if tc.err != "" {
-			c.Assert(err, tc.ErrorMatches, tc.err)
+	for k, testCase := range testCases {
+		c.Logf("running test %d of %d with input %q", k, len(testCases), testCase.input)
+		obtained, err := lxdprofile.ProfileReplaceRevision(testCase.input, testCase.inputRev)
+		if testCase.err != "" {
+			c.Assert(err, tc.ErrorMatches, testCase.err)
 			continue
 		}
 		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(obtained, tc.Equals, tc.output)
+		c.Assert(obtained, tc.Equals, testCase.output)
 	}
 }
 
@@ -240,14 +240,14 @@ func (*LXDProfileNameSuite) TestMatchProfileNameByAppName(c *tc.C) {
 			output:   lxdprofile.Name("aaa-zzz", "b312--?123!!bb-x__xx-012-y123yy", 123),
 		},
 	}
-	for k, tc := range testCases {
-		c.Logf("running test %d of %d with input %q", k, len(testCases), tc.input)
-		obtained, err := lxdprofile.MatchProfileNameByAppName(tc.input, tc.inputApp)
-		if tc.err != "" {
-			c.Assert(err, tc.ErrorMatches, tc.err)
+	for k, testCase := range testCases {
+		c.Logf("running test %d of %d with input %q", k, len(testCases), testCase.input)
+		obtained, err := lxdprofile.MatchProfileNameByAppName(testCase.input, testCase.inputApp)
+		if testCase.err != "" {
+			c.Assert(err, tc.ErrorMatches, testCase.err)
 			continue
 		}
 		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(obtained, tc.Equals, tc.output)
+		c.Assert(obtained, tc.Equals, testCase.output)
 	}
 }
