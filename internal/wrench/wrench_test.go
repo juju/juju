@@ -121,9 +121,13 @@ func (s *wrenchSuite) TestFileNotOwnedByJujuUser(c *tc.C) {
 
 	c.Assert(wrench.IsActive("foo", "bar"), tc.IsFalse)
 
-	c.Assert(s.logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{{
-		loggo.ERROR,
-		`wrench file for foo/bar has incorrect ownership - ignoring ` + filename,
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+		Level:   loggo.ERROR,
+		Message: `wrench file for foo/bar has incorrect ownership - ignoring ` + filename,
 	}})
 }
 
@@ -138,9 +142,13 @@ func (s *wrenchSuite) TestFilePermsTooLoose(c *tc.C) {
 
 	c.Assert(wrench.IsActive("foo", "bar"), tc.IsFalse)
 
-	c.Assert(s.logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{{
-		loggo.ERROR,
-		`wrench file for foo/bar should only be writable by owner - ignoring ` + filename,
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+		Level:   loggo.ERROR,
+		Message: `wrench file for foo/bar should only be writable by owner - ignoring ` + filename,
 	}})
 }
 
@@ -150,9 +158,13 @@ func (s *wrenchSuite) TestDirectoryNotOwnedByJujuUser(c *tc.C) {
 
 	c.Assert(wrench.IsActive("foo", "bar"), tc.IsFalse)
 
-	c.Assert(s.logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{{
-		loggo.ERROR,
-		`wrench directory has incorrect ownership - wrench functionality disabled \(.+\)`,
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+		Level:   loggo.ERROR,
+		Message: `wrench directory has incorrect ownership - wrench functionality disabled \(.+\)`,
 	}})
 }
 
@@ -178,8 +190,14 @@ func (s *wrenchSuite) TestSetEnabled(c *tc.C) {
 var notJujuUid = uint32(os.Getuid() + 1)
 
 func (s *wrenchSuite) AssertActivationLogged(c *tc.C) {
-	c.Assert(s.logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{
-		{loggo.TRACE, `wrench for foo/bar is active`}})
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+		Level:   loggo.TRACE,
+		Message: `wrench for foo/bar is active`,
+	}})
 }
 
 func (s *wrenchSuite) AssertNothingLogged(c *tc.C) {
@@ -187,11 +205,23 @@ func (s *wrenchSuite) AssertNothingLogged(c *tc.C) {
 }
 
 func (s *wrenchSuite) AssertFileErrorLogged(c *tc.C) {
-	c.Assert(s.logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{
-		{loggo.TRACE, `no wrench data for foo/bar \(ignored\): ` + fileNotFound}})
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+		Level:   loggo.TRACE,
+		Message: `no wrench data for foo/bar \(ignored\): ` + fileNotFound,
+	}})
 }
 
 func (s *wrenchSuite) AssertDirErrorLogged(c *tc.C) {
-	c.Assert(s.logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{
-		{loggo.TRACE, `couldn't read wrench directory: ` + fileNotFound}})
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+		Level:   loggo.TRACE,
+		Message: `couldn't read wrench directory: ` + fileNotFound,
+	}})
 }

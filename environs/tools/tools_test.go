@@ -213,20 +213,25 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *tc.C) {
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
-	messages := []tc.SimpleMessage{
-		{loggo.DEBUG, "reading agent binaries with major version 1"},
-		{loggo.DEBUG, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
-		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
-		{loggo.TRACE, "no os type specified when finding agent binaries, looking for .*"},
+	messages := []loggo.Entry{
+		{Level: loggo.DEBUG, Message: "reading agent binaries with major version 1"},
+		{Level: loggo.DEBUG, Message: "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
+		{Level: loggo.TRACE, Message: "no architecture specified when finding agent binaries, looking for "},
+		{Level: loggo.TRACE, Message: "no os type specified when finding agent binaries, looking for .*"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env, ss)
 	c.Assert(err, tc.ErrorIsNil)
 	for i := 0; i < len(sources); i++ {
 		messages = append(messages,
-			tc.SimpleMessage{loggo.TRACE, `fetchData failed for .*`},
-			tc.SimpleMessage{loggo.DEBUG, `cannot load index .*`})
+			loggo.Entry{Level: loggo.TRACE, Message: `fetchData failed for .*`},
+			loggo.Entry{Level: loggo.DEBUG, Message: `cannot load index .*`})
 	}
-	c.Check(tw.Log(), tc.LogMatches, messages)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(tw.Log(), mc, messages)
 }
 
 var findExactToolsTests = []struct {

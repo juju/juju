@@ -191,7 +191,7 @@ type bootstrapTest struct {
 	args      []string
 	err       string
 	silentErr bool
-	logs      tc.SimpleMessages
+	logs      []loggo.Entry
 	// binary version string for expected tools; if set, no default tools
 	// will be uploaded before running the test.
 	upload               string
@@ -254,7 +254,12 @@ func (s *BootstrapSuite) run(c *tc.C, test bootstrapTest) testhelpers.Restorer {
 	case <-time.After(3 * testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
-	c.Check(s.tw.Log(), tc.LogMatches, test.logs)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(s.tw.Log(), mc, test.logs)
 	// Check for remaining operations/errors.
 	if test.silentErr {
 		c.Assert(err, tc.Equals, cmd.ErrSilent)
@@ -343,13 +348,13 @@ var bootstrapTests = []bootstrapTest{{
 	info:      "conflicting --constraints",
 	args:      []string{"--constraints", "instance-type=foo mem=4G"},
 	silentErr: true,
-	logs:      []tc.SimpleMessage{{loggo.ERROR, `ambiguous constraints: "instance-type" overlaps with "mem"`}},
+	logs:      []loggo.Entry{{Level: loggo.ERROR, Message: `ambiguous constraints: "instance-type" overlaps with "mem"`}},
 }, {
 	info:      "bad model",
 	version:   "1.2.3-ubuntu-amd64",
 	args:      []string{"--config", "broken=Bootstrap Destroy", "--auto-upgrade"},
 	silentErr: true,
-	logs:      []tc.SimpleMessage{{loggo.ERROR, `failed to bootstrap model: dummy.Bootstrap is broken`}},
+	logs:      []loggo.Entry{{Level: loggo.ERROR, Message: `failed to bootstrap model: dummy.Bootstrap is broken`}},
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cores=4"},
@@ -384,8 +389,8 @@ var bootstrapTests = []bootstrapTest{{
 	hostArch:  "amd64",
 	args:      []string{"--build-agent", "--constraints", "arch=ppc64el"},
 	silentErr: true,
-	logs: []tc.SimpleMessage{{
-		loggo.ERROR, `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
+	logs: []loggo.Entry{{
+		Level: loggo.ERROR, Message: `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
 	}},
 }, {
 	info:      "--build-agent rejects non-supported arch",
@@ -393,8 +398,8 @@ var bootstrapTests = []bootstrapTest{{
 	hostArch:  "mips64",
 	args:      []string{"--build-agent"},
 	silentErr: true,
-	logs: []tc.SimpleMessage{{
-		loggo.ERROR, fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
+	logs: []loggo.Entry{{
+		Level: loggo.ERROR, Message: fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
 	}},
 }, {
 	info:     "--build-agent always bumps build number",
@@ -1059,7 +1064,12 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *tc.C) {
 			"Looking for packaged Juju agent version 1.2.0 for amd64\n"+
 			"No packaged binary found, preparing local Juju agent binary\n",
 	)
-	c.Check(s.tw.Log(), tc.LogMatches, []tc.SimpleMessage{{
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(s.tw.Log(), mc, []loggo.Entry{{
 		Level:   loggo.ERROR,
 		Message: "failed to bootstrap model: cannot package bootstrap agent binary: no agent binaries for you",
 	}})
@@ -1317,7 +1327,12 @@ func (s *BootstrapSuite) TestMissingToolsError(c *tc.C) {
 		"--config", "default-base=ubuntu@22.04", "--agent-version=1.8.4",
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
-	c.Check(s.tw.Log(), tc.LogMatches, []tc.SimpleMessage{{
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(s.tw.Log(), mc, []loggo.Entry{{
 		Level:   loggo.ERROR,
 		Message: "failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model",
 	}})
@@ -1347,7 +1362,12 @@ Looking for packaged Juju agent version 1.7.3 for amd64
 No packaged binary found, preparing local Juju agent binary
 `[1:])
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
-	c.Check(s.tw.Log(), tc.LogMatches, []tc.SimpleMessage{{
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(s.tw.Log(), mc, []loggo.Entry{{
 		Level:   loggo.ERROR,
 		Message: "failed to bootstrap model: cannot package bootstrap agent binary: an error",
 	}})
@@ -1384,7 +1404,11 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *tc.C) {
 	}
 	c.Assert(opDestroy.Error, tc.ErrorMatches, "dummy.Destroy is broken")
 
-	c.Check(s.tw.Log(), tc.LogMatches, []tc.SimpleMessage{
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(s.tw.Log(), mc, []loggo.Entry{
 		{Level: loggo.ERROR, Message: "failed to bootstrap model: dummy.Bootstrap is broken"},
 		{Level: loggo.DEBUG, Message: "(error details.*)"},
 		{Level: loggo.DEBUG, Message: "cleaning up after failed bootstrap"},
@@ -1769,8 +1793,13 @@ func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *tc.C) {
 		"--config", configFile2,
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
-	c.Check(s.tw.Log(), tc.LogMatches, []tc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: dummy.Bootstrap is broken"},
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(s.tw.Log(), mc, []loggo.Entry{
+		{Level: loggo.ERROR, Message: "failed to bootstrap model: dummy.Bootstrap is broken"},
 	})
 }
 
@@ -1937,7 +1966,11 @@ You will need to have a credential if you want to bootstrap on a cloud, see
 listed is the default. Add more clouds with 'juju add-cloud'.
 `[1:])
 
-	c.Check(logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(logWriter.Log(), mc, []loggo.Entry{
 		{
 			Level:   loggo.WARNING,
 			Message: `error loading credential for cloud dummy-cloud: expected error`,

@@ -83,8 +83,13 @@ func (s *certSuite) TestAutocertFailure(c *tc.C) {
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, tc.ErrorMatches, expectedErr)
 	})
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
 	// We will log the failure to get the certificate, thus assuring us that we actually tried.
-	c.Assert(entries, tc.LogMatches, tc.SimpleMessages{{
+	c.Assert(entries, mc, []loggo.Entry{{
 		Level:   loggo.DEBUG,
 		Message: `getting certificate for server name "somewhere.example"`,
 	}, {
@@ -110,8 +115,13 @@ func (s *certSuite) TestAutocertNoAutocertDNSName(c *tc.C) {
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, tc.ErrorMatches, expectedErr)
 	})
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
 	// Check that we never logged a failure to get the certificate.
-	c.Assert(entries, tc.Not(tc.LogMatches), tc.SimpleMessages{{
+	c.Assert(entries, tc.Not(mc), []loggo.Entry{{
 		Level:   loggo.ERROR,
 		Message: `.*cannot get autocert certificate.*`,
 	}})

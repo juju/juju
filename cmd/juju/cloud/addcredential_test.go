@@ -240,7 +240,7 @@ func (s *addCredentialSuite) TestAddInteractiveNoRegionSpecified(c *tc.C) {
 
 	ctxt := s.assertCredentialAdded(c, "fred\n\nuser\npassword\n", args, "", "")
 	c.Assert(cmdtesting.Stdout(ctxt), tc.Equals, `
-Enter credential name:
+Enter credential name: 
 Regions
   anotherregion
   specialregion
@@ -248,7 +248,7 @@ Regions
 Select region [any region, credential is not region specific]:
 Using auth-type "userpass".
 
-Enter username:
+Enter username: 
 Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
@@ -261,7 +261,7 @@ func (s *addCredentialSuite) TestAddInteractiveInvalidRegionEntered(c *tc.C) {
 
 	ctxt := s.assertCredentialAdded(c, "fred\nnotknownregion\n\nuser\npassword\n", args, "", "")
 	c.Assert(cmdtesting.Stdout(ctxt), tc.Equals, `
-Enter credential name:
+Enter credential name: 
 Regions
   anotherregion
   specialregion
@@ -271,7 +271,7 @@ Select region [any region, credential is not region specific]: provided region "
 Select region [any region, credential is not region specific]:
 Using auth-type "userpass".
 
-Enter username:
+Enter username: 
 Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
@@ -284,12 +284,12 @@ func (s *addCredentialSuite) TestAddInteractiveRegionSpecified(c *tc.C) {
 
 	ctxt := s.assertCredentialAdded(c, "fred\nuser\npassword\n", args, "specialregion", "specialregion")
 	c.Assert(cmdtesting.Stdout(ctxt), tc.Equals, `
-Enter credential name:
+Enter credential name: 
 User specified region "specialregion", using it.
 
 Using auth-type "userpass".
 
-Enter username:
+Enter username: 
 Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
@@ -387,10 +387,10 @@ func (s *addCredentialSuite) assertAddUserpassCredential(c *tc.C, input string, 
 func (s *addCredentialSuite) TestAddCredentialSingleAuthType(c *tc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
 	expected := `
-Enter credential name:
+Enter credential name: 
 Using auth-type "userpass".
 
-Enter username:
+Enter username: 
 Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
@@ -401,11 +401,11 @@ Credential "fred" added locally for cloud "somecloud".
 func (s *addCredentialSuite) TestAddCredentialRetryOnMissingMandatoryAttribute(c *tc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
 	expected := `
-Enter credential name:
+Enter credential name: 
 Using auth-type "userpass".
 
-Enter username:
-Enter username:
+Enter username: 
+Enter username: 
 Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
@@ -416,13 +416,13 @@ Credential "fred" added locally for cloud "somecloud".
 func (s *addCredentialSuite) TestAddCredentialMultipleAuthType(c *tc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType, jujucloud.AccessKeyAuthType}
 	expected := `
-Enter credential name:
+Enter credential name: 
 Auth Types
   userpass
   access-key
 
 Select auth type [userpass]:
-Enter username:
+Enter username: 
 Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
@@ -444,10 +444,10 @@ func (s *addCredentialSuite) TestAddCredentialInteractive(c *tc.C) {
 	// second line return from the user hitting return when they enter a value
 	// (which is not shown here), but that one does not.
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
-Enter credential name:
+Enter credential name: 
 Using auth-type "interactive".
 
-Enter username:
+Enter username: 
 Credential "bobscreds" added locally for cloud "somecloud".
 
 `[1:])
@@ -496,7 +496,7 @@ func (s *addCredentialSuite) TestAddCredentialInteractiveHiddenFile(c *tc.C) {
 	// second line return from the user hitting return when they enter a value
 	// (which is not shown here), but that one does not.
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
-Enter credential name:
+Enter credential name: 
 Using auth-type "interactive".
 
 Enter the path to the username file:
@@ -530,7 +530,7 @@ func (s *addCredentialSuite) TestAddInvalidCredentialInteractive(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 Enter credential name: Invalid credential name: "credential name with spaces"
 
-Enter credential name:
+Enter credential name: 
 `[1:])
 }
 
@@ -555,13 +555,13 @@ func (s *addCredentialSuite) TestAddCredentialCredSchemaInteractive(c *tc.C) {
 	// second line return from the user hitting return when they enter a value
 	// (which is not shown here), but that one does not.
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
-Enter credential name:
+Enter credential name: 
 Auth Types
   userpass
   interactive
 
 Select auth type [interactive]:
-Enter username:
+Enter username: 
 Credential "bobscreds" added locally for cloud "somecloud".
 
 `[1:])
@@ -590,12 +590,12 @@ func (s *addCredentialSuite) TestAddCredentialReplace(c *tc.C) {
 	}
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
 	expected := `
-Enter credential name:
+Enter credential name: 
 A credential "fred" already exists locally on this client.
 Replace local credential? (y/N):
 Using auth-type "userpass".
 
-Enter username:
+Enter username: 
 Enter password:
 Credential "fred" updated locally for cloud "somecloud".
 
@@ -613,7 +613,7 @@ func (s *addCredentialSuite) TestAddCredentialReplaceDecline(c *tc.C) {
 	}
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
 	expected := `
-Enter credential name:
+Enter credential name: 
 A credential "fred" already exists locally on this client.
 Replace local credential? (y/N):
 `[1:]
@@ -756,7 +756,7 @@ func (s *addCredentialSuite) TestAddGCEFileCredentials(c *tc.C) {
 	ctx, err := s.run(c, stdin, "somecloud", "--client")
 	c.Assert(err, tc.ErrorIsNil)
 	expected := `
-Enter credential name:
+Enter credential name: 
 Using auth-type "jsonfile".
 
 Enter path to the credential file:
@@ -850,7 +850,7 @@ func (s *addCredentialSuite) TestAddRemoteFromFile(c *tc.C) {
 		}, nil
 	}
 	stdout := `
-Enter credential name:
+Enter credential name: 
 Using auth-type "jsonfile".
 
 Enter path to the credential file:
@@ -913,7 +913,7 @@ func (s *addCredentialSuite) TestAddRemoteCloudOnlyNoLocal(c *tc.C) {
 		}, nil
 	}
 	stdout := `
-Enter credential name:
+Enter credential name: 
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project
@@ -942,7 +942,7 @@ func (s *addCredentialSuite) TestAddRemoteNoRemoteCloud(c *tc.C) {
 		},
 	}
 	stdout := `
-Enter credential name:
+Enter credential name: 
 Using auth-type "jsonfile".
 
 Enter path to the credential file:
@@ -968,7 +968,7 @@ Do you want to add a credential to:
     1. client only (--client)
     2. controller "controller" only (--controller controller)
     3. both (--client --controller controller)
-Enter your choice, or type Q|q to quit: Enter credential name:
+Enter your choice, or type Q|q to quit: Enter credential name: 
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project
@@ -996,7 +996,7 @@ func (s *addCredentialSuite) TestAddRemoteCloudControllerOnly(c *tc.C) {
 		}, nil
 	}
 	stdout := `
-Enter credential name:
+Enter credential name: 
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project

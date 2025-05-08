@@ -148,8 +148,7 @@ func (s *CharmDirSuite) TestReadCharmDirNoLogging(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(dir.Version(), tc.Equals, "")
 
-	noLogging := tc.SimpleMessages{}
-	c.Assert(tw.Log(), tc.LogMatches, noLogging)
+	c.Assert(tw.Log(), tc.HasLen, 0)
 }
 
 func (s *CharmDirSuite) TestArchiveToWithSymlinkedRootDir(c *tc.C) {

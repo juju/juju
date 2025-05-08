@@ -17,7 +17,7 @@ var _ = tc.Suite(&clientSuite{})
 
 func (s *clientSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
-- A correct status is returned for the controller model on a pre-seeded scenario.	
+- A correct status is returned for the controller model on a pre-seeded scenario. 	
 - A correct status with the controller timestamp is returned for the controller model on a pre-seeded scenario.
 `)
 }

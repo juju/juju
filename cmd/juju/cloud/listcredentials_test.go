@@ -166,12 +166,15 @@ aws     down*, bob
 azure   azhja
 google  default
 `[1:])
-	c.Check(logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{
-		{
-			Level:   loggo.WARNING,
-			Message: `error loading credential for cloud mycloud: expected error`,
-		},
-	})
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(logWriter.Log(), mc, []loggo.Entry{{
+		Level:   loggo.WARNING,
+		Message: `error loading credential for cloud mycloud: expected error`,
+	}})
 }
 
 func (s *listCredentialsSuite) TestListCredentialsTabularShowsNoSecrets(c *tc.C) {
@@ -386,12 +389,15 @@ client-credentials:
       access-key: key
       secret-key: secret
 `[1:])
-	c.Check(logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{
-		{
-			Level:   loggo.WARNING,
-			Message: `error loading credential for cloud mycloud: expected error`,
-		},
-	})
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(logWriter.Log(), mc, []loggo.Entry{{
+		Level:   loggo.WARNING,
+		Message: `error loading credential for cloud mycloud: expected error`,
+	}})
 }
 
 func (s *listCredentialsSuite) TestListCredentialsYAMLNoSecrets(c *tc.C) {
@@ -477,12 +483,15 @@ func (s *listCredentialsSuite) TestListCredentialsJSONWithSecretsInvalidCredenti
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 {"client-credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}},"down":{"auth-type":"userpass","details":{"password":"password","username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","application-password":"app-secret","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id","private-key":"key"}}}}}}
 `[1:])
-	c.Check(logWriter.Log(), tc.LogMatches, []tc.SimpleMessage{
-		{
-			Level:   loggo.WARNING,
-			Message: `error loading credential for cloud mycloud: expected error`,
-		},
-	})
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(logWriter.Log(), mc, []loggo.Entry{{
+		Level:   loggo.WARNING,
+		Message: `error loading credential for cloud mycloud: expected error`,
+	}})
 }
 
 func (s *listCredentialsSuite) TestListCredentialsJSONNoSecrets(c *tc.C) {

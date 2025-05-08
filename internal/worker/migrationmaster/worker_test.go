@@ -1082,12 +1082,15 @@ func (s *Suite) TestLogTransferReportsProgress(c *tc.C) {
 
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 
-	c.Assert(logWriter.Log()[:3], tc.LogMatches, []string{
-		"successful, transferring logs to target controller \\(0 sent\\)",
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	mc.AddExpr(`_[_].Message`, tc.Equals)
+	c.Assert(logWriter.Log()[:3], mc, []loggo.Entry{
+		{Message: "successful, transferring logs to target controller \\(0 sent\\)"},
 		// This is a bit of a punt, but without accepting a range
 		// we sometimes see this test failing on loaded test machines.
-		"successful, transferring logs to target controller \\([23] sent\\)",
-		"successful, transferr(ing|ed) logs to target controller \\([234] sent\\)",
+		{Message: "successful, transferring logs to target controller \\([23] sent\\)"},
+		{Message: "successful, transferr(ing|ed) logs to target controller \\([234] sent\\)"},
 	})
 }
 
