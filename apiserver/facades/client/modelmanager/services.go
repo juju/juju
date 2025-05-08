@@ -137,14 +137,6 @@ type ModelService interface {
 	// If the user cannot be found it will return
 	//[github.com/juju/juju/domain/model/errors.UserNotFoundOnModel].
 	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error)
-
-	// ListModelSummariesForUser returns a slice of model summaries for a given
-	// user. If no models are found an empty slice is returned.
-	ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error)
-
-	// ListAllModelSummaries returns a slice of model summaries for all models
-	// known to the controller.
-	ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error)
 }
 
 // ModelDefaultsService defines a interface for interacting with the model
