@@ -4,12 +4,12 @@
 **Pebble** is a lightweight, API-driven process supervisor. When Juju provisions resources on a Kubernetes cloud, Pebble is automatically injected into each container, where it acts like an `init` system, and  charm interacts with its workload through the workload container's Pebble.
 
 
-> See more: [Pebble documentation](https://canonical-pebble.readthedocs-hosted.com/en/latest/)
+> See more: [Pebble documentation](https://canonical-pebble.readthedocs-hosted.com/en/latest/), {ref}`Debugging tips <debug-a-k8s-charm-with-a-workload>`
 
 
 ## Pebble notices
 
-In Pebble, a **notice** is an aggregated event to record when custom events happen in the workload container or in Pebble itself. 
+In Pebble, a **notice** is an aggregated event to record when custom events happen in the workload container or in Pebble itself.
 
 > See more: [Pebble | Notices](https://canonical-pebble.readthedocs-hosted.com/en/latest/reference/notices/#)
 

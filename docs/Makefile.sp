@@ -19,6 +19,8 @@ ALLFILES        =  *.rst **/*.rst
 METRICSDIR      = $(SOURCEDIR)/.sphinx/metrics
 REQPDFPACKS     = latexmk fonts-freefont-otf texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended texlive-font-utils texlive-lang-cjk texlive-xetex plantuml xindy tex-gyre dvipng
 CONFIRM_SUDO    ?= N
+SPHINX_HOST     ?= 127.0.0.1
+SPHINX_PORT     ?= 8000
 
 .PHONY: sp-full-help sp-spellcheck-install sp-pa11y-install sp-install sp-run sp-html \
         sp-epub sp-serve sp-clean sp-clean-doc sp-spelling sp-spellcheck sp-linkcheck \
@@ -68,7 +70,7 @@ sp-pa11y-install:
 sp-install: $(VENVDIR)
 
 sp-run: sp-install
-	. $(VENV); $(VENVDIR)/bin/sphinx-autobuild -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
+	. $(VENV); $(VENVDIR)/bin/sphinx-autobuild -b dirhtml "$(SOURCEDIR)" --host $(SPHINX_HOST) --port $(SPHINX_PORT) "$(BUILDDIR)" $(SPHINXOPTS)
 
 # Doesn't depend on $(BUILDDIR) to rebuild properly at every run.
 sp-html: sp-install

@@ -6,7 +6,7 @@
 :maxdepth: 2
 :hidden:
 
-Set up your deployment <set-up-your-deployment>
+Manage your deployment environment <manage-your-deployment-environment>
 Harden your deployment <harden-your-deployment>
 Upgrade your deployment <upgrade-your-deployment>
 Troubleshoot your deployment <troubleshoot-your-deployment>

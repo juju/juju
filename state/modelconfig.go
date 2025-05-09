@@ -165,7 +165,9 @@ func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues,
 }
 
 // UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
-func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface{}, removeAttrs []string, regionSpec *environscloudspec.CloudRegionSpec) error {
+func (st *State) UpdateModelConfigDefaultValues(
+	updateAttrs map[string]interface{}, removeAttrs []string, regionSpec *environscloudspec.CloudRegionSpec,
+) error {
 	var key string
 
 	if regionSpec != nil {
@@ -175,21 +177,26 @@ func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface
 			key = regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region)
 		}
 	} else {
-		// For backwards compatibility default to the model's cloud.
+		// For backwards compatibility, default to the model's cloud.
 		model, err := st.Model()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		key = cloudGlobalKey(model.CloudName())
 	}
+
 	settings, err := readSettings(st.db(), globalSettingsC, key)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "model %q", st.ModelUUID())
 		}
+
 		// We haven't created settings for this region yet.
-		_, err := createSettings(st.db(), globalSettingsC, key, updateAttrs)
-		if err != nil {
+		if err := st.validateModelDefaults(updateAttrs); err != nil {
+			return errors.Trace(err)
+		}
+
+		if _, err := createSettings(st.db(), globalSettingsC, key, updateAttrs); err != nil {
 			return errors.Annotatef(err, "model %q", st.ModelUUID())
 		}
 		return nil
@@ -201,37 +208,46 @@ func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface
 	// applied as a delta to what's on disk; if there has
 	// been a concurrent update, the change may not be what
 	// the user asked for.
-
-	// Attempt to validate against the current old model and the new model, that
-	// should be enough to verify the config against.
-	// If there are additional fields in the config, then this should be fine
-	// and should not throw a validation error.
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	oldConfig, err := model.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	validCfg, err := st.buildAndValidateModelConfig(updateAttrs, removeAttrs, oldConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	validAttrs := validCfg.AllAttrs()
-	for k := range updateAttrs {
-		if v, ok := validAttrs[k]; ok {
-			updateAttrs[k] = v
-		}
-	}
-
 	updateAttrs = config.CoerceForStorage(updateAttrs)
 	settings.Update(updateAttrs)
 	for _, r := range removeAttrs {
 		settings.Delete(r)
 	}
+
+	if err := st.validateModelDefaults(settings.Map()); err != nil {
+		return errors.Trace(err)
+	}
+
 	_, err = settings.Write()
 	return err
+}
+
+// validateModelDefaults does what provider-agnostic validation we can on the
+// input configuration attributes, which are candidates for setting as model
+// defaults.
+// The attributes are not mutated, but we copy them and set some values
+// required for validation to succeed. This is due to validation assuming a
+// fully formed model config, rather than a subset of defaults.
+func (st *State) validateModelDefaults(attrs map[string]any) error {
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	forValidation := copyMap(attrs, nil)
+	forValidation["name"] = m.Name()
+	forValidation["type"] = m.Type()
+	forValidation["uuid"] = m.UUID()
+
+	cfg, err := config.New(config.NoDefaults, forValidation)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := config.Validate(cfg, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // ModelConfigValues returns the config values for the model represented

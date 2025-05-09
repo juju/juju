@@ -431,7 +431,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval ARCH = $(shell go env GOARCH))
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
-	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
+	$(eval TEST_PACKAGES := $(shell make -s test-packages))
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v $(TEST_EXTRA_ARGS)'
 	@TMPDIR=$(TMP) \
 		PATH="${MUSL_BIN_PATH}:${PATH}" \
@@ -443,6 +443,20 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_ENABLED=1 \
 		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v $(TEST_EXTRA_ARGS)
 	@rm -r $(TMP)
+
+.PHONY: test-packages
+test-packages:
+## test-packages: List all the packages that should be tested
+# How this line selects packages to test:
+# 1. List all the project packages with json output.
+# 2. Filter out packages without test files and select their package import path.
+# 3. Sort the list for comm.
+# 4. If there is a list of packages in TEST_PACKAGE_LIST, use it as a filter.
+# 5. Filter out vendored packages.
+# 6. Filter out packages in the generate directory.
+# 7. Filter out packages in the mocks directory.
+# 8. Filter out all mocks.
+	@go list -json $(PROJECT)/... | jq -s -r '[.[] | if (.TestGoFiles | length) + (.XTestGoFiles | length) > 0 then .ImportPath else null end]|del(..|nulls).[]' | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/generate/ | grep -v $(PROJECT)/mocks/ | grep -v mocks
 
 run-go-tests: musl-install-if-missing dqlite-install-if-missing
 ## run-go-tests: Run the unit tests
@@ -673,6 +687,11 @@ microk8s-operator-update: host-install operator-image
 k3s-operator-update: host-install operator-image
 ## k3s-operator-update: Inject the newly built operator image into k3s
 	$(OCI_BUILDER) save "$(shell ${OPERATOR_IMAGE_PATH})" | sudo k3s ctr images import -
+
+.PHONY: ck8s-operator-update
+ck8s-operator-update: host-install operator-image
+## ck8s-operator-update: Inject the newly built operator image into Canonical K8s
+	$(OCI_BUILDER) save "$(shell ${OPERATOR_IMAGE_PATH})" | sudo /snap/k8s/current/bin/ctr -n k8s.io images import -
 
 
 .PHONY: check-k8s-model
