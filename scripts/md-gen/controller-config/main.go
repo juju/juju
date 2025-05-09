@@ -293,6 +293,7 @@ func fillFromConfigType(data map[string]*keyInfo) {
 
 		rename := map[string]string{
 			"NUMACtlPreference": "SetNUMAControlPolicyKey",
+			"SSHHostKey":        "SSHPublicHostKey",
 		}
 		if rn, ok := rename[name]; ok {
 			name = rn

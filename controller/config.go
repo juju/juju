@@ -278,6 +278,9 @@ const (
 	// SSHMaxConcurrentConnections is the maximum number of concurrent SSH
 	// connections to the controller.
 	SSHMaxConcurrentConnections = "ssh-max-concurrent-connections"
+
+	// SSHPublicHostKey is the public host key for the controller's SSH server.
+	SSHPublicHostKey = "ssh-host-key"
 )
 
 // Attribute Defaults
@@ -471,6 +474,7 @@ var (
 		JujudControllerSnapSource,
 		SSHMaxConcurrentConnections,
 		SSHServerPort,
+		SSHPublicHostKey,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -1039,6 +1043,11 @@ func (c Config) SSHServerPort() int {
 // SSH connections that the controller will allow.
 func (c Config) SSHMaxConcurrentConnections() int {
 	return c.intOrDefault(SSHMaxConcurrentConnections, DefaultSSHMaxConcurrentConnections)
+}
+
+// SSHHostKey returns the public host key for the SSH server.
+func (c Config) SSHHostKey() string {
+	return c.asString(SSHPublicHostKey)
 }
 
 // Validate ensures that config is a valid configuration.

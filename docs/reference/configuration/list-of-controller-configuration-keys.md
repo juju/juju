@@ -641,6 +641,14 @@ controller policy turned on.
 **Can be changed after bootstrap:** no
 
 
+(controller-config-ssh-host-key)=
+## `ssh-host-key`
+
+`ssh-host-key` is the public host key for the controller's SSH server.
+
+**Can be changed after bootstrap:** no
+
+
 (controller-config-ssh-max-concurrent-connections)=
 ## `ssh-max-concurrent-connections`
 
