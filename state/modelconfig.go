@@ -185,6 +185,11 @@ func (st *State) UpdateModelConfigDefaultValues(
 		key = cloudGlobalKey(model.CloudName())
 	}
 
+	updateAttrs, err := config.CoerceForStorage(updateAttrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	settings, err := readSettings(st.db(), globalSettingsC, key)
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -208,7 +213,6 @@ func (st *State) UpdateModelConfigDefaultValues(
 	// applied as a delta to what's on disk; if there has
 	// been a concurrent update, the change may not be what
 	// the user asked for.
-	updateAttrs = config.CoerceForStorage(updateAttrs)
 	settings.Update(updateAttrs)
 	for _, r := range removeAttrs {
 		settings.Delete(r)
@@ -416,7 +420,10 @@ func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttr
 		}
 	}
 	// Some values require marshalling before storage.
-	validAttrs = config.CoerceForStorage(validAttrs)
+	validAttrs, err = config.CoerceForStorage(validAttrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	modelSettings.Update(validAttrs)
 	_, ops := modelSettings.settingsUpdateOps()
