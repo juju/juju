@@ -39,6 +39,16 @@ func (p Phase) IsTerminal() bool {
 	}
 }
 
+// IsNotStarted returns true when the phase is not started.
+func (p Phase) IsNotStarted() bool {
+	switch p {
+	case PhaseUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // TransitionTo the new phase if it can transition from the current phase
 // to the new phase.
 func (p Phase) TransitionTo(newPhase Phase) (Phase, error) {
