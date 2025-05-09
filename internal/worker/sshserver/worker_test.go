@@ -31,11 +31,10 @@ func newServerWrapperWorkerConfig(
 	modifier func(*ServerWrapperWorkerConfig),
 ) *ServerWrapperWorkerConfig {
 	cfg := &ServerWrapperWorkerConfig{
-		NewServerWorker:      func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
-		Logger:               l,
-		FacadeClient:         client,
-		NewSSHServerListener: newTestingSSHServerListener,
-		SessionHandler:       &MockSessionHandler{},
+		NewServerWorker: func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
+		Logger:          l,
+		FacadeClient:    client,
+		SessionHandler:  &MockSessionHandler{},
 	}
 
 	modifier(cfg)
@@ -84,16 +83,6 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	)
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	// Test no NewSSHServerListener.
-	cfg = newServerWrapperWorkerConfig(
-		l,
-		mockFacadeClient,
-		func(cfg *ServerWrapperWorkerConfig) {
-			cfg.NewSSHServerListener = nil
-		},
-	)
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
 	// Test no SessionHandler.
 	cfg = newServerWrapperWorkerConfig(
 		l,
@@ -135,8 +124,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
-		NewSSHServerListener: newTestingSSHServerListener,
-		SessionHandler:       &stubSessionHandler{},
+		SessionHandler: &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -218,8 +206,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 			c.Check(swc.Port, gc.Equals, 22)
 			return serverWorker, nil
 		},
-		NewSSHServerListener: newTestingSSHServerListener,
-		SessionHandler:       &stubSessionHandler{},
+		SessionHandler: &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -272,8 +259,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
-		NewSSHServerListener: newTestingSSHServerListener,
-		SessionHandler:       &stubSessionHandler{},
+		SessionHandler: &stubSessionHandler{},
 	}
 	w1, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, gc.IsNil)
@@ -291,8 +277,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
-		NewSSHServerListener: newTestingSSHServerListener,
-		SessionHandler:       &stubSessionHandler{},
+		SessionHandler: &stubSessionHandler{},
 	}
 	w2, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, gc.IsNil)
@@ -332,8 +317,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return &reportWorker{serverWorker}, nil
 		},
-		NewSSHServerListener: newTestingSSHServerListener,
-		SessionHandler:       &stubSessionHandler{},
+		SessionHandler: &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)

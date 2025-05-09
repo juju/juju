@@ -49,10 +49,6 @@ type ServerWorkerConfig struct {
 	// we accept for our ssh server.
 	MaxConcurrentConnections int
 
-	// NewSSHServerListener is a function that returns a listener and a
-	// closeAllowed channel.
-	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
-
 	// FacadeClient holds the SSH server's facade client.
 	FacadeClient FacadeClient
 
@@ -70,9 +66,6 @@ func (c ServerWorkerConfig) Validate() error {
 	}
 	if c.JumpHostKey == "" {
 		return errors.NotValidf("empty JumpHostKey")
-	}
-	if c.NewSSHServerListener == nil {
-		return errors.NotValidf("missing NewSSHServerListener")
 	}
 	if c.FacadeClient == nil {
 		return errors.NotValidf("missing FacadeClient")
@@ -121,7 +114,9 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 		s.config.Listener = listener
 	}
 
-	listener := config.NewSSHServerListener(s.config.Listener, time.Second*10)
+	// Delete the below once https://github.com/gliderlabs/ssh/pull/248
+	// lands and we upgrade to the latest gliderlabs/ssh.
+	closeAllowed, listener := newSyncSSHServerListener(s.config.Listener)
 
 	// Start server.
 	s.tomb.Go(func() error {
@@ -137,11 +132,14 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 		// Keep the listener and the server alive until the tomb is killed.
 		<-s.tomb.Dying()
 
-		// Close the listener, this prevents a race in the test.
-		if err := listener.Close(); err != nil {
-			s.config.Logger.Errorf("failed to close listener: %v", err)
+		// Wait on the closeAllowed (or a 5 second timeout) to indicate when
+		// we can stop the SSH server.
+		// This ensures we don't face a race condition, closing the server
+		// too quickly after it was started, see listener.go for more details.
+		select {
+		case <-closeAllowed:
+		case <-time.After(5 * time.Second):
 		}
-
 		if err := s.Server.Close(); err != nil {
 			// There's really not a lot we can do if the shutdown fails,
 			// either due to a timeout or another reason. So we simply log it.
