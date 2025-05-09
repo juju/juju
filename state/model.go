@@ -81,11 +81,6 @@ type modelDoc struct {
 	ControllerUUID string        `bson:"controller-uuid"`
 	MigrationMode  MigrationMode `bson:"migration-mode"`
 
-	// EnvironVersion is the version of the Environ. As providers
-	// evolve, cloud resource representations may change; the environ
-	// version tracks the current version of that.
-	EnvironVersion int `bson:"environ-version"`
-
 	// Cloud is the name of the cloud to which the model is deployed.
 	Cloud string `bson:"cloud"`
 
@@ -226,9 +221,6 @@ type ModelArgs struct {
 
 	// MigrationMode is the initial migration mode of the model.
 	MigrationMode MigrationMode
-
-	// EnvironVersion is the initial version of the Environ for the model.
-	EnvironVersion int
 
 	// PasswordHash is used by the caas model operator.
 	PasswordHash string
@@ -570,15 +562,6 @@ func (m *Model) LatestToolsVersion() semversion.Number {
 		return semversion.Zero
 	}
 	return v
-}
-
-// EnvironVersion is the version of the model's environ -- the related
-// cloud provider resources. The environ version is used by the controller
-// to identify environ/provider upgrade steps to run for a model's environ
-// after the controller is upgraded, or the model is migrated to another
-// controller.
-func (m *Model) EnvironVersion() int {
-	return m.doc.EnvironVersion
 }
 
 // globalKey returns the global database key for the model.
@@ -1200,7 +1183,6 @@ func createModelOp(
 	name, uuid, controllerUUID, cloudName, cloudRegion, passwordHash string,
 	cloudCredential names.CloudCredentialTag,
 	migrationMode MigrationMode,
-	environVersion int,
 ) txn.Op {
 	doc := &modelDoc{
 		Type:            modelType,
@@ -1210,7 +1192,6 @@ func createModelOp(
 		Owner:           owner.Id(),
 		ControllerUUID:  controllerUUID,
 		MigrationMode:   migrationMode,
-		EnvironVersion:  environVersion,
 		Cloud:           cloudName,
 		CloudRegion:     cloudRegion,
 		CloudCredential: cloudCredential.Id(),

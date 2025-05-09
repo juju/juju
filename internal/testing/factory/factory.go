@@ -132,7 +132,6 @@ type ModelParams struct {
 	CloudRegion             string
 	CloudCredential         names.CloudCredentialTag
 	StorageProviderRegistry storage.ProviderRegistry
-	EnvironVersion          int
 }
 
 type SpaceParams struct {
@@ -358,7 +357,6 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		CloudCredential: params.CloudCredential,
 		Config:          cfg,
 		Owner:           params.Owner.(names.UserTag),
-		EnvironVersion:  params.EnvironVersion,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = factory.pool.StartWorkers(st)

@@ -331,7 +331,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 			CloudName:       stateParams.ControllerCloud.Name,
 			CloudRegion:     stateParams.ControllerCloudRegion,
 			CloudCredential: cloudCredTag,
-			EnvironVersion:  stateParams.ControllerModelEnvironVersion,
 		},
 		StoragePools:              stateParams.StoragePools,
 		CloudName:                 stateParams.ControllerCloud.Name,

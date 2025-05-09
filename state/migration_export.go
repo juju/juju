@@ -99,13 +99,12 @@ func (st *State) exportImpl(cfg ExportConfig, store objectstore.ObjectStore) (de
 	}
 
 	args := description.ModelArgs{
-		Type:           string(dbModel.Type()),
-		Cloud:          dbModel.CloudName(),
-		CloudRegion:    dbModel.CloudRegion(),
-		Owner:          dbModel.Owner().Id(),
-		Config:         make(map[string]interface{}, 0),
-		PasswordHash:   dbModel.doc.PasswordHash,
-		EnvironVersion: dbModel.EnvironVersion(),
+		Type:         string(dbModel.Type()),
+		Cloud:        dbModel.CloudName(),
+		CloudRegion:  dbModel.CloudRegion(),
+		Owner:        dbModel.Owner().Id(),
+		Config:       make(map[string]interface{}, 0),
+		PasswordHash: dbModel.doc.PasswordHash,
 	}
 	if dbModel.LatestToolsVersion() != semversion.Zero {
 		args.LatestToolsVersion = dbModel.LatestToolsVersion().String()

@@ -269,7 +269,6 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs) ([]txn.Op,
 			args.PasswordHash,
 			args.CloudCredential,
 			args.MigrationMode,
-			args.EnvironVersion,
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 	)
