@@ -165,7 +165,7 @@ func (st *State) isCAASController() (bool, error) {
 	if err := m.refresh(st.ControllerModelUUID()); err != nil {
 		return false, errors.Trace(err)
 	}
-	return m.IsControllerModel() && m.Type() == ModelTypeCAAS, nil
+	return m.IsControllerModel() && m.TypeOld() == ModelTypeCAAS, nil
 }
 
 func (st *State) apiHostPortsForCAAS(controllerConfig controller.Config, public bool) (addresses []network.SpaceHostPorts, err error) {

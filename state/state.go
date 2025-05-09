@@ -644,11 +644,11 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		}
 		// Return an invalid entity error if the requested model is not
 		// the current one.
-		if id != model.UUID() {
+		if id != model.UUIDOld() {
 			if utils.IsValidUUIDString(id) {
 				return nil, errors.NotFoundf("model %q", id)
 			}
-			return nil, interrors.Errorf("model-tag %q does not match current model UUID %q", id, model.UUID())
+			return nil, interrors.Errorf("model-tag %q does not match current model UUID %q", id, model.UUIDOld())
 		}
 		return model, nil
 	case names.ActionTag:
@@ -825,7 +825,7 @@ func (st *State) AddApplication(
 	}
 
 	// CAAS charms don't support volume/block storage yet.
-	if model.Type() == ModelTypeCAAS {
+	if model.TypeOld() == ModelTypeCAAS {
 		for name, charmStorage := range args.Charm.Meta().Storage {
 			if storageKind(charmStorage.Type) != storage.StorageKindBlock {
 				continue
@@ -898,7 +898,7 @@ func (st *State) AddApplication(
 		operatorStatusDoc *statusDoc
 	)
 	nowNano := st.clock().Now().UnixNano()
-	switch model.Type() {
+	switch model.TypeOld() {
 	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
@@ -1026,7 +1026,7 @@ func (st *State) AddApplication(
 			}
 			unitNames = append(unitNames, unitName)
 			ops = append(ops, unitOps...)
-			if model.Type() != ModelTypeCAAS {
+			if model.TypeOld() != ModelTypeCAAS {
 				placement := instance.Placement{}
 				if x < len(args.Placement) {
 					placement = *args.Placement[x]
@@ -1490,7 +1490,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newUnit(st, model.Type(), &doc), nil
+	return newUnit(st, model.TypeOld(), &doc), nil
 }
 
 // UnitsFor returns the units placed in the given machine id.

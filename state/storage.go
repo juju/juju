@@ -95,7 +95,7 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 	sb := &storageBackend{
 		mb:              st,
 		settings:        NewStateSettings(st),
-		modelType:       m.Type(),
+		modelType:       m.TypeOld(),
 		application:     st.Application,
 		allApplications: st.AllApplications,
 		unit:            st.Unit,
