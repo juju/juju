@@ -414,15 +414,14 @@ type setCharmRelation struct {
 // relationInfo represents metadata and configuration details for an existing
 // relation within an application.
 type relationInfo struct {
-	ApplicationName string `db:"application_name"`
-	CharmUUID       string `db:"charm_uuid"`
-	Name            string `db:"name"`
-	Role            string `db:"role"`
-	Interface       string `db:"interface"`
-	Optional        bool   `db:"optional"`
-	Capacity        int    `db:"capacity"`
-	Scope           string `db:"scope"`
-	Count           int    `db:"count"`
+	CharmUUID string `db:"charm_uuid"`
+	Name      string `db:"name"`
+	Role      string `db:"role"`
+	Interface string `db:"interface"`
+	Optional  bool   `db:"optional"`
+	Capacity  int    `db:"capacity"`
+	Scope     string `db:"scope"`
+	Count     int    `db:"count"`
 }
 
 // charmExtraBinding is used to get the extra bindings of a charm.

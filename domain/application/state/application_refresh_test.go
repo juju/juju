@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -130,7 +131,16 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	})
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, `would break relation my-app:established`)
+	var obtained *internal.NotImplementedRelationError
+	c.Assert(errors.As(err, &obtained), gc.Equals, true)
+	c.Assert(obtained, gc.DeepEquals, &internal.NotImplementedRelationError{Relation: internalcharm.Relation{
+		Name:      "established",
+		Role:      internalcharm.RoleProvider,
+		Interface: "not-implemented",
+		Optional:  true,
+		Limit:     42,
+		Scope:     internalcharm.ScopeContainer,
+	}})
 }
 
 // TestSetApplicationCharmErrorWithEstablishedRelationExceedLimits verifies
@@ -170,8 +180,15 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	})
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches,
-		".*limit of 1 for my-app:established.*established relations[^0-9]+2[^0-9]+")
+	var obtained *internal.RelationQuotaLimitExceededError
+	c.Assert(errors.As(err, &obtained), gc.Equals, true)
+	c.Assert(obtained, gc.DeepEquals, &internal.RelationQuotaLimitExceededError{Relation: internalcharm.Relation{
+		Name:      "established",
+		Role:      internalcharm.RoleProvider,
+		Interface: "limited",
+		Limit:     1,
+		Scope:     internalcharm.ScopeGlobal,
+	}, Count: 2})
 }
 
 // createApplication creates a new application in the state with the provided arguments and returns its unique ID.
