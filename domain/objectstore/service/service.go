@@ -55,16 +55,21 @@ type State interface {
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error
 
+	// InitialWatchStatement returns the table and the initial watch statement
+	// for the persistence metadata.
+	InitialWatchStatement() (string, string)
+}
+
+// DrainingState describes retrieval and persistence methods for the draining
+// phase of the object store.
+type DrainingState interface {
+	State
 	// GetActiveDrainingPhase returns the active draining phase of the object
 	// store.
 	GetActiveDrainingPhase(ctx context.Context) (string, objectstore.Phase, error)
 
 	// SetDrainingPhase sets the phase of the object store to draining.
 	SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error
-
-	// InitialWatchStatement returns the table and the initial watch statement
-	// for the persistence metadata.
-	InitialWatchStatement() (string, string)
 
 	// InitialWatchDrainingTable returns the table for the draining phase.
 	InitialWatchDrainingTable() string
@@ -260,11 +265,12 @@ func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 // and the ability to create watchers and drain the object store.
 type WatchableDrainingService struct {
 	WatchableService
+	st DrainingState
 }
 
 // NewWatchableDrainingService returns a new service reference wrapping the
 // input state.
-func NewWatchableDrainingService(st State, watcherFactory WatcherFactory) *WatchableDrainingService {
+func NewWatchableDrainingService(st DrainingState, watcherFactory WatcherFactory) *WatchableDrainingService {
 	return &WatchableDrainingService{
 		WatchableService: WatchableService{
 			Service: Service{
@@ -272,6 +278,7 @@ func NewWatchableDrainingService(st State, watcherFactory WatcherFactory) *Watch
 			},
 			watcherFactory: watcherFactory,
 		},
+		st: st,
 	}
 }
 
