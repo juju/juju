@@ -28,27 +28,3 @@ SELECT
 FROM object_store_metadata AS osm
 LEFT JOIN object_store_metadata_path AS osmp
     ON osm.uuid = osmp.metadata_uuid;
-
-CREATE TABLE object_store_drain_phase_type (
-    id INT PRIMARY KEY,
-    type TEXT
-);
-
-CREATE UNIQUE INDEX idx_object_store_drain_phase_type_type
-ON object_store_drain_phase_type (type);
-
-INSERT INTO object_store_drain_phase_type VALUES
-(0, 'unknown'),
-(1, 'draining'),
-(2, 'completed'),
-(4, 'error');
-
-CREATE TABLE object_store_drain_info (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    phase_type_id INT NOT NULL
-);
-
--- A unique constraint over a constant index ensures only 1 entry matching the 
--- condition can exist. This states, that multiple draining can exist if they're
--- not active, but only one active drain can exist.
-CREATE UNIQUE INDEX idx_singleton_active_drain ON object_store_drain_info ((1)) WHERE phase_type_id < 2;
