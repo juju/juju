@@ -100,5 +100,5 @@ func GeObjectStoreServices(getter dependency.Getter, name string) (ObjectStoreSe
 
 // IsTerminal checks if the phase is a terminal phase.
 func IsTerminal(phase objectstore.Phase) bool {
-	return phase.IsTerminal()
+	return phase.IsNotStarted() || phase.IsTerminal()
 }
