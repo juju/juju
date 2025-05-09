@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -641,11 +640,9 @@ func (s *Service) GetModelByNameAndOwner(ctx context.Context, name string, owner
 // getWatchActivatedModelsMapper returns a mapper function that filters change events to
 // include only those associated with activated models.
 // The subset of changes returned is maintained in the same order as they are received.
-func getWatchActivatedModelsMapper(st State) func(ctx context.Context, db database.TxnRunner,
-	changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+func getWatchActivatedModelsMapper(st State) eventsource.Mapper {
 
-	return func(ctx context.Context, db database.TxnRunner,
-		changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 
 		modelUUIDs := make([]coremodel.UUID, len(changes))
 		for i, change := range changes {
@@ -734,7 +731,7 @@ func watchModelCloudCredential(
 	lastSeenCredentialUUID.Store(&credentialUUID)
 
 	// The mapper is used to filter out any model events where the credential UUID has not changed.
-	mapper := func(ctx context.Context, txnRunner database.TxnRunner, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// Get the current model credential UUID.
 		_, currentModelCredentialUUID, err := st.GetModelCloudAndCredential(ctx, modelUUID)
 		if err != nil {

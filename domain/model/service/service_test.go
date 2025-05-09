@@ -1089,7 +1089,7 @@ func (s *serviceSuite) TestWatchActivatedModelsMapper(c *gc.C) {
 	mapper := getWatchActivatedModelsMapper(s.mockState)
 
 	// Use service mapper to retrieve change events containing only model UUIDs of activated models.
-	retrievedChangeEvents, err := mapper(ctx, s.ControllerTxnRunner(), inputChangeEvents)
+	retrievedChangeEvents, err := mapper(ctx, inputChangeEvents)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(retrievedChangeEvents, gc.DeepEquals, expectedChangeEvents)
 }

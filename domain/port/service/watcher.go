@@ -11,7 +11,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
@@ -109,7 +108,7 @@ func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, a
 // endpointToMachineMapper maps endpoint uuids to the machine names that host
 // the endpoint.
 func (s *WatchableService) endpointToMachineMapper(
-	ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
+	ctx context.Context, events []changestream.ChangeEvent,
 ) ([]changestream.ChangeEvent, error) {
 	if len(events) == 0 {
 		return nil, nil
@@ -168,7 +167,7 @@ type indexed struct {
 // corresponding to the given application
 func (s *WatchableService) filterForApplication(applicationUUID coreapplication.ID) eventsource.Mapper {
 	return func(
-		ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
+		ctx context.Context, events []changestream.ChangeEvent,
 	) ([]changestream.ChangeEvent, error) {
 		unitUUIDs, err := transform.SliceOrErr(events, func(e changestream.ChangeEvent) (unit.UUID, error) {
 			return unit.ParseID(e.Changed())

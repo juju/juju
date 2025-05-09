@@ -1164,6 +1164,43 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 	})
 }
 
+// GetNamesForUUIDs returns a map of machine UUIDs to machine Names based
+// on the given machine UUIDs.
+// [machineerrors.MachineNotFound] will be returned if the machine does not
+// exist.
+func (st *State) GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (map[string]machine.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Errorf("cannot get database find names for machines %q: %w", machineUUIDs, err)
+	}
+
+	type nameAndUUID availabilityZoneName
+	type uuids []string
+
+	stmt, err := st.Prepare(`
+SELECT &nameAndUUID.*
+FROM   machine
+WHERE  machine.uuid IN ($uuids[:])`, nameAndUUID{}, uuids{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var namesAndUUIDs []nameAndUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, uuids(machineUUIDs)).GetAll(&namesAndUUIDs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		} else if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
+		return nil
+	})
+
+	return transform.SliceToMap(namesAndUUIDs, func(n nameAndUUID) (string, machine.Name) {
+		return n.UUID, machine.Name(n.Name)
+	}), err
+}
+
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching
 // machine cloud instance changes.
 func (*State) NamespaceForWatchMachineCloudInstance() string {

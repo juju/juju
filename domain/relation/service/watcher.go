@@ -166,7 +166,7 @@ func (w *principalLifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 	// relationsIgnored is the set of relations which are not relevant to
 	// this unit. No need to evaluate them again.
 	relationsIgnored := set.NewStrings()
-	return func(ctx context.Context, txn database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// If there are no changes, return no changes.
 		if len(changes) == 0 {
 			return nil, nil
@@ -323,7 +323,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 	// relationsIgnored is the set of relations which are not relevant to
 	// this unit. No need to evaluate them again.
 	relationsIgnored := set.NewStrings()
-	return func(ctx context.Context, txn database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// If there are no changes, return no changes.
 		if len(changes) == 0 {
 			return nil, nil
