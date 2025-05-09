@@ -201,6 +201,7 @@ func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	// feature flag is enabled.
 	if featureflag.Enabled(feature.SSHJump) {
 		f.BoolVar(&c.jump, "jump", false, "Proxy SSH through the Juju controller")
+		c.sshJump.SetFlags(f)
 	}
 	// the container flag is top-level because it has to be propagated to
 	// both sshContainer and sshJump provider.
