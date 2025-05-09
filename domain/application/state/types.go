@@ -189,6 +189,7 @@ type cloudContainerPort struct {
 type ipAddress struct {
 	AddressUUID  string `db:"uuid"`
 	Value        string `db:"address_value"`
+	NetNodeUUID  string `db:"net_node_uuid"`
 	ConfigTypeID int    `db:"config_type_id"`
 	TypeID       int    `db:"type_id"`
 	OriginID     int    `db:"origin_id"`
@@ -1205,6 +1206,10 @@ type machineNameWithMachineUUID struct {
 
 type netNodeUUID struct {
 	NetNodeUUID string `db:"uuid"`
+}
+
+type unitNetNodeUUID struct {
+	NetNodeUUID string `db:"net_node_uuid"`
 }
 
 type machinePlacement struct {

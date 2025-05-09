@@ -14,8 +14,11 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
+	controllernode "github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 type serviceSuite struct {
@@ -141,4 +144,73 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotFound(c *gc.C) {
 		ver,
 	)
 	c.Assert(err, jc.ErrorIs, controllernodeerrors.NotFound)
+}
+
+func (s *serviceSuite) TestSetAPIAddressesStateError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	controllerID := "1"
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, gomock.Any()).Return(internalerrors.New("boom"))
+
+	err := svc.SetAPIAddresses(context.Background(), controllerID, network.SpaceHostPorts{{}}, network.SpaceInfo{})
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestSetAPIAddresses(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	controllerID := "1"
+
+	controllerApiAddrs := []controllernode.APIAddress{
+		{
+			Address: "10.0.0.1:17070",
+			IsAgent: true,
+		},
+		{
+			Address: "10.0.0.2:17070",
+			IsAgent: false,
+		},
+	}
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, controllerApiAddrs).Return(nil)
+
+	addrs := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+				},
+				SpaceID: "space0-uuid",
+			},
+			NetPort: network.NetPort(17070),
+		},
+		{
+			// This address is in a different space.
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.2",
+				},
+				SpaceID: "space1-uuid",
+			},
+			NetPort: network.NetPort(17070),
+		},
+	}
+	err := svc.SetAPIAddresses(context.Background(), controllerID, addrs, network.SpaceInfo{
+		ID:   "space0-uuid",
+		Name: "space0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetControllerIDs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	s.state.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1", "2"}, nil)
+
+	controllerIDs, err := svc.GetControllerIDs(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerIDs, gc.HasLen, 2)
+	c.Check(controllerIDs, gc.DeepEquals, []string{"1", "2"})
 }

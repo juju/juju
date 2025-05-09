@@ -3572,8 +3572,8 @@ func (s *applicationStateSuite) TestGetAddressesHash(c *gc.C) {
 		if err != nil {
 			return err
 		}
-		insertIPAddress := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address-uuid", "lld-uuid", "10.0.0.1", 0, 0, 0, 0, "subnet-uuid")
+		insertIPAddress := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address-uuid", "lld-uuid", "10.0.0.1", "net-node-uuid", 0, 0, 0, 0, "subnet-uuid")
 		if err != nil {
 			return err
 		}
@@ -3617,8 +3617,8 @@ func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *gc.C
 		if err != nil {
 			return err
 		}
-		insertIPAddress := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address-uuid", "lld-uuid", "10.0.0.1", 0, 0, 0, 0, "subnet-uuid")
+		insertIPAddress := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address-uuid", "lld-uuid", "10.0.0.1", "net-node-uuid", 0, 0, 0, 0, "subnet-uuid")
 		if err != nil {
 			return err
 		}

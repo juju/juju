@@ -3,7 +3,11 @@
 
 package eventsource
 
-import "github.com/juju/juju/core/changestream"
+import (
+	"slices"
+
+	"github.com/juju/juju/core/changestream"
+)
 
 // FilterOption is a filter option for the FilterWatcher.
 type FilterOption interface {
@@ -26,10 +30,18 @@ type Predicate func(changed string) bool
 // AlwaysPredicate is a predicate that accepts all change events.
 var AlwaysPredicate Predicate = func(string) bool { return true }
 
-// EqualsPredicate returns a predicate that only accepts change events whose value
-// is equal to the supplied value.
+// EqualsPredicate returns a predicate that only accepts change events whose
+// value is equal to the supplied value.
 func EqualsPredicate(value string) Predicate {
 	return func(s string) bool { return s == value }
+}
+
+// ContainsPredicate returns a predicate that only accepts change events whose
+// value is contained in the supplied values.
+func ContainsPredicate(values []string) Predicate {
+	return func(s string) bool {
+		return slices.Contains(values, s)
+	}
 }
 
 type filter struct {

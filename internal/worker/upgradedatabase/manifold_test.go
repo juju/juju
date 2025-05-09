@@ -111,7 +111,7 @@ func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.domainServices.EXPECT().Upgrade().Return(&upgradeservice.WatchableService{}).AnyTimes()
 	s.domainServices.EXPECT().Model().Return(&modelservice.WatchableService{}).AnyTimes()
-	s.domainServices.EXPECT().ControllerNode().Return(&controllernodeservice.Service{}).AnyTimes()
+	s.domainServices.EXPECT().ControllerNode().Return(&controllernodeservice.WatchableService{}).AnyTimes()
 
 	return ctrl
 }

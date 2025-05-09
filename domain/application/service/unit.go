@@ -154,6 +154,15 @@ type UnitState interface {
 
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
 	GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error)
+
+	// GetUnitNetNodes returns the net node UUIDs associated with the specified
+	// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
+	// the union of the net nodes of the cloud service (if any) and the net node
+	// of the unit.
+	//
+	// The following errors may be returned:
+	// - [uniterrors.UnitNotFound] if the unit does not exist
+	GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]string, error)
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -564,23 +573,36 @@ func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 // - [uniterrors.UnitNotFound] if the unit does not exist
 // - [network.NoAddressError] if the unit has no public address associated
 func (s *Service) GetUnitPublicAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	publicAddresses, err := s.GetUnitPublicAddresses(ctx, unitName)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
+	return publicAddresses[0], nil
+}
+
+// GetUnitPublicAddresses returns all public addresses for the specified unit.
+//
+// The following errors may be returned:
+// - [uniterrors.UnitNotFound] if the unit does not exist
+// - [network.NoAddressError] if the unit has no public address associated
+func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName coreunit.Name) (network.SpaceAddresses, error) {
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 	addrs, err := s.st.GetUnitAddresses(ctx, unitUUID)
 	if err != nil {
-		return network.SpaceAddress{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	// First match the scope, then sort by origin.
 	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
 	if len(matchedAddrs) == 0 {
-		return network.SpaceAddress{}, network.NoAddressError(string(network.ScopePublic))
+		return nil, network.NoAddressError(string(network.ScopePublic))
 	}
 	sort.Slice(matchedAddrs, matchedAddrs.Less)
 
-	return matchedAddrs[0], nil
+	return matchedAddrs, nil
 }
 
 // GetUnitPrivateAddress returns the private address for the specified unit.
@@ -611,4 +633,24 @@ func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName coreunit.N
 	sort.Slice(matchedAddrs, matchedAddrs.Less)
 
 	return matchedAddrs[0], nil
+}
+
+// GetUnitNetNodes returns the net node UUIDs associated with the specified
+// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
+// the union of the net nodes of the cloud service (if any) and the net node
+// of the unit.
+//
+// The following errors may be returned:
+// - [uniterrors.UnitNotFound] if the unit does not exist
+func (s *Service) GetUnitNetNodes(ctx context.Context, unitName coreunit.Name) ([]string, error) {
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	netNodeUUIDs, err := s.st.GetUnitNetNodes(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return netNodeUUIDs, nil
 }
