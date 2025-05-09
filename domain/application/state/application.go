@@ -2029,6 +2029,53 @@ func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID core
 	}, nil
 }
 
+// GetApplicationConfigWithDefaults returns the application config attributes
+// for the configuration, or the charm default value if the config attribute is
+// not set.
+//
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+	var configs []applicationConfig
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkApplicationNotDead(ctx, tx, appID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		configs, err = st.getApplicationConfigWithDefaults(ctx, tx, ident)
+		if err != nil {
+			return errors.Errorf("querying application config: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("querying application config: %w", err)
+	}
+
+	result := make(map[string]application.ApplicationConfig)
+	for _, c := range configs {
+		typ, err := decodeConfigType(c.Type)
+		if err != nil {
+			return nil, errors.Errorf("decoding config type: %w", err)
+		}
+
+		result[c.Key] = application.ApplicationConfig{
+			Type:  typ,
+			Value: c.Value,
+		}
+	}
+
+	return result, nil
+}
+
 // GetApplicationTrustSetting returns the application trust setting.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
@@ -3065,6 +3112,29 @@ AND charm_uuid = $charmID.uuid;
 		return applicationerrors.ApplicationHasDifferentCharm
 	}
 	return nil
+}
+
+func (st *State) getApplicationConfigWithDefaults(ctx context.Context, tx *sqlair.TX, appID applicationID) ([]applicationConfig, error) {
+	configStmt, err := st.Prepare(`
+SELECT 
+	cc.key AS &applicationConfig.key,
+	COALESCE(ac.value, cc.default_value) AS &applicationConfig.value,
+	cct.name AS &applicationConfig.type
+FROM application AS a
+JOIN charm_config AS cc ON a.charm_uuid = cc.charm_uuid
+JOIN charm_config_type AS cct ON cc.type_id = cct.id
+LEFT JOIN application_config AS ac ON cc.key = ac.key AND cc.type_id = ac.type_id
+WHERE a.uuid = $applicationID.uuid;
+`, applicationConfig{}, appID)
+	if err != nil {
+		return nil, errors.Errorf("preparing query for application config: %w", err)
+	}
+
+	var results []applicationConfig
+	if err := tx.Query(ctx, configStmt, appID).GetAll(&results); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("querying application config: %w", err)
+	}
+	return results, nil
 }
 
 func (st *State) getApplicationConfig(ctx context.Context, tx *sqlair.TX, appID applicationID) ([]applicationConfig, error) {
