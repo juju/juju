@@ -18,9 +18,11 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/config"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -54,6 +56,8 @@ func (ctrl *Controller) Import(
 	}
 
 	args := ModelArgs{
+		Name:          model.Config()[config.NameKey].(string),
+		UUID:          coremodel.UUID(modelUUID),
 		Type:          modelType,
 		CloudName:     model.Cloud(),
 		CloudRegion:   model.CloudRegion(),

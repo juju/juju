@@ -338,6 +338,8 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 
 	// TODO: remove model creation from the mongo state.
 	_, st, err := m.state.NewModel(state.ModelArgs{
+		Name:            modelInfo.Name,
+		UUID:            modelUUID,
 		Type:            state.ModelType(modelInfo.Type),
 		CloudName:       cloudTag.Id(),
 		CloudRegion:     modelInfo.CloudRegion,
