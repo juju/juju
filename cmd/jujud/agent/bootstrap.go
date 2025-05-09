@@ -20,6 +20,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -443,15 +444,22 @@ func getAddressesForMongo(
 // ensureSSHServerHostKey ensures that either a) a user has provided a host key
 // or b) one has been generated for the controller.
 func ensureSSHServerHostKey(args *instancecfg.StateInitializationParams) error {
-	if args.SSHServerHostKey != "" {
-		return nil
+	if args.SSHServerHostKey == "" {
+		// If the user didn't set a host key, generate one and store it in StateInitializationParams.
+		hostKey, err := pkissh.NewMarshalledED25519()
+		if err != nil {
+			return errors.Annotatef(err, "failed to ensure ssh server host key")
+		}
+		args.SSHServerHostKey = string(hostKey)
 	}
-	// Generate the embedded SSH server host key and store it within StateInitializationParams.
-	hostKey, err := pkissh.NewMarshalledED25519()
+	// Store the public part of the host key in the controller config.
+	privateKey, err := gossh.ParsePrivateKey([]byte(args.SSHServerHostKey))
 	if err != nil {
-		return errors.Annotatef(err, "failed to ensure ssh server host key")
+		return errors.Annotatef(err, "failed to parse ssh server host key")
 	}
-	args.SSHServerHostKey = string(hostKey)
+	authorizedKey := string(gossh.MarshalAuthorizedKey(privateKey.PublicKey()))
+	args.ControllerConfig[controller.SSHPublicHostKey] = authorizedKey
+
 	return nil
 }
 
