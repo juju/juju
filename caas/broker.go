@@ -157,6 +157,8 @@ type ServiceParams struct {
 
 	// ImageDetails is the docker registry URL and auth details for the juju init container image.
 	ImageDetails resources.DockerImageDetails
+
+	StorageID string
 }
 
 // DeploymentState is returned by the OperatorExists call.

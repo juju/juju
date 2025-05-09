@@ -1101,6 +1101,8 @@ type DeployFromRepositoryArg struct {
 	Storage map[string]storage.Constraints
 	//  Trust allows charm to run hooks that require access credentials
 	Trust bool
+	// StorageID is used by CAAS application to specify the storage ID and re-use the existing PVC.
+	StorageID string
 }
 
 // DeployFromRepository deploys a charm from a repository based on the
@@ -1188,5 +1190,6 @@ func paramsFromDeployFromRepositoryArg(arg DeployFromRepositoryArg) params.Deplo
 		Resources:        arg.Resources,
 		Storage:          arg.Storage,
 		Trust:            arg.Trust,
+		StorageID:        arg.StorageID,
 	}
 }

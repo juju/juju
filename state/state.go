@@ -1141,6 +1141,7 @@ type AddApplicationArgs struct {
 	Placement         []*instance.Placement
 	Constraints       constraints.Value
 	Resources         map[string]string
+	StorageID         string
 }
 
 // AddApplication creates a new application, running the supplied charm, with the
@@ -1313,6 +1314,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		DesiredScale: scale,
 		Placement:    placement,
 		HasResources: hasResources,
+		StorageID:    args.StorageID,
 	}
 
 	app := newApplication(st, appDoc)

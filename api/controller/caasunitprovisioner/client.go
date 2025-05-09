@@ -238,6 +238,7 @@ type ProvisioningInfo struct {
 	Tags                 map[string]string
 	ImageDetails         resources.DockerImageDetails
 	CharmModifiedVersion int
+	StorageID            string
 }
 
 // ProvisioningInfo returns the provisioning info for the specified CAAS
@@ -267,6 +268,7 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 		Tags:                 result.Tags,
 		CharmModifiedVersion: result.CharmModifiedVersion,
 		ImageDetails:         params.ConvertDockerImageInfo(result.ImageRepo),
+		StorageID:            result.StorageID,
 	}
 	if result.DeploymentInfo != nil {
 		info.DeploymentInfo = DeploymentInfo{
