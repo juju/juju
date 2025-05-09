@@ -31,7 +31,6 @@ type ModelManagerBackend interface {
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 
-	ModelUUID() string
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
 	AllModelUUIDs() ([]string, error)
@@ -39,7 +38,6 @@ type ModelManagerBackend interface {
 	GetBackend(string) (ModelManagerBackend, func() bool, error)
 
 	ControllerModelTag() names.ModelTag
-	IsController() bool
 	ControllerNodes() ([]ControllerNode, error)
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
@@ -77,13 +75,7 @@ type Machine interface {
 // All the interface methods are defined directly on state.Model
 // and are reproduced here for use in tests.
 type Model interface {
-	Type() state.ModelType
-	Life() state.Life
 	ModelTag() names.ModelTag
-	Owner() names.UserTag
-	CloudName() string
-	CloudCredentialTag() (names.CloudCredentialTag, bool)
-	CloudRegion() string
 	Destroy(state.DestroyModelParams) error
 	Name() string
 	UUID() string
@@ -242,10 +234,6 @@ func (st modelManagerStateShim) ControllerNodes() ([]ControllerNode, error) {
 		result[i] = n
 	}
 	return result, nil
-}
-
-func (st modelManagerStateShim) IsController() bool {
-	return st.State.IsController()
 }
 
 var _ Model = (*modelShim)(nil)

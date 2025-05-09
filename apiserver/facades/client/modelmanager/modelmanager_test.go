@@ -1190,9 +1190,7 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	defer newState.Release()
 
-	newModel, err := newState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newModel.Owner(), gc.Equals, owner)
 }
 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *gc.C) {
