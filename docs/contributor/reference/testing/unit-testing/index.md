@@ -8,7 +8,7 @@
 *
 ```
 
-> See also: [How to write a unit test](/doc/dev/how-to/write-a-unit-test.md)
+> See also: {ref}`write-a-unit-test`
 
 Unit testing `juju` currently involves the [`gocheck` package]( https://labix.org/gocheck) and the `go test` CLI
 command.
@@ -47,6 +47,6 @@ github.com/juju/juju/provider/magic:
 <!-- to provide a checkers and assert methods for the test writers.**-->
 
 > See more:
-> - [Unit test suite](unit-test-suite.md)
-    >     - [Util suite](util-suite)
-> - [Checker](checker.md)
+> - {ref}`unit-test-suite`
+    >     - {ref}`util-suite`
+> - {ref}`checker`
