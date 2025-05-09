@@ -375,7 +375,6 @@ func (d *logTracer) prepare(txnID uint64) {
 func (d *logTracer) Start(ctx context.Context, name string, query string) (context.Context, tracing.Span) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-
 	// Log the start of the transaction.
 	if d.traceEnabled {
 		d.logger.Tracef(ctx, "running txn (id: %d) with query: %s", d.txnID, query)
