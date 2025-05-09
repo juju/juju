@@ -56,7 +56,10 @@ func (f *fortress) Visit(visit Visit, abort Abort) error {
 		return ErrShutdown
 	case <-abort:
 		return ErrAborted
-	case f.guestTickets <- guestTicket{visit, result}:
+	case f.guestTickets <- guestTicket{
+		visit:  visit,
+		result: result,
+	}:
 		return <-result
 	}
 }
@@ -67,7 +70,11 @@ func (f *fortress) allowGuests(allowGuests bool, abort Abort) error {
 	select {
 	case <-f.tomb.Dying():
 		return ErrShutdown
-	case f.guardTickets <- guardTicket{allowGuests, abort, result}:
+	case f.guardTickets <- guardTicket{
+		allowGuests: allowGuests,
+		abort:       abort,
+		result:      result,
+	}:
 		return <-result
 	}
 }

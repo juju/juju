@@ -9,7 +9,6 @@ import (
 
 // Guard manages Guest access to a fortress.
 type Guard interface {
-
 	// Unlock unblocks all Guest.Visit calls.
 	Unlock() error
 
@@ -26,7 +25,6 @@ type Guard interface {
 // get non-exclusive access to whatever resource is being protected for the
 // duration of the supplied Visit func.
 type Guest interface {
-
 	// Visit waits until the fortress is unlocked, then runs the supplied
 	// Visit func. It will return ErrAborted if the supplied Abort is closed
 	// before the Visit is started.

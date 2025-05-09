@@ -70,6 +70,60 @@ func (s *phaseSuite) TestIsTerminal(c *gc.C) {
 	}
 }
 
+func (s *phaseSuite) TestIsValid(c *gc.C) {
+	tests := []struct {
+		value    Phase
+		expected bool
+	}{{
+		value:    "unknown",
+		expected: true,
+	}, {
+		value:    "draining",
+		expected: true,
+	}, {
+		value:    "error",
+		expected: true,
+	}, {
+		value:    "completed",
+		expected: true,
+	}, {
+		value:    "invalid",
+		expected: false,
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.value)
+
+		c.Assert(test.value.IsValid(), gc.Equals, test.expected)
+	}
+}
+
+func (s *phaseSuite) TestIsDraining(c *gc.C) {
+	tests := []struct {
+		value    Phase
+		expected bool
+	}{{
+		value:    "unknown",
+		expected: false,
+	}, {
+		value:    "draining",
+		expected: true,
+	}, {
+		value:    "error",
+		expected: false,
+	}, {
+		value:    "completed",
+		expected: false,
+	}, {
+		value:    "invalid",
+		expected: false,
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.value)
+
+		c.Assert(test.value.IsDraining(), gc.Equals, test.expected)
+	}
+}
+
 func (s *phaseSuite) TestTransitionTo(c *gc.C) {
 	tests := []struct {
 		from     string

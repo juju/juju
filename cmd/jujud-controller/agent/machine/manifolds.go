@@ -94,6 +94,7 @@ import (
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/objectstore"
+	"github.com/juju/juju/internal/worker/objectstoredrainer"
 	"github.com/juju/juju/internal/worker/objectstoreflag"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/objectstoreservices"
@@ -667,7 +668,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            peergrouper.New,
 		})),
 
-		domainServicesName: ifObjectStoreDraining(workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
+		domainServicesName: ifNotObjectStoreDraining(workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
@@ -807,12 +808,26 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSSHServerListener:       sshserver.NewSSHServerListener,
 		})),
 
-		objectStoreFortressName: ifController(fortress.Manifold()),
+		// The objectstore draining workers collaborate to run draining of blobs
+		// between underlying object stores (s3 compatible). They are used to
+		// drain; and to create a mechanism for running other workers so they
+		// can't accidentally interfere with a draining in progress. Such a
+		// manifold should (1) depend on the objectstore draining flag, to know
+		// when to start or die; and (2) occupy the objectstore-fortress, so as
+		// to avoid possible interference with the minion (which will not take
+		// action until it's gained sole control of the fortress).
+		objectStoreFortressName: fortress.Manifold(),
 		objectStoreDrainingFlagName: objectstoreflag.Manifold(objectstoreflag.ManifoldConfig{
 			ObjectStoreServicesName: objectStoreServicesName,
-			Check:                   objectstoreflag.IsTerminal,
+			Check:                   objectstoreflag.CheckPhase,
 			GeObjectStoreServicesFn: objectstoreflag.GeObjectStoreServices,
 			NewWorker:               objectstoreflag.NewWorker,
+		}),
+		objectStoreDrainerName: objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
+			ObjectStoreServicesName: objectStoreServicesName,
+			FortressName:            objectStoreFortressName,
+			GeObjectStoreServicesFn: objectstoredrainer.GeObjectStoreServices,
+			NewWorker:               objectstoredrainer.NewWorker,
 		}),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
@@ -1280,7 +1295,7 @@ var ifDatabaseUpgradeComplete = engine.Housing{
 	},
 }.Decorate
 
-var ifObjectStoreDraining = engine.Housing{
+var ifNotObjectStoreDraining = engine.Housing{
 	Flags: []string{
 		objectStoreDrainingFlagName,
 	},
@@ -1360,6 +1375,7 @@ const (
 	objectStoreServicesName       = "object-store-services"
 	objectStoreFortressName       = "object-store-fortress"
 	objectStoreDrainingFlagName   = "object-store-draining-flag"
+	objectStoreDrainerName        = "object-store-drainer"
 	peergrouperName               = "peer-grouper"
 	providerDomainServicesName    = "provider-services"
 	providerTrackerName           = "provider-tracker"

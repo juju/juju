@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package objectstoreflag
+package objectstoredrainer
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/worker/fortress"
 )
 
 type workerSuite struct {
@@ -24,18 +25,18 @@ type workerSuite struct {
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestObjectStoreFlag(c *gc.C) {
+func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 
 	done := make(chan struct{})
-	s.service.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
 	s.service.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
-	s.service.EXPECT().GetDrainingPhase(gomock.Any()).DoAndReturn(func(ctx context.Context) (objectstore.Phase, error) {
+	s.service.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
+	s.guard.EXPECT().Unlock().DoAndReturn(func() error {
 		defer close(done)
-		return objectstore.PhaseDraining, nil
+		return nil
 	})
 
 	w := s.newWorker(c)
@@ -53,22 +54,21 @@ func (s *workerSuite) TestObjectStoreFlag(c *gc.C) {
 		c.Fatalf("timeout waiting for worker to start")
 	}
 
-	err := workertest.CheckKill(c, w)
-	c.Assert(err, jc.ErrorIs, ErrChanged)
+	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestObjectStoreFlagNoChange(c *gc.C) {
+func (s *workerSuite) TestObjectStoreDrainingDraining(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 
 	done := make(chan struct{})
-	s.service.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
 	s.service.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
-	s.service.EXPECT().GetDrainingPhase(gomock.Any()).DoAndReturn(func(ctx context.Context) (objectstore.Phase, error) {
+	s.service.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guard.EXPECT().Lockdown(gomock.Any()).DoAndReturn(func(fortress.Abort) error {
 		defer close(done)
-		return objectstore.PhaseUnknown, nil
+		return nil
 	})
 
 	w := s.newWorker(c)
@@ -92,9 +92,7 @@ func (s *workerSuite) TestObjectStoreFlagNoChange(c *gc.C) {
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := NewWorker(context.Background(), Config{
 		ObjectStoreService: s.service,
-		Check: func(p objectstore.Phase) bool {
-			return p == objectstore.PhaseDraining
-		},
+		Guard:              s.guard,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w

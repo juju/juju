@@ -1,18 +1,16 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package objectstoreflag
+package objectstoredrainer
 
 import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-
-	"github.com/juju/juju/agent/engine"
-	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/services"
 )
 
 // GetObjectStoreServiceServicesFunc is a function that retrieves the
@@ -23,7 +21,7 @@ type GetObjectStoreServiceServicesFunc func(dependency.Getter, string) (ObjectSt
 // Worker manifold.
 type ManifoldConfig struct {
 	ObjectStoreServicesName string
-	Check                   Predicate
+	FortressName            string
 
 	GeObjectStoreServicesFn GetObjectStoreServiceServicesFunc
 	NewWorker               func(context.Context, Config) (worker.Worker, error)
@@ -31,11 +29,11 @@ type ManifoldConfig struct {
 
 // validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
+	if config.FortressName == "" {
+		return errors.NotValidf("empty FortressName")
+	}
 	if config.ObjectStoreServicesName == "" {
 		return errors.NotValidf("empty ObjectStoreServicesName")
-	}
-	if config.Check == nil {
-		return errors.NotValidf("nil Check")
 	}
 	if config.GeObjectStoreServicesFn == nil {
 		return errors.NotValidf("nil GeObjectStoreServicesFn")
@@ -57,9 +55,14 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var fortress fortress.Guard
+	if err := getter.Get(config.FortressName, &fortress); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	worker, err := config.NewWorker(context, Config{
+		Guard:              fortress,
 		ObjectStoreService: objectStoreService,
-		Check:              config.Check,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -71,20 +74,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.FortressName,
 			config.ObjectStoreServicesName,
 		},
-		Start:  config.start,
-		Output: engine.FlagOutput,
-		Filter: bounceErrChanged,
+		Start: config.start,
 	}
-}
-
-// bounceErrChanged converts ErrChanged to dependency.ErrBounce.
-func bounceErrChanged(err error) error {
-	if errors.Cause(err) == ErrChanged {
-		return dependency.ErrBounce
-	}
-	return err
 }
 
 // GetObjectStoreServices retrieves the ObjectStoreService using the given
@@ -96,9 +90,4 @@ func GeObjectStoreServices(getter dependency.Getter, name string) (ObjectStoreSe
 	}
 
 	return services.AgentObjectStore(), nil
-}
-
-// CheckPhase checks if the phase is phase is not draining.
-func CheckPhase(phase objectstore.Phase) bool {
-	return phase.IsNotStarted() || phase.IsTerminal()
 }

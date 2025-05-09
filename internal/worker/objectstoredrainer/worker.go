@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package objectstoreflag
+package objectstoredrainer
 
 import (
 	"context"
@@ -12,14 +12,8 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/worker/fortress"
 )
-
-// ErrChanged indicates that a Worker has stopped because its
-// Check result is no longer valid.
-var ErrChanged = errors.New("objectstore flag value changed")
-
-// Predicate defines a predicate.
-type Predicate func(objectstore.Phase) bool
 
 // ObjectStoreService provides access to the object store for draining
 // operations.
@@ -34,36 +28,30 @@ type ObjectStoreService interface {
 
 // Config holds the dependencies and configuration for a Worker.
 type Config struct {
+	Guard              fortress.Guard
 	ObjectStoreService ObjectStoreService
-	Check              Predicate
 }
 
 // Validate returns an error if the config cannot be expected to
 // drive a functional Worker.
 func (config Config) Validate() error {
+	if config.Guard == nil {
+		return errors.NotValidf("nil Guard")
+	}
 	if config.ObjectStoreService == nil {
 		return errors.NotValidf("nil ObjectStoreService")
-	}
-	if config.Check == nil {
-		return errors.NotValidf("nil Check")
 	}
 	return nil
 }
 
-// NewWorker returns a Worker that tracks the result of the configured
-// Check on the object store draining phase.
+// NewWorker returns a Worker that tracks the result of the configured.
 func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	phase, err := config.ObjectStoreService.GetDrainingPhase(ctx)
-	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w := &Worker{
 		config: config,
-		phase:  phase,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -75,13 +63,10 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-// Worker implements worker.Worker and util.Flag, and exits
-// with ErrChanged whenever the result of its configured Check of
-// the Model's objectstore phase changes.
+// Worker implements
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
-	phase    objectstore.Phase
 }
 
 // Kill is part of the worker.Worker interface.
@@ -92,11 +77,6 @@ func (w *Worker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
-}
-
-// Check is part of the util.Flag interface.
-func (w *Worker) Check() bool {
-	return w.config.Check(w.phase)
 }
 
 func (w *Worker) loop() error {
@@ -120,8 +100,19 @@ func (w *Worker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if w.Check() != w.config.Check(phase) {
-				return ErrChanged
+
+			// We're not draining, so we can unlock the guard and wait
+			// for the next change.
+			if !phase.IsDraining() {
+				if err := w.config.Guard.Unlock(); err != nil {
+					return errors.Errorf("failed to update guard: %v", err)
+				}
+				continue
+			}
+
+			// TODO (stickupkid): Handle the draining phase.
+			if err := w.config.Guard.Lockdown(ctx.Done()); err != nil {
+				return errors.Errorf("failed to update guard: %v", err)
 			}
 		}
 	}
