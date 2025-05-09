@@ -180,7 +180,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *tc.C) {
 		actual, err := envtools.FindTools(context.Background(), ss, s.env, test.major, test.minor, streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
-				c.Logf(actual.String())
+				c.Logf("%s", actual.String())
 			}
 			c.Check(err, tc.ErrorIs, errors.NotFound)
 			continue
@@ -364,7 +364,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *tc.C) {
 			s.env, test.major, test.minor, test.streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
-				c.Logf(actual.String())
+				c.Logf("%s", actual.String())
 			}
 			c.Check(err, tc.ErrorIs, errors.NotFound)
 			continue

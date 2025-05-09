@@ -258,7 +258,6 @@ type badBuildSuite struct {
 	testhelpers.LoggingSuite
 	testhelpers.CleanupSuite
 	envtesting.ToolsFixture
-	testhelpers.PatchExecHelper
 }
 
 var badGo = `
@@ -327,7 +326,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *tc.C) {
 }
 
 func (s *badBuildSuite) patchExecCommand(c *tc.C) {
-	execCommand := s.GetExecCommand(testhelpers.PatchExecConfig{
+	execCommand := testhelpers.ExecCommand(testhelpers.PatchExecConfig{
 		Stdout: coretesting.CurrentVersion().String(),
 		Args:   make(chan []string, 2),
 	})

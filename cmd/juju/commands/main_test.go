@@ -33,7 +33,6 @@ import (
 
 type MainSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	testhelpers.PatchExecHelper
 }
 
 var _ = tc.Suite(&MainSuite{})
@@ -219,7 +218,7 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *tc.C) {
 	argChan := make(chan []string, 1)
 	// we shouldn't actually be running anything, but if we do, this will
 	// provide some consistent results.
-	execCommand := s.GetExecCommand(testhelpers.PatchExecConfig{
+	execCommand := testhelpers.ExecCommand(testhelpers.PatchExecConfig{
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
 	})
@@ -258,7 +257,7 @@ Since Juju 4 is being run for the first time, it has downloaded the latest publi
 
 func (s *MainSuite) assertRunUpdateCloud(c *tc.C, expectedCalled bool) {
 	argChan := make(chan []string, 1)
-	execCommand := s.GetExecCommand(testhelpers.PatchExecConfig{
+	execCommand := testhelpers.ExecCommand(testhelpers.PatchExecConfig{
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
 	})

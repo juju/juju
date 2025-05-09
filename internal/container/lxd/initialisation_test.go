@@ -26,7 +26,6 @@ import (
 
 type initialiserTestSuite struct {
 	coretesting.BaseSuite
-	testhelpers.PatchExecHelper
 }
 
 // patchDF100GB ensures that df always returns 100GB.
@@ -161,7 +160,7 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *tc.C) {
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
 	ci := s.containerInitialiser(nil, true, "local")
-	ci.getExecCommand = s.PatchExecHelper.GetExecCommand(testhelpers.PatchExecConfig{
+	ci.getExecCommand = testhelpers.ExecCommand(testhelpers.PatchExecConfig{
 		Stderr:   `error: You have existing containers or images. lxd init requires an empty LXD.`,
 		ExitCode: 1,
 	})
@@ -229,7 +228,6 @@ func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *tc.C) {
 
 type ConfigureInitialiserSuite struct {
 	initialiserTestSuite
-	testhelpers.PatchExecHelper
 }
 
 var _ = tc.Suite(&ConfigureInitialiserSuite{})

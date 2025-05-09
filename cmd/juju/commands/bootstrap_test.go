@@ -1268,7 +1268,7 @@ my-dummy-cloud
 	ctx.Stdout = &out
 	err = command.Run(ctx)
 	if err != nil {
-		c.Logf(out.String())
+		c.Logf("%s", out.String())
 	}
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2265,7 +2265,7 @@ func checkTools(c *tc.C, env environs.Environ, expected []semversion.Binary) {
 	list, err := envtools.FindTools(context.Background(), ss,
 		env, jujuversion.Current.Major, jujuversion.Current.Minor, []string{"released"}, coretools.Filter{})
 	c.Check(err, tc.ErrorIsNil)
-	c.Logf("found: " + list.String())
+	c.Logf("found: %s", list.String())
 	urls := list.URLs()
 	c.Check(urls, tc.HasLen, len(expected))
 }
