@@ -272,12 +272,6 @@ func (s *uniterLegacySuite) TestSetWorkloadVersion(c *gc.C) {
 func (s *uniterLegacySuite) TestCharmModifiedVersion(c *gc.C) {
 }
 
-func (s *uniterLegacySuite) TestWatchConfigSettingsHash(c *gc.C) {
-}
-
-func (s *uniterLegacySuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
-}
-
 func (s *uniterLegacySuite) TestLogActionMessage(c *gc.C) {
 }
 
@@ -330,9 +324,6 @@ func (s *uniterLegacySuite) TestWatchActionNotificationsPermissionDenied(c *gc.C
 	result := results.Results[0]
 	c.Assert(result.Error, gc.NotNil)
 	c.Assert(result.Error.Message, gc.Equals, "permission denied")
-}
-
-func (s *uniterLegacySuite) TestConfigSettings(c *gc.C) {
 }
 
 func (s *uniterLegacySuite) TestCurrentModel(c *gc.C) {

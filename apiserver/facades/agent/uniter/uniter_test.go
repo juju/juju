@@ -335,9 +335,9 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	}}
 
 	boom := internalerrors.New("boom")
-	s.expectGetUnitPrincipal(c, "wordpress/0", "", false, nil)
-	s.expectGetUnitPrincipal(c, "subordinate/0", "principal/0", true, nil)
-	s.expectGetUnitPrincipal(c, "foo/42", "", false, boom)
+	s.expectGetUnitPrincipal("wordpress/0", "", false, nil)
+	s.expectGetUnitPrincipal("subordinate/0", "principal/0", true, nil)
+	s.expectGetUnitPrincipal("foo/42", "", false, boom)
 
 	result, err := s.uniter.GetPrincipal(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -539,7 +539,50 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) expectGetUnitPrincipal(c *gc.C, unitName, principalName coreunit.Name, ok bool, err error) {
+func (s *uniterSuite) TestConfigSettings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-postgresql-0"},
+		{Tag: "unit-foo-42"},
+	}}
+
+	settings := map[string]any{
+		"foo": "bar",
+	}
+	s.expectedGetConfigSettings("mysql/0", settings, nil)
+	s.expectedGetConfigSettings("wordpress/0", nil, nil)
+	s.expectedGetConfigSettings("postgresql/0", nil, applicationerrors.UnitNotFound)
+	s.badTag = names.NewUnitTag("foo/42")
+
+	// Act:
+	result, err := s.uniter.ConfigSettings(context.Background(), args)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, params.ConfigSettingsResults{
+		Results: []params.ConfigSettingsResult{
+			{Settings: settings},
+			{Settings: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) expectedGetConfigSettings(unitName coreunit.Name, settings map[string]any, err error) {
+	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID(unitName.Application()), err)
+	if err == nil {
+		s.applicationService.EXPECT().GetApplicationConfigWithDefaults(
+			gomock.Any(), coreapplication.ID(unitName.Application()),
+		).Return(settings, nil)
+	}
+}
+
+func (s *uniterSuite) expectGetUnitPrincipal(unitName, principalName coreunit.Name, ok bool, err error) {
 	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).Return(principalName, ok, err)
 }
 

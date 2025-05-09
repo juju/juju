@@ -2402,8 +2402,8 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsForApplicatio
 func (s *applicationStateSuite) TestGetApplicationConfigWithDefaults(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	s.insertApplicationConfigWithDefault(c, id, "key1", "value1", "defaultValue1", applicationcharm.OptionString)
-	s.insertCharmConfig(c, id, "key2", "defaultValue2", applicationcharm.OptionString)
+	s.insertApplicationConfigWithDefault(c, id, "key1", "value1", "defaultValue1", charm.OptionString)
+	s.insertCharmConfig(c, id, "key2", "defaultValue2", charm.OptionString)
 
 	config, err := s.state.GetApplicationConfigWithDefaults(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
