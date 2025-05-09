@@ -4,8 +4,7 @@
 package sshtunneler
 
 import (
-	stderr "errors"
-
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -66,7 +65,7 @@ func (f *Facade) ControllerAddresses(et params.Entity) params.StringsResult {
 	switch tag.Kind() {
 	case names.ControllerTagKind:
 		// TODO (JUJU-7887): Support SSH from machines to K8s controller.
-		result.Error = apiservererrors.ServerError(stderr.New("SSH proxy from machine to k8s controller not supported"))
+		result.Error = apiservererrors.ServerError(errors.NotSupportedf("SSH proxy from machine to k8s controller"))
 	case names.MachineTagKind:
 		m, err := f.backend.ControllerMachine(tag.Id())
 		if err != nil {

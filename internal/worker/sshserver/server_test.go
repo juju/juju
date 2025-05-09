@@ -541,9 +541,6 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
-	s.facadeClient.EXPECT().ValidateVirtualHostname(gomock.Any()).Return(nil).AnyTimes()
-
 	listener := bufconn.Listen(1024)
 	defer listener.Close()
 
@@ -553,7 +550,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 
 	// Check server side that the connection count matches the expected value
 	// otherwise we face a race condition in tests where the server hasn't yet
-	// increased/descreased the connection count.
+	// decreased the connection count.
 	checkConnCount := func(c *gc.C, expected int32) {
 		done := time.After(200 * time.Millisecond)
 		for {
