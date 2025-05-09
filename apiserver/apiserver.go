@@ -421,6 +421,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 
 	ready := make(chan struct{})
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "apiserver",
 		Site: &srv.catacomb,
 		Work: func() error {
 			return srv.loop(ready)

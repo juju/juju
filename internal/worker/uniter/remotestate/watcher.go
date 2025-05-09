@@ -148,6 +148,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		shutdownChannel:              config.ShutdownChannel,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "remote-state-watcher",
 		Site: &w.catacomb,
 		Work: func() error {
 			return w.loop(config.UnitTag)

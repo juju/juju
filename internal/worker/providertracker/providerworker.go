@@ -94,24 +94,31 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "provider-tracker",
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return !errors.Is(err, database.ErrDBDead)
+		},
+		RestartDelay: time.Second * 10,
+		Clock:        config.Clock,
+		Logger:       internalworker.WrapLogger(config.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &providerWorker{
-		config: config,
-		trackedRunner: worker.NewRunner(worker.RunnerParams{
-			IsFatal: func(err error) bool {
-				return false
-			},
-			ShouldRestart: func(err error) bool {
-				return !errors.Is(err, database.ErrDBDead)
-			},
-			RestartDelay: time.Second * 10,
-			Clock:        config.Clock,
-			Logger:       internalworker.WrapLogger(config.Logger),
-		}),
+		config:         config,
+		trackedRunner:  runner,
 		requests:       make(chan trackerRequest),
 		internalStates: internalStates,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "provider-tracker",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{
@@ -249,9 +256,12 @@ func (w *providerWorker) Wait() error {
 }
 
 func (w *providerWorker) loop() (err error) {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	// If we're a singular namespace, we need to start the worker early.
 	if namespace, ok := w.config.TrackerType.SingularNamespace(); ok {
-		if err := w.initTrackerWorker(namespace); err != nil {
+		if err := w.initTrackerWorker(ctx, namespace); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -264,7 +274,7 @@ func (w *providerWorker) loop() (err error) {
 		// The following ensures that all requests are serialised and
 		// processed in order.
 		case req := <-w.requests:
-			if err := w.initTrackerWorker(req.namespace); err != nil {
+			if err := w.initTrackerWorker(ctx, req.namespace); err != nil {
 				select {
 				case req.done <- errors.Trace(err):
 				case <-w.catacomb.Dying():
@@ -307,11 +317,8 @@ func (w *providerWorker) workerFromCache(namespace string) (*trackerWorker, erro
 	return nil, nil
 }
 
-func (w *providerWorker) initTrackerWorker(namespace string) error {
-	err := w.trackedRunner.StartWorker(namespace, func() (worker.Worker, error) {
-		ctx, cancel := w.scopedContext()
-		defer cancel()
-
+func (w *providerWorker) initTrackerWorker(ctx context.Context, namespace string) error {
+	err := w.trackedRunner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 		// Create the tracker worker based on the namespace.
 		domainServices := w.config.DomainServicesGetter.ServicesForModel(namespace)
 

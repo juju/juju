@@ -4,6 +4,7 @@
 package fortress
 
 import (
+	"context"
 	"sync"
 
 	"gopkg.in/tomb.v2"
@@ -39,35 +40,43 @@ func (f *fortress) Wait() error {
 }
 
 // Unlock is part of the Guard interface.
-func (f *fortress) Unlock() error {
-	return f.allowGuests(true, nil)
+func (f *fortress) Unlock(ctx context.Context) error {
+	return f.allowGuests(ctx, true)
 }
 
 // Lockdown is part of the Guard interface.
-func (f *fortress) Lockdown(abort Abort) error {
-	return f.allowGuests(false, abort)
+func (f *fortress) Lockdown(ctx context.Context) error {
+	return f.allowGuests(ctx, false)
 }
 
 // Visit is part of the Guest interface.
-func (f *fortress) Visit(visit Visit, abort Abort) error {
+func (f *fortress) Visit(ctx context.Context, visit Visit) error {
 	result := make(chan error)
 	select {
 	case <-f.tomb.Dying():
 		return ErrShutdown
-	case <-abort:
+	case <-ctx.Done():
 		return ErrAborted
-	case f.guestTickets <- guestTicket{visit, result}:
+	case f.guestTickets <- guestTicket{
+		ctx:    ctx,
+		visit:  visit,
+		result: result,
+	}:
 		return <-result
 	}
 }
 
 // allowGuests communicates Guard-interface requests to the main loop.
-func (f *fortress) allowGuests(allowGuests bool, abort Abort) error {
+func (f *fortress) allowGuests(ctx context.Context, allowGuests bool) error {
 	result := make(chan error)
 	select {
 	case <-f.tomb.Dying():
 		return ErrShutdown
-	case f.guardTickets <- guardTicket{allowGuests, abort, result}:
+	case f.guardTickets <- guardTicket{
+		ctx:         ctx,
+		allowGuests: allowGuests,
+		result:      result,
+	}:
 		return <-result
 	}
 }
@@ -105,14 +114,14 @@ func (f *fortress) loop() error {
 
 // guardTicket communicates between the Guard interface and the main loop.
 type guardTicket struct {
+	ctx         context.Context
 	allowGuests bool
-	abort       Abort
 	result      chan<- error
 }
 
 // complete unconditionally sends a single value on ticket.result; either nil
-// (when the desired state is reached) or ErrAborted (when the ticket's Abort
-// is closed). It should be called on its own goroutine.
+// (when the desired state is reached) or ErrAborted (when the ticket's ctx is
+// done). It should be called on its own goroutine.
 func (ticket guardTicket) complete(waitLockedDown func()) {
 	var result error
 	defer func() {
@@ -130,13 +139,14 @@ func (ticket guardTicket) complete(waitLockedDown func()) {
 	}()
 	select {
 	case <-done:
-	case <-ticket.abort:
+	case <-ticket.ctx.Done():
 		result = ErrAborted
 	}
 }
 
 // guestTicket communicates between the Guest interface and the main loop.
 type guestTicket struct {
+	ctx    context.Context
 	visit  Visit
 	result chan<- error
 }
@@ -145,5 +155,10 @@ type guestTicket struct {
 // calls the finished func. It should be called on its own goroutine.
 func (ticket guestTicket) complete(finished func()) {
 	defer finished()
-	ticket.result <- ticket.visit()
+
+	select {
+	case <-ticket.ctx.Done():
+		ticket.result <- ErrAborted
+	case ticket.result <- ticket.visit():
+	}
 }

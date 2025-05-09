@@ -240,6 +240,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			shutdownChannel:              make(chan bool, 1),
 		}
 		plan := catacomb.Plan{
+			Name: "uniter",
 			Site: &u.catacomb,
 			Work: func() error {
 				return u.loop(uniterParams.UnitTag)
@@ -489,7 +490,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Watcher:       watcher,
 				Executor:      u.operationExecutor,
 				Factory:       u.operationFactory,
-				Abort:         u.catacomb.Dying(),
 				OnIdle:        onIdle,
 				CharmDirGuard: u.charmDirGuard,
 				CharmDir:      u.paths.State.CharmDir,

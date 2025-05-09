@@ -57,6 +57,7 @@ func NewKubernetesNotifyWatcher(informer cache.SharedIndexInformer, name string,
 		out:      make(chan struct{}),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "kubernetes-notify-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})
@@ -170,6 +171,7 @@ func NewKubernetesStringsWatcher(informer cache.SharedIndexInformer, name string
 		filterFunc:    filterFunc,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "kubernetes-strings-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

@@ -152,6 +152,7 @@ func New(config Config) (worker.Worker, error) {
 		processed: make(map[string]migration.Phase),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "migration-minion",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})
@@ -216,7 +217,7 @@ func (w *Worker) handle(ctx context.Context, status watcher.MigrationStatus) err
 		// the migration from the processed map first.
 		delete(w.processed, status.MigrationId)
 
-		return w.config.Guard.Unlock()
+		return w.config.Guard.Unlock(ctx)
 	}
 
 	// We've already processed this phase, so we can ignore it.
@@ -228,7 +229,7 @@ func (w *Worker) handle(ctx context.Context, status watcher.MigrationStatus) err
 
 	// Ensure that all workers related to migration fortress have
 	// stopped and aren't allowed to restart.
-	err := w.config.Guard.Lockdown(w.catacomb.Dying())
+	err := w.config.Guard.Lockdown(ctx)
 	if errors.Cause(err) == fortress.ErrAborted {
 		return w.catacomb.ErrDying()
 	} else if err != nil {

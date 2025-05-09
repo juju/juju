@@ -33,6 +33,7 @@ func NewCaasWorker(config Config) (worker.Worker, error) {
 	}
 	p := &provisioner{config: config}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "storage-provisioner",
 		Site: &p.catacomb,
 		Work: p.loop,
 	})

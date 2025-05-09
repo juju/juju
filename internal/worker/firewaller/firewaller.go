@@ -162,6 +162,22 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		clk = clock.WallClock
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:   "firewaller",
+		Clock:  clk,
+		Logger: internalworker.WrapLogger(cfg.Logger),
+
+		// One of the remote relation workers failing should not
+		// prevent the others from running.
+		IsFatal: func(error) bool { return false },
+
+		// For any failures, try again in 1 minute.
+		RestartDelay: time.Minute,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	fw := &Firewaller{
 		firewallerApi:              cfg.FirewallerAPI,
 		remoteRelationsApi:         cfg.RemoteRelationsApi,
@@ -183,20 +199,10 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		localRelationsChange:       make(chan *remoteRelationNetworkChange),
 		clk:                        clk,
 		logger:                     cfg.Logger,
-		relationWorkerRunner: worker.NewRunner(worker.RunnerParams{
-			Clock:  clk,
-			Logger: internalworker.WrapLogger(cfg.Logger),
-
-			// One of the remote relation workers failing should not
-			// prevent the others from running.
-			IsFatal: func(error) bool { return false },
-
-			// For any failures, try again in 1 minute.
-			RestartDelay: time.Minute,
-		}),
-		watchMachineNotify: cfg.WatchMachineNotify,
-		flushModelNotify:   cfg.FlushModelNotify,
-		flushMachineNotify: cfg.FlushMachineNotify,
+		relationWorkerRunner:       runner,
+		watchMachineNotify:         cfg.WatchMachineNotify,
+		flushModelNotify:           cfg.FlushModelNotify,
+		flushMachineNotify:         cfg.FlushMachineNotify,
 	}
 
 	switch cfg.Mode {
@@ -208,12 +214,12 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		return nil, errors.Errorf("invalid firewall-mode %q", cfg.Mode)
 	}
 
-	err := catacomb.Invoke(catacomb.Plan{
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "firewaller",
 		Site: &fw.catacomb,
 		Work: fw.loop,
 		Init: []worker.Worker{fw.relationWorkerRunner},
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return fw, nil
@@ -510,6 +516,7 @@ func (fw *Firewaller) startMachine(ctx context.Context, tag names.MachineTag) er
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "firewaller-machine",
 		Site: &machined.catacomb,
 		Work: func() error {
 			return machined.watchLoop(unitw)
@@ -595,6 +602,7 @@ func (fw *Firewaller) startApplication(ctx context.Context, app Application) err
 	fw.applicationids[app.Tag()] = applicationd
 
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "firewaller-application",
 		Site: &applicationd.catacomb,
 		Work: func() error {
 			return applicationd.watchLoop(isExposed, exposedEndpoints)
@@ -1544,13 +1552,14 @@ func (fw *Firewaller) startRelation(ctx context.Context, rel *params.RemoteRelat
 	}
 
 	// Start the worker which will watch the remote relation for things like new networks.
-	if err := fw.relationWorkerRunner.StartWorker(tag.Id(), func() (worker.Worker, error) {
+	if err := fw.relationWorkerRunner.StartWorker(ctx, tag.Id(), func(ctx context.Context) (worker.Worker, error) {
 		// This may be a restart after an api error, so ensure any previous
 		// worker is killed and the catacomb is reset.
 		data.Kill()
 		data.catacomb = catacomb.Catacomb{}
 
 		if err := catacomb.Invoke(catacomb.Plan{
+			Name: "firewaller-relation",
 			Site: &data.catacomb,
 			Work: data.watchLoop,
 		}); err != nil {
@@ -1812,6 +1821,7 @@ func (fw *Firewaller) startRelationPoller(relationKey, remoteAppName string,
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "firewaller-relation-poller",
 		Site: &poller.catacomb,
 		Work: poller.pollLoop,
 	})

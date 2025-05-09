@@ -61,24 +61,37 @@ func (fix *fixture) Guest(c *gc.C) (out fortress.Guest) {
 // (in case your test fails before sending, in which case we still want to stop
 // the visit).
 func (fix *fixture) startBlockingVisit(c *gc.C) chan<- struct{} {
-	err := fix.Guard(c).Unlock()
+	err := fix.Guard(c).Unlock(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
 	visitStarted := make(chan struct{}, 1)
 	defer close(visitStarted)
+
 	unblockVisit := make(chan struct{}, 1)
 	go func() {
-		err := fix.Guest(c).Visit(func() error {
-			visitStarted <- struct{}{}
-			<-unblockVisit
+		err := fix.Guest(c).Visit(context.Background(), func() error {
+			select {
+			case visitStarted <- struct{}{}:
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("visit never started sending")
+			}
+
+			// Block until the test closes the channel.
+			select {
+			case <-unblockVisit:
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("visit never unblocked - did you forget to close the channel?")
+			}
 			return nil
-		}, nil)
+		})
 		c.Check(err, jc.ErrorIsNil)
 	}()
 	select {
 	case <-visitStarted:
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("visit never started")
+		c.Fatalf("visit never started reading")
 	}
+
 	return unblockVisit
 }
 
@@ -86,7 +99,7 @@ func (fix *fixture) startBlockingVisit(c *gc.C) chan<- struct{} {
 func AssertUnlocked(c *gc.C, guest fortress.Guest) {
 	visited := make(chan error)
 	go func() {
-		visited <- guest.Visit(badVisit, nil)
+		visited <- guest.Visit(context.Background(), badVisit)
 	}()
 
 	select {
@@ -101,9 +114,12 @@ func AssertUnlocked(c *gc.C, guest fortress.Guest) {
 // (and can be cancelled via Abort).
 func AssertLocked(c *gc.C, guest fortress.Guest) {
 	visited := make(chan error)
-	abort := make(chan struct{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	go func() {
-		visited <- guest.Visit(badVisit, abort)
+		visited <- guest.Visit(ctx, badVisit)
 	}()
 
 	// NOTE(fwereade): this isn't about interacting with a timer; it's about
@@ -113,7 +129,7 @@ func AssertLocked(c *gc.C, guest fortress.Guest) {
 		select {
 		case <-delay:
 			delay = nil
-			close(abort)
+			cancel()
 		case err := <-visited:
 			c.Assert(err, gc.Equals, fortress.ErrAborted)
 			return

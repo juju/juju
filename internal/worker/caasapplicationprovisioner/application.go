@@ -60,14 +60,14 @@ type AppWorkerConfig struct {
 
 const tryAgain errors.ConstError = "try again"
 
-type NewAppWorkerFunc func(AppWorkerConfig) func() (worker.Worker, error)
+type NewAppWorkerFunc func(AppWorkerConfig) func(ctx context.Context) (worker.Worker, error)
 
-func NewAppWorker(config AppWorkerConfig) func() (worker.Worker, error) {
+func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Worker, error) {
 	ops := config.Ops
 	if ops == nil {
 		ops = &applicationOps{}
 	}
-	return func() (worker.Worker, error) {
+	return func(ctx context.Context) (worker.Worker, error) {
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
 		a := &appWorker{
@@ -83,6 +83,7 @@ func NewAppWorker(config AppWorkerConfig) func() (worker.Worker, error) {
 			statusOnly: config.StatusOnly,
 		}
 		err := catacomb.Invoke(catacomb.Plan{
+			Name: "caas-application-provisioner",
 			Site: &a.catacomb,
 			Work: a.loop,
 		})

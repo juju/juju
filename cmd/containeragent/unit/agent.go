@@ -155,12 +155,16 @@ func (c *containerUnitAgent) Init(args []string) error {
 		}
 	}
 
-	c.runner = worker.NewRunner(worker.RunnerParams{
+	var err error
+	if c.runner, err = worker.NewRunner(worker.RunnerParams{
+		Name:          "containeragent",
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  internalworker.RestartDelay,
 		Logger:        internalworker.WrapLogger(logger),
-	})
+	}); err != nil {
+		return errors.Trace(err)
+	}
 
 	if err := ensureAgentConf(c.AgentConf); err != nil {
 		return errors.Annotate(err, "ensuring agent conf file")
@@ -352,7 +356,7 @@ func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 	sigTermCh := make(chan os.Signal, 1)
 	signal.Notify(sigTermCh, syscall.SIGTERM)
 
-	err = c.runner.StartWorker("unit", func() (worker.Worker, error) {
+	err = c.runner.StartWorker(ctx, "unit", func(ctx context.Context) (worker.Worker, error) {
 		return c.workers(sigTermCh)
 	})
 	if err != nil {

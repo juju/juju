@@ -35,6 +35,7 @@ func newSecretBackendRotateWatcher(
 		out:            make(chan []watcher.SecretBackendRotateChange),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "secret-backend-rotate-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{sourceWatcher},

@@ -42,6 +42,7 @@ func newStorageAttachmentWatcher(
 		unitTag:    unitTag,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "storage-attachment-watcher",
 		Site: &s.catacomb,
 		Work: s.loop,
 		Init: []worker.Worker{watcher},

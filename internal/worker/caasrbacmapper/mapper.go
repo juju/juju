@@ -74,6 +74,7 @@ func NewMapper(logger logger.Logger, informer core.ServiceAccountInformer) (*Def
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-rbac-mapper",
 		Site: &dm.catacomb,
 		Work: dm.loop,
 	}); err != nil {

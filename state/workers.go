@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -33,17 +34,22 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 	if hub == nil {
 		return nil, errors.NotValidf("missing hub")
 	}
-	ws := &workers{
-		state: st,
-		hub:   hub,
-		Runner: worker.NewRunner(worker.RunnerParams{
-			Logger:       internalworker.WrapLogger(internallogger.GetLogger("juju.state.watcher")),
-			IsFatal:      func(err error) bool { return err == internalworker.ErrRestartAgent },
-			RestartDelay: time.Second,
-			Clock:        st.clock(),
-		}),
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:         "state",
+		Logger:       internalworker.WrapLogger(internallogger.GetLogger("juju.state.watcher")),
+		IsFatal:      func(err error) bool { return err == internalworker.ErrRestartAgent },
+		RestartDelay: time.Second,
+		Clock:        st.clock(),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	_ = ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+	ws := &workers{
+		state:  st,
+		hub:    hub,
+		Runner: runner,
+	}
+	_ = ws.StartWorker(context.TODO(), txnLogWorker, func(ctx context.Context) (worker.Worker, error) {
 		return watcher.NewHubWatcher(watcher.HubWatcherConfig{
 			Hub:       hub,
 			Clock:     st.clock(),

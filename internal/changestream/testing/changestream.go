@@ -60,6 +60,7 @@ func NewTestWatchableDB(c *gc.C, id string, db database.TxnRunner) *TestWatchabl
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "test-changestream",
 		Site: &h.catacomb,
 		Work: h.loop,
 		Init: []worker.Worker{

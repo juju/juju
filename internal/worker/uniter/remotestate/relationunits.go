@@ -40,6 +40,7 @@ func wrapRelationUnitsWatcher(
 		out:        out,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "relation-units-watcher",
 		Site: &ruw.catacomb,
 		Work: ruw.loop,
 		Init: []worker.Worker{watcher},

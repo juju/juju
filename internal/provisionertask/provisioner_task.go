@@ -138,6 +138,8 @@ type TaskConfig struct {
 	EventProcessedCb             func(string)
 }
 
+// NewProvisionerTask creates a new ProvisionerTask instance. The
+// MachineWatcher is expected to be started before this function returns.
 func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 	machineChanges := cfg.MachineWatcher.Changes()
 	workers := []worker.Worker{cfg.MachineWatcher}
@@ -172,6 +174,7 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 		eventProcessedCb:             cfg.EventProcessedCb,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "provisioner-task",
 		Site: &task.catacomb,
 		Work: task.loop,
 		Init: workers,

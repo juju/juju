@@ -30,6 +30,7 @@ func NewContainerSetupAndProvisioner(ctx context.Context, cs *ContainerSetup, ge
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "container-provisioner",
 		Site: &w.catacomb,
 		Work: w.work,
 		Init: []worker.Worker{w.containerWatcher},
@@ -159,11 +160,11 @@ func (w *ContainerSetupAndProvisioner) Report() map[string]interface{} {
 
 	if w.containerWatcher != nil {
 		watcherName := fmt.Sprintf("%s-container-watcher", string(w.cs.containerType))
-		result[watcherName] = fmt.Sprintf("waiting for containers")
+		result[watcherName] = "waiting for containers"
 	}
 	if w.provisioner != nil {
 		provisionerName := fmt.Sprintf("%s-provisioner", string(w.cs.containerType))
-		result[provisionerName] = fmt.Sprintf("setup and running")
+		result[provisionerName] = "setup and running"
 	}
 
 	w.mu.Unlock()

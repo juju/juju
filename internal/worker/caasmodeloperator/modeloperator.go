@@ -177,6 +177,7 @@ func NewModelOperatorManager(
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-model-operator-manager",
 		Site: &m.catacomb,
 		Work: m.loop,
 	}); err != nil {

@@ -137,6 +137,7 @@ func NewContainerProvisioner(
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "container-provisioner",
 		Site: &p.catacomb,
 		Work: p.loop,
 	})

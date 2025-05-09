@@ -280,6 +280,7 @@ func NewEnvironProvisioner(
 	logger.Tracef(context.Background(), "Starting environ provisioner for %q", p.agentConfig.Tag())
 
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "environ-provisioner",
 		Site: &p.catacomb,
 		Work: p.loop,
 	})

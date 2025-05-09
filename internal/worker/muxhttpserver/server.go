@@ -53,6 +53,7 @@ var (
 
 func catacombInvoke(server *Server) (*Server, error) {
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "http-server",
 		Site: &server.catacomb,
 		Work: server.loop,
 	}); err != nil {

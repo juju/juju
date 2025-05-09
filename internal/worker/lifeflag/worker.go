@@ -66,6 +66,7 @@ func New(ctx context.Context, config Config) (*Worker, error) {
 		config: config,
 	}
 	plan := catacomb.Plan{
+		Name: "life-flag",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}

@@ -69,6 +69,7 @@ func NewStringsWorker(config StringsConfig) (*StringsWorker, error) {
 		config: config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "strings-watcher",
 		Site: &sw.catacomb,
 		Work: sw.loop,
 	})
