@@ -117,6 +117,11 @@ type ExecutorSuite struct {
 
 var _ = tc.Suite(&ExecutorSuite{})
 
+func (s *ExecutorSuite) TearDownTest(c *tc.C) {
+	s.IsolationSuite.TearDownTest(c)
+	s.mockStateRW = nil
+}
+
 func (s *ExecutorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	s.mockStateRW = mocks.NewMockUnitStateReadWriter(ctlr)
@@ -483,6 +488,23 @@ func (s *ExecutorSuite) initLockTest(c *tc.C, lockFunc func(string, string) (fun
 }
 
 func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectSetState(c, operation.State{
+		Leader:    false,
+		Started:   false,
+		Stopped:   false,
+		Installed: false,
+		Removed:   false,
+		StatusSet: false,
+		Kind:      operation.Continue,
+		Step:      operation.Pending,
+	})
+	s.expectState(c, operation.State{
+		Kind: operation.Continue,
+		Step: operation.Done,
+	})
+
 	op := &mockOperation{
 		needsLock: true,
 		prepare:   newStep(nil, nil),
@@ -506,6 +528,23 @@ func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *tc.C) {
 }
 
 func (s *ExecutorSuite) TestLockFailsOpsStepsNotCalled(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectSetState(c, operation.State{
+		Leader:    false,
+		Started:   false,
+		Stopped:   false,
+		Installed: false,
+		Removed:   false,
+		StatusSet: false,
+		Kind:      operation.Continue,
+		Step:      operation.Pending,
+	})
+	s.expectState(c, operation.State{
+		Kind: operation.Continue,
+		Step: operation.Done,
+	})
+
 	prepare := newStep(nil, nil)
 	execute := newStep(nil, nil)
 	commit := newStep(nil, nil)
@@ -521,7 +560,7 @@ func (s *ExecutorSuite) TestLockFailsOpsStepsNotCalled(c *tc.C) {
 	executor := s.initLockTest(c, lockFunc)
 
 	err := executor.Run(context.Background(), op, nil)
-	c.Assert(err, tc.ErrorMatches, "could not acquire lock: wat")
+	c.Assert(err, tc.ErrorMatches, `acquiring "mock operation" lock for test: wat`)
 
 	c.Assert(mockLock.calledLock, tc.IsFalse)
 	c.Assert(mockLock.calledUnlock, tc.IsFalse)
@@ -547,6 +586,23 @@ func (s *ExecutorSuite) testLockUnlocksOnError(c *tc.C, op *mockOperation) (erro
 }
 
 func (s *ExecutorSuite) TestLockUnlocksOnError_Prepare(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectSetState(c, operation.State{
+		Leader:    false,
+		Started:   false,
+		Stopped:   false,
+		Installed: false,
+		Removed:   false,
+		StatusSet: false,
+		Kind:      operation.Continue,
+		Step:      operation.Pending,
+	})
+	s.expectState(c, operation.State{
+		Kind: operation.Continue,
+		Step: operation.Done,
+	})
+
 	op := &mockOperation{
 		needsLock: true,
 		prepare:   newStep(nil, errors.New("kerblooie")),
@@ -555,7 +611,7 @@ func (s *ExecutorSuite) TestLockUnlocksOnError_Prepare(c *tc.C) {
 	}
 
 	err, mockLock := s.testLockUnlocksOnError(c, op)
-	c.Assert(err, tc.ErrorMatches, `preparing operation "mock operation": kerblooie`)
+	c.Assert(err, tc.ErrorMatches, `preparing operation "mock operation" for test: kerblooie`)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "kerblooie")
 
 	expectedStepsOnUnlock := []bool{true, false, false}
@@ -563,6 +619,23 @@ func (s *ExecutorSuite) TestLockUnlocksOnError_Prepare(c *tc.C) {
 }
 
 func (s *ExecutorSuite) TestLockUnlocksOnError_Execute(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectSetState(c, operation.State{
+		Leader:    false,
+		Started:   false,
+		Stopped:   false,
+		Installed: false,
+		Removed:   false,
+		StatusSet: false,
+		Kind:      operation.Continue,
+		Step:      operation.Pending,
+	})
+	s.expectState(c, operation.State{
+		Kind: operation.Continue,
+		Step: operation.Done,
+	})
+
 	op := &mockOperation{
 		needsLock: true,
 		prepare:   newStep(nil, nil),
@@ -571,7 +644,7 @@ func (s *ExecutorSuite) TestLockUnlocksOnError_Execute(c *tc.C) {
 	}
 
 	err, mockLock := s.testLockUnlocksOnError(c, op)
-	c.Assert(err, tc.ErrorMatches, `executing operation "mock operation": you asked for it`)
+	c.Assert(err, tc.ErrorMatches, `executing operation "mock operation" for test: you asked for it`)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "you asked for it")
 
 	expectedStepsOnUnlock := []bool{true, true, false}
@@ -579,6 +652,23 @@ func (s *ExecutorSuite) TestLockUnlocksOnError_Execute(c *tc.C) {
 }
 
 func (s *ExecutorSuite) TestLockUnlocksOnError_Commit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectSetState(c, operation.State{
+		Leader:    false,
+		Started:   false,
+		Stopped:   false,
+		Installed: false,
+		Removed:   false,
+		StatusSet: false,
+		Kind:      operation.Continue,
+		Step:      operation.Pending,
+	})
+	s.expectState(c, operation.State{
+		Kind: operation.Continue,
+		Step: operation.Done,
+	})
+
 	op := &mockOperation{
 		needsLock: true,
 		prepare:   newStep(nil, nil),
@@ -587,7 +677,7 @@ func (s *ExecutorSuite) TestLockUnlocksOnError_Commit(c *tc.C) {
 	}
 
 	err, mockLock := s.testLockUnlocksOnError(c, op)
-	c.Assert(err, tc.ErrorMatches, `committing operation "mock operation": well, shit`)
+	c.Assert(err, tc.ErrorMatches, `committing operation "mock operation" for test: well, shit`)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "well, shit")
 
 	expectedStepsOnUnlock := []bool{true, true, true}

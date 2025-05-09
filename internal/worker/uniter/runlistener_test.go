@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/juju/tc"
@@ -23,14 +24,18 @@ type ListenerSuite struct {
 
 var _ = tc.Suite(&ListenerSuite{})
 
-func sockPath(c *tc.C) sockets.Socket {
-	sockPath := filepath.Join(c.MkDir(), "test.listener")
-	return sockets.Socket{Address: sockPath, Network: "unix"}
-}
-
 func (s *ListenerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.socketPath = sockPath(c)
+	// NOTE: this is not using c.Mkdir() for a reason.
+	// Since unix sockets can't have a file path that is too
+	// long.
+	dir, err := os.MkdirTemp("", "juju-uniter*")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() {
+		_ = os.RemoveAll(dir)
+	})
+	sockPath := filepath.Join(dir, "test.listener")
+	s.socketPath = sockets.Socket{Address: sockPath, Network: "unix"}
 }
 
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.

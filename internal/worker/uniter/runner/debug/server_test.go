@@ -36,6 +36,8 @@ exit $EXIT_CODE
 var fakecommands = []string{"sleep", "tmux"}
 
 func (s *DebugHooksServerSuite) SetUpTest(c *tc.C) {
+	s.BaseSuite.SetUpTest(c)
+
 	s.fakebin = c.MkDir()
 
 	// Create a clean $TMPDIR for the debug hooks scripts.

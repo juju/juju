@@ -24,6 +24,10 @@ type StateOpsSuite struct {
 
 var _ = tc.Suite(&StateOpsSuite{})
 
+func (s *StateOpsSuite) TearDownTest(c *tc.C) {
+	s.mockStateRW = nil
+}
+
 var stcurl = "ch:quantal/application-name-123"
 var relhook = &hook.Info{
 	Kind:              hooks.RelationJoined,

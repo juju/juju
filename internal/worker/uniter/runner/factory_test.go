@@ -283,6 +283,11 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *tc.C) {
 }
 
 func (s *FactorySuite) TestNewActionRunnerBadParams(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupFactory(c, ctrl)
+
+	s.setCharm(c, "dummy")
 	action := apiuniter.NewAction("666", "snapshot", map[string]interface{}{
 		"outfile": 123,
 	}, true, "group")
