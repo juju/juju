@@ -715,6 +715,45 @@ func (c *MockApplicationServiceGetUnitRefreshAttributesCall) DoAndReturn(f func(
 	return c
 }
 
+// GetUnitSubordinates mocks base method.
+func (m *MockApplicationService) GetUnitSubordinates(arg0 context.Context, arg1 unit.Name) ([]unit.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitSubordinates", arg0, arg1)
+	ret0, _ := ret[0].([]unit.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitSubordinates indicates an expected call of GetUnitSubordinates.
+func (mr *MockApplicationServiceMockRecorder) GetUnitSubordinates(arg0, arg1 any) *MockApplicationServiceGetUnitSubordinatesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitSubordinates", reflect.TypeOf((*MockApplicationService)(nil).GetUnitSubordinates), arg0, arg1)
+	return &MockApplicationServiceGetUnitSubordinatesCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitSubordinatesCall wrap *gomock.Call
+type MockApplicationServiceGetUnitSubordinatesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitSubordinatesCall) Return(arg0 []unit.Name, arg1 error) *MockApplicationServiceGetUnitSubordinatesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitSubordinatesCall) Do(f func(context.Context, unit.Name) ([]unit.Name, error)) *MockApplicationServiceGetUnitSubordinatesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitSubordinatesCall) DoAndReturn(f func(context.Context, unit.Name) ([]unit.Name, error)) *MockApplicationServiceGetUnitSubordinatesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitUUID mocks base method.
 func (m *MockApplicationService) GetUnitUUID(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()

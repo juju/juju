@@ -1247,6 +1247,29 @@ ORDER BY array_index ASC;
 	return result, nil
 }
 
+// checkUnitExistsByName checks if the unit exists.
+// - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
+func (st *State) checkUnitExistsByName(ctx context.Context, tx *sqlair.TX, ident unit.Name) error {
+	arg := unitName{Name: ident}
+	stmt, err := st.Prepare(`
+SELECT &unitName.*
+FROM  unit
+WHERE name = $unitName.name;
+`, arg)
+	if err != nil {
+		return errors.Errorf("preparing query for unit %q: %w", ident, err)
+	}
+
+	err = tx.Query(ctx, stmt, arg).Get(&arg)
+	if errors.Is(err, sql.ErrNoRows) {
+		return applicationerrors.UnitNotFound
+	} else if err != nil {
+		return errors.Errorf("checking unit %q exists: %w", ident, err)
+	}
+
+	return nil
+}
+
 // checkUnitNotDead checks if the unit exists and is not dead. It's possible to
 // access alive and dying units, but not dead ones:
 // - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
