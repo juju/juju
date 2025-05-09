@@ -20,7 +20,7 @@ type UserModel struct {
 	Name           string
 	UUID           string
 	Type           model.ModelType
-	Owner          string
+	Namespace      string
 	LastConnection *time.Time
 }
 
@@ -29,7 +29,7 @@ type ModelStatus struct {
 	UUID               string
 	Life               life.Value
 	ModelType          model.ModelType
-	Owner              string
+	Namespace          string
 	TotalMachineCount  int
 	CoreCount          int
 	HostedMachineCount int
@@ -73,7 +73,7 @@ type ModelInfo struct {
 	Cloud           string
 	CloudRegion     string
 	CloudCredential string
-	Owner           string
+	Namespace       string
 	Life            life.Value
 	Status          Status
 	Users           []UserInfo
@@ -126,7 +126,7 @@ type UserModelSummary struct {
 	Cloud              string
 	CloudRegion        string
 	CloudCredential    string
-	Owner              string
+	Namespace          string
 	Life               life.Value
 	Status             Status
 	ModelUserAccess    string

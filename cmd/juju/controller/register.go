@@ -508,8 +508,7 @@ func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclien
 		// There is exactly one model shared,
 		// so set it as the current model.
 		model := models[0]
-		owner := names.NewUserTag(model.Owner)
-		modelName := jujuclient.JoinOwnerModelName(owner, model.Name)
+		modelName := jujuclient.QualifyModelName(model.Namespace, model.Name)
 		err := store.SetCurrentModel(controllerName, modelName)
 		if err != nil {
 			return errors.Trace(err)
@@ -521,16 +520,14 @@ func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, store jujuclien
 There are %d models available. Use "juju switch" to select
 one of them:
 `, len(models))
-	user := names.NewUserTag(userName)
 	ownerModelNames := make(set.Strings)
 	otherModelNames := make(set.Strings)
 	for _, model := range models {
-		if model.Owner == userName {
+		if model.Namespace == userName {
 			ownerModelNames.Add(model.Name)
 			continue
 		}
-		owner := names.NewUserTag(model.Owner)
-		modelName := common.OwnerQualifiedModelName(model.Name, owner, user)
+		modelName := common.UserQualifiedModelName(model.Name, model.Namespace, userName)
 		otherModelNames.Add(modelName)
 	}
 	for _, modelName := range ownerModelNames.SortedValues() {

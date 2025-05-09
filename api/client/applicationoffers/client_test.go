@@ -110,7 +110,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		OwnerName:        "fred",
+		Namespace:        "fred",
 		ModelName:        "prod",
 		OfferName:        offerName,
 		Endpoints:        relations,
@@ -122,7 +122,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			OwnerName:       "fred",
+			Namespace:       "fred",
 			ModelName:       "prod",
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,
@@ -193,7 +193,7 @@ func (s *crossmodelMockSuite) TestListError(c *gc.C) {
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			OwnerName:           filter.OwnerName,
+			Namespace:           filter.Namespace,
 			ModelName:           filter.ModelName,
 			OfferName:           filter.OfferName,
 			ApplicationName:     filter.ApplicationName,
@@ -372,14 +372,14 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	defer ctrl.Finish()
 
 	offerName := "hosted-db2"
-	ownerName := "owner"
+	namespace := "owner"
 	modelName := "model"
 	url := fmt.Sprintf("fred/model.%s", offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		OwnerName: ownerName,
+		Namespace: namespace,
 		ModelName: modelName,
 		OfferName: offerName,
 		Endpoints: relations,
@@ -387,7 +387,7 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			OwnerName:       filter.OwnerName,
+			Namespace:       filter.Namespace,
 			ModelName:       filter.ModelName,
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,
@@ -448,7 +448,7 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 	}
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			OwnerName:       filter.OwnerName,
+			Namespace:       filter.Namespace,
 			ModelName:       filter.ModelName,
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,

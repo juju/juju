@@ -82,8 +82,8 @@ func (s *ApplicationOffer) String() string {
 // ApplicationOfferFilter is used to query applications offered
 // by this model.
 type ApplicationOfferFilter struct {
-	// OwnerName is the owner of the model hosting the offer.
-	OwnerName string
+	// Namespace is the namespace of the model hosting the offer.
+	Namespace string
 
 	// ModelName is the name of the model hosting the offer.
 	ModelName string

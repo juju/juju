@@ -43,17 +43,21 @@ type Client struct {
 // connection.
 func NewClient(st base.APICallCloser, options ...Option) *Client {
 	frontend, backend := base.NewClientFacade(st, "Controller", options...)
+	legacy := frontend.BestAPIVersion() < 13
 	return &Client{
 		ClientFacade:        frontend,
 		facade:              backend,
 		ControllerConfigAPI: common.NewControllerConfig(backend),
-		ModelStatusAPI:      common.NewModelStatusAPI(backend),
+		ModelStatusAPI:      common.NewModelStatusAPI(backend, legacy),
 	}
 }
 
 // AllModels allows controller administrators to get the list of all the
 // models in the controller.
 func (c *Client) AllModels(ctx context.Context) ([]base.UserModel, error) {
+	if c.BestAPIVersion() < 13 {
+		return c.allModelsCompat(ctx)
+	}
 	var models params.UserModelList
 	err := c.facade.FacadeCall(ctx, "AllModels", nil, &models)
 	if err != nil {
@@ -61,10 +65,6 @@ func (c *Client) AllModels(ctx context.Context) ([]base.UserModel, error) {
 	}
 	result := make([]base.UserModel, len(models.UserModels))
 	for i, usermodel := range models.UserModels {
-		owner, err := names.ParseUserTag(usermodel.OwnerTag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", usermodel.OwnerTag, i)
-		}
 		modelType := model.ModelType(usermodel.Type)
 		if modelType == "" {
 			modelType = model.IAAS
@@ -73,7 +73,7 @@ func (c *Client) AllModels(ctx context.Context) ([]base.UserModel, error) {
 			Name:           usermodel.Name,
 			UUID:           usermodel.UUID,
 			Type:           modelType,
-			Owner:          owner.Id(),
+			Namespace:      usermodel.Namespace,
 			LastConnection: usermodel.LastConnection,
 		}
 	}
@@ -90,7 +90,7 @@ func (c *Client) CloudSpec(ctx context.Context, modelTag names.ModelTag) (enviro
 // model such that direct access to the provider can be used.
 type HostedConfig struct {
 	Name      string
-	Owner     names.UserTag
+	Namespace string
 	Config    map[string]interface{}
 	CloudSpec environscloudspec.CloudSpec
 	Error     error
@@ -99,6 +99,9 @@ type HostedConfig struct {
 // HostedModelConfigs returns all model settings for the
 // models hosted on the controller.
 func (c *Client) HostedModelConfigs(ctx context.Context) ([]HostedConfig, error) {
+	if c.BestAPIVersion() < 13 {
+		return c.hostedModelConfigsCompat(ctx)
+	}
 	result := params.HostedModelConfigsResults{}
 	err := c.facade.FacadeCall(ctx, "HostedModelConfigs", nil, &result)
 	if err != nil {
@@ -110,12 +113,7 @@ func (c *Client) HostedModelConfigs(ctx context.Context) ([]HostedConfig, error)
 	hostedConfigs := make([]HostedConfig, len(result.Models))
 	for i, modelConfig := range result.Models {
 		hostedConfigs[i].Name = modelConfig.Name
-		tag, err := names.ParseUserTag(modelConfig.OwnerTag)
-		if err != nil {
-			hostedConfigs[i].Error = errors.Trace(err)
-			continue
-		}
-		hostedConfigs[i].Owner = tag
+		hostedConfigs[i].Namespace = modelConfig.Namespace
 		if modelConfig.Error != nil {
 			hostedConfigs[i].Error = errors.Trace(modelConfig.Error)
 			continue

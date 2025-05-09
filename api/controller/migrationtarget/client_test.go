@@ -46,7 +46,7 @@ func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *jujutesting.
 	apiCaller := apitesting.BestVersionCaller{APICallerFunc: apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return errors.New("boom")
-	}), BestVersion: 2}
+	}), BestVersion: 5}
 	client := migrationtarget.NewClient(apiCaller)
 	return client, &stub
 }
@@ -54,7 +54,6 @@ func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *jujutesting.
 func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	client, stub := s.getClientAndStub()
 
-	ownerTag := names.NewUserTag("owner")
 	vers := semversion.MustParse("1.2.3")
 	controllerVers := semversion.MustParse("1.2.5")
 	modelDescription := description.NewModel(description.ModelArgs{})
@@ -64,7 +63,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 
 	err = client.Prechecks(context.Background(), coremigration.ModelInfo{
 		UUID:                   "uuid",
-		Owner:                  ownerTag,
+		Namespace:              "namespace",
 		Name:                   "name",
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
@@ -75,7 +74,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	expectedArg := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
-		OwnerTag:               ownerTag.String(),
+		Namespace:              "namespace",
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
 		ModelDescription:       bytes,

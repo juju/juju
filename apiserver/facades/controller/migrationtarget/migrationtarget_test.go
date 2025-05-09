@@ -128,7 +128,7 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 	args := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "some-model",
-		OwnerTag:               names.NewUserTag("someone").String(),
+		Namespace:              "someone",
 		AgentVersion:           s.controllerVersion(c),
 		ControllerAgentVersion: s.controllerVersion(c),
 	}
@@ -145,7 +145,7 @@ func (s *Suite) TestPrechecksIsUpgrading(c *gc.C) {
 	args := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "some-model",
-		OwnerTag:               names.NewUserTag("someone").String(),
+		Namespace:              "someone",
 		AgentVersion:           s.controllerVersion(c),
 		ControllerAgentVersion: s.controllerVersion(c),
 	}

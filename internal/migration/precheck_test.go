@@ -694,7 +694,7 @@ var _ = gc.Suite(&TargetPrecheckSuite{})
 func (s *TargetPrecheckSuite) SetUpTest(c *gc.C) {
 	s.modelInfo = coremigration.ModelInfo{
 		UUID:         modelUUID,
-		Owner:        modelOwner,
+		Namespace:    modelOwner.Id(),
 		Name:         modelName,
 		AgentVersion: backendVersion,
 	}

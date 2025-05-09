@@ -710,8 +710,12 @@ func (s *userManagerSuite) expectControllerModelUser(c *gc.C) {
 	userUUID := coreusertesting.GenUserUUID(c)
 	name, err := coreuser.NewName("admin")
 	c.Assert(err, jc.ErrorIsNil)
-	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(coremodel.Model{Owner: userUUID}, nil)
-	s.accessService.EXPECT().GetUser(gomock.Any(), userUUID).Return(coreuser.User{Name: name}, nil)
+	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(coremodel.Model{Namespace: "admin"}, nil)
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), name).Return(coreuser.User{
+		UUID:     userUUID,
+		Name:     name,
+		Disabled: false,
+	}, nil)
 }
 
 func (s *userManagerSuite) TestRemoveUser(c *gc.C) {

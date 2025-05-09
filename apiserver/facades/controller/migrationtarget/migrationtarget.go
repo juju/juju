@@ -264,10 +264,6 @@ with an earlier version of the target controller and try again.
 		return fmt.Errorf("migration import prechecks: %w", err)
 	}
 
-	ownerTag, err := names.ParseUserTag(model.OwnerTag)
-	if err != nil {
-		return errors.Errorf("cannot parse model %q owner during prechecks: %w", model.UUID, err)
-	}
 	controllerState, err := api.pool.SystemState()
 	if err != nil {
 		return errors.Errorf(
@@ -294,7 +290,7 @@ with an earlier version of the target controller and try again.
 		migration.PoolShim(api.pool), coremigration.ModelInfo{
 			UUID:                   model.UUID,
 			Name:                   model.Name,
-			Owner:                  ownerTag,
+			Namespace:              model.Namespace,
 			AgentVersion:           model.AgentVersion,
 			ControllerAgentVersion: model.ControllerAgentVersion,
 			ModelDescription:       modelDescription,

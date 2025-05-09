@@ -16,8 +16,21 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("MigrationMaster", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newMigrationMasterFacadeV4(stdCtx, ctx)
+	}, reflect.TypeOf((*APIV4)(nil)))
+	registry.MustRegister("MigrationMaster", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newMigrationMasterFacade(stdCtx, ctx)
 	}, reflect.TypeOf((*API)(nil)))
+}
+
+func newMigrationMasterFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*APIV4, error) {
+	api, err := newMigrationMasterFacade(stdCtx, ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIV4{
+		API: api,
+	}, nil
 }
 
 // newMigrationMasterFacade exists to provide the required signature for API
