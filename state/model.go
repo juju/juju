@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v6"
 	jujutxn "github.com/juju/txn/v3"
 
-	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
@@ -203,9 +202,6 @@ type ModelArgs struct {
 	// used for managing cloud resources for this model. This will be
 	// empty for clouds that do not require credentials.
 	CloudCredential names.CloudCredentialTag
-
-	// Constraints contains the initial constraints for the model.
-	Constraints constraints.Value
 
 	// Owner is the user that owns the model.
 	Owner names.UserTag

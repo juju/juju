@@ -328,7 +328,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 			UUID:            coremodel.UUID(stateParams.ControllerModelConfig.UUID()),
 			Type:            modelType,
 			Owner:           b.adminUser,
-			Constraints:     stateParams.ModelConstraints,
 			CloudName:       stateParams.ControllerCloud.Name,
 			CloudRegion:     stateParams.ControllerCloudRegion,
 			CloudCredential: cloudCredTag,
