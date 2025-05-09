@@ -521,11 +521,9 @@ func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *tc.C) {
 	c.Assert(rst.RemoteApplication(1), tc.Equals, "mysql")
 }
 
-func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *tc.C, createCharmDir bool) {
-	if createCharmDir {
-		// wordpress unit with mysql relation
-		s.setupCharmDir(c)
-	}
+func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *tc.C) {
+	// wordpress unit with mysql relation
+	s.setupCharmDir(c)
 	defer s.setupMocks(c).Finish()
 	// Setup for SynchronizeScopes()
 	s.expectRelationById(1)
@@ -564,12 +562,55 @@ func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *tc.C, crea
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *tc.C) {
-	s.assertSynchronizeScopesFailImplementedBy(c, true)
-}
-
 func (s *syncScopesSuite) TestSynchronizeScopesIgnoresMissingCharmDir(c *tc.C) {
-	s.assertSynchronizeScopesFailImplementedBy(c, false)
+	s.charmDir = c.MkDir()
+	err := os.Remove(s.charmDir)
+	c.Assert(err, tc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	// Setup for SynchronizeScopes()
+	s.expectRelationById(1)
+	ep := &uniter.Endpoint{
+		Relation: charm.Relation{
+			Role:      charm.RoleRequirer,
+			Name:      "mysql",
+			Interface: "db",
+			Scope:     charm.ScopeGlobal,
+		}}
+	s.expectRelationEndpoint(ep)
+	s.expectRelationUnit()
+	s.expectRelationOtherApplication()
+
+	// Setup for joinRelation()
+	s.expectUnitName()
+	s.expectUnitTag()
+	s.expectWatch(c)
+	s.expectRelationerJoin()
+	s.expectRelationSetStatusJoined()
+	s.expectRelationID(1)
+
+	rst := s.newSyncScopesStateTracker(c,
+		make(map[int]relation.Relationer),
+		make(map[int]string),
+	)
+
+	remoteState := remotestate.Snapshot{
+		Relations: map[int]remotestate.RelationSnapshot{
+			1: {
+				Life: life.Alive,
+				Members: map[string]int64{
+					"mysql/0": 1,
+				},
+				ApplicationMembers: map[string]int64{
+					"mysql": 1,
+				},
+			},
+		},
+	}
+
+	err = rst.SynchronizeScopes(stdcontext.Background(), remoteState)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rst.RemoteApplication(1), tc.Equals, "mysql")
 }
 
 func (s *syncScopesSuite) TestSynchronizeScopesSeenNotDying(c *tc.C) {
