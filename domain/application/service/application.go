@@ -204,6 +204,17 @@ type ApplicationState interface {
 		error,
 	)
 
+	// GetApplicationConfigWithDefaults returns the application config attributes
+	// for the configuration, or their charm default if the config attribute is not
+	// set.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (
+		map[string]application.ApplicationConfig,
+		error,
+	)
+
 	// GetApplicationTrustSetting returns the application trust setting.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
@@ -1108,6 +1119,30 @@ func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplicatio
 
 	// Always return the trust setting, as it's a special case.
 	result[coreapplication.TrustConfigOptionName] = settings.Trust
+
+	return result, nil
+}
+
+// GetApplicationConfigWithDefaults returns the application config attributes
+// for the configuration, or their charm default if the config attribute is not
+// set.
+//
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (config.ConfigAttributes, error) {
+	if err := appID.Validate(); err != nil {
+		return nil, errors.Errorf("application ID: %w", err)
+	}
+
+	cfg, err := s.st.GetApplicationConfigWithDefaults(ctx, appID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(config.ConfigAttributes)
+	for k, v := range cfg {
+		result[k] = v.Value
+	}
 
 	return result, nil
 }

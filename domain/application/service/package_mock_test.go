@@ -730,6 +730,45 @@ func (c *MockStateGetApplicationConfigHashCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetApplicationConfigWithDefaults mocks base method.
+func (m *MockState) GetApplicationConfigWithDefaults(ctx context.Context, appID application.ID) (map[string]application0.ApplicationConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationConfigWithDefaults", ctx, appID)
+	ret0, _ := ret[0].(map[string]application0.ApplicationConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationConfigWithDefaults indicates an expected call of GetApplicationConfigWithDefaults.
+func (mr *MockStateMockRecorder) GetApplicationConfigWithDefaults(ctx, appID any) *MockStateGetApplicationConfigWithDefaultsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConfigWithDefaults", reflect.TypeOf((*MockState)(nil).GetApplicationConfigWithDefaults), ctx, appID)
+	return &MockStateGetApplicationConfigWithDefaultsCall{Call: call}
+}
+
+// MockStateGetApplicationConfigWithDefaultsCall wrap *gomock.Call
+type MockStateGetApplicationConfigWithDefaultsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationConfigWithDefaultsCall) Return(arg0 map[string]application0.ApplicationConfig, arg1 error) *MockStateGetApplicationConfigWithDefaultsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationConfigWithDefaultsCall) Do(f func(context.Context, application.ID) (map[string]application0.ApplicationConfig, error)) *MockStateGetApplicationConfigWithDefaultsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationConfigWithDefaultsCall) DoAndReturn(f func(context.Context, application.ID) (map[string]application0.ApplicationConfig, error)) *MockStateGetApplicationConfigWithDefaultsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationConstraints mocks base method.
 func (m *MockState) GetApplicationConstraints(ctx context.Context, appID application.ID) (constraints0.Constraints, error) {
 	m.ctrl.T.Helper()
