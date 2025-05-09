@@ -24,11 +24,23 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegisterForMultiModel("ModelManager", 10, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return newFacadeV10(stdCtx, ctx)
+	}, reflect.TypeOf((*ModelManagerAPIV10)(nil)))
+	registry.MustRegisterForMultiModel("ModelManager", 11, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
+		return newFacadeV11(stdCtx, ctx)
 	}, reflect.TypeOf((*ModelManagerAPI)(nil)))
 }
 
 // newFacadeV10 is used for API registration.
-func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
+func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelManagerAPIV10, error) {
+	api, err := newFacadeV11(stdCtx, ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ModelManagerAPIV10{ModelManagerAPI: api}, nil
+}
+
+// newFacadeV11 is used for API registration.
+func newFacadeV11(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 	auth := ctx.Auth()
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.

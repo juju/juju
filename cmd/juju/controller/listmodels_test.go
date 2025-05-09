@@ -86,10 +86,6 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(ctx context.Context, user str
 		if err != nil {
 			cred = names.NewCloudCredentialTag("foo/bob/one")
 		}
-		owner, err := names.ParseUserTag(info.Result.OwnerTag)
-		if err != nil {
-			owner = names.NewUserTag("admin")
-		}
 		results[i] = base.UserModelSummary{
 			Name:            info.Result.Name,
 			Type:            model.ModelType(info.Result.Type),
@@ -100,7 +96,7 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(ctx context.Context, user str
 			Cloud:           cloud.Id(),
 			CloudRegion:     info.Result.CloudRegion,
 			CloudCredential: cred.Id(),
-			Owner:           owner.Id(),
+			Namespace:       info.Result.Namespace,
 			Life:            info.Result.Life,
 			Status: base.Status{
 				Status: info.Result.Status.Status,
@@ -182,20 +178,20 @@ func (s *ModelsSuite) SetUpTest(c *tc.C) {
 
 	models := []base.UserModel{
 		{
-			Name:  "test-model1",
-			Owner: "admin",
-			UUID:  "test-model1-UUID",
-			Type:  model.IAAS,
+			Name:      "test-model1",
+			Namespace: "admin",
+			UUID:      "test-model1-UUID",
+			Type:      model.IAAS,
 		}, {
-			Name:  "test-model2",
-			Owner: "carlotta",
-			UUID:  "test-model2-UUID",
-			Type:  model.CAAS,
+			Name:      "test-model2",
+			Namespace: "carlotta",
+			UUID:      "test-model2-UUID",
+			Type:      model.CAAS,
 		}, {
-			Name:  "test-model3",
-			Owner: "daiwik@external",
-			UUID:  "test-model3-UUID",
-			Type:  model.IAAS,
+			Name:      "test-model3",
+			Namespace: "daiwik@external",
+			UUID:      "test-model3-UUID",
+			Type:      model.IAAS,
 		},
 	}
 
@@ -470,7 +466,7 @@ func createBasicModelInfo() *params.ModelInfo {
 		ProviderType:   "local",
 		ControllerUUID: testing.ControllerTag.Id(),
 		IsController:   false,
-		OwnerTag:       names.NewUserTag("owner").String(),
+		Namespace:      "owner",
 		Life:           life.Dead,
 		CloudTag:       names.NewCloudTag("altostratus").String(),
 		CloudRegion:    "mid-level",
@@ -487,7 +483,7 @@ func convert(models []base.UserModel) []params.ModelInfoResult {
 			Name:         model.Name,
 			UUID:         model.UUID,
 			Type:         model.Type.String(),
-			OwnerTag:     names.NewUserTag(model.Owner).String(),
+			Namespace:    model.Namespace,
 			CloudTag:     "cloud-dummy",
 			ProviderType: "local",
 			AgentVersion: &agentVersion,
@@ -517,7 +513,7 @@ func (s *ModelsSuite) TestModelWithUnits(c *tc.C) {
 func (s *ModelsSuite) TestModelsJson(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "json")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), tc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"admin","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"read","last-connection":"2015-03-20","agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"caas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"carlotta","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"write","last-connection":"2015-03-01","agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"owner":"daiwik@external","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"destroying"},"access":"","last-connection":"never connected","agent-version":"2.55.5"}],"current-model":"test-model1"}
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"namespace":"admin","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"read","last-connection":"2015-03-20","agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","model-type":"caas","controller-uuid":"","controller-name":"fake","is-controller":false,"namespace":"carlotta","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"active"},"access":"write","last-connection":"2015-03-01","agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","model-type":"iaas","controller-uuid":"","controller-name":"fake","is-controller":false,"namespace":"daiwik@external","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"type":"local","life":"","status":{"current":"destroying"},"access":"","last-connection":"never connected","agent-version":"2.55.5"}],"current-model":"test-model1"}
 `)
 	c.Assert(cmdtesting.Stderr(context), tc.Equals, "")
 	s.checkAPICalls(c, "ListModelSummaries", "Close")
@@ -535,7 +531,7 @@ models:
   controller-uuid: ""
   controller-name: fake
   is-controller: false
-  owner: admin
+  namespace: admin
   cloud: dummy
   credential:
     name: one
@@ -555,7 +551,7 @@ models:
   controller-uuid: ""
   controller-name: fake
   is-controller: false
-  owner: carlotta
+  namespace: carlotta
   cloud: dummy
   credential:
     name: one
@@ -575,7 +571,7 @@ models:
   controller-uuid: ""
   controller-name: fake
   is-controller: false
-  owner: daiwik@external
+  namespace: daiwik@external
   cloud: dummy
   credential:
     name: one

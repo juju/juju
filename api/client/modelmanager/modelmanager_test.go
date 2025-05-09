@@ -57,7 +57,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 
 	args := params.ModelCreateArgs{
 		Name:        "new-model",
-		OwnerTag:    "user-bob",
+		Namespace:   "bob",
 		Config:      map[string]interface{}{"abc": 123},
 		CloudTag:    "cloud-nimbus",
 		CloudRegion: "catbus",
@@ -72,7 +72,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 	ress.ProviderType = "C-123"
 	ress.CloudTag = "cloud-nimbus"
 	ress.CloudRegion = "catbus"
-	ress.OwnerTag = "user-fnord"
+	ress.Namespace = "fnord"
 	ress.Life = "alive"
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
@@ -98,7 +98,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 		ProviderType:   "C-123",
 		Cloud:          "nimbus",
 		CloudRegion:    "catbus",
-		Owner:          "fnord",
+		Namespace:      "fnord",
 		Life:           "alive",
 		Status: base.Status{
 			Data: make(map[string]interface{}),
@@ -128,18 +128,18 @@ func (s *modelmanagerSuite) TestListModels(c *tc.C) {
 	ress := params.UserModelList{
 		UserModels: []params.UserModel{{
 			Model: params.Model{
-				Name:     "yo",
-				UUID:     "wei",
-				Type:     "caas",
-				OwnerTag: "user-user@remote",
+				Name:      "yo",
+				UUID:      "wei",
+				Type:      "caas",
+				Namespace: "user@remote",
 			},
 			LastConnection: &lastConnection,
 		}, {
 			Model: params.Model{
-				Name:     "sup",
-				UUID:     "hazzagarn",
-				Type:     "iaas",
-				OwnerTag: "user-phyllis@thrace",
+				Name:      "sup",
+				UUID:      "hazzagarn",
+				Type:      "iaas",
+				Namespace: "phyllis@thrace",
 			},
 		}},
 	}
@@ -154,13 +154,13 @@ func (s *modelmanagerSuite) TestListModels(c *tc.C) {
 		Name:           "yo",
 		UUID:           "wei",
 		Type:           model.CAAS,
-		Owner:          "user@remote",
+		Namespace:      "user@remote",
 		LastConnection: &lastConnection,
 	}, {
-		Name:  "sup",
-		UUID:  "hazzagarn",
-		Type:  model.IAAS,
-		Owner: "phyllis@thrace",
+		Name:      "sup",
+		UUID:      "hazzagarn",
+		Type:      model.IAAS,
+		Namespace: "phyllis@thrace",
 	}})
 }
 
@@ -308,7 +308,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 		Results: []params.ModelStatus{
 			{
 				ModelTag:           coretesting.ModelTag.String(),
-				OwnerTag:           "user-glenda",
+				Namespace:          "glenda",
 				ApplicationCount:   3,
 				HostedMachineCount: 2,
 				Life:               "alive",
@@ -326,7 +326,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).SetArg(3, ress).Return(nil)
-	client := common.NewModelStatusAPI(mockFacadeCaller)
+	client := common.NewModelStatusAPI(mockFacadeCaller, false)
 
 	results, err := client.ModelStatus(c.Context(), coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, tc.ErrorIsNil)
@@ -335,7 +335,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
 		ApplicationCount:   3,
-		Owner:              "glenda",
+		Namespace:          "glenda",
 		Life:               life.Alive,
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
 	})
@@ -355,7 +355,7 @@ func (s *modelmanagerSuite) TestModelStatusEmpty(c *tc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).SetArg(3, ress).Return(nil)
-	client := common.NewModelStatusAPI(mockFacadeCaller)
+	client := common.NewModelStatusAPI(mockFacadeCaller, false)
 
 	results, err := client.ModelStatus(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -377,8 +377,9 @@ func (s *modelmanagerSuite) TestModelStatusError(c *tc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).Return(errors.New("model error"))
-	client := common.NewModelStatusAPI(mockFacadeCaller)
-	out, err := client.ModelStatus(c.Context(), coretesting.ModelTag, coretesting.ModelTag)
+	client := common.NewModelStatusAPI(mockFacadeCaller, false)
+	out, err := client.ModelStatus(c.Context(), coretesting.ModelTag,
+		coretesting.ModelTag)
 	c.Assert(err, tc.ErrorMatches, "model error")
 	c.Assert(out, tc.IsNil)
 }
@@ -393,7 +394,7 @@ func createModelSummary() *params.ModelSummary {
 		CloudTag:           "cloud-aws",
 		CloudRegion:        "us-east-1",
 		CloudCredentialTag: "cloudcred-foo_bob_one",
-		OwnerTag:           "user-admin",
+		Namespace:          "admin",
 		Life:               life.Alive,
 		Status:             params.EntityStatus{Status: status.Status("active")},
 		UserAccess:         params.ModelAdminAccess,
@@ -437,7 +438,7 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *tc.C) {
 		Cloud:           "aws",
 		CloudRegion:     "us-east-1",
 		CloudCredential: "foo/bob/one",
-		Owner:           "admin",
+		Namespace:       "admin",
 		Life:            "alive",
 		Status: base.Status{
 			Status: status.Active,
@@ -447,44 +448,6 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *tc.C) {
 		Counts:          []base.EntityCount{},
 	})
 	c.Assert(errors.Cause(results[1].Error), tc.ErrorMatches, "model error")
-}
-
-func (s *modelmanagerSuite) TestListModelSummariesParsingErrors(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	badOwnerInfo := createModelSummary()
-	badOwnerInfo.OwnerTag = "owner-user"
-
-	badCloudInfo := createModelSummary()
-	badCloudInfo.CloudTag = "not-cloud"
-
-	badCredentialsInfo := createModelSummary()
-	badCredentialsInfo.CloudCredentialTag = "not-credential"
-
-	args := params.ModelSummariesRequest{
-		UserTag: "user-commander",
-		All:     true,
-	}
-
-	res := new(params.ModelSummaryResults)
-	ress := params.ModelSummaryResults{
-		Results: []params.ModelSummaryResult{
-			{Result: badOwnerInfo},
-			{Result: badCloudInfo},
-			{Result: badCredentialsInfo},
-		},
-	}
-
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListModelSummaries", args, res).SetArg(3, ress).Return(nil)
-	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	results, err := client.ListModelSummaries(c.Context(), "commander", true)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.HasLen, 3)
-	c.Assert(results[0].Error, tc.ErrorMatches, `while parsing model owner tag: "owner-user" is not a valid tag`)
-	c.Assert(results[1].Error, tc.ErrorMatches, `while parsing model cloud tag: "not-cloud" is not a valid tag`)
-	c.Assert(results[2].Error, tc.ErrorMatches, `while parsing model cloud credential tag: "not-credential" is not a valid tag`)
 }
 
 func (s *modelmanagerSuite) TestListModelSummariesInvalidUserIn(c *tc.C) {

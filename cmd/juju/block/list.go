@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/controller"
@@ -211,21 +210,17 @@ func getControllerAPI(ctx context.Context, c newControllerAPIRoot) (*controller.
 type modelBlockInfo struct {
 	Name        string   `yaml:"name" json:"name"`
 	UUID        string   `yaml:"model-uuid" json:"model-uuid"`
-	Owner       string   `yaml:"owner" json:"owner"`
+	Namespace   string   `yaml:"namespace" json:"namespace"`
 	CommandSets []string `yaml:"disabled-commands,omitempty" json:"disabled-commands,omitempty"`
 }
 
 func FormatModelBlockInfo(all []params.ModelBlockInfo) ([]modelBlockInfo, error) {
 	output := make([]modelBlockInfo, len(all))
 	for i, one := range all {
-		tag, err := names.ParseUserTag(one.OwnerTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		output[i] = modelBlockInfo{
 			Name:        one.Name,
 			UUID:        one.UUID,
-			Owner:       tag.Id(),
+			Namespace:   one.Namespace,
 			CommandSets: blocksToStr(one.Blocks),
 		}
 	}
@@ -242,9 +237,9 @@ func FormatTabularBlockedModels(writer io.Writer, value interface{}) error {
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{TabWriter: tw}
-	w.Println("Name", "Model UUID", "Owner", "Disabled commands")
+	w.Println("Name", "Model UUID", "Namespace", "Disabled commands")
 	for _, model := range models {
-		w.Println(model.Name, model.UUID, model.Owner, strings.Join(model.CommandSets, ", "))
+		w.Println(model.Name, model.UUID, model.Namespace, strings.Join(model.CommandSets, ", "))
 	}
 	tw.Flush()
 	return nil

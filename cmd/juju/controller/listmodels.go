@@ -112,7 +112,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 
 	c.runVars = modelsRunValues{
-		currentUser:    names.NewUserTag(c.user),
+		currentUser:    c.user,
 		controllerName: controllerName,
 	}
 	// TODO(perrito666) 2016-05-02 lp:1558657
@@ -142,11 +142,11 @@ func (c *modelsCommand) currentModelName() (qualified, name string) {
 	if err == nil {
 		qualified, name = current, current
 		if c.user != "" {
-			unqualifiedModelName, owner, err := jujuclient.SplitModelName(current)
+			unqualifiedModelName, namespace, err := jujuclient.SplitModelName(current)
 			if err == nil {
-				// If current model's owner is this user, un-qualify model name.
-				name = common.OwnerQualifiedModelName(
-					unqualifiedModelName, owner, c.runVars.currentUser,
+				// If current model's namespace is this user, un-qualify model name.
+				name = common.UserQualifiedModelName(
+					unqualifiedModelName, namespace, c.runVars.currentUser,
 				)
 			}
 		}
@@ -229,7 +229,7 @@ type ModelSummary struct {
 	ControllerUUID     string                  `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName     string                  `json:"controller-name" yaml:"controller-name"`
 	IsController       bool                    `json:"is-controller" yaml:"is-controller"`
-	Owner              string                  `json:"owner" yaml:"owner"`
+	Namespace          string                  `json:"namespace" yaml:"namespace"`
 	Cloud              string                  `json:"cloud" yaml:"cloud"`
 	CloudRegion        string                  `json:"region,omitempty" yaml:"region,omitempty"`
 	CloudCredential    *common.ModelCredential `json:"credential,omitempty" yaml:"credential,omitempty"`
@@ -254,12 +254,12 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 	}
 	summary := ModelSummary{
 		ShortName:      apiSummary.Name,
-		Name:           jujuclient.JoinOwnerModelName(names.NewUserTag(apiSummary.Owner), apiSummary.Name),
+		Name:           jujuclient.QualifyModelName(apiSummary.Namespace, apiSummary.Name),
 		UUID:           apiSummary.UUID,
 		Type:           apiSummary.Type,
 		ControllerUUID: apiSummary.ControllerUUID,
 		IsController:   apiSummary.IsController,
-		Owner:          apiSummary.Owner,
+		Namespace:      apiSummary.Namespace,
 		Life:           apiSummary.Life,
 		Cloud:          apiSummary.Cloud,
 		CloudRegion:    apiSummary.CloudRegion,
@@ -337,7 +337,7 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 
 // These values are specific to an individual Run() of the model command.
 type modelsRunValues struct {
-	currentUser      names.UserTag
+	currentUser      string
 	controllerName   string
 	hasMachinesCount bool
 	hasCoresCount    bool
@@ -410,9 +410,8 @@ func (c *modelsCommand) tabularSummaries(writer io.Writer, modelSet ModelSummary
 
 	for _, model := range modelSet.Models {
 		cloudRegion := strings.Trim(model.Cloud+"/"+model.CloudRegion, "/")
-		owner := names.NewUserTag(model.Owner)
 		name := model.Name
-		if c.runVars.currentUser == owner {
+		if c.runVars.currentUser == model.Namespace {
 			// No need to display fully qualified model name to its owner.
 			name = model.ShortName
 		}

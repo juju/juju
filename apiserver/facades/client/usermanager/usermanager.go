@@ -190,7 +190,11 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 	if err != nil {
 		return deletions, errors.Trace(err)
 	}
-	controllerOwner, err := api.accessService.GetUser(ctx, controllerModel.Owner)
+	owner, err := coreuser.NewName(controllerModel.Namespace)
+	if err != nil {
+		return deletions, errors.Trace(err)
+	}
+	controllerOwner, err := api.accessService.GetUserByName(ctx, owner)
 	if err != nil {
 		return deletions, errors.Trace(err)
 	}

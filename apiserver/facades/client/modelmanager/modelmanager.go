@@ -168,11 +168,6 @@ func reloadSpaces(ctx context.Context, modelNetworkService NetworkService) error
 func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
 
-	ownerTag, err := names.ParseUserTag(args.OwnerTag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
 	// We need to get the controller's default cloud and credential. To help
 	// Juju users when creating their first models we allow them to omit this
 	// information from the model creation args. If they have done exactly this
@@ -210,7 +205,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 
 		// a special case of ErrPerm will happen if the user has add-model permission but is trying to
 		// create a model for another person, which is not yet supported.
-		if ownerTag != m.apiUser {
+		if args.Namespace != m.apiUser.Id() {
 			return result, internalerrors.Errorf(
 				"%q permission does not permit creation of models for different owners",
 				permission.AddModelAccess,
@@ -235,11 +230,15 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		creationArgs.Credential = credential.KeyFromTag(cloudCredentialTag)
 	}
 
-	userUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(ownerTag))
+	userName, err := user.NewName(args.Namespace)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	userUUID, err := m.accessService.GetUserUUIDByName(ctx, userName)
 	switch {
 	case errors.Is(err, accesserrors.UserNotFound):
 		return result, internalerrors.Errorf(
-			"owner %q for model does not exist", ownerTag.Name(),
+			"owner %q for model does not exist", args.Namespace,
 		).Add(coreerrors.NotFound)
 	case errors.Is(err, accesserrors.UserNameNotValid):
 		return result, internalerrors.New(
@@ -248,7 +247,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	case err != nil:
 		return result, internalerrors.Errorf(
 			"retrieving user %q for new model %q owner: %w",
-			ownerTag.Name(), args.Name, err,
+			args.Namespace, args.Name, err,
 		)
 	}
 	creationArgs.Owner = userUUID
@@ -258,7 +257,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	switch {
 	case errors.Is(err, modelerrors.AlreadyExists):
 		return result, internalerrors.Errorf(
-			"model already exists for name %q and owner %q", args.Name, ownerTag.Name(),
+			"model already exists for name %q and namespace %q", args.Name, args.Namespace,
 		).Add(coreerrors.AlreadyExists)
 	case errors.Is(err, modelerrors.CredentialNotValid):
 		return result, internalerrors.Errorf(
@@ -266,8 +265,8 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		).Add(coreerrors.NotFound)
 	case err != nil:
 		return result, internalerrors.Errorf(
-			"creating new model %q for owner %q: %w",
-			args.Name, ownerTag.Name(), err,
+			"creating new model %q in namespace %q: %w",
+			args.Name, args.Namespace, err,
 		)
 	}
 
@@ -295,8 +294,8 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	case errors.Is(err, modelerrors.AlreadyExists):
 		return result, apiservererrors.ParamsErrorf(
 			params.CodeAlreadyExists,
-			"model %q for owner %q already exists in model database",
-			creationArgs.Name, ownerTag.Name(),
+			"model %q in namespace %q already exists in model database",
+			creationArgs.Name, args.Namespace,
 		)
 	case errors.Is(err, modelerrors.AgentVersionNotSupported):
 		return result, apiservererrors.ParamsErrorf(
@@ -344,7 +343,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		CloudName:       cloudTag.Id(),
 		CloudRegion:     modelInfo.CloudRegion,
 		CloudCredential: credentialTag,
-		Owner:           ownerTag,
+		Owner:           names.NewUserTag(args.Namespace),
 	})
 	if err != nil {
 		return result, errors.Annotatef(err, "creating new model for %q", creationArgs.Name)
@@ -684,13 +683,12 @@ func makeModelSummary(ctx context.Context, mi coremodel.ModelSummary) (*params.M
 		)
 	}
 	cloudTag := names.NewCloudTag(mi.CloudName)
-	userTag := names.NewUserTag(mi.OwnerName.Name())
 
 	summary := &params.ModelSummary{
 		Name:           mi.Name,
 		UUID:           mi.UUID.String(),
 		Type:           mi.ModelType.String(),
-		OwnerTag:       userTag.String(),
+		Namespace:      mi.Namespace,
 		ControllerUUID: mi.ControllerUUID,
 		IsController:   mi.IsController,
 		Life:           mi.Life,
@@ -785,10 +783,10 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
-				Name:     mi.Name,
-				UUID:     mi.UUID.String(),
-				Type:     string(mi.ModelType),
-				OwnerTag: names.NewUserTag(mi.OwnerName.Name()).String(),
+				Name:      mi.Name,
+				UUID:      mi.UUID.String(),
+				Type:      string(mi.ModelType),
+				Namespace: mi.Namespace,
 			},
 			LastConnection: lastConnection,
 		})
@@ -1001,7 +999,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 		UUID:           modelUUID.String(),
 		ControllerUUID: m.controllerUUID.String(),
 		IsController:   modelInfo.IsControllerModel,
-		OwnerTag:       names.NewUserTag(model.OwnerName.Name()).String(),
+		Namespace:      model.Namespace,
 		Life:           model.Life,
 		CloudTag:       names.NewCloudTag(model.Cloud).String(),
 		CloudRegion:    model.CloudRegion,

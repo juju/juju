@@ -65,7 +65,7 @@ type fakeDestroyAPI struct {
 	testhelpers.Stub
 	cloud        environscloudspec.CloudSpec
 	blocks       []params.ModelBlockInfo
-	envStatus    map[string]base.ModelStatus
+	modelStatus  map[string]base.ModelStatus
 	allModels    []base.UserModel
 	hostedConfig []apicontroller.HostedConfig
 }
@@ -113,7 +113,7 @@ func (f *fakeDestroyAPI) ModelStatus(_ context.Context, tags ...names.ModelTag) 
 	f.MethodCall(f, "ModelStatus", tags)
 	status := make([]base.ModelStatus, len(tags))
 	for i, tag := range tags {
-		status[i] = f.envStatus[tag.Id()]
+		status[i] = f.modelStatus[tag.Id()]
 	}
 	return status, f.NextErr()
 }
@@ -157,8 +157,8 @@ func (s *baseDestroySuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{
-		cloud:     testing.FakeCloudSpec(),
-		envStatus: map[string]base.ModelStatus{},
+		cloud:       testing.FakeCloudSpec(),
+		modelStatus: map[string]base.ModelStatus{},
 	}
 	s.apierror = nil
 	s.controllerModelConfigAPI = &fakeModelConfigAPI{}
@@ -220,16 +220,16 @@ func (s *baseDestroySuite) SetUpTest(c *tc.C) {
 
 		uuid := model.modelUUID
 		s.api.allModels = append(s.api.allModels, base.UserModel{
-			Name:  model.name,
-			UUID:  uuid,
-			Owner: owner.Id(),
+			Name:      model.name,
+			UUID:      uuid,
+			Namespace: owner.Id(),
 		})
-		s.api.envStatus[model.modelUUID] = base.ModelStatus{
+		s.api.modelStatus[model.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
 			Life:               life.Dead,
 			HostedMachineCount: 0,
 			ApplicationCount:   0,
-			Owner:              owner.Id(),
+			Namespace:          owner.Id(),
 		}
 	}
 }
@@ -366,7 +366,7 @@ func (s *DestroySuite) TestDestroyWithModelTimeoutNoForce(c *tc.C) {
 
 func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *tc.C) {
 	var haveFilesystem bool
-	for uuid, status := range s.api.envStatus {
+	for uuid, status := range s.api.modelStatus {
 		status.Life = life.Alive
 		status.Volumes = append(status.Volumes, base.Volume{Detachable: true})
 		if !haveFilesystem {
@@ -375,7 +375,7 @@ func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *tc
 				status.Filesystems, base.Filesystem{Detachable: true},
 			)
 		}
-		s.api.envStatus[uuid] = status
+		s.api.modelStatus[uuid] = status
 	}
 
 	s.api.SetErrors(
@@ -419,9 +419,9 @@ func (s *DestroySuite) TestFailedDestroyController(c *tc.C) {
 }
 
 func (s *DestroySuite) TestDestroyControllerAliveModels(c *tc.C) {
-	for uuid, status := range s.api.envStatus {
+	for uuid, status := range s.api.modelStatus {
 		status.Life = life.Alive
-		s.api.envStatus[uuid] = status
+		s.api.modelStatus[uuid] = status
 	}
 	s.api.SetErrors(
 		errors.New("cannot destroy controller \"test1\""),
@@ -559,17 +559,17 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *tc.C) {
 	)
 	s.api.blocks = []params.ModelBlockInfo{
 		{
-			Name:     "test1",
-			UUID:     test1UUID,
-			OwnerTag: "user-cheryl",
+			Name:      "test1",
+			UUID:      test1UUID,
+			Namespace: "cheryl",
 			Blocks: []string{
 				"BlockDestroy",
 			},
 		},
 		{
-			Name:     "test2",
-			UUID:     test2UUID,
-			OwnerTag: "user-bob",
+			Name:      "test2",
+			UUID:      test2UUID,
+			Namespace: "bob",
 			Blocks: []string{
 				"BlockDestroy",
 				"BlockChange",
@@ -579,8 +579,8 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *tc.C) {
 	ctx, _ := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Unable to get the controller summary from the API: there are models with disabled commands preventing controller destruction.\n"+
 		"Destroying controller\n"+
-		"Name   Model UUID                            Owner   Disabled commands\n"+
-		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl  destroy-model\n"+
-		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob     all, destroy-model\n")
+		"Name   Model UUID                            Namespace  Disabled commands\n"+
+		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl     destroy-model\n"+
+		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob        all, destroy-model\n")
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }

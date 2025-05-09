@@ -43,10 +43,11 @@ type Client struct {
 // connection.
 func NewClient(st base.APICallCloser, options ...Option) *Client {
 	frontend, backend := base.NewClientFacade(st, "ModelManager", options...)
+	legacy := frontend.BestAPIVersion() < 11
 	return &Client{
 		ClientFacade:   frontend,
 		facade:         backend,
-		ModelStatusAPI: common.NewModelStatusAPI(backend),
+		ModelStatusAPI: common.NewModelStatusAPI(backend, legacy),
 	}
 }
 
@@ -75,11 +76,14 @@ func (c *Client) CreateModel(
 	}
 	createArgs := params.ModelCreateArgs{
 		Name:               name,
-		OwnerTag:           names.NewUserTag(owner).String(),
+		Namespace:          owner,
 		Config:             config,
 		CloudTag:           cloudTag,
 		CloudRegion:        cloudRegion,
 		CloudCredentialTag: cloudCredentialTag,
+	}
+	if c.BestAPIVersion() < 11 {
+		return c.createModelCompat(ctx, createArgs)
 	}
 	var modelInfo params.ModelInfo
 	err := c.facade.FacadeCall(ctx, "CreateModel", createArgs, &modelInfo)
@@ -102,10 +106,6 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		}
 		credential = credTag.Id()
 	}
-	ownerTag, err := names.ParseUserTag(modelInfo.OwnerTag)
-	if err != nil {
-		return base.ModelInfo{}, errors.Trace(err)
-	}
 	result := base.ModelInfo{
 		Name:            modelInfo.Name,
 		UUID:            modelInfo.UUID,
@@ -115,7 +115,7 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		Cloud:           cloud.Id(),
 		CloudRegion:     modelInfo.CloudRegion,
 		CloudCredential: credential,
-		Owner:           ownerTag.Id(),
+		Namespace:       modelInfo.Namespace,
 		Life:            modelInfo.Life,
 		AgentVersion:    modelInfo.AgentVersion,
 	}
@@ -174,10 +174,13 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
 func (c *Client) ListModels(ctx context.Context, user string) ([]base.UserModel, error) {
-	var models params.UserModelList
 	if !names.IsValidUser(user) {
 		return nil, errors.Errorf("invalid user name %q", user)
 	}
+	if c.BestAPIVersion() < 11 {
+		return c.listModelsCompat(ctx, user)
+	}
+	var models params.UserModelList
 	entity := params.Entity{names.NewUserTag(user).String()}
 	err := c.facade.FacadeCall(ctx, "ListModels", entity, &models)
 	if err != nil {
@@ -185,10 +188,6 @@ func (c *Client) ListModels(ctx context.Context, user string) ([]base.UserModel,
 	}
 	result := make([]base.UserModel, len(models.UserModels))
 	for i, usermodel := range models.UserModels {
-		owner, err := names.ParseUserTag(usermodel.OwnerTag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", usermodel.OwnerTag, i)
-		}
 		modelType := model.ModelType(usermodel.Type)
 		if modelType == "" {
 			modelType = model.IAAS
@@ -197,25 +196,33 @@ func (c *Client) ListModels(ctx context.Context, user string) ([]base.UserModel,
 			Name:           usermodel.Name,
 			UUID:           usermodel.UUID,
 			Type:           modelType,
-			Owner:          owner.Id(),
+			Namespace:      usermodel.Namespace,
 			LastConnection: usermodel.LastConnection,
 		}
 	}
 	return result, nil
 }
 
+// ListModelSummaries returns summary information about models visible to the user.
 func (c *Client) ListModelSummaries(ctx context.Context, user string, all bool) ([]base.UserModelSummary, error) {
-	var out params.ModelSummaryResults
 	if !names.IsValidUser(user) {
 		return nil, errors.Errorf("invalid user name %q", user)
 	}
+	if c.BestAPIVersion() < 11 {
+		return c.listModelSummariesCompat(ctx, user, all)
+	}
+	var out params.ModelSummaryResults
 	in := params.ModelSummariesRequest{UserTag: names.NewUserTag(user).String(), All: all}
 	err := c.facade.FacadeCall(ctx, "ListModelSummaries", in, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	summaries := make([]base.UserModelSummary, len(out.Results))
-	for i, r := range out.Results {
+	return c.composeModelSummaries(out.Results)
+}
+
+func (c *Client) composeModelSummaries(results []params.ModelSummaryResult) ([]base.UserModelSummary, error) {
+	summaries := make([]base.UserModelSummary, len(results))
+	for i, r := range results {
 		if r.Error != nil {
 			// cope with typed error
 			summaries[i] = base.UserModelSummary{Error: errors.Trace(r.Error)}
@@ -235,6 +242,7 @@ func (c *Client) ListModelSummaries(ctx context.Context, user string, all bool) 
 			ProviderType:       summary.ProviderType,
 			CloudRegion:        summary.CloudRegion,
 			Life:               summary.Life,
+			Namespace:          summary.Namespace,
 			ModelUserAccess:    string(summary.UserAccess),
 			UserLastConnection: summary.UserLastConnection,
 			Counts:             make([]base.EntityCount, len(summary.Counts)),
@@ -252,21 +260,15 @@ func (c *Client) ListModelSummaries(ctx context.Context, user string, all bool) 
 		for k, v := range summary.Status.Data {
 			summaries[i].Status.Data[k] = v
 		}
-		if owner, err := names.ParseUserTag(summary.OwnerTag); err != nil {
-			summaries[i].Error = errors.Annotatef(err, "while parsing model owner tag")
-			continue
-		} else {
-			summaries[i].Owner = owner.Id()
-		}
 		if cloud, err := names.ParseCloudTag(summary.CloudTag); err != nil {
-			summaries[i].Error = errors.Annotatef(err, "while parsing model cloud tag")
+			summaries[i].Error = errors.Annotatef(err, "parsing model cloud tag")
 			continue
 		} else {
 			summaries[i].Cloud = cloud.Id()
 		}
 		if summary.CloudCredentialTag != "" {
 			if credTag, err := names.ParseCloudCredentialTag(summary.CloudCredentialTag); err != nil {
-				summaries[i].Error = errors.Annotatef(err, "while parsing model cloud credential tag")
+				summaries[i].Error = errors.Annotatef(err, "parsing model cloud credential tag")
 				continue
 			} else {
 				summaries[i].CloudCredential = credTag.Id()
@@ -284,6 +286,9 @@ func (c *Client) ListModelSummaries(ctx context.Context, user string, all bool) 
 }
 
 func (c *Client) ModelInfo(ctx context.Context, tags []names.ModelTag) ([]params.ModelInfoResult, error) {
+	if c.BestAPIVersion() < 11 {
+		return c.modelInfoCompat(ctx, tags)
+	}
 	entities := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
 	}

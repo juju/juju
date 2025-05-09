@@ -252,16 +252,12 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 	for _, model := range models {
-		if !names.IsValidUser(model.OwnerName.String()) {
-			c.logger.Errorf(ctx, "parsing owner name %q into user tag, skipping model %q: %v", model.OwnerName.Name(), model.UUID, err)
-			continue
-		}
 		userModel := params.UserModel{
 			Model: params.Model{
-				Name:     model.Name,
-				UUID:     model.UUID.String(),
-				Type:     model.ModelType.String(),
-				OwnerTag: names.NewUserTag(model.OwnerName.Name()).String(),
+				Name:      model.Name,
+				UUID:      model.UUID.String(),
+				Type:      model.ModelType.String(),
+				Namespace: model.Namespace,
 			},
 		}
 
@@ -317,15 +313,11 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		for _, block := range blocks {
 			blockTypes.Add(encodeBlockType(block.Type))
 		}
-		if !names.IsValidUser(model.OwnerName.String()) {
-			c.logger.Errorf(ctx, "parsing owner name %q into user tag, skipping model %q: %v", model.OwnerName.Name(), model.UUID, err)
-			continue
-		}
 		results.Models = append(results.Models, params.ModelBlockInfo{
-			UUID:     model.UUID.String(),
-			Name:     model.Name,
-			OwnerTag: names.NewUserTag(model.OwnerName.Name()).String(),
-			Blocks:   blockTypes.SortedValues(),
+			UUID:      model.UUID.String(),
+			Name:      model.Name,
+			Namespace: model.Namespace,
+			Blocks:    blockTypes.SortedValues(),
 		})
 	}
 
@@ -370,14 +362,10 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		if model.UUID == controllerModel.UUID {
 			continue
 		}
-		if !names.IsValidUser(model.OwnerName.String()) {
-			c.logger.Errorf(ctx, "parsing owner name %q into user tag, skipping model %q: %v", model.OwnerName.Name(), model.UUID, err)
-			continue
-		}
 
 		config := params.HostedModelConfig{
-			Name:     model.Name,
-			OwnerTag: names.NewUserTag(model.OwnerName.Name()).String(),
+			Name:      model.Name,
+			Namespace: model.Namespace,
 		}
 		svc, err := c.modelConfigServiceGetter(ctx, model.UUID)
 		if err != nil {
@@ -942,9 +930,10 @@ func makeModelInfo(ctx context.Context, st *state.State,
 
 	ul.identityURL = coreConf.IdentityURL()
 	return coremigration.ModelInfo{
-		UUID:                   model.UUID.String(),
-		Name:                   model.Name,
-		Owner:                  names.NewUserTag(model.OwnerName.Name()),
+		UUID: model.UUID.String(),
+		Name: model.Name,
+		//Owner:                  names.NewUserTag(model.OwnerName.Name()),
+		Namespace:              model.Namespace,
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerModel.AgentVersion,
 		ModelDescription:       description,
@@ -1003,10 +992,10 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 		return false
 	}
 
-	if o[i].OwnerTag < o[j].OwnerTag {
+	if o[i].Namespace < o[j].Namespace {
 		return true
 	}
-	if o[i].OwnerTag > o[j].OwnerTag {
+	if o[i].Namespace > o[j].Namespace {
 		return false
 	}
 

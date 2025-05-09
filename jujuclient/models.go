@@ -109,7 +109,7 @@ func migrateModelName(legacyName string) (string, bool, error) {
 		return legacyName, false, nil
 	}
 	rawModelName := legacyName[i+1:]
-	return JoinOwnerModelName(names.NewUserTag(owner), rawModelName), true, nil
+	return QualifyModelName(names.NewUserTag(owner).Id(), rawModelName), true, nil
 }
 
 // WriteModelsFile marshals to YAML details of the given models
@@ -150,9 +150,9 @@ type ControllerModels struct {
 	PreviousModel string `yaml:"previous-model,omitempty"`
 }
 
-// JoinOwnerModelName returns a model name qualified with the model owner.
-func JoinOwnerModelName(owner names.UserTag, modelName string) string {
-	return fmt.Sprintf("%s/%s", owner.Id(), modelName)
+// QualifyModelName returns a model name qualified with the model namespace.
+func QualifyModelName(namespace string, modelName string) string {
+	return fmt.Sprintf("%s/%s", namespace, modelName)
 }
 
 // IsQualifiedModelName returns true if the provided model name is qualified
@@ -162,17 +162,17 @@ func IsQualifiedModelName(name string) bool {
 	return strings.ContainsRune(name, '/')
 }
 
-// SplitModelName splits a qualified model name into the model and owner
+// SplitModelName splits a qualified model name into the model and namespace
 // name components.
-func SplitModelName(name string) (string, names.UserTag, error) {
+func SplitModelName(name string) (string, string, error) {
 	i := strings.IndexRune(name, '/')
 	if i < 0 {
-		return "", names.UserTag{}, errors.NotValidf("unqualified model name %q", name)
+		return "", "", errors.NotValidf("unqualified model name %q", name)
 	}
-	owner := name[:i]
-	if !names.IsValidUser(owner) {
-		return "", names.UserTag{}, errors.NotValidf("user name %q", owner)
+	namespace := name[:i]
+	if !model.IsValidNamespace(namespace) {
+		return "", "", errors.NotValidf("namespace %q", namespace)
 	}
 	name = name[i+1:]
-	return name, names.NewUserTag(owner), nil
+	return name, namespace, nil
 }

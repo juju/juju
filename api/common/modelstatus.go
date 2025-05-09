@@ -19,18 +19,22 @@ import (
 // to call into apiserver.common.ModelStatusAPI.
 type ModelStatusAPI struct {
 	facade base.FacadeCaller
+	legacy bool
 }
 
 // NewModelStatusAPI creates a ModelStatusAPI on the specified facade,
 // and uses this name when calling through the caller.
-func NewModelStatusAPI(facade base.FacadeCaller) *ModelStatusAPI {
-	return &ModelStatusAPI{facade}
+func NewModelStatusAPI(facade base.FacadeCaller, legacy bool) *ModelStatusAPI {
+	return &ModelStatusAPI{facade: facade, legacy: legacy}
 }
 
 // ModelStatus returns a status summary for each model tag passed in. If a
 // given model is not found, the corresponding ModelStatus.Error field will
 // contain an error matching errors.NotFound.
 func (c *ModelStatusAPI) ModelStatus(ctx context.Context, tags ...names.ModelTag) ([]base.ModelStatus, error) {
+	if c.legacy {
+		return c.modelStatusCompat(ctx, tags...)
+	}
 	result := params.ModelStatusResults{}
 	models := make([]params.Entity, len(tags))
 	for i, tag := range tags {
@@ -60,17 +64,12 @@ func (c *ModelStatusAPI) processModelStatusResults(rs []params.ModelStatus) ([]b
 			results[i].Error = errors.Trace(err)
 			continue
 		}
-		owner, err := names.ParseUserTag(r.OwnerTag)
-		if err != nil {
-			results[i].Error = errors.Trace(err)
-			continue
-		}
-		results[i] = constructModelStatus(aModel, owner, r)
+		results[i] = constructModelStatus(aModel, r.Namespace, r)
 	}
 	return results, nil
 }
 
-func constructModelStatus(m names.ModelTag, owner names.UserTag, r params.ModelStatus) base.ModelStatus {
+func constructModelStatus(m names.ModelTag, namespace string, r params.ModelStatus) base.ModelStatus {
 	volumes := make([]base.Volume, len(r.Volumes))
 	for i, in := range r.Volumes {
 		volumes[i] = base.Volume{
@@ -96,7 +95,7 @@ func constructModelStatus(m names.ModelTag, owner names.UserTag, r params.ModelS
 	result := base.ModelStatus{
 		UUID:               m.Id(),
 		Life:               r.Life,
-		Owner:              owner.Id(),
+		Namespace:          namespace,
 		ModelType:          model.ModelType(r.Type),
 		HostedMachineCount: r.HostedMachineCount,
 		ApplicationCount:   r.ApplicationCount,

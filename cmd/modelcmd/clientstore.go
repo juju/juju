@@ -32,14 +32,14 @@ func (s QualifyingClientStore) QualifiedModelName(controllerName, modelName stri
 			return "", errors.Annotate(err, "getting account details for qualifying model name")
 		}
 		owner := names.NewUserTag(details.User)
-		modelName = jujuclient.JoinOwnerModelName(owner, modelName)
+		modelName = jujuclient.QualifyModelName(owner.Id(), modelName)
 	} else {
 		unqualifiedModelName, owner, err := jujuclient.SplitModelName(modelName)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
-		owner = names.NewUserTag(owner.Id())
-		modelName = jujuclient.JoinOwnerModelName(owner, unqualifiedModelName)
+		ownerTag := names.NewUserTag(owner)
+		modelName = jujuclient.QualifyModelName(ownerTag.Id(), unqualifiedModelName)
 	}
 	return modelName, nil
 }

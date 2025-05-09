@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
@@ -207,8 +206,8 @@ func BootstrapEndpointAddresses(
 // is not an IAAS controller.
 func ValidateIaasController(ctx context.Context, c modelcmd.CommandBase, cmdName, controllerName string, store jujuclient.ClientStore) error {
 	// Ensure controller model is cached.
-	controllerModel := jujuclient.JoinOwnerModelName(
-		names.NewUserTag(environs.AdminUser), bootstrap.ControllerModelName)
+	controllerModel := jujuclient.QualifyModelName(
+		environs.AdminUser, bootstrap.ControllerModelName)
 	_, err := c.ModelUUIDs(ctx, store, controllerName, []string{controllerModel})
 	if err != nil {
 		return errors.Annotatef(err, "cannot get controller model uuid")

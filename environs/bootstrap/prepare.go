@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
@@ -155,8 +154,8 @@ func decorateAndWriteInfo(
 	details prepareDetails,
 	controllerName, modelName string,
 ) error {
-	qualifiedModelName := jujuclient.JoinOwnerModelName(
-		names.NewUserTag(details.AccountDetails.User),
+	qualifiedModelName := jujuclient.QualifyModelName(
+		details.AccountDetails.User,
 		modelName,
 	)
 	if err := store.AddController(controllerName, details.ControllerDetails); err != nil {

@@ -563,7 +563,6 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 
-	usr1 := usertesting.GenUserUUID(c)
 	id1 := modeltesting.GenModelUUID(c)
 	id2 := modeltesting.GenModelUUID(c)
 	s.mockState.EXPECT().ListAllModels(gomock.Any()).Return([]coremodel.Model{
@@ -574,8 +573,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Owner:        s.userUUID,
-			OwnerName:    usertesting.GenNewName(c, "admin"),
+			Namespace:    "admin",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -590,8 +588,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Owner:        usr1,
-			OwnerName:    usertesting.GenNewName(c, "tlm"),
+			Namespace:    "tlm",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -611,8 +608,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Owner:        s.userUUID,
-			OwnerName:    usertesting.GenNewName(c, "admin"),
+			Namespace:    "admin",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -627,8 +623,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
-			Owner:        usr1,
-			OwnerName:    usertesting.GenNewName(c, "tlm"),
+			Namespace:    "tlm",
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
@@ -700,8 +695,7 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 			Cloud:       "aws",
 			CloudRegion: "myregion",
 			ModelType:   coremodel.IAAS,
-			Owner:       usr1,
-			OwnerName:   usertesting.GenNewName(c, "tlm"),
+			Namespace:   "tlm",
 			Credential:  cred,
 			Life:        life.Alive,
 		},
@@ -711,8 +705,7 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 			Cloud:       "aws",
 			CloudRegion: "myregion",
 			ModelType:   coremodel.IAAS,
-			Owner:       usr1,
-			OwnerName:   usertesting.GenNewName(c, "tlm"),
+			Namespace:   "tlm",
 			Credential:  cred,
 			Life:        life.Alive,
 		},
@@ -779,29 +772,13 @@ func (s *serviceSuite) TestControllerModel(c *tc.C) {
 	s.state.users[adminUUID] = coremodel.ControllerModelOwnerUsername
 
 	cred := credential.Key{
-		Cloud: "aws",
-		Name:  "foobar",
+		Cloud: "controller-cloud",
+		Name:  "controller-cloud-cred",
 		Owner: usertesting.GenNewName(c, "owner"),
-	}
-	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.Key{
-			cred.String(): cred,
-		},
-		Regions: []string{"myregion"},
 	}
 
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
-	modelID, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
-		Cloud:       "aws",
-		CloudRegion: "myregion",
-		Credential:  cred,
-		Owner:       adminUUID,
-		Name:        coremodel.ControllerModelName,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(activator(c.Context()), tc.ErrorIsNil)
-	s.state.controllerModelUUID = modelID
-
+	modelID := s.state.controllerModelUUID
 	model, err := svc.ControllerModel(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.Model{
@@ -809,11 +786,10 @@ func (s *serviceSuite) TestControllerModel(c *tc.C) {
 		Life:        life.Alive,
 		UUID:        modelID,
 		ModelType:   coremodel.IAAS,
-		Cloud:       "aws",
-		CloudRegion: "myregion",
+		Cloud:       "controller-cloud",
+		CloudRegion: "ap-southeast-2",
 		Credential:  cred,
-		Owner:       adminUUID,
-		OwnerName:   coremodel.ControllerModelOwnerUsername,
+		Namespace:   coremodel.ControllerModelOwnerUsername.String(),
 	})
 }
 
@@ -1117,8 +1093,7 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *tc.C) {
 		Cloud:        "aws",
 		CloudRegion:  "testregion",
 		ModelType:    coremodel.IAAS,
-		Owner:        s.userUUID,
-		OwnerName:    ownerUserName,
+		Namespace:    "user",
 		Credential: credential.Key{
 			Cloud: "aws",
 			Name:  "testcredential",

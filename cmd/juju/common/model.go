@@ -29,7 +29,7 @@ type ModelInfo struct {
 	ControllerUUID string                       `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName string                       `json:"controller-name" yaml:"controller-name"`
 	IsController   bool                         `json:"is-controller" yaml:"is-controller"`
-	Owner          string                       `json:"owner" yaml:"owner"`
+	Namespace      string                       `json:"namespace" yaml:"namespace"`
 	Cloud          string                       `json:"cloud" yaml:"cloud"`
 	CloudRegion    string                       `json:"region,omitempty" yaml:"region,omitempty"`
 	ProviderType   string                       `json:"type,omitempty" yaml:"type,omitempty"`
@@ -112,22 +112,18 @@ func ModelStatusReason(data map[string]interface{}) string {
 
 // ModelInfoFromParams translates a params.ModelInfo to ModelInfo.
 func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error) {
-	ownerTag, err := names.ParseUserTag(info.OwnerTag)
-	if err != nil {
-		return ModelInfo{}, errors.Trace(err)
-	}
 	cloudTag, err := names.ParseCloudTag(info.CloudTag)
 	if err != nil {
 		return ModelInfo{}, errors.Trace(err)
 	}
 	modelInfo := ModelInfo{
 		ShortName:      info.Name,
-		Name:           jujuclient.JoinOwnerModelName(ownerTag, info.Name),
+		Name:           jujuclient.QualifyModelName(info.Namespace, info.Name),
 		Type:           model.ModelType(info.Type),
 		UUID:           info.UUID,
 		ControllerUUID: info.ControllerUUID,
 		IsController:   info.IsController,
-		Owner:          ownerTag.Id(),
+		Namespace:      info.Namespace,
 		Life:           string(info.Life),
 		Cloud:          cloudTag.Id(),
 		CloudRegion:    info.CloudRegion,
@@ -245,12 +241,12 @@ func ModelUserInfoFromParams(users []params.ModelUserInfo, now time.Time) map[st
 	return output
 }
 
-// OwnerQualifiedModelName returns the model name qualified with the
+// UserQualifiedModelName returns the model name qualified with the
 // model owner if the owner is not the same as the given canonical
 // user name. If the owner is a local user, we omit the domain.
-func OwnerQualifiedModelName(modelName string, owner, user names.UserTag) string {
-	if owner.Id() == user.Id() {
+func UserQualifiedModelName(modelName string, namespace string, user string) string {
+	if namespace == user {
 		return modelName
 	}
-	return jujuclient.JoinOwnerModelName(owner, modelName)
+	return jujuclient.QualifyModelName(namespace, modelName)
 }

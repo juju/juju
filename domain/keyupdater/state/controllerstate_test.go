@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/keymanager"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modelstate "github.com/juju/juju/domain/model/state"
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/ssh"
@@ -79,12 +78,14 @@ func (s *controllerStateSuite) SetUpTest(c *tc.C) {
 	s.SeedControllerUUID(c)
 
 	s.modelUUID = modelstatetesting.CreateTestModel(c, s.TxnRunnerFactory(), "keys")
-
-	model, err := modelstate.NewState(s.TxnRunnerFactory()).GetModel(
-		c.Context(), s.modelUUID,
-	)
+	var userUUID user.UUID
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context,
+		tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM user where name = ?", "test-userkeys").Scan(&userUUID)
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.userUUID = model.Owner
+	c.Assert(userUUID, tc.NotNil)
+	s.userUUID = userUUID
 }
 
 // TestControllerConfigKeysEmpty ensures that if we ask for keys that do not

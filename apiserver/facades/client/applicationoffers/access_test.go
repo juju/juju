@@ -32,7 +32,7 @@ import (
 
 type offerAccessSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPIv5
+	api *applicationoffers.OffersAPI
 }
 
 func TestOfferAccessSuite(t *testing.T) {
@@ -113,7 +113,7 @@ func (s *offerAccessSuite) setupOffer(c *tc.C, modelUUID, modelName, owner, offe
 		[]coremodel.Model{
 			{
 				Name:      modelName,
-				OwnerName: ownerName,
+				Namespace: owner,
 				UUID:      coremodel.UUID(modelUUID),
 				ModelType: coremodel.IAAS,
 			},
@@ -122,7 +122,7 @@ func (s *offerAccessSuite) setupOffer(c *tc.C, modelUUID, modelName, owner, offe
 	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), modelName, ownerName).Return(
 		coremodel.Model{
 			Name:      modelName,
-			OwnerName: ownerName,
+			Namespace: owner,
 			UUID:      coremodel.UUID(modelUUID),
 			ModelType: coremodel.IAAS,
 		}, nil,
