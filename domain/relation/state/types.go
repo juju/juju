@@ -66,6 +66,14 @@ type relationUnit struct {
 	UnitUUID             unit.UUID                 `db:"unit_uuid"`
 }
 
+// relationUnitWithUnit maps a unit to a relation unit and
+// includes the unit name.
+type relationUnitWithUnit struct {
+	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
+	UnitUUID         unit.UUID             `db:"unit_uuid"`
+	UnitName         unit.Name             `db:"unit_name"`
+}
+
 type getUnit struct {
 	UUID unit.UUID `db:"uuid"`
 	Name unit.Name `db:"name"`
@@ -300,8 +308,6 @@ type watcherMapperData struct {
 	Life         string `db:"value"`
 	Suspended    string `db:"name"`
 }
-
-type uuids []string
 
 // applicationIDAndName is used to get the ID and name of an application.
 type applicationIDAndName struct {
