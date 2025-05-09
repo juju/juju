@@ -237,16 +237,6 @@ func (a tagKindAuthorizer) Authorize(_ context.Context, authInfo authentication.
 	return errors.NotValidf("tag kind %v", tagKind)
 }
 
-type controllerAuthorizer struct{}
-
-// Authorize is part of the httpcontext.Authorizer interface.
-func (controllerAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
-	if authInfo.Controller {
-		return nil
-	}
-	return errors.Errorf("%s is not a controller", names.ReadableString(authInfo.Entity.Tag()))
-}
-
 type controllerAdminAuthorizer struct {
 	controllerTag names.Tag
 }

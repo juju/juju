@@ -100,7 +100,6 @@ import (
 	"github.com/juju/juju/internal/worker/providerservices"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/proxyupdater"
-	psworker "github.com/juju/juju/internal/worker/pubsub"
 	"github.com/juju/juju/internal/worker/querylogger"
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
@@ -213,10 +212,6 @@ type ManifoldsConfig struct {
 	// messaging only. This is used for interactions between workers
 	// and the introspection worker.
 	LocalHub *pubsub.SimpleHub
-
-	// PubSubReporter is the introspection reporter for the pubsub forwarding
-	// worker.
-	PubSubReporter psworker.Reporter
 
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
@@ -382,24 +377,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
 			StateConfigWatcherName: stateConfigWatcherName,
 			Hub:                    config.CentralHub,
-		}),
-
-		// The pubsub manifold gets the APIInfo from the agent config,
-		// and uses this as a basis to talk to the other API servers.
-		// The worker subscribes to the messages sent by the peergrouper
-		// that defines the set of machines that are the API servers.
-		// All non-local messages that originate from the machine that
-		// is running the worker get forwarded to the other API servers.
-		// This worker does not run in non-API server machines through
-		// the hub dependency, as that is only available if the machine
-		// is an API server.
-		pubSubName: psworker.Manifold(psworker.ManifoldConfig{
-			AgentName:      agentName,
-			CentralHubName: centralHubName,
-			Clock:          config.Clock,
-			Logger:         internallogger.GetLogger("juju.worker.pubsub"),
-			NewWorker:      psworker.NewWorker,
-			Reporter:       config.PubSubReporter,
 		}),
 
 		// The state manifold creates a *state.State and makes it
@@ -1280,7 +1257,6 @@ const (
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	centralHubName         = "central-hub"
-	pubSubName             = "pubsub-forwarder"
 	clockName              = "clock"
 
 	bootstrapName       = "bootstrap"

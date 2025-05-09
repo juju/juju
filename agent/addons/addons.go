@@ -36,11 +36,9 @@ type IntrospectionConfig struct {
 	AgentDir           string
 	Engine             *dependency.Engine
 	StatePoolReporter  introspection.Reporter
-	PubSubReporter     introspection.Reporter
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 	Clock              clock.Clock
-	CentralHub         introspection.StructuredHub
 	Logger             logger.Logger
 
 	WorkerFunc func(config introspection.Config) (worker.Worker, error)
@@ -63,10 +61,8 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		SocketName:         socketName,
 		DepEngine:          cfg.Engine,
 		StatePool:          cfg.StatePoolReporter,
-		PubSub:             cfg.PubSubReporter,
 		MachineLock:        cfg.MachineLock,
 		PrometheusGatherer: cfg.PrometheusGatherer,
-		CentralHub:         cfg.CentralHub,
 		// TODO(leases) - add lease introspection
 	})
 	if err != nil {
