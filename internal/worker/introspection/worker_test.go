@@ -15,8 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/loggo/v2"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -68,11 +66,10 @@ func (s *suite) TestStartStop(c *gc.C) {
 type introspectionSuite struct {
 	testing.IsolationSuite
 
-	name       string
-	worker     worker.Worker
-	reporter   introspection.DepEngineReporter
-	gatherer   prometheus.Gatherer
-	centralHub introspection.StructuredHub
+	name     string
+	worker   worker.Worker
+	reporter introspection.DepEngineReporter
+	gatherer prometheus.Gatherer
 }
 
 var _ = gc.Suite(&introspectionSuite{})
@@ -85,7 +82,6 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.reporter = nil
 	s.worker = nil
 	s.gatherer = newPrometheusGatherer()
-	s.centralHub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{Logger: loggo.GetLogger("test.centralhub")})
 	s.startWorker(c)
 }
 
@@ -95,7 +91,6 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 		SocketName:         s.name,
 		DepEngine:          s.reporter,
 		PrometheusGatherer: s.gatherer,
-		CentralHub:         s.centralHub,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.worker = w
@@ -162,12 +157,6 @@ func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
 	response := s.call(c, "/statepool")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, `"State Pool" introspection not supported`)
-}
-
-func (s *introspectionSuite) TestMissingPubSubReporter(c *gc.C) {
-	response := s.call(c, "/pubsub")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
-	s.assertBody(c, response, `"PubSub Report" introspection not supported`)
 }
 
 func (s *introspectionSuite) TestMissingMachineLock(c *gc.C) {
