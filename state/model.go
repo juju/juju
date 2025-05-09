@@ -18,7 +18,6 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/status"
 	internalpassword "github.com/juju/juju/internal/password"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -475,17 +474,6 @@ func (m *Model) DestroyTimeout() *time.Duration {
 // The owner is the user that created the model.
 func (m *Model) Owner() names.UserTag {
 	return names.NewUserTag(m.doc.Owner)
-}
-
-// ModelStatusInvalidCredential returns the model status for an invalid credential.
-func ModelStatusInvalidCredential(reason string) status.StatusInfo {
-	return status.StatusInfo{
-		Status:  status.Suspended,
-		Message: "suspended since cloud credential is not valid",
-		Data: map[string]interface{}{
-			"reason": reason,
-		},
-	}
 }
 
 // localID returns the local id value by stripping off the model uuid prefix
