@@ -22,7 +22,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
@@ -59,7 +59,7 @@ import (
 type DqliteInitializerFunc func(
 	ctx context.Context,
 	mgr database.BootstrapNodeManager,
-	modelUUID model.UUID,
+	modelUUID coremodel.UUID,
 	logger logger.Logger,
 	options ...database.BootstrapOpt,
 ) error
@@ -88,7 +88,7 @@ type AgentBootstrap struct {
 
 	// BootstrapMachineJobs holds the jobs that the bootstrap machine
 	// agent will run.
-	bootstrapMachineJobs []model.MachineJob
+	bootstrapMachineJobs []coremodel.MachineJob
 
 	// SharedSecret is the Mongo replica set shared secret (keyfile).
 	sharedSecret string
@@ -109,7 +109,7 @@ type AgentBootstrapArgs struct {
 	AgentConfig               agent.ConfigSetter
 	BootstrapEnviron          environs.BootstrapEnviron
 	BootstrapMachineAddresses corenetwork.ProviderAddresses
-	BootstrapMachineJobs      []model.MachineJob
+	BootstrapMachineJobs      []coremodel.MachineJob
 	MongoDialOpts             mongo.DialOpts
 	SharedSecret              string
 	StateInitializationParams instancecfg.StateInitializationParams
@@ -210,7 +210,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		return nil, fmt.Errorf("parsing controller uuid %q: %w", stateParams.ControllerConfig.ControllerUUID(), err)
 	}
 
-	controllerModelUUID := model.UUID(
+	controllerModelUUID := coremodel.UUID(
 		stateParams.ControllerModelConfig.UUID(),
 	)
 
@@ -281,7 +281,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		cloudbootstrap.InsertCloud(user.NameFromTag(b.adminUser), stateParams.ControllerCloud),
 		credbootstrap.InsertCredential(credential.KeyFromTag(cloudCredTag), cloudCred),
 		modeldefaultsbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
-		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),
+		secretbackendbootstrap.CreateDefaultBackends(coremodel.ModelType(modelType)),
 		controllerModelCreateFunc,
 		localModelRecordOp,
 		modelbootstrap.SetModelConstraints(stateParams.ModelConstraints),
@@ -324,9 +324,10 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		SSHServerHostKey: stateParams.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
+			Name:            stateParams.ControllerModelConfig.Name(),
+			UUID:            coremodel.UUID(stateParams.ControllerModelConfig.UUID()),
 			Type:            modelType,
 			Owner:           b.adminUser,
-			Config:          stateParams.ControllerModelConfig,
 			Constraints:     stateParams.ModelConstraints,
 			CloudName:       stateParams.ControllerCloud.Name,
 			CloudRegion:     stateParams.ControllerCloudRegion,
@@ -590,11 +591,11 @@ func (b *AgentBootstrap) initBootstrapNode(
 // machineJobFromParams returns the job corresponding to model.MachineJob.
 // TODO(dfc) this function should live in apiserver/params, move there once
 // state does not depend on apiserver/params
-func machineJobFromParams(job model.MachineJob) (state.MachineJob, error) {
+func machineJobFromParams(job coremodel.MachineJob) (state.MachineJob, error) {
 	switch job {
-	case model.JobHostUnits:
+	case coremodel.JobHostUnits:
 		return state.JobHostUnits, nil
-	case model.JobManageModel:
+	case coremodel.JobManageModel:
 		return state.JobManageModel, nil
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)

@@ -887,7 +887,7 @@ func (st *mockState) AllFilesystems() ([]state.Filesystem, error) {
 
 func (st *mockState) NewModel(args state.ModelArgs) (commonmodel.Model, commonmodel.ModelManagerBackend, error) {
 	st.MethodCall(st, "NewModel", args)
-	st.model.tag = names.NewModelTag(args.Config.UUID())
+	st.model.tag = names.NewModelTag(args.UUID.String())
 	err := st.NextErr()
 	return st.model, st, err
 }

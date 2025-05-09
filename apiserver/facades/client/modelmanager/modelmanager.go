@@ -322,11 +322,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotatef(err, "reloading spaces for model %q", creationArgs.Name)
 	}
 
-	newConfig, err := modelDomainServices.Config().ModelConfig(ctx)
-	if err != nil {
-		return result, errors.Annotatef(err, "getting config for %q", creationArgs.Name)
-	}
-
 	modelInfo, err := m.getModelInfo(ctx, modelUUID)
 	if err != nil {
 		return result, err
@@ -347,7 +342,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		CloudName:       cloudTag.Id(),
 		CloudRegion:     modelInfo.CloudRegion,
 		CloudCredential: credentialTag,
-		Config:          newConfig,
 		Owner:           ownerTag,
 	})
 	if err != nil {

@@ -17,9 +17,9 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/constraints"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
 	internalpassword "github.com/juju/juju/internal/password"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -185,6 +185,10 @@ func (st *State) ModelExists(uuid string) (bool, error) {
 
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
+	UUID coremodel.UUID
+
+	Name string
+
 	// Type specifies the general type of the model (IAAS or CAAS).
 	Type ModelType
 
@@ -199,13 +203,6 @@ type ModelArgs struct {
 	// used for managing cloud resources for this model. This will be
 	// empty for clouds that do not require credentials.
 	CloudCredential names.CloudCredentialTag
-
-	// Config is the model config.
-	//
-	// Deprecated. ModelConfig is now handled by the model config domain.
-	// Has values necessary for creating a model, e.g. name and uuid,
-	// however will not be used to set model config in settingsC.
-	Config *config.Config
 
 	// Constraints contains the initial constraints for the model.
 	Constraints constraints.Value
@@ -224,12 +221,6 @@ type ModelArgs struct {
 func (m ModelArgs) Validate() error {
 	if m.Type == modelTypeNone {
 		return errors.NotValidf("empty Type")
-	}
-	if m.Config == nil {
-		return errors.NotValidf("nil Config")
-	}
-	if !names.IsValidCloud(m.CloudName) {
-		return errors.NotValidf("Cloud Name %q", m.CloudName)
 	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
@@ -275,7 +266,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	// We no longer validate args.CloudCredential here as credential
 	// management is moved to domain/credential.
 
-	uuid := args.Config.UUID()
+	uuid := args.UUID.String()
 	session := st.session.Copy()
 	newSt, err := newState(
 		st.controllerTag,
@@ -307,19 +298,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 
 	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
-		// Check that the cloud exists.
-		// TODO(wallyworld) - this can't yet be tested since we check that the
-		// model cloud is the same as the controller cloud, and hooks can't be
-		// used because a new state is created.
-		//if _, err := newSt.Cloud(args.CloudName); err != nil {
-		//	return nil, nil, errors.Trace(err)
-		//}
-
-		// We have a  unique key restriction on the "owner" and "name" fields,
-		// which will cause the insert to fail if there is another record with
-		// the same "owner" and "name" in the collection. If the txn is
-		// aborted, check if it is due to the unique key restriction.
-		name := args.Config.Name()
+		name := args.Name
 		models, closer := st.db().GetCollection(modelsC)
 		defer closer()
 		modelCount, countErr := models.Find(bson.D{

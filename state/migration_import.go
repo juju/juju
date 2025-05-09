@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -54,17 +53,10 @@ func (ctrl *Controller) Import(
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Create the model.
-	cfg, err := config.New(config.NoDefaults, model.Config())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	args := ModelArgs{
 		Type:          modelType,
 		CloudName:     model.Cloud(),
 		CloudRegion:   model.CloudRegion(),
-		Config:        cfg,
 		Owner:         names.NewUserTag(model.Owner()),
 		MigrationMode: MigrationModeImporting,
 		PasswordHash:  model.PasswordHash(),
