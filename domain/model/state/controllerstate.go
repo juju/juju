@@ -64,7 +64,7 @@ func (s *State) CheckModelExists(
 	})
 }
 
-// checkModelExists  is a check that allows the caller to find out if a model
+// checkModelExists is a check that allows the caller to find out if a model
 // exists in the controller. True is returned when the model has been found.
 // This func does not work with models that have not been activated.
 func (s *State) checkModelExists(
@@ -1019,12 +1019,12 @@ func (s *State) ListModelUUIDsForUser(
 	userUUIDVal := dbUUID{UUID: userUUID.String()}
 	stmt, err := s.Prepare(`
 SELECT &dbUUID.*
-FROM v_model
+FROM  v_model
 WHERE owner_uuid = $dbUUID.uuid
-OR uuid IN (SELECT grant_on
-            FROM permission
-            WHERE grant_to = $dbUUID.uuid
-            AND access_type_id IN (0, 1, 3))
+OR    uuid IN (SELECT grant_on
+               FROM   permission
+               WHERE  grant_to = $dbUUID.uuid
+               AND    access_type_id IN (0, 1, 3))
 `,
 		userUUIDVal)
 	if err != nil {
@@ -1077,12 +1077,12 @@ func (s *State) ListModelsForUser(
 
 	modelStmt, err := s.Prepare(`
 SELECT &dbModel.*
-FROM v_model
-WHERE owner_uuid = $dbUUID.uuid
-OR uuid IN (SELECT grant_on
-            FROM permission
-            WHERE grant_to = $dbUUID.uuid
-            AND access_type_id IN (0, 1, 3))
+FROM   v_model
+WHERE  owner_uuid = $dbUUID.uuid
+OR     uuid IN (SELECT grant_on
+                FROM   permission
+                WHERE  grant_to = $dbUUID.uuid
+                AND    access_type_id IN (0, 1, 3))
 `, dbModel{}, uUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1186,9 +1186,9 @@ func (s *State) GetModelSummary(
 	q := `
 SELECT (m.owner_name, ms.destroying, ms.cloud_credential_invalid,
         ms.cloud_credential_invalid_reason, ms.migrating) AS (&dbModelSummary.*)
-FROM v_model_state ms
-JOIN v_model m ON m.uuid = ms.uuid
-WHERE ms.uuid = $dbModelUUID.uuid
+FROM   v_model_state ms
+JOIN   v_model m ON m.uuid = ms.uuid
+WHERE  ms.uuid = $dbModelUUID.uuid
 `
 	modelUUIDVal := dbModelUUID{UUID: modelUUID.String()}
 	stmt, err := s.Prepare(q, dbModelSummary{}, modelUUIDVal)
@@ -1392,8 +1392,8 @@ func (s *State) GetModelCloudInfo(
 
 	stmt, err := s.Prepare(`
 SELECT &dbCloudCredential.*
-FROM v_model
-WHERE uuid = $dbModelUUID.uuid
+FROM   v_model
+WHERE  uuid = $dbModelUUID.uuid
 `, dbCloudCredential{}, args)
 	if err != nil {
 		return "", "", errors.Capture(err)

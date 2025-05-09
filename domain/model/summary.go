@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/core/user"
 )
 
+// ModelInfoSummary represents a summary of model information from the model's
+// database information. This is different to the information about a model that
+// resides with in the controller.
+//
+// This exists because of the split of information that we have around model's
+// and the controller that model runs in. To deal with this fact we represents
+// the two sources of information as different structs.
 type ModelInfoSummary struct {
 	// Name is the model name.
 	Name string
@@ -50,6 +57,9 @@ type ModelInfoSummary struct {
 	UnitCount int64
 }
 
+// ModelSummary represents the model summary information from the controller.
+// That is the opposite of [ModelInfoSummary] which represents the model summary
+// information from the model's database.
 type ModelSummary struct {
 	// OwnerName is the name of the owner of the model.
 	OwnerName user.Name
@@ -58,10 +68,16 @@ type ModelSummary struct {
 	State ModelState
 }
 
+// UserModelSummary represents the model summary information from the controller
+// from the perspective of a single user. This is supplementing the information
+// returned in [ModelSummary] with access and last login information.
 type UserModelSummary struct {
 	ModelSummary
 
+	// UserAccess represents the level of access the user has for the model in
+	// question.
 	UserAccess corepermission.Access
 
+	// UserLastConnection is the last time the user logged into this model.
 	UserLastConnection *time.Time
 }

@@ -224,7 +224,7 @@ type ModelInfoService interface {
 	GetModelSummary(ctx context.Context) (coremodel.ModelSummary, error)
 
 	// GetUserModelSummary returns a summary of the current model from the
-	// provided users perspective.
+	// provided user's perspective.
 	// The following error types can be expected:
 	// - [modelerrors.NotFound] when the model does not exist.
 	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user

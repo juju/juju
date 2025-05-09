@@ -912,7 +912,7 @@ unit_count AS (
 	SELECT count(*) AS unit_count FROM unit
 ),
 core_count AS (
-SELECT 0 AS core_count
+	SELECT 0 AS core_count
 )
 SELECT &dbModelInfoSummary.*, &dbModelCountSummary.*
 FROM   model, agent_version, machine_count, unit_count, core_count

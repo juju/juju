@@ -195,7 +195,6 @@ type StatusInfo struct {
 
 // ModelState describes the state of a model.
 type ModelState struct {
-
 	// Destroying is a boolean value that indicates if the model is being destroyed.
 	Destroying bool
 	// Migrating is a boolean value that indicates if the model is being migrated.
