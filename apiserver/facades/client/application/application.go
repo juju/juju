@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
@@ -32,6 +34,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
@@ -39,7 +42,10 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
@@ -1109,36 +1115,60 @@ func (api *APIBase) GetCharmURLOrigin(ctx context.Context, args params.Applicati
 	if err := api.checkCanRead(ctx); err != nil {
 		return params.CharmURLOriginResult{}, errors.Trace(err)
 	}
-	oneApplication, err := api.backend.Application(args.ApplicationName)
+
+	charmLocator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, args.ApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(errors.NotFoundf("application %q", args.ApplicationName))}, nil
+	} else if err != nil {
+		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+	charmURL, err := apiservercharms.CharmURLFromLocator(charmLocator.Name, charmLocator)
 	if err != nil {
 		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
 	}
-	charmURL, _ := oneApplication.CharmURL()
-	result := params.CharmURLOriginResult{URL: *charmURL}
-	chOrigin := oneApplication.CharmOrigin()
-	if chOrigin == nil {
-		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
-		return result, nil
+
+	chOrigin, err := api.applicationService.GetApplicationCharmOrigin(ctx, args.ApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(errors.NotFoundf("application %q", args.ApplicationName))}, nil
+	} else if err != nil {
+		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
 	}
+
+	result := params.CharmURLOriginResult{URL: charmURL}
 	if result.Origin, err = makeParamsCharmOrigin(chOrigin); err != nil {
-		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
+		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	result.Origin.InstanceKey = charmhub.CreateInstanceKey(oneApplication.ApplicationTag(), names.NewModelTag(api.modelUUID.String()))
+	result.Origin.InstanceKey = charmhub.CreateInstanceKey(args.ApplicationName, names.NewModelTag(api.modelUUID.String()))
 	return result, nil
 }
 
-func makeParamsCharmOrigin(origin *state.CharmOrigin) (params.CharmOrigin, error) {
-	retOrigin := params.CharmOrigin{
-		Source: origin.Source,
-		ID:     origin.ID,
-		Hash:   origin.Hash,
+func makeParamsCharmOrigin(origin application.CharmOrigin) (params.CharmOrigin, error) {
+	osType, err := encodeOSType(origin.Platform.OSType)
+	if err != nil {
+		return params.CharmOrigin{}, errors.Trace(err)
 	}
-	if origin.Revision != nil {
-		retOrigin.Revision = origin.Revision
+	architecture, err := encodeArchitecture(origin.Platform.Architecture)
+	if err != nil {
+		return params.CharmOrigin{}, errors.Trace(err)
+	}
+	source, err := encodeSource(origin.Source)
+	if err != nil {
+		return params.CharmOrigin{}, errors.Trace(err)
+	}
+	retOrigin := params.CharmOrigin{
+		Source:       source,
+		ID:           origin.CharmhubIdentifier,
+		Hash:         origin.Hash,
+		Revision:     &origin.Revision,
+		Architecture: architecture,
+		Base: params.Base{
+			Name:    osType,
+			Channel: origin.Platform.Channel,
+		},
 	}
 	if origin.Channel != nil {
-		retOrigin.Risk = origin.Channel.Risk
+		retOrigin.Risk = string(origin.Channel.Risk)
 		if origin.Channel.Track != "" {
 			retOrigin.Track = &origin.Channel.Track
 		}
@@ -1146,11 +1176,49 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) (params.CharmOrigin, error
 			retOrigin.Branch = &origin.Channel.Branch
 		}
 	}
-	if origin.Platform != nil {
-		retOrigin.Architecture = origin.Platform.Architecture
-		retOrigin.Base = params.Base{Name: origin.Platform.OS, Channel: origin.Platform.Channel}
-	}
 	return retOrigin, nil
+}
+
+func encodeOSType(t deployment.OSType) (string, error) {
+	switch t {
+	case deployment.Ubuntu:
+		return strings.ToLower(ostype.Ubuntu.String()), nil
+	default:
+		return "", internalerrors.Errorf("unsupported OS type %v", t)
+	}
+}
+
+func encodeSource(s applicationcharm.CharmSource) (string, error) {
+	switch s {
+	case applicationcharm.CharmHubSource:
+		return corecharm.CharmHub.String(), nil
+	case applicationcharm.LocalSource:
+		return corecharm.Local.String(), nil
+	default:
+		return "", errors.Errorf("unsupported source %q", s)
+	}
+}
+
+func encodeArchitecture(a architecture.Architecture) (string, error) {
+	switch a {
+	case architecture.AMD64:
+		return arch.AMD64, nil
+	case architecture.ARM64:
+		return arch.ARM64, nil
+	case architecture.PPC64EL:
+		return arch.PPC64EL, nil
+	case architecture.S390X:
+		return arch.S390X, nil
+	case architecture.RISCV64:
+		return arch.RISCV64, nil
+
+	// This is a valid case if we're uploading charms and the value isn't
+	// supplied.
+	case architecture.Unknown:
+		return "", nil
+	default:
+		return "", errors.Errorf("unsupported architecture %q", a)
+	}
 }
 
 // CharmRelations implements the server side of Application.CharmRelations.
@@ -1373,7 +1441,8 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 			return nil, errors.Trace(err)
 		}
 		if !unit.IsPrincipal() {
-			return nil, errors.Errorf("unit %q is a subordinate, to remove use remove-relation. Note: this will remove all units of %q", name, unit.ApplicationName())
+			return nil, errors.Errorf("unit %q is a subordinate, to remove use remove-relation. Note: this will remove all units of %q",
+				name, coreunit.Name(name).Application())
 		}
 
 		// TODO(wallyworld) - enable-ha is how we remove controllers at the
@@ -1437,7 +1506,7 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 			return nil, errors.Trace(err)
 		}
 		if len(op.Errors) != 0 {
-			api.logger.Warningf(ctx, "operational errors destroying unit %v: %v", unit.Name(), op.Errors)
+			api.logger.Warningf(ctx, "operational errors destroying unit %v: %v", unitName, op.Errors)
 		}
 		return &info, nil
 	}
@@ -2052,13 +2121,13 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		app, err := api.backend.Application(tag.Name)
+		details, err := api.getConfig(ctx, params.ApplicationGet{ApplicationName: tag.Name}, describe)
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		details, err := api.getConfig(ctx, params.ApplicationGet{ApplicationName: tag.Name}, describe)
+		app, err := api.backend.Application(tag.Name)
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2106,11 +2175,15 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
+		origin, err := api.applicationService.GetApplicationCharmOrigin(ctx, tag.Name)
+		if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		var channel string
-		origin := app.CharmOrigin()
-		if origin != nil && origin.Channel != nil {
+		if origin.Channel != nil {
 			ch := origin.Channel
-			channel = charm.MakePermissiveChannel(ch.Track, ch.Risk, ch.Branch).String()
+			channel = charm.MakePermissiveChannel(ch.Track, string(ch.Risk), ch.Branch).String()
 		} else {
 			channel = details.Channel
 		}
@@ -2269,18 +2342,38 @@ func (api *APIBase) UnitsInfo(ctx context.Context, in params.Entities) (params.U
 		return params.UnitInfoResults{}, errors.Trace(err)
 	}
 	for _, one := range in.Entities {
-		units, err := api.unitsFromTag(one.Tag)
+		tag, err := names.ParseTag(one.Tag)
 		if err != nil {
 			results = append(results, params.UnitInfoResult{Error: apiservererrors.ServerError(err)})
 			continue
 		}
-		for _, unit := range units {
-			result, err := api.unitResultForUnit(ctx, unit)
+
+		var unitNames []coreunit.Name
+		switch tag.(type) {
+		case names.ApplicationTag:
+			unitNames, err = api.applicationService.GetUnitNamesForApplication(ctx, tag.Id())
 			if err != nil {
 				results = append(results, params.UnitInfoResult{Error: apiservererrors.ServerError(err)})
 				continue
 			}
-			if leader := leaders[unit.ApplicationName()]; leader == unit.Name() {
+		case names.UnitTag:
+			unitName, err := coreunit.NewName(tag.Id())
+			if err != nil {
+				results = append(results, params.UnitInfoResult{Error: apiservererrors.ServerError(err)})
+				continue
+			}
+			unitNames = []coreunit.Name{unitName}
+		default:
+			results = append(results, params.UnitInfoResult{Error: apiservererrors.ServerError(errors.NotValidf("tag %q", tag))})
+		}
+
+		for _, unitName := range unitNames {
+			result, err := api.unitResultForUnit(ctx, unitName)
+			if err != nil {
+				results = append(results, params.UnitInfoResult{Error: apiservererrors.ServerError(err)})
+				continue
+			}
+			if leader := leaders[unitName.Application()]; leader == unitName.String() {
 				result.Leader = true
 			}
 			results = append(results, params.UnitInfoResult{Result: result})
@@ -2291,51 +2384,19 @@ func (api *APIBase) UnitsInfo(ctx context.Context, in params.Entities) (params.U
 	}, nil
 }
 
-// Returns the units referred to by the tag argument.  If the tag refers to a
-// unit, a slice with a single unit is returned.  If the tag refers to an
-// application, all the units in the application are returned.
-func (api *APIBase) unitsFromTag(tag string) ([]Unit, error) {
-	unitTag, err := names.ParseUnitTag(tag)
-	if err == nil {
-		unit, err := api.backend.Unit(unitTag.Id())
-		if err != nil {
-			return nil, err
-		}
-		return []Unit{unit}, nil
-	}
-	appTag, err := names.ParseApplicationTag(tag)
-	if err == nil {
-		app, err := api.backend.Application(appTag.Id())
-		if err != nil {
-			return nil, err
-		}
-		return app.AllUnits()
-	}
-	return nil, fmt.Errorf("tag %q is neither unit nor application tag", tag)
-}
-
-// Builds a *params.UnitResult describing the unit argument.
-func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.UnitResult, error) {
-	app, err := api.backend.Application(unit.ApplicationName())
-	if err != nil {
-		return nil, err
-	}
-	curl, _ := app.CharmURL()
-	if curl == nil {
-		return nil, errors.NotValidf("application charm url")
-	}
-	machineId, _ := unit.AssignedMachineId()
-
-	unitName, err := coreunit.NewName(unit.Name())
-	if err != nil {
-		return nil, err
-	}
-	unitUUID, err := api.applicationService.GetUnitUUID(ctx, unitName)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return nil, errors.NotFoundf("unit %s", unitName)
+// Builds a *params.UnitResult describing the specified unit.
+func (api *APIBase) unitResultForUnit(ctx context.Context, unitName coreunit.Name) (*params.UnitResult, error) {
+	charmLocator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, unitName.Application())
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, errors.NotFoundf("application %s", unitName.Application())
 	} else if err != nil {
 		return nil, err
 	}
+	curl, err := apiservercharms.CharmURLFromLocator(charmLocator.Name, charmLocator)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
 	unitLife, err := api.applicationService.GetUnitLife(ctx, unitName)
 	if err != nil {
 		return nil, err
@@ -2349,20 +2410,55 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 	}
 
 	result := &params.UnitResult{
-		Tag:             unit.Tag().String(),
+		Tag:             names.NewUnitTag(unitName.String()).String(),
 		WorkloadVersion: workloadVersion,
-		Machine:         machineId,
-		Charm:           *curl,
+		Charm:           curl,
 		Life:            string(unitLife),
 	}
-	if machineId != "" {
-		machine, err := api.backend.Machine(machineId)
+	result.RelationData, err = api.relationData(ctx, unitName.Application())
+	if err != nil {
+		return nil, err
+	}
+
+	machineName, err := api.applicationService.GetUnitMachineName(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.NotFoundf("unit %s", unitName)
+	} else if errors.Is(err, applicationerrors.UnitMachineNotAssigned) {
+		unit, err := api.backend.Unit(unitName.String())
+		if err != nil {
+			return nil, err
+		}
+		container, err := unit.ContainerInfo()
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, err
+		}
+		if err == nil {
+			if addr := container.Address(); addr != nil {
+				result.Address = addr.Value
+			}
+			result.ProviderId = container.ProviderId()
+			if len(result.OpenedPorts) == 0 {
+				result.OpenedPorts = container.Ports()
+			}
+		}
+	} else if err != nil {
+		return nil, internalerrors.Errorf("getting unit machine name: %w", err)
+	} else {
+		result.Machine = machineName.String()
+		machine, err := api.backend.Machine(machineName.String())
 		if err != nil {
 			return nil, err
 		}
 		publicAddress, err := machine.PublicAddress()
 		if err == nil {
 			result.PublicAddress = publicAddress.Value
+		}
+
+		unitUUID, err := api.applicationService.GetUnitUUID(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return nil, errors.NotFoundf("unit %s", unitName)
+		} else if err != nil {
+			return nil, err
 		}
 		// NOTE(achilleasa): this call completely ignores
 		// subnets and lumps all port ranges together in a
@@ -2373,23 +2469,6 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 			return nil, err
 		}
 		result.OpenedPorts = openPorts
-	}
-	container, err := unit.ContainerInfo()
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, err
-	}
-	if err == nil {
-		if addr := container.Address(); addr != nil {
-			result.Address = addr.Value
-		}
-		result.ProviderId = container.ProviderId()
-		if len(result.OpenedPorts) == 0 {
-			result.OpenedPorts = container.Ports()
-		}
-	}
-	result.RelationData, err = api.relationData(ctx, app)
-	if err != nil {
-		return nil, err
 	}
 	return result, nil
 }
@@ -2411,10 +2490,10 @@ func (api *APIBase) openPortsOnUnit(ctx context.Context, unitUUID coreunit.UUID)
 	return result, nil
 }
 
-func (api *APIBase) relationData(ctx context.Context, app Application) ([]params.EndpointRelationData, error) {
-	appID, err := api.applicationService.GetApplicationIDByName(ctx, app.Name())
+func (api *APIBase) relationData(ctx context.Context, appName string) ([]params.EndpointRelationData, error) {
+	appID, err := api.applicationService.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting application id for %q: %v", app.Name(), err)
+		return nil, internalerrors.Errorf("getting application id for %q: %v", appName, err)
 	}
 	endpointsData, err := api.relationService.ApplicationRelationsInfo(ctx, appID)
 	if err != nil {

@@ -703,8 +703,6 @@ func encodeCharmhubID(app application.RevisionUpdaterApplication, modelTag names
 		return charmhubID{}, internalerrors.Errorf("invalid application name %q", app.Name)
 	}
 
-	appTag := names.NewApplicationTag(app.Name)
-
 	origin := app.Origin
 	risk, err := encodeRisk(origin.Channel.Risk)
 	if err != nil {
@@ -735,7 +733,7 @@ func encodeCharmhubID(app application.RevisionUpdaterApplication, modelTag names
 		osType:      osType,
 		osChannel:   origin.Platform.Channel,
 		arch:        arch,
-		instanceKey: charmhub.CreateInstanceKey(appTag, modelTag),
+		instanceKey: charmhub.CreateInstanceKey(app.Name, modelTag),
 	}, nil
 }
 

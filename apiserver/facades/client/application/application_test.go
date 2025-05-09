@@ -5,6 +5,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	corearch "github.com/juju/juju/core/arch"
 	coreassumes "github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -27,9 +29,11 @@ import (
 	"github.com/juju/juju/core/resource/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
@@ -590,6 +594,102 @@ func (s *applicationSuite) TestDeployInvalidSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errorResults.Results, gc.HasLen, 1)
 	c.Assert(errorResults.Results[0].Error, gc.ErrorMatches, "\"bad\" not a valid charm origin source")
+}
+
+func (s *applicationSuite) TestGetCharmURLOriginAppNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "foo").Return(applicationcharm.CharmLocator{}, applicationerrors.ApplicationNotFound)
+
+	res, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
+		ApplicationName: "foo",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Error, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *applicationSuite) TestGetCharmURLOrigin(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "foo").Return(applicationcharm.CharmLocator{
+		Name:         "foo",
+		Revision:     42,
+		Source:       applicationcharm.CharmHubSource,
+		Architecture: architecture.ARM64,
+	}, nil)
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "foo").Return(domainapplication.CharmOrigin{
+		Source:   "charmhub",
+		Revision: 42,
+		Channel: &deployment.Channel{
+			Track: "1.0",
+			Risk:  "stable",
+		},
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
+			Channel:      "24.04",
+			Architecture: architecture.ARM64,
+		},
+	}, nil)
+
+	res, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
+		ApplicationName: "foo",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res.URL, gc.Equals, "ch:arm64/foo-42")
+	c.Check(res.Origin, gc.DeepEquals, params.CharmOrigin{
+		Source:       "charm-hub",
+		Revision:     ptr(42),
+		Risk:         "stable",
+		Track:        ptr("1.0"),
+		Architecture: "arm64",
+		Base: params.Base{
+			Name:    "ubuntu",
+			Channel: "24.04",
+		},
+		InstanceKey: res.Origin.InstanceKey,
+	})
+}
+
+func (s *applicationSuite) TestGetCharmURLOriginNoOptionals(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	arch := corearch.DefaultArchitecture
+
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "foo").Return(applicationcharm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   applicationcharm.LocalSource,
+	}, nil)
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "foo").Return(domainapplication.CharmOrigin{
+		Source:   "local",
+		Revision: 42,
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	}, nil)
+
+	res, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
+		ApplicationName: "foo",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res.URL, gc.Equals, fmt.Sprintf("local:%s/foo-42", arch))
+	c.Check(res.Origin, gc.DeepEquals, params.CharmOrigin{
+		Source:       "local",
+		Revision:     ptr(42),
+		Architecture: arch,
+		Base: params.Base{
+			Name:    "ubuntu",
+			Channel: "24.04",
+		},
+		InstanceKey: res.Origin.InstanceKey,
+	})
 }
 
 func (s *applicationSuite) TestGetApplicationConstraintsAppNotFound(c *gc.C) {

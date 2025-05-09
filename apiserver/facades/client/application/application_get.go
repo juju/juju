@@ -13,7 +13,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
-	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -100,15 +99,21 @@ func (api *APIBase) getConfig(
 
 	// If the applications charm origin is from charm-hub, then build the real
 	// channel and send that back.
-	origin := app.CharmOrigin()
-	if corecharm.CharmHub.Matches(origin.Source) && origin.Channel != nil {
-		ch := charm.MakePermissiveChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
-		appChannel = ch.String()
+
+	origin, err := api.applicationService.GetApplicationCharmOrigin(ctx, args.ApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ApplicationGetResults{}, errors.NotFoundf("application %s", args.ApplicationName)
+	} else if err != nil {
+		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
 
-	base, err := corebase.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+	if corecharm.CharmHub.Matches(string(origin.Source)) && origin.Channel != nil {
+		ch := charm.MakePermissiveChannel(origin.Channel.Track, string(origin.Channel.Risk), origin.Channel.Branch)
+		appChannel = ch.String()
+	}
+	osType, err := encodeOSType(origin.Platform.OSType)
 	if err != nil {
-		return params.ApplicationGetResults{}, err
+		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
 	return params.ApplicationGetResults{
 		Application:       args.ApplicationName,
@@ -117,8 +122,8 @@ func (api *APIBase) getConfig(
 		ApplicationConfig: appConfigInfo,
 		Constraints:       cons,
 		Base: params.Base{
-			Name:    base.OS,
-			Channel: base.Channel.String(),
+			Name:    osType,
+			Channel: origin.Platform.Channel,
 		},
 		Channel:          appChannel,
 		EndpointBindings: bindingMap,

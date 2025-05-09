@@ -247,8 +247,8 @@ func RefreshOne(key, id string, revision int, channel string, base RefreshBase) 
 // on the charmhub side, see LP:1944582.  Rather than saving in
 // state, use the model uuid + the app name, which are unique.  Modeled
 // after the applicationDoc DocID and globalKey in state.
-func CreateInstanceKey(app names.ApplicationTag, model names.ModelTag) string {
-	h := pbkdf2.Key([]byte(app.Id()), []byte(model.Id()), 8192, 32, sha512.New)
+func CreateInstanceKey(appName string, model names.ModelTag) string {
+	h := pbkdf2.Key([]byte(appName), []byte(model.Id()), 8192, 32, sha512.New)
 	return base64.RawURLEncoding.EncodeToString(h)
 }
 

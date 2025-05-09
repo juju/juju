@@ -20,7 +20,6 @@ import (
 	charm "github.com/juju/juju/internal/charm"
 	configschema "github.com/juju/juju/internal/configschema"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v6"
 	schema "github.com/juju/schema"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -343,121 +342,6 @@ func (c *MockApplicationAllUnitsCall) DoAndReturn(f func() ([]Unit, error)) *Moc
 	return c
 }
 
-// ApplicationTag mocks base method.
-func (m *MockApplication) ApplicationTag() names.ApplicationTag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationTag")
-	ret0, _ := ret[0].(names.ApplicationTag)
-	return ret0
-}
-
-// ApplicationTag indicates an expected call of ApplicationTag.
-func (mr *MockApplicationMockRecorder) ApplicationTag() *MockApplicationApplicationTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationTag", reflect.TypeOf((*MockApplication)(nil).ApplicationTag))
-	return &MockApplicationApplicationTagCall{Call: call}
-}
-
-// MockApplicationApplicationTagCall wrap *gomock.Call
-type MockApplicationApplicationTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationApplicationTagCall) Return(arg0 names.ApplicationTag) *MockApplicationApplicationTagCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationApplicationTagCall) Do(f func() names.ApplicationTag) *MockApplicationApplicationTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationApplicationTagCall) DoAndReturn(f func() names.ApplicationTag) *MockApplicationApplicationTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// CharmOrigin mocks base method.
-func (m *MockApplication) CharmOrigin() *state.CharmOrigin {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmOrigin")
-	ret0, _ := ret[0].(*state.CharmOrigin)
-	return ret0
-}
-
-// CharmOrigin indicates an expected call of CharmOrigin.
-func (mr *MockApplicationMockRecorder) CharmOrigin() *MockApplicationCharmOriginCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmOrigin", reflect.TypeOf((*MockApplication)(nil).CharmOrigin))
-	return &MockApplicationCharmOriginCall{Call: call}
-}
-
-// MockApplicationCharmOriginCall wrap *gomock.Call
-type MockApplicationCharmOriginCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationCharmOriginCall) Return(arg0 *state.CharmOrigin) *MockApplicationCharmOriginCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationCharmOriginCall) Do(f func() *state.CharmOrigin) *MockApplicationCharmOriginCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationCharmOriginCall) DoAndReturn(f func() *state.CharmOrigin) *MockApplicationCharmOriginCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// CharmURL mocks base method.
-func (m *MockApplication) CharmURL() (*string, bool) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmURL")
-	ret0, _ := ret[0].(*string)
-	ret1, _ := ret[1].(bool)
-	return ret0, ret1
-}
-
-// CharmURL indicates an expected call of CharmURL.
-func (mr *MockApplicationMockRecorder) CharmURL() *MockApplicationCharmURLCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmURL", reflect.TypeOf((*MockApplication)(nil).CharmURL))
-	return &MockApplicationCharmURLCall{Call: call}
-}
-
-// MockApplicationCharmURLCall wrap *gomock.Call
-type MockApplicationCharmURLCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationCharmURLCall) Return(arg0 *string, arg1 bool) *MockApplicationCharmURLCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationCharmURLCall) Do(f func() (*string, bool)) *MockApplicationCharmURLCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationCharmURLCall) DoAndReturn(f func() (*string, bool)) *MockApplicationCharmURLCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DestroyOperation mocks base method.
 func (m *MockApplication) DestroyOperation(arg0 objectstore.ObjectStore) *state.DestroyApplicationOperation {
 	m.ctrl.T.Helper()
@@ -646,44 +530,6 @@ func (c *MockApplicationMergeBindingsCall) Do(f func(*state.Bindings, bool) erro
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationMergeBindingsCall) DoAndReturn(f func(*state.Bindings, bool) error) *MockApplicationMergeBindingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Name mocks base method.
-func (m *MockApplication) Name() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Name")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Name indicates an expected call of Name.
-func (mr *MockApplicationMockRecorder) Name() *MockApplicationNameCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockApplication)(nil).Name))
-	return &MockApplicationNameCall{Call: call}
-}
-
-// MockApplicationNameCall wrap *gomock.Call
-type MockApplicationNameCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationNameCall) Return(arg0 string) *MockApplicationNameCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationNameCall) Do(f func() string) *MockApplicationNameCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationNameCall) DoAndReturn(f func() string) *MockApplicationNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

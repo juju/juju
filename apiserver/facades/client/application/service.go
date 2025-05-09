@@ -155,6 +155,20 @@ type ApplicationService interface {
 	// GetUnitUUID returns the UUID for the named unit.
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 
+	// GetUnitMachineName gets the name of the unit's machine.
+	// The following errors may be returned:
+	//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
+	//     machine assigned.
+	//   - [applicationerrors.UnitNotFound] if the unit cannot be found.
+	//   - [applicationerrors.UnitIsDead] if the unit is dead.
+	GetUnitMachineName(ctx context.Context, unitName unit.Name) (machine.Name, error)
+
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationIsDead] if the application is dead
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	GetUnitNamesForApplication(context.Context, string) ([]unit.Name, error)
+
 	// GetSupportedFeatures returns the set of features that the model makes
 	// available for charms to use.
 	GetSupportedFeatures(context.Context) (assumes.FeatureSet, error)
@@ -204,6 +218,11 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
+
+	// GetApplicationCharmOrigin returns the charm origin for the specified
+	// application name. If the application does not exist, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error)
 
 	// GetApplicationAndCharmConfig returns the application and charm config for the
 	// specified application ID.

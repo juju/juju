@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -27,7 +26,6 @@ import (
 	"github.com/juju/juju/core/status"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
@@ -290,37 +288,9 @@ func (api *APIBase) addUnits(
 				return nil, internalerrors.Errorf("acquiring machine for placement %q to host unit: %w", placement[i], err)
 			}
 		}
-
-		// Get assigned machine and ensure it exists in dqlite.
-		id, err := unit.AssignedMachineId()
-		if err != nil {
-			return nil, internalerrors.Errorf("getting assigned machine for unit: %w", err)
-		}
-		if err := saveMachineInfo(ctx, api.machineService, id); err != nil {
-			return nil, internalerrors.Errorf("saving assigned machine %q for unit: %w", id, err)
-		}
 	}
 
 	return units, nil
-}
-
-func saveMachineInfo(ctx context.Context, machineService MachineService, machineName string) error {
-	// This is temporary - just insert the machine id and all the parent ones.
-	for machineName != "" {
-		_, err := machineService.CreateMachine(ctx, machine.Name(machineName))
-		// The machine might already exist e.g. if we are adding a subordinate
-		// unit to an already existing machine. In this case, just continue
-		// without error.
-		if err != nil && !errors.Is(err, machineerrors.MachineAlreadyExists) {
-			return errors.Annotatef(err, "saving info for machine %q", machineName)
-		}
-		parent := names.NewMachineTag(machineName).Parent()
-		if parent == nil {
-			break
-		}
-		machineName = parent.Id()
-	}
-	return nil
 }
 
 func stateStorageDirectives(cons map[string]storage.Directive) map[string]state.StorageConstraints {
