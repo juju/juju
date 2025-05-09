@@ -87,10 +87,6 @@ type Model interface {
 	Destroy(state.DestroyModelParams) error
 	Name() string
 	UUID() string
-	// TODO(aflynn): ControllerUUID is only here because the EnvironConfigGetter
-	// needs a Model with this model. Once this is gone ControllerUUID can be
-	// removed from this interface.
-	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

@@ -1024,14 +1024,13 @@ func (st *mockState) MigrationMode() (state.MigrationMode, error) {
 
 type mockModel struct {
 	jujutesting.Stub
-	owner               names.UserTag
-	life                state.Life
-	tag                 names.ModelTag
-	status              status.StatusInfo
-	cfg                 *config.Config
-	users               []*mockModelUser
-	controllerUUID      string
-	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
+	owner          names.UserTag
+	life           state.Life
+	tag            names.ModelTag
+	status         status.StatusInfo
+	cfg            *config.Config
+	users          []*mockModelUser
+	controllerUUID string
 }
 
 func (m *mockModel) Owner() names.UserTag {
@@ -1092,11 +1091,6 @@ func (m *mockModel) UUID() string {
 func (m *mockModel) Name() string {
 	m.MethodCall(m, "Name")
 	return m.cfg.Name()
-}
-
-func (m *mockModel) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
-	m.MethodCall(m, "SetCloudCredential", tag)
-	return m.setCloudCredentialF(tag)
 }
 
 type mockModelUser struct {

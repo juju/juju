@@ -93,12 +93,6 @@ type modelDoc struct {
 	// for clouds that do not require credentials.
 	CloudCredential string `bson:"cloud-credential,omitempty"`
 
-	// InvalidCredential is used to indicate if the model's credential is valid.
-	InvalidCredential bool `bson:"invalid-credential,omitempty"`
-
-	// InvalidCredentialReason is the reason why a model's credential is invalid.
-	InvalidCredentialReason string `bson:"invalid-credential-reason,omitempty"`
-
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
