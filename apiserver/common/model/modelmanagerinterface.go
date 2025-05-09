@@ -75,9 +75,7 @@ type Machine interface {
 // All the interface methods are defined directly on state.Model
 // and are reproduced here for use in tests.
 type Model interface {
-	ModelTag() names.ModelTag
 	Destroy(state.DestroyModelParams) error
-	Name() string
 	UUID() string
 }
 
