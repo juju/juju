@@ -166,11 +166,14 @@ func newResourceOpenerForApplication(
 		resourceClientGetter: newClientGetter(charmURL, args.CharmhubClientGetter),
 		retrievedBy:          applicationName,
 		retrievedByType:      coreresource.Application,
-		setResourceFunc:      args.ResourceService.SetApplicationResource,
-		charmURL:             charmURL,
-		charmOrigin:          *application.CharmOrigin(),
-		appName:              applicationName,
-		appID:                applicationID,
+		setResourceFunc: func(ctx context.Context, resourceUUID coreresource.UUID) error {
+			// noop
+			return nil
+		},
+		charmURL:    charmURL,
+		charmOrigin: *application.CharmOrigin(),
+		appName:     applicationName,
+		appID:       applicationID,
 		resourceDownloadLimiterFunc: func() ResourceDownloadLock {
 			return noopDownloadResourceLocker{}
 		},
