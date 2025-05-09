@@ -204,12 +204,15 @@ type dbUserModelSummary struct {
 // dbModelSummary represents the information about a model for a summary that
 // isn't available from the model's own database.
 type dbModelSummary struct {
+	// -- Model info related members --
+
 	// Life is the current model's life value.
 	Life string `db:"life"`
 
+	// OwnerName is the user name for the owner of the model.
 	OwnerName string `db:"owner_name"`
 
-	// Model state related members
+	// -- Model state related members --
 
 	// Destroying indicates if the model is in the process of being destroyed.
 	Destroying bool `db:"destroying"`

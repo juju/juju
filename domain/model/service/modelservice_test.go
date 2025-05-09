@@ -869,7 +869,7 @@ func (s *modelServiceSuite) TestGetModelTypeNotFound(c *gc.C) {
 }
 
 // TestGetModelSummaryNotFound is asserting that if we ask for the model summary
-// and the model doesn't exist the caller gets an error satisfying
+// and the model doesn't exist, the caller gets an error satisfying
 // [modelerrors.NotFound].
 func (s *modelServiceSuite) TestGetModelSummaryNotFound(c *gc.C) {
 	ctrl := s.setupMocks(c)
@@ -958,7 +958,7 @@ func (s *modelServiceSuite) TestGetModelSummary(c *gc.C) {
 }
 
 // TestGetUserModelSummaryModelNotFound is asserting that if a caller asks for a
-// user model summay and the model doesn't exist we get back a
+// user model summary and the model doesn't exist, we get back a
 // [modelerrors.NotFound] error.
 func (s *modelServiceSuite) TestGetUserModelSummaryModelNotFound(c *gc.C) {
 	ctrl := s.setupMocks(c)
@@ -987,7 +987,7 @@ func (s *modelServiceSuite) TestGetUserModelSummaryModelNotFound(c *gc.C) {
 }
 
 // TestGetUserModelSummaryUserNotFound tests that if a model summary is asked
-// for by a caller but the user doesn't exist an error satisfying
+// for by a caller but the user doesn't exist, an error satisfying
 // [accesserrors.UserNotFound] is returned.
 func (s *modelServiceSuite) TestGetUserModelSummaryUserNotFound(c *gc.C) {
 	ctrl := s.setupMocks(c)
@@ -1016,7 +1016,7 @@ func (s *modelServiceSuite) TestGetUserModelSummaryUserNotFound(c *gc.C) {
 }
 
 // TestGetUserModelSummaryAccessNotFound tests that if a user model summary is
-// asked for by a caller but the user doesn't have access to the model an error
+// asked for by a caller but the user doesn't have access to the model, an error
 // satisfying [accesserrors.AccessNotFound] is returned.
 func (s *modelServiceSuite) TestGetUserModelSummaryAccessNotFound(c *gc.C) {
 	ctrl := s.setupMocks(c)
@@ -1044,9 +1044,9 @@ func (s *modelServiceSuite) TestGetUserModelSummaryAccessNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, accesserrors.AccessNotFound)
 }
 
-// TestGetUserModelSummaryUserUUIDNotValid tests that if a user model summary is
-// asked for by a caller but the user UUID is not valid an error satisfying
-// [coreerrors.NotValid] is returned.
+// TestGetUserModelSummaryUserUUIDNotValid verifies that requesting a user model
+// summary with an invalid user UUID, results in an error that satisfies
+// [coreerrors.NotValid].
 func (s *modelServiceSuite) TestGetUserModelSummaryUserUUIDNotValid(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

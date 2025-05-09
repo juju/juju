@@ -18,7 +18,7 @@ import (
 // resides with in the controller.
 //
 // This exists because of the split of information that we have around model's
-// and the controller that model runs in. To deal with this fact we represents
+// and the controller that model runs in. To deal with this fact we represent
 // the two sources of information as different structs.
 type ModelInfoSummary struct {
 	// Name is the model name.
@@ -59,8 +59,8 @@ type ModelInfoSummary struct {
 }
 
 // ModelSummary represents the model summary information from the controller.
-// That is the opposite of [ModelInfoSummary] which represents the model summary
-// information from the model's database.
+// This is the complementary information to that of [ModelInfoSummary] which
+// represents the model summary information from the model's database.
 type ModelSummary struct {
 	// Life is the current model's life cycle value.
 	Life corelife.Value

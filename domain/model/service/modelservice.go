@@ -250,7 +250,7 @@ func (s *ModelService) GetModelSummary(
 }
 
 // GetUserModelSummary returns a summary of the current model from the provided
-// users perspective. This is similar to the [ModelService.GetModelSummary]
+// user's perspective. This is similar to the [ModelService.GetModelSummary]
 // method but it will return information that is specific to the user.
 // The following error types can be expected:
 // - [coreerrors.NotValid] when the user uuid is not valid.
