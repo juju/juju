@@ -6,6 +6,7 @@ package model
 import (
 	"time"
 
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
@@ -61,6 +62,9 @@ type ModelInfoSummary struct {
 // That is the opposite of [ModelInfoSummary] which represents the model summary
 // information from the model's database.
 type ModelSummary struct {
+	// Life is the current model's life cycle value.
+	Life corelife.Value
+
 	// OwnerName is the name of the owner of the model.
 	OwnerName user.Name
 

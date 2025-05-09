@@ -17,6 +17,7 @@ import (
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corepermission "github.com/juju/juju/core/permission"
@@ -924,6 +925,7 @@ func (s *modelServiceSuite) TestGetModelSummary(c *gc.C) {
 		UnitCount:      10,
 	}, nil)
 	s.mockControllerState.EXPECT().GetModelSummary(gomock.Any(), modelUUID).Return(model.ModelSummary{
+		Life: corelife.Alive,
 		State: model.ModelState{
 			Destroying:                false,
 			Migrating:                 false,
@@ -942,6 +944,7 @@ func (s *modelServiceSuite) TestGetModelSummary(c *gc.C) {
 		CloudName:      "aws",
 		CloudType:      "ec2",
 		CloudRegion:    "myregion",
+		Life:           corelife.Alive,
 		ControllerUUID: controllerUUID.String(),
 		IsController:   false,
 		AgentVersion:   jujuversion.Current,
@@ -1097,6 +1100,7 @@ func (s *modelServiceSuite) TestGetUserModelSummary(c *gc.C) {
 	s.mockControllerState.EXPECT().GetUserModelSummary(gomock.Any(), userUUID, modelUUID).Return(
 		model.UserModelSummary{
 			ModelSummary: model.ModelSummary{
+				Life: corelife.Alive,
 				State: model.ModelState{
 					Destroying:                false,
 					Migrating:                 false,
@@ -1119,6 +1123,7 @@ func (s *modelServiceSuite) TestGetUserModelSummary(c *gc.C) {
 			Name:           "my-awesome-model",
 			UUID:           modelUUID,
 			ModelType:      coremodel.IAAS,
+			Life:           corelife.Alive,
 			CloudName:      "aws",
 			CloudType:      "ec2",
 			CloudRegion:    "myregion",

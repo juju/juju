@@ -20,7 +20,7 @@ import (
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	corecredential "github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/life"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -310,7 +310,7 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 		Owner:     m.userUUID,
 		OwnerName: usertesting.GenNewName(c, "test-user"),
 		ModelType: coremodel.IAAS,
-		Life:      life.Alive,
+		Life:      corelife.Alive,
 	})
 }
 
@@ -1158,7 +1158,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life: corelife.Alive,
 		},
 		{
 			Name:        "owned1",
@@ -1174,7 +1174,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life: corelife.Alive,
 		},
 		{
 			Name:        "owned2",
@@ -1190,7 +1190,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life: corelife.Alive,
 		},
 	})
 }
@@ -1226,7 +1226,7 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life: life.Alive,
+			Life: corelife.Alive,
 		},
 	})
 }
@@ -1281,7 +1281,7 @@ func (m *stateSuite) TestGetModelByName(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, gc.DeepEquals, coremodel.Model{
 		Name:        "my-test-model",
-		Life:        life.Alive,
+		Life:        corelife.Alive,
 		UUID:        m.uuid,
 		ModelType:   coremodel.IAAS,
 		Cloud:       "my-cloud",
@@ -1456,7 +1456,7 @@ func (m *stateSuite) TestGetControllerModel(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, gc.DeepEquals, coremodel.Model{
 		Name:      coremodel.ControllerModelName,
-		Life:      life.Alive,
+		Life:      corelife.Alive,
 		UUID:      modelUUID,
 		ModelType: coremodel.IAAS,
 		Cloud:     "my-cloud",
@@ -1492,6 +1492,7 @@ func (m *stateSuite) TestGetUserModelSummary(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(summary, gc.DeepEquals, model.UserModelSummary{
 		ModelSummary: model.ModelSummary{
+			Life:      corelife.Alive,
 			OwnerName: m.userName,
 			State: model.ModelState{
 				Destroying:                   false,
@@ -1557,6 +1558,7 @@ func (m *stateSuite) TestGetModelSummary(c *gc.C) {
 	summary, err := modelSt.GetModelSummary(context.Background(), m.uuid)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(summary, gc.DeepEquals, model.ModelSummary{
+		Life:      corelife.Alive,
 		OwnerName: m.userName,
 		State: model.ModelState{
 			Destroying:                   false,
@@ -1574,80 +1576,6 @@ func (m *stateSuite) TestGetModelSummaryModelNotFound(c *gc.C) {
 	_, err := modelSt.GetModelSummary(context.Background(), modeltesting.GenModelUUID(c))
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
-
-//func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
-//	modelSt := NewState(m.TxnRunnerFactory())
-//	accessSt := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-//
-//	newUserUUID := usertesting.GenUserUUID(c)
-//	newUserName := usertesting.GenNewName(c, "new-user")
-//	err := accessSt.AddUser(
-//		context.Background(),
-//		newUserUUID,
-//		newUserName,
-//		newUserName.Name(),
-//		false,
-//		newUserUUID,
-//	)
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	modelUUID := m.createTestModel(c, modelSt, "ctrl-model", newUserUUID)
-//	controllerUUID := m.ControllerSuite.SeedControllerTable(c, modelUUID)
-//	models, err := modelSt.ListAllModelSummaries(context.Background())
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	c.Check(len(models), gc.Equals, 2)
-//
-//	expected := []coremodel.ModelSummary{
-//		{
-//			Name:        "my-test-model",
-//			UUID:        m.uuid,
-//			CloudName:   "my-cloud",
-//			CloudRegion: "my-region",
-//			CloudType:   "ec2",
-//			CloudCredentialKey: corecredential.Key{
-//				Cloud: "my-cloud",
-//				Owner: usertesting.GenNewName(c, "test-user"),
-//				Name:  "foobar",
-//			},
-//			ControllerUUID: controllerUUID,
-//			IsController:   false,
-//			// TODO (manadart 2024-01-29): We need to generate model summaries
-//			// with an agent version, but we can't do that from the controller
-//			// database.
-//			ModelType: coremodel.IAAS,
-//			OwnerName: usertesting.GenNewName(c, "test-user"),
-//			Life:      life.Alive,
-//		},
-//		{
-//			Name:        "ctrl-model",
-//			UUID:        modelUUID,
-//			CloudName:   "my-cloud",
-//			CloudRegion: "my-region",
-//			CloudType:   "ec2",
-//			CloudCredentialKey: corecredential.Key{
-//				Cloud: "my-cloud",
-//				Owner: usertesting.GenNewName(c, "test-user"),
-//				Name:  "foobar",
-//			},
-//			ControllerUUID: controllerUUID,
-//			IsController:   true,
-//			// TODO (manadart 2024-01-29): We need to generate model summaries
-//			// with an agent version, but we can't do that from the controller
-//			// database.
-//			ModelType: coremodel.IAAS,
-//			OwnerName: usertesting.GenNewName(c, "new-user"),
-//			Life:      life.Alive,
-//		},
-//	}
-//
-//	sortFunc := func(a, b coremodel.ModelSummary) int {
-//		return strings.Compare(a.Name, b.Name)
-//	}
-//	slices.SortFunc(models, sortFunc)
-//	slices.SortFunc(expected, sortFunc)
-//	c.Check(models, gc.DeepEquals, expected)
-//}
 
 func (s *stateSuite) TestGetModelUsers(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())

@@ -179,6 +179,9 @@ type dbUserModelSummary struct {
 	// UserLastConnection is the last time this user has accessed this model.
 	UserLastConnection *time.Time `db:"time"`
 
+	// Life is the current model's life value.
+	Life string `db:"life"`
+
 	// OwnerName is the user name of the model owner.
 	OwnerName string `db:"owner_name"`
 
@@ -201,6 +204,9 @@ type dbUserModelSummary struct {
 // dbModelSummary represents the information about a model for a summary that
 // isn't available from the model's own database.
 type dbModelSummary struct {
+	// Life is the current model's life value.
+	Life string `db:"life"`
+
 	OwnerName string `db:"owner_name"`
 
 	// Model state related members

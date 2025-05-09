@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -1184,7 +1185,8 @@ func (s *State) GetModelSummary(
 
 	q := `
 SELECT (m.owner_name, ms.destroying, ms.cloud_credential_invalid,
-        ms.cloud_credential_invalid_reason, ms.migrating) AS (&dbModelSummary.*)
+        ms.cloud_credential_invalid_reason, ms.migrating,
+        life) AS (&dbModelSummary.*)
 FROM   v_model_state ms
 JOIN   v_model m ON m.uuid = ms.uuid
 WHERE  ms.uuid = $dbModelUUID.uuid
@@ -1231,6 +1233,7 @@ WHERE  ms.uuid = $dbModelUUID.uuid
 	}
 
 	return model.ModelSummary{
+		Life:      corelife.Value(modelSummaryVals.Life),
 		OwnerName: ownerName,
 		State: model.ModelState{
 			Destroying:                   modelSummaryVals.Destroying,
@@ -1292,8 +1295,8 @@ func (s *State) GetUserModelSummary(
 
 	q := `
 SELECT    (p.access_type, mll.time, ms.destroying, ms.cloud_credential_invalid,
-           ms.cloud_credential_invalid_reason, ms.migrating, m.owner_name
-          ) AS (&dbUserModelSummary.*)
+           ms.cloud_credential_invalid_reason, ms.migrating, m.owner_name,
+           m.life) AS (&dbUserModelSummary.*)
 FROM      v_user_auth u
 JOIN      v_permission p ON p.grant_to = u.uuid
 JOIN      v_model_state ms ON ms.uuid = p.grant_on
@@ -1361,6 +1364,7 @@ AND       ms.uuid = $dbModelUUID.uuid
 
 	return model.UserModelSummary{
 		ModelSummary: model.ModelSummary{
+			Life:      corelife.Value(userModelSummaryVals.Life),
 			OwnerName: ownerName,
 			State: model.ModelState{
 				Destroying:                   userModelSummaryVals.Destroying,

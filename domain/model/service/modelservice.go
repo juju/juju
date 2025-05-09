@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -234,9 +233,8 @@ func (s *ModelService) GetModelSummary(
 		ControllerUUID: miSummary.ControllerUUID,
 		IsController:   miSummary.IsController,
 		OwnerName:      mSummary.OwnerName,
-		// TODO (tlm): Wire up when life is available.
-		Life:         life.Value(""),
-		AgentVersion: miSummary.AgentVersion,
+		Life:           mSummary.Life,
+		AgentVersion:   miSummary.AgentVersion,
 		Status: corestatus.StatusInfo{
 			Status:  status.Status,
 			Message: status.Message,
@@ -293,9 +291,8 @@ func (s *ModelService) GetUserModelSummary(
 			ControllerUUID: miSummary.ControllerUUID,
 			IsController:   miSummary.IsController,
 			OwnerName:      userSummary.OwnerName,
-			// TODO (tlm): Wire up when life is available.
-			Life:         life.Value(""),
-			AgentVersion: miSummary.AgentVersion,
+			Life:           userSummary.Life,
+			AgentVersion:   miSummary.AgentVersion,
 			Status: corestatus.StatusInfo{
 				Status:  status.Status,
 				Message: status.Message,
