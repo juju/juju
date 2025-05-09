@@ -11,9 +11,10 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	domainmodel "github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -81,7 +82,17 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+	isAdmin, err := HasModelAdmin(ctx, c.authorizer, c.backend.ControllerTag(), modelTag)
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	if !isAdmin {
+		return status, apiservererrors.ErrPerm
+	}
+
 	st := c.backend
+
 	if modelTag != c.backend.ModelTag() {
 		otherSt, releaser, err := c.backend.GetBackend(modelTag.Id())
 		if err != nil {
@@ -91,16 +102,22 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		st = otherSt
 	}
 
-	model, err := st.Model()
+	modelUUID := coremodel.UUID(modelTag.Id())
+
+	statusServiceGetter, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	isAdmin, err := HasModelAdmin(ctx, c.authorizer, c.backend.ControllerTag(), model.ModelTag())
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	if !isAdmin {
-		return status, apiservererrors.ErrPerm
+	modelInfo, err := statusServiceGetter.GetModelStatusInfo(ctx)
+	switch {
+	case errors.Is(err, modelerrors.NotFound):
+		return status, internalerrors.Errorf(
+			"model for tag %q does not exist", modelTag,
+		)
+	case err != nil:
+		return status, internalerrors.Errorf(
+			"getting model info for tag %q: %w", modelTag, err,
+		)
 	}
 
 	machines, err := st.AllMachines()
@@ -114,8 +131,6 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 			hostedMachineCount++
 		}
 	}
-
-	modelUUID := coremodel.UUID(modelTag.Id())
 
 	statusService, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
@@ -156,11 +171,16 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	}
 	modelFilesystems := ModelFilesystemInfo(filesystems)
 
+	badOwnerTag := names.NewUserTag("foobar")
+	// TODO: add life and ownertag values when they are supported in model DB
 	result := params.ModelStatus{
-		ModelTag:           tag,
-		OwnerTag:           model.Owner().String(),
-		Life:               life.Value(model.Life().String()),
-		Type:               string(model.Type()),
+		ModelTag: tag,
+		// TODO (tlm): OwnerTag is currently set to a bad value on purpose.
+		// There is work under way to refactor the idea of a model owner within
+		// Juju. Until this work lands we are setting a bad value.
+		OwnerTag:           badOwnerTag.String(),
+		Life:               "",
+		Type:               modelInfo.Type.String(),
 		HostedMachineCount: hostedMachineCount,
 		ApplicationCount:   len(applications),
 		UnitCount:          unitCount,

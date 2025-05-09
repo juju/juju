@@ -17,6 +17,8 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corelife "github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -28,11 +30,11 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -47,17 +49,33 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
+func (s *stateSuite) TestGetModelStatusInfo(c *gc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	controllerUUID, err := uuid.NewUUID()
+	c.Check(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, credential_owner)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2", "owner")
+		`, modelUUID.String(), controllerUUID.String())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 
-	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	modelInfo, err := s.state.GetModelStatusInfo(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(modelInfo.Type, gc.Equals, model.IAAS)
+}
+
+func (s *stateSuite) TestGetModelStatusInfoNotFound(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, err := state.GetModelStatusInfo(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
