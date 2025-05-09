@@ -292,11 +292,10 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 			controller.ControllerUUIDKey: controllerCfg.ControllerUUID(),
 		},
 		ControllerModelArgs: state.ModelArgs{
-			Type:  modelType,
-			Owner: AdminUser,
-			// Pass the minimal model config needed for bootstrap, the rest
-			// should be added through the model config service.
-			Config:          controllerModelCfg,
+			Name:            controllerModelCfg.Name(),
+			UUID:            coremodel.UUID(controllerModelCfg.UUID()),
+			Type:            modelType,
+			Owner:           AdminUser,
 			CloudName:       DefaultCloud.Name,
 			CloudRegion:     DefaultCloudRegion,
 			CloudCredential: DefaultCredentialTag,

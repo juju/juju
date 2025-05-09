@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/relation"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/configschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -132,7 +131,6 @@ type ModelParams struct {
 	CloudRegion             string
 	CloudCredential         names.CloudCredentialTag
 	StorageProviderRegistry storage.ProviderRegistry
-	EnvironVersion          int
 }
 
 type SpaceParams struct {
@@ -333,32 +331,18 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		params.StorageProviderRegistry = provider.CommonStorageProviders()
 	}
 
-	// For IAAS models, it only makes sense to make a model with the same provider
-	// as the initial model, or things will break elsewhere.
-	// For CAAS models, the type is "kubernetes".
-	currentCfg := factory.currentCfg(c)
-	cfgType := currentCfg.Type()
-	if params.Type == state.ModelTypeCAAS {
-		cfgType = "kubernetes"
-	}
-
 	if params.UUID == coremodel.UUID("") {
 		params.UUID = modeltesting.GenModelUUID(c)
 	}
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name": params.Name,
-		"uuid": params.UUID.String(),
-		"type": cfgType,
-	}.Merge(params.ConfigAttrs))
 	controller := state.NewController(factory.pool)
 	_, st, err := controller.NewModel(state.ModelArgs{
+		Name:            params.Name,
+		UUID:            params.UUID,
 		Type:            params.Type,
 		CloudName:       params.CloudName,
 		CloudRegion:     params.CloudRegion,
 		CloudCredential: params.CloudCredential,
-		Config:          cfg,
 		Owner:           params.Owner.(names.UserTag),
-		EnvironVersion:  params.EnvironVersion,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = factory.pool.StartWorkers(st)
@@ -395,10 +379,6 @@ func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State
 		params.CloudCredential = tag
 	}
 	return factory.MakeModel(c, params)
-}
-
-func (factory *Factory) currentCfg(c *gc.C) *config.Config {
-	return testing.ModelConfig(c)
 }
 
 func NewObjectStore(c *gc.C, modelUUID string, metadataService internalobjectstore.MetadataService, claimer internalobjectstore.Claimer) objectstore.ObjectStore {
