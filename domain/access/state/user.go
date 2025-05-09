@@ -147,11 +147,11 @@ func (st *UserState) GetAllUsers(ctx context.Context, includeDisabled bool) ([]u
 SELECT (u.uuid, u.name, u.display_name, u.created_by_uuid, u.created_at, u.disabled, ull.last_login) AS (&dbUser.*),
        creator.name AS &dbUser.created_by_name
 FROM   v_user_auth u
-       LEFT JOIN user AS creator 
+       LEFT JOIN user AS creator
        ON        u.created_by_uuid = creator.uuid
-       LEFT JOIN v_user_last_login AS ull 
+       LEFT JOIN v_user_last_login AS ull
        ON        u.uuid = ull.user_uuid
-WHERE  u.removed = false 
+WHERE  u.removed = false
 `, dbUser{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select getAllUsers query: %w", err)
@@ -196,7 +196,7 @@ func (st *UserState) GetUser(ctx context.Context, uuid user.UUID) (user.User, er
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getUserQuery := `
 SELECT (u.uuid,
-       u.name, 
+       u.name,
        u.display_name,
        u.created_by_uuid,
        u.created_at,
@@ -315,6 +315,26 @@ AND    u.removed = false`
 	return usr, nil
 }
 
+// GetUserUUIDByName will retrieve the user UUID specified by name.
+// The following errors can be expected:
+// - [accesserrors.UserNotFound] when no user exists for the name.
+func (st *UserState) GetUserUUIDByName(
+	ctx context.Context,
+	name user.Name,
+) (user.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Errorf("getting DB access: %w", err)
+	}
+
+	var rval user.UUID
+	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		rval, err = GetUserUUIDByName(ctx, tx, name)
+		return err
+	})
+}
+
 // GetUserByAuth will retrieve the user with checking authentication
 // information specified by UUID and password from the database.
 // If the user does not exist an error that satisfies accesserrors.UserNotFound
@@ -337,7 +357,7 @@ SELECT (
 FROM   v_user_auth AS user
        LEFT JOIN user AS creator ON user.created_by_uuid = creator.uuid
        LEFT JOIN user_password ON user.uuid = user_password.user_uuid
-WHERE  user.name = $userName.name 
+WHERE  user.name = $userName.name
 AND    user.removed = false
 	`
 
@@ -596,9 +616,9 @@ func (st *UserState) EnableUserAuthentication(ctx context.Context, name user.Nam
 	m := make(sqlair.M, 1)
 
 	q := `
-INSERT INTO user_authentication (user_uuid, disabled)  
+INSERT INTO user_authentication (user_uuid, disabled)
 VALUES ($M.uuid, false)
-ON CONFLICT(user_uuid) DO 
+ON CONFLICT(user_uuid) DO
 UPDATE SET disabled = false`
 
 	enableUserStmt, err := st.Prepare(q, m)
@@ -637,9 +657,9 @@ func (st *UserState) DisableUserAuthentication(ctx context.Context, name user.Na
 	m := make(sqlair.M, 1)
 
 	q := `
-INSERT INTO user_authentication (user_uuid, disabled)  
+INSERT INTO user_authentication (user_uuid, disabled)
 VALUES ($M.uuid, true)
-ON CONFLICT(user_uuid) DO 
+ON CONFLICT(user_uuid) DO
 UPDATE SET disabled = true`
 
 	disableUserStmt, err := st.Prepare(q, m)
@@ -711,7 +731,7 @@ func AddUser(
 	}
 
 	addUserQuery := `
-INSERT INTO user (uuid, name, display_name, external, created_by_uuid, created_at) 
+INSERT INTO user (uuid, name, display_name, external, created_by_uuid, created_at)
 VALUES           ($dbUser.*)`
 
 	insertAddUserStmt, err := sqlair.Prepare(addUserQuery, user)
@@ -803,7 +823,7 @@ func (st *UserState) UpdateLastModelLogin(ctx context.Context, name user.Name, m
 	insertModelLoginStmt, err := st.Prepare(`
 INSERT INTO model_last_login (model_uuid, user_uuid, time)
 VALUES ($dbModelLastLogin.*)
-ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET 
+ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET
 	time = excluded.time`, dbModelLastLogin{})
 	if err != nil {
 		return errors.Errorf("preparing insert model login query: %w", err)
@@ -916,11 +936,11 @@ func ensureUserAuthentication(
 	name user.Name,
 ) error {
 	defineUserAuthenticationQuery := `
-INSERT INTO user_authentication (user_uuid, disabled) 
-    SELECT uuid, $M.disabled                    
+INSERT INTO user_authentication (user_uuid, disabled)
+    SELECT uuid, $M.disabled
     FROM   user
     WHERE  name = $M.name AND removed = false
-ON CONFLICT(user_uuid) DO 
+ON CONFLICT(user_uuid) DO
 UPDATE SET user_uuid = excluded.user_uuid
 WHERE      disabled = false`
 
@@ -960,10 +980,10 @@ func setPasswordHash(ctx context.Context, tx *sqlair.TX, name user.Name, passwor
 	}
 
 	setPasswordHashQuery := `
-INSERT INTO user_password (user_uuid, password_hash, password_salt) 
+INSERT INTO user_password (user_uuid, password_hash, password_salt)
     SELECT uuid, $M.password_hash, $M.password_salt
     FROM   user
-    WHERE  name = $M.name 
+    WHERE  name = $M.name
     AND    removed = false
 ON CONFLICT(user_uuid) DO UPDATE SET password_hash = excluded.password_hash, password_salt = excluded.password_salt`
 
@@ -998,7 +1018,7 @@ func setActivationKey(ctx context.Context, tx *sqlair.TX, name user.Name, activa
 INSERT INTO user_activation_key (user_uuid, activation_key)
     SELECT uuid, $M.activation_key
     FROM   user
-    WHERE  name = $M.name 
+    WHERE  name = $M.name
     AND    removed = false
 ON CONFLICT(user_uuid) DO UPDATE SET activation_key = excluded.activation_key`
 
@@ -1045,8 +1065,8 @@ func (st *UserState) getActiveUUIDStmt() (*sqlair.Statement, error) {
 // exists in the db.
 func (st *UserState) checkModelExists(ctx context.Context, tx *sqlair.TX, modelUUID coremodel.UUID) (bool, error) {
 	stmt, err := st.Prepare(`
-SELECT true AS &dbModelExists.exists 
-FROM model 
+SELECT true AS &dbModelExists.exists
+FROM model
 WHERE model.uuid = $dbModelUUID.uuid`, dbModelUUID{}, dbModelExists{})
 	if err != nil {
 		return false, errors.Errorf("preparing select checkModelExists: %w", err)

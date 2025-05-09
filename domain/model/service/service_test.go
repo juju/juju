@@ -38,7 +38,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
-	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -176,7 +175,7 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exists, jc.IsTrue)
 
-	modelList, err := svc.ListModelIDs(context.Background())
+	modelList, err := svc.ListModelUUIDs(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(len(modelList), gc.Equals, 2)
 }
@@ -887,104 +886,6 @@ func (s *serviceSuite) TestGetModelUserZeroUserName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, accesserrors.UserNameNotValid)
 }
 
-func (s *serviceSuite) TestListAllModelSummaries(c *gc.C) {
-	uuid1, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	uuid2, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	s.state.controllerModelUUID = uuid1
-	s.state.models = map[coremodel.UUID]coremodel.Model{
-		uuid1: {
-			Name:         "my-awesome-model",
-			AgentVersion: jujuversion.Current,
-			UUID:         uuid1,
-			Cloud:        "aws",
-			CloudRegion:  "myregion",
-			ModelType:    coremodel.IAAS,
-			OwnerName:    usertesting.GenNewName(c, "admin"),
-			Life:         life.Alive,
-		},
-		uuid2: {
-			Name:         "",
-			AgentVersion: jujuversion.Current,
-			UUID:         uuid2,
-			Cloud:        "aws",
-			CloudRegion:  "myregion",
-			ModelType:    coremodel.IAAS,
-			OwnerName:    usertesting.GenNewName(c, "tlm"),
-			Life:         life.Alive,
-		},
-	}
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
-	models, err := svc.ListAllModelSummaries(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(models, jc.SameContents, []coremodel.ModelSummary{{
-		Name:           "my-awesome-model",
-		AgentVersion:   jujuversion.Current,
-		UUID:           uuid1,
-		CloudName:      "aws",
-		CloudRegion:    "myregion",
-		ModelType:      coremodel.IAAS,
-		OwnerName:      usertesting.GenNewName(c, "admin"),
-		Life:           life.Alive,
-		ControllerUUID: jujutesting.ControllerTag.Id(),
-		IsController:   true,
-	}, {
-		Name:           "",
-		AgentVersion:   jujuversion.Current,
-		UUID:           uuid2,
-		CloudName:      "aws",
-		CloudRegion:    "myregion",
-		ModelType:      coremodel.IAAS,
-		OwnerName:      usertesting.GenNewName(c, "tlm"),
-		Life:           life.Alive,
-		ControllerUUID: jujutesting.ControllerTag.Id(),
-		IsController:   false,
-	}})
-}
-
-func (s *serviceSuite) TestListModelsForUserBadName(c *gc.C) {
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
-	_, err := svc.ListModelsForUser(context.Background(), "((*)(")
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
-}
-
-func (s *serviceSuite) TestListModelSummariesForUser(c *gc.C) {
-	uuid1, err := coremodel.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	s.state.controllerModelUUID = uuid1
-	s.state.models = map[coremodel.UUID]coremodel.Model{
-		uuid1: {
-			Name:         "my-awesome-model",
-			AgentVersion: jujuversion.Current,
-			UUID:         uuid1,
-			Cloud:        "aws",
-			CloudRegion:  "myregion",
-			ModelType:    coremodel.IAAS,
-			OwnerName:    usertesting.GenNewName(c, "admin"),
-			Life:         life.Alive,
-		},
-	}
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
-	models, err := svc.ListModelSummariesForUser(context.Background(), usertesting.GenNewName(c, "admin"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(models, gc.DeepEquals, []coremodel.UserModelSummary{{
-		UserAccess: permission.AdminAccess,
-		ModelSummary: coremodel.ModelSummary{
-			Name:           "my-awesome-model",
-			AgentVersion:   jujuversion.Current,
-			UUID:           uuid1,
-			CloudName:      "aws",
-			CloudRegion:    "myregion",
-			ModelType:      coremodel.IAAS,
-			OwnerName:      usertesting.GenNewName(c, "admin"),
-			Life:           life.Alive,
-			ControllerUUID: jujutesting.ControllerTag.Id(),
-			IsController:   true,
-		},
-	}})
-}
-
 // setupDefaultStateExpects establishes a common set of well know responses to
 // state calls for mock testing.
 func (s *serviceSuite) setupDefaultStateExpects(c *gc.C) {
@@ -1363,4 +1264,44 @@ func (s *serviceSuite) TestWatchModelCloudCredential(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("failed to receive changes from watcher")
 	}
+}
+
+// TestListModelUUIDsForUser is asserting the happy path of
+// [Service.ListModelUUIDsForUser].
+func (s *serviceSuite) TestListModelUUIDsForUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockState.EXPECT().ListModelUUIDsForUser(gomock.Any(), s.userUUID).Return(
+		[]coremodel.UUID{modelUUID}, nil,
+	)
+
+	svc := NewService(s.mockState, s.mockModelDeleter, loggertesting.WrapCheckLog(c))
+	uuids, err := svc.ListModelUUIDsForUser(context.Background(), s.userUUID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uuids, jc.SameContents, []coremodel.UUID{modelUUID})
+}
+
+// TestListModelUUIDsForUserNotFound is asserting that when the list of model
+// uuids for a user is asked for and the user does not exist the caller gets an
+// error satisfying [accesserrors.UserNotFound].
+func (s *serviceSuite) TestListModelUUIDsForUserNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockState.EXPECT().ListModelUUIDsForUser(gomock.Any(), s.userUUID).Return(
+		nil, accesserrors.UserNotFound,
+	)
+
+	svc := NewService(s.mockState, s.mockModelDeleter, loggertesting.WrapCheckLog(c))
+	_, err := svc.ListModelUUIDsForUser(context.Background(), s.userUUID)
+	c.Check(err, jc.ErrorIs, accesserrors.UserNotFound)
+}
+
+// TestListModelUUIDsForUserNotValid is asserting that when the list of model
+// uuids for a user is asked for and the user uuid is not valid the caller gets
+// an error satisfying [coreerrors.NotValid].
+func (s *serviceSuite) TestListModelUUIDsForUserNotValid(c *gc.C) {
+	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	_, err := svc.ListModelUUIDsForUser(context.Background(), "not-a-uuid")
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }

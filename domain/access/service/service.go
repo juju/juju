@@ -84,6 +84,11 @@ type UserState interface {
 	// accesserrors.UserNotFound will be returned.
 	GetUserByName(ctx context.Context, name user.Name) (user.User, error)
 
+	// GetUserUUIDByName will retrieve the user UUID specified by name.
+	// The following errors can be expected:
+	// - [accesserrors.UserNotFound] when no user exists for the name.
+	GetUserUUIDByName(ctx context.Context, name user.Name) (user.UUID, error)
+
 	// GetUserByAuth will retrieve the user with checking authentication information
 	// specified by name and password from the database. If the user does not exist
 	// an error that satisfies accesserrors.UserNotFound will be returned.

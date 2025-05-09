@@ -66,10 +66,9 @@ type UpgradeService interface {
 
 // ModelService is the interface for the model service.
 type ModelService interface {
-	// ListModelIDs returns a list of all model UUIDs.
-	// This only includes active models from the perspective of dqlite. These
-	// are not the same as alive models.
-	ListModelIDs(context.Context) ([]coremodel.UUID, error)
+	// ListModelUUIDs returns a list of all model UUIDs that are active in the
+	// controller.
+	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
 }
 
 // Config holds the configuration for the worker.
@@ -461,7 +460,7 @@ func (w *upgradeDBWorker) upgradeController(ctx context.Context) error {
 func (w *upgradeDBWorker) upgradeModels(ctx context.Context) error {
 	w.logger.Infof(ctx, "upgrading model databases from: %v to: %v", w.fromVersion, w.toVersion)
 
-	models, err := w.modelService.ListModelIDs(ctx)
+	models, err := w.modelService.ListModelUUIDs(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "getting model list")
 	}

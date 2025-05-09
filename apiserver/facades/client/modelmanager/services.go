@@ -105,11 +105,25 @@ type ModelService interface {
 	// DeleteModel deletes the give model.
 	DeleteModel(context.Context, coremodel.UUID, ...model.DeleteModelOption) error
 
+	// ListAllModels returns a list of all models.
+	ListAllModels(context.Context) ([]coremodel.Model, error)
+
 	// ListModelsForUser returns a list of models for the given user.
 	ListModelsForUser(context.Context, coreuser.UUID) ([]coremodel.Model, error)
 
-	// ListAllModels returns a list of all models.
-	ListAllModels(context.Context) ([]coremodel.Model, error)
+	// ListModelUUIDs returns a list of all model UUIDs in the controller that
+	// are active.
+	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
+
+	// ListModelUUIDsForUser returns a list of model UUIDs that the supplied
+	// user has access to. If the user supplied does not have access to any
+	// models then an empty slice is returned.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/core/errors.NotValid] when the user uuid supplied
+	// is not valid.
+	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user
+	// does not exist.
+	ListModelUUIDsForUser(context.Context, coreuser.UUID) ([]coremodel.UUID, error)
 
 	// GetModelUsers will retrieve basic information about users with
 	// permissions on the given model UUID.
@@ -124,14 +138,6 @@ type ModelService interface {
 	// If the user cannot be found it will return
 	//[github.com/juju/juju/domain/model/errors.UserNotFoundOnModel].
 	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error)
-
-	// ListModelSummariesForUser returns a slice of model summaries for a given
-	// user. If no models are found an empty slice is returned.
-	ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error)
-
-	// ListAllModelSummaries returns a slice of model summaries for all models
-	// known to the controller.
-	ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error)
 }
 
 // ModelDefaultsService defines a interface for interacting with the model
@@ -211,6 +217,22 @@ type ModelInfoService interface {
 	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model
 	// does not exist.
 	GetStatus(context.Context) (model.StatusInfo, error)
+
+	// GetModelSummary returns a summary of the current model as a
+	// [coremodel.ModelSummary] type.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound] when the model does not exist.
+	GetModelSummary(ctx context.Context) (coremodel.ModelSummary, error)
+
+	// GetUserModelSummary returns a summary of the current model from the
+	// provided user's perspective.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound] when the model does not exist.
+	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user
+	// is not found for the given user uuid.
+	// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
+	// user does not have access to the model.
+	GetUserModelSummary(ctx context.Context, userUUID coreuser.UUID) (coremodel.UserModelSummary, error)
 }
 
 // ModelExporter defines a interface for exporting models.
@@ -229,9 +251,12 @@ type CredentialService interface {
 // AccessService defines a interface for interacting the users and permissions
 // of a controller.
 type AccessService interface {
-	// GetUserByName returns a User for the given name.
-	GetUserByName(context.Context, coreuser.Name) (coreuser.User, error)
-
+	// The following errors can be expected:
+	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when no user
+	// exists for the supplied user name.
+	// - [github.com/juju/juju/domain/access/errors.UserNameNotValid] when the
+	// user name is not valid.
+	GetUserUUIDByName(context.Context, coreuser.Name) (coreuser.UUID, error)
 	// UpdatePermission updates the access level for a user of the model.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 	// LastModelLogin will return the last login time of the specified

@@ -752,3 +752,46 @@ func (s *modelSuite) TestGetModelTypeNotFound(c *gc.C) {
 	_, err := state.GetModelType(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
+
+// TestGetModelInfoSummary is testing the happy path of getting the model info
+// summary for the current model.
+func (s *modelSuite) TestGetModelInfoSummary(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	uuid := modeltesting.GenModelUUID(c)
+	cloudType := "ec2"
+	args := model.ModelDetailArgs{
+		UUID:              uuid,
+		AgentStream:       modelagent.AgentStreamReleased,
+		AgentVersion:      jujuversion.Current,
+		ControllerUUID:    s.controllerUUID,
+		Name:              "mycontrollermodel",
+		Type:              coremodel.CAAS,
+		Cloud:             "aws",
+		CloudType:         cloudType,
+		CloudRegion:       "myregion",
+		CredentialOwner:   usertesting.GenNewName(c, "myowner"),
+		CredentialName:    "mycredential",
+		IsControllerModel: false,
+	}
+	err := state.Create(context.Background(), args)
+	c.Check(err, jc.ErrorIsNil)
+
+	infoSummary, err := state.GetModelInfoSummary(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(infoSummary, gc.DeepEquals, model.ModelInfoSummary{
+		Name:           "mycontrollermodel",
+		UUID:           uuid,
+		ModelType:      coremodel.CAAS,
+		CloudName:      "aws",
+		CloudType:      cloudType,
+		CloudRegion:    "myregion",
+		ControllerUUID: s.controllerUUID.String(),
+		IsController:   false,
+		AgentVersion:   jujuversion.Current,
+		MachineCount:   0,
+		UnitCount:      0,
+		CoreCount:      0,
+	})
+}

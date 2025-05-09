@@ -890,6 +890,81 @@ WHERE uuid = $dbModelUUID.uuid
 	return cloudName, cloudRegion, credentialKey, nil
 }
 
+// GetModelInfoSummary returns a summary of the model information contained in
+// this database.
+// The following errors can be expected:
+// - [modelerrors.NotFound] if no model has been established in this model
+// database.
+func (s *ModelState) GetModelInfoSummary(
+	ctx context.Context,
+) (model.ModelInfoSummary, error) {
+	db, err := s.DB()
+	if err != nil {
+		return model.ModelInfoSummary{}, errors.Capture(err)
+	}
+
+	// TODO (tlm): We need to provide a core count ¯\_(ツ)_/¯
+	stmt, err := s.Prepare(`
+WITH machine_count AS (
+	SELECT count(*) AS machine_count FROM machine
+),
+unit_count AS (
+	SELECT count(*) AS unit_count FROM unit
+),
+core_count AS (
+	SELECT 0 AS core_count
+)
+SELECT &dbModelInfoSummary.*, &dbModelCountSummary.*
+FROM   model, agent_version, machine_count, unit_count, core_count
+`,
+		dbModelInfoSummary{}, dbModelCountSummary{},
+	)
+	if err != nil {
+		return model.ModelInfoSummary{}, errors.Capture(err)
+	}
+
+	infoSummary := dbModelInfoSummary{}
+	countSummary := dbModelCountSummary{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&infoSummary, &countSummary)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("model does not exist").Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf("getting model information summary: %w", err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return model.ModelInfoSummary{}, errors.Capture(err)
+	}
+
+	rval := model.ModelInfoSummary{
+		Name:           infoSummary.Name,
+		UUID:           coremodel.UUID(infoSummary.UUID),
+		ModelType:      coremodel.ModelType(infoSummary.Type),
+		CloudName:      infoSummary.Cloud,
+		CloudType:      infoSummary.CloudType,
+		CloudRegion:    infoSummary.CloudRegion.String,
+		ControllerUUID: infoSummary.ControllerUUID,
+		IsController:   infoSummary.IsControllerModel,
+		MachineCount:   countSummary.MachineCount,
+		CoreCount:      countSummary.CoreCount,
+		UnitCount:      countSummary.UnitCount,
+	}
+
+	agentVerison, err := semversion.Parse(infoSummary.TargetAgentVersion)
+	if err != nil {
+		return model.ModelInfoSummary{}, errors.Errorf(
+			"parsing target agent version %q: %w",
+			infoSummary.TargetAgentVersion, err,
+		)
+	}
+	rval.AgentVersion = agentVerison
+
+	return rval, nil
+}
+
 // InsertModelInfo is responsible for creating a new model within the model
 // database. If the model already exists then an error satisfying
 // [modelerrors.AlreadyExists] is returned.

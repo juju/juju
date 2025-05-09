@@ -414,41 +414,41 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 	return m.recorder
 }
 
-// ListModelIDs mocks base method.
-func (m *MockModelService) ListModelIDs(arg0 context.Context) ([]model.UUID, error) {
+// ListModelUUIDs mocks base method.
+func (m *MockModelService) ListModelUUIDs(arg0 context.Context) ([]model.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListModelIDs", arg0)
+	ret := m.ctrl.Call(m, "ListModelUUIDs", arg0)
 	ret0, _ := ret[0].([]model.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListModelIDs indicates an expected call of ListModelIDs.
-func (mr *MockModelServiceMockRecorder) ListModelIDs(arg0 any) *MockModelServiceListModelIDsCall {
+// ListModelUUIDs indicates an expected call of ListModelUUIDs.
+func (mr *MockModelServiceMockRecorder) ListModelUUIDs(arg0 any) *MockModelServiceListModelUUIDsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelIDs", reflect.TypeOf((*MockModelService)(nil).ListModelIDs), arg0)
-	return &MockModelServiceListModelIDsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelUUIDs", reflect.TypeOf((*MockModelService)(nil).ListModelUUIDs), arg0)
+	return &MockModelServiceListModelUUIDsCall{Call: call}
 }
 
-// MockModelServiceListModelIDsCall wrap *gomock.Call
-type MockModelServiceListModelIDsCall struct {
+// MockModelServiceListModelUUIDsCall wrap *gomock.Call
+type MockModelServiceListModelUUIDsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceListModelIDsCall) Return(arg0 []model.UUID, arg1 error) *MockModelServiceListModelIDsCall {
+func (c *MockModelServiceListModelUUIDsCall) Return(arg0 []model.UUID, arg1 error) *MockModelServiceListModelUUIDsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceListModelIDsCall) Do(f func(context.Context) ([]model.UUID, error)) *MockModelServiceListModelIDsCall {
+func (c *MockModelServiceListModelUUIDsCall) Do(f func(context.Context) ([]model.UUID, error)) *MockModelServiceListModelUUIDsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceListModelIDsCall) DoAndReturn(f func(context.Context) ([]model.UUID, error)) *MockModelServiceListModelIDsCall {
+func (c *MockModelServiceListModelUUIDsCall) DoAndReturn(f func(context.Context) ([]model.UUID, error)) *MockModelServiceListModelUUIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

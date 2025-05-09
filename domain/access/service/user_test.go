@@ -616,6 +616,42 @@ func (s *userServiceSuite) TestLastModelLoginBadUsername(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
+// TestGetUserUUIDByName is testing the happy path for
+// [UserService.GetUserUUIDByName].
+func (s userServiceSuite) TestGetUserUUIDByName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	userName := coreusertesting.GenNewName(c, "tlm")
+	userUUID := newUUID(c)
+	s.state.EXPECT().GetUserUUIDByName(gomock.Any(), userName).Return(userUUID, nil)
+	gotUUID, err := s.service().GetUserUUIDByName(context.Background(), userName)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(gotUUID, gc.Equals, userUUID)
+}
+
+// TestGetUserUUIDByNameBadName is testing that if we try and get a user uuid
+// for a bad name we get back an error that satisfies
+// [usererrors.UserNameNotValid].
+//
+// For this test based on implementation we can only assert the zero value of a
+// user name. User name has no other validation properties.
+func (s userServiceSuite) TestGetUserUUIDByNameBadName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	userName := user.Name{}
+	_, err := s.service().GetUserUUIDByName(context.Background(), userName)
+	c.Check(err, jc.ErrorIs, usererrors.UserNameNotValid)
+}
+
+// TestGetUserUUIDByNameNotFound is testing that if we try and get a user uuid
+// for a user name that does exist we get an error satisfying
+// [usererrors.UserNotFound].
+func (s userServiceSuite) TestGetUserUUIDByNameNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	userName := coreusertesting.GenNewName(c, "tlm")
+	s.state.EXPECT().GetUserUUIDByName(gomock.Any(), userName).Return("", usererrors.UserNotFound)
+	_, err := s.service().GetUserUUIDByName(context.Background(), userName)
+	c.Check(err, jc.ErrorIs, usererrors.UserNotFound)
+}
+
 type stringerNotEmpty struct{}
 
 func (s stringerNotEmpty) Matches(arg any) bool {

@@ -63,7 +63,7 @@ func ensureNotBlocked(
 	logger corelogger.Logger,
 ) error {
 	// If there are blocks let the user know.
-	uuids, err := modelService.ListModelIDs(ctx)
+	uuids, err := modelService.ListModelUUIDs(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
