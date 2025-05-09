@@ -11,7 +11,6 @@ import (
 
 // Guard manages Guest access to a fortress.
 type Guard interface {
-
 	// Unlock unblocks all Guest.Visit calls.
 	Unlock(context.Context) error
 
