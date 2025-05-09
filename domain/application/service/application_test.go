@@ -456,6 +456,54 @@ func (s *applicationServiceSuite) TestGetApplicationConfigNoConfig(c *gc.C) {
 	})
 }
 
+func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}, nil)
+
+	results, err := s.service.GetApplicationConfigWithDefaults(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, config.ConfigAttributes{
+		"foo": "bar",
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsWithError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}, errors.Errorf("boom"))
+
+	_, err := s.service.GetApplicationConfigWithDefaults(context.Background(), appUUID)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsNoConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).
+		Return(map[string]application.ApplicationConfig{}, nil)
+
+	results, err := s.service.GetApplicationConfigWithDefaults(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 0)
+}
+
 func (s *applicationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

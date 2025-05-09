@@ -2399,6 +2399,44 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsForApplicatio
 	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
 }
 
+func (s *applicationStateSuite) TestGetApplicationConfigWithDefaults(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	s.insertApplicationConfigWithDefault(c, id, "key1", "value1", "defaultValue1", charm.OptionString)
+	s.insertCharmConfig(c, id, "key2", "defaultValue2", charm.OptionString)
+
+	config, err := s.state.GetApplicationConfigWithDefaults(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"key1": {
+			Type:  charm.OptionString,
+			Value: "value1",
+		},
+		"key2": {
+			Type:  charm.OptionString,
+			Value: "defaultValue2",
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestGetApplicationConfigWithDefaultsNotFound(c *gc.C) {
+	// If the application is not found, it should return application not found.
+	id := applicationtesting.GenApplicationUUID(c)
+	_, err := s.state.GetApplicationConfigWithDefaults(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestGetApplicationConfigWithDefaultsNoConfig(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	// If there is no config, we should always return the trust. This comes
+	// from the application_setting table.
+
+	config, err := s.state.GetApplicationConfigWithDefaults(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, gc.HasLen, 0)
+}
+
 func (s *applicationStateSuite) TestGetApplicationTrustSetting(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
@@ -3787,6 +3825,36 @@ func (s *applicationStateSuite) TestGetNetNodeUnitNotFound(c *gc.C) {
 func (s *applicationStateSuite) addCharmModifiedVersion(c *gc.C, appID coreapplication.ID, charmModifiedVersion int) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET charm_modified_version = ? WHERE uuid = ?", charmModifiedVersion, appID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) insertApplicationConfigWithDefault(c *gc.C, appID coreapplication.ID, key, value, defaultValue string, optionType charm.OptionType) {
+	t, err := encodeConfigType(optionType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?, ?, ?, ?)
+`, appID, key, value, t)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.insertCharmConfig(c, appID, key, defaultValue, optionType)
+}
+
+func (s *applicationStateSuite) insertCharmConfig(c *gc.C, appID coreapplication.ID, key, defaultValue string, optionType charm.OptionType) {
+	t, err := encodeConfigType(optionType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_config (charm_uuid, key, default_value, type_id)
+SELECT charm_uuid, ?, ?, ?
+FROM application
+WHERE uuid = ?
+`, key, defaultValue, t, appID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
