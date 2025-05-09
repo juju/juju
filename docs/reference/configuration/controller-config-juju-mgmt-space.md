@@ -1,4 +1,3 @@
-(controller-config-juju-mgmt-space)=
 # `juju-mgmt-space`
 
 

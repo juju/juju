@@ -114,9 +114,18 @@ func (s *sshtunnelerSuite) TestControllerAddress(c *gc.C) {
 	f := newFacade(s.ctx, s.backend)
 
 	entity := params.Entity{Tag: names.NewMachineTag("1").String()}
-	addresses, err := f.ControllerAddresses(entity)
-	c.Assert(err, jc.ErrorIsNil)
+	addresses := f.ControllerAddresses(entity)
 	c.Assert(addresses, gc.DeepEquals, params.StringsResult{})
+}
+
+func (s *sshtunnelerSuite) TestControllerAddressWithControllerTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	f := newFacade(s.ctx, s.backend)
+
+	entity := params.Entity{Tag: names.NewControllerTag("1").String()}
+	result := f.ControllerAddresses(entity)
+	c.Assert(result.Error.Message, gc.Equals, "SSH proxy from machine to k8s controller not supported")
 }
 
 func (s *sshtunnelerSuite) TestMachineHostKeys(c *gc.C) {
