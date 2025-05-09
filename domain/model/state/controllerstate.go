@@ -1019,12 +1019,11 @@ func (s *State) ListModelUUIDsForUser(
 	userUUIDVal := dbUUID{UUID: userUUID.String()}
 	stmt, err := s.Prepare(`
 SELECT &dbUUID.*
-FROM  v_model
-WHERE owner_uuid = $dbUUID.uuid
-OR    uuid IN (SELECT grant_on
-               FROM   permission
-               WHERE  grant_to = $dbUUID.uuid
-               AND    access_type_id IN (0, 1, 3))
+FROM   v_model
+WHERE  uuid IN (SELECT grant_on
+                FROM   permission
+                WHERE  grant_to = $dbUUID.uuid
+                AND    access_type_id IN (0, 1, 3))
 `,
 		userUUIDVal)
 	if err != nil {
