@@ -99,12 +99,14 @@ type namespaceMapperWatcherMethods interface {
 	GetFilterOptions() []eventsource.FilterOption
 }
 
-// principalLifeSuspendedStatusWatcher is the namespaceMapperWatcherMethods
-// for principal applications.
-type principalLifeSuspendedStatusWatcher struct {
+// lifeSuspendedStatusWatcher implements the functionality common to both
+// the principal and subordinate versions of the LifeSuspendedStatus Watcher.
+type lifeSuspendedStatusWatcher struct {
 	s *WatchableService
+
 	// appID is the application ID of the application whose relations are
-	// are being watched for life and being suspended.
+	// are being watched for life and being suspended. It is a subordinate
+	// application.
 	appID application.ID
 	// currentRelations holds the life and suspended status of each relation
 	// being watched, to check if the values have changed when the Mapper is
@@ -117,22 +119,10 @@ type principalLifeSuspendedStatusWatcher struct {
 	initialQuery       eventsource.NamespaceQuery
 }
 
-func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID application.ID) namespaceMapperWatcherMethods {
-	w := &principalLifeSuspendedStatusWatcher{
-		s:                s,
-		appID:            appID,
-		currentRelations: make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
-	}
-	// returns a set of relation keys if the life or suspended status has changed
-	// for any relation this application is part of.
-	w.lifeNameSpace, w.suspendedNameSpace, w.initialQuery = s.st.InitialWatchLifeSuspendedStatus(appID)
-	return w
-}
-
 // GetInitialQuery returns a function to get the initial results of the
 // watcher and setups data to decide whether future notification of those
 // relations should be made.
-func (w *principalLifeSuspendedStatusWatcher) GetInitialQuery() eventsource.NamespaceQuery {
+func (w *lifeSuspendedStatusWatcher) GetInitialQuery() eventsource.NamespaceQuery {
 	return func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 		relationUUIDStrings, err := w.initialQuery(ctx, txn)
 		if err != nil {
@@ -158,6 +148,39 @@ func (w *principalLifeSuspendedStatusWatcher) GetInitialQuery() eventsource.Name
 
 		return initialResults, nil
 	}
+}
+
+// GetFirstFilterOption returns a predicate filter for the lifeTableNamespace.
+// Relations the Mapper has chosen to ignore will be filtered out of future
+// calls to the Mapper.
+func (w *lifeSuspendedStatusWatcher) GetFirstFilterOption() eventsource.FilterOption {
+	return eventsource.NamespaceFilter(w.lifeNameSpace, changestream.All)
+}
+
+// GetFilterOptions returns a predicate filter for the suspendedNameSpace.
+// Relations the Mapper has chosen to ignore will be filtered out of future
+// calls to the Mapper.
+func (w *lifeSuspendedStatusWatcher) GetFilterOptions() []eventsource.FilterOption {
+	return []eventsource.FilterOption{eventsource.NamespaceFilter(w.suspendedNameSpace, changestream.All)}
+}
+
+// principalLifeSuspendedStatusWatcher implements the GetMapper method
+// unique to watching LifeSuspendedStatus for a principal application.
+type principalLifeSuspendedStatusWatcher struct {
+	lifeSuspendedStatusWatcher
+}
+
+func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID application.ID) namespaceMapperWatcherMethods {
+	w := &principalLifeSuspendedStatusWatcher{}
+	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher{
+		s:                s,
+		appID:            appID,
+		currentRelations: make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
+	}
+	// returns a set of relation keys if the life or suspended status has changed
+	// for any relation this application is part of.
+	w.lifeNameSpace, w.suspendedNameSpace, w.initialQuery = s.st.InitialWatchLifeSuspendedStatus(appID)
+	return w
 }
 
 // GetMapper returns a function which decides which relations
@@ -236,85 +259,29 @@ func (w *principalLifeSuspendedStatusWatcher) filterChangeEvents(
 	return changeEvents, nil
 }
 
-// GetFirstFilterOption returns a predicate filter for the lifeTableNamespace.
-// Relations the Mapper has chosen to ignore will be filtered out of future
-// calls to the Mapper.
-func (w *principalLifeSuspendedStatusWatcher) GetFirstFilterOption() eventsource.FilterOption {
-	return eventsource.NamespaceFilter(w.lifeNameSpace, changestream.All)
-}
-
-// GetFilterOptions returns a predicate filter for the suspendedNameSpace.
-// Relations the Mapper has chosen to ignore will be filtered out of future
-// calls to the Mapper.
-func (w *principalLifeSuspendedStatusWatcher) GetFilterOptions() []eventsource.FilterOption {
-
-	return []eventsource.FilterOption{eventsource.NamespaceFilter(w.suspendedNameSpace, changestream.All)}
-}
-
-// subordinateLifeSuspendedStatusWatcher is the namespaceMapperWatcherMethods
-// for subordinate applications.
+// principalLifeSuspendedStatusWatcher implements the GetMapper method
+// unique to watching LifeSuspendedStatus for a subordinate application.
 type subordinateLifeSuspendedStatusWatcher struct {
-	s *WatchableService
-	// appID is the application ID of the application whose relations are
-	// are being watched for life and being suspended. It is a subordinate
-	// application.
-	appID application.ID
+	lifeSuspendedStatusWatcher
+
 	// parentAppID is the application ID of the parent or principal application
 	// of the appID.
 	parentAppID application.ID
-	// currentRelations holds the life and suspended status of each relation
-	// being watched, to check if the values have changed when the Mapper is
-	// triggered.
-	currentRelations map[corerelation.UUID]relation.RelationLifeSuspendedData
-	// lifeNameSpace is the namespace where the relation's life can be found.
-	lifeNameSpace string
-	// suspendedNameSpace is the namespace where relation suspension can be found.
-	suspendedNameSpace string
-	initialQuery       eventsource.NamespaceQuery
 }
 
 func newSubordinateLifeSuspendedStatusWatcher(s *WatchableService, subordinateID, principalID application.ID) namespaceMapperWatcherMethods {
 	w := &subordinateLifeSuspendedStatusWatcher{
+		parentAppID: principalID,
+	}
+	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher{
 		s:                s,
 		appID:            subordinateID,
-		parentAppID:      principalID,
 		currentRelations: make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
 	}
 	// returns a set of relation keys if the life or suspended status has changed
 	// for any relation this application is part of.
 	w.lifeNameSpace, w.suspendedNameSpace, w.initialQuery = s.st.InitialWatchLifeSuspendedStatus(subordinateID)
 	return w
-}
-
-// GetInitialQuery returns a function to get the initial results of the
-// watcher and setups data to decide whether future notification of those
-// relations should be made.
-func (w *subordinateLifeSuspendedStatusWatcher) GetInitialQuery() eventsource.NamespaceQuery {
-	return func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
-		relationUUIDStrings, err := w.initialQuery(ctx, txn)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-
-		var initialResults []string
-		for _, relUUID := range relationUUIDStrings {
-			relUUID := corerelation.UUID(relUUID)
-			relationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appID)
-			if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
-				continue
-			} else if err != nil {
-				return nil, errors.Capture(err)
-			}
-			w.currentRelations[relUUID] = relationData
-			key, err := corerelation.NewKey(relationData.EndpointIdentifiers)
-			if err != nil {
-				return nil, errors.Capture(err)
-			}
-			initialResults = append(initialResults, key.String())
-		}
-
-		return initialResults, nil
-	}
 }
 
 // GetMapper returns a function which decides which relations
@@ -437,20 +404,6 @@ func (w *subordinateLifeSuspendedStatusWatcher) watchNewRelation(
 		return false, errors.Capture(err)
 	}
 	return otherApp.ApplicationID == w.parentAppID || otherApp.Subordinate, nil
-}
-
-// GetFirstFilterOption returns a predicate filter for the lifeTableNamespace.
-// Relations the Mapper has chosen to ignore will be filtered out of future
-// calls to the Mapper.
-func (w *subordinateLifeSuspendedStatusWatcher) GetFirstFilterOption() eventsource.FilterOption {
-	return eventsource.NamespaceFilter(w.lifeNameSpace, changestream.All)
-}
-
-// GetFilterOptions returns a predicate filter for the suspendedNameSpace.
-// Relations the Mapper has chosen to ignore will be filtered out of future
-// calls to the Mapper.
-func (w *subordinateLifeSuspendedStatusWatcher) GetFilterOptions() []eventsource.FilterOption {
-	return []eventsource.FilterOption{eventsource.NamespaceFilter(w.suspendedNameSpace, changestream.All)}
 }
 
 // WatchRelatedUnits returns a watcher that notifies of changes to counterpart units in
