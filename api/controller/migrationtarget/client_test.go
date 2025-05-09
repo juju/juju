@@ -45,7 +45,7 @@ func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *testhelpers.
 	apiCaller := apitesting.BestVersionCaller{APICallerFunc: apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return errors.New("boom")
-	}), BestVersion: 2}
+	}), BestVersion: 5}
 	client := migrationtarget.NewClient(apiCaller)
 	return client, &stub
 }
@@ -53,7 +53,6 @@ func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *testhelpers.
 func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	client, stub := s.getClientAndStub()
 
-	ownerTag := names.NewUserTag("owner")
 	vers := semversion.MustParse("1.2.3")
 	controllerVers := semversion.MustParse("1.2.5")
 	modelDescription := description.NewModel(description.ModelArgs{})
@@ -63,7 +62,7 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 
 	err = client.Prechecks(c.Context(), coremigration.ModelInfo{
 		UUID:                   "uuid",
-		Owner:                  ownerTag,
+		Namespace:              "namespace",
 		Name:                   "name",
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
@@ -74,7 +73,7 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	expectedArg := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
-		OwnerTag:               ownerTag.String(),
+		Namespace:              "namespace",
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
 		ModelDescription:       bytes,

@@ -3237,7 +3237,7 @@
     {
         "Name": "ApplicationOffers",
         "Description": "",
-        "Version": 5,
+        "Version": 6,
         "Schema": {
             "type": "object",
             "properties": {
@@ -3825,16 +3825,16 @@
                         "model-name": {
                             "type": "string"
                         },
-                        "offer-name": {
+                        "namespace": {
                             "type": "string"
                         },
-                        "owner-name": {
+                        "offer-name": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "owner-name",
+                        "namespace",
                         "model-name",
                         "offer-name",
                         "application-name",
@@ -7707,7 +7707,7 @@
     {
         "Name": "Controller",
         "Description": "",
-        "Version": 12,
+        "Version": 13,
         "Schema": {
             "type": "object",
             "properties": {
@@ -8212,14 +8212,14 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner": {
+                        "namespace": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "name",
-                        "owner"
+                        "namespace"
                     ]
                 },
                 "HostedModelConfigsResults": {
@@ -8377,7 +8377,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "namespace": {
                             "type": "string"
                         },
                         "type": {
@@ -8392,7 +8392,7 @@
                         "name",
                         "uuid",
                         "type",
-                        "owner-tag"
+                        "namespace"
                     ]
                 },
                 "ModelApplicationInfo": {
@@ -8422,7 +8422,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "namespace": {
                             "type": "string"
                         }
                     },
@@ -8430,7 +8430,7 @@
                     "required": [
                         "name",
                         "model-uuid",
-                        "owner-tag",
+                        "namespace",
                         "blocks"
                     ]
                 },
@@ -8542,7 +8542,7 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "namespace": {
                             "type": "string"
                         },
                         "type": {
@@ -8566,7 +8566,7 @@
                         "hosted-machine-count",
                         "application-count",
                         "unit-count",
-                        "owner-tag"
+                        "namespace"
                     ]
                 },
                 "ModelStatusResults": {
@@ -10423,7 +10423,7 @@
     {
         "Name": "ModelManager",
         "Description": "",
-        "Version": 10,
+        "Version": 11,
         "Schema": {
             "type": "object",
             "properties": {
@@ -10842,7 +10842,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "namespace": {
                             "type": "string"
                         },
                         "type": {
@@ -10857,7 +10857,7 @@
                         "name",
                         "uuid",
                         "type",
-                        "owner-tag"
+                        "namespace"
                     ]
                 },
                 "ModelApplicationInfo": {
@@ -10893,7 +10893,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "namespace": {
                             "type": "string"
                         },
                         "region": {
@@ -10903,7 +10903,7 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
-                        "owner-tag"
+                        "namespace"
                     ]
                 },
                 "ModelDefaultValues": {
@@ -11064,7 +11064,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "namespace": {
                             "type": "string"
                         },
                         "provider-type": {
@@ -11106,7 +11106,7 @@
                         "controller-uuid",
                         "is-controller",
                         "cloud-tag",
-                        "owner-tag",
+                        "namespace",
                         "life",
                         "users",
                         "machines",
@@ -11234,7 +11234,7 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "namespace": {
                             "type": "string"
                         },
                         "type": {
@@ -11258,7 +11258,7 @@
                         "hosted-machine-count",
                         "application-count",
                         "unit-count",
-                        "owner-tag"
+                        "namespace"
                     ]
                 },
                 "ModelStatusResults": {
@@ -11331,7 +11331,7 @@
                         "name": {
                             "type": "string"
                         },
-                        "owner-tag": {
+                        "namespace": {
                             "type": "string"
                         },
                         "provider-type": {
@@ -11358,7 +11358,7 @@
                         "controller-uuid",
                         "is-controller",
                         "cloud-tag",
-                        "owner-tag",
+                        "namespace",
                         "life",
                         "user-access",
                         "last-connection",

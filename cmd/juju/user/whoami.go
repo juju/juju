@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v6"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -113,9 +112,8 @@ func (c *whoAmICommand) Run(ctx *cmd.Context) error {
 	}
 	// Only qualify model name if there is a current model.
 	if modelName != "" {
-		if unqualifiedModelName, owner, err := jujuclient.SplitModelName(modelName); err == nil {
-			user := names.NewUserTag(userDetails.User)
-			modelName = common.OwnerQualifiedModelName(unqualifiedModelName, owner, user)
+		if unqualifiedModelName, namespace, err := jujuclient.SplitModelName(modelName); err == nil {
+			modelName = common.UserQualifiedModelName(unqualifiedModelName, namespace, userDetails.User)
 		}
 	}
 

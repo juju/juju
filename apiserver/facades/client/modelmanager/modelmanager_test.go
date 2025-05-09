@@ -53,10 +53,10 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func createArgs(owner names.UserTag) params.ModelCreateArgs {
+func createArgs(owner string) params.ModelCreateArgs {
 	return params.ModelCreateArgs{
-		Name:     "test-model",
-		OwnerTag: owner.String(),
+		Name:      "test-model",
+		Namespace: owner,
 		Config: map[string]interface{}{
 			"authorized-keys": "ssh-key",
 			// And to make it a valid dummy config.
@@ -210,9 +210,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedCloudRegion string,
 ) coremodel.UUID {
 	modelUUID := modeltesting.GenModelUUID(c)
-	userTag, err := names.ParseUserTag(modelCreateArgs.OwnerTag)
-	c.Assert(err, tc.IsNil)
-	ownerName := user.NameFromTag(userTag)
+	ownerName := usertesting.GenNewName(c, modelCreateArgs.Namespace)
 	ownerUUID := usertesting.GenUserUUID(c)
 
 	defaultCred := credential.Key{
@@ -245,8 +243,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedModelInfo := coremodel.Model{
 		Name:        "foo",
 		UUID:        modelUUID,
-		Owner:       ownerUUID,
-		OwnerName:   ownerName,
+		Namespace:   modelCreateArgs.Namespace,
 		Cloud:       expectedCloudName,
 		CloudRegion: expectedCloudRegion,
 	}
@@ -342,8 +339,8 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Namespace: "admin",
 		Config: map[string]interface{}{
 			"bar": "baz",
 		},
@@ -367,8 +364,8 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
 	defer ctrl.Finish()
 
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Namespace: "admin",
 	}
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
@@ -386,8 +383,8 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
 	defer ctrl.Finish()
 
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Namespace: "admin",
 	}
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
@@ -412,8 +409,8 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Namespace: "admin",
 		Config: map[string]interface{}{
 			"bar":                  "baz",
 			config.AgentVersionKey: jujuversion.Current.String(),
@@ -443,8 +440,8 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Namespace: "admin",
 		Config: map[string]interface{}{
 			"bar":                  "baz",
 			config.AgentVersionKey: jujuversion.Current.String(),
@@ -713,8 +710,10 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *tc.C) {
 	s.modelService.EXPECT().DefaultModelCloudInfo(
 		gomock.Any()).Return("dummy", "dummy-region", nil)
 
-	nonAdminUser := names.NewUserTag("non-admin")
-	_, err := s.api.CreateModel(c.Context(), createArgs(nonAdminUser))
+	addModelUser := names.NewUserTag("add-model")
+
+	s.setAPIUser(c, addModelUser)
+	_, err := s.api.CreateModel(c.Context(), createArgs("non-admin"))
 	c.Assert(err, tc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners")
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }

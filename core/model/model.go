@@ -4,11 +4,13 @@
 package model
 
 import (
+	"fmt"
+	"regexp"
+
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -52,6 +54,16 @@ func ParseModelType(s string) (ModelType, error) {
 	return "", errors.Errorf("unknown model type %q", s)
 }
 
+var (
+	validNamespaceSnippet = "[a-zA-Z0-9][a-zA-Z0-9.+-]*[a-zA-Z0-9]"
+	validNamespace        = regexp.MustCompile(fmt.Sprintf("^(?P<name>%s)(?:@(?P<domain>%s))?$", validNamespaceSnippet, validNamespaceSnippet))
+)
+
+// IsValidNamespace returns true if the model namespace is valid.
+func IsValidNamespace(namespace string) bool {
+	return validNamespace.MatchString(namespace)
+}
+
 // Model represents the state of a model.
 type Model struct {
 	// Name returns the human friendly name of the model.
@@ -88,11 +100,8 @@ type Model struct {
 	// associated with the model.
 	Credential credential.Key
 
-	// Owner is the uuid of the user that owns this model in the Juju controller.
-	Owner user.UUID
-
-	// OwnerName is the name of the owner in the Juju controller.
-	OwnerName user.Name
+	// Namespace is the model namespace.
+	Namespace string
 }
 
 // UUID represents a model unique identifier.

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v6"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -21,9 +22,8 @@ type OfferURL struct {
 	// If empty, the model is another model in the same controller.
 	Source string // "<controller-name>" or "<jaas>" or ""
 
-	// User is the user whose namespace in which the offer is made.
-	// Where a model is specified, the user is the model owner.
-	User string
+	// Namespace is the model's namespace in which the offer is made.
+	Namespace string
 
 	// ModelName is the name of the model providing the exported endpoints.
 	// It is only used for local URLs or for specifying models in the same
@@ -37,8 +37,8 @@ type OfferURL struct {
 // Path returns the path component of the URL.
 func (u *OfferURL) Path() string {
 	var parts []string
-	if u.User != "" {
-		parts = append(parts, u.User)
+	if u.Namespace != "" {
+		parts = append(parts, u.Namespace)
 	}
 	if u.ModelName != "" {
 		parts = append(parts, u.ModelName)
@@ -68,20 +68,18 @@ func (u *OfferURL) HasEndpoint() bool {
 	return strings.Contains(u.ApplicationName, ":")
 }
 
-// modelApplicationRegexp parses urls of the form controller:user/model.application[:relname]
-var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<user>[^/]+)/)?(?P<model>[^.]*)(\.(?P<application>[^:]*(:.*)?))?)?`)
-
-//var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<user>[a-zA-Z]+)/)?(?P<model>[a-zA-Z]+)?(\.(?P<application>[^:]*(:[a-zA-Z]+)?))?)?`)
+// modelApplicationRegexp parses urls of the form controller:namespace/model.application[:relname]
+var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<namespace>[^/]+)/)?(?P<model>[^.]*)(\.(?P<application>[^:]*(:.*)?))?)?`)
 
 // ParseOfferURL parses the specified URL string into an OfferURL.
 // The URL string is of one of the forms:
 //
 //	<model-name>.<application-name>
 //	<model-name>.<application-name>:<relation-name>
-//	<user>/<model-name>.<application-name>
-//	<user>/<model-name>.<application-name>:<relation-name>
-//	<controller>:<user>/<model-name>.<application-name>
-//	<controller>:<user>/<model-name>.<application-name>:<relation-name>
+//	<namespace>/<model-name>.<application-name>
+//	<namespace>/<model-name>.<application-name>:<relation-name>
+//	<controller>:<namespace>/<model-name>.<application-name>
+//	<controller>:<namespace>/<model-name>.<application-name>:<relation-name>
 func ParseOfferURL(urlStr string) (*OfferURL, error) {
 	return parseOfferURL(urlStr)
 }
@@ -129,7 +127,7 @@ func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, er
 	valid = valid && modelApplicationRegexp.MatchString(urlParts)
 	if valid {
 		result.Source = source
-		result.User = modelApplicationRegexp.ReplaceAllString(urlParts, "$user")
+		result.Namespace = modelApplicationRegexp.ReplaceAllString(urlParts, "$namespace")
 		result.ModelName = modelApplicationRegexp.ReplaceAllString(urlParts, "$model")
 		result.ApplicationName = modelApplicationRegexp.ReplaceAllString(urlParts, "$application")
 	}
@@ -148,8 +146,8 @@ func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, er
 	// before validating the name.
 	appName := strings.Split(result.ApplicationName, ":")[0]
 	// Validate the resulting URL part values.
-	if result.User != "" && !names.IsValidUser(result.User) {
-		return nil, errors.Errorf("user name %q %w", result.User, coreerrors.NotValid)
+	if result.Namespace != "" && !model.IsValidNamespace(result.Namespace) {
+		return nil, errors.Errorf("model namespace %q %w", result.Namespace, coreerrors.NotValid)
 	}
 	if result.ModelName != "" && !names.IsValidModelName(result.ModelName) {
 		return nil, errors.Errorf("model name %q %w", result.ModelName, coreerrors.NotValid)

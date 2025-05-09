@@ -62,7 +62,7 @@ func (s *ShowCommandSuite) SetUpTest(c *tc.C) {
 			Type:           "iaas",
 			ControllerUUID: "1ca2293b-fdb9-4299-97d6-55583bb39364",
 			IsController:   false,
-			OwnerTag:       "user-admin",
+			Namespace:      "admin",
 			CloudTag:       "cloud-some-cloud",
 			CloudRegion:    "some-region",
 			ProviderType:   "openstack",
@@ -89,7 +89,7 @@ func (s *ShowCommandSuite) SetUpTest(c *tc.C) {
 			"controller-uuid": "1ca2293b-fdb9-4299-97d6-55583bb39364",
 			"controller-name": "testing",
 			"is-controller":   false,
-			"owner":           "admin",
+			"namespace":       "admin",
 			"cloud":           "some-cloud",
 			"region":          "some-region",
 			"type":            "openstack",
@@ -250,7 +250,7 @@ basic-model:
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
+  namespace: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -270,7 +270,7 @@ func (s *ShowCommandSuite) TestShowBasicIncompleteModelsJson(c *tc.C) {
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
+		"\"namespace\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"}}\n"
@@ -290,7 +290,7 @@ basic-model:
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
+  namespace: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -312,7 +312,7 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsJson(c *tc.C) 
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
+		"\"namespace\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -336,7 +336,7 @@ basic-model:
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
+  namespace: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -361,7 +361,7 @@ func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsJson(c *tc.
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
+		"\"namespace\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -384,7 +384,7 @@ basic-model:
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
+  namespace: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -410,7 +410,7 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsJs
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
+		"\"namespace\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -434,7 +434,7 @@ basic-model:
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
+  namespace: owner
   cloud: altostratus
   region: mid-level
   type: aws
@@ -457,7 +457,7 @@ func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsJson(c *tc.C
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
+		"\"namespace\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"type\":\"aws\"," +
@@ -484,7 +484,7 @@ basic-model:
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
+  namespace: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -516,7 +516,7 @@ func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsJson(c *tc.C) {
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
+		"\"namespace\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -541,7 +541,7 @@ basic-model:
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
+  namespace: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -570,7 +570,7 @@ func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsJson(c *tc.C
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
+		"\"namespace\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -587,7 +587,7 @@ func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *tc.C) {
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"is-controller\":false," +
-		"\"owner\":\"owner\"," +
+		"\"namespace\":\"owner\"," +
 		"\"cloud\":\"altostratus\"," +
 		"\"region\":\"mid-level\"," +
 		"\"life\":\"dead\"," +
@@ -605,7 +605,7 @@ basic-model:
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   is-controller: false
-  owner: owner
+  namespace: owner
   cloud: altostratus
   region: mid-level
   life: dead
@@ -663,7 +663,7 @@ func createBasicModelInfo() *params.ModelInfo {
 		ControllerUUID: testing.ControllerTag.Id(),
 		IsController:   false,
 		Type:           "iaas",
-		OwnerTag:       names.NewUserTag("owner").String(),
+		Namespace:      "owner",
 		Life:           life.Dead,
 		CloudTag:       names.NewCloudTag("altostratus").String(),
 		CloudRegion:    "mid-level",

@@ -183,7 +183,7 @@ func (s *Suite) TestHostedModelConfigs_CallError(c *tc.C) {
 }
 
 func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, tc.Equals, "Controller")
 		c.Assert(request, tc.Equals, "HostedModelConfigs")
 		c.Assert(arg, tc.IsNil)
@@ -192,8 +192,8 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 		*out = params.HostedModelConfigsResults{
 			Models: []params.HostedModelConfig{
 				{
-					Name:     "first",
-					OwnerTag: "user-foo@bar",
+					Name:      "first",
+					Namespace: "foo@bar",
 					Config: map[string]interface{}{
 						"name": "first",
 					},
@@ -202,29 +202,26 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 						Name: "first",
 					},
 				}, {
-					Name:     "second",
-					OwnerTag: "bad-tag",
-				}, {
-					Name:     "third",
-					OwnerTag: "user-foo@bar",
+					Name:      "second",
+					Namespace: "foo@bar",
 					Config: map[string]interface{}{
-						"name": "third",
+						"name": "second",
 					},
 					CloudSpec: &params.CloudSpec{
-						Name: "third",
+						Name: "second",
 					},
 				},
 			},
 		}
 		return nil
-	})
+	}, BestVersion: 13}
 	client := controller.NewClient(apiCaller)
 	config, err := client.HostedModelConfigs(c.Context())
-	c.Assert(config, tc.HasLen, 3)
+	c.Assert(config, tc.HasLen, 2)
 	c.Assert(err, tc.ErrorIsNil)
 	first := config[0]
 	c.Assert(first.Name, tc.Equals, "first")
-	c.Assert(first.Owner, tc.Equals, names.NewUserTag("foo@bar"))
+	c.Assert(first.Namespace, tc.Equals, "foo@bar")
 	c.Assert(first.Config, tc.DeepEquals, map[string]interface{}{
 		"name": "first",
 	})
@@ -234,10 +231,7 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 	})
 	second := config[1]
 	c.Assert(second.Name, tc.Equals, "second")
-	c.Assert(second.Error.Error(), tc.Equals, `"bad-tag" is not a valid tag`)
-	third := config[2]
-	c.Assert(third.Name, tc.Equals, "third")
-	c.Assert(third.Error.Error(), tc.Equals, "validating CloudSpec: empty Type not valid")
+	c.Assert(second.Error.Error(), tc.Equals, "validating CloudSpec: empty Type not valid")
 }
 
 func makeInitiateMigrationClient(results params.InitiateMigrationResults) (
@@ -278,14 +272,14 @@ func randomUUID() string {
 }
 
 func (s *Suite) TestModelStatusEmpty(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Controller")
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "ModelStatus")
 		c.Check(result, tc.FitsTypeOf, &params.ModelStatusResults{})
 
 		return nil
-	})
+	}, BestVersion: 13}
 
 	client := controller.NewClient(apiCaller)
 	results, err := client.ModelStatus(c.Context())
@@ -295,7 +289,7 @@ func (s *Suite) TestModelStatusEmpty(c *tc.C) {
 
 func (s *Suite) TestModelStatus(c *tc.C) {
 	apiCaller := apitesting.BestVersionCaller{
-		BestVersion: 4,
+		BestVersion: 13,
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 			c.Check(objType, tc.Equals, "Controller")
 			c.Check(id, tc.Equals, "")
@@ -312,7 +306,7 @@ func (s *Suite) TestModelStatus(c *tc.C) {
 			out.Results = []params.ModelStatus{
 				{
 					ModelTag:           coretesting.ModelTag.String(),
-					OwnerTag:           "user-glenda",
+					Namespace:          "glenda",
 					ApplicationCount:   3,
 					HostedMachineCount: 2,
 					Life:               "alive",
@@ -336,7 +330,7 @@ func (s *Suite) TestModelStatus(c *tc.C) {
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
 		ApplicationCount:   3,
-		Owner:              "glenda",
+		Namespace:          "glenda",
 		Life:               life.Alive,
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
 	})
@@ -436,7 +430,7 @@ func (s *Suite) TestDashboardConnectionInfo(c *tc.C) {
 
 func (s *Suite) TestAllModels(c *tc.C) {
 	now := time.Now()
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
 		c.Check(objType, tc.Equals, "Controller")
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "AllModels")
@@ -445,16 +439,16 @@ func (s *Suite) TestAllModels(c *tc.C) {
 		*(result.(*params.UserModelList)) = params.UserModelList{
 			UserModels: []params.UserModel{{
 				Model: params.Model{
-					Name:     "test",
-					UUID:     coretesting.ModelTag.Id(),
-					Type:     "iaas",
-					OwnerTag: "user-fred",
+					Name:      "test",
+					UUID:      coretesting.ModelTag.Id(),
+					Type:      "iaas",
+					Namespace: "fred",
 				},
 				LastConnection: &now,
 			}},
 		}
 		return nil
-	})
+	}, BestVersion: 13}
 
 	client := controller.NewClient(apiCaller)
 	m, err := client.AllModels(c.Context())
@@ -463,7 +457,7 @@ func (s *Suite) TestAllModels(c *tc.C) {
 		Name:           "test",
 		UUID:           coretesting.ModelTag.Id(),
 		Type:           "iaas",
-		Owner:          "fred",
+		Namespace:      "fred",
 		LastConnection: &now,
 	}})
 }
@@ -498,9 +492,9 @@ func (s *Suite) TestListBlockedModels(c *tc.C) {
 		c.Check(result, tc.FitsTypeOf, &params.ModelBlockInfoList{})
 		*(result.(*params.ModelBlockInfoList)) = params.ModelBlockInfoList{
 			Models: []params.ModelBlockInfo{{
-				Name:     "controller",
-				UUID:     coretesting.ModelTag.Id(),
-				OwnerTag: "user-fred",
+				Name:      "controller",
+				UUID:      coretesting.ModelTag.Id(),
+				Namespace: "fred",
 				Blocks: []string{
 					"BlockChange",
 					"BlockDestroy",
@@ -515,9 +509,9 @@ func (s *Suite) TestListBlockedModels(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, []params.ModelBlockInfo{
 		{
-			Name:     "controller",
-			UUID:     coretesting.ModelTag.Id(),
-			OwnerTag: "user-fred",
+			Name:      "controller",
+			UUID:      coretesting.ModelTag.Id(),
+			Namespace: "fred",
 			Blocks: []string{
 				"BlockChange",
 				"BlockDestroy",
