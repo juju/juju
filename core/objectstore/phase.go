@@ -49,6 +49,16 @@ func (p Phase) IsNotStarted() bool {
 	}
 }
 
+// IsDraining returns true when the phase is draining.
+func (p Phase) IsDraining() bool {
+	switch p {
+	case PhaseDraining:
+		return true
+	default:
+		return false
+	}
+}
+
 // TransitionTo the new phase if it can transition from the current phase
 // to the new phase.
 func (p Phase) TransitionTo(newPhase Phase) (Phase, error) {
