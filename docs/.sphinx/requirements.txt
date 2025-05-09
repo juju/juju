@@ -4,3 +4,4 @@ sphinx-tabs
 sphinxext-rediraffe
 sphinx-new-tab-link
 sphinxcontrib.lightbox2
+snowballstemmer==2.2.0 # See issue https://github.com/sphinx-doc/sphinx/issues/13533
