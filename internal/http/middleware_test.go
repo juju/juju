@@ -50,8 +50,8 @@ func (s *DialContextMiddlewareSuite) TestInsecureClientNoAccess(c *tc.C) {
 		),
 		WithSkipHostnameVerification(true),
 	)
-	_, err := client.Get(context.TODO(), "http://0.1.2.3:1234")
-	c.Assert(err, tc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
+	_, err := client.Get(context.Background(), "http://0.1.2.3:1234")
+	c.Assert(err, gc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
 }
 
 func (s *DialContextMiddlewareSuite) TestSecureClientNoAccess(c *tc.C) {
@@ -60,8 +60,8 @@ func (s *DialContextMiddlewareSuite) TestSecureClientNoAccess(c *tc.C) {
 			DialContextMiddleware(NewLocalDialBreaker(false)),
 		),
 	)
-	_, err := client.Get(context.TODO(), "http://0.1.2.3:1234")
-	c.Assert(err, tc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
+	_, err := client.Get(context.Background(), "http://0.1.2.3:1234")
+	c.Assert(err, gc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
 }
 
 type LocalDialBreakerSuite struct {

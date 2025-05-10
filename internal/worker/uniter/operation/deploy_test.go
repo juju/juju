@@ -123,21 +123,18 @@ func (s *DeploySuite) testPrepareStageError(c *tc.C, newDeploy newDeploy) {
 		MockNotifyResolved: &MockNoArgs{},
 		MockStage:          &MockStage{err: errors.New("squish")},
 	}
-	var abort <-chan struct{} = make(chan struct{})
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer:  deployer,
 		Callbacks: callbacks,
-		Abort:     abort,
 		Logger:    loggertesting.WrapCheckLog(c),
 	})
 	op, err := newDeploy(factory, "ch:quantal/hive-23")
 	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(context.Background(), operation.State{})
-	c.Check(newState, tc.IsNil)
-	c.Check(err, tc.ErrorMatches, "squish")
-	c.Check(*deployer.MockStage.gotInfo, tc.Equals, callbacks.MockGetArchiveInfo.info)
-	c.Check(*deployer.MockStage.gotAbort, tc.Equals, abort)
+	c.Check(newState, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "squish")
+	c.Check(*deployer.MockStage.gotInfo, gc.Equals, callbacks.MockGetArchiveInfo.info)
 }
 
 func (s *DeploySuite) TestPrepareStageError_Install(c *tc.C) {

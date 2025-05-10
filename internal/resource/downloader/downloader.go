@@ -83,11 +83,11 @@ func (d *ResourceDownloader) Download(
 		// manually.
 		removeErr := os.Remove(tmpFile.Name())
 		if removeErr != nil {
-			d.logger.Warningf(context.TODO(), "failed to remove temporary file %q: %v", tmpFile.Name(), removeErr)
+			d.logger.Warningf(ctx, "failed to remove temporary file %q: %v", tmpFile.Name(), removeErr)
 		}
 	}()
 
-	d.logger.Debugf(context.TODO(), "downloading resource: %s", url)
+	d.logger.Debugf(ctx, "downloading resource: %s", url)
 
 	// Force the sha256 and sha384 digest to be calculated on download.
 	digest, err := d.client.Download(ctx, url, tmpFile.Name())
@@ -95,7 +95,7 @@ func (d *ResourceDownloader) Download(
 		return nil, errors.Capture(err)
 	}
 
-	d.logger.Debugf(context.TODO(), "downloaded resource: %s", url)
+	d.logger.Debugf(ctx, "downloaded resource: %s", url)
 
 	if digest.SHA384 != sha384 {
 		return nil, errors.Errorf(
@@ -142,7 +142,7 @@ func (f *tmpFileReader) Close() (err error) {
 		if err == nil {
 			err = removeErr
 		} else if removeErr != nil {
-			f.logger.Warningf(context.TODO(), "failed to remove temporary file %q: %v", f.Name(), removeErr)
+			f.logger.Warningf(context.Background(), "failed to remove temporary file %q: %v", f.Name(), removeErr)
 		}
 	}()
 

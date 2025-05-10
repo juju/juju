@@ -189,7 +189,7 @@ func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.U
 		return nil, errors.Annotatef(err, "cannot make new request")
 	}
 
-	c.logger.Tracef(context.TODO(), "download from URL %s", resourceURL.String())
+	c.logger.Tracef(ctx, "download from URL %s", resourceURL.String())
 
 	resp, err = c.httpClient.Do(req)
 	if err != nil {
@@ -201,7 +201,7 @@ func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.U
 		return resp, nil
 	}
 
-	c.logger.Errorf(context.TODO(), "download failed from %s: response code: %s", resourceURL.String(), resp.Status)
+	c.logger.Errorf(ctx, "download failed from %s: response code: %s", resourceURL.String(), resp.Status)
 
 	// Ensure we drain the response body so this connection can be reused. As
 	// there is no error message, we have no ability other than to check the

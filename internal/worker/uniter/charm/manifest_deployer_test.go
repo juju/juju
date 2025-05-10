@@ -55,8 +55,8 @@ func (s *ManifestDeployerSuite) addCharm(c *tc.C, revision int, content ...filet
 
 func (s *ManifestDeployerSuite) deployCharm(c *tc.C, revision int, content ...filetesting.Entry) charm.BundleInfo {
 	info := s.addCharm(c, revision, content...)
-	err := s.deployer.Stage(context.Background(), info, nil)
-	c.Assert(err, tc.ErrorIsNil)
+	err := s.deployer.Stage(context.Background(), info)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertCharm(c, revision, content...)
@@ -72,24 +72,26 @@ func (s *ManifestDeployerSuite) assertCharm(c *tc.C, revision int, content ...fi
 
 func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *tc.C) {
 	info := s.addMockCharm(1, mockBundle{})
-	abort := make(chan struct{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	errors := make(chan error)
 	s.bundles.EnableWaitForAbort()
 	go func() {
-		errors <- s.deployer.Stage(context.Background(), info, abort)
+		errors <- s.deployer.Stage(ctx, info)
 	}()
-	close(abort)
+	cancel()
 	err := <-errors
 	c.Assert(err, tc.ErrorMatches, "charm read aborted")
 }
 
 func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *tc.C) {
 	info := s.addMockCharm(1, mockBundle{})
-	abort := make(chan struct{})
 	errors := make(chan error)
 	stopWaiting := s.bundles.EnableWaitForAbort()
 	go func() {
-		errors <- s.deployer.Stage(context.Background(), info, abort)
+		errors <- s.deployer.Stage(context.Background(), info)
 	}()
 	close(stopWaiting)
 	err := <-errors
@@ -191,8 +193,8 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *tc.C
 		},
 	}
 	info := s.addMockCharm(2, mockCharm)
-	err := s.deployer.Stage(context.Background(), info, nil)
-	c.Assert(err, tc.ErrorIsNil)
+	err := s.deployer.Stage(context.Background(), info)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// ...and see it fail to expand. We're not too bothered about the actual
 	// content of the target dir at this stage, but we do want to check it's
@@ -234,8 +236,8 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 		},
 	}
 	badInfo := s.addMockCharm(2, badCharm)
-	err := s.deployer.Stage(context.Background(), badInfo, nil)
-	c.Assert(err, tc.ErrorIsNil)
+	err := s.deployer.Stage(context.Background(), badInfo)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, tc.Equals, charm.ErrConflict)
 
@@ -265,7 +267,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.bundleInfo.EXPECT().URL().Return("ch:focal/dummy-1").AnyTimes()
-	s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")).AnyTimes()
+	s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")).AnyTimes()
 
 	go func() {
 		// We retry 10 times in total so we need to advance the clock 9
@@ -276,8 +278,8 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *tc.C) {
 		}
 	}()
 
-	_, err := s.rbr.Read(context.Background(), s.bundleInfo, nil)
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	_, err := s.rbr.Read(context.Background(), s.bundleInfo)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *tc.C) {
@@ -285,8 +287,8 @@ func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *tc.C) {
 
 	s.bundleInfo.EXPECT().URL().Return("ch:focal/dummy-1").AnyTimes()
 	gomock.InOrder(
-		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")),
-		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any(), gomock.Any()).Return(s.bundle, nil),
+		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")),
+		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(s.bundle, nil),
 	)
 
 	go func() {
@@ -295,9 +297,9 @@ func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *tc.C) {
 		c.Assert(s.clock.WaitAdvance(10*time.Second, time.Second, 1), tc.ErrorIsNil)
 	}()
 
-	got, err := s.rbr.Read(context.Background(), s.bundleInfo, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.Equals, s.bundle)
+	got, err := s.rbr.Read(context.Background(), s.bundleInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.Equals, s.bundle)
 }
 
 func (s *RetryingBundleReaderSuite) setupMocks(c *tc.C) *gomock.Controller {

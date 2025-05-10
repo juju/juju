@@ -28,9 +28,6 @@ type Request struct {
 	// the download is invalid then the func must return errors.NotValid.
 	// If no func is provided then no verification happens.
 	Verify func(*os.File) error
-
-	// Abort is a channel that will cancel the download when it is closed.
-	Abort <-chan struct{}
 }
 
 // Status represents the status of a completed download.
@@ -45,7 +42,7 @@ type Status struct {
 
 // StartDownload starts a new download as specified by `req` using
 // `openBlob` to actually pull the remote data.
-func StartDownload(req Request, openBlob func(Request) (io.ReadCloser, error)) *Download {
+func StartDownload(ctx context.Context, req Request, openBlob func(Request) (io.ReadCloser, error)) *Download {
 	if openBlob == nil {
 		openBlob = NewHTTPBlobOpener(false)
 	}
@@ -53,7 +50,7 @@ func StartDownload(req Request, openBlob func(Request) (io.ReadCloser, error)) *
 		done:     make(chan Status, 1),
 		openBlob: openBlob,
 	}
-	go dl.run(req)
+	go dl.run(ctx, req)
 	return dl
 }
 
@@ -85,16 +82,16 @@ func (dl *Download) Wait() (string, error) {
 	return status.Filename, errors.Trace(status.Err)
 }
 
-func (dl *Download) run(req Request) {
+func (dl *Download) run(ctx context.Context, req Request) {
 	// TODO(dimitern) 2013-10-03 bug #1234715
 	// Add a testing HTTPS storage to verify the
 	// disableSSLHostnameVerification behavior here.
-	filename, err := dl.download(req)
+	filename, err := dl.download(ctx, req)
 	if err != nil {
 		err = errors.Trace(err)
 	} else {
-		logger.Infof(context.TODO(), "download complete (%q)", req.URL)
-		err = verifyDownload(filename, req)
+		logger.Infof(ctx, "download complete (%q)", req.URL)
+		err = verifyDownload(ctx, filename, req)
 		if err != nil {
 			_ = os.Remove(filename)
 			filename = ""
@@ -109,8 +106,8 @@ func (dl *Download) run(req Request) {
 	}
 }
 
-func (dl *Download) download(req Request) (filename string, err error) {
-	logger.Infof(context.TODO(), "downloading from %s", req.URL)
+func (dl *Download) download(ctx context.Context, req Request) (filename string, err error) {
+	logger.Infof(ctx, "downloading from %s", req.URL)
 
 	dir := req.TargetDir
 	if dir == "" {
@@ -133,7 +130,7 @@ func (dl *Download) download(req Request) (filename string, err error) {
 	}
 	defer func() { _ = blobReader.Close() }()
 
-	reader := &abortableReader{blobReader, req.Abort}
+	reader := &abortableReader{r: blobReader, abort: ctx.Done()}
 	_, err = io.Copy(tempFile, reader)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -159,7 +156,7 @@ func (ar *abortableReader) Read(p []byte) (int, error) {
 	return ar.r.Read(p)
 }
 
-func verifyDownload(filename string, req Request) error {
+func verifyDownload(ctx context.Context, filename string, req Request) error {
 	if req.Verify == nil {
 		return nil
 	}
@@ -173,6 +170,6 @@ func verifyDownload(filename string, req Request) error {
 	if err := req.Verify(file); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "download verified (%q)", req.URL)
+	logger.Infof(ctx, "download verified (%q)", req.URL)
 	return nil
 }

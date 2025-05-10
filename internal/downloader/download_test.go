@@ -4,6 +4,7 @@
 package downloader_test
 
 import (
+	"context"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -54,6 +55,7 @@ func (s *DownloadSuite) testDownload(c *tc.C, hostnameVerification bool) {
 	tmp := c.MkDir()
 	testhelpers.Server.Response(200, nil, []byte("archive"))
 	d := downloader.StartDownload(
+		context.Background(),
 		downloader.Request{
 			URL:       s.URL(c, "/archive.tgz"),
 			TargetDir: tmp,
@@ -80,6 +82,7 @@ func (s *DownloadSuite) TestDownloadError(c *tc.C) {
 	testhelpers.Server.Response(404, nil, nil)
 	tmp := c.MkDir()
 	d := downloader.StartDownload(
+		context.Background(),
 		downloader.Request{
 			URL:       s.URL(c, "/archive.tgz"),
 			TargetDir: tmp,
@@ -97,6 +100,7 @@ func (s *DownloadSuite) TestVerifyValid(c *tc.C) {
 	tmp := c.MkDir()
 	testhelpers.Server.Response(200, nil, []byte("archive"))
 	dl := downloader.StartDownload(
+		context.Background(),
 		downloader.Request{
 			URL:       s.URL(c, "/archive.tgz"),
 			TargetDir: tmp,
@@ -119,6 +123,7 @@ func (s *DownloadSuite) TestVerifyInvalid(c *tc.C) {
 	testhelpers.Server.Response(200, nil, []byte("archive"))
 	invalid := errors.NotValidf("oops")
 	dl := downloader.StartDownload(
+		context.Background(),
 		downloader.Request{
 			URL:       s.URL(c, "/archive.tgz"),
 			TargetDir: tmp,
@@ -138,14 +143,16 @@ func (s *DownloadSuite) TestVerifyInvalid(c *tc.C) {
 
 func (s *DownloadSuite) TestAbort(c *tc.C) {
 	tmp := c.MkDir()
-	testhelpers.Server.Response(200, nil, []byte("archive"))
-	abort := make(chan struct{})
-	close(abort)
+	jujutesting.Server.Response(200, nil, []byte("archive"))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
 	dl := downloader.StartDownload(
+		ctx,
 		downloader.Request{
 			URL:       s.URL(c, "/archive.tgz"),
 			TargetDir: tmp,
-			Abort:     abort,
 		},
 		downloader.NewHTTPBlobOpener(true),
 	)

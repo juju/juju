@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/tc"
@@ -31,8 +32,8 @@ func (s *imageSuite) TestUseTargetGoodNode(c *tc.C) {
 	jujuSvr, err := lxd.NewServer(c1Svr)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = jujuSvr.UseTargetServer("cluster-2")
-	c.Assert(err, tc.ErrorIsNil)
+	_, err = jujuSvr.UseTargetServer(context.Background(), "cluster-2")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *imageSuite) TestUseTargetBadNode(c *tc.C) {
@@ -48,6 +49,6 @@ func (s *imageSuite) TestUseTargetBadNode(c *tc.C) {
 	jujuSvr, err := lxd.NewServer(c1Svr)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = jujuSvr.UseTargetServer("cluster-2")
-	c.Assert(err, tc.ErrorMatches, "not a cluster member")
+	_, err = jujuSvr.UseTargetServer(context.Background(), "cluster-2")
+	c.Assert(err, gc.ErrorMatches, "not a cluster member")
 }

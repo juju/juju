@@ -845,7 +845,6 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 		RunnerFactory:  runnerFactory,
 		Callbacks:      &operationCallbacks{u},
 		ActionGetter:   u.client,
-		Abort:          u.catacomb.Dying(),
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 		Logger:         u.logger.Child("operation"),
 	})

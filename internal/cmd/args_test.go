@@ -5,7 +5,7 @@ package cmd_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
@@ -44,7 +44,7 @@ func (*ArgsSuite) TestFlagsUsage(c *tc.C) {
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		f := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
-		f.SetOutput(ioutil.Discard)
+		f.SetOutput(io.Discard)
 		var value []string
 		f.Var(cmd.NewStringsValue(test.defaultValue, &value), "value", "help")
 		err := f.Parse(false, test.args)
@@ -164,7 +164,7 @@ func (*ArgsSuite) TestAppendStringsUsage(c *tc.C) {
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		f := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
-		f.SetOutput(ioutil.Discard)
+		f.SetOutput(io.Discard)
 		var value []string
 		f.Var(cmd.NewAppendStringsValue(&value), "value", "help")
 		err := f.Parse(false, test.args)
