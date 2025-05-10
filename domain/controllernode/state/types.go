@@ -16,6 +16,10 @@ type dbControllerNode struct {
 	DqliteBindAddress string `db:"dqlite_bind_address"`
 }
 
+type dbControllerNodeCount struct {
+	Count int `db:"count"`
+}
+
 type dbNamespace struct {
 	Namespace string `db:"namespace"`
 }

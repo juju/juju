@@ -15,9 +15,26 @@ import (
 // State describes retrieval and persistence
 // methods for controller node concerns.
 type State interface {
+	// CurateNodes adds and removes controller node records according to the
+	// input slices.
 	CurateNodes(context.Context, []string, []string) error
+
+	// UpdateDqliteNode sets the Dqlite node ID and bind address
+	// for the input controller ID.
+	// The controller ID must be a valid controller node.
 	UpdateDqliteNode(context.Context, string, uint64, string) error
+
+	// IsControllerNode returns true if the supplied nodeID is a controller
+	// node.
+	IsControllerNode(context.Context, string) (bool, error)
+
+	// SelectDatabaseNamespace returns the database namespace for the supplied
+	// namespace.
 	SelectDatabaseNamespace(context.Context, string) (string, error)
+
+	// SetRunningAgentBinaryVersion sets the agent version for the supplied
+	// controllerID. Version represents the version of the controller node's
+	// agent binary.
 	SetRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
 }
 
@@ -60,10 +77,8 @@ func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string
 	}
 
 	ns, err := s.st.SelectDatabaseNamespace(ctx, namespace)
-	if err != nil {
-		if !errors.Is(err, controllernodeerrors.NotFound) {
-			return false, errors.Errorf("determining namespace existence: %w", err)
-		}
+	if err != nil && !errors.Is(err, controllernodeerrors.NotFound) {
+		return false, errors.Errorf("determining namespace existence: %w", err)
 	}
 
 	return ns == namespace, nil
@@ -91,4 +106,17 @@ func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, con
 	}
 
 	return nil
+}
+
+// IsControllerNode returns true if the supplied nodeID is a controller node.
+func (s *Service) IsControllerNode(ctx context.Context, nodeID string) (bool, error) {
+	if nodeID == "" {
+		return false, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
+	}
+
+	isController, err := s.st.IsControllerNode(ctx, nodeID)
+	if err != nil {
+		return false, errors.Errorf("checking is controller node: %w", err)
+	}
+	return isController, nil
 }
