@@ -384,7 +384,7 @@ func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corel
 	naturalsort.Sort(config.Charms)
 
 	for _, charmURL := range config.Charms {
-		logger.Debugf(context.TODO(), "sending charm %s to target", charmURL)
+		logger.Debugf(ctx, "sending charm %s to target", charmURL)
 		curl, err := charm.ParseURL(charmURL)
 		if err != nil {
 			return errors.Annotate(err, "bad charm URL")
@@ -461,7 +461,7 @@ func uploadResources(ctx context.Context, config UploadBinariesConfig, logger co
 }
 
 func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev resource.Resource, logger corelogger.Logger) error {
-	logger.Debugf(context.TODO(), "opening application resource for %s: %s", rev.ApplicationName, rev.Name)
+	logger.Debugf(ctx, "opening application resource for %s: %s", rev.ApplicationName, rev.Name)
 	reader, err := config.ResourceDownloader.OpenResource(ctx, rev.ApplicationName, rev.Name)
 	if err != nil {
 		return errors.Annotate(err, "cannot open resource")

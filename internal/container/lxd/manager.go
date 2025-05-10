@@ -244,7 +244,7 @@ func (m *containerManager) getContainerSpec(
 		return ContainerSpec{}, errors.Trace(err)
 	}
 
-	logger.Debugf(context.TODO(), "configuring container %q with network devices: %v", name, nics)
+	logger.Debugf(ctx, "configuring container %q with network devices: %v", name, nics)
 
 	// If the default LXD bridge was supplied in network config,
 	// but without a CIDR, attempt to ensure it is configured for IPv4.
@@ -256,10 +256,10 @@ func (m *containerManager) getContainerSpec(
 				return ContainerSpec{}, errors.Annotate(err, "ensuring default bridge IPv4 config")
 			}
 			if mod {
-				logger.Infof(context.TODO(), `added "auto" IPv4 configuration to default LXD bridge`)
+				logger.Infof(ctx, `added "auto" IPv4 configuration to default LXD bridge`)
 			}
 		} else {
-			logger.Warningf(context.TODO(), "no CIDR was detected for the following networks: %v", unknown)
+			logger.Warningf(ctx, "no CIDR was detected for the following networks: %v", unknown)
 		}
 	}
 

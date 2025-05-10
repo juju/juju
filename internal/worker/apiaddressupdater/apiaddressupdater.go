@@ -135,7 +135,7 @@ func (c *APIAddressUpdater) getAddresses(ctx context.Context) ([]corenetwork.Pro
 	hpsToSet := make([]corenetwork.ProviderHostPorts, 0)
 	for _, hostPorts := range addresses {
 		// Strip ports, filter, then add ports again.
-		filtered := network.FilterBridgeAddresses(hostPorts.Addresses())
+		filtered := network.FilterBridgeAddresses(ctx, hostPorts.Addresses())
 		hps := make(corenetwork.ProviderHostPorts, 0, len(filtered))
 		for _, hostPort := range hostPorts {
 			for _, addr := range filtered {

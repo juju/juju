@@ -23,7 +23,6 @@ type FactoryParams struct {
 	RunnerFactory  runner.Factory
 	Callbacks      Callbacks
 	ActionGetter   ActionGetter
-	Abort          <-chan struct{}
 	MetricSpoolDir string
 	Logger         logger.Logger
 }
@@ -57,7 +56,6 @@ func (f *factory) newDeploy(kind Kind, charmURL string, revert, resolved bool) (
 		resolved:  resolved,
 		callbacks: f.config.Callbacks,
 		deployer:  f.config.Deployer,
-		abort:     f.config.Abort,
 	}
 	return op, nil
 }

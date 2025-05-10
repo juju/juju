@@ -4,6 +4,7 @@
 package charmhub
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 // RefreshConfig defines a type for building refresh requests.
 type RefreshConfig interface {
 	// Build a refresh request for sending to the API.
-	Build() (transport.RefreshRequest, error)
+	Build(ctx context.Context) (transport.RefreshRequest, error)
 
 	// Ensure that the request back contains the information we requested.
 	Ensure([]transport.RefreshResponse) error
@@ -49,8 +50,8 @@ func (c refreshOne) String() string {
 }
 
 // Build a refresh request that can be past to the API.
-func (c refreshOne) Build() (transport.RefreshRequest, error) {
-	base, err := constructRefreshBase(c.Base)
+func (c refreshOne) Build(ctx context.Context) (transport.RefreshRequest, error) {
+	base, err := constructRefreshBase(ctx, c.Base)
 	if err != nil {
 		return transport.RefreshRequest{}, errors.Trace(err)
 	}
@@ -105,8 +106,8 @@ func (c executeOne) InstanceKey() string {
 }
 
 // Build a refresh request that can be past to the API.
-func (c executeOne) Build() (transport.RefreshRequest, error) {
-	base, err := constructRefreshBase(c.Base)
+func (c executeOne) Build(ctx context.Context) (transport.RefreshRequest, error) {
+	base, err := constructRefreshBase(ctx, c.Base)
 	if err != nil {
 		return transport.RefreshRequest{}, errors.Trace(err)
 	}
@@ -185,7 +186,7 @@ func (c executeOneByRevision) InstanceKey() string {
 }
 
 // Build a refresh request for sending to the API.
-func (c executeOneByRevision) Build() (transport.RefreshRequest, error) {
+func (c executeOneByRevision) Build(ctx context.Context) (transport.RefreshRequest, error) {
 	var name, id *string
 	if c.Name != "" {
 		name = &c.Name
@@ -251,7 +252,7 @@ func RefreshMany(configs ...RefreshConfig) RefreshConfig {
 }
 
 // Build a refresh request that can be past to the API.
-func (c refreshMany) Build() (transport.RefreshRequest, error) {
+func (c refreshMany) Build(ctx context.Context) (transport.RefreshRequest, error) {
 	if len(c.Configs) == 0 {
 		return transport.RefreshRequest{}, errors.NotFoundf("configs")
 	}
@@ -262,7 +263,7 @@ func (c refreshMany) Build() (transport.RefreshRequest, error) {
 		Context: []transport.RefreshRequestContext{},
 	}
 	for _, config := range c.Configs {
-		req, err := config.Build()
+		req, err := config.Build(ctx)
 		if err != nil {
 			return transport.RefreshRequest{}, errors.Trace(err)
 		}

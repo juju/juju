@@ -4,6 +4,7 @@
 package network_test
 
 import (
+	"context"
 	"net"
 
 	"github.com/juju/collections/set"
@@ -141,7 +142,7 @@ func (s *NetworkSuite) TestFilterBridgeAddresses(c *gc.C) {
 		"localhost",
 		"252.16.134.1",
 	}).AsProviderAddresses()
-	c.Assert(network.FilterBridgeAddresses(inputAddresses), jc.DeepEquals, filteredAddresses)
+	c.Assert(network.FilterBridgeAddresses(context.Background(), inputAddresses), jc.DeepEquals, filteredAddresses)
 }
 
 func checkQuoteSpaceSet(c *gc.C, expected string, spaces ...string) {

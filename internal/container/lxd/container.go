@@ -87,7 +87,6 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 	}
 
 	if cons.HasVirtType() {
-
 		virtType, err := instance.ParseVirtType(*cons.VirtType)
 		if err != nil {
 			logger.Errorf(context.TODO(), "failed to parse virt-type constraint %q, ignoring err: %v", *cons.VirtType, err)

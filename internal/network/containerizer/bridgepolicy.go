@@ -40,11 +40,6 @@ type BridgePolicy struct {
 	// allSubnets is the list of all available subnets.
 	allSubnets corenetwork.SubnetInfos
 
-	// netBondReconfigureDelay is how much of a delay to inject if we see that
-	// one of the devices being bridged is a BondDevice. This exists because of
-	// https://bugs.launchpad.net/juju/+bug/1657579
-	netBondReconfigureDelay int
-
 	// containerNetworkingMethod defines the way containers are networked.
 	// It's one of:
 	//  - provider
@@ -87,7 +82,7 @@ func NewBridgePolicy(ctx context.Context,
 func (p *BridgePolicy) FindMissingBridgesForContainer(
 	host Machine, guest Container, allSubnets corenetwork.SubnetInfos,
 ) ([]network.DeviceToBridge, error) {
-	guestSpaceInfos, devicesPerSpace, err := p.findSpacesAndDevicesForContainer(host, guest)
+	guestSpaceInfos, devicesPerSpace, err := p.findSpacesAndDevicesForContainer(context.TODO(), host, guest)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -135,9 +130,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 				// When we are bridging unknown space devices, we bridge all
 				// of them. Both because this is a fallback, and because we
 				// don't know what the exact spaces are going to be.
-				for _, deviceName := range hostDeviceNames {
-					hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, deviceName)
-				}
+				hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, hostDeviceNames...)
 			} else {
 				// This should already be sorted from
 				// LinkLayerDevicesForSpaces but sorting to be sure we stably
@@ -176,15 +169,16 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 // to be in, and what spaces the host machine is already in, and tries to
 // find the devices on the host that are useful for the container.
 func (p *BridgePolicy) findSpacesAndDevicesForContainer(
+	ctx context.Context,
 	host Machine, guest Container,
 ) (corenetwork.SpaceInfos, map[string][]LinkLayerDevice, error) {
-	containerSpaces, err := p.determineContainerSpaces(host, guest)
+	containerSpaces, err := p.determineContainerSpaces(ctx, host, guest)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	devicesPerSpace, err := p.linkLayerDevicesForSpaces(host, containerSpaces)
 	if err != nil {
-		logger.Errorf(context.TODO(), "findSpacesAndDevicesForContainer(%q) got error looking for host spaces: %v",
+		logger.Errorf(ctx, "findSpacesAndDevicesForContainer(%q) got error looking for host spaces: %v",
 			guest.Id(), err)
 		return nil, nil, errors.Trace(err)
 	}
@@ -262,11 +256,7 @@ func (p *BridgePolicy) linkLayerDevicesForSpaces(host Machine, spaces corenetwor
 		if len(subnets) > 0 {
 			// Take the first subnet.
 			subnet := subnets[0]
-			if err != nil {
-				return nil, errors.Trace(err)
-			} else {
-				spaceID = subnet.SpaceID
-			}
+			spaceID = subnet.SpaceID
 		}
 		spaceToDevices = includeDevice(spaceToDevices, spaceID, device)
 	}
@@ -324,6 +314,7 @@ func deviceMapToSortedList(deviceMap map[string]LinkLayerDevice) []LinkLayerDevi
 // container to find what spaces it should be in, and then falls back to what
 // we know about the host machine.
 func (p *BridgePolicy) determineContainerSpaces(
+	ctx context.Context,
 	host Machine, guest Container,
 ) (corenetwork.SpaceInfos, error) {
 	// Gather any *positive* space constraints for the guest.
@@ -341,13 +332,13 @@ func (p *BridgePolicy) determineContainerSpaces(
 		}
 	}
 
-	logger.Debugf(context.TODO(), "for container %q, found desired spaces: %s", guest.Id(), spaces)
+	logger.Debugf(ctx, "for container %q, found desired spaces: %s", guest.Id(), spaces)
 
 	if len(spaces) == 0 {
 		// We have determined that the container doesn't have any useful
 		// constraints set on it. So lets see if we can come up with
 		// something useful.
-		spaces, err = p.inferContainerSpaces(host, guest.Id())
+		spaces, err = p.inferContainerSpaces(ctx, host, guest.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -383,7 +374,7 @@ func (p *BridgePolicy) spaceNamesForPrinting(ids set.Strings) string {
 // If this machine is in a single space, then that space is used.
 // If the machine is in multiple spaces, we return an error with the possible
 // spaces that the user can use to constrain connectivity.
-func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (corenetwork.SpaceInfos, error) {
+func (p *BridgePolicy) inferContainerSpaces(ctx context.Context, host Machine, containerId string) (corenetwork.SpaceInfos, error) {
 	if p.containerNetworkingMethod == containermanager.NetworkingMethodLocal {
 		alphaInfo := p.allSpaces.GetByID(corenetwork.AlphaSpaceId)
 		return corenetwork.SpaceInfos{*alphaInfo}, nil
@@ -394,7 +385,7 @@ func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (c
 		return nil, errors.Trace(err)
 	}
 	namesHostSpaces := p.spaceNamesForPrinting(hostSpaces)
-	logger.Debugf(context.TODO(), "container %q not qualified to a space, host machine %q is using spaces %s",
+	logger.Debugf(ctx, "container %q not qualified to a space, host machine %q is using spaces %s",
 		containerId, host.Id(), namesHostSpaces)
 
 	if len(hostSpaces) == 1 {
@@ -402,7 +393,7 @@ func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (c
 		return corenetwork.SpaceInfos{*hostInfo}, nil
 	}
 	if len(hostSpaces) == 0 {
-		logger.Debugf(context.TODO(), "container has no desired spaces, "+
+		logger.Debugf(ctx, "container has no desired spaces, "+
 			"and host has no known spaces, triggering fallback "+
 			"to bridge all devices")
 		alphaInfo := p.allSpaces.GetByID(corenetwork.AlphaSpaceId)
@@ -479,11 +470,12 @@ func BridgeNameForDevice(device string) string {
 func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 	host Machine, guest Container, askProviderForAddress bool,
 ) (corenetwork.InterfaceInfos, error) {
-	guestSpaces, devicesPerSpace, err := p.findSpacesAndDevicesForContainer(host, guest)
+	ctx := context.TODO()
+	guestSpaces, devicesPerSpace, err := p.findSpacesAndDevicesForContainer(ctx, host, guest)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(), "for container %q, found host devices spaces: %s", guest.Id(), formatDeviceMap(devicesPerSpace))
+	logger.Debugf(ctx, "for container %q, found host devices spaces: %s", guest.Id(), formatDeviceMap(devicesPerSpace))
 	spacesFound := make(corenetwork.SpaceInfos, 0)
 	devicesByName := make(map[string]LinkLayerDevice)
 	bridgeDeviceNames := make([]string, 0)
@@ -523,7 +515,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 
 	if len(missingSpaces) > 0 && len(bridgeDeviceNames) == 0 {
 		missingSpacesNames := missingSpaces.String()
-		logger.Warningf(context.TODO(), "container %q wants spaces %s could not find host %q bridges for %s, found bridges %s",
+		logger.Warningf(ctx, "container %q wants spaces %s could not find host %q bridges for %s, found bridges %s",
 			guest.Id(), guestSpaces,
 			host.Id(), missingSpacesNames, bridgeDeviceNames)
 		return nil, errors.Errorf("unable to find host bridge for space(s) %s for container %q",
@@ -531,7 +523,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 	}
 
 	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)
-	logger.Debugf(context.TODO(), "for container %q using host machine %q bridge devices: %s",
+	logger.Debugf(ctx, "for container %q using host machine %q bridge devices: %s",
 		guest.Id(), host.Id(), network.QuoteSpaces(sortedBridgeDeviceNames))
 
 	interfaces := make(corenetwork.InterfaceInfos, len(bridgeDeviceNames))
@@ -545,7 +537,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 		interfaces[i] = newDevice
 	}
 
-	logger.Debugf(context.TODO(), "prepared container %q network config: %+v", guest.Id(), interfaces)
+	logger.Debugf(ctx, "prepared container %q network config: %+v", guest.Id(), interfaces)
 	return interfaces, nil
 }
 

@@ -66,7 +66,7 @@ type ipNetAndName struct {
 	name  string
 }
 
-func addrMapToIPNetAndName(bridgeToAddrs map[string][]string) []ipNetAndName {
+func addrMapToIPNetAndName(ctx context.Context, bridgeToAddrs map[string][]string) []ipNetAndName {
 	ipNets := make([]ipNetAndName, 0, len(bridgeToAddrs))
 	for bridgeName, addrList := range bridgeToAddrs {
 		for _, addr := range addrList {
@@ -76,7 +76,7 @@ func addrMapToIPNetAndName(bridgeToAddrs map[string][]string) []ipNetAndName {
 				ip = net.ParseIP(addr)
 			}
 			if ip == nil {
-				logger.Debugf(context.TODO(), "cannot parse %q as IP, ignoring", addr)
+				logger.Debugf(ctx, "cannot parse %q as IP, ignoring", addr)
 				continue
 			}
 			if ipNet == nil {
@@ -84,15 +84,15 @@ func addrMapToIPNetAndName(bridgeToAddrs map[string][]string) []ipNetAndName {
 				if ip.To4() != nil {
 					_, ipNet, err = net.ParseCIDR(ip.String() + "/32")
 					if err != nil {
-						logger.Debugf(context.TODO(), "error creating a /32 CIDR for %q", addr)
+						logger.Debugf(ctx, "error creating a /32 CIDR for %q", addr)
 					}
 				} else if ip.To16() != nil {
 					_, ipNet, err = net.ParseCIDR(ip.String() + "/128")
 					if err != nil {
-						logger.Debugf(context.TODO(), "error creating a /128 CIDR for %q", addr)
+						logger.Debugf(ctx, "error creating a /128 CIDR for %q", addr)
 					}
 				} else {
-					logger.Debugf(context.TODO(), "failed to convert %q to a v4 or v6 address, ignoring", addr)
+					logger.Debugf(ctx, "failed to convert %q to a v4 or v6 address, ignoring", addr)
 				}
 			}
 			ipNets = append(ipNets, ipNetAndName{ipnet: ipNet, name: bridgeName})
@@ -106,17 +106,18 @@ func addrMapToIPNetAndName(bridgeToAddrs map[string][]string) []ipNetAndName {
 // may be a CIDR.  removeAddresses should be a map of 'bridge name' to list of
 // addresses, so that we can report why the address was filtered.
 func filterAddrs(
+	ctx context.Context,
 	allAddresses []corenetwork.ProviderAddress, removeAddresses map[string][]string,
 ) []corenetwork.ProviderAddress {
 	filtered := make([]corenetwork.ProviderAddress, 0, len(allAddresses))
 	// Convert all
-	ipNets := addrMapToIPNetAndName(removeAddresses)
+	ipNets := addrMapToIPNetAndName(ctx, removeAddresses)
 	for _, addr := range allAddresses {
 		bridgeName := ""
 		// Then check if it is in one of the CIDRs
 		ip := net.ParseIP(addr.Value)
 		if ip == nil {
-			logger.Debugf(context.TODO(), "not filtering invalid IP: %q", addr.Value)
+			logger.Debugf(ctx, "not filtering invalid IP: %q", addr.Value)
 		} else {
 			for _, ipNetName := range ipNets {
 				if ipNetName.ipnet.Contains(ip) {
@@ -126,22 +127,22 @@ func filterAddrs(
 			}
 		}
 		if bridgeName == "" {
-			logger.Debugf(context.TODO(), "including address %v for machine", addr)
+			logger.Debugf(ctx, "including address %v for machine", addr)
 			filtered = append(filtered, addr)
 		} else {
-			logger.Debugf(context.TODO(), "filtering %q address %s for machine", bridgeName, addr.String())
+			logger.Debugf(ctx, "filtering %q address %s for machine", bridgeName, addr.String())
 		}
 	}
 	return filtered
 }
 
-func gatherBridgeAddresses(bridgeName string, toRemove map[string][]string) {
+func gatherBridgeAddresses(ctx context.Context, bridgeName string, toRemove map[string][]string) {
 	addrs, err := AddressesForInterfaceName(bridgeName)
 	if err != nil {
-		logger.Debugf(context.TODO(), "cannot get %q addresses: %v (ignoring)", bridgeName, err)
+		logger.Debugf(ctx, "cannot get %q addresses: %v (ignoring)", bridgeName, err)
 		return
 	}
-	logger.Debugf(context.TODO(), "%q has addresses %v", bridgeName, addrs)
+	logger.Debugf(ctx, "%q has addresses %v", bridgeName, addrs)
 	toRemove[bridgeName] = addrs
 }
 
@@ -149,11 +150,11 @@ func gatherBridgeAddresses(bridgeName string, toRemove map[string][]string) {
 // (the IP address used only to connect to local containers),
 // rather than a remote accessible address.
 // This includes addresses used by the local Fan network.
-func FilterBridgeAddresses(addresses corenetwork.ProviderAddresses) corenetwork.ProviderAddresses {
+func FilterBridgeAddresses(ctx context.Context, addresses corenetwork.ProviderAddresses) corenetwork.ProviderAddresses {
 	addressesToRemove := make(map[string][]string)
-	gatherBridgeAddresses(DefaultLXDBridge, addressesToRemove)
-	filtered := filterAddrs(addresses, addressesToRemove)
-	logger.Debugf(context.TODO(), "addresses after filtering: %v", filtered)
+	gatherBridgeAddresses(ctx, DefaultLXDBridge, addressesToRemove)
+	filtered := filterAddrs(ctx, addresses, addressesToRemove)
+	logger.Debugf(ctx, "addresses after filtering: %v", filtered)
 	return filtered
 }
 

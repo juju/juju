@@ -241,13 +241,13 @@ func (task *provisionerTask) loop() (taskErr error) {
 	ctx, cancel := task.scopedContext()
 	defer cancel()
 
-	task.logger.Infof(context.TODO(), "entering provisioner task loop; using provisioner pool with %d workers", task.wp.Size())
+	task.logger.Infof(ctx, "entering provisioner task loop; using provisioner pool with %d workers", task.wp.Size())
 	defer func() {
 		wpErr := task.wp.Close()
 		if taskErr == nil {
 			taskErr = wpErr
 		}
-		task.logger.Infof(context.TODO(), "exiting provisioner task loop; err: %v", taskErr)
+		task.logger.Infof(ctx, "exiting provisioner task loop; err: %v", taskErr)
 	}()
 
 	// Don't allow the harvesting mode to change until we have read at
@@ -282,7 +282,7 @@ func (task *provisionerTask) loop() (taskErr error) {
 
 			// Stop the current pool (checking for any pending
 			// errors) and create a new one.
-			task.logger.Infof(context.TODO(), "resizing provision worker pool size to %d", numWorkers)
+			task.logger.Infof(ctx, "resizing provision worker pool size to %d", numWorkers)
 			if err := task.wp.Close(); err != nil {
 				return err
 			}
@@ -292,11 +292,11 @@ func (task *provisionerTask) loop() (taskErr error) {
 			if harvestMode == task.harvestMode {
 				break
 			}
-			task.logger.Infof(context.TODO(), "harvesting mode changed to %s", harvestMode)
+			task.logger.Infof(ctx, "harvesting mode changed to %s", harvestMode)
 			task.harvestMode = harvestMode
 			task.notifyEventProcessedCallback(eventTypeHarvestModeChanged)
 			if harvestMode.HarvestUnknown() {
-				task.logger.Infof(context.TODO(), "harvesting unknown machines")
+				task.logger.Infof(ctx, "harvesting unknown machines")
 				if err := task.processMachines(ctx, nil); err != nil {
 					return errors.Annotate(err, "processing machines after safe mode disabled")
 				}
@@ -346,24 +346,24 @@ func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.Cont
 	if err != nil || len(results) == 0 {
 		return nil
 	}
-	task.logger.Tracef(context.TODO(), "processMachinesWithTransientErrors(%v)", results)
+	task.logger.Tracef(ctx, "processMachinesWithTransientErrors(%v)", results)
 	var pending []apiprovisioner.MachineProvisioner
 	for _, result := range results {
 		if result.Status.Error != nil {
-			task.logger.Errorf(context.TODO(), "cannot retry provisioning of machine %q: %v", result.Machine.Id(), result.Status.Error)
+			task.logger.Errorf(ctx, "cannot retry provisioning of machine %q: %v", result.Machine.Id(), result.Status.Error)
 			continue
 		}
 		machine := result.Machine
 		if err := machine.SetStatus(ctx, status.Pending, "", nil); err != nil {
-			task.logger.Errorf(context.TODO(), "cannot reset status of machine %q: %v", machine.Id(), err)
+			task.logger.Errorf(ctx, "cannot reset status of machine %q: %v", machine.Id(), err)
 			continue
 		}
 		if err := machine.SetInstanceStatus(ctx, status.Provisioning, "", nil); err != nil {
-			task.logger.Errorf(context.TODO(), "cannot reset instance status of machine %q: %v", machine.Id(), err)
+			task.logger.Errorf(ctx, "cannot reset instance status of machine %q: %v", machine.Id(), err)
 			continue
 		}
 		if err := machine.SetModificationStatus(ctx, status.Idle, "", nil); err != nil {
-			task.logger.Errorf(context.TODO(), "cannot reset modification status of machine %q: %v", machine.Id(), err)
+			task.logger.Errorf(ctx, "cannot reset modification status of machine %q: %v", machine.Id(), err)
 			continue
 		}
 		task.machinesMutex.Lock()
@@ -375,7 +375,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.Cont
 }
 
 func (task *provisionerTask) processMachines(ctx context.Context, ids []string) error {
-	task.logger.Debugf(context.TODO(), "processing machines %v", ids)
+	task.logger.Debugf(ctx, "processing machines %v", ids)
 
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(ctx, ids); err != nil {
@@ -445,7 +445,7 @@ func (task *provisionerTask) populateMachineMaps(ctx context.Context, ids []stri
 		case result.Err == nil:
 			task.machines[result.Machine.Id()] = result.Machine
 		case params.IsCodeNotFoundOrCodeUnauthorized(result.Err):
-			task.logger.Debugf(context.TODO(), "machine %q not found in state", ids[i])
+			task.logger.Debugf(ctx, "machine %q not found in state", ids[i])
 			delete(task.machines, ids[i])
 		default:
 			return errors.Annotatef(result.Err, "getting machine %v", ids[i])
@@ -469,16 +469,16 @@ func (task *provisionerTask) pendingOrDead(
 		// Ignore machines that have been either queued for deferred
 		// stopping or are currently stopping.
 		if _, found := task.machinesStopDeferred[id]; found {
-			task.logger.Tracef(context.TODO(), "pendingOrDead: ignoring machine %q; machine has deferred stop flag set", id)
+			task.logger.Tracef(ctx, "pendingOrDead: ignoring machine %q; machine has deferred stop flag set", id)
 			continue // ignore: will be stopped once started
 		} else if _, found := task.machinesStopping[id]; found {
-			task.logger.Tracef(context.TODO(), "pendingOrDead: ignoring machine %q; machine is currently being stopped", id)
+			task.logger.Tracef(ctx, "pendingOrDead: ignoring machine %q; machine is currently being stopped", id)
 			continue // ignore: currently being stopped.
 		}
 
 		machine, found := task.machines[id]
 		if !found {
-			task.logger.Infof(context.TODO(), "machine %q not found", id)
+			task.logger.Infof(ctx, "machine %q not found", id)
 			continue
 		}
 		var classification MachineClassification
@@ -494,7 +494,7 @@ func (task *provisionerTask) pendingOrDead(
 		}
 	}
 
-	task.logger.Debugf(context.TODO(), "pending: %v, dead: %v", pending, dead)
+	task.logger.Debugf(ctx, "pending: %v, dead: %v", pending, dead)
 	return pending, dead, nil
 }
 
@@ -528,7 +528,7 @@ func classifyMachine(ctx context.Context, logger logger.Logger, machine Classifi
 		} else if !params.IsCodeNotProvisioned(err) {
 			return None, errors.Annotatef(err, "loading dying machine id:%s, details:%v", machine.Id(), machine)
 		}
-		logger.Infof(context.TODO(), "killing dying, unprovisioned machine %q", machine)
+		logger.Infof(ctx, "killing dying, unprovisioned machine %q", machine)
 		if err := machine.EnsureDead(ctx); err != nil {
 			return None, errors.Annotatef(err, "ensuring machine dead id:%s, details:%v", machine.Id(), machine)
 		}
@@ -543,25 +543,25 @@ func classifyMachine(ctx context.Context, logger logger.Logger, machine Classifi
 		}
 		machineStatus, _, err := machine.Status(ctx)
 		if err != nil {
-			logger.Infof(context.TODO(), "cannot get machine id:%s, details:%v, err:%v", machine.Id(), machine, err)
+			logger.Infof(ctx, "cannot get machine id:%s, details:%v, err:%v", machine.Id(), machine, err)
 			return None, nil
 		}
 		if machineStatus == status.Pending {
-			logger.Infof(context.TODO(), "found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
+			logger.Infof(ctx, "found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
 			return Pending, nil
 		}
 		instanceStatus, _, err := machine.InstanceStatus(ctx)
 		if err != nil {
-			logger.Infof(context.TODO(), "cannot read instance status id:%s, details:%v, err:%v", machine.Id(), machine, err)
+			logger.Infof(ctx, "cannot read instance status id:%s, details:%v, err:%v", machine.Id(), machine, err)
 			return None, nil
 		}
 		if instanceStatus == status.Provisioning {
-			logger.Infof(context.TODO(), "found machine provisioning id:%s, details:%v", machine.Id(), machine)
+			logger.Infof(ctx, "found machine provisioning id:%s, details:%v", machine.Id(), machine)
 			return Pending, nil
 		}
 		return None, nil
 	}
-	logger.Infof(context.TODO(), "machine %s already started as instance %q", machine.Id(), instId)
+	logger.Infof(ctx, "machine %s already started as instance %q", machine.Id(), instId)
 
 	return None, nil
 }
@@ -645,7 +645,7 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 	}
 
 	if !task.harvestMode.HarvestUnknown() && len(unknown) != 0 {
-		task.logger.Infof(context.TODO(),
+		task.logger.Infof(ctx,
 			"%s is set to %s; unknown instances not stopped %v",
 			config.ProvisionerHarvestModeKey,
 			task.harvestMode.String(),
@@ -655,7 +655,7 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 	}
 
 	if (task.harvestMode.HarvestNone() || !task.harvestMode.HarvestDestroyed()) && len(stopping) != 0 {
-		task.logger.Infof(context.TODO(),
+		task.logger.Infof(ctx,
 			`%s is set to "%s"; will not harvest %s`,
 			config.ProvisionerHarvestModeKey,
 			task.harvestMode.String(),
@@ -672,10 +672,10 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 		Type: "stop-instances",
 		Process: func() error {
 			if len(stopping) > 0 {
-				task.logger.Infof(context.TODO(), "stopping known instances %v", instanceIds(stopping))
+				task.logger.Infof(ctx, "stopping known instances %v", instanceIds(stopping))
 			}
 			if len(unknown) > 0 {
-				task.logger.Infof(context.TODO(), "stopping unknown instances %v", instanceIds(unknown))
+				task.logger.Infof(ctx, "stopping unknown instances %v", instanceIds(unknown))
 			}
 
 			// It is important that we stop unknown instances before starting
@@ -688,9 +688,9 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 
 			// Remove any dead machines from state.
 			for _, machine := range dead {
-				task.logger.Infof(context.TODO(), "removing dead machine %q", machine.Id())
+				task.logger.Infof(ctx, "removing dead machine %q", machine.Id())
 				if err := machine.MarkForRemoval(ctx); err != nil {
-					task.logger.Errorf(context.TODO(), "failed to remove dead machine %q", machine.Id())
+					task.logger.Errorf(ctx, "failed to remove dead machine %q", machine.Id())
 				}
 				task.removeMachineFromAZMap(machine)
 				machID := machine.Id()
@@ -772,7 +772,7 @@ func (task *provisionerTask) instancesForDeadMachines(ctx context.Context, dead 
 		if err == nil {
 			keep, _ := machine.KeepInstance(ctx)
 			if keep {
-				task.logger.Debugf(context.TODO(), "machine %v is dead but keep-instance is true", instId)
+				task.logger.Debugf(ctx, "machine %v is dead but keep-instance is true", instId)
 				continue
 			}
 
@@ -1059,7 +1059,7 @@ func (task *provisionerTask) updateAvailabilityZoneMachines(ctx context.Context)
 	for i, azm := range task.availabilityZoneMachines {
 		zones[i] = azm.ZoneName
 	}
-	task.logger.Infof(context.TODO(), "provisioning in zones: %v", zones)
+	task.logger.Infof(ctx, "provisioning in zones: %v", zones)
 
 	return nil
 }
@@ -1138,7 +1138,7 @@ func (task *provisionerTask) checkProviderAvailabilityZones(
 		// If the zone isn't available, but we think we have machines there,
 		// play it safe and retain the entry.
 		if len(azm.MachineIds) > 0 {
-			task.logger.Warningf(context.TODO(), "machines %v are in zone %q, which is not available, or not known by the cloud",
+			task.logger.Warningf(ctx, "machines %v are in zone %q, which is not available, or not known by the cloud",
 				azm.MachineIds.Values(), azm.ZoneName)
 			newAZMs = append(newAZMs, azm)
 		}
@@ -1191,6 +1191,7 @@ func (task *provisionerTask) populateDistributionGroupZoneMap(machineIds []strin
 // Machines are not placed in a zone they are excluded from.
 // If availability zones are implemented and one isn't found, return NotFound error.
 func (task *provisionerTask) machineAvailabilityZoneDistribution(
+	ctx context.Context,
 	machineId string, distGroupMachineIds []string, cons constraints.Value,
 ) (string, error) {
 	task.machinesMutex.Lock()
@@ -1234,13 +1235,13 @@ done:
 			index := rand.Intn(len(zmList))
 			zoneMachines := zmList[index]
 			if !zoneMachines.MatchesConstraints(cons) {
-				task.logger.Debugf(context.TODO(), "machine %s does not match az %s: constraints do not match",
+				task.logger.Debugf(ctx, "machine %s does not match az %s: constraints do not match",
 					machineId, zoneMachines.ZoneName)
 			} else if zoneMachines.FailedMachineIds.Contains(machineId) {
-				task.logger.Debugf(context.TODO(), "machine %s does not match az %s: excluded in failed machine ids",
+				task.logger.Debugf(ctx, "machine %s does not match az %s: excluded in failed machine ids",
 					machineId, zoneMachines.ZoneName)
 			} else if zoneMachines.ExcludedMachineIds.Contains(machineId) {
-				task.logger.Debugf(context.TODO(), "machine %s does not match az %s: excluded machine id",
+				task.logger.Debugf(ctx, "machine %s does not match az %s: excluded machine id",
 					machineId, zoneMachines.ZoneName)
 			} else {
 				// Success, we're out of here.
@@ -1297,7 +1298,7 @@ func (task *provisionerTask) queueStartMachines(ctx context.Context, machines []
 	if err != nil {
 		return errors.Trace(err)
 	}
-	task.logger.Debugf(context.TODO(), "obtained provisioning info: %#v", pInfoResults)
+	task.logger.Debugf(ctx, "obtained provisioning info: %#v", pInfoResults)
 	pInfoMap := make(map[string]params.ProvisioningInfoResult, len(pInfoResults.Results))
 	for i, tag := range machineTags {
 		pInfoMap[tag.Id()] = pInfoResults.Results[i]
@@ -1345,7 +1346,7 @@ func (task *provisionerTask) queueStartMachines(ctx context.Context, machines []
 				task.machinesMutex.Unlock()
 
 				if stopDeferred {
-					task.logger.Debugf(context.TODO(), "triggering deferred stop of machine %q", machID)
+					task.logger.Debugf(ctx, "triggering deferred stop of machine %q", machID)
 					return task.queueRemovalOfDeadMachines(ctx, []apiprovisioner.MachineProvisioner{
 						machine,
 					})
@@ -1370,7 +1371,7 @@ func (task *provisionerTask) queueStartMachines(ctx context.Context, machines []
 }
 
 func (task *provisionerTask) setErrorStatus(ctx context.Context, msg string, machine apiprovisioner.MachineProvisioner, err error) error {
-	task.logger.Errorf(context.TODO(), msg, machine, err)
+	task.logger.Errorf(ctx, msg, machine, err)
 	errForStatus := errors.Cause(err)
 	if err2 := machine.SetInstanceStatus(ctx, status.ProvisioningError, errForStatus.Error(), nil); err2 != nil {
 		// Something is wrong with this machine, better report it back.
@@ -1397,13 +1398,13 @@ func (task *provisionerTask) doStartMachine(
 		defer task.machinesMutex.RUnlock()
 		machID := machine.Id()
 		if task.machinesStopDeferred[machID] {
-			task.logger.Tracef(context.TODO(), "doStartMachine: ignoring doStartMachine error (%v) for machine %q; machine has been marked dead while it was being started and has the deferred stop flag set", startErr, machID)
+			task.logger.Tracef(ctx, "doStartMachine: ignoring doStartMachine error (%v) for machine %q; machine has been marked dead while it was being started and has the deferred stop flag set", startErr, machID)
 			startErr = nil
 		}
 	}()
 
 	if err := machine.SetInstanceStatus(ctx, status.Provisioning, "starting", nil); err != nil {
-		task.logger.Errorf(context.TODO(), "%v", err)
+		task.logger.Errorf(ctx, "%v", err)
 	}
 
 	v, err := machine.ModelAgentVersion(ctx)
@@ -1435,12 +1436,13 @@ func (task *provisionerTask) doStartMachine(
 	// Is(err, environs.ErrAvailabilityZoneIndependent)
 	for attemptsLeft := task.retryStartInstanceStrategy.RetryCount; attemptsLeft >= 0; {
 		if startInstanceParams.AvailabilityZone, err = task.machineAvailabilityZoneDistribution(
+			ctx,
 			machine.Id(), distributionGroupMachineIds, startInstanceParams.Constraints,
 		); err != nil {
 			return task.setErrorStatus(ctx, "cannot start instance for machine %q: %v", machine, err)
 		}
 		if startInstanceParams.AvailabilityZone != "" {
-			task.logger.Infof(context.TODO(), "trying machine %s StartInstance in availability zone %s",
+			task.logger.Infof(ctx, "trying machine %s StartInstance in availability zone %s",
 				machine, startInstanceParams.AvailabilityZone)
 		}
 
@@ -1455,10 +1457,10 @@ func (task *provisionerTask) doStartMachine(
 			return task.setErrorStatus(ctx, "cannot start instance for machine %q: %v", machine, err)
 		} else {
 			if startInstanceParams.AvailabilityZone != "" {
-				task.logger.Warningf(context.TODO(), "machine %s failed to start in availability zone %s: %v",
+				task.logger.Warningf(ctx, "machine %s failed to start in availability zone %s: %v",
 					machine, startInstanceParams.AvailabilityZone, err)
 			} else {
-				task.logger.Warningf(context.TODO(), "machine %s failed to start: %v", machine, err)
+				task.logger.Warningf(ctx, "machine %s failed to start: %v", machine, err)
 			}
 		}
 
@@ -1471,7 +1473,7 @@ func (task *provisionerTask) doStartMachine(
 				startInstanceParams.AvailabilityZone, startInstanceParams.Constraints)
 			if err2 != nil {
 				if err = task.setErrorStatus(ctx, "cannot start instance: %v", machine, err2); err != nil {
-					task.logger.Errorf(context.TODO(), "setting error status: %s", err)
+					task.logger.Errorf(ctx, "setting error status: %s", err)
 				}
 				return err2
 			}
@@ -1481,7 +1483,7 @@ func (task *provisionerTask) doStartMachine(
 					machine, startInstanceParams.AvailabilityZone,
 					task.retryStartInstanceStrategy.RetryDelay, err,
 				)
-				task.logger.Debugf(context.TODO(), "%s", retryMsg)
+				task.logger.Debugf(ctx, "%s", retryMsg)
 				// There's still more zones to try, so don't decrement "attemptsLeft" yet.
 				retrying = false
 			} else {
@@ -1496,12 +1498,12 @@ func (task *provisionerTask) doStartMachine(
 				"failed to start machine %s (%s), retrying in %v (%d more attempts)",
 				machine, err.Error(), task.retryStartInstanceStrategy.RetryDelay, attemptsLeft,
 			)
-			task.logger.Warningf(context.TODO(), "%s", retryMsg)
+			task.logger.Warningf(ctx, "%s", retryMsg)
 			attemptsLeft--
 		}
 
 		if err3 := machine.SetInstanceStatus(ctx, status.Provisioning, retryMsg, nil); err3 != nil {
-			task.logger.Warningf(context.TODO(), "failed to set instance status: %v", err3)
+			task.logger.Warningf(ctx, "failed to set instance status: %v", err3)
 		}
 
 		select {
@@ -1521,6 +1523,7 @@ func (task *provisionerTask) doStartMachine(
 	// Gather the charm LXD profile names, including the lxd profile names from
 	// the container brokers.
 	charmLXDProfiles, err := task.gatherCharmLXDProfiles(
+		ctx,
 		instanceID.String(), machine.Tag().Id(), startInstanceParams.CharmLXDProfiles)
 	if err != nil {
 		return errors.Trace(err)
@@ -1539,14 +1542,14 @@ func (task *provisionerTask) doStartMachine(
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
 		if err2 := task.setErrorStatus(ctx, "cannot register instance for machine %v: %v", machine, err); err2 != nil {
-			task.logger.Errorf(context.TODO(), "%v", errors.Annotate(err2, "setting machine status"))
+			task.logger.Errorf(ctx, "%v", errors.Annotate(err2, "setting machine status"))
 		}
 		if err2 := task.broker.StopInstances(ctx, instanceID); err2 != nil {
-			task.logger.Errorf(context.TODO(), "%v", errors.Annotate(err2, "after failing to set instance info"))
+			task.logger.Errorf(ctx, "%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
 		return errors.Annotate(err, "setting instance info")
 	}
-	task.logger.Infof(context.TODO(),
+	task.logger.Infof(ctx,
 		"started machine %s as instance %s with hardware %q, network config %+v, "+
 			"volumes %v, volume attachments %v, subnets to zones %v, lxd profiles %v",
 		machine,
@@ -1638,6 +1641,7 @@ func (task *provisionerTask) populateExcludedMachines(ctx context.Context, machi
 // gatherCharmLXDProfiles consumes the charms LXD Profiles from the different
 // sources. This includes getting the information from the broker.
 func (task *provisionerTask) gatherCharmLXDProfiles(
+	ctx context.Context,
 	instanceID, machineTag string, machineProfiles []string,
 ) ([]string, error) {
 	if !names.IsContainerMachine(machineTag) {
@@ -1646,7 +1650,7 @@ func (task *provisionerTask) gatherCharmLXDProfiles(
 
 	manager, ok := task.broker.(container.LXDProfileNameRetriever)
 	if !ok {
-		task.logger.Tracef(context.TODO(), "failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
+		task.logger.Tracef(ctx, "failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
 		return machineProfiles, nil
 	}
 

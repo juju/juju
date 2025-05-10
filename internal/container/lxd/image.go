@@ -186,7 +186,7 @@ func (s *Server) CopyRemoteImage(
 	ctx context.Context, sourced SourcedImage, aliases []string,
 	callback environs.StatusCallbackFunc,
 ) error {
-	logger.Debugf(context.TODO(), "Copying image from remote server")
+	logger.Debugf(ctx, "Copying image from remote server")
 
 	newAliases := make([]api.ImageAlias, len(aliases))
 	for i, a := range aliases {

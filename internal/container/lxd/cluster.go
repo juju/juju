@@ -12,7 +12,7 @@ func (s *Server) ClusterSupported() bool {
 // UseTargetServer returns a new Server based on the input target node name.
 // It is intended for use when operations must target specific nodes in a
 // cluster.
-func (s *Server) UseTargetServer(name string) (*Server, error) {
-	logger.Debugf(context.TODO(), "creating LXD server for cluster node %q", name)
+func (s *Server) UseTargetServer(ctx context.Context, name string) (*Server, error) {
+	logger.Debugf(ctx, "creating LXD server for cluster node %q", name)
 	return NewServer(s.UseTarget(name))
 }
