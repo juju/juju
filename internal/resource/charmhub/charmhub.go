@@ -72,14 +72,14 @@ type CharmHubClient struct {
 // GetResource returns data about the resource including an io.ReadCloser
 // to download the resource.  The caller is responsible for closing it.
 func (ch *CharmHubClient) GetResource(ctx context.Context, req ResourceRequest) (ResourceData, error) {
-	ch.logger.Tracef(context.TODO(), "GetResource(%s)", pretty.Sprint(req))
+	ch.logger.Tracef(ctx, "GetResource(%s)", pretty.Sprint(req))
 
 	res, resourceURL, err := ch.getResourceDetails(ctx, req)
 	if err != nil {
 		return ResourceData{}, errors.Capture(err)
 	}
 
-	ch.logger.Tracef(context.TODO(), "Read resource %q from %q", res.Name, resourceURL)
+	ch.logger.Tracef(ctx, "Read resource %q from %q", res.Name, resourceURL)
 
 	readCloser, err := ch.downloader.Download(ctx, resourceURL, res.Fingerprint.String(), res.Size)
 	if err != nil {
@@ -107,7 +107,7 @@ func (ch *CharmHubClient) getResourceDetails(ctx context.Context, req ResourceRe
 	// during deploy when a resolving resources for add pending resources.
 	// This also closes a timing window where a charm and resource
 	// is updated in the channel in between deploy and resource use.
-	cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *origin.Revision)
+	cfg, err := charmhub.DownloadOneFromRevision(ctx, origin.ID, *origin.Revision)
 	if err != nil {
 		return charmresource.Resource{}, nil, errors.Capture(err)
 	}

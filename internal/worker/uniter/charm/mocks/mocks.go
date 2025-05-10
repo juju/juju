@@ -42,18 +42,18 @@ func (m *MockBundleReader) EXPECT() *MockBundleReaderMockRecorder {
 }
 
 // Read mocks base method.
-func (m *MockBundleReader) Read(arg0 context.Context, arg1 charm.BundleInfo, arg2 <-chan struct{}) (charm.Bundle, error) {
+func (m *MockBundleReader) Read(arg0 context.Context, arg1 charm.BundleInfo) (charm.Bundle, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Read", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Read", arg0, arg1)
 	ret0, _ := ret[0].(charm.Bundle)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Read indicates an expected call of Read.
-func (mr *MockBundleReaderMockRecorder) Read(arg0, arg1, arg2 any) *MockBundleReaderReadCall {
+func (mr *MockBundleReaderMockRecorder) Read(arg0, arg1 any) *MockBundleReaderReadCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockBundleReader)(nil).Read), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockBundleReader)(nil).Read), arg0, arg1)
 	return &MockBundleReaderReadCall{Call: call}
 }
 
@@ -69,13 +69,13 @@ func (c *MockBundleReaderReadCall) Return(arg0 charm.Bundle, arg1 error) *MockBu
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBundleReaderReadCall) Do(f func(context.Context, charm.BundleInfo, <-chan struct{}) (charm.Bundle, error)) *MockBundleReaderReadCall {
+func (c *MockBundleReaderReadCall) Do(f func(context.Context, charm.BundleInfo) (charm.Bundle, error)) *MockBundleReaderReadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBundleReaderReadCall) DoAndReturn(f func(context.Context, charm.BundleInfo, <-chan struct{}) (charm.Bundle, error)) *MockBundleReaderReadCall {
+func (c *MockBundleReaderReadCall) DoAndReturn(f func(context.Context, charm.BundleInfo) (charm.Bundle, error)) *MockBundleReaderReadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

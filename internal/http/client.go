@@ -280,7 +280,7 @@ func (c *Client) Get(ctx context.Context, path string) (resp *http.Response, err
 		// No need to fail, but let user know we're
 		// not tracing the client GET.
 		err = errors.Annotatef(err, "setup of http client tracing failed")
-		c.logger.Tracef(context.TODO(), "%s", err)
+		c.logger.Tracef(ctx, "%s", err)
 	}
 	return c.Do(req)
 }
@@ -297,28 +297,28 @@ func (c *Client) traceRequest(req *http.Request, url string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.logger.Tracef(context.TODO(), "request for %q: %q", url, dump)
+	c.logger.Tracef(req.Context(), "request for %q: %q", url, dump)
 	trace := &httptrace.ClientTrace{
 		DNSStart: func(info httptrace.DNSStartInfo) {
-			c.logger.Tracef(context.TODO(), "%s DNS Start: %q", url, info.Host)
+			c.logger.Tracef(req.Context(), "%s DNS Start: %q", url, info.Host)
 		},
 		DNSDone: func(dnsInfo httptrace.DNSDoneInfo) {
-			c.logger.Tracef(context.TODO(), "%s DNS Info: %+v\n", url, dnsInfo)
+			c.logger.Tracef(req.Context(), "%s DNS Info: %+v\n", url, dnsInfo)
 		},
 		ConnectDone: func(network, addr string, err error) {
-			c.logger.Tracef(context.TODO(), "%s Connection Done: network %q, addr %q, err %q", url, network, addr, err)
+			c.logger.Tracef(req.Context(), "%s Connection Done: network %q, addr %q, err %q", url, network, addr, err)
 		},
 		GetConn: func(hostPort string) {
-			c.logger.Tracef(context.TODO(), "%s Get Conn: %q", url, hostPort)
+			c.logger.Tracef(req.Context(), "%s Get Conn: %q", url, hostPort)
 		},
 		GotConn: func(connInfo httptrace.GotConnInfo) {
-			c.logger.Tracef(context.TODO(), "%s Got Conn: %+v", url, connInfo)
+			c.logger.Tracef(req.Context(), "%s Got Conn: %+v", url, connInfo)
 		},
 		TLSHandshakeStart: func() {
-			c.logger.Tracef(context.TODO(), "%s TLS Handshake Start", url)
+			c.logger.Tracef(req.Context(), "%s TLS Handshake Start", url)
 		},
 		TLSHandshakeDone: func(st tls.ConnectionState, err error) {
-			c.logger.Tracef(context.TODO(), "%s TLS Handshake Done: complete %t, verified chains %d, server name %q",
+			c.logger.Tracef(req.Context(), "%s TLS Handshake Done: complete %t, verified chains %d, server name %q",
 				url,
 				st.HandshakeComplete,
 				len(st.VerifiedChains),

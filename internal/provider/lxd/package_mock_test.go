@@ -1896,18 +1896,18 @@ func (c *MockServerUseProjectCall) DoAndReturn(f func(string)) *MockServerUsePro
 }
 
 // UseTargetServer mocks base method.
-func (m *MockServer) UseTargetServer(arg0 string) (*lxd0.Server, error) {
+func (m *MockServer) UseTargetServer(arg0 context.Context, arg1 string) (*lxd0.Server, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UseTargetServer", arg0)
+	ret := m.ctrl.Call(m, "UseTargetServer", arg0, arg1)
 	ret0, _ := ret[0].(*lxd0.Server)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UseTargetServer indicates an expected call of UseTargetServer.
-func (mr *MockServerMockRecorder) UseTargetServer(arg0 any) *MockServerUseTargetServerCall {
+func (mr *MockServerMockRecorder) UseTargetServer(arg0, arg1 any) *MockServerUseTargetServerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseTargetServer", reflect.TypeOf((*MockServer)(nil).UseTargetServer), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseTargetServer", reflect.TypeOf((*MockServer)(nil).UseTargetServer), arg0, arg1)
 	return &MockServerUseTargetServerCall{Call: call}
 }
 
@@ -1923,13 +1923,13 @@ func (c *MockServerUseTargetServerCall) Return(arg0 *lxd0.Server, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServerUseTargetServerCall) Do(f func(string) (*lxd0.Server, error)) *MockServerUseTargetServerCall {
+func (c *MockServerUseTargetServerCall) Do(f func(context.Context, string) (*lxd0.Server, error)) *MockServerUseTargetServerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServerUseTargetServerCall) DoAndReturn(f func(string) (*lxd0.Server, error)) *MockServerUseTargetServerCall {
+func (c *MockServerUseTargetServerCall) DoAndReturn(f func(context.Context, string) (*lxd0.Server, error)) *MockServerUseTargetServerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

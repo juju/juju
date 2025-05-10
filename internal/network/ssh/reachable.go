@@ -83,45 +83,47 @@ var hostKeyNotInList = errors.New("host key not in expected set")
 var hostKeyAccepted = errors.New("host key was accepted, retry")
 var hostKeyAcceptedButStopped = errors.New("host key was accepted, but search was stopped")
 
-func (h *hostKeyChecker) hostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
-	// Note: we don't do any advanced checking of the PublicKey, like whether
-	// the key is revoked or expired. All we care about is whether it matches
-	// the public keys that we consider acceptable
-	authKeyForm := ssh.MarshalAuthorizedKey(key)
-	debugName := hostname
-	if hostname != remote.String() {
-		debugName = fmt.Sprintf("%s at %s", hostname, remote.String())
-	}
-	logger.Tracef(context.TODO(), "checking host key for %s, with key %q", debugName, authKeyForm)
-
-	lookupKey := string(key.Marshal())
-	if len(h.AcceptedKeys) == 0 || h.AcceptedKeys.Contains(lookupKey) {
-		logger.Debugf(context.TODO(), "accepted host key for: %s", debugName)
-		// This key was valid, so return it, but if someone else was found
-		// first, still exit.
-		select {
-		case h.Accepted <- h.HostPort:
-			// We have accepted a host, we won't need to call Finished.
-			h.Finished = nil
-			return hostKeyAccepted
-		case <-h.Stop:
-			return hostKeyAcceptedButStopped
+func (h *hostKeyChecker) hostKeyCallback(ctx context.Context) ssh.HostKeyCallback {
+	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		// Note: we don't do any advanced checking of the PublicKey, like whether
+		// the key is revoked or expired. All we care about is whether it matches
+		// the public keys that we consider acceptable
+		authKeyForm := ssh.MarshalAuthorizedKey(key)
+		debugName := hostname
+		if hostname != remote.String() {
+			debugName = fmt.Sprintf("%s at %s", hostname, remote.String())
 		}
+		logger.Tracef(ctx, "checking host key for %s, with key %q", debugName, authKeyForm)
+
+		lookupKey := string(key.Marshal())
+		if len(h.AcceptedKeys) == 0 || h.AcceptedKeys.Contains(lookupKey) {
+			logger.Debugf(ctx, "accepted host key for: %s", debugName)
+			// This key was valid, so return it, but if someone else was found
+			// first, still exit.
+			select {
+			case h.Accepted <- h.HostPort:
+				// We have accepted a host, we won't need to call Finished.
+				h.Finished = nil
+				return hostKeyAccepted
+			case <-h.Stop:
+				return hostKeyAcceptedButStopped
+			}
+		}
+		logger.Debugf(ctx, "host key for %s not in our accepted set: log at TRACE to see raw keys", debugName)
+		return hostKeyNotInList
 	}
-	logger.Debugf(context.TODO(), "host key for %s not in our accepted set: log at TRACE to see raw keys", debugName)
-	return hostKeyNotInList
 }
 
 // publicKeysToSet converts all the public key values (eg id_ed25519.pub) into
 // their short hash form. Problems with a key are logged at Warning level, but
 // otherwise ignored.
-func publicKeysToSet(publicKeys []string) set.Strings {
+func publicKeysToSet(ctx context.Context, publicKeys []string) set.Strings {
 	acceptedKeys := set.NewStrings()
 	for _, pubKey := range publicKeys {
 		// key, comment, options, rest, err
 		sshKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey))
 		if err != nil {
-			logger.Warningf(context.TODO(), "unable to handle public key: %q\n", pubKey)
+			logger.Warningf(ctx, "unable to handle public key: %q\n", pubKey)
 			continue
 		}
 		acceptedKeys.Add(string(sshKey.Marshal()))
@@ -134,6 +136,8 @@ func publicKeysToSet(publicKeys []string) set.Strings {
 // key of the remote host.
 // It then checks if that key is in the accepted set of keys.
 func (h *hostKeyChecker) Check() {
+	ctx := context.TODO()
+
 	defer func() {
 		// send a finished message unless we're already stopped and nobody
 		// is listening
@@ -151,13 +155,13 @@ func (h *hostKeyChecker) Check() {
 	// negotiate to use the "more secure" ECDSA key and we will see that
 	// as an invalid key.
 	sshConfig := &ssh.ClientConfig{
-		HostKeyCallback: h.hostKeyCallback,
+		HostKeyCallback: h.hostKeyCallback(ctx),
 	}
 	addr := network.DialAddress(h.HostPort)
-	logger.Debugf(context.TODO(), "dialing %s to check host keys", addr)
+	logger.Debugf(ctx, "dialing %s to check host keys", addr)
 	conn, err := h.Dialer.Dial("tcp", addr)
 	if err != nil {
-		logger.Debugf(context.TODO(), "dial %s failed with: %v", addr, err)
+		logger.Debugf(ctx, "dial %s failed with: %v", addr, err)
 		return
 	}
 	// No need to do the key exchange if we're already stopping
@@ -167,7 +171,7 @@ func (h *hostKeyChecker) Check() {
 		return
 	default:
 	}
-	logger.Debugf(context.TODO(), "connected to %s, initiating ssh handshake", addr)
+	logger.Debugf(ctx, "connected to %s, initiating ssh handshake", addr)
 	// NewClientConn will close the underlying net.Conn if it gets an error
 	client, _, _, err := ssh.NewClientConn(conn, addr, sshConfig)
 	if err == nil {
@@ -179,7 +183,7 @@ func (h *hostKeyChecker) Check() {
 		// in hostKeyCallback
 		if !strings.Contains(err.Error(), hostKeyAccepted.Error()) &&
 			!strings.Contains(err.Error(), hostKeyNotInList.Error()) {
-			logger.Debugf(context.TODO(), "%v", err)
+			logger.Debugf(ctx, "%v", err)
 		}
 	}
 }
@@ -204,7 +208,7 @@ func (r *reachableChecker) FindHost(hostPorts network.HostPorts, publicKeys []st
 	// 'stop' channel.
 	finished := make(chan struct{}, len(uniqueHPs))
 
-	acceptedKeys := publicKeysToSet(publicKeys)
+	acceptedKeys := publicKeysToSet(context.TODO(), publicKeys)
 	for _, hostPort := range uniqueHPs {
 		checker := &hostKeyChecker{
 			AcceptedKeys: acceptedKeys,

@@ -56,7 +56,7 @@ func (s *ManifestDeployerSuite) addCharm(c *gc.C, revision int, content ...ft.En
 
 func (s *ManifestDeployerSuite) deployCharm(c *gc.C, revision int, content ...ft.Entry) charm.BundleInfo {
 	info := s.addCharm(c, revision, content...)
-	err := s.deployer.Stage(context.Background(), info, nil)
+	err := s.deployer.Stage(context.Background(), info)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,24 +73,26 @@ func (s *ManifestDeployerSuite) assertCharm(c *gc.C, revision int, content ...ft
 
 func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *gc.C) {
 	info := s.addMockCharm(1, mockBundle{})
-	abort := make(chan struct{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	errors := make(chan error)
 	s.bundles.EnableWaitForAbort()
 	go func() {
-		errors <- s.deployer.Stage(context.Background(), info, abort)
+		errors <- s.deployer.Stage(ctx, info)
 	}()
-	close(abort)
+	cancel()
 	err := <-errors
 	c.Assert(err, gc.ErrorMatches, "charm read aborted")
 }
 
 func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *gc.C) {
 	info := s.addMockCharm(1, mockBundle{})
-	abort := make(chan struct{})
 	errors := make(chan error)
 	stopWaiting := s.bundles.EnableWaitForAbort()
 	go func() {
-		errors <- s.deployer.Stage(context.Background(), info, abort)
+		errors <- s.deployer.Stage(context.Background(), info)
 	}()
 	close(stopWaiting)
 	err := <-errors
@@ -192,7 +194,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C
 		},
 	}
 	info := s.addMockCharm(2, mockCharm)
-	err := s.deployer.Stage(context.Background(), info, nil)
+	err := s.deployer.Stage(context.Background(), info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ...and see it fail to expand. We're not too bothered about the actual
@@ -235,7 +237,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 		},
 	}
 	badInfo := s.addMockCharm(2, badCharm)
-	err := s.deployer.Stage(context.Background(), badInfo, nil)
+	err := s.deployer.Stage(context.Background(), badInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, gc.Equals, charm.ErrConflict)
@@ -266,7 +268,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.bundleInfo.EXPECT().URL().Return("ch:focal/dummy-1").AnyTimes()
-	s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")).AnyTimes()
+	s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")).AnyTimes()
 
 	go func() {
 		// We retry 10 times in total so we need to advance the clock 9
@@ -277,7 +279,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *gc.C) {
 		}
 	}()
 
-	_, err := s.rbr.Read(context.Background(), s.bundleInfo, nil)
+	_, err := s.rbr.Read(context.Background(), s.bundleInfo)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -286,8 +288,8 @@ func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *gc.C) {
 
 	s.bundleInfo.EXPECT().URL().Return("ch:focal/dummy-1").AnyTimes()
 	gomock.InOrder(
-		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")),
-		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any(), gomock.Any()).Return(s.bundle, nil),
+		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")),
+		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(s.bundle, nil),
 	)
 
 	go func() {
@@ -296,7 +298,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *gc.C) {
 		c.Assert(s.clock.WaitAdvance(10*time.Second, time.Second, 1), jc.ErrorIsNil)
 	}()
 
-	got, err := s.rbr.Read(context.Background(), s.bundleInfo, nil)
+	got, err := s.rbr.Read(context.Background(), s.bundleInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.Equals, s.bundle)
 }

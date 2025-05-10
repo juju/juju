@@ -352,7 +352,7 @@ func (env *environ) getTargetServer(
 	if p.nodeName == "" {
 		return env.server(), nil
 	}
-	return env.server().UseTargetServer(p.nodeName)
+	return env.server().UseTargetServer(ctx, p.nodeName)
 }
 
 type lxdPlacement struct {

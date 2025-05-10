@@ -43,13 +43,13 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 
 func (s *httpSuite) TestInsecureClientAllowAccess(c *gc.C) {
 	client := NewClient(WithSkipHostnameVerification(true))
-	_, err := client.Get(context.TODO(), s.server.URL)
+	_, err := client.Get(context.Background(), s.server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *httpSuite) TestSecureClientAllowAccess(c *gc.C) {
 	client := NewClient()
-	_, err := client.Get(context.TODO(), s.server.URL)
+	_, err := client.Get(context.Background(), s.server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -93,11 +93,11 @@ func (s *httpSuite) TestRequestRecorder(c *gc.C) {
 	recorder.EXPECT().RecordError("PUT", invalidTargetURL, gomock.Any())
 
 	client := NewClient(WithRequestRecorder(recorder))
-	res, err := client.Get(context.TODO(), validTarget)
+	res, err := client.Get(context.Background(), validTarget)
 	c.Assert(err, jc.ErrorIsNil)
 	defer res.Body.Close()
 
-	req, err := http.NewRequestWithContext(context.TODO(), "PUT", invalidTarget, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "PUT", invalidTarget, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Do(req)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
@@ -137,7 +137,7 @@ func (s *httpSuite) TestRetry(c *gc.C) {
 			MaxDelay: time.Minute,
 		}),
 	)
-	res, err := client.Get(context.TODO(), validTarget)
+	res, err := client.Get(context.Background(), validTarget)
 	c.Assert(err, jc.ErrorIsNil)
 	defer res.Body.Close()
 }
@@ -170,7 +170,7 @@ func (s *httpSuite) TestRetryExceeded(c *gc.C) {
 			MaxDelay: time.Minute,
 		}),
 	)
-	_, err = client.Get(context.TODO(), validTarget)
+	_, err = client.Get(context.Background(), validTarget)
 	c.Assert(err, gc.ErrorMatches, `.*attempt count exceeded: retryable error`)
 }
 
@@ -199,13 +199,13 @@ func (s *httpTLSServerSuite) TearDownTest(c *gc.C) {
 
 func (s *httpTLSServerSuite) TestValidatingClientGetter(c *gc.C) {
 	client := NewClient()
-	_, err := client.Get(context.TODO(), s.server.URL)
+	_, err := client.Get(context.Background(), s.server.URL)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 }
 
 func (s *httpTLSServerSuite) TestNonValidatingClientGetter(c *gc.C) {
 	client := NewClient(WithSkipHostnameVerification(true))
-	resp, err := client.Get(context.TODO(), s.server.URL)
+	resp, err := client.Get(context.Background(), s.server.URL)
 	c.Assert(err, gc.IsNil)
 	_ = resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
@@ -231,7 +231,7 @@ func (s *httpTLSServerSuite) testGetHTTPClientWithCerts(c *gc.C, skip bool) {
 		WithCACertificates(caPEM.String()),
 		WithSkipHostnameVerification(skip),
 	)
-	resp, err := client.Get(context.TODO(), s.server.URL)
+	resp, err := client.Get(context.Background(), s.server.URL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(resp.Body.Close(), gc.IsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)

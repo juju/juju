@@ -65,7 +65,7 @@ func (t *challengeTransport) RoundTrip(req *http.Request) (*http.Response, error
 	}
 	for _, c := range challenge.ResponseChallenges(originalResp) {
 		if err != nil {
-			logger.Warningf(context.TODO(), "authentication failed: %s", err.Error())
+			logger.Warningf(req.Context(), "authentication failed: %s", err.Error())
 			err = nil
 		}
 		switch strings.ToLower(c.Scheme) {
@@ -76,7 +76,7 @@ func (t *challengeTransport) RoundTrip(req *http.Request) (*http.Response, error
 				password:  t.password,
 				authToken: t.authToken,
 			}
-			err = tokenTransport.refreshOAuthToken(originalResp)
+			err = tokenTransport.refreshOAuthToken(req.Context(), originalResp)
 			if err != nil {
 				continue
 			}
@@ -141,7 +141,7 @@ func (t basicTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, errors.Trace(err)
 	}
 	resp, err := t.transport.RoundTrip(req)
-	logger.Tracef(context.TODO(), "basicTransport %q, resp.Header => %#v, %q", req.URL, resp.Header, resp.Status)
+	logger.Tracef(req.Context(), "basicTransport %q, resp.Header => %#v, %q", req.URL, resp.Header, resp.Status)
 	return resp, errors.Trace(err)
 }
 
@@ -171,8 +171,8 @@ func (tokenTransport) scheme() string {
 	return "Bearer"
 }
 
-func getChallengeParameters(scheme string, resp *http.Response) map[string]string {
-	logger.Tracef(context.TODO(),
+func getChallengeParameters(ctx context.Context, scheme string, resp *http.Response) map[string]string {
+	logger.Tracef(ctx,
 		"getting chanllenge parametter for %q with scheme %q from %q",
 		resp.Request.URL.String(),
 		scheme, resp.Header[http.CanonicalHeaderKey("WWW-Authenticate")],
@@ -182,7 +182,7 @@ func getChallengeParameters(scheme string, resp *http.Response) map[string]strin
 			return c.Parameters
 		}
 	}
-	logger.Tracef(context.TODO(), "failed to get challenge parameters for %q schema -> %v", scheme, resp.Header)
+	logger.Tracef(ctx, "failed to get challenge parameters for %q schema -> %v", scheme, resp.Header)
 	return nil
 }
 
@@ -205,8 +205,8 @@ func (t tokenResponse) token() string {
 	return ""
 }
 
-func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
-	parameters := getChallengeParameters(t.scheme(), failedResp)
+func (t *tokenTransport) refreshOAuthToken(ctx context.Context, failedResp *http.Response) error {
+	parameters := getChallengeParameters(ctx, t.scheme(), failedResp)
 	if len(parameters) == 0 {
 		return errors.NewForbidden(nil, "failed to refresh bearer token")
 	}
@@ -220,7 +220,7 @@ func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
 	}
 	scope, ok := parameters["scope"]
 	if !ok {
-		logger.Tracef(context.TODO(), "no scope specified for token auth challenge")
+		logger.Tracef(ctx, "no scope specified for token auth challenge")
 	}
 
 	url, err := url.Parse(realm)
@@ -244,7 +244,7 @@ func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
 		return errors.Trace(err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		_, err = handleErrorResponse(resp)
+		_, err = handleErrorResponse(ctx, resp)
 		return errors.Trace(err)
 	}
 
@@ -289,12 +289,12 @@ func (t *tokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (t *tokenTransport) retry(req *http.Request, prevResp *http.Response) (*http.Response, error) {
-	logger.Tracef(context.TODO(),
+	logger.Tracef(req.Context(),
 		"retrying req URL %q, previous response header %#v, status %v",
 		req.URL, prevResp.Header, prevResp.Status,
 	)
 
-	if err := t.refreshOAuthToken(prevResp); err != nil {
+	if err := t.refreshOAuthToken(req.Context(), prevResp); err != nil {
 		return nil, errors.Annotatef(err, "refreshing OAuth token")
 	}
 	if err := t.authorizeRequest(req); err != nil {
@@ -330,11 +330,11 @@ func (t errorTransport) RoundTrip(request *http.Request) (*http.Response, error)
 	if resp.StatusCode < 400 {
 		return resp, nil
 	}
-	logger.Tracef(context.TODO(), "errorTransport %q, err -> %v", request.URL, err)
-	return handleErrorResponse(resp)
+	logger.Tracef(request.Context(), "errorTransport %q, err -> %v", request.URL, err)
+	return handleErrorResponse(request.Context(), resp)
 }
 
-func handleErrorResponse(resp *http.Response) (*http.Response, error) {
+func handleErrorResponse(ctx context.Context, resp *http.Response) (*http.Response, error) {
 	if resp.StatusCode < 400 {
 		return resp, nil
 	}
@@ -345,7 +345,7 @@ func handleErrorResponse(resp *http.Response) (*http.Response, error) {
 	}
 	errMsg := fmt.Sprintf("non-successful response status=%d", resp.StatusCode)
 	if logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef(context.TODO(), "%s, url %q, body=%q", errMsg, resp.Request.URL.String(), body)
+		logger.Tracef(ctx, "%s, url %q, body=%q", errMsg, resp.Request.URL.String(), body)
 	}
 	errNew := errors.Errorf
 	switch resp.StatusCode {

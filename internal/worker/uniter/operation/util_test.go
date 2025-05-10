@@ -68,14 +68,12 @@ type MockBundleInfo struct {
 }
 
 type MockStage struct {
-	gotInfo  *charm.BundleInfo
-	gotAbort *<-chan struct{}
-	err      error
+	gotInfo *charm.BundleInfo
+	err     error
 }
 
-func (mock *MockStage) Call(info charm.BundleInfo, abort <-chan struct{}) error {
+func (mock *MockStage) Call(info charm.BundleInfo) error {
 	mock.gotInfo = &info
-	mock.gotAbort = &abort
 	return mock.err
 }
 
@@ -97,8 +95,8 @@ type MockDeployer struct {
 	MockNotifyResolved *MockNoArgs
 }
 
-func (d *MockDeployer) Stage(ctx context.Context, info charm.BundleInfo, abort <-chan struct{}) error {
-	return d.MockStage.Call(info, abort)
+func (d *MockDeployer) Stage(ctx context.Context, info charm.BundleInfo) error {
+	return d.MockStage.Call(info)
 }
 
 func (d *MockDeployer) Deploy() error {

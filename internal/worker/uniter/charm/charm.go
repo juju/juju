@@ -41,22 +41,20 @@ type BundleInfo interface {
 
 // BundleReader provides a mechanism for getting a Bundle from a BundleInfo.
 type BundleReader interface {
-
 	// Read returns the bundle identified by the supplied info. The abort chan
 	// can be used to notify an implementation that it need not complete the
 	// operation, and can immediately error out if it is convenient to do so.
-	Read(ctx context.Context, bi BundleInfo, abort <-chan struct{}) (Bundle, error)
+	Read(ctx context.Context, bi BundleInfo) (Bundle, error)
 }
 
 // Deployer is responsible for installing and upgrading charms.
 type Deployer interface {
-
 	// Stage must be called to prime the Deployer to install or upgrade the
 	// bundle identified by the supplied info. The abort chan can be used to
 	// notify an implementation that it need not complete the operation, and
 	// can immediately error out if it convenient to do so. It must always
 	// be safe to restage the same bundle, or to stage a new bundle.
-	Stage(ctx context.Context, info BundleInfo, abort <-chan struct{}) error
+	Stage(ctx context.Context, info BundleInfo) error
 
 	// Deploy will install or upgrade the most recently staged bundle.
 	// Behaviour is undefined if Stage has not been called. Failures that

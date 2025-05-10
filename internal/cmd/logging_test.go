@@ -4,7 +4,6 @@
 package cmd_test
 
 import (
-	"context"
 	"io/ioutil"
 	"path/filepath"
 
@@ -92,7 +91,7 @@ func (s *LogSuite) TestStderr(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	logger.Infof(context.TODO(), "hello")
+	logger.Infof(ctx, "hello")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
 }
 
@@ -101,7 +100,7 @@ func (s *LogSuite) TestRelPathLog(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	logger.Infof(context.TODO(), "hello")
+	logger.Infof(ctx, "hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
@@ -115,7 +114,7 @@ func (s *LogSuite) TestAbsPathLog(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	logger.Infof(context.TODO(), "hello")
+	logger.Infof(ctx, "hello")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, gc.IsNil)
@@ -127,7 +126,7 @@ func (s *LogSuite) TestLoggingToFileAndStderr(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	logger.Infof(context.TODO(), "hello")
+	logger.Infof(ctx, "hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
@@ -141,9 +140,9 @@ func (s *LogSuite) TestErrorAndWarningLoggingToStderr(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	logger.Warningf(context.TODO(), "a warning")
-	logger.Errorf(context.TODO(), "an error")
-	logger.Infof(context.TODO(), "an info")
+	logger.Warningf(ctx, "a warning")
+	logger.Errorf(ctx, "an error")
+	logger.Infof(ctx, "an info")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `^.*WARNING a warning\n.*ERROR an error\n.*`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }

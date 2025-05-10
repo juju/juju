@@ -119,7 +119,7 @@ func (p *SeqPrompter) prompt(text string) (string, error) {
 		return "", errors.Errorf("unexpected prompt %q; expected %q", text, p.ios[0].prompt)
 	}
 	reply := p.ios[0].reply
-	logger.Infof(context.TODO(), "prompt %q -> %q", text, reply)
+	logger.Infof(context.Background(), "prompt %q -> %q", text, reply)
 	p.ios = p.ios[1:]
 	return reply, nil
 }
