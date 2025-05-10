@@ -129,7 +129,7 @@ func (s *UserAddCommandSuite) TestUserRegistrationString(c *gc.C) {
 type mockModelAPI struct{}
 
 func (m *mockModelAPI) ListModels(ctx context.Context, user string) ([]base.UserModel, error) {
-	return []base.UserModel{{Name: "model", UUID: "modeluuid", Owner: "current-user"}}, nil
+	return []base.UserModel{{Name: "model", UUID: "modeluuid", Namespace: "current-user"}}, nil
 }
 
 func (m *mockModelAPI) Close() error {

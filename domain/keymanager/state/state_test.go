@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"slices"
 	"strings"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/keymanager"
 	keyerrors "github.com/juju/juju/domain/keymanager/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modelstate "github.com/juju/juju/domain/model/state"
 	statemodeltesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/ssh"
@@ -73,12 +73,14 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 
 	s.modelId = statemodeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "keys")
 
-	model, err := modelstate.NewState(s.TxnRunnerFactory()).GetModel(
-		context.Background(), s.modelId,
-	)
+	var userUUID user.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM user where name = ?", "test-userkeys").Scan(&userUUID)
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.userId = model.Owner
-	s.userName = model.OwnerName
+	c.Assert(userUUID, gc.NotNil)
+	s.userId = userUUID
+	s.userName = usertesting.GenNewName(c, "test-userkeys")
 }
 
 // TestAddPublicKeyForUser is asserting the happy path of adding a public key

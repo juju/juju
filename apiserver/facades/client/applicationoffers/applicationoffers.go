@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	access "github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
@@ -375,8 +375,8 @@ func (api *OffersAPIv5) getApplicationOffers(ctx context.Context, user names.Use
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if url.User == "" {
-			url.User = user.Id()
+		if url.Namespace == "" {
+			url.Namespace = user.Id()
 		}
 		if url.HasEndpoint() {
 			results.Results[i].Error = apiservererrors.ServerError(
@@ -430,7 +430,7 @@ func (api *OffersAPIv5) FindApplicationOffers(ctx context.Context, filters param
 		for _, m := range models {
 			modelFilter := filters.Filters[0]
 			modelFilter.ModelName = m.Name
-			modelFilter.OwnerName = m.OwnerName.Name()
+			modelFilter.Namespace = m.Namespace
 			filtersToUse.Filters = append(filtersToUse.Filters, modelFilter)
 		}
 	} else {
@@ -556,7 +556,7 @@ func (api *OffersAPIv5) RemoteApplicationInfo(ctx context.Context, args params.O
 
 func (api *OffersAPIv5) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFilter {
 	f := params.OfferFilter{
-		OwnerName: url.User,
+		Namespace: url.Namespace,
 		ModelName: url.ModelName,
 		OfferName: url.ApplicationName,
 	}

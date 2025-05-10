@@ -53,10 +53,10 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func createArgs(owner names.UserTag) params.ModelCreateArgs {
+func createArgs(owner string) params.ModelCreateArgs {
 	return params.ModelCreateArgs{
-		Name:     "test-model",
-		OwnerTag: owner.String(),
+		Name:      "test-model",
+		Namespace: owner,
 		Config: map[string]interface{}{
 			"authorized-keys": "ssh-key",
 			// And to make it a valid dummy config
@@ -289,9 +289,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedCloudRegion string,
 ) coremodel.UUID {
 	modelUUID := modeltesting.GenModelUUID(c)
-	userTag, err := names.ParseUserTag(modelCreateArgs.OwnerTag)
-	c.Assert(err, gc.IsNil)
-	ownerName := user.NameFromTag(userTag)
+	ownerName := usertesting.GenNewName(c, modelCreateArgs.Namespace)
 	ownerUUID := usertesting.GenUserUUID(c)
 
 	defaultCred := credential.Key{
@@ -324,8 +322,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedModelInfo := coremodel.Model{
 		Name:        "foo",
 		UUID:        modelUUID,
-		Owner:       ownerUUID,
-		OwnerName:   ownerName,
+		Namespace:   modelCreateArgs.Namespace,
 		Cloud:       expectedCloudName,
 		CloudRegion: expectedCloudRegion,
 	}
@@ -425,8 +422,8 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Namespace: "admin",
 		Config: map[string]interface{}{
 			"bar": "baz",
 		},
@@ -450,8 +447,8 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 	defer ctrl.Finish()
 
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Namespace: "admin",
 	}
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
@@ -469,8 +466,8 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *gc.C) {
 	defer ctrl.Finish()
 
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Namespace: "admin",
 	}
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
@@ -495,8 +492,8 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *gc.C) {
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Namespace: "admin",
 		Config: map[string]interface{}{
 			"bar":                  "baz",
 			config.AgentVersionKey: jujuversion.Current.String(),
@@ -526,8 +523,8 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *gc.C
 		Name:  "some-credential",
 	}
 	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
+		Name:      "foo",
+		Namespace: "admin",
 		Config: map[string]interface{}{
 			"bar":                  "baz",
 			config.AgentVersionKey: jujuversion.Current.String(),
@@ -889,8 +886,7 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 	addModelUser := names.NewUserTag("add-model")
 
 	s.setAPIUser(c, addModelUser)
-	nonAdminUser := names.NewUserTag("non-admin")
-	_, err := s.api.CreateModel(context.Background(), createArgs(nonAdminUser))
+	_, err := s.api.CreateModel(context.Background(), createArgs("non-admin"))
 	c.Assert(err, gc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners")
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
@@ -1033,9 +1029,7 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	modelCreateArgs params.ModelCreateArgs,
 ) {
 	modelUUID := modeltesting.GenModelUUID(c)
-	userTag, err := names.ParseUserTag(modelCreateArgs.OwnerTag)
-	c.Assert(err, gc.IsNil)
-	ownerName := user.NameFromTag(userTag)
+	ownerName := usertesting.GenNewName(c, modelCreateArgs.Namespace)
 	ownerUUID := usertesting.GenUserUUID(c)
 
 	// Get the default cloud name and credential.
@@ -1146,7 +1140,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	// c.Assert(endPoint, gc.NotNil)
 }
 
-func (s *modelManagerStateSuite) createArgsForVersion(c *gc.C, owner names.UserTag, ver interface{}) params.ModelCreateArgs {
+func (s *modelManagerStateSuite) createArgsForVersion(c *gc.C, owner string, ver interface{}) params.ModelCreateArgs {
 	params := createArgs(owner)
 	params.Config["agent-version"] = ver
 	return params
@@ -1160,11 +1154,11 @@ func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	args := createArgs(owner)
+	args := createArgs("admin")
 	s.expectCreateModelStateSuite(c, ctrl, args)
 	model, err := s.modelmanager.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.OwnerTag, gc.Equals, owner.String())
+	c.Assert(model.Namespace, gc.Equals, "admin")
 	c.Assert(model.Name, gc.Equals, "test-model")
 	c.Assert(model.Type, gc.Equals, "iaas")
 }
@@ -1176,23 +1170,14 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	defer ctrl.Finish()
 
 	s.setAPIUser(c, jujutesting.AdminUser)
-	owner := names.NewUserTag("external@remote")
-	args := createArgs(owner)
+	args := createArgs("external@remote")
 	s.expectCreateModelStateSuite(c, ctrl, args)
 
 	model, err := s.modelmanager.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.OwnerTag, gc.Equals, owner.String())
+	c.Assert(model.Namespace, gc.Equals, "external@remote")
 	c.Assert(model.Name, gc.Equals, "test-model")
 	c.Assert(model.Type, gc.Equals, "iaas")
-
-	newState, err := s.StatePool().Get(model.UUID)
-	c.Assert(err, jc.ErrorIsNil)
-	defer newState.Release()
-
-	newModel, err := newState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newModel.Owner(), gc.Equals, owner)
 }
 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *gc.C) {
@@ -1203,8 +1188,7 @@ func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *
 	userTag := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, userTag)
 
-	owner := names.NewUserTag("external@remote")
-	_, err := s.modelmanager.CreateModel(context.Background(), createArgs(owner))
+	_, err := s.modelmanager.CreateModel(context.Background(), createArgs("external@remote"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -1216,7 +1200,7 @@ func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSelf(c *gc.C) {
 	owner := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, owner)
 
-	_, err := s.modelmanager.CreateModel(context.Background(), createArgs(owner))
+	_, err := s.modelmanager.CreateModel(context.Background(), createArgs("non-admin@remote"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -1228,7 +1212,7 @@ func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 
 	admin := jujutesting.AdminUser
 	s.setAPIUser(c, admin)
-	args := s.createArgsForVersion(c, admin, jujuversion.Current.String())
+	args := s.createArgsForVersion(c, "admin", jujuversion.Current.String())
 	s.expectCreateModelStateSuite(c, ctrl, args)
 	_, err := s.modelmanager.CreateModel(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)

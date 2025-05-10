@@ -41,10 +41,10 @@ type DestroyControllerArgs struct {
 // ModelBlockInfo holds information about a model and its
 // current blocks.
 type ModelBlockInfo struct {
-	Name     string   `json:"name"`
-	UUID     string   `json:"model-uuid"`
-	OwnerTag string   `json:"owner-tag"`
-	Blocks   []string `json:"blocks"`
+	Name      string   `json:"name"`
+	UUID      string   `json:"model-uuid"`
+	Namespace string   `json:"namespace"`
+	Blocks    []string `json:"blocks"`
 }
 
 // ModelBlockInfoList holds information about the blocked models
@@ -68,7 +68,7 @@ type ModelStatus struct {
 	HostedMachineCount int                    `json:"hosted-machine-count"`
 	ApplicationCount   int                    `json:"application-count"`
 	UnitCount          int                    `json:"unit-count"`
-	OwnerTag           string                 `json:"owner-tag"`
+	Namespace          string                 `json:"namespace"`
 	Applications       []ModelApplicationInfo `json:"applications,omitempty"`
 	Machines           []ModelMachineInfo     `json:"machines,omitempty"`
 	Volumes            []ModelVolumeInfo      `json:"volumes,omitempty"`

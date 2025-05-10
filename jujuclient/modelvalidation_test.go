@@ -32,7 +32,7 @@ func (s *ModelValidationSuite) TestValidateModelName(c *gc.C) {
 	c.Assert(jujuclient.ValidateModelName("foo"), gc.ErrorMatches, `validating model name "foo": unqualified model name "foo" not valid`)
 	c.Assert(jujuclient.ValidateModelName(""), gc.ErrorMatches, `validating model name "": unqualified model name "" not valid`)
 	c.Assert(jujuclient.ValidateModelName("!"), gc.ErrorMatches, `validating model name "!": unqualified model name "!" not valid`)
-	c.Assert(jujuclient.ValidateModelName("!/foo"), gc.ErrorMatches, `validating model name "!/foo": user name "!" not valid`)
+	c.Assert(jujuclient.ValidateModelName("!/foo"), gc.ErrorMatches, `validating model name "!/foo": namespace "!" not valid`)
 }
 
 func (s *ModelValidationSuite) TestValidateModelDetailsNoModelUUID(c *gc.C) {

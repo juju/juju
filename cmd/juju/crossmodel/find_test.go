@@ -72,7 +72,7 @@ func (s *findSuite) TestNoResults(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedModelName = "none"
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
-		OwnerName: "bob",
+		Namespace: "bob",
 		ModelName: "none",
 		Endpoints: []jujucrossmodel.EndpointFilterTerm{{
 			Interface: "mysql",
@@ -91,7 +91,7 @@ func (s *findSuite) TestSimpleFilter(c *gc.C) {
 	s.mockAPI.expectedModelName = "model"
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
 		OfferName: "hosted-db2",
-		OwnerName: "fred",
+		Namespace: "fred",
 		ModelName: "model",
 	}
 	s.mockAPI.expectedModelName = "model"
@@ -108,7 +108,7 @@ master  fred/model.hosted-db2  consume  http:db2, http:log
 func (s *findSuite) TestEndpointFilter(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
-		OwnerName: "fred",
+		Namespace: "fred",
 		ModelName: "model",
 		Endpoints: []jujucrossmodel.EndpointFilterTerm{{
 			Interface: "mysql",

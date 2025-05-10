@@ -88,20 +88,20 @@ func (d *dummyState) Create(
 		return errors.Errorf("%w %q", modelerrors.AlreadyExists, modelID)
 	}
 
+	userName, exists := d.users[user.UUID(args.Owner.String())]
+	if !exists {
+		return errors.Errorf("%w for owner %q", usererrors.UserNotFound, args.Owner)
+	}
+
 	for _, v := range d.models {
-		if v.Name == args.Name && v.Owner == args.Owner {
-			return errors.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, v.Name, v.Owner)
+		if v.Name == args.Name && v.Namespace == userName.String() {
+			return errors.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, v.Name, v.Namespace)
 		}
 	}
 
 	cloud, exists := d.clouds[args.Cloud]
 	if !exists {
 		return errors.Errorf("%w cloud %q", coreerrors.NotFound, args.Cloud)
-	}
-
-	userName, exists := d.users[user.UUID(args.Owner.String())]
-	if !exists {
-		return errors.Errorf("%w for owner %q", usererrors.UserNotFound, args.Owner)
 	}
 
 	hasRegion := false
@@ -138,8 +138,7 @@ func (d *dummyState) Create(
 		Cloud:       args.Cloud,
 		CloudRegion: args.CloudRegion,
 		Credential:  args.Credential,
-		Owner:       args.Owner,
-		OwnerName:   userName,
+		Namespace:   userName.String(),
 		Life:        life.Alive,
 	}
 	return nil
@@ -188,7 +187,7 @@ func (d *dummyState) GetModelByName(
 	modelName string,
 ) (coremodel.Model, error) {
 	for _, model := range d.models {
-		if model.OwnerName == userName && model.Name == modelName {
+		if model.Namespace == userName.String() && model.Name == modelName {
 			return model, nil
 		}
 	}
@@ -234,7 +233,11 @@ func (d *dummyState) ListModelsForUser(
 ) ([]coremodel.Model, error) {
 	rval := []coremodel.Model{}
 	for _, m := range d.models {
-		if m.Owner == userID {
+		userName, ok := d.users[userID]
+		if !ok {
+			continue
+		}
+		if m.Namespace == userName.String() {
 			rval = append(rval, m)
 		}
 	}
@@ -315,7 +318,7 @@ func (d *dummyState) GetModelUsers(_ context.Context, _ coremodel.UUID) ([]corem
 func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName user.Name) ([]coremodel.UserModelSummary, error) {
 	var rval []coremodel.UserModelSummary
 	for _, m := range d.models {
-		if m.OwnerName == userName {
+		if m.Namespace == userName.String() {
 			rval = append(rval, coremodel.UserModelSummary{
 				UserAccess: permission.AdminAccess,
 				ModelSummary: coremodel.ModelSummary{
@@ -327,7 +330,7 @@ func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName user.
 					CloudRegion:    m.CloudRegion,
 					ControllerUUID: jujutesting.ControllerTag.Id(),
 					IsController:   m.UUID == d.controllerModelUUID,
-					OwnerName:      m.OwnerName,
+					Namespace:      m.Namespace,
 					Life:           m.Life,
 					AgentVersion:   version.Current,
 				},
@@ -349,7 +352,7 @@ func (d *dummyState) ListAllModelSummaries(_ context.Context) ([]coremodel.Model
 			CloudRegion:    m.CloudRegion,
 			ControllerUUID: jujutesting.ControllerTag.Id(),
 			IsController:   m.UUID == d.controllerModelUUID,
-			OwnerName:      m.OwnerName,
+			Namespace:      m.Namespace,
 			Life:           m.Life,
 			AgentVersion:   version.Current,
 		})

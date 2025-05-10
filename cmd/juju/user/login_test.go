@@ -122,10 +122,10 @@ func (s *LoginCommandSuite) TestLoginAlreadyLoggedInSameUser(c *gc.C) {
 func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *gc.C) {
 	s.PatchValue(user.ListModels, func(_ context.Context, c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return []apibase.UserModel{{
-			Name:  "foo",
-			UUID:  "some-uuid",
-			Owner: "bob",
-			Type:  "iaas",
+			Name:      "foo",
+			UUID:      "some-uuid",
+			Namespace: "bob",
+			Type:      "iaas",
 		}}, nil
 	})
 	err := s.store.RemoveAccount("testing")
@@ -142,15 +142,15 @@ Current model set to "bob/foo".
 func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *gc.C) {
 	s.PatchValue(user.ListModels, func(_ context.Context, c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return []apibase.UserModel{{
-			Name:  "foo",
-			UUID:  "some-uuid",
-			Owner: "bob",
-			Type:  "iaas",
+			Name:      "foo",
+			UUID:      "some-uuid",
+			Namespace: "bob",
+			Type:      "iaas",
 		}, {
-			Name:  "bar",
-			UUID:  "some-uuid",
-			Owner: "alice",
-			Type:  "iaas",
+			Name:      "bar",
+			UUID:      "some-uuid",
+			Namespace: "alice",
+			Type:      "iaas",
 		}}, nil
 	})
 	err := s.store.RemoveAccount("testing")

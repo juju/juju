@@ -192,7 +192,7 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 
 	c.Check(mod.UUID, gc.Equals, "model-uuid")
 	c.Check(mod.Name, gc.Equals, "model-name")
-	c.Check(mod.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
+	c.Check(mod.Namespace, gc.Equals, "owner")
 	c.Check(mod.AgentVersion, gc.Equals, semversion.MustParse("1.2.3"))
 
 	bytes, err := description.Serialize(modelDescription)
