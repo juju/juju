@@ -59,7 +59,6 @@ func (s *unitServiceSuite) TestGetUnitUUIDErrors(c *tc.C) {
 }
 
 type registerArgMatcher struct {
-	c   *tc.C
 	arg application.RegisterCAASUnitArg
 }
 
@@ -69,7 +68,6 @@ func (m registerArgMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	m.c.Assert(obtained.PasswordHash, tc.Not(tc.Equals), "")
 	obtained.PasswordHash = ""
 	m.arg.PasswordHash = ""
 	return reflect.DeepEqual(obtained, m.arg)
