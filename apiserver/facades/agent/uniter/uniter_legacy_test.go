@@ -43,9 +43,11 @@ type uniterLegacySuite struct {
 
 var _ = tc.Suite(&uniterLegacySuite{})
 
-func (s *uniterLegacySuite) SetUpTest(c *tc.C) {
+func (s *uniterLegacySuite) SetUpSuite(c *tc.C) {
 	c.Skip("Skip factory-based uniter tests. TODO: Re-write without factories")
+}
 
+func (s *uniterLegacySuite) SetUpTest(c *tc.C) {
 	s.uniterSuiteBase.SetUpTest(c)
 	s.domainServices = s.ControllerDomainServices(c)
 
