@@ -6,12 +6,13 @@ package apiserver_test
 import (
 	"testing"
 
-	"github.com/juju/tc"
+	mgotesting "github.com/juju/mgo/v3/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/apiserver ControllerConfigService,ModelService
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination service_mock_test.go github.com/juju/juju/internal/services DomainServicesGetter
 
 func TestPackage(t *testing.T) {
-	tc.TestingT(t)
+	mgotesting.MgoServer.EnableReplicaSet = true
+	mgotesting.MgoTestPackage(t, nil)
 }

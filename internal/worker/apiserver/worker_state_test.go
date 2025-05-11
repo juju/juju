@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -32,11 +31,6 @@ var _ = tc.Suite(&WorkerStateSuite{})
 
 func (s *WorkerStateSuite) SetUpSuite(c *tc.C) {
 	s.workerFixture.SetUpSuite(c)
-	mgotesting.MgoServer.EnableReplicaSet = true
-	err := mgotesting.MgoServer.Start(nil)
-	c.Assert(err, tc.ErrorIsNil)
-	s.workerFixture.AddCleanup(func(*tc.C) { mgotesting.MgoServer.Destroy() })
-
 	s.StateSuite.SetUpSuite(c)
 }
 
