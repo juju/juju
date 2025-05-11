@@ -52,6 +52,12 @@ func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.modelProviderService = NewMockModelProviderService(ctrl)
 
+	c.Cleanup(func() {
+		s.backend = nil
+		s.authorizer = nil
+		s.modelConfigService = nil
+		s.modelProviderService = nil
+	})
 	return ctrl
 }
 
@@ -576,8 +582,10 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *tc.C) {
 }
 
 func (s *facadeSuite) TestGetVirtualHostnameForEntity(c *tc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
+
+	s.authorizer.EXPECT().AuthClient().Return(true)
 
 	facade, err := sshclient.InternalFacade(
 		names.NewControllerTag(s.controllerUUID),
