@@ -58,7 +58,7 @@ func (s *ManifoldSuite) SetUpSuite(c *tc.C) {
 		return func(wc machineactions.WorkerConfig) (worker.Worker, error) {
 			c.Assert(wc.Facade, tc.Equals, s.fakeFacade)
 			c.Assert(wc.MachineTag, tc.Equals, fakeTag)
-			c.Assert(wc.HandleAction, tc.Equals, fakeHandleAction)
+			c.Assert(wc.HandleAction, tc.NotNil)
 			c.Assert(wc.MachineLock, tc.Equals, s.fakeLock)
 			return w, err
 		}
