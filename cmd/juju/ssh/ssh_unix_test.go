@@ -195,7 +195,7 @@ func (s *SSHSuite) TestSSHCommand(c *tc.C) {
 			target = t.target
 		}
 		ctrl := gomock.NewController(c)
-		ssh, app, status := s.setupModel(ctrl, t.expected.withProxy, nil, nil, target)
+		ssh, app, status := s.setupModel(ctrl, t.expected.withProxy, false, nil, nil, target)
 		sshCmd := NewSSHCommandForTest(app, ssh, status, t.hostChecker, isTerminal, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 		ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), t.args...)
@@ -215,7 +215,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ssh, app, status := s.setupModel(ctrl, true, nil, nil, "0")
+	ssh, app, status := s.setupModel(ctrl, true, false, nil, nil, "0")
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "0")
@@ -234,7 +234,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSHAddressMatch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ssh, app, status := s.setupModel(ctrl, true, nil, nil, "0")
+	ssh, app, status := s.setupModel(ctrl, true, false, nil, nil, "0")
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "0")
@@ -290,7 +290,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *tc.C, proxy bool) {
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
 
 	var addr []string
-	ssh, app, status := s.setupModel(ctrl, proxy, func() []string {
+	ssh, app, status := s.setupModel(ctrl, proxy, false, func() []string {
 		return addr
 	}, nil, "0")
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
@@ -311,7 +311,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *tc.C, proxy bool) {
 		}
 	}
 
-	ssh, app, status = s.setupModel(ctrl, proxy, func() []string {
+	ssh, app, status = s.setupModel(ctrl, proxy, false, func() []string {
 		return addr
 	}, nil, "0")
 	sshCmd = NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
@@ -367,7 +367,7 @@ func (s *SSHSuite) TestKeyFetchRetries(c *tc.C) {
 		}
 	}
 
-	ssh, app, status := s.setupModel(ctrl, false, nil, keysFunc, "1")
+	ssh, app, status := s.setupModel(ctrl, false, false, nil, keysFunc, "1")
 	cmd := NewSSHCommandForTest(app, ssh, status, validAddresses("1.public"), isTerminal, baseTestingRetryStrategy, publicKeyRetry)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), "1")

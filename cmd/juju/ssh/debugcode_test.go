@@ -30,7 +30,7 @@ func (s *DebugCodeSuite) TestArgFormatting(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ssh, app, status := s.setupModel(ctrl, false, nil, nil, "mysql/0")
+	ssh, app, status := s.setupModel(ctrl, false, false, nil, nil, "mysql/0")
 	app.EXPECT().GetCharmURLOrigin(gomock.Any(), "mysql").Return(charm.MustParseURL("mysql"), apicharm.Origin{}, nil)
 
 	charmAPI := mocks.NewMockCharmAPI(ctrl)

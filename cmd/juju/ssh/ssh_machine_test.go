@@ -57,7 +57,7 @@ type argsSpec struct {
 	argsMatch string
 }
 
-func (s *argsSpec) check(c *tc.C, output string) {
+func (s *argsSpec) check(c tc.LikeC, output string) {
 	// The first line in the output from the fake ssh/scp is the
 	// command line. The remaining lines should contain the contents
 	// of the UserKnownHostsFile file provided (if any).
@@ -261,7 +261,7 @@ func (s *SSHMachineSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
 }
 
 func (s *SSHMachineSuite) setupModel(
-	ctrl *gomock.Controller, withProxy bool,
+	ctrl *gomock.Controller, withProxy bool, noClose bool,
 	machineAddresses func() []string,
 	keysForTarget func(ctx context.Context, target string) ([]string, error),
 	targets ...string,
@@ -359,9 +359,14 @@ func (s *SSHMachineSuite) setupModel(
 		}, nil
 	}).MaxTimes(2)
 	sshClient.EXPECT().Proxy(gomock.Any()).Return(withProxy, nil).MaxTimes(1)
-	sshClient.EXPECT().Close().Return(nil)
-	statusClient.EXPECT().Close().Return(nil)
-	// leader api attribute is assigned the application api and both may be closed.
-	applicationClient.EXPECT().Close().Return(nil).MinTimes(1)
+	if noClose {
+		sshClient.EXPECT().Close().Return(nil).MaxTimes(1)
+		statusClient.EXPECT().Close().Return(nil).MaxTimes(1)
+		applicationClient.EXPECT().Close().Return(nil).AnyTimes()
+	} else {
+		sshClient.EXPECT().Close().Return(nil)
+		statusClient.EXPECT().Close().Return(nil)
+		applicationClient.EXPECT().Close().Return(nil).MinTimes(1)
+	}
 	return sshClient, applicationClient, statusClient
 }

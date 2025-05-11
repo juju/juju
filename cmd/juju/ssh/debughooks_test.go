@@ -6,8 +6,10 @@ package ssh
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"regexp"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -44,6 +46,7 @@ var debugHooksTests = []struct {
 	hostChecker jujussh.ReachableChecker
 	error       string
 	expected    *argsSpec
+	noClose     bool
 }{{
 	info:        "unit name without hook",
 	args:        []string{"mysql/0"},
@@ -94,21 +97,24 @@ var debugHooksTests = []struct {
 	hostChecker: validAddresses("0.public"),
 	expected:    nil,
 }, {
-	info:  `invalid unit syntax`,
-	args:  []string{"mysql"},
-	error: `"mysql" is not a valid unit name`,
+	info:    `invalid unit syntax`,
+	args:    []string{"mysql"},
+	error:   `"mysql" is not a valid unit name`,
+	noClose: true,
 }, {
 	info:  `invalid unit`,
 	args:  []string{"nonexistent/123"},
 	error: `unit "nonexistent/123" not found`,
 }, {
-	info:  `invalid hook`,
-	args:  []string{"mysql/0", "invalid-hook"},
-	error: `unit "mysql/0" contains neither hook nor action "invalid-hook", valid actions are \[anotherfakeaction fakeaction\] and valid hooks are .*`,
+	info:    `invalid hook`,
+	args:    []string{"mysql/0", "invalid-hook"},
+	error:   `unit "mysql/0" contains neither hook nor action "invalid-hook", valid actions are \[anotherfakeaction fakeaction\] and valid hooks are .*`,
+	noClose: true,
 }, {
-	info:  `no args at all`,
-	args:  nil,
-	error: `no unit name specified`,
+	info:    `no args at all`,
+	args:    nil,
+	error:   `no unit name specified`,
+	noClose: true,
 }}
 
 var meta = charm.Meta{
@@ -126,45 +132,52 @@ var actions = charm.Actions{
 }
 
 func (s *DebugHooksSuite) TestDebugHooksCommand(c *tc.C) {
+	for i, test := range debugHooksTests {
+		c.Logf("test %d: %s\n\t%s\n", i, test.info, test.args)
+		c.Run(fmt.Sprintf("Test%d", i), func(t *testing.T) {
+			c := &tc.TBC{t}
+			ctrl := gomock.NewController(c)
+			defer ctrl.Finish()
 
-	for i, t := range debugHooksTests {
-		c.Logf("test %d: %s\n\t%s\n", i, t.info, t.args)
+			s.setHostChecker(test.hostChecker)
 
-		s.setHostChecker(t.hostChecker)
-
-		ctrl := gomock.NewController(c)
-		withProxy := false
-		if t.expected != nil {
-			withProxy = t.expected.withProxy
-		}
-		target := "mysql/0"
-		if len(t.args) > 0 && t.args[0] == "nonexistent/123" {
-			target = t.args[0]
-		}
-		ssh, app, status := s.setupModel(ctrl, withProxy, nil, nil, target)
-		app.EXPECT().GetCharmURLOrigin(gomock.Any(), "mysql").DoAndReturn(func(ctx context.Context, curl string) (*charm.URL, apicharm.Origin, error) {
-			if curl != "mysql" {
-				return nil, apicharm.Origin{}, errors.NotFoundf(curl)
+			withProxy := false
+			if test.expected != nil {
+				withProxy = test.expected.withProxy
 			}
-			return charm.MustParseURL("mysql"), apicharm.Origin{}, nil
+			target := "mysql/0"
+			if len(test.args) > 0 && test.args[0] == "nonexistent/123" {
+				target = test.args[0]
+			}
+			ssh, app, status := s.setupModel(ctrl, withProxy, test.noClose, nil, nil, target)
+			app.EXPECT().GetCharmURLOrigin(gomock.Any(), "mysql").DoAndReturn(func(ctx context.Context, curl string) (*charm.URL, apicharm.Origin, error) {
+				if curl != "mysql" {
+					return nil, apicharm.Origin{}, errors.NotFoundf(curl)
+				}
+				return charm.MustParseURL("mysql"), apicharm.Origin{}, nil
+			}).MaxTimes(1)
+
+			charmAPI := mocks.NewMockCharmAPI(ctrl)
+			chInfo := &charms.CharmInfo{Meta: &meta, Actions: &actions}
+			charmAPI.EXPECT().CharmInfo(gomock.Any(), "ch:mysql").Return(chInfo, nil).MaxTimes(1)
+			if test.noClose {
+				charmAPI.EXPECT().Close().Return(nil).MaxTimes(1)
+			} else {
+				charmAPI.EXPECT().Close().Return(nil)
+			}
+
+			hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, test.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
+
+			ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), test.args...)
+			if test.error != "" {
+				c.Assert(err, tc.ErrorMatches, test.error)
+			} else {
+				c.Assert(err, tc.ErrorIsNil)
+				if test.expected != nil {
+					test.expected.check(c, cmdtesting.Stdout(ctx))
+				}
+			}
 		})
-
-		charmAPI := mocks.NewMockCharmAPI(ctrl)
-		chInfo := &charms.CharmInfo{Meta: &meta, Actions: &actions}
-		charmAPI.EXPECT().CharmInfo(gomock.Any(), "ch:mysql").Return(chInfo, nil)
-		charmAPI.EXPECT().Close().Return(nil)
-
-		hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, t.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
-
-		ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), t.args...)
-		if t.error != "" {
-			c.Check(err, tc.ErrorMatches, t.error)
-		} else {
-			c.Check(err, tc.ErrorIsNil)
-			if t.expected != nil {
-				t.expected.check(c, cmdtesting.Stdout(ctx))
-			}
-		}
 	}
 }
 
@@ -172,7 +185,7 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ssh, app, status := s.setupModel(ctrl, false, nil, nil, "mysql/0")
+	ssh, app, status := s.setupModel(ctrl, false, false, nil, nil, "mysql/0")
 	app.EXPECT().GetCharmURLOrigin(gomock.Any(), "mysql").Return(charm.MustParseURL("mysql"), apicharm.Origin{}, nil)
 
 	charmAPI := mocks.NewMockCharmAPI(ctrl)
