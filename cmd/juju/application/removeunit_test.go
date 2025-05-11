@@ -125,6 +125,10 @@ ERROR removing unit unit/2 failed: doink
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnitNoWaitWithoutForce(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.mockApi = mocks.NewMockRemoveApplicationAPI(ctrl)
+
 	_, err := s.runRemoveUnit(c, "unit/0", "--no-wait")
 	c.Assert(err, tc.ErrorMatches, `--no-wait without --force not valid`)
 }
@@ -277,6 +281,8 @@ func (s *RemoveUnitSuite) TestCAASRemoveUnitNotSupported(c *tc.C) {
 }
 
 func (s *RemoveUnitSuite) TestCAASAllowsNumUnitsOnly(c *tc.C) {
+	defer s.setup(c).Finish()
+
 	s.setCaasModel()
 
 	_, err := s.runRemoveUnit(c, "some-application-name")
@@ -297,6 +303,10 @@ func (s *RemoveUnitSuite) TestCAASAllowsNumUnitsOnly(c *tc.C) {
 	_, err = s.runRemoveUnit(c, "some-application-name", "another-application", "--num-units", "2")
 	c.Assert(err, tc.ErrorMatches, "only single application supported")
 
+	s.mockApi.EXPECT().ScaleApplication(gomock.Any(), apiapplication.ScaleApplicationParams{
+		ApplicationName: "some-application-name",
+		ScaleChange:     -2,
+	}).Return(params.ScaleApplicationResult{Info: &params.ScaleApplicationInfo{}}, nil)
 	_, err = s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
 	c.Assert(err, tc.ErrorIsNil)
 }
