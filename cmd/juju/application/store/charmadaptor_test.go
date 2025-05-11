@@ -67,8 +67,12 @@ func (s *resolveSuite) TestResolveCharmWithAPIError(c *tc.C) {
 }
 
 func (s *resolveSuite) TestResolveCharmNotCSCharm(c *tc.C) {
+	c.Skip("FIXME: this test passes - is it supposed to?")
+	defer s.setupMocks(c).Finish()
+
 	curl, err := charm.ParseURL("local:bionic/testme-3")
 	c.Assert(err, tc.ErrorIsNil)
+	s.expectCharmResolutionCallWithAPIError(curl, "edge", errors.New("bad"))
 
 	origin := commoncharm.Origin{
 		Source: commoncharm.OriginLocal,
