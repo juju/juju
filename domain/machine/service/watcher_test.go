@@ -6,8 +6,8 @@ package service
 import (
 	"context"
 
-	"go.uber.org/mock/gomock"
 	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"

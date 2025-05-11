@@ -118,7 +118,7 @@ func NewStubFile(stub *testing.Stub, raw io.ReadWriter) *StubFile {
 
 func (s *StubFile) Name() string {
 	s.Stub.AddCall("Name")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.Info.Info.Name
 }
@@ -180,42 +180,42 @@ func NewStubFileInfo(stub *testing.Stub, name, content string) *StubFileInfo {
 
 func (s StubFileInfo) Name() string {
 	s.Stub.AddCall("Name")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.Info.Name
 }
 
 func (s StubFileInfo) Size() int64 {
 	s.Stub.AddCall("Size")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.Info.Size
 }
 
 func (s StubFileInfo) Mode() os.FileMode {
 	s.Stub.AddCall("Mode")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.Info.Mode
 }
 
 func (s StubFileInfo) ModTime() time.Time {
 	s.Stub.AddCall("ModTime")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.Info.ModTime
 }
 
 func (s StubFileInfo) IsDir() bool {
 	s.Stub.AddCall("IsDir")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.Info.Mode.IsDir()
 }
 
 func (s StubFileInfo) Sys() interface{} {
 	s.Stub.AddCall("Sys")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.ReturnSys
 }
@@ -240,26 +240,26 @@ func NewStubHash(stub *testing.Stub, raw io.Writer) *StubHash {
 
 func (s *StubHash) Sum(b []byte) []byte {
 	s.Stub.AddCall("Sum", b)
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.ReturnSum
 }
 
 func (s *StubHash) Reset() {
 	s.Stub.AddCall("Reset")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 }
 
 func (s *StubHash) Size() int {
 	s.Stub.AddCall("Size")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.ReturnSize
 }
 
 func (s *StubHash) BlockSize() int {
 	s.Stub.AddCall("BlockSize")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.ReturnBlockSize
 }

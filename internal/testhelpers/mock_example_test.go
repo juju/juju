@@ -1,3 +1,6 @@
+// Copyright 2013, 2014 Canonical Ltd.
+// Licensed under the LGPLv3, see LICENCE file for details.
+
 package testhelpers_test
 
 import (
@@ -62,7 +65,7 @@ func Example() {
 	mock.Call("Div", 1, 1).Returns(1, nil)
 	mock.Call("Div", 1, 0).Returns(0, fmt.Errorf("cannot divide by zero"))
 
-	// Pass in the mock which satisifes a dependency of
+	// Pass in the mock which satisfies a dependency of
 	// ExampleTypeWhichUsesInterface. This allows us to inject mocked
 	// calls.
 	example := ExampleTypeWhichUsesInterface{calculator: mock}

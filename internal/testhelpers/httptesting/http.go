@@ -18,7 +18,7 @@ import (
 )
 
 // BodyAsserter represents a function that can assert the correctness of
-// a JSON reponse.
+// a JSON response.
 type BodyAsserter func(c *tc.C, body json.RawMessage)
 
 // JSONCallParams holds parameters for AssertJSONCall.
@@ -279,7 +279,7 @@ func Do(c *tc.C, p DoRequestParams) *http.Response {
 	}
 	// malformed error check here is required to ensure that we handle cases
 	// where prior to go version 1.12 if you try and access HTTPS from a HTTP
-	// end point you recieved garbage back. In go version 1.12 and higher, the
+	// end point you received garbage back. In go version 1.12 and higher, the
 	// status code of 400 is returned. The issue with this is that we should
 	// handle both go version <1.11 and go >=1.12 in the same way. Juju
 	// shouldn't have to know about the idiosyncrasies of the go runtime.

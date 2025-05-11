@@ -22,11 +22,13 @@ type panicC struct {
 }
 
 func (pc *panicC) recover() {
+	//revive:disable
 	if err := recover(); err != nil {
 		if !pc.failed.Swap(true) {
 			pc.errString = fmt.Sprintf("%v", err)
 		}
 	}
+	//revive:enable
 }
 
 func (pc *panicC) Assert(obtained any, checker tc.Checker, args ...any) {

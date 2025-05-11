@@ -23,13 +23,13 @@ type cmdSuite struct {
 var _ = tc.Suite(&cmdSuite{})
 
 func (s *cmdSuite) TestHookCommandOutput(c *tc.C) {
-	var CommandOutput = (*exec.Cmd).CombinedOutput
+	var commandOutput = (*exec.Cmd).CombinedOutput
 
-	cmdChan, cleanup := testing.HookCommandOutput(&CommandOutput, []byte{1, 2, 3, 4}, nil)
+	cmdChan, cleanup := testing.HookCommandOutput(&commandOutput, []byte{1, 2, 3, 4}, nil)
 	defer cleanup()
 
 	testCmd := exec.Command("fake-command", "arg1", "arg2")
-	out, err := CommandOutput(testCmd)
+	out, err := commandOutput(testCmd)
 	c.Assert(err, tc.IsNil)
 	cmd := <-cmdChan
 	c.Assert(out, tc.DeepEquals, []byte{1, 2, 3, 4})

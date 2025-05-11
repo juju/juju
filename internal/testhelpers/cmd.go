@@ -185,6 +185,7 @@ func ReadEchoArgs(c *tc.C, execName string) string {
 	// Write out the remaining lines for the next check
 	content = []byte(strings.Join(lines[1:], "\n"))
 	err = ioutil.WriteFile(execPath+".out", content, 0644) // or just call this filename somewhere, once.
+	c.Assert(err, tc.ErrorIsNil)
 	return actual
 }
 
@@ -216,7 +217,7 @@ func ExecCommand(cfg PatchExecConfig) func(string, ...string) *exec.Cmd {
 		//
 		// Note that we don't need to include the suite name in check.f, because
 		// even if you have more than one suite embedding PatchExecHelper, all
-		// the tests have the same imlpementation, and the first instance of the
+		// the tests have the same implementation, and the first instance of the
 		// test to run calls os.Exit, and therefore none of the other tests will
 		// run.
 		cs := []string{"--", command}

@@ -48,7 +48,7 @@ func (w *gocheckWriter) Write(entry loggo.Entry) {
 	// The value says "how far up the call stack do we go to find the location".
 	// It is used to match the standard library log function, and isn't actually
 	// used by gocheck.
-	w.c.Output(3, message)
+	_ = w.c.Output(3, message)
 }
 
 func (s *LoggingSuite) SetUpSuite(c *tc.C) {
@@ -76,8 +76,8 @@ func (s *LoggingSuite) setUp(c *tc.C) {
 	// Don't use the default writer for the test logging, which
 	// means we can still get logging output from tests that
 	// replace the default writer.
-	loggo.RegisterWriter(loggo.DefaultWriterName, discardWriter{})
-	loggo.RegisterWriter("loggingsuite", &gocheckWriter{c})
+	_ = loggo.RegisterWriter(loggo.DefaultWriterName, discardWriter{})
+	_ = loggo.RegisterWriter("loggingsuite", &gocheckWriter{c})
 	err := loggo.ConfigureLoggers(logConfig)
 	c.Assert(err, tc.IsNil)
 }

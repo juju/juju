@@ -8,11 +8,10 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
-	testing "github.com/juju/juju/internal/testhelpers"
 )
 
 type stubA struct {
-	*testing.Stub
+	*testhelpers.Stub
 }
 
 func (f *stubA) aMethod(a, b, c int) error {
@@ -26,7 +25,7 @@ func (f *stubA) otherMethod(values ...string) error {
 }
 
 type stubB struct {
-	*testing.Stub
+	*testhelpers.Stub
 }
 
 func (f *stubB) aMethod() error {
@@ -40,13 +39,13 @@ func (f *stubB) aFunc(value string) error {
 }
 
 type stubSuite struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 var _ = tc.Suite(&stubSuite{})
 
 func (s *stubSuite) SetUpTest(c *tc.C) {
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 }
 
 func (s *stubSuite) TestNextErrSequence(c *tc.C) {
@@ -143,7 +142,7 @@ func (s *stubSuite) TestPopNoErrPanic(c *tc.C) {
 func (s *stubSuite) TestAddCallRecorded(c *tc.C) {
 	s.stub.AddCall("aFunc", 1, 2, 3)
 
-	c.Check(s.stub.Calls(), tc.DeepEquals, []testing.StubCall{{
+	c.Check(s.stub.Calls(), tc.DeepEquals, []testhelpers.StubCall{{
 		FuncName: "aFunc",
 		Args:     []interface{}{1, 2, 3},
 	}})
@@ -156,7 +155,7 @@ func (s *stubSuite) TestAddCallRepeated(c *tc.C) {
 	s.stub.AddCall("aFunc", 4, 5, 6)
 	s.stub.AddCall("after", "arg")
 
-	c.Check(s.stub.Calls(), tc.DeepEquals, []testing.StubCall{{
+	c.Check(s.stub.Calls(), tc.DeepEquals, []testhelpers.StubCall{{
 		FuncName: "before",
 		Args:     []interface{}{"arg"},
 	}, {
@@ -175,14 +174,14 @@ func (s *stubSuite) TestAddCallRepeated(c *tc.C) {
 func (s *stubSuite) TestAddCallNoArgs(c *tc.C) {
 	s.stub.AddCall("aFunc")
 
-	c.Check(s.stub.Calls(), tc.DeepEquals, []testing.StubCall{{
+	c.Check(s.stub.Calls(), tc.DeepEquals, []testhelpers.StubCall{{
 		FuncName: "aFunc",
 	}})
 }
 
 func (s *stubSuite) TestResetCalls(c *tc.C) {
 	s.stub.AddCall("aFunc")
-	s.stub.CheckCalls(c, []testing.StubCall{{FuncName: "aFunc"}})
+	s.stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "aFunc"}})
 
 	s.stub.ResetCalls()
 	s.stub.CheckCalls(c, nil)
@@ -193,7 +192,7 @@ func (s *stubSuite) TestAddCallSequence(c *tc.C) {
 	s.stub.AddCall("second")
 	s.stub.AddCall("third")
 
-	c.Check(s.stub.Calls(), tc.DeepEquals, []testing.StubCall{{
+	c.Check(s.stub.Calls(), tc.DeepEquals, []testhelpers.StubCall{{
 		FuncName: "first",
 	}, {
 		FuncName: "second",
@@ -205,7 +204,7 @@ func (s *stubSuite) TestAddCallSequence(c *tc.C) {
 func (s *stubSuite) TestMethodCallRecorded(c *tc.C) {
 	s.stub.MethodCall(s.stub, "aMethod", 1, 2, 3)
 
-	c.Check(s.stub.Calls(), tc.DeepEquals, []testing.StubCall{{
+	c.Check(s.stub.Calls(), tc.DeepEquals, []testhelpers.StubCall{{
 		FuncName: "aMethod",
 		Args:     []interface{}{1, 2, 3},
 	}})
@@ -217,7 +216,7 @@ func (s *stubSuite) TestMethodCallMixed(c *tc.C) {
 	s.stub.AddCall("aFunc", "arg")
 	s.stub.MethodCall(s.stub, "Method2")
 
-	s.stub.CheckCalls(c, []testing.StubCall{{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Method1",
 		Args:     []interface{}{1, 2, 3},
 	}, {
@@ -241,7 +240,7 @@ func (s *stubSuite) TestMethodCallEmbeddedMixed(c *tc.C) {
 	err = stub2.aMethod()
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.stub.Calls(), tc.DeepEquals, []testing.StubCall{{
+	c.Check(s.stub.Calls(), tc.DeepEquals, []testhelpers.StubCall{{
 		FuncName: "aMethod",
 		Args:     []interface{}{1, 2, 3},
 	}, {
@@ -286,7 +285,7 @@ func (s *stubSuite) TestSetErrorsTrailingNil(c *tc.C) {
 }
 
 func (s *stubSuite) checkCallsStandard(c testhelpers.StubC) {
-	s.stub.CheckCalls(c, []testing.StubCall{{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "first",
 		Args:     []interface{}{"arg"},
 	}, {
@@ -484,7 +483,7 @@ func (s *stubSuite) TestMethodCallsUnordered(c *tc.C) {
 	s.stub.AddCall("aFunc", "arg")
 	s.stub.MethodCall(s.stub, "Method2")
 
-	s.stub.CheckCallsUnordered(c, []testing.StubCall{{
+	s.stub.CheckCallsUnordered(c, []testhelpers.StubCall{{
 		FuncName: "aFunc",
 		Args:     []interface{}{"arg"},
 	}, {
@@ -506,7 +505,7 @@ func (s *stubSuite) TestMethodCallsUnorderedDuplicateFail(c *tc.C) {
 	pc := &panicC{}
 	func() {
 		defer pc.recover()
-		s.stub.CheckCallsUnordered(pc, []testing.StubCall{{
+		s.stub.CheckCallsUnordered(pc, []testhelpers.StubCall{{
 			FuncName: "aFunc",
 			Args:     []interface{}{"arg"},
 		}, {

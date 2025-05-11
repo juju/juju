@@ -182,7 +182,3 @@ type fakeFacade struct {
 type fakeWorker struct {
 	worker.Worker
 }
-
-var fakeHandleAction = func(name string, params map[string]interface{}) (results map[string]interface{}, err error) {
-	return nil, nil
-}

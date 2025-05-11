@@ -68,7 +68,7 @@ func (s *HTTPServer) Start() {
 	}
 	port := l.Addr().(*net.TCPAddr).Port
 	s.URL = fmt.Sprintf("http://localhost:%d", port)
-	go http.Serve(l, s)
+	go func() { _ = http.Serve(l, s) }()
 
 	s.Response(203, nil, nil)
 	for {
@@ -94,16 +94,8 @@ func (s *HTTPServer) Flush() {
 	}
 }
 
-func body(req *http.Request) string {
-	data, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		panic(err)
-	}
-	return string(data)
-}
-
 func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	req.ParseMultipartForm(1e6)
+	_ = req.ParseMultipartForm(1e6)
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		panic(err)
@@ -128,7 +120,7 @@ func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if resp.Status != 0 {
 		w.WriteHeader(resp.Status)
 	}
-	w.Write(resp.Body)
+	_, _ = w.Write(resp.Body)
 }
 
 // WaitRequests returns the next n requests made to the http server from
