@@ -261,9 +261,13 @@ func fakeEmptyNewK8sClientConfig(string, io.Reader, string, string, clientconfig
 	return &clientconfig.ClientConfig{}, nil
 }
 
-func (s *addCAASSuite) setupBroker(c *tc.C) *gomock.Controller {
+func (s *addCAASSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.credentialStoreAPI = mocks.NewMockCredentialStoreAPI(ctrl)
+
+	c.Cleanup(func() {
+		s.credentialStoreAPI = nil
+	})
 	return ctrl
 }
 
@@ -478,24 +482,38 @@ func (s *addCAASSuite) runCommand(c *tc.C, stdin io.Reader, com cmd.Command, arg
 }
 
 func (s *addCAASSuite) TestAddExtraArg(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	command := s.makeCommand(c, true, true, true)
 	_, err := s.runCommand(c, nil, command, "k8sname", "extra")
 	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *addCAASSuite) TestEmptyKubeConfigFileWithoutStdin(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.credentialStoreAPI.EXPECT().UpdateCredential("k8sname", gomock.Any()).Times(1).Return(nil)
+
 	command := s.makeCommand(c, true, true, true)
 	_, err := s.runCommand(c, nil, command, "k8sname", "--client")
-	c.Assert(err, tc.ErrorMatches, `kubernetes context "" not found`)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *addCAASSuite) TestPublicCloudAddNameClash(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	command := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, command, "publiccloud", "--controller", "foo", "--client")
 	c.Assert(err, tc.ErrorMatches, `"publiccloud" is the name of a public cloud`)
 }
 
 func (s *addCAASSuite) TestLocalCloudExists(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, tc.ErrorIsNil)
 	command := s.makeCommand(c, true, false, true)
@@ -504,12 +522,18 @@ func (s *addCAASSuite) TestLocalCloudExists(c *tc.C) {
 }
 
 func (s *addCAASSuite) TestMissingName(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	command := s.makeCommand(c, true, true, true)
 	_, err := s.runCommand(c, nil, command)
 	c.Assert(err, tc.ErrorMatches, `missing k8s name.`)
 }
 
 func (s *addCAASSuite) TestInvalidName(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	command := s.makeCommand(c, true, true, true)
 	_, err := s.runCommand(c, nil, command, "microk8s")
 	c.Assert(err, tc.ErrorMatches, `
@@ -519,12 +543,18 @@ Using the strictly confined microk8s snap means that Juju and microk8s will work
 }
 
 func (s *addCAASSuite) TestMissingArgs(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	command := s.makeCommand(c, true, true, true)
 	_, err := s.runCommand(c, nil, command)
 	c.Assert(err, tc.ErrorMatches, `missing k8s name.`)
 }
 
 func (s *addCAASSuite) TestNonExistClusterName(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	command := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "non existing cluster name", "--client")
 	c.Assert(err, tc.ErrorMatches, `context for cluster name "non existing cluster name" not found`)
@@ -536,6 +566,9 @@ type initTestsCase struct {
 }
 
 func (s *addCAASSuite) TestInit(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	for _, ts := range []initTestsCase{
 		{
 			args:           []string{"--context-name", "a", "--cluster-name", "b"},
@@ -626,6 +659,9 @@ type regionTestCase struct {
 }
 
 func (s *addCAASSuite) TestCloudAndRegionFlag(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, tc.ErrorIsNil)
 	for i, ts := range []regionTestCase{
@@ -730,6 +766,11 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *tc.C) {
 }
 
 func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.credentialStoreAPI.EXPECT().UpdateCredential("myk8s", gomock.Any()).Times(1).Return(nil)
+
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -769,14 +810,14 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				Type:             "kubernetes",
 				Description:      "",
 				HostCloudRegion:  "gce/us-east1",
-				AuthTypes:        cloud.AuthTypes{"certificate"},
-				Endpoint:         "fakeendpoint2",
+				AuthTypes:        cloud.AuthTypes{"certificate", "clientcertificate", "oauth2", "oauth2withcert", "userpass"},
+				Endpoint:         "https://1.1.1.1:8888",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "fakeendpoint2"}},
+				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"}},
 				Config:           map[string]interface{}{"workload-storage": "workload-sc"},
 				RegionConfig:     cloud.RegionConfig(nil),
-				CACertificates:   []string{"fakecadata2"},
+				CACertificates:   []string{"A"},
 			},
 		},
 	)
@@ -874,7 +915,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c 
 	s.fakeCloudAPI.isCloudRegionRequired = true
 	cloudRegion := "gce/us-east1"
 
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	err := SetKubeConfigData(kubeConfigStr)
@@ -909,7 +950,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataError(c *tc.C) {
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *tc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	result := &k8s.ClusterMetadata{
@@ -932,7 +973,7 @@ You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataUserStorage(c *tc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	result := &k8s.ClusterMetadata{
@@ -959,7 +1000,7 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *tc.C) {
 	s.fakeCloudAPI.isCloudRegionRequired = true
 	cloudRegion := "gce/us-east1"
 
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	defaultClusterMetadata := &k8s.ClusterMetadata{
@@ -985,6 +1026,9 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *tc.C) {
 }
 
 func (s *addCAASSuite) TestSkipStorage(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	result := &k8s.ClusterMetadata{}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
@@ -1001,7 +1045,7 @@ func (s *addCAASSuite) TestSkipStorage(c *tc.C) {
 }
 
 func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStorageOptionProvided(c *tc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	sc := &storagev1.StorageClass{
@@ -1030,7 +1074,7 @@ func (s *addCAASSuite) TestLocalOnly(c *tc.C) {
 	s.fakeCloudAPI.isCloudRegionRequired = true
 	cloudRegion := "gce/us-east1"
 
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	err := SetKubeConfigData(kubeConfigStr)
@@ -1063,7 +1107,7 @@ func mockStdinPipe(content string) (*os.File, error) {
 }
 
 func (s *addCAASSuite) TestCorrectParseFromStdIn(c *tc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.credentialStoreAPI.EXPECT().UpdateCredential(
@@ -1094,7 +1138,7 @@ func (s *addCAASSuite) TestCorrectParseFromStdIn(c *tc.C) {
 }
 
 func (s *addCAASSuite) TestCorrectPromptOrderFromStdIn(c *tc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	command := s.makeCommand(c, true, true, false)
@@ -1111,7 +1155,7 @@ Please clarify by re-running the command with the desired option(s).`[1:]))
 }
 
 func (s *addCAASSuite) TestSkipTLSVerifyWithCertInvalid(c *tc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	command := s.makeCommand(c, true, true, false)
@@ -1125,7 +1169,7 @@ func (s *addCAASSuite) TestSkipTLSVerifyWithCertInvalid(c *tc.C) {
 
 func (s *addCAASSuite) TestAddGkeCluster(c *tc.C) {
 	c.Skip("TODO(k8s) - support k8s tooling in strict snap")
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.credentialStoreAPI.EXPECT().UpdateCredential(
@@ -1152,11 +1196,17 @@ func (s *addCAASSuite) TestAddGkeCluster(c *tc.C) {
 }
 
 func (s *addCAASSuite) TestGivenCloudMatch(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	err := caas.CheckCloudRegion("gce", "gce/us-east1")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *addCAASSuite) TestGivenCloudMismatch(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	err := caas.CheckCloudRegion("maas", "gce")
 	c.Assert(err, tc.ErrorMatches, `specified cloud "maas" was different to the detected cloud "gce": re-run the command without specifying the cloud`)
 
@@ -1165,6 +1215,9 @@ func (s *addCAASSuite) TestGivenCloudMismatch(c *tc.C) {
 }
 
 func (s *addCAASSuite) TestGivenRegionMatch(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	err := caas.CheckCloudRegion("/us-east1", "gce/us-east1")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1173,6 +1226,9 @@ func (s *addCAASSuite) TestGivenRegionMatch(c *tc.C) {
 }
 
 func (s *addCAASSuite) TestGivenRegionMismatch(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	err := caas.CheckCloudRegion("gce/us-east1", "gce/us-east10")
 	c.Assert(err, tc.ErrorMatches, `specified region "us-east1" was different to the detected region "us-east10": re-run the command without specifying the region`)
 }
@@ -1228,7 +1284,7 @@ func (s *addCAASSuite) assertStoreClouds(c *tc.C, hostCloud string) {
 }
 
 func (s *addCAASSuite) TestCorrectUseCurrentContext(c *tc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.credentialStoreAPI.EXPECT().UpdateCredential("the-cluster", gomock.Any()).Times(1).Return(nil)
 	err := SetKubeConfigData(kubeConfigStr)
@@ -1283,7 +1339,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *tc.C) {
 }
 
 func (s *addCAASSuite) TestCorrectSelectContext(c *tc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.credentialStoreAPI.EXPECT().UpdateCredential("myk8s", gomock.Any()).Times(1).Return(nil)
 	err := SetKubeConfigData(kubeConfigStr)
