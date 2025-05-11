@@ -33,3 +33,4 @@ tests/tmp.*
 *.log
 dqlite-deps.tar.bz2
 .sphinx
+.envrc
