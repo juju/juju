@@ -125,7 +125,7 @@ type ApplicationService interface {
 	// CreateApplication creates the specified application and units if required.
 	CreateApplication(ctx context.Context, name string, charm internalcharm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 	// AddUnits adds units to the application.
-	AddUnits(ctx context.Context, storageParentDir, name string, units ...applicationservice.AddUnitArg) error
+	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
 	// SetApplicationCharm sets a new charm for the application, validating that aspects such
 	// as storage are still viable with the new charm.
 	SetApplicationCharm(ctx context.Context, name string, params application.UpdateCharmParams) error
@@ -234,6 +234,12 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
+
+	// IsSubordinateApplication returns true if the application is a subordinate
+	// application.
+	// The following errors may be returned:
+	// - [appliationerrors.ApplicationNotFound] if the application does not exist
+	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
 
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint

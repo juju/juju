@@ -343,18 +343,13 @@ func (st *State) ApplicationRelationsInfo(
 				}
 			}
 
-			endpointUUID, err := st.getRelationEndpointUUID(ctx, tx, rel.UUID, appID)
-			if err != nil {
-				return errors.Errorf("getting relation endpoint UUID: %w", err)
-			}
-
-			appData, err := st.getApplicationSettings(ctx, tx, endpointUUID)
+			appData, err := st.getApplicationSettingsByRelAndApp(ctx, tx, rel.UUID, appID)
 			if err != nil {
 				return errors.Errorf("getting relation application settings: %w", err)
 			}
 			result.ApplicationData = convertSettings(appData)
 
-			result.UnitRelationData, err = st.getUnitsRelationData(ctx, tx, endpointUUID, appID)
+			result.UnitRelationData, err = st.getUnitsRelationData(ctx, tx, rel.UUID, appID)
 			if err != nil {
 				return errors.Errorf("getting unit relation data: %w", err)
 			}
@@ -364,6 +359,40 @@ func (st *State) ApplicationRelationsInfo(
 	})
 
 	return results, err
+}
+
+func (st *State) getApplicationSettingsByRelAndApp(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID corerelation.UUID,
+	applicationID application.ID,
+) ([]relationSetting, error) {
+
+	id := relationAndApplicationUUID{
+		RelationUUID:  relationUUID,
+		ApplicationID: applicationID,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &relationSetting.*
+FROM   relation_application_setting AS ras
+JOIN   relation_endpoint AS re ON ras.relation_endpoint_uuid = re.uuid
+JOIN   relation AS r ON re.relation_uuid = r.uuid
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+WHERE  r.uuid = $relationAndApplicationUUID.relation_uuid
+AND    ae.application_uuid = $relationAndApplicationUUID.application_uuid
+`, id, relationSetting{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var settings []relationSetting
+	err = tx.Query(ctx, stmt, id).GetAll(&settings)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	return settings, nil
 }
 
 // GetAllRelationDetails retrieves the details of all relations from the
@@ -428,54 +457,6 @@ WHERE name = $applicationIDAndName.name
 		return "", errors.Capture(err)
 	}
 	return id, nil
-}
-
-// GetApplicationRelations retrieves a list of relation UUIDs for a given
-// application ID within the specified context.
-//
-// The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationNotFound] is returned if application ID
-//     doesn't refer an existing application.
-func (st *State) GetApplicationRelations(ctx context.Context, id application.ID) ([]corerelation.UUID, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var relations []relationUUID
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Check if the application exists
-		appFound, err := st.checkExistsByUUID(ctx, tx, "application", id.String())
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if !appFound {
-			return errors.Errorf("%w: %s", relationerrors.ApplicationNotFound, id)
-		}
-
-		appID := applicationID{ID: id}
-
-		stmt, err := st.Prepare(`
-SELECT re.relation_uuid AS &relationUUID.uuid
-FROM   relation_endpoint AS re
-JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
-WHERE  ae.application_uuid = $applicationID.uuid
-`, relationUUID{}, appID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		err = tx.Query(ctx, stmt, appID).GetAll(&relations)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
-		return err
-	})
-
-	var results []corerelation.UUID
-	for _, rel := range relations {
-		results = append(results, rel.UUID)
-	}
-	return results, err
 }
 
 // GetGoalStateRelationDataForApplication returns GoalStateRelationData for all
@@ -634,43 +615,6 @@ WHERE  application_uuid = $applicationID.uuid
 	}
 
 	return otherApp, nil
-}
-
-// GetRelationID returns the relation ID for the given relation UUID.
-//
-// The following error types can be expected to be returned:
-//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-//     is not found.
-func (st *State) GetRelationID(ctx context.Context, relationUUID corerelation.UUID) (int, error) {
-	db, err := st.DB()
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	id := relationIDAndUUID{
-		UUID: relationUUID,
-	}
-	stmt, err := st.Prepare(`
-SELECT &relationIDAndUUID.relation_id
-FROM   relation
-WHERE  uuid = $relationIDAndUUID.uuid
-`, id)
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, id).Get(&id)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return relationerrors.RelationNotFound
-		}
-		return err
-	})
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	return int(id.ID), nil
 }
 
 // GetRelationUUIDByID returns the relation UUID based on the relation ID.
@@ -904,29 +848,6 @@ WHERE  u.uuid = $unitUUIDArg.unit_uuid
 	return relationUnitStatuses, nil
 }
 
-// GetRelationEndpoints retrieves the endpoints of a given relation specified via its UUID.
-//
-// The following error types can be expected to be returned:
-//   - [relationerrors.RelationNotFound] is returned if the relation UUID is not
-//     found.
-func (st *State) GetRelationEndpoints(ctx context.Context, uuid corerelation.UUID) ([]relation.Endpoint, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var endpoints []relation.Endpoint
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		endpoints, err = st.getRelationEndpoints(ctx, tx, uuid)
-		return err
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return endpoints, nil
-}
-
 // getRelationEndpoints retrieves the relation.Endpoints of the specified relation.
 func (st *State) getRelationEndpoints(
 	ctx context.Context,
@@ -990,53 +911,6 @@ ORDER BY endpoint_name
 	err = tx.Query(ctx, stmt, id).GetAll(&endpoints)
 	if err != nil {
 		return nil, errors.Capture(err)
-	}
-
-	return endpoints, nil
-}
-
-// GetApplicationEndpoints returns all endpoints for the given application
-// identifier.
-func (st *State) GetApplicationEndpoints(
-	ctx context.Context,
-	applicationID application.ID,
-) ([]relation.Endpoint, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	id := applicationUUID{
-		UUID: applicationID,
-	}
-	stmt, err := st.Prepare(`
-SELECT &Endpoint.*
-FROM   v_application_endpoint
-WHERE  application_uuid = $applicationUUID.application_uuid
-`, id, Endpoint{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var eps []Endpoint
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, id).GetAll(&eps)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// If there are no endpoints we return an empty list.
-			return nil
-		} else if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var endpoints []relation.Endpoint
-	for _, ep := range eps {
-		endpoints = append(endpoints, ep.toRelationEndpoint())
 	}
 
 	return endpoints, nil
@@ -1291,46 +1165,6 @@ WHERE u.uuid IN ($uuids[:])`, getUnit{}, uuids{})
 		}),
 		Departed: transform.Slice(departedUnits, func(f getUnit) unit.Name { return f.Name }),
 	}, nil
-}
-
-// GetRelationUnitEndpointName returns the name of the endpoint for the given
-// relation unit.
-//
-// The following error types can be expected to be returned:
-//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be found.
-func (st *State) GetRelationUnitEndpointName(
-	ctx context.Context,
-	relationUnitUUID corerelation.UnitUUID,
-) (string, error) {
-	db, err := st.DB()
-	var result string
-	if err != nil {
-		return result, errors.Capture(err)
-	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		args := getRelationUnitEndpointName{
-			RelationUnitUUID: relationUnitUUID,
-		}
-		stmt, err := st.Prepare(`
-SELECT &getRelationUnitEndpointName.*
-FROM v_relation_unit_endpoint
-WHERE relation_unit_uuid = $getRelationUnitEndpointName.relation_unit_uuid`, args)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		err = tx.Query(ctx, stmt, args).Get(&args)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("relation unit %q not found", relationUnitUUID).Add(
-				relationerrors.RelationUnitNotFound)
-		}
-		if err != nil {
-			return errors.Capture(err)
-		}
-		result = args.EndpointName
-		return nil
-	})
-	return result, errors.Capture(err)
 }
 
 // GetRelationUnit retrieves the UUID of a relation unit based on the given
@@ -2581,7 +2415,6 @@ WHERE  relation_unit_uuid = $relationUnitUUID.uuid
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Capture(err)
 	}
-
 	return settings, nil
 }
 
@@ -3626,43 +3459,31 @@ WHERE  r.uuid = $relationUUID.uuid
 func (st *State) getUnitsRelationData(
 	ctx context.Context,
 	tx *sqlair.TX,
-	endpointUUID string,
+	relUUID corerelation.UUID,
 	appID application.ID,
 ) (map[string]relation.RelationData, error) {
 	var result map[string]relation.RelationData
 
-	// Get all units uuids/names for application.
-	units, err := st.getUnitNameByUUIDs(ctx, tx, appID)
+	relUnits, err := st.getRelationUnitsWithUnits(ctx, tx, relUUID, appID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	unitUUIDS := transform.MapToSlice(units, func(k unit.UUID, v string) []string {
-		return uuids{k.String()}
-	})
-
-	// Get all relation unit uuids for units.
-	relationUnits, err := st.getRelationUnitsByUnits(ctx, tx, endpointUUID, unitUUIDS)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// For reach relation unit, get settings and fill in RelationData.
-	result = make(map[string]relation.RelationData, len(units))
-	for unitUUID, name := range units {
+	// For each relation unit, get settings and fill in RelationData.
+	result = make(map[string]relation.RelationData, len(relUnits))
+	for _, relUnit := range relUnits {
 		// Units without a relation unit are out of scope. Relation unit
 		// settings only exist for relations in scope.
-		r, ok := relationUnits[unitUUID]
-		if !ok {
-			result[name] = relation.RelationData{InScope: false}
+		if relUnit.RelationUnitUUID == "" {
+			result[relUnit.UnitName.String()] = relation.RelationData{InScope: false}
 			continue
 		}
 
-		settings, err := st.getRelationUnitSettings(ctx, tx, r.RelationUnitUUID)
+		settings, err := st.getRelationUnitSettings(ctx, tx, relUnit.RelationUnitUUID)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		result[name] = relation.RelationData{
+		result[relUnit.UnitName.String()] = relation.RelationData{
 			InScope:  true,
 			UnitData: convertSettings(settings),
 		}
@@ -3670,72 +3491,40 @@ func (st *State) getUnitsRelationData(
 	return result, nil
 }
 
-// getUnitNameByUUIDs returns a map of unit UUIDs to unit name and a slice
-// of the unit uuids. Both forms are facilitate work done by the caller.
-func (st *State) getUnitNameByUUIDs(
+// getRelationUnitsWithUnits returns all relationUnitWithUnit data for all units
+// of the given application. The data includes relation unit details if the
+// unit is in scope.
+func (st *State) getRelationUnitsWithUnits(
 	ctx context.Context,
 	tx *sqlair.TX,
+	relationUUID corerelation.UUID,
 	appID application.ID,
-) (map[unit.UUID]string, error) {
-	unitNameAndUUIDStmt, err := st.Prepare(`
-SELECT u.uuid AS &getUnit.uuid,
-       u.name AS &getUnit.name
-FROM   unit AS u
-WHERE  u.application_uuid = $applicationID.uuid
-`, getUnit{}, applicationID{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	arg := applicationID{ID: appID}
-	var unitNamesUUIDs []getUnit
-	err = tx.Query(ctx, unitNameAndUUIDStmt, arg).GetAll(&unitNamesUUIDs)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// Map unit uuids to name and create list of unit UUIDs to get
-	// relation unit settings and map returned data together.
-	units := make(map[unit.UUID]string)
-	for _, u := range unitNamesUUIDs {
-		units[u.UUID] = string(u.Name)
-	}
-
-	return units, nil
-}
-
-// getRelationUnitsByUnits returns all relation units for the give units and
-// endpoint. Data is in a map keyed to the unit uuids to facilitate the caller's
-// processing of the data.
-func (st *State) getRelationUnitsByUnits(
-	ctx context.Context,
-	tx *sqlair.TX,
-	endpointUUID string,
-	unitUUIDS uuids,
-) (map[unit.UUID]relationUnit, error) {
+) ([]relationUnitWithUnit, error) {
 	relationUnitStmt, err := st.Prepare(`
-SELECT ru.uuid AS &relationUnit.uuid,
-       ru.unit_uuid AS &relationUnit.unit_uuid
-FROM   relation_unit ru
-WHERE  ru.relation_endpoint_uuid = $relationEndpointUUID.uuid
-AND    ru.unit_uuid IN ($uuids[:])
-`, relationUnit{}, relationEndpointUUID{}, uuids{})
+SELECT    ru.uuid AS &relationUnitWithUnit.uuid,
+          u.name AS &relationUnitWithUnit.unit_name,
+          u.uuid AS &relationUnitWithUnit.unit_uuid
+FROM      unit AS u
+JOIN      application_endpoint AS ae ON u.application_uuid = ae.application_uuid
+JOIN      relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
+LEFT JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid AND u.uuid = ru.unit_uuid
+WHERE     u.application_uuid = $relationAndApplicationUUID.application_uuid
+AND       re.relation_uuid = $relationAndApplicationUUID.relation_uuid
+`, relationUnitWithUnit{}, relationAndApplicationUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var relationUnits []relationUnit
-	relEndpoint := relationEndpointUUID{UUID: endpointUUID}
-	err = tx.Query(ctx, relationUnitStmt, relEndpoint, unitUUIDS).GetAll(&relationUnits)
+	var relationUnits []relationUnitWithUnit
+	relAndApp := relationAndApplicationUUID{
+		RelationUUID:  relationUUID,
+		ApplicationID: appID,
+	}
+	err = tx.Query(ctx, relationUnitStmt, relAndApp).GetAll(&relationUnits)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return make(map[unit.UUID]relationUnit), nil
+		return nil, nil
 	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
-
-	unitRelationUnits := make(map[unit.UUID]relationUnit, len(relationUnits))
-	for _, u := range relationUnits {
-		unitRelationUnits[u.UnitUUID] = u
-	}
-	return unitRelationUnits, nil
+	return relationUnits, nil
 }

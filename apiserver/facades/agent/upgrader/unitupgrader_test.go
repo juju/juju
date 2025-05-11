@@ -17,7 +17,6 @@ var _ = tc.Suite(&unitUpgraderSuite{})
 
 func (s *unitUpgraderSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
-
  - TestWatchAPIVersionNothing: Not an error to watch nothing
  - TestWatchAPIVersion: watch the api version
  - TestUpgraderAPIRefusesNonUnitAgent: UpgraderAPI refuses non-unit agent

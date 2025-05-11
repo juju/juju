@@ -16,6 +16,8 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corelife "github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -27,11 +29,11 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -46,17 +48,33 @@ var _ = tc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
+func (s *stateSuite) TestGetModelStatusInfo(c *tc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	controllerUUID, err := uuid.NewUUID()
+	c.Check(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, credential_owner)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2", "owner")
+		`, modelUUID.String(), controllerUUID.String())
 		return err
 	})
-	c.Assert(err, tc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
-	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	modelInfo, err := s.state.GetModelStatusInfo(context.Background())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(modelInfo.Type, tc.Equals, model.IAAS)
+}
+
+func (s *stateSuite) TestGetModelStatusInfoNotFound(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, err := state.GetModelStatusInfo(context.Background())
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *stateSuite) TestGetAllRelationStatuses(c *tc.C) {
@@ -1975,10 +1993,7 @@ func (s *stateSuite) createApplication(c *tc.C, name string, l life.Life, subord
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, "foo")
-	c.Assert(err, tc.ErrorIsNil)
-
-	unitNames, err := appState.AddIAASUnits(ctx, "", appID, charmUUID, units...)
+	unitNames, err := appState.AddIAASUnits(ctx, appID, units...)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var unitUUIDs = make([]coreunit.UUID, len(units))

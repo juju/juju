@@ -62,7 +62,6 @@ func makeFacadeBase(_ context.Context, ctx facade.ModelContext) (*API, error) {
 	return &API{
 		charmInfoAPI:       charmInfoAPI,
 		authorizer:         authorizer,
-		backendState:       newStateShim(ctx.State()),
 		modelConfigService: domainServices.Config(),
 		applicationService: applicationService,
 		charmhubHTTPClient: charmhubHTTPClient,

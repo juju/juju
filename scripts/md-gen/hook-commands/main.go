@@ -61,7 +61,6 @@ func main() {
 		Stderr: os.Stderr,
 	})
 	check(err)
-
 }
 
 // dummyHookContext implements hooks.Context, as expected by hooks.NewCommand.

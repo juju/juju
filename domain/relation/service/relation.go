@@ -10,7 +10,6 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
@@ -104,16 +103,8 @@ type State interface {
 		applicationID application.ID,
 	) ([]relation.GoalStateRelationData, error)
 
-	// GetApplicationEndpoints returns all endpoints for the given application
-	// identifier.
-	GetApplicationEndpoints(ctx context.Context, applicationID application.ID) ([]relation.Endpoint, error)
-
 	// GetApplicationIDByName returns the application ID of the given application.
 	GetApplicationIDByName(ctx context.Context, appName string) (application.ID, error)
-
-	// GetApplicationRelations retrieves all relation UUIDs associated with a
-	// specific application identified by its ID.
-	GetApplicationRelations(ctx context.Context, id application.ID) ([]corerelation.UUID, error)
 
 	// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a relation
 	// uuid as part of WatchLifeSuspendedStatus eventmapper.
@@ -172,27 +163,12 @@ type State interface {
 		applicationID application.ID,
 	) (map[string]string, error)
 
-	// GetRelationID returns the relation ID for the given relation UUID.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-	//     is not found.
-	GetRelationID(ctx context.Context, relationUUID corerelation.UUID) (int, error)
-
 	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
 	//
 	// The following error types can be expected to be returned:
 	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
 	//     relating to the relation ID cannot be found.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
-
-	// GetRelationEndpoints returns all relation endpoints for the given
-	// relation UUID.
-	//
-	// The following error types can be expected:
-	//   - [relationerrors.RelationNotFound]: when no relation exists for the
-	//     given UUID.
-	GetRelationEndpoints(ctx context.Context, relationUUID corerelation.UUID) ([]relation.Endpoint, error)
 
 	// GetRelationEndpointScope returns the scope of the relation endpoint
 	// at the intersection of the relationUUID and applicationID.
@@ -237,13 +213,6 @@ type State interface {
 	// It takes a list of unit UUIDs and application UUIDs, returning the
 	// current setting version for each one, or departed if any unit is not found
 	GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID) (relation.RelationUnitsChange, error)
-
-	// GetRelationUnitEndpointName returns the name of the endpoint for the given
-	// relation unit.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be found.
-	GetRelationUnitEndpointName(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (string, error)
 
 	// GetRelationUnit retrieves the UUID of a relation unit based on the given
 	// relation UUID and unit name.
@@ -402,43 +371,6 @@ func (s *LeadershipService) GetRelationApplicationSettingsWithLeader(
 	return settings, nil
 }
 
-// SetRelationApplicationSettings records settings for a specific application
-// relation combination.
-//
-// When settings is not empty, the following error types can be expected to be
-// returned:
-//   - [corelease.ErrNotHeld] if the unit is not the leader.
-//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
-//     application is not part of the relation.
-//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-//     is not found.
-func (s *LeadershipService) SetRelationApplicationSettings(
-	ctx context.Context,
-	unitName unit.Name,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-	settings map[string]string,
-) error {
-	if len(settings) == 0 {
-		return nil
-	}
-
-	if err := unitName.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-	if err := relationUUID.Validate(); err != nil {
-		return errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
-	}
-	if err := applicationID.Validate(); err != nil {
-		return errors.Errorf(
-			"%w:%w", relationerrors.ApplicationIDNotValid, err)
-	}
-	return s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
-		return s.st.SetRelationApplicationSettings(ctx, relationUUID, applicationID, settings)
-	})
-}
-
 // SetRelationApplicationAndUnitSettings records settings for a unit and
 // an application in a relation.
 //
@@ -510,20 +442,6 @@ func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.En
 	}
 
 	return s.st.AddRelation(ctx, idep1, idep2)
-}
-
-// ApplicationRelationEndpointNames returns a slice of names of the given application's
-// relation endpoints.
-// Note: Replaces the functionality in CharmRelations method of the application facade.
-func (s *Service) ApplicationRelationEndpointNames(ctx context.Context, id application.ID) ([]string, error) {
-	return nil, coreerrors.NotImplemented
-}
-
-// ApplicationRelations returns relation UUIDs for the given
-// application ID.
-func (s *Service) ApplicationRelations(ctx context.Context, id application.ID) (
-	[]corerelation.UUID, error) {
-	return []corerelation.UUID{}, coreerrors.NotImplemented
 }
 
 // ApplicationRelationsInfo returns all EndpointRelationData for an application.
@@ -626,32 +544,6 @@ func (s *Service) GetGoalStateRelationDataForApplication(
 	return s.st.GetGoalStateRelationDataForApplication(ctx, applicationID)
 }
 
-// GetApplicationEndpoints returns all endpoints for the given application identifier.
-func (s *Service) GetApplicationEndpoints(ctx context.Context, applicationID application.ID) ([]relation.Endpoint, error) {
-	if err := applicationID.Validate(); err != nil {
-		return nil, errors.Errorf(
-			"%w: %w", relationerrors.ApplicationIDNotValid, err)
-	}
-	return s.st.GetApplicationEndpoints(ctx, applicationID)
-}
-
-// GetApplicationRelations returns relation UUIDs for the given
-// application ID.
-//
-// The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationIDNotValid] is returned if the application
-//     UUID is not valid.
-//   - [relationerrors.ApplicationNotFound] is returned if the application is
-//     not found.
-func (s *Service) GetApplicationRelations(ctx context.Context, id application.ID) (
-	[]corerelation.UUID, error) {
-	if err := id.Validate(); err != nil {
-		return nil, errors.Errorf(
-			"%w: %w", relationerrors.ApplicationIDNotValid, err)
-	}
-	return s.st.GetApplicationRelations(ctx, id)
-}
-
 // GetRelationDetails returns RelationDetails for the given relationID.
 //
 // The following error types can be expected to be returned:
@@ -688,72 +580,6 @@ func (s *Service) GetRelationDetails(
 		Key:       key,
 		Endpoints: relationDetails.Endpoints,
 	}, nil
-}
-
-// GetRelationEndpoints returns all endpoints for the given relation UUID
-func (s *Service) GetRelationEndpoints(ctx context.Context, relationUUID corerelation.UUID) ([]relation.Endpoint, error) {
-	if err := relationUUID.Validate(); err != nil {
-		return nil, errors.Errorf(
-			"%w: %w", relationerrors.RelationUUIDNotValid, err)
-	}
-	return s.st.GetRelationEndpoints(ctx, relationUUID)
-}
-
-// getRelationEndpointUUID retrieves the unique identifier for a specific
-// relation endpoint based on the provided arguments.
-func (s *Service) getRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (
-	corerelation.EndpointUUID, error) {
-	if err := args.RelationUUID.Validate(); err != nil {
-		return "", errors.Errorf(
-			"%w: %w", relationerrors.RelationUUIDNotValid, err)
-	}
-	if err := args.ApplicationID.Validate(); err != nil {
-		return "", errors.Errorf(
-			"%w: %w", relationerrors.ApplicationIDNotValid, err)
-	}
-	return s.st.GetRelationEndpointUUID(ctx, args)
-}
-
-// GetRelationID returns the relation ID for the given relation UUID.
-//
-// The following error types can be expected to be returned:
-//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-//     is not found.
-//   - [relationerrors.RelationUUIDNotValid] is returned if the relation UUID
-//     is not valid.
-func (s *Service) GetRelationID(ctx context.Context, relationUUID corerelation.UUID) (int, error) {
-	if err := relationUUID.Validate(); err != nil {
-		return 0, errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
-	}
-	return s.st.GetRelationID(ctx, relationUUID)
-}
-
-// GetRelationKey returns a key identifier for the given relation UUID.
-// The key describes the relation defined by endpoints in sorted order.
-//
-// The following error types can be expected:
-//   - [relationerrors.RelationNotFound]: when no relation exists for the given
-//     UUID.
-//   - [relationerrors.RelationUUIDNotValid] is returned if the relation UUID
-//     is not valid.
-func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.UUID) (corerelation.Key, error) {
-	if err := relationUUID.Validate(); err != nil {
-		return corerelation.Key{}, errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
-	}
-
-	endpoints, err := s.st.GetRelationEndpoints(ctx, relationUUID)
-	if err != nil {
-		return corerelation.Key{}, errors.Capture(err)
-	}
-
-	var eids []corerelation.EndpointIdentifier
-	for _, ep := range endpoints {
-		eids = append(eids, ep.EndpointIdentifier())
-	}
-
-	return corerelation.NewKey(eids)
 }
 
 // GetRelationsStatusForUnit returns RelationUnitStatus for all relations the
@@ -813,9 +639,9 @@ func (s *Service) GetRelationUnit(
 	return s.st.GetRelationUnit(ctx, relationUUID, unitName)
 }
 
-// GetRelationUnitByID returns the relation unit UUID for the given unit for the
+// getRelationUnitByID returns the relation unit UUID for the given unit for the
 // given relation.
-func (s *Service) GetRelationUnitByID(
+func (s *Service) getRelationUnitByID(
 	ctx context.Context,
 	relationID int,
 	unitName unit.Name,
@@ -846,18 +672,6 @@ func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.U
 	}
 
 	return s.st.GetRelationUnitChanges(ctx, unitUUIDs, appUUIDs)
-}
-
-// GetRelationUnitEndpointName returns the name of the endpoint for the given
-// relation unit.
-func (s *Service) GetRelationUnitEndpointName(
-	ctx context.Context,
-	relationUnitUUID corerelation.UnitUUID,
-) (string, error) {
-	if err := relationUnitUUID.Validate(); err != nil {
-		return "", errors.Capture(err)
-	}
-	return s.st.GetRelationUnitEndpointName(ctx, relationUnitUUID)
 }
 
 // GetRelationUnitSettings returns the relation unit settings for the given
@@ -1013,12 +827,6 @@ func (s *Service) GetRelationApplicationSettings(
 	return settings, nil
 }
 
-// IsRelationSuspended returns a boolean to indicate if the given
-// relation UUID is suspended.
-func (s *Service) IsRelationSuspended(ctx context.Context, relationUUID corerelation.UUID) bool {
-	return false
-}
-
 // LeaveScope updates the given relation to indicate it is not in scope.
 //
 // The following error types can be expected to be returned:
@@ -1032,23 +840,11 @@ func (s *Service) LeaveScope(ctx context.Context, relationUnitUUID corerelation.
 	return s.st.LeaveScope(ctx, relationUnitUUID)
 }
 
-// ReestablishRelation brings the given relation back to normal after
-// suspension, any reason given for the suspension is cleared.
-func (s *Service) ReestablishRelation(ctx context.Context, relationUUID corerelation.UUID) error {
-	return coreerrors.NotImplemented
-}
-
-// RelationSuspendedReason returns the reason a relation was suspended if
-// provided by the user.
-func (s *Service) RelationSuspendedReason(ctx context.Context, relationUUID corerelation.UUID) string {
-	return ""
-}
-
 // RelationUnitInScopeByID returns a boolean to indicate whether the given
 // unit is in scopen of a given relation
 func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool,
 	error) {
-	_, err := s.GetRelationUnitByID(ctx, relationID, unitName)
+	_, err := s.getRelationUnitByID(ctx, relationID, unitName)
 	if errors.Is(err, relationerrors.RelationUnitNotFound) {
 		return false, nil
 	}
@@ -1056,39 +852,6 @@ func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, u
 		return false, errors.Capture(err)
 	}
 	return true, nil
-}
-
-// SetRelationSuspended marks the given relation as suspended. Providing a
-// reason is optional.
-func (s *Service) SetRelationSuspended(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	reason string,
-) error {
-	return coreerrors.NotImplemented
-}
-
-// SetRelationUnitSettings records settings for a specific unit
-// relation combination.
-//
-// If settings is not empty, the following error types can be expected to be
-// returned:
-//   - [relationerrors.RelationUnitNotFound] is returned if the unit is not
-//     part of the relation.
-func (s *Service) SetRelationUnitSettings(
-	ctx context.Context,
-	relationUnitUUID corerelation.UnitUUID,
-	settings map[string]string,
-) error {
-	if len(settings) == 0 {
-		return nil
-	}
-
-	if err := relationUnitUUID.Validate(); err != nil {
-		return errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
-	}
-	return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, settings)
 }
 
 // ImportRelations sets relations imported in migration.

@@ -50,7 +50,7 @@ type applicationServiceSuite struct {
 
 var _ = tc.Suite(&applicationServiceSuite{})
 
-func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *tc.C) {
+func (s *applicationServiceSuite) TestGetCharmByApplicationID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -453,6 +453,54 @@ func (s *applicationServiceSuite) TestGetApplicationConfigNoConfig(c *tc.C) {
 	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
 		"trust": false,
 	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}, nil)
+
+	results, err := s.service.GetApplicationConfigWithDefaults(context.Background(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
+		"foo": "bar",
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsWithError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}, errors.Errorf("boom"))
+
+	_, err := s.service.GetApplicationConfigWithDefaults(context.Background(), appUUID)
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsNoConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).
+		Return(map[string]application.ApplicationConfig{}, nil)
+
+	results, err := s.service.GetApplicationConfigWithDefaults(context.Background(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 0)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *tc.C) {

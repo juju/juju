@@ -164,6 +164,14 @@ type ApplicationService interface {
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
 	GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error)
 
+	// GetApplicationConfigWithDefaults returns the application config attributes
+	// for the configuration, or their charm default if the config attribute is not
+	// set.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (coreconfig.ConfigAttributes, error)
+
 	// WatchApplicationConfigHash watches for changes to the specified application's
 	// config hash.
 	WatchApplicationConfigHash(ctx context.Context, name string) (watcher.StringsWatcher, error)

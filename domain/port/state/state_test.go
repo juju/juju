@@ -116,9 +116,6 @@ func (s *baseSuite) createUnit(c *tc.C, netNodeUUID, appName string) (coreunit.U
 	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmUUID, err := applicationSt.GetCharmIDByApplicationName(ctx, appName)
-	c.Assert(err, tc.ErrorIsNil)
-
 	// Ensure that we place the unit on the same machine as the net node.
 	var machineName machine.Name
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -127,7 +124,7 @@ func (s *baseSuite) createUnit(c *tc.C, netNodeUUID, appName string) (coreunit.U
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, err := applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{
+	unitNames, err := applicationSt.AddIAASUnits(ctx, appID, application.AddUnitArg{
 		Placement: deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: machineName.String(),

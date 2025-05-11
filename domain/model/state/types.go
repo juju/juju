@@ -170,97 +170,84 @@ type dbModelType struct {
 	Type string `db:"type"`
 }
 
-// dbModelSummary stores the information from the model table for a model
-// summary.
-type dbModelSummary struct {
-	// Name is the model name.
-	Name string `db:"name"`
-	// UUID is the model unique identifier.
-	UUID string `db:"uuid"`
-	// Type is the model type (e.g. IAAS or CAAS).
-	Type string `db:"model_type"`
-	// OwnerName is the tag of the user that owns the model.
-	OwnerName string `db:"owner_name"`
-	// Life is the current lifecycle state of the model.
-	Life string `db:"life"`
-
-	// CloudName is the name of the model cloud.
-	CloudName string `db:"cloud_name"`
-	// Cloud type is the models cloud type.
-	CloudType string `db:"cloud_type"`
-	// CloudRegion is the region of the model cloud.
-	CloudRegion string `db:"cloud_region_name"`
-
-	// CloudCredentialName is the name of the cloud credential.
-	CloudCredentialName string `db:"cloud_credential_name"`
-	// CloudCredentialCloudName is the name of the cloud the credential is for.
-	CloudCredentialCloudName string `db:"cloud_credential_cloud_name"`
-	// CloudCredentialOwnerName is the name of the cloud credential owner.
-	CloudCredentialOwnerName string `db:"cloud_credential_owner_name"`
-
-	// Access is the access level the supplied user has on this model
+// dbUserModelSummary is summary of the information for a model from the
+// perspective of a user that has access to the model.
+type dbUserModelSummary struct {
+	// Access is the access level the supplied user has on this model.
 	Access permission.Access `db:"access_type"`
 
-	// UserLastConnection is the last time this user has accessed this model
+	// UserLastConnection is the last time this user has accessed this model.
 	UserLastConnection *time.Time `db:"time"`
 
-	// IsControllerModel provides a boolean indication if we consider this
-	// model to be the one that hosts this Juju controller.
-	IsControllerModel bool `db:"is_controller_model"`
+	// Life is the current model's life value.
+	Life string `db:"life"`
 
-	// ControllerUUID is the UUID of the controller that the model is in. Don't
-	// rely on this value always being set.
-	ControllerUUID sql.NullString `db:"controller_uuid"`
+	// OwnerName is the user name of the model owner.
+	OwnerName string `db:"owner_name"`
+
+	// Model state related members
+
+	// Destroying indicates if the model is in the process of being destroyed.
+	Destroying bool `db:"destroying"`
+
+	// CredentialInvalid indicates if the model is using a credential that is
+	// invalid.
+	CredentialInvalid bool `db:"cloud_credential_invalid"`
+
+	// CredentialInvalidReason is the reason the credential is invalid.
+	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
+
+	// Migrating indicates if the model is in the process of being migrated.
+	Migrating bool `db:"migrating"`
 }
 
-// decodeModelSummary transforms a dbModelSummary into a coremodel.ModelSummary.
-func (m dbModelSummary) decodeUserModelSummary() (coremodel.UserModelSummary, error) {
-	ms, err := m.decodeModelSummary()
-	if err != nil {
-		return coremodel.UserModelSummary{}, errors.Capture(err)
-	}
-	return coremodel.UserModelSummary{
-		ModelSummary:       ms,
-		UserAccess:         m.Access,
-		UserLastConnection: m.UserLastConnection,
-	}, nil
+// dbModelSummary represents the information about a model for a summary that
+// isn't available from the model's own database.
+type dbModelSummary struct {
+	// -- Model info related members --
+
+	// Life is the current model's life value.
+	Life string `db:"life"`
+
+	// OwnerName is the user name for the owner of the model.
+	OwnerName string `db:"owner_name"`
+
+	// -- Model state related members --
+
+	// Destroying indicates if the model is in the process of being destroyed.
+	Destroying bool `db:"destroying"`
+
+	// CredentialInvalid indicates if the model is using a credential that is
+	// invalid.
+	CredentialInvalid bool `db:"cloud_credential_invalid"`
+
+	// CredentialInvalidReason is the reason the credential is invalid.
+	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
+
+	// Migrating indicates if the model is in the process of being migrated.
+	Migrating bool `db:"migrating"`
 }
 
-// decodeModelSummary transforms a dbModelSummary into a coremodel.ModelSummary.
-func (m dbModelSummary) decodeModelSummary() (coremodel.ModelSummary, error) {
-	ownerName, err := user.NewName(m.OwnerName)
-	if err != nil {
-		return coremodel.ModelSummary{}, errors.Capture(err)
-	}
-	var credOwnerName user.Name
-	if m.CloudCredentialOwnerName != "" {
-		credOwnerName, err = user.NewName(m.CloudCredentialOwnerName)
-		if err != nil {
-			return coremodel.ModelSummary{}, errors.Capture(err)
-		}
-	}
-	return coremodel.ModelSummary{
-		Name:        m.Name,
-		UUID:        coremodel.UUID(m.UUID),
-		ModelType:   coremodel.ModelType(m.Type),
-		CloudType:   m.CloudType,
-		CloudName:   m.CloudName,
-		CloudRegion: m.CloudRegion,
-		CloudCredentialKey: credential.Key{
-			Cloud: m.CloudCredentialCloudName,
-			Owner: credOwnerName,
-			Name:  m.CloudCredentialName,
-		},
-		ControllerUUID: m.ControllerUUID.String,
-		IsController:   m.IsControllerModel,
-		OwnerName:      ownerName,
-		Life:           corelife.Value(m.Life),
-	}, nil
+// dbModelInfoSummary represents a summary of the information located with in
+// the model database. Specifically the model information.
+type dbModelInfoSummary struct {
+	UUID               string         `db:"uuid"`
+	Name               string         `db:"name"`
+	Type               string         `db:"type"`
+	ControllerUUID     string         `db:"controller_uuid"`
+	Cloud              string         `db:"cloud"`
+	CloudType          string         `db:"cloud_type"`
+	CloudRegion        sql.NullString `db:"cloud_region"`
+	IsControllerModel  bool           `db:"is_controller_model"`
+	TargetAgentVersion string         `db:"target_version"`
 }
 
-// dbUserName represents a user name.
-type dbUserName struct {
-	Name string `db:"name"`
+// dbModelCountSummary is a count summary of the things in the database that we
+// care about.
+type dbModelCountSummary struct {
+	CoreCount    int64 `db:"core_count"`
+	MachineCount int64 `db:"machine_count"`
+	UnitCount    int64 `db:"unit_count"`
 }
 
 // dbUserUUID represents a user uuid.
@@ -337,6 +324,7 @@ type dbModelNamespace struct {
 
 type dbCloudCredential struct {
 	Name                string         `db:"cloud_name"`
+	CloudRegionName     string         `db:"cloud_region_name"`
 	CredentialName      sql.NullString `db:"cloud_credential_name"`
 	CredentialOwnerName sql.NullString `db:"cloud_credential_owner_name"`
 	CredentialCloudName string         `db:"cloud_credential_cloud_name"`

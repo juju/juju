@@ -2042,6 +2042,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+
 		appLife, err := api.applicationService.GetApplicationLife(ctx, tag.Name)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			err = errors.NotFoundf("application %q", tag.Name)
@@ -2093,6 +2094,18 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
+		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Name)
+		if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		isSubordinate, err := api.applicationService.IsSubordinateApplication(ctx, appID)
+		if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		var channel string
 		origin := app.CharmOrigin()
 		if origin != nil && origin.Channel != nil {
@@ -2108,7 +2121,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			Base:             details.Base,
 			Channel:          channel,
 			Constraints:      details.Constraints,
-			Principal:        app.IsPrincipal(),
+			Principal:        !isSubordinate,
 			Exposed:          isExposed,
 			Remote:           app.IsRemote(),
 			Life:             string(appLife),

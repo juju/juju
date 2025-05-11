@@ -42,45 +42,6 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
-// AllApplications mocks base method.
-func (m *MockBackend) AllApplications() ([]*state.Application, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllApplications")
-	ret0, _ := ret[0].([]*state.Application)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllApplications indicates an expected call of AllApplications.
-func (mr *MockBackendMockRecorder) AllApplications() *MockBackendAllApplicationsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllApplications", reflect.TypeOf((*MockBackend)(nil).AllApplications))
-	return &MockBackendAllApplicationsCall{Call: call}
-}
-
-// MockBackendAllApplicationsCall wrap *gomock.Call
-type MockBackendAllApplicationsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAllApplicationsCall) Return(arg0 []*state.Application, arg1 error) *MockBackendAllApplicationsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAllApplicationsCall) Do(f func() ([]*state.Application, error)) *MockBackendAllApplicationsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllApplicationsCall) DoAndReturn(f func() ([]*state.Application, error)) *MockBackendAllApplicationsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // AllEndpointBindings mocks base method.
 func (m *MockBackend) AllEndpointBindings() (map[string]*state.Bindings, error) {
 	m.ctrl.T.Helper()
@@ -315,45 +276,6 @@ func (c *MockBackendAllStatusCall) DoAndReturn(f func() (*state.AllStatus, error
 	return c
 }
 
-// AllUnits mocks base method.
-func (m *MockBackend) AllUnits() ([]*state.Unit, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllUnits")
-	ret0, _ := ret[0].([]*state.Unit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllUnits indicates an expected call of AllUnits.
-func (mr *MockBackendMockRecorder) AllUnits() *MockBackendAllUnitsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllUnits", reflect.TypeOf((*MockBackend)(nil).AllUnits))
-	return &MockBackendAllUnitsCall{Call: call}
-}
-
-// MockBackendAllUnitsCall wrap *gomock.Call
-type MockBackendAllUnitsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAllUnitsCall) Return(arg0 []*state.Unit, arg1 error) *MockBackendAllUnitsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAllUnitsCall) Do(f func() ([]*state.Unit, error)) *MockBackendAllUnitsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllUnitsCall) DoAndReturn(f func() ([]*state.Unit, error)) *MockBackendAllUnitsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ControllerNodes mocks base method.
 func (m *MockBackend) ControllerNodes() ([]state.ControllerNode, error) {
 	m.ctrl.T.Helper()
@@ -467,45 +389,6 @@ func (c *MockBackendHAPrimaryMachineCall) Do(f func() (names.MachineTag, error))
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendHAPrimaryMachineCall) DoAndReturn(f func() (names.MachineTag, error)) *MockBackendHAPrimaryMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Machine mocks base method.
-func (m *MockBackend) Machine(arg0 string) (*state.Machine, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Machine", arg0)
-	ret0, _ := ret[0].(*state.Machine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Machine indicates an expected call of Machine.
-func (mr *MockBackendMockRecorder) Machine(arg0 any) *MockBackendMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockBackend)(nil).Machine), arg0)
-	return &MockBackendMachineCall{Call: call}
-}
-
-// MockBackendMachineCall wrap *gomock.Call
-type MockBackendMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendMachineCall) Return(arg0 *state.Machine, arg1 error) *MockBackendMachineCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendMachineCall) Do(f func(string) (*state.Machine, error)) *MockBackendMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendMachineCall) DoAndReturn(f func(string) (*state.Machine, error)) *MockBackendMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

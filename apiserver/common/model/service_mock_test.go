@@ -16,6 +16,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
 	watcher "github.com/juju/juju/core/watcher"
+	status "github.com/juju/juju/domain/status"
 	config "github.com/juju/juju/environs/config"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -320,6 +321,45 @@ func (c *MockStatusServiceGetApplicationAndUnitModelStatusesCall) Do(f func(cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStatusServiceGetApplicationAndUnitModelStatusesCall) DoAndReturn(f func(context.Context) (map[string]int, error)) *MockStatusServiceGetApplicationAndUnitModelStatusesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetModelStatusInfo mocks base method.
+func (m *MockStatusService) GetModelStatusInfo(arg0 context.Context) (status.ModelStatusInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelStatusInfo", arg0)
+	ret0, _ := ret[0].(status.ModelStatusInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelStatusInfo indicates an expected call of GetModelStatusInfo.
+func (mr *MockStatusServiceMockRecorder) GetModelStatusInfo(arg0 any) *MockStatusServiceGetModelStatusInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelStatusInfo", reflect.TypeOf((*MockStatusService)(nil).GetModelStatusInfo), arg0)
+	return &MockStatusServiceGetModelStatusInfoCall{Call: call}
+}
+
+// MockStatusServiceGetModelStatusInfoCall wrap *gomock.Call
+type MockStatusServiceGetModelStatusInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusServiceGetModelStatusInfoCall) Return(arg0 status.ModelStatusInfo, arg1 error) *MockStatusServiceGetModelStatusInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusServiceGetModelStatusInfoCall) Do(f func(context.Context) (status.ModelStatusInfo, error)) *MockStatusServiceGetModelStatusInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusServiceGetModelStatusInfoCall) DoAndReturn(f func(context.Context) (status.ModelStatusInfo, error)) *MockStatusServiceGetModelStatusInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

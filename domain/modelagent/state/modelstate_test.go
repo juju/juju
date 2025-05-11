@@ -210,10 +210,8 @@ func (s *modelStateSuite) createTestingUnitForApplication(
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	appID, err := appState.GetApplicationIDByName(context.Background(), appName)
 	c.Assert(err, tc.ErrorIsNil)
-	charmUUID, err := appState.GetCharmIDByApplicationName(context.Background(), appName)
-	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, err := appState.AddIAASUnits(context.Background(), "", appID, charmUUID, application.AddUnitArg{})
+	unitNames, err := appState.AddIAASUnits(context.Background(), appID, application.AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]

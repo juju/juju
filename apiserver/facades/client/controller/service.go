@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/blockcommand"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/relation"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/proxy"
@@ -65,8 +66,8 @@ type ModelService interface {
 	// ListAllModels returns a slice of all models in the controller. If no models
 	// exist an empty slice is returned.
 	ListAllModels(ctx context.Context) ([]coremodel.Model, error)
-	// ListModelIDs returns a list of all model UUIDs.
-	ListModelIDs(context.Context) ([]coremodel.UUID, error)
+	// ListModelUUIDs returns a list of all model UUIDs in the controller.
+	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
 }
 
 // ModelInfoService defines domain service methods for managing a model.
@@ -105,6 +106,11 @@ type StatusService interface {
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+	// GetModelStatusInfo returns information about the current model for the
+	// purpose of reporting its status.
+	// The following error types can be expected to be returned:
+	// - [modelerrors.NotFound]: When the model does not exist.
+	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
 }
 
 // ProxyService provides access to the proxy service.

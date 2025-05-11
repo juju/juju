@@ -42,7 +42,6 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/domain/unitstate"
-	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -920,26 +919,33 @@ func (u *UniterAPI) ConfigSettings(ctx context.Context, args params.Entities) (p
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.st.Unit(tag.Id())
-			if errors.Is(err, errors.NotFound) {
-				result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-				continue
-			}
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-
-			var settings charm.Settings
-			settings, err = unit.ConfigSettings()
-			if err == nil {
-				result.Results[i].Settings = params.ConfigSettings(settings)
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		appID, err := u.applicationService.GetApplicationIDByUnitName(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		settings, err := u.applicationService.GetApplicationConfigWithDefaults(ctx, appID)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i].Settings = params.ConfigSettings(settings)
 	}
 	return result, nil
 }

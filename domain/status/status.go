@@ -6,6 +6,7 @@ package status
 import (
 	"time"
 
+	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	statuserrors "github.com/juju/juju/domain/status/errors"
@@ -81,6 +82,13 @@ func DecodeK8sPodStatus(s int) (K8sPodStatusType, error) {
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
+}
+
+// ModelStatusInfo represents the basic information about a model for the
+// purpose of reporting its status.
+type ModelStatusInfo struct {
+	// Type is the type of the model in question.
+	Type coremodel.ModelType
 }
 
 type RelationStatusInfo struct {

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
-	domainapplication "github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	portservice "github.com/juju/juju/domain/port/service"
@@ -274,12 +273,6 @@ func (s *uniterLegacySuite) TestSetWorkloadVersion(c *tc.C) {
 func (s *uniterLegacySuite) TestCharmModifiedVersion(c *tc.C) {
 }
 
-func (s *uniterLegacySuite) TestWatchConfigSettingsHash(c *tc.C) {
-}
-
-func (s *uniterLegacySuite) TestWatchTrustConfigSettingsHash(c *tc.C) {
-}
-
 func (s *uniterLegacySuite) TestLogActionMessage(c *tc.C) {
 }
 
@@ -332,9 +325,6 @@ func (s *uniterLegacySuite) TestWatchActionNotificationsPermissionDenied(c *tc.C
 	result := results.Results[0]
 	c.Assert(result.Error, tc.NotNil)
 	c.Assert(result.Error.Message, tc.Equals, "permission denied")
-}
-
-func (s *uniterLegacySuite) TestConfigSettings(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestCurrentModel(c *tc.C) {
@@ -530,7 +520,7 @@ func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *tc.C) {
 	_, err := s.machineService.CreateMachine(context.Background(), "0")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.applicationService.AddUnits(context.Background(), "mysql", domainapplication.StorageParentDir,
+	err = s.applicationService.AddUnits(context.Background(), "mysql",
 		applicationservice.AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 

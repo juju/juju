@@ -5,15 +5,12 @@ package service
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/watcher"
@@ -79,7 +76,7 @@ func (s *WatchableService) WatchModelMachines() (watcher.StringsWatcher, error) 
 	table, stmt := s.st.InitialWatchModelMachinesStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		eventsource.InitialNamespaceChanges(stmt),
-		uuidToNameMapper(noContainersFilter),
+		s.uuidToNameMapper(noContainersFilter),
 		eventsource.NamespaceFilter(table, changestream.Changed),
 	)
 }
@@ -174,13 +171,13 @@ func (e changeEventShim) Changed() string {
 // events with the machine names that correspond to the UUIDs.
 // If the input filter is not nil and returns true for any machine UUID/name in
 // the events, those events are omitted.
-func uuidToNameMapper(filter func(string, machine.Name) bool) eventsource.Mapper {
+func (s *WatchableService) uuidToNameMapper(filter func(string, machine.Name) bool) eventsource.Mapper {
 	return func(
-		ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
+		ctx context.Context, events []changestream.ChangeEvent,
 	) ([]changestream.ChangeEvent, error) {
 		// Generate a slice of UUIDs and placeholders for our query
 		// and index the events by those UUIDs.
-		machineUUIDs := make([]any, 0, len(events))
+		machineUUIDs := make([]string, 0, len(events))
 		placeHolders := make([]string, 0, len(events))
 		eventsByUUID := transform.SliceToMap(events, func(e changestream.ChangeEvent) (string, changestream.ChangeEvent) {
 			machineUUIDs = append(machineUUIDs, e.Changed())
@@ -188,37 +185,24 @@ func uuidToNameMapper(filter func(string, machine.Name) bool) eventsource.Mapper
 			return e.Changed(), e
 		})
 
+		uuidsToName, err := s.st.GetNamesForUUIDs(ctx, machineUUIDs)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
 		newEvents := make([]changestream.ChangeEvent, 0, len(events))
-		q := fmt.Sprintf("SELECT uuid, name FROM machine WHERE uuid IN (%s)", strings.Join(placeHolders, ", "))
 
-		if err := db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			rows, err := tx.QueryContext(ctx, q, machineUUIDs...)
-			if err != nil {
-				return err
-			}
-			defer func() { _ = rows.Close() }()
-
-			var uuid, name string
-			for rows.Next() {
-				if err := rows.Scan(&uuid, &name); err != nil {
-					return err
-				}
-
-				if filter != nil && filter(uuid, machine.Name(name)) {
-					continue
-				}
-
-				e := eventsByUUID[uuid]
-				newEvents = append(newEvents, changeEventShim{
-					changeType: e.Type(),
-					namespace:  e.Namespace(),
-					changed:    name,
-				})
+		for uuid, name := range uuidsToName {
+			if filter != nil && filter(uuid, name) {
+				continue
 			}
 
-			return rows.Err()
-		}); err != nil {
-			return nil, err
+			e := eventsByUUID[uuid]
+			newEvents = append(newEvents, changeEventShim{
+				changeType: e.Type(),
+				namespace:  e.Namespace(),
+				changed:    name.String(),
+			})
 		}
 
 		return newEvents, nil

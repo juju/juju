@@ -8,7 +8,6 @@ import (
 	"sort"
 
 	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
@@ -33,14 +32,14 @@ type UnitState interface {
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	AddIAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
+	AddIAASUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
 
 	// AddCAASUnits adds the specified units to the application, returning their
 	// names. If the application is not found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	AddCAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
+	AddCAASUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
 
 	// InsertMigratingIAASUnits inserts the fully formed units for the specified
 	// IAAS application. This is only used when inserting units during model
@@ -144,9 +143,6 @@ type UnitState interface {
 	// IAAS, the new unit will be colocated on machine with the principal unit.
 	// The principal-subordinate relationship is also recorded.
 	AddSubordinateUnit(context.Context, application.SubordinateUnitArg) (coreunit.Name, error)
-
-	// IsSubordinateApplication returns true if the application is a subordinate application.
-	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
 
 	// GetMachineNetNodeUUIDFromName returns the net node UUID for the named
 	// machine. The following errors may be returned: -

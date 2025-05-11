@@ -64,6 +64,7 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 			st,
 			auth,
 			domainServices.Agent(),
+			domainServices.Application(),
 			ctx.WatcherRegistry(),
 		), nil
 	}

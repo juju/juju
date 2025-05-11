@@ -61,18 +61,25 @@ func (api *APIBase) getConfig(
 	}
 	appConfigInfo := describeAppConfig(appSettings, providerSchema, providerDefaults)
 
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return params.ApplicationGetResults{}, err
+	isSubordinate, err := api.applicationService.IsSubordinateApplication(ctx, appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ApplicationGetResults{}, errors.NotFoundf("application %s", args.ApplicationName)
+	} else if err != nil {
+		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
 	var cons constraints.Value
-	if app.IsPrincipal() {
+	if !isSubordinate {
 		cons, err = api.applicationService.GetApplicationConstraints(ctx, appID)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return params.ApplicationGetResults{}, errors.NotFoundf("application %s", args.ApplicationName)
 		} else if err != nil {
 			return params.ApplicationGetResults{}, errors.Trace(err)
 		}
+	}
+
+	app, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return params.ApplicationGetResults{}, err
 	}
 	endpoints, err := app.EndpointBindings()
 	if err != nil {

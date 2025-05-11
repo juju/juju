@@ -84,6 +84,26 @@ func (s *UserService) GetUserByName(
 	return usr, nil
 }
 
+// GetUserUUIDByName will find and return the UUID associated with user name.
+// The following errors can be expected:
+// - [accesserrors.UserNotFound] when no user exists for the supplied user name.
+// - [accesserrors.UserNameNotValid] when the user name is not valid.
+func (s *UserService) GetUserUUIDByName(
+	ctx context.Context,
+	name user.Name,
+) (user.UUID, error) {
+	if name.IsZero() {
+		return "", errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
+	}
+
+	uuid, err := s.st.GetUserUUIDByName(ctx, name)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return uuid, nil
+}
+
 // GetUserByAuth will find and return the user with UUID. If there is no
 // user for the name and password, then an error that satisfies
 // accesserrors.NotFound will be returned. If supplied with an invalid user name

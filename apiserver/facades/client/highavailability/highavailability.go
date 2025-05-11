@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
-	domainapplication "github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/rpc/params"
@@ -49,7 +48,7 @@ type MachineService interface {
 type ApplicationService interface {
 	AddUnits(
 		ctx context.Context,
-		storageParentDir, name string,
+		name string,
 		units ...applicationservice.AddUnitArg,
 	) error
 }
@@ -217,7 +216,6 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		}
 		if err := api.applicationService.AddUnits(
 			ctx,
-			domainapplication.StorageParentDir,
 			application.ControllerApplicationName,
 			addUnitArgs...,
 		); err != nil {

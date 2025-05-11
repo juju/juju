@@ -5,49 +5,36 @@ package service
 
 import (
 	"context"
-	"database/sql"
 
+	"go.uber.org/mock/gomock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
-	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/machine/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type mapperSuite struct {
-	schematesting.ModelSuite
+	testhelpers.IsolationSuite
+
+	state *MockState
 }
 
 var _ = tc.Suite(&mapperSuite{})
 
 func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
-	uuid0 := uuid.MustNewUUID().String()
-	uuid1 := uuid.MustNewUUID().String()
-	uuid2 := uuid.MustNewUUID().String()
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	uuid0 := testing.GenUUID(c).String()
+	uuid1 := testing.GenUUID(c).String()
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO net_node (uuid) VALUES (?)"
-		if _, err := tx.ExecContext(ctx, stmt, uuid0); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, stmt, uuid1); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, stmt, uuid2); err != nil {
-			return err
-		}
-
-		stmt = "INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, ?)"
-		if _, err := tx.ExecContext(ctx, stmt, uuid0, "0", uuid0, 0); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, stmt, uuid1, "1", uuid1, 0); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, stmt, uuid2, "0/lxd/0", uuid2, 0)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	in := []string{uuid0, uuid1}
+	out := map[string]machine.Name{
+		uuid0: machine.Name("0"),
+		uuid1: machine.Name("1"),
+	}
+	s.expectGetNamesForUUIDs(in, out)
 
 	changesIn := []changestream.ChangeEvent{
 		changeEventShim{
@@ -62,7 +49,12 @@ func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 		},
 	}
 
-	changesOut, err := uuidToNameMapper(noContainersFilter)(context.Background(), s.TxnRunner(), changesIn)
+	service := s.getService()
+
+	// Act
+	changesOut, err := service.uuidToNameMapper(noContainersFilter)(context.Background(), changesIn)
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(changesOut, tc.SameContents, []changestream.ChangeEvent{
@@ -77,4 +69,22 @@ func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 			changed:    "1",
 		},
 	})
+}
+
+func (s *mapperSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.state = NewMockState(ctrl)
+	return ctrl
+}
+
+func (s *mapperSuite) getService() *WatchableService {
+	return &WatchableService{
+		ProviderService: ProviderService{
+			Service: Service{st: s.state},
+		},
+	}
+}
+
+func (s *mapperSuite) expectGetNamesForUUIDs(in []string, out map[string]machine.Name) {
+	s.state.EXPECT().GetNamesForUUIDs(gomock.Any(), in).Return(out, nil)
 }

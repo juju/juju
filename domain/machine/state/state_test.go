@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -926,4 +927,36 @@ func (s *stateSuite) TestAppliedLXDProfileNamesNoErrorEmpty(c *tc.C) {
 	profiles, err := s.state.AppliedLXDProfileNames(context.Background(), "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(profiles, tc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetNamesForUUIDs(c *tc.C) {
+	// Arrange
+	uuid111 := testing.GenUUID(c)
+	err := s.state.CreateMachine(context.Background(), "111", "1", uuid111)
+	c.Assert(err, tc.ErrorIsNil)
+	uuid222 := testing.GenUUID(c)
+	err = s.state.CreateMachine(context.Background(), "222", "2", uuid222)
+	c.Assert(err, tc.ErrorIsNil)
+	uuid333 := testing.GenUUID(c)
+	err = s.state.CreateMachine(context.Background(), "333", "3", uuid333)
+	c.Assert(err, tc.ErrorIsNil)
+	expected := map[string]machine.Name{
+		uuid111.String(): "111",
+		uuid333.String(): "333",
+	}
+
+	// Act
+	obtained, err := s.state.GetNamesForUUIDs(context.Background(), []string{uuid333.String(), uuid111.String()})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestGetNamesForUUIDsNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetNamesForUUIDs(context.Background(), []string{"deadbeef"})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }

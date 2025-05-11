@@ -245,6 +245,45 @@ func (c *MockApplicationServiceGetApplicationConfigCall) DoAndReturn(f func(cont
 	return c
 }
 
+// GetApplicationConfigWithDefaults mocks base method.
+func (m *MockApplicationService) GetApplicationConfigWithDefaults(arg0 context.Context, arg1 application.ID) (config.ConfigAttributes, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationConfigWithDefaults", arg0, arg1)
+	ret0, _ := ret[0].(config.ConfigAttributes)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationConfigWithDefaults indicates an expected call of GetApplicationConfigWithDefaults.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationConfigWithDefaults(arg0, arg1 any) *MockApplicationServiceGetApplicationConfigWithDefaultsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConfigWithDefaults", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationConfigWithDefaults), arg0, arg1)
+	return &MockApplicationServiceGetApplicationConfigWithDefaultsCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationConfigWithDefaultsCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationConfigWithDefaultsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationConfigWithDefaultsCall) Return(arg0 config.ConfigAttributes, arg1 error) *MockApplicationServiceGetApplicationConfigWithDefaultsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationConfigWithDefaultsCall) Do(f func(context.Context, application.ID) (config.ConfigAttributes, error)) *MockApplicationServiceGetApplicationConfigWithDefaultsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationConfigWithDefaultsCall) DoAndReturn(f func(context.Context, application.ID) (config.ConfigAttributes, error)) *MockApplicationServiceGetApplicationConfigWithDefaultsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationIDByName mocks base method.
 func (m *MockApplicationService) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
 	m.ctrl.T.Helper()

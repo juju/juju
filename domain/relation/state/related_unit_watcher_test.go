@@ -54,8 +54,9 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnit(c *tc.C) {
 	s.addRelationEndpoint(c, otherRelationUUID, app2ReqUUID)
 	s.addRelationEndpoint(c, otherRelationUUID, app1ProvUUID)
 
-	// We create a unit, and a relation in which we are interested
+	// We create a units on both side, and a relation in which we are interested
 	s.addUnit(c, "app1/0", appUUID1, charmUUID)
+	s.addUnit(c, "app2/0", appUUID2, charmUUID)
 	relationUUID := s.addRelation(c)
 	s.addRelationEndpoint(c, relationUUID, app1ReqUUID)
 	expectedEndpoint := s.addRelationEndpoint(c, relationUUID, app2ProvUUID)

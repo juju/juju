@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -57,7 +56,7 @@ func (s *storageSuite) TestAttachStorage(c *tc.C) {
 	storageUUID := storagetesting.GenStorageUUID(c)
 	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
 	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
-	s.mockState.EXPECT().AttachStorage(gomock.Any(), application.StorageParentDir, storageUUID, unitUUID)
+	s.mockState.EXPECT().AttachStorage(gomock.Any(), storageUUID, unitUUID)
 
 	err := s.service.AttachStorage(context.Background(), "pgdata/0", "postgresql/666")
 	c.Assert(err, tc.ErrorIsNil)
@@ -70,7 +69,7 @@ func (s *storageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
 	storageUUID := storagetesting.GenStorageUUID(c)
 	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
 	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
-	s.mockState.EXPECT().AttachStorage(gomock.Any(), application.StorageParentDir, storageUUID, unitUUID).Return(errors.StorageAlreadyAttached)
+	s.mockState.EXPECT().AttachStorage(gomock.Any(), storageUUID, unitUUID).Return(errors.StorageAlreadyAttached)
 
 	err := s.service.AttachStorage(context.Background(), "pgdata/0", "postgresql/666")
 	c.Assert(err, tc.ErrorIsNil)

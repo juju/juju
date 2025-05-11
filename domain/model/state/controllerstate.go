@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -56,8 +57,24 @@ func (s *State) CheckModelExists(
 		return false, errors.Capture(err)
 	}
 
-	dbModelUUID := dbModelUUID{UUID: modelUUID.String()}
+	exists := false
+	return exists, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		exists, err = s.checkModelExists(ctx, tx, modelUUID)
+		return err
+	})
+}
 
+// checkModelExists is a check that allows the caller to find out if a model
+// exists in the controller. True is returned when the model has been found.
+// This func does not work with models that have not been activated.
+func (s *State) checkModelExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	modelUUID coremodel.UUID,
+) (bool, error) {
+
+	dbModelUUID := dbModelUUID{UUID: modelUUID.String()}
 	stmt, err := s.Prepare(`
 SELECT &dbModelUUID.* FROM v_model WHERE uuid = $dbModelUUID.uuid
 `, dbModelUUID)
@@ -65,15 +82,11 @@ SELECT &dbModelUUID.* FROM v_model WHERE uuid = $dbModelUUID.uuid
 		return false, errors.Capture(err)
 	}
 
-	exists := false
-	return exists, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, dbModelUUID).Get(&dbModelUUID)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("checking model %q exists: %w", modelUUID, err)
-		}
-		exists = !errors.Is(err, sqlair.ErrNoRows)
-		return nil
-	})
+	err = tx.Query(ctx, stmt, dbModelUUID).Get(&dbModelUUID)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return false, errors.Errorf("checking model %q exists: %w", modelUUID, err)
+	}
+	return !errors.Is(err, sqlair.ErrNoRows), nil
 }
 
 // CloudType is responsible for reporting the type for a given cloud name. If no
@@ -959,9 +972,8 @@ func (s *State) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 	return rval, nil
 }
 
-// ListModelIDs returns a list of all model UUIDs in the system that have not been
-// deleted.
-func (s *State) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
+// ListModelUUIDs returns a list of all model UUIDs in the system that are active.
+func (s *State) ListModelUUIDs(ctx context.Context) ([]coremodel.UUID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -972,21 +984,81 @@ func (s *State) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
 		return nil, errors.Capture(err)
 	}
 
-	var models []coremodel.UUID
+	var dbResult []dbUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var result []dbUUID
-		if err := tx.Query(ctx, stmt).GetAll(&result); errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
+		err := tx.Query(ctx, stmt).GetAll(&dbResult)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting all model UUIDs: %w", err)
-		}
-
-		for _, r := range result {
-			models = append(models, coremodel.UUID(r.UUID))
 		}
 		return nil
 	})
-	return models, errors.Capture(err)
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	modelUUIDs := make([]coremodel.UUID, 0, len(dbResult))
+	for _, r := range dbResult {
+		modelUUIDs = append(modelUUIDs, coremodel.UUID(r.UUID))
+	}
+	return modelUUIDs, nil
+}
+
+// ListModelUUIDsForUser returns a list of all the model uuids that a user has
+// access to in the controller.
+// The following errors can be expected:
+// - [accesserrors.UserNotFound] when the user does not exist.
+func (s *State) ListModelUUIDsForUser(
+	ctx context.Context,
+	userUUID user.UUID,
+) ([]coremodel.UUID, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	userUUIDVal := dbUUID{UUID: userUUID.String()}
+	stmt, err := s.Prepare(`
+SELECT &dbUUID.*
+FROM   v_model
+WHERE  uuid IN (SELECT grant_on
+                FROM   permission
+                WHERE  grant_to = $dbUUID.uuid
+                AND    access_type_id IN (0, 1, 3))
+`,
+		userUUIDVal)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbResult []dbUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := s.checkUserExists(ctx, tx, userUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if !exists {
+			return errors.Errorf(
+				"user %q does not exist", userUUID,
+			).Add(accesserrors.UserNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, userUUIDVal).GetAll(&dbResult)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting all user %q model UUIDs: %w", userUUID, err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	modelUUIDs := make([]coremodel.UUID, 0, len(dbResult))
+	for _, r := range dbResult {
+		modelUUIDs = append(modelUUIDs, coremodel.UUID(r.UUID))
+	}
+	return modelUUIDs, nil
 }
 
 // ListModelsForUser returns a slice of models owned or accessible by the user
@@ -1005,12 +1077,12 @@ func (s *State) ListModelsForUser(
 
 	modelStmt, err := s.Prepare(`
 SELECT &dbModel.*
-FROM v_model
-WHERE owner_uuid = $dbUUID.uuid
-OR uuid IN (SELECT grant_on
-            FROM permission
-            WHERE grant_to = $dbUUID.uuid
-            AND access_type_id IN (0, 1, 3))
+FROM   v_model
+WHERE  owner_uuid = $dbUUID.uuid
+OR     uuid IN (SELECT grant_on
+                FROM   permission
+                WHERE  grant_to = $dbUUID.uuid
+                AND    access_type_id IN (0, 1, 3))
 `, dbModel{}, uUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1096,118 +1168,225 @@ AND       u.removed = false
 	return userInfo, nil
 }
 
-// ListModelSummariesForUser lists model summaries of all models the user has
-// access to. If no models are found then a nil slice is returned.
-// TODO(aflynn): 05-08-2024 - The ModelSummary struct includes a machine count,
-// unit count and cpu core count, model status as well as migration status. This
-// information has not yet been migrated over to the relational database. Once
-// it has, it needs to be included here.
-func (s *State) ListModelSummariesForUser(ctx context.Context, userName user.Name) ([]coremodel.UserModelSummary, error) {
+// GetModelSummary provides summary based information for the model identified
+// by the uuid. The information returned is intended to augment the information
+// that lives in the model.
+// The following error types can be expected:
+// - [modelerrors.NotFound] when the model is not found for the given model
+// uuid.
+func (s *State) GetModelSummary(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+) (model.ModelSummary, error) {
 	db, err := s.DB()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return model.ModelSummary{}, errors.Capture(err)
 	}
 
 	q := `
-SELECT    (p.access_type, m.uuid, m.name, m.cloud_name, m.cloud_region_name,
-          m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name,
-          m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
-          m.life, mll.time, m.is_controller_model, m.controller_uuid) AS (&dbModelSummary.*)
+SELECT (m.owner_name, ms.destroying, ms.cloud_credential_invalid,
+        ms.cloud_credential_invalid_reason, ms.migrating,
+        life) AS (&dbModelSummary.*)
+FROM   v_model_state ms
+JOIN   v_model m ON m.uuid = ms.uuid
+WHERE  ms.uuid = $dbModelUUID.uuid
+`
+	modelUUIDVal := dbModelUUID{UUID: modelUUID.String()}
+	stmt, err := s.Prepare(q, dbModelSummary{}, modelUUIDVal)
+	if err != nil {
+		return model.ModelSummary{}, errors.Capture(err)
+	}
+
+	var modelSummaryVals dbModelSummary
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		modelExists, err := s.checkModelExists(ctx, tx, modelUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking if model %q exists: %w", modelUUID.String(), err,
+			)
+		}
+		if !modelExists {
+			return errors.Errorf(
+				"model %q does not exist", modelUUID.String(),
+			).Add(modelerrors.NotFound)
+		}
+
+		err = tx.Query(ctx, stmt, modelUUIDVal).Get(&modelSummaryVals)
+		if err != nil {
+			return errors.Errorf(
+				"getting model %q summary: %w", modelUUID.String(), err,
+			)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return model.ModelSummary{}, errors.Capture(err)
+	}
+
+	ownerName, err := user.NewName(modelSummaryVals.OwnerName)
+	if err != nil {
+		return model.ModelSummary{}, errors.Errorf(
+			"parsing model %q owner username %q: %w",
+			modelUUID, modelSummaryVals.OwnerName, err,
+		)
+	}
+
+	return model.ModelSummary{
+		Life:      corelife.Value(modelSummaryVals.Life),
+		OwnerName: ownerName,
+		State: model.ModelState{
+			Destroying:                   modelSummaryVals.Destroying,
+			HasInvalidCloudCredential:    modelSummaryVals.CredentialInvalid,
+			InvalidCloudCredentialReason: modelSummaryVals.CredentialInvalidReason,
+			Migrating:                    modelSummaryVals.Migrating,
+		},
+	}, nil
+}
+
+// checkUserExists checks if a user exists in the database. True or false is
+// returned indicating this fact.
+func (s *State) checkUserExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	userUUID user.UUID,
+) (bool, error) {
+	userExistsQ := `
+SELECT &dbUserUUID.*
+FROM   v_user_auth
+WHERE  uuid = $dbUserUUID.uuid
+AND    removed = false
+`
+	userUUIDVal := dbUserUUID{UUID: userUUID.String()}
+	userExistsStmt, err := s.Prepare(userExistsQ, userUUIDVal)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, userExistsStmt, userUUIDVal).Get(&userUUIDVal)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return false, errors.Errorf(
+			"checking user %q exists: %w", userUUID.String(), err,
+		)
+	}
+
+	return !errors.Is(err, sqlair.ErrNoRows), nil
+}
+
+// GetUserModelSummary returns a summary of the model information that is only
+// available in the controller database from the perspective of the user. This
+// assumes that the user has access to the model.
+// The following error types can be expected:
+// - [modelerrors.NotFound] when the model is not found for the given model
+// uuid.
+// - [accesserrors.UserNotFound] when the user is not found for the given user
+// uuid.
+// - [accesserrors.AccessNotFound] when the user does not have access to the
+// model.
+func (s *State) GetUserModelSummary(
+	ctx context.Context,
+	userUUID user.UUID,
+	modelUUID coremodel.UUID,
+) (model.UserModelSummary, error) {
+	db, err := s.DB()
+	if err != nil {
+		return model.UserModelSummary{}, errors.Capture(err)
+	}
+
+	q := `
+SELECT    (p.access_type, mll.time, ms.destroying, ms.cloud_credential_invalid,
+           ms.cloud_credential_invalid_reason, ms.migrating, m.owner_name,
+           m.life) AS (&dbUserModelSummary.*)
 FROM      v_user_auth u
 JOIN      v_permission p ON p.grant_to = u.uuid
-JOIN      v_model m ON m.uuid = p.grant_on
-LEFT JOIN model_last_login mll ON m.uuid = mll.model_uuid AND mll.user_uuid = u.uuid
+JOIN      v_model_state ms ON ms.uuid = p.grant_on
+JOIN      v_model m ON m.uuid = ms.uuid
+LEFT JOIN model_last_login mll ON ms.uuid = mll.model_uuid AND mll.user_uuid = u.uuid
 WHERE     u.removed = false
-AND       u.name = $dbUserName.name
+AND       u.uuid = $dbUserUUID.uuid
+AND       ms.uuid = $dbModelUUID.uuid
 `
-	name := dbUserName{Name: userName.Name()}
-	modelStmt, err := s.Prepare(q, name, dbModelSummary{})
+
+	userUUIDVal := dbUserUUID{UUID: userUUID.String()}
+	modelUUIDVal := dbModelUUID{UUID: modelUUID.String()}
+	stmt, err := s.Prepare(q, dbUserModelSummary{}, userUUIDVal, modelUUIDVal)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return model.UserModelSummary{}, errors.Capture(err)
 	}
 
-	var models []dbModelSummary
+	var userModelSummaryVals dbUserModelSummary
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, modelStmt, name).GetAll(&models)
+		exists, err := s.checkUserExists(ctx, tx, userUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if !exists {
+			return errors.Errorf(
+				"user %q does not exist", userUUID.String(),
+			).Add(accesserrors.UserNotFound)
+		}
+
+		modelExists, err := s.checkModelExists(ctx, tx, modelUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if !modelExists {
+			return errors.Errorf(
+				"model %q does not exist", modelUUID,
+			).Add(modelerrors.NotFound)
+		}
+
+		err = tx.Query(ctx, stmt, userUUIDVal, modelUUIDVal).Get(&userModelSummaryVals)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
+			return errors.Errorf(
+				"user %q does not have access to model %q",
+				userUUID, modelUUID,
+			).Add(accesserrors.AccessNotFound)
 		} else if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf(
+				"getting user %q model %q summary: %w",
+				userUUID, modelUUID, err,
+			)
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Errorf("getting model summaries for user: %w", err)
+		return model.UserModelSummary{}, errors.Capture(err)
 	}
 
-	modelSummaries := make([]coremodel.UserModelSummary, len(models))
-	for i, m := range models {
-		modelSummaries[i], err = m.decodeUserModelSummary()
-		if err != nil {
-			return nil, errors.Errorf("getting model summaries for user: %w", err)
-		}
+	ownerName, err := user.NewName(userModelSummaryVals.OwnerName)
+	if err != nil {
+		return model.UserModelSummary{}, errors.Errorf(
+			"parsing model %q owner username %q: %w",
+			modelUUID, userModelSummaryVals.OwnerName, err,
+		)
 	}
 
-	return modelSummaries, nil
+	return model.UserModelSummary{
+		ModelSummary: model.ModelSummary{
+			Life:      corelife.Value(userModelSummaryVals.Life),
+			OwnerName: ownerName,
+			State: model.ModelState{
+				Destroying:                   userModelSummaryVals.Destroying,
+				Migrating:                    userModelSummaryVals.Migrating,
+				HasInvalidCloudCredential:    userModelSummaryVals.CredentialInvalid,
+				InvalidCloudCredentialReason: userModelSummaryVals.CredentialInvalidReason,
+			},
+		},
+		UserAccess:         userModelSummaryVals.Access,
+		UserLastConnection: userModelSummaryVals.UserLastConnection,
+	}, nil
 }
 
-// ListAllModelSummaries lists summaries of all the models known to the
-// controller. It does not fill in the access or last model login since there is
-// no subject user for the model summary.
-// TODO(aflynn): 05-08-2024 - The ModelSummary struct includes a machine count,
-// unit count and cpu core count, model status as well as migration status. This
-// information has not yet been migrated over to the relational database. Once
-// it has, it needs to be included here.
-func (s *State) ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error) {
-	db, err := s.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	modelStmt, err := s.Prepare(`
-SELECT    (m.uuid, m.name, m.cloud_name, m.cloud_region_name,
-          m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name,
-          m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
-          m.life, m.is_controller_model, m.controller_uuid) AS (&dbModelSummary.*)
-FROM      v_model m
-`, dbModelSummary{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var models []dbModelSummary
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, modelStmt).GetAll(&models)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Errorf("getting all model summaries: %w", err)
-	}
-
-	modelSummaries := make([]coremodel.ModelSummary, len(models))
-	for i, m := range models {
-		modelSummaries[i], err = m.decodeModelSummary()
-		if err != nil {
-			return nil, errors.Errorf("decoding model summary result %d: %w", i, err)
-		}
-	}
-
-	return modelSummaries, nil
-}
-
-// GetModelCloudNameAndCredential returns the cloud name and credential id for a
-// model identified by uuid. If no model exists for the provided uuid a
+// GetModelCloudInfo returns the cloud name, cloud region name.  If no model exists for the provided uuid a
 // [modelerrors.NotFound] error is returned.
-func (s *State) GetModelCloudNameAndCredential(
+func (s *State) GetModelCloudInfo(
 	ctx context.Context,
 	uuid coremodel.UUID,
-) (string, credential.Key, error) {
+) (string, string, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", credential.Key{}, errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	args := dbModelUUID{
@@ -1216,17 +1395,16 @@ func (s *State) GetModelCloudNameAndCredential(
 
 	stmt, err := s.Prepare(`
 SELECT &dbCloudCredential.*
-FROM v_model
-WHERE uuid = $dbModelUUID.uuid
+FROM   v_model
+WHERE  uuid = $dbModelUUID.uuid
 `, dbCloudCredential{}, args)
 	if err != nil {
-		return "", credential.Key{}, errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	var (
 		cloudName       string
-		credentialKey   credential.Key
-		credentialOwner sql.NullString
+		cloudRegionName string
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var result dbCloudCredential
@@ -1238,28 +1416,15 @@ WHERE uuid = $dbModelUUID.uuid
 		}
 
 		cloudName = result.Name
-		credentialKey = credential.Key{
-			Name:  result.CredentialName.String,
-			Cloud: result.CredentialCloudName,
-		}
-		credentialOwner = result.CredentialOwnerName
+		cloudRegionName = result.CloudRegionName
 		return nil
 	})
 	if err != nil {
-		return "", credential.Key{}, errors.Errorf(
+		return "", "", errors.Errorf(
 			"getting model %q cloud name and credential: %w", uuid, err,
 		)
 	}
-
-	if credentialOwner.Valid && credentialOwner.String != "" {
-		ownerName, err := user.NewName(credentialOwner.String)
-		if err != nil {
-			return "", credential.Key{}, errors.Errorf("credential owner: %w", err)
-		}
-		credentialKey.Owner = ownerName
-	}
-
-	return cloudName, credentialKey, nil
+	return cloudName, cloudRegionName, nil
 }
 
 // GetModelCloudAndCredential returns the cloud and credential UUID for the model.

@@ -118,7 +118,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *tc.C) {
 
 	w, err := factory.NewNamespaceMapperWatcher(
 		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
-		func(ctx context.Context, tr database.TxnRunner, ce []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, ce []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			return ce, nil
 		},
 		eventsource.NamespaceFilter("some_namespace", changestream.All),

@@ -134,7 +134,7 @@ func (w *NamespaceWatcher) loop() error {
 			}
 
 			// Allow the possibility of the mapper to drop/filter events.
-			changed, err := w.mapper(ctx, w.watchableDB, subChanges)
+			changed, err := w.mapper(ctx, subChanges)
 			if err != nil {
 				return errors.Capture(err)
 			}

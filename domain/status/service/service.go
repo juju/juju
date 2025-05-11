@@ -156,6 +156,12 @@ type State interface {
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+
+	// GetModelStatusInfo returns information about the current model.
+	// The following error types can be expected to be returned:
+	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model
+	// does not exist.
+	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
 }
 
 // Service provides the API for working with the statuses of applications and
@@ -680,4 +686,13 @@ func (s *Service) decodeUnitStatusDetails(unit status.Unit) (Unit, error) {
 		WorkloadVersion:  unit.WorkloadVersion,
 		K8sProviderID:    unit.K8sProviderID,
 	}, nil
+}
+
+// GetModelStatusInfo returns information about the current model for the
+// purpose of reporting its status.
+// The following error types can be expected to be returned:
+// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does
+// not exist.
+func (s *Service) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
+	return s.st.GetModelStatusInfo(ctx)
 }

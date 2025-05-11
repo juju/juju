@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -91,10 +90,10 @@ type State interface {
 	// [modelerrors.NotFound] is returned.
 	GetControllerModelUUID(context.Context) (coremodel.UUID, error)
 
-	// GetModelCloudNameAndCredential returns the cloud name and credential id
-	// for a model identified by the model uuid. If no model exists for the
+	// GetModelCloudInfo returns the cloud name, cloud region name for a
+	// model identified by the model uuid. If no model exists for the
 	// provided name and user a [modelerrors.NotFound] error is returned.
-	GetModelCloudNameAndCredential(context.Context, coremodel.UUID) (string, credential.Key, error)
+	GetModelCloudInfo(context.Context, coremodel.UUID) (string, string, error)
 
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
@@ -103,8 +102,15 @@ type State interface {
 	// models exist a zero value slice will be returned.
 	ListAllModels(context.Context) ([]coremodel.Model, error)
 
-	// ListModelIDs returns a list of all model UUIDs.
-	ListModelIDs(context.Context) ([]coremodel.UUID, error)
+	// ListModelUUIDs returns a list of all model UUIDs in the controller that
+	// are active. If no models exist then an empty slice is returned.
+	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
+
+	// ListModelUUIDsForUser returns a slice of model UUIDs that the supplied
+	// user has access to. If the user has no models that they have access to
+	// then an empty slice is returned.
+	// - [accesserrors.UserNotFound] when the user does not exist.
+	ListModelUUIDsForUser(context.Context, coreuser.UUID) ([]coremodel.UUID, error)
 
 	// ListModelsForUser returns a slice of models owned by the user
 	// specified by user id. If no user or models are found an empty slice is
@@ -115,14 +121,6 @@ type State interface {
 	// permissions on the given model UUID.
 	// If the model cannot be found it will return modelerrors.NotFound.
 	GetModelUsers(context.Context, coremodel.UUID) ([]coremodel.ModelUserInfo, error)
-
-	// ListModelSummariesForUser returns a slice of model summaries for a given
-	// user. If no models are found an empty slice is returned.
-	ListModelSummariesForUser(context.Context, coreuser.Name) ([]coremodel.UserModelSummary, error)
-
-	// ListAllModelSummaries returns a slice of model summaries for all models
-	// known to the controller.
-	ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error)
 
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
@@ -241,32 +239,31 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
-// DefaultModelCloudNameAndCredential returns the default cloud name and
-// credential that should be used for newly created models that haven't had
-// either cloud or credential specified. If no default credential is available
-// the zero value of [credential.UUID] will be returned.
+// DefaultModelCloudInfo returns the default cloud name and region name
+// that should be used for newly created models that haven't had
+// either cloud or credential specified.
 //
 // The defaults that are sourced come from the controller's default model. If
 // there is a no controller model a [modelerrors.NotFound] error will be
 // returned.
-func (s *Service) DefaultModelCloudNameAndCredential(
+func (s *Service) DefaultModelCloudInfo(
 	ctx context.Context,
-) (string, credential.Key, error) {
+) (string, string, error) {
 	ctrlUUID, err := s.st.GetControllerModelUUID(ctx)
 	if err != nil {
-		return "", credential.Key{}, errors.Errorf(
+		return "", "", errors.Errorf(
 			"getting controller model uuid: %w", err,
 		)
 	}
-	cloudName, cred, err := s.st.GetModelCloudNameAndCredential(ctx, ctrlUUID)
+	cloudName, regionName, err := s.st.GetModelCloudInfo(ctx, ctrlUUID)
 
 	if err != nil {
-		return "", credential.Key{}, errors.Errorf(
+		return "", "", errors.Errorf(
 			"getting controller model %q cloud name and credential: %w",
 			ctrlUUID, err,
 		)
 	}
-	return cloudName, cred, nil
+	return cloudName, regionName, nil
 }
 
 // CreateModel is responsible for creating a new model from start to finish with
@@ -481,15 +478,32 @@ func (s *Service) DeleteModel(
 	return nil
 }
 
-// ListModelIDs returns a list of all model UUIDs in the system that have not been
-// deleted. This list does not represent one or more lifecycle states for
-// models.
-func (s *Service) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
-	uuids, err := s.st.ListModelIDs(ctx)
+// ListModelUUIDs returns a list of all model UUIDs in the controller that are
+// active.
+func (s *Service) ListModelUUIDs(ctx context.Context) ([]coremodel.UUID, error) {
+	uuids, err := s.st.ListModelUUIDs(ctx)
 	if err != nil {
-		return nil, errors.Errorf("getting list of model id's: %w", err)
+		return nil, errors.Errorf("getting list of model uuids for controller: %w", err)
 	}
 	return uuids, nil
+}
+
+// ListModelUUIDsForUser returns a list of model UUIDs that the supplied user
+// has access to. If the user supplied does not have access to any models then
+// an empty slice is returned.
+// The following errors can be expected:
+// - [github.com/juju/juju/core/errors.NotValid] when the user uuid supplied is
+// not valid.
+// - [accesserrors.UserNotFound] when the user does not exist.
+func (s *Service) ListModelUUIDsForUser(
+	ctx context.Context,
+	userUUID coreuser.UUID,
+) ([]coremodel.UUID, error) {
+	if err := userUUID.Validate(); err != nil {
+		return nil, errors.Errorf("validating user uuid: %w", err)
+	}
+
+	return s.st.ListModelUUIDsForUser(ctx, userUUID)
 }
 
 // ListAllModels  lists all models in the controller. If no models exist then
@@ -573,21 +587,6 @@ func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, na
 	)
 }
 
-// ListModelSummariesForUser returns a slice of model summaries for a given
-// user. If no models are found an empty slice is returned.
-func (s *Service) ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error) {
-	if userName.IsZero() {
-		return nil, errors.New("empty username").Add(accesserrors.UserNameNotValid)
-	}
-	return s.st.ListModelSummariesForUser(ctx, userName)
-}
-
-// ListAllModelSummaries returns a slice of model summaries for all models
-// known to the controller.
-func (s *Service) ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error) {
-	return s.st.ListAllModelSummaries(ctx)
-}
-
 // UpdateCredential is responsible for updating the cloud credential
 // associated with a model. The cloud credential must be of the same cloud type
 // as that of the model.
@@ -641,11 +640,9 @@ func (s *Service) GetModelByNameAndOwner(ctx context.Context, name string, owner
 // getWatchActivatedModelsMapper returns a mapper function that filters change events to
 // include only those associated with activated models.
 // The subset of changes returned is maintained in the same order as they are received.
-func getWatchActivatedModelsMapper(st State) func(ctx context.Context, db database.TxnRunner,
-	changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+func getWatchActivatedModelsMapper(st State) eventsource.Mapper {
 
-	return func(ctx context.Context, db database.TxnRunner,
-		changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 
 		modelUUIDs := make([]coremodel.UUID, len(changes))
 		for i, change := range changes {
@@ -734,7 +731,7 @@ func watchModelCloudCredential(
 	lastSeenCredentialUUID.Store(&credentialUUID)
 
 	// The mapper is used to filter out any model events where the credential UUID has not changed.
-	mapper := func(ctx context.Context, txnRunner database.TxnRunner, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// Get the current model credential UUID.
 		_, currentModelCredentialUUID, err := st.GetModelCloudAndCredential(ctx, modelUUID)
 		if err != nil {

@@ -125,7 +125,7 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *tc.C) {
 
 	w, err := NewNamespaceMapperWatcher(
 		s.newBaseWatcher(c), InitialNamespaceChanges("SELECT key_name FROM random_namespace"),
-		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			return nil, nil
 		},
 		NamespaceFilter("random_namespace", changestream.All),
@@ -239,7 +239,7 @@ func (s *namespaceSuite) TestDeltasSentByMapper(c *tc.C) {
 
 	w, err := NewNamespaceMapperWatcher(
 		s.newBaseWatcher(c), InitialNamespaceChanges("SELECT uuid FROM external_controller"),
-		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			if e[0].Changed() == "some-ec-uuid" {
 				return e, nil
 			}
@@ -320,7 +320,7 @@ func (s *namespaceSuite) TestDeltasSentByMapperError(c *tc.C) {
 
 	w, err := NewNamespaceMapperWatcher(
 		s.newBaseWatcher(c), InitialNamespaceChanges("SELECT uuid FROM external_controller"),
-		func(ctx context.Context, runner database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		func(ctx context.Context, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			return nil, errors.New("boom")
 		},
 		NamespaceFilter("external_controller", changestream.All),

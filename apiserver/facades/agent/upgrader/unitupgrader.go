@@ -25,10 +25,11 @@ import (
 
 // UnitUpgraderAPI provides access to the UnitUpgrader API facade.
 type UnitUpgraderAPI struct {
-	st                *state.State
-	authorizer        facade.Authorizer
-	modelAgentService ModelAgentService
-	watcherRegistry   facade.WatcherRegistry
+	st                 *state.State
+	authorizer         facade.Authorizer
+	modelAgentService  ModelAgentService
+	applicationService ApplicationService
+	watcherRegistry    facade.WatcherRegistry
 }
 
 // NewUnitUpgraderAPI creates a new server-side UnitUpgraderAPI facade.
@@ -36,13 +37,15 @@ func NewUnitUpgraderAPI(
 	st *state.State,
 	authorizer facade.Authorizer,
 	modelAgentService ModelAgentService,
+	applicationService ApplicationService,
 	watcherRegistry facade.WatcherRegistry,
 ) *UnitUpgraderAPI {
 	return &UnitUpgraderAPI{
-		st:                st,
-		authorizer:        authorizer,
-		modelAgentService: modelAgentService,
-		watcherRegistry:   watcherRegistry,
+		st:                 st,
+		authorizer:         authorizer,
+		modelAgentService:  modelAgentService,
+		applicationService: applicationService,
+		watcherRegistry:    watcherRegistry,
 	}
 }
 
@@ -109,7 +112,7 @@ func (u *UnitUpgraderAPI) DesiredVersion(ctx context.Context, args params.Entiti
 		}
 		err = apiservererrors.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
-			result[i].Version, err = u.getMachineToolsVersion(tag)
+			result[i].Version, err = u.getMachineToolsVersion(ctx, tag)
 		}
 		result[i].Error = apiservererrors.ServerError(err)
 	}
@@ -204,33 +207,35 @@ func (u *UnitUpgraderAPI) Tools(ctx context.Context, args params.Entities) (para
 			continue
 		}
 		if u.authorizer.AuthOwner(tag) {
-			result.Results[i] = u.getMachineTools(tag)
+			result.Results[i] = u.getMachineTools(ctx, tag)
 		}
 	}
 	return result, nil
 }
 
-func (u *UnitUpgraderAPI) getAssignedMachine(tag names.Tag) (*state.Machine, error) {
+func (u *UnitUpgraderAPI) getAssignedMachine(ctx context.Context, tag names.Tag) (*state.Machine, error) {
 	// Check that we really have a unit tag.
 	switch tag := tag.(type) {
 	case names.UnitTag:
-		unit, err := u.st.Unit(tag.Id())
+		unitName, err := coreunit.NewName(tag.Id())
 		if err != nil {
 			return nil, apiservererrors.ErrPerm
 		}
-		id, err := unit.AssignedMachineId()
-		if err != nil {
+		id, err := u.applicationService.GetUnitMachineName(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return nil, apiservererrors.ServerError(coreerrors.NotFound)
+		} else if err != nil {
 			return nil, err
 		}
-		return u.st.Machine(id)
+		return u.st.Machine(id.String())
 	default:
 		return nil, apiservererrors.ErrPerm
 	}
 }
 
-func (u *UnitUpgraderAPI) getMachineTools(tag names.Tag) params.ToolsResult {
+func (u *UnitUpgraderAPI) getMachineTools(ctx context.Context, tag names.Tag) params.ToolsResult {
 	var result params.ToolsResult
-	machine, err := u.getAssignedMachine(tag)
+	machine, err := u.getAssignedMachine(ctx, tag)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -247,8 +252,8 @@ func (u *UnitUpgraderAPI) getMachineTools(tag names.Tag) params.ToolsResult {
 	return result
 }
 
-func (u *UnitUpgraderAPI) getMachineToolsVersion(tag names.Tag) (*semversion.Number, error) {
-	machine, err := u.getAssignedMachine(tag)
+func (u *UnitUpgraderAPI) getMachineToolsVersion(ctx context.Context, tag names.Tag) (*semversion.Number, error) {
+	machine, err := u.getAssignedMachine(ctx, tag)
 	if err != nil {
 		return nil, err
 	}

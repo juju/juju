@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
+	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
@@ -44,6 +45,13 @@ type ModelState interface {
 
 	// GetModel returns the read only model information set in the database.
 	GetModel(context.Context) (coremodel.ModelInfo, error)
+
+	// GetModelInfoSummary returns a summary of the model information contained
+	// in this database.
+	// The following errors can be expected:
+	// - [modelerrors.NotFound] if no model has been established in this model
+	// database.
+	GetModelInfoSummary(context.Context) (model.ModelInfoSummary, error)
 
 	// GetModelMetrics returns the model metrics information set in the
 	// database.
@@ -97,6 +105,26 @@ type ControllerState interface {
 	// GetModelState returns the model state for the given model.
 	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
 	GetModelState(context.Context, coremodel.UUID) (model.ModelState, error)
+
+	// GetModelSummary provides summary based information for the model
+	// identified by the uuid. The information returned is intended to augment
+	// the information that lives in the model state.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound] when the model is not found for the given model
+	// uuid.
+	GetModelSummary(context.Context, coremodel.UUID) (model.ModelSummary, error)
+
+	// GetUserModelSummary returns a summary of the model information that is
+	// only available in the controller database from the perspective of the
+	// user. This assumes that the user has access to the model.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound] when the model is not found for the given model
+	// uuid.
+	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user
+	// is not found for the given user uuid.
+	// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
+	// user does not have access to the model.
+	GetUserModelSummary(context.Context, coreuser.UUID, coremodel.UUID) (model.UserModelSummary, error)
 }
 
 // AgentBinaryFinder represents a helper for establishing if agent binaries for
@@ -175,6 +203,109 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (coreconstraints
 // GetModelCloudType returns the type of the cloud that is in use by this model.
 func (s *ModelService) GetModelCloudType(ctx context.Context) (string, error) {
 	return s.modelSt.GetModelCloudType(ctx)
+}
+
+// GetModelSummary returns a summary of the current model as a
+// [coremodel.ModelSummary] type.
+// The following error types can be expected:
+// - [modelerrors.NotFound] when the model does not exist.
+func (s *ModelService) GetModelSummary(
+	ctx context.Context,
+) (coremodel.ModelSummary, error) {
+	mSummary, err := s.controllerSt.GetModelSummary(ctx, s.modelUUID)
+	if err != nil {
+		return coremodel.ModelSummary{}, errors.Capture(err)
+	}
+
+	miSummary, err := s.modelSt.GetModelInfoSummary(ctx)
+	if err != nil {
+		return coremodel.ModelSummary{}, errors.Capture(err)
+	}
+
+	status := s.statusFromModelState(ctx, mSummary.State)
+	return coremodel.ModelSummary{
+		Name:           miSummary.Name,
+		UUID:           miSummary.UUID,
+		ModelType:      miSummary.ModelType,
+		CloudName:      miSummary.CloudName,
+		CloudType:      miSummary.CloudType,
+		CloudRegion:    miSummary.CloudRegion,
+		ControllerUUID: miSummary.ControllerUUID,
+		IsController:   miSummary.IsController,
+		OwnerName:      mSummary.OwnerName,
+		Life:           mSummary.Life,
+		AgentVersion:   miSummary.AgentVersion,
+		Status: corestatus.StatusInfo{
+			Status:  status.Status,
+			Message: status.Message,
+			Since:   &status.Since,
+		},
+		MachineCount: miSummary.MachineCount,
+		CoreCount:    miSummary.CoreCount,
+		UnitCount:    miSummary.UnitCount,
+		// TODO (tlm): Fill out migration status when this information is
+		// available in Dqlite.
+		Migration: nil,
+	}, nil
+}
+
+// GetUserModelSummary returns a summary of the current model from the provided
+// user's perspective. This is similar to the [ModelService.GetModelSummary]
+// method but it will return information that is specific to the user.
+// The following error types can be expected:
+// - [coreerrors.NotValid] when the user uuid is not valid.
+// - [modelerrors.NotFound] when the model does not exist.
+// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user
+// is not found for the given user uuid.
+// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
+// user does not have access to the model.
+func (s *ModelService) GetUserModelSummary(
+	ctx context.Context,
+	userUUID coreuser.UUID,
+) (coremodel.UserModelSummary, error) {
+	if err := userUUID.Validate(); err != nil {
+		return coremodel.UserModelSummary{}, errors.Errorf(
+			"invalid user uuid: %w", err,
+		)
+	}
+
+	userSummary, err := s.controllerSt.GetUserModelSummary(ctx, userUUID, s.modelUUID)
+	if err != nil {
+		return coremodel.UserModelSummary{}, errors.Capture(err)
+	}
+
+	miSummary, err := s.modelSt.GetModelInfoSummary(ctx)
+	if err != nil {
+		return coremodel.UserModelSummary{}, errors.Capture(err)
+	}
+
+	status := s.statusFromModelState(ctx, userSummary.State)
+	return coremodel.UserModelSummary{
+		ModelSummary: coremodel.ModelSummary{
+			Name:           miSummary.Name,
+			UUID:           miSummary.UUID,
+			ModelType:      miSummary.ModelType,
+			CloudName:      miSummary.CloudName,
+			CloudType:      miSummary.CloudType,
+			CloudRegion:    miSummary.CloudRegion,
+			ControllerUUID: miSummary.ControllerUUID,
+			IsController:   miSummary.IsController,
+			OwnerName:      userSummary.OwnerName,
+			Life:           userSummary.Life,
+			AgentVersion:   miSummary.AgentVersion,
+			Status: corestatus.StatusInfo{
+				Status:  status.Status,
+				Message: status.Message,
+				Since:   &status.Since,
+			},
+			MachineCount: miSummary.MachineCount,
+			CoreCount:    miSummary.CoreCount,
+			UnitCount:    miSummary.UnitCount,
+			Migration:    nil,
+		},
+		UserAccess:         userSummary.UserAccess,
+		UserLastConnection: userSummary.UserLastConnection,
+	}, nil
 }
 
 // SetModelConstraints sets the model constraints to the new values removing
@@ -311,35 +442,43 @@ func (s *ModelService) GetStatus(ctx context.Context) (model.StatusInfo, error) 
 	if err != nil {
 		return model.StatusInfo{}, errors.Capture(err)
 	}
+	return s.statusFromModelState(ctx, modelState), nil
+}
 
+// statusFromModelState is responsible for converting the a [model.ModelState]
+// into a model status representation.
+func (s *ModelService) statusFromModelState(
+	ctx context.Context,
+	statusState model.ModelState,
+) model.StatusInfo {
 	now := s.clock.Now()
-	if modelState.HasInvalidCloudCredential {
+	if statusState.HasInvalidCloudCredential {
 		return model.StatusInfo{
 			Status:  corestatus.Suspended,
 			Message: "suspended since cloud credential is not valid",
-			Reason:  modelState.InvalidCloudCredentialReason,
+			Reason:  statusState.InvalidCloudCredentialReason,
 			Since:   now,
-		}, nil
+		}
 	}
-	if modelState.Destroying {
+	if statusState.Destroying {
 		return model.StatusInfo{
 			Status:  corestatus.Destroying,
 			Message: "the model is being destroyed",
 			Since:   now,
-		}, nil
+		}
 	}
-	if modelState.Migrating {
+	if statusState.Migrating {
 		return model.StatusInfo{
 			Status:  corestatus.Busy,
 			Message: "the model is being migrated",
 			Since:   now,
-		}, nil
+		}
 	}
 
 	return model.StatusInfo{
 		Status: corestatus.Available,
 		Since:  now,
-	}, nil
+	}
 }
 
 // GetEnvironVersion retrieves the version of the environment provider associated with the model.

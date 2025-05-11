@@ -66,14 +66,12 @@ type relationUnit struct {
 	UnitUUID             unit.UUID                 `db:"unit_uuid"`
 }
 
-// getRelationUnitEndpointName allows to fetch a endpoint name from a relation
-// unit, through the view v_relation_unit_endpoint
-type getRelationUnitEndpointName struct {
-	// RelationUnitUUID represents the unique identifier for a relation unit.
-	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
-	// EndpointName represents the name of the endpoint associated
-	// with a relation unit.
-	EndpointName string `db:"endpoint_name"`
+// relationUnitWithUnit maps a unit to a relation unit and
+// includes the unit name.
+type relationUnitWithUnit struct {
+	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
+	UnitUUID         unit.UUID             `db:"unit_uuid"`
+	UnitName         unit.Name             `db:"unit_name"`
 }
 
 type getUnit struct {
@@ -310,8 +308,6 @@ type watcherMapperData struct {
 	Life         string `db:"value"`
 	Suspended    string `db:"name"`
 }
-
-type uuids []string
 
 // applicationIDAndName is used to get the ID and name of an application.
 type applicationIDAndName struct {

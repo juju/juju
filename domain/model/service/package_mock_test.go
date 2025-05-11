@@ -129,6 +129,84 @@ func (c *MockControllerStateGetModelStateCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// GetModelSummary mocks base method.
+func (m *MockControllerState) GetModelSummary(arg0 context.Context, arg1 model.UUID) (model0.ModelSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelSummary", arg0, arg1)
+	ret0, _ := ret[0].(model0.ModelSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelSummary indicates an expected call of GetModelSummary.
+func (mr *MockControllerStateMockRecorder) GetModelSummary(arg0, arg1 any) *MockControllerStateGetModelSummaryCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelSummary", reflect.TypeOf((*MockControllerState)(nil).GetModelSummary), arg0, arg1)
+	return &MockControllerStateGetModelSummaryCall{Call: call}
+}
+
+// MockControllerStateGetModelSummaryCall wrap *gomock.Call
+type MockControllerStateGetModelSummaryCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetModelSummaryCall) Return(arg0 model0.ModelSummary, arg1 error) *MockControllerStateGetModelSummaryCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetModelSummaryCall) Do(f func(context.Context, model.UUID) (model0.ModelSummary, error)) *MockControllerStateGetModelSummaryCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetModelSummaryCall) DoAndReturn(f func(context.Context, model.UUID) (model0.ModelSummary, error)) *MockControllerStateGetModelSummaryCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUserModelSummary mocks base method.
+func (m *MockControllerState) GetUserModelSummary(arg0 context.Context, arg1 user.UUID, arg2 model.UUID) (model0.UserModelSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserModelSummary", arg0, arg1, arg2)
+	ret0, _ := ret[0].(model0.UserModelSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserModelSummary indicates an expected call of GetUserModelSummary.
+func (mr *MockControllerStateMockRecorder) GetUserModelSummary(arg0, arg1, arg2 any) *MockControllerStateGetUserModelSummaryCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserModelSummary", reflect.TypeOf((*MockControllerState)(nil).GetUserModelSummary), arg0, arg1, arg2)
+	return &MockControllerStateGetUserModelSummaryCall{Call: call}
+}
+
+// MockControllerStateGetUserModelSummaryCall wrap *gomock.Call
+type MockControllerStateGetUserModelSummaryCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetUserModelSummaryCall) Return(arg0 model0.UserModelSummary, arg1 error) *MockControllerStateGetUserModelSummaryCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetUserModelSummaryCall) Do(f func(context.Context, user.UUID, model.UUID) (model0.UserModelSummary, error)) *MockControllerStateGetUserModelSummaryCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetUserModelSummaryCall) DoAndReturn(f func(context.Context, user.UUID, model.UUID) (model0.UserModelSummary, error)) *MockControllerStateGetUserModelSummaryCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockEnvironVersionProvider is a mock of EnvironVersionProvider interface.
 type MockEnvironVersionProvider struct {
 	ctrl     *gomock.Controller
@@ -502,6 +580,45 @@ func (c *MockModelStateGetModelConstraintsCall) Do(f func(context.Context) (cons
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateGetModelConstraintsCall) DoAndReturn(f func(context.Context) (constraints.Constraints, error)) *MockModelStateGetModelConstraintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetModelInfoSummary mocks base method.
+func (m *MockModelState) GetModelInfoSummary(arg0 context.Context) (model0.ModelInfoSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelInfoSummary", arg0)
+	ret0, _ := ret[0].(model0.ModelInfoSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelInfoSummary indicates an expected call of GetModelInfoSummary.
+func (mr *MockModelStateMockRecorder) GetModelInfoSummary(arg0 any) *MockModelStateGetModelInfoSummaryCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelInfoSummary", reflect.TypeOf((*MockModelState)(nil).GetModelInfoSummary), arg0)
+	return &MockModelStateGetModelInfoSummaryCall{Call: call}
+}
+
+// MockModelStateGetModelInfoSummaryCall wrap *gomock.Call
+type MockModelStateGetModelInfoSummaryCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetModelInfoSummaryCall) Return(arg0 model0.ModelInfoSummary, arg1 error) *MockModelStateGetModelInfoSummaryCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetModelInfoSummaryCall) Do(f func(context.Context) (model0.ModelInfoSummary, error)) *MockModelStateGetModelInfoSummaryCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetModelInfoSummaryCall) DoAndReturn(f func(context.Context) (model0.ModelInfoSummary, error)) *MockModelStateGetModelInfoSummaryCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1150,42 +1267,42 @@ func (c *MockStateGetModelCloudAndCredentialCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// GetModelCloudNameAndCredential mocks base method.
-func (m *MockState) GetModelCloudNameAndCredential(arg0 context.Context, arg1 model.UUID) (string, credential.Key, error) {
+// GetModelCloudInfo mocks base method.
+func (m *MockState) GetModelCloudInfo(arg0 context.Context, arg1 model.UUID) (string, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelCloudNameAndCredential", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetModelCloudInfo", arg0, arg1)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(credential.Key)
+	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// GetModelCloudNameAndCredential indicates an expected call of GetModelCloudNameAndCredential.
-func (mr *MockStateMockRecorder) GetModelCloudNameAndCredential(arg0, arg1 any) *MockStateGetModelCloudNameAndCredentialCall {
+// GetModelCloudInfo indicates an expected call of GetModelCloudInfo.
+func (mr *MockStateMockRecorder) GetModelCloudInfo(arg0, arg1 any) *MockStateGetModelCloudInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudNameAndCredential", reflect.TypeOf((*MockState)(nil).GetModelCloudNameAndCredential), arg0, arg1)
-	return &MockStateGetModelCloudNameAndCredentialCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudInfo", reflect.TypeOf((*MockState)(nil).GetModelCloudInfo), arg0, arg1)
+	return &MockStateGetModelCloudInfoCall{Call: call}
 }
 
-// MockStateGetModelCloudNameAndCredentialCall wrap *gomock.Call
-type MockStateGetModelCloudNameAndCredentialCall struct {
+// MockStateGetModelCloudInfoCall wrap *gomock.Call
+type MockStateGetModelCloudInfoCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelCloudNameAndCredentialCall) Return(arg0 string, arg1 credential.Key, arg2 error) *MockStateGetModelCloudNameAndCredentialCall {
+func (c *MockStateGetModelCloudInfoCall) Return(arg0, arg1 string, arg2 error) *MockStateGetModelCloudInfoCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelCloudNameAndCredentialCall) Do(f func(context.Context, model.UUID) (string, credential.Key, error)) *MockStateGetModelCloudNameAndCredentialCall {
+func (c *MockStateGetModelCloudInfoCall) Do(f func(context.Context, model.UUID) (string, string, error)) *MockStateGetModelCloudInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelCloudNameAndCredentialCall) DoAndReturn(f func(context.Context, model.UUID) (string, credential.Key, error)) *MockStateGetModelCloudNameAndCredentialCall {
+func (c *MockStateGetModelCloudInfoCall) DoAndReturn(f func(context.Context, model.UUID) (string, string, error)) *MockStateGetModelCloudInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1345,45 +1462,6 @@ func (c *MockStateInitialWatchModelTableNameCall) DoAndReturn(f func() string) *
 	return c
 }
 
-// ListAllModelSummaries mocks base method.
-func (m *MockState) ListAllModelSummaries(arg0 context.Context) ([]model.ModelSummary, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListAllModelSummaries", arg0)
-	ret0, _ := ret[0].([]model.ModelSummary)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListAllModelSummaries indicates an expected call of ListAllModelSummaries.
-func (mr *MockStateMockRecorder) ListAllModelSummaries(arg0 any) *MockStateListAllModelSummariesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAllModelSummaries", reflect.TypeOf((*MockState)(nil).ListAllModelSummaries), arg0)
-	return &MockStateListAllModelSummariesCall{Call: call}
-}
-
-// MockStateListAllModelSummariesCall wrap *gomock.Call
-type MockStateListAllModelSummariesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateListAllModelSummariesCall) Return(arg0 []model.ModelSummary, arg1 error) *MockStateListAllModelSummariesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateListAllModelSummariesCall) Do(f func(context.Context) ([]model.ModelSummary, error)) *MockStateListAllModelSummariesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListAllModelSummariesCall) DoAndReturn(f func(context.Context) ([]model.ModelSummary, error)) *MockStateListAllModelSummariesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ListAllModels mocks base method.
 func (m *MockState) ListAllModels(arg0 context.Context) ([]model.Model, error) {
 	m.ctrl.T.Helper()
@@ -1423,80 +1501,80 @@ func (c *MockStateListAllModelsCall) DoAndReturn(f func(context.Context) ([]mode
 	return c
 }
 
-// ListModelIDs mocks base method.
-func (m *MockState) ListModelIDs(arg0 context.Context) ([]model.UUID, error) {
+// ListModelUUIDs mocks base method.
+func (m *MockState) ListModelUUIDs(arg0 context.Context) ([]model.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListModelIDs", arg0)
+	ret := m.ctrl.Call(m, "ListModelUUIDs", arg0)
 	ret0, _ := ret[0].([]model.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListModelIDs indicates an expected call of ListModelIDs.
-func (mr *MockStateMockRecorder) ListModelIDs(arg0 any) *MockStateListModelIDsCall {
+// ListModelUUIDs indicates an expected call of ListModelUUIDs.
+func (mr *MockStateMockRecorder) ListModelUUIDs(arg0 any) *MockStateListModelUUIDsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelIDs", reflect.TypeOf((*MockState)(nil).ListModelIDs), arg0)
-	return &MockStateListModelIDsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelUUIDs", reflect.TypeOf((*MockState)(nil).ListModelUUIDs), arg0)
+	return &MockStateListModelUUIDsCall{Call: call}
 }
 
-// MockStateListModelIDsCall wrap *gomock.Call
-type MockStateListModelIDsCall struct {
+// MockStateListModelUUIDsCall wrap *gomock.Call
+type MockStateListModelUUIDsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateListModelIDsCall) Return(arg0 []model.UUID, arg1 error) *MockStateListModelIDsCall {
+func (c *MockStateListModelUUIDsCall) Return(arg0 []model.UUID, arg1 error) *MockStateListModelUUIDsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateListModelIDsCall) Do(f func(context.Context) ([]model.UUID, error)) *MockStateListModelIDsCall {
+func (c *MockStateListModelUUIDsCall) Do(f func(context.Context) ([]model.UUID, error)) *MockStateListModelUUIDsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListModelIDsCall) DoAndReturn(f func(context.Context) ([]model.UUID, error)) *MockStateListModelIDsCall {
+func (c *MockStateListModelUUIDsCall) DoAndReturn(f func(context.Context) ([]model.UUID, error)) *MockStateListModelUUIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// ListModelSummariesForUser mocks base method.
-func (m *MockState) ListModelSummariesForUser(arg0 context.Context, arg1 user.Name) ([]model.UserModelSummary, error) {
+// ListModelUUIDsForUser mocks base method.
+func (m *MockState) ListModelUUIDsForUser(arg0 context.Context, arg1 user.UUID) ([]model.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListModelSummariesForUser", arg0, arg1)
-	ret0, _ := ret[0].([]model.UserModelSummary)
+	ret := m.ctrl.Call(m, "ListModelUUIDsForUser", arg0, arg1)
+	ret0, _ := ret[0].([]model.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListModelSummariesForUser indicates an expected call of ListModelSummariesForUser.
-func (mr *MockStateMockRecorder) ListModelSummariesForUser(arg0, arg1 any) *MockStateListModelSummariesForUserCall {
+// ListModelUUIDsForUser indicates an expected call of ListModelUUIDsForUser.
+func (mr *MockStateMockRecorder) ListModelUUIDsForUser(arg0, arg1 any) *MockStateListModelUUIDsForUserCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelSummariesForUser", reflect.TypeOf((*MockState)(nil).ListModelSummariesForUser), arg0, arg1)
-	return &MockStateListModelSummariesForUserCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelUUIDsForUser", reflect.TypeOf((*MockState)(nil).ListModelUUIDsForUser), arg0, arg1)
+	return &MockStateListModelUUIDsForUserCall{Call: call}
 }
 
-// MockStateListModelSummariesForUserCall wrap *gomock.Call
-type MockStateListModelSummariesForUserCall struct {
+// MockStateListModelUUIDsForUserCall wrap *gomock.Call
+type MockStateListModelUUIDsForUserCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateListModelSummariesForUserCall) Return(arg0 []model.UserModelSummary, arg1 error) *MockStateListModelSummariesForUserCall {
+func (c *MockStateListModelUUIDsForUserCall) Return(arg0 []model.UUID, arg1 error) *MockStateListModelUUIDsForUserCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateListModelSummariesForUserCall) Do(f func(context.Context, user.Name) ([]model.UserModelSummary, error)) *MockStateListModelSummariesForUserCall {
+func (c *MockStateListModelUUIDsForUserCall) Do(f func(context.Context, user.UUID) ([]model.UUID, error)) *MockStateListModelUUIDsForUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListModelSummariesForUserCall) DoAndReturn(f func(context.Context, user.Name) ([]model.UserModelSummary, error)) *MockStateListModelSummariesForUserCall {
+func (c *MockStateListModelUUIDsForUserCall) DoAndReturn(f func(context.Context, user.UUID) ([]model.UUID, error)) *MockStateListModelUUIDsForUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

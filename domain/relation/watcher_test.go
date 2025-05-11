@@ -68,60 +68,6 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.addApplicationEndpoint(c, s.appEndpointUUID, s.appUUID, s.charmRelationUUID)
 }
 
-// TestWatchUnitRelations ensures the unit relation watcher correctly captures
-// create, update, and delete events in the database.
-func (s *watcherSuite) TestWatchUnitRelations(c *tc.C) {
-
-	// Arrange: create the required state, with one relation endpoint and related
-	// objects.
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_application_settings_hash")
-	relationUUID := relationtesting.GenRelationUUID(c)
-	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
-
-	// Populate DB with relation endpoint.
-	s.addRelation(c, relationUUID)
-	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, s.appEndpointUUID)
-
-	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchApplicationSettings(context.Background(), relationUUID, s.appUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// Act: ensure we get the created event.
-	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
-VALUES (?, 'hash')
-`, relationEndpointUUID)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.Check(watchertest.SliceAssert(struct{}{}))
-	})
-
-	// Act: ensure we get the updated event.
-	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-UPDATE relation_application_settings_hash
-SET sha256 = 'new-hash'
-WHERE relation_endpoint_uuid = ?
-`, relationEndpointUUID)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.Check(watchertest.SliceAssert(struct{}{}))
-	})
-
-	// Act: ensure we get the deleted event.
-	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-DELETE FROM relation_application_settings_hash
-WHERE relation_endpoint_uuid = ?
-`, relationEndpointUUID)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.Check(watchertest.SliceAssert(struct{}{}))
-	})
-
-	harness.Run(c, struct{}{})
-}
-
 func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	// Arrange: create the required state, with one relation and its status.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
@@ -371,47 +317,6 @@ func (s *watcherSuite) setupSecondRelationNotFound(c *tc.C) relation.UUID {
 	s.addRelationStatus(c, relationUUID, 1)
 
 	return relationUUID
-}
-
-func (s *watcherSuite) TestWatchRelatedUnitsApplicationSettings(c *tc.C) {
-	// Arrange:
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_application_settings_hash")
-	config := s.setupTestWatchRelationUnit(c)
-
-	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchRelatedUnits(context.Background(), config.watchedUnit1, config.relationUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// Act: update setting_hash in watched => no event
-	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
-VALUES (?, 'hash')
-`, config.watchedRelationUUID)
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
-
-	// Act: update setting_hash in other app setting => event with endpoint uuid
-	// of other application
-	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
-VALUES (?, 'hash')
-`, config.otherRelationUUID)
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeApplicationUUID(config.otherUUID)),
-		)
-	})
-
-	// Act: run test harness.
-	// Assert: initial events are related units
-	harness.Run(c, transform.Slice(config.initialEvents, func(uuid coreunit.UUID) string {
-		return domainrelation.EncodeUnitUUID(uuid)
-	}))
 }
 
 func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {

@@ -109,7 +109,6 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 		Ports:                     ptr([]string{"8080"}),
 		OrderedScale:              true,
 		OrderedId:                 666,
-		StorageParentDir:          application.StorageParentDir,
 		ObservedAttachedVolumeIDs: []string{"vol-666"},
 	}
 	s.state.EXPECT().RegisterCAASUnit(gomock.Any(), "foo", registerArgMatcher{arg: arg})

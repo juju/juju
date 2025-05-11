@@ -4,7 +4,7 @@
 package status_test
 
 import (
-	context "context"
+	"context"
 	"database/sql"
 	"time"
 
@@ -225,10 +225,7 @@ func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...appli
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, "foo")
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = appState.AddIAASUnits(ctx, "", appID, charmUUID, units...)
+	_, err = appState.AddIAASUnits(ctx, appID, units...)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return appID

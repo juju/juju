@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/changestream"
-	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	coreupgrade "github.com/juju/juju/core/upgrade"
@@ -164,7 +163,7 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 		return nil, errors.Capture(err)
 	}
 
-	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		ready, err := s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -192,7 +191,7 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		return nil, errors.Capture(err)
 	}
 
-	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		info, err := s.st.UpgradeInfo(ctx, upgradeUUID)
 		if err != nil {
 			return nil, errors.Capture(err)

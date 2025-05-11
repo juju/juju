@@ -122,11 +122,10 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	var unitID1, unitID2, unitID3 string
 	setup := func(c *tc.C) {
 
-		storageDir := c.MkDir()
 		ctx := context.Background()
-		err := svc.AddUnits(ctx, storageDir, "foo", service.AddUnitArg{}, service.AddUnitArg{})
+		err := svc.AddUnits(ctx, "foo", service.AddUnitArg{}, service.AddUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
-		err = svc.AddUnits(ctx, storageDir, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
+		err = svc.AddUnits(ctx, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1165,7 +1164,8 @@ func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *tc.C, svc *se
 }
 
 type stubCharm struct {
-	name string
+	name        string
+	subordinate bool
 }
 
 func (s *stubCharm) Meta() *internalcharm.Meta {
@@ -1174,7 +1174,8 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 		name = "test"
 	}
 	return &internalcharm.Meta{
-		Name: name,
+		Name:        name,
+		Subordinate: s.subordinate,
 	}
 }
 

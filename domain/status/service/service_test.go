@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -1436,6 +1437,29 @@ func (s *serviceSuite) TestExportRelationStatusesError(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedError)
+}
+
+func (s *serviceSuite) TestGetModelInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelStatusInfo := status.ModelStatusInfo{
+		Type: model.IAAS,
+	}
+
+	s.state.EXPECT().GetModelStatusInfo(gomock.Any()).Return(modelStatusInfo, nil)
+
+	modelStatusInfo, err := s.service.GetModelStatusInfo(context.Background())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(modelStatusInfo, tc.DeepEquals, modelStatusInfo)
+}
+
+func (s *serviceSuite) TestGetModelInfoNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelStatusInfo(gomock.Any()).Return(status.ModelStatusInfo{}, modelerrors.NotFound)
+
+	_, err := s.service.GetModelStatusInfo(context.Background())
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

@@ -184,6 +184,45 @@ func (c *MockApplicationServiceGetApplicationIDByNameCall) DoAndReturn(f func(co
 	return c
 }
 
+// IsSubordinateApplication mocks base method.
+func (m *MockApplicationService) IsSubordinateApplication(arg0 context.Context, arg1 application.ID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSubordinateApplication", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsSubordinateApplication indicates an expected call of IsSubordinateApplication.
+func (mr *MockApplicationServiceMockRecorder) IsSubordinateApplication(arg0, arg1 any) *MockApplicationServiceIsSubordinateApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSubordinateApplication", reflect.TypeOf((*MockApplicationService)(nil).IsSubordinateApplication), arg0, arg1)
+	return &MockApplicationServiceIsSubordinateApplicationCall{Call: call}
+}
+
+// MockApplicationServiceIsSubordinateApplicationCall wrap *gomock.Call
+type MockApplicationServiceIsSubordinateApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceIsSubordinateApplicationCall) Return(arg0 bool, arg1 error) *MockApplicationServiceIsSubordinateApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceIsSubordinateApplicationCall) Do(f func(context.Context, application.ID) (bool, error)) *MockApplicationServiceIsSubordinateApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceIsSubordinateApplicationCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockApplicationServiceIsSubordinateApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListCharmLocators mocks base method.
 func (m *MockApplicationService) ListCharmLocators(arg0 context.Context, arg1 ...string) ([]charm0.CharmLocator, error) {
 	m.ctrl.T.Helper()

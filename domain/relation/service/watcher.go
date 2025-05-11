@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
@@ -58,29 +57,6 @@ func NewWatchableService(
 		LeadershipService: NewLeadershipService(st, leaderEnsurer, logger),
 		watcherFactory:    watcherFactory,
 	}
-}
-
-// WatchApplicationSettings returns a notify watcher that will signal
-// whenever the specified application's relation settings are changed.
-func (s *WatchableService) WatchApplicationSettings(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-) (watcher.NotifyWatcher, error) {
-	relationEndpointUUID, err := s.getRelationEndpointUUID(ctx, relation.GetRelationEndpointUUIDArgs{
-		RelationUUID:  relationUUID,
-		ApplicationID: applicationID,
-	})
-	if err != nil {
-		return nil, errors.Capture(errors.Errorf("watch application settings: %w", err))
-	}
-	return s.watcherFactory.NewNotifyWatcher(
-		eventsource.PredicateFilter(
-			s.st.WatcherApplicationSettingsNamespace(),
-			changestream.All,
-			eventsource.EqualsPredicate(relationEndpointUUID.String()),
-		),
-	)
 }
 
 // WatchLifeSuspendedStatus returns a watcher that notifies of changes to
@@ -190,7 +166,7 @@ func (w *principalLifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 	// relationsIgnored is the set of relations which are not relevant to
 	// this unit. No need to evaluate them again.
 	relationsIgnored := set.NewStrings()
-	return func(ctx context.Context, txn database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// If there are no changes, return no changes.
 		if len(changes) == 0 {
 			return nil, nil
@@ -347,7 +323,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 	// relationsIgnored is the set of relations which are not relevant to
 	// this unit. No need to evaluate them again.
 	relationsIgnored := set.NewStrings()
-	return func(ctx context.Context, txn database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// If there are no changes, return no changes.
 		if len(changes) == 0 {
 			return nil, nil
@@ -475,15 +451,6 @@ func (w *subordinateLifeSuspendedStatusWatcher) GetFirstFilterOption() eventsour
 // calls to the Mapper.
 func (w *subordinateLifeSuspendedStatusWatcher) GetFilterOptions() []eventsource.FilterOption {
 	return []eventsource.FilterOption{eventsource.NamespaceFilter(w.suspendedNameSpace, changestream.All)}
-}
-
-// WatchUnitScopes returns a watcher which notifies of counterpart units
-// entering and leaving the unit's scope.
-func (s *WatchableService) WatchUnitScopes(
-	ctx context.Context,
-	relationUnit corerelation.UnitUUID,
-) (relation.RelationScopeWatcher, error) {
-	return relation.RelationScopeWatcher{}, coreerrors.NotImplemented
 }
 
 // WatchRelatedUnits returns a watcher that notifies of changes to counterpart units in

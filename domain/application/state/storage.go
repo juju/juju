@@ -281,7 +281,6 @@ type attachStorageArgs struct {
 
 func (st *State) attachUnitStorage(
 	ctx context.Context, tx *sqlair.TX,
-	storageParentDir string,
 	poolKinds map[string]storage.StorageKind,
 	unitUUID coreunit.UUID,
 	netNodeUUID string,
@@ -307,7 +306,7 @@ func (st *State) attachUnitStorage(
 
 			// Get the info needed to create the necessary filesystem and/or volume attachments to the net node.
 			// The required attachments then inform the creation of the filesystem and/or volume.
-			filesystem, volume, err := st.attachmentParamsForNewStorageInstance(storageParentDir, instArg.StorageID, arg.PoolNameOrType, arg.meta, poolKinds)
+			filesystem, volume, err := st.attachmentParamsForNewStorageInstance(instArg.StorageID, arg.PoolNameOrType, arg.meta, poolKinds)
 			if err != nil {
 				return errors.Errorf("creating storage parameters: %w", err)
 			}
@@ -368,7 +367,6 @@ INSERT INTO storage_unit_owner (*) VALUES ($storageUnit.*)
 }
 
 func (st *State) attachmentParamsForNewStorageInstance(
-	parentDir string,
 	storageID corestorage.ID,
 	poolName string,
 	stor charmStorage,
@@ -377,7 +375,7 @@ func (st *State) attachmentParamsForNewStorageInstance(
 
 	switch charm.StorageType(stor.Kind) {
 	case charm.StorageFilesystem:
-		location, err := domainstorage.FilesystemMountPoint(parentDir, stor.Location, stor.CountMax, storageID)
+		location, err := domainstorage.FilesystemMountPoint(stor.Location, stor.CountMax, storageID)
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"getting filesystem mount point for storage %s: %w",
@@ -450,7 +448,7 @@ WHERE  storage_id = $storageInstance.storage_id
 // - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [applicationerrors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [applicationerrors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-func (st *State) AttachStorage(ctx context.Context, storageParentDir string, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error {
+func (st *State) AttachStorage(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -512,7 +510,7 @@ AND si.uuid != $storageCount.uuid
 			return err
 		}
 
-		return st.attachStorage(ctx, tx, stor, unitUUID, netNodeUUID, storageParentDir, charmStorage)
+		return st.attachStorage(ctx, tx, stor, unitUUID, netNodeUUID, charmStorage)
 	})
 	if err != nil {
 		return errors.Errorf("attaching storage %q to unit %q: %w", storageUUID, unitUUID, err)
@@ -647,7 +645,7 @@ func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64)
 
 func (st *State) attachStorage(
 	ctx context.Context, tx *sqlair.TX, inst storageInstance, unitUUID coreunit.UUID, netNodeUUID string,
-	parentDir string, charmStorage charmStorage,
+	charmStorage charmStorage,
 ) error {
 	su := storageUnit{StorageUUID: inst.StorageUUID, UnitUUID: unitUUID}
 	updateStorageInstanceQuery, err := st.Prepare(`
@@ -676,7 +674,7 @@ WHERE  uuid = $storageUnit.storage_instance_uuid
 		return errors.Errorf("getting model type: %w", err)
 	}
 	if modelType == model.CAAS {
-		filesystem, volume, err := st.attachmentParamsForStorageInstance(ctx, tx, parentDir, inst.StorageUUID, inst.StorageID, inst.StorageName, charmStorage)
+		filesystem, volume, err := st.attachmentParamsForStorageInstance(ctx, tx, inst.StorageUUID, inst.StorageID, inst.StorageName, charmStorage)
 		if err != nil {
 			return errors.Errorf("creating storage attachment parameters: %w", err)
 		}
@@ -773,7 +771,6 @@ WHERE     siv.storage_instance_uuid = $storageInstance.uuid
 func (st *State) attachmentParamsForStorageInstance(
 	ctx context.Context,
 	tx *sqlair.TX,
-	parentDir string,
 	storageUUID corestorage.UUID,
 	storageID corestorage.ID,
 	storageName corestorage.Name,
@@ -782,7 +779,7 @@ func (st *State) attachmentParamsForStorageInstance(
 
 	switch charm.StorageType(charmStorage.Kind) {
 	case charm.StorageFilesystem:
-		location, err := domainstorage.FilesystemMountPoint(parentDir, charmStorage.Location, charmStorage.CountMax, storageID)
+		location, err := domainstorage.FilesystemMountPoint(charmStorage.Location, charmStorage.CountMax, storageID)
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"getting filesystem mount point for storage %s: %w",

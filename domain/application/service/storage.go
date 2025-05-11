@@ -8,7 +8,6 @@ import (
 
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -33,7 +32,7 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-	AttachStorage(ctx context.Context, parentDir string, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error
+	AttachStorage(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error
 
 	// AddStorageForUnit adds storage instances to given unit as specified.
 	// Missing storage constraints are populated based on model defaults.
@@ -94,7 +93,7 @@ func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, u
 	if err != nil {
 		return errors.Capture(err)
 	}
-	err = s.st.AttachStorage(ctx, application.StorageParentDir, storageUUID, unitUUID)
+	err = s.st.AttachStorage(ctx, storageUUID, unitUUID)
 	if errors.Is(err, applicationerrors.StorageAlreadyAttached) {
 		return nil
 	}

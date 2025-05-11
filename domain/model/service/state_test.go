@@ -74,6 +74,10 @@ func (d *dummyState) CloudType(
 	return "aws", nil
 }
 
+func (d *dummyState) ListModelUUIDsForUser(_ context.Context, _ user.UUID) ([]coremodel.UUID, error) {
+	return nil, nil
+}
+
 func (d *dummyState) Create(
 	_ context.Context,
 	modelID coremodel.UUID,
@@ -238,7 +242,7 @@ func (d *dummyState) ListModelsForUser(
 	return rval, nil
 }
 
-func (d *dummyState) ListModelIDs(
+func (d *dummyState) ListModelUUIDs(
 	_ context.Context,
 ) ([]coremodel.UUID, error) {
 	rval := make([]coremodel.UUID, 0, len(d.models))
@@ -255,11 +259,11 @@ func (d *dummyState) GetControllerModelUUID(
 	return coremodel.UUID(""), nil
 }
 
-func (d *dummyState) GetModelCloudNameAndCredential(
+func (d *dummyState) GetModelCloudInfo(
 	_ context.Context,
 	_ coremodel.UUID,
-) (string, credential.Key, error) {
-	return "", credential.Key{}, errors.Errorf("not implemented")
+) (string, string, error) {
+	return "", "", errors.Errorf("not implemented")
 }
 
 func (d *dummyState) GetModelCloudAndCredential(

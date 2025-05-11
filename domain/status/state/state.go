@@ -14,10 +14,12 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainlife "github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -38,6 +40,43 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 		clock:     clock,
 		logger:    logger,
 	}
+}
+
+// GetModelStatusInfo returns information about the current model.
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound]: When the model does not exist.
+func (st *State) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return status.ModelStatusInfo{}, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &modelInfo.*
+FROM   model
+`, modelInfo{})
+	if err != nil {
+		return status.ModelStatusInfo{}, errors.Capture(err)
+	}
+
+	var m modelInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&m)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("model does not exist").Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting model status information from database: %w", err,
+			)
+		}
+		return err
+	})
+	if err != nil {
+		return status.ModelStatusInfo{}, errors.Capture(err)
+	}
+
+	return status.ModelStatusInfo{Type: coremodel.ModelType(m.Type)}, nil
+
 }
 
 // GetAllRelationStatuses returns all the relation statuses of the given model.

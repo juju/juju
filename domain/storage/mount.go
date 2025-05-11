@@ -7,23 +7,24 @@ import (
 	"path"
 	"strings"
 
+	"github.com/juju/juju/core/paths"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/errors"
 )
+
+// storageParentDir is the parent directory for mounting charm storage.
+var storageParentDir = paths.StorageDir(paths.OSUnixLike)
 
 // FilesystemMountPoint returns a mount point to use for the given charm
 // storage. For stores with potentially multiple instances, the
 // instance ID is appended to the location.
 func FilesystemMountPoint(
-	parentDir string,
 	location string,
 	maxCount int,
 	storageID corestorage.ID,
 ) (string, error) {
-	if parentDir == "" {
-		return "", errors.New("empty parent directory not valid")
-	}
-	if strings.HasPrefix(location, parentDir) {
+	parentDir := storageParentDir
+	if strings.HasPrefix(location, path.Join(storageParentDir, "/")) {
 		return "", errors.Errorf(
 			"invalid location %q: must not fall within %q",
 			location, parentDir,

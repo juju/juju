@@ -13,7 +13,6 @@ import (
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
@@ -537,7 +536,7 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) AddIAASUnits(
-	ctx context.Context, storageParentDir string, appUUID coreapplication.ID, charmUUID corecharm.ID, args ...application.AddUnitArg,
+	ctx context.Context, appUUID coreapplication.ID, args ...application.AddUnitArg,
 ) ([]coreunit.Name, error) {
 	if len(args) == 0 {
 		return nil, nil
@@ -570,7 +569,6 @@ func (st *State) AddIAASUnits(
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
 				},
-				StorageParentDir: storageParentDir,
 			}
 			if err = st.insertIAASUnit(ctx, tx, appUUID, insertArg); err != nil {
 				return errors.Errorf("inserting unit %q: %w ", unitName, err)
@@ -586,7 +584,7 @@ func (st *State) AddIAASUnits(
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) AddCAASUnits(
-	ctx context.Context, storageParentDir string, appUUID coreapplication.ID, charmUUID corecharm.ID, args ...application.AddUnitArg,
+	ctx context.Context, appUUID coreapplication.ID, args ...application.AddUnitArg,
 ) ([]coreunit.Name, error) {
 	if len(args) == 0 {
 		return nil, nil
@@ -615,7 +613,6 @@ func (st *State) AddCAASUnits(
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
 				},
-				StorageParentDir: storageParentDir,
 			}
 			if err = st.insertCAASUnit(ctx, tx, appUUID, insertArg); err != nil {
 				return errors.Errorf("inserting unit %q: %w ", unitName, err)
@@ -665,9 +662,8 @@ func (st *State) AddSubordinateUnit(
 		// Insert the new unit.
 		// TODO(storage) - read and use storage directives
 		insertArg := application.InsertUnitArg{
-			UnitName:         unitName,
-			UnitStatusArg:    arg.UnitStatusArg,
-			StorageParentDir: application.StorageParentDir,
+			UnitName:      unitName,
+			UnitStatusArg: arg.UnitStatusArg,
 		}
 		switch arg.ModelType {
 		case model.IAAS:
@@ -787,6 +783,8 @@ AND    u2.application_uuid = $getSubordinate.application_uuid
 
 // IsSubordinateApplication returns true if the application is a subordinate
 // application.
+// The following errors may be returned:
+// - [appliationerrors.ApplicationNotFound] if the application does not exist
 func (st *State) IsSubordinateApplication(
 	ctx context.Context,
 	applicationUUID coreapplication.ID,
@@ -1171,7 +1169,7 @@ func (st *State) insertCAASUnit(
 	if err != nil {
 		return errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
 	}
-	err = st.attachUnitStorage(ctx, tx, args.StorageParentDir, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
+	err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
 	if err != nil {
 		return errors.Errorf("attaching storage for unit %q: %w", args.UnitName, err)
 	}

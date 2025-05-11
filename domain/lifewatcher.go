@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/changestream"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/life"
@@ -17,7 +16,7 @@ import (
 )
 
 // LifeGetter is a function which looks up life values of the entities with the specified IDs.
-type LifeGetter func(ctx context.Context, db coredatabase.TxnRunner, ids []string) (map[string]life.Life, error)
+type LifeGetter func(ctx context.Context, ids []string) (map[string]life.Life, error)
 
 // LifeStringsWatcherMapperFunc returns a namespace watcher mapper function which emits
 // events when the life of an entity changes. The supplied lifeGetter func is used to
@@ -28,7 +27,7 @@ type LifeGetter func(ctx context.Context, db coredatabase.TxnRunner, ids []strin
 func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) eventsource.Mapper {
 	knownLife := make(map[string]life.Life)
 
-	return func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (_ []changestream.ChangeEvent, err error) {
+	return func(ctx context.Context, changes []changestream.ChangeEvent) (_ []changestream.ChangeEvent, err error) {
 		defer func() {
 			if err != nil {
 				logger.Errorf(ctx, "running life watcher mapper func: %v", err)
@@ -57,7 +56,7 @@ func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) e
 
 		// Separate ids into those thought to exist and those known to be removed.
 		// Gather the latest life values of the ids.
-		currentValues, err := lifeGetter(ctx, db, ids.Values())
+		currentValues, err := lifeGetter(ctx, ids.Values())
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
