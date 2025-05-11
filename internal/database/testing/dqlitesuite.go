@@ -140,6 +140,7 @@ func (s *DqliteSuite) TearDownTest(c *tc.C) {
 	if s.dqlite != nil {
 		err := s.dqlite.Close()
 		c.Check(err, tc.ErrorIsNil)
+		s.dqlite = nil
 	}
 
 	s.IsolationSuite.TearDownTest(c)
@@ -202,15 +203,15 @@ func (s *DqliteSuite) OpenDBForNamespace(c *tc.C, domain string, foreignKey bool
 	db, err := s.dqlite.Open(context.Background(), domain)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Ensure we close all databases that are opened during the tests.
+	s.cleanupDB(c, domain, db)
+
 	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, foreignKey)
 	c.Assert(err, tc.ErrorIsNil)
 
 	trackedDB := &txnRunner{
 		db: sqlair.NewDB(db),
 	}
-
-	// Ensure we close all databases that are opened during the tests.
-	s.cleanupDB(c, domain, db)
 
 	return trackedDB, trackedDB.db.PlainDB()
 }
