@@ -255,6 +255,12 @@ func (s *Suite) TestSetPhaseNoMigration(c *tc.C) {
 }
 
 func (s *Suite) TestSetPhaseBadPhase(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	mig := mocks.NewMockModelMigration(ctrl)
+	s.backend.EXPECT().LatestMigration().Return(mig, nil)
+
 	err := s.mustMakeAPI(c).SetPhase(context.Background(), params.SetMigrationPhaseArgs{Phase: "wat"})
 	c.Assert(err, tc.ErrorMatches, `invalid phase: "wat"`)
 }
@@ -571,6 +577,23 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 	s.precheckBackend = mocks.NewMockPrecheckBackend(ctrl)
 	s.store = mocks.NewMockObjectStore(ctrl)
 	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
+
+	c.Cleanup(func() {
+		s.agentService = nil
+		s.applicationService = nil
+		s.relationService = nil
+		s.statusService = nil
+		s.backend = nil
+		s.credentialService = nil
+		s.controllerBackend = nil
+		s.controllerConfigService = nil
+		s.modelExporter = nil
+		s.modelInfoService = nil
+		s.modelService = nil
+		s.precheckBackend = nil
+		s.store = nil
+		s.upgradeService = nil
+	})
 	return ctrl
 }
 
