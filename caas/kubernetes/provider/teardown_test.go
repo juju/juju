@@ -510,10 +510,11 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *tc.C) {
 	namespaceWatcher, namespaceFirer := k8swatchertest.NewKubernetesTestWatcher()
 	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(namespaceWatcher)
 
-	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
-		Return(ns, nil)
 	s.mockNamespaces.EXPECT().Delete(gomock.Any(), "test", s.deleteOptions(v1.DeletePropagationForeground, "")).
-		Return(nil)
+		DoAndReturn(func(_ context.Context, _ string, _ v1.DeleteOptions) error {
+			namespaceFirer()
+			return nil
+		})
 	// still terminating.
 	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
 		DoAndReturn(func(_ context.Context, _ string, _ v1.GetOptions) (*core.Namespace, error) {
@@ -541,6 +542,12 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *tc.C) {
 
 	select {
 	case <-done:
+		var err error
+		select {
+		case err = <-errCh:
+		default:
+		}
+		c.Assert(err, tc.ErrorIsNil)
 		for _, watcher := range s.watchers {
 			c.Assert(workertest.CheckKilled(c, watcher), tc.ErrorIsNil)
 		}
@@ -590,7 +597,11 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardownFailed(c *tc.C) {
 
 	select {
 	case <-done:
-		err := <-errCh
+		var err error
+		select {
+		case err = <-errCh:
+		default:
+		}
 		c.Assert(err, tc.ErrorMatches, `getting namespace "test": error bla`)
 		for _, watcher := range s.watchers {
 			c.Assert(workertest.CheckKilled(c, watcher), tc.ErrorIsNil)

@@ -89,6 +89,7 @@ var _ = tc.Suite(&K8sBrokerSuite{})
 
 func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *tc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	s.clock = testclock.NewClock(time.Time{})
 
@@ -119,10 +120,7 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *tc.C) {
 		},
 	})
 
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).Times(2).
-			Return(nsInput, nil),
-	)
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).Return(nsInput, nil)
 
 	// Check a cluster wide resource is still accessible.
 	ns, err := s.broker.GetNamespace(context.Background(), "test")
@@ -132,6 +130,7 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *tc.C) {
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(c *tc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {
@@ -160,6 +159,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrated(c *tc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {
@@ -181,6 +181,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrat
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceNotCreatedYet(c *tc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {
@@ -196,6 +197,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceExists(c *tc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {

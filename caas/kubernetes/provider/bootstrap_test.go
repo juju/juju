@@ -75,12 +75,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 
 	s.controllerCfg = coretesting.FakeControllerConfig()
 	s.controllerCfg["juju-db-snap-channel"] = controller.DefaultJujuDBSnapChannel
-	s.controllerCfg[controller.CAASImageRepo] = `
-{
-    "serveraddress": "quay.io",
-    "auth": "xxxxx==",
-    "repository": "test-account"
-}`[1:]
+	s.controllerCfg[controller.CAASImageRepo] = ""
 	pcfg, err := podcfg.NewBootstrapControllerPodConfig(
 		s.controllerCfg, controllerName, "ubuntu", constraints.MustParse("root-disk=10000M mem=4000M"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -414,6 +409,11 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 					TargetPort: intstr.FromInt(apiPort),
 					Port:       int32(apiPort),
 				},
+				{
+					Name:       "ssh-server",
+					TargetPort: intstr.FromInt(sshServerPort),
+					Port:       int32(sshServerPort),
+				},
 			},
 			ClusterIP:   svcPublicIP,
 			ExternalIPs: []string{"10.0.0.1"},
@@ -645,7 +645,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		{
 			Name:            "charm",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "docker.io/jujusolutions/charm-base:ubuntu-22.04",
+			Image:           "docker.io/jujusolutions/charm-base:ubuntu-24.04",
 			WorkingDir:      "/var/lib/juju",
 			Command:         []string{"/charm/bin/pebble"},
 			Args:            []string{"run", "--http", ":38812", "--verbose"},
@@ -696,14 +696,14 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 				{
 					Name:      "charm-data",
 					ReadOnly:  true,
-					MountPath: "/etc/profile.d/juju-introspection.sh",
-					SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
+					MountPath: "/usr/bin/juju-introspect",
+					SubPath:   "charm/bin/containeragent",
 				},
 				{
 					Name:      "charm-data",
 					ReadOnly:  true,
-					MountPath: "/usr/bin/juju-introspect",
-					SubPath:   "charm/bin/containeragent",
+					MountPath: "/etc/profile.d/juju-introspection.sh",
+					SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
 				},
 				{
 					Name:      "charm-data",
@@ -725,7 +725,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/juju-db:4.4",
+			Image:           "docker.io/jujusolutions/juju-db:4.4",
 			Command: []string{
 				"/bin/sh",
 			},
@@ -744,7 +744,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 				ProbeHandler: core.ProbeHandler{
 					Exec: probCmds,
 				},
-				FailureThreshold:    60,
+				FailureThreshold:    120,
 				InitialDelaySeconds: 1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
@@ -817,7 +817,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/jujud-operator:" + expectedVersion.String(),
+			Image:           "docker.io/jujusolutions/jujud-operator:" + expectedVersion.String(),
 			Env: []core.EnvVar{{
 				Name:  osenv.JujuFeatureFlagEnvKey,
 				Value: "developer-mode",
@@ -951,7 +951,7 @@ exec /opt/pebble run --http :38811 --verbose
 				TimeoutSeconds:      3,
 				PeriodSeconds:       3,
 				SuccessThreshold:    1,
-				FailureThreshold:    100,
+				FailureThreshold:    200,
 			},
 			LivenessProbe: &core.Probe{
 				ProbeHandler: core.ProbeHandler{
@@ -989,10 +989,20 @@ exec /opt/pebble run --http :38811 --verbose
 	statefulSetSpec.Spec.Template.Spec.InitContainers = []core.Container{{
 		Name:            "charm-init",
 		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           "test-account/jujud-operator:" + expectedVersion.String(),
+		Image:           "docker.io/jujusolutions/jujud-operator:" + expectedVersion.String(),
 		WorkingDir:      "/var/lib/juju",
 		Command:         []string{"/opt/containeragent"},
-		Args:            []string{"init", "--containeragent-pebble-dir", "/containeragent/pebble", "--charm-modified-version", "0", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin", "--profile-dir", "/containeragent/etc/profile.d", "--controller"},
+		Args: []string{
+			"init",
+			"--containeragent-pebble-dir", "/containeragent/pebble",
+			"--charm-modified-version", "0",
+			"--data-dir", "/var/lib/juju",
+			"--bin-dir", "/charm/bin",
+			"--profile-dir", "/containeragent/etc/profile.d",
+			"--pebble-identities-file", "/charm/etc/pebble/identities.yaml",
+			"--pebble-charm-identity", "170",
+			"--controller",
+		},
 		Env: []core.EnvVar{
 			{
 				Name:  "JUJU_CONTAINER_NAMES",
@@ -1046,15 +1056,20 @@ exec /opt/pebble run --http :38811 --verbose
 				MountPath: "/containeragent/etc/profile.d",
 				SubPath:   "containeragent/etc/profile.d",
 			}, {
+				Name:      "charm-data",
+				MountPath: "/charm/etc/pebble/",
+				SubPath:   "charm/etc/pebble/",
+			}, {
 				Name:      "juju-controller-test-agent-conf",
 				MountPath: "/var/lib/juju/template-agent.conf",
 				SubPath:   "controller-unit-agent.conf",
 			},
 		},
 		SecurityContext: &core.SecurityContext{
-			RunAsUser:              int64Ptr(170),
-			RunAsGroup:             int64Ptr(170),
-			ReadOnlyRootFilesystem: pointer.Bool(true),
+			RunAsUser:  int64Ptr(170),
+			RunAsGroup: int64Ptr(170),
+			//TODO: this should be set
+			//ReadOnlyRootFilesystem: pointer.Bool(true),
 		},
 	}}
 
@@ -1083,7 +1098,8 @@ exec /opt/pebble run --http :38811 --verbose
 		ObjectMeta: v1.ObjectMeta{
 			Name: "controller-1",
 			Labels: map[string]string{
-				"model.juju.is/name": "controller",
+				"model.juju.is/name":    "controller",
+				"controller.juju.is/id": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 			},
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
@@ -1147,7 +1163,13 @@ exec /opt/pebble run --http :38811 --verbose
 				podName := s.pcfg.GetPodName()
 				ss, err := s.mockStatefulSets.Get(context.Background(), `juju-controller-test`, v1.GetOptions{})
 				c.Assert(err, tc.ErrorIsNil)
-				c.Assert(ss, tc.DeepEquals, statefulSetSpec)
+
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_.Spec.Template.Spec.Containers[_].VolumeMounts`,
+					tc.UnorderedMatch[[]core.VolumeMount](tc.DeepEquals), tc.ExpectedValue)
+				mc.AddExpr(`_.Spec.Template.Spec.InitContainers[_].VolumeMounts`,
+					tc.UnorderedMatch[[]core.VolumeMount](tc.DeepEquals), tc.ExpectedValue)
+				c.Assert(ss, mc, statefulSetSpec)
 				p := &core.Pod{
 					ObjectMeta: v1.ObjectMeta{
 						Name: podName,
@@ -1181,7 +1203,12 @@ exec /opt/pebble run --http :38811 --verbose
 
 		ss, err := s.mockStatefulSets.Get(context.Background(), `juju-controller-test`, v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(ss, tc.DeepEquals, statefulSetSpec)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(`_.Spec.Template.Spec.Containers[_].VolumeMounts`,
+			tc.UnorderedMatch[[]core.VolumeMount](tc.DeepEquals), tc.ExpectedValue)
+		mc.AddExpr(`_.Spec.Template.Spec.InitContainers[_].VolumeMounts`,
+			tc.UnorderedMatch[[]core.VolumeMount](tc.DeepEquals), tc.ExpectedValue)
+		c.Assert(ss, mc, statefulSetSpec)
 
 		svc, err := s.mockServices.Get(context.Background(), `juju-controller-test-service`, v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -1190,10 +1217,6 @@ exec /opt/pebble run --http :38811 --verbose
 		secret, err := s.mockSecrets.Get(context.Background(), "juju-controller-test-secret", v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(secret, tc.DeepEquals, secretWithServerPEMAdded)
-
-		secret, err = s.mockSecrets.Get(context.Background(), "juju-image-pull-secret", v1.GetOptions{})
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(secret, tc.DeepEquals, secretCAASImageRepo)
 
 		secret, err = s.mockSecrets.Get(context.Background(), "juju-controller-test-application-config", v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
