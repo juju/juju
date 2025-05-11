@@ -168,10 +168,10 @@ google  default
 `[1:])
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(logWriter.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.WARNING,
 		Message: `error loading credential for cloud mycloud: expected error`,
 	}})
@@ -391,10 +391,10 @@ client-credentials:
 `[1:])
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(logWriter.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.WARNING,
 		Message: `error loading credential for cloud mycloud: expected error`,
 	}})
@@ -485,10 +485,10 @@ func (s *listCredentialsSuite) TestListCredentialsJSONWithSecretsInvalidCredenti
 `[1:])
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(logWriter.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.WARNING,
 		Message: `error loading credential for cloud mycloud: expected error`,
 	}})

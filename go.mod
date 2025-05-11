@@ -73,7 +73,7 @@ require (
 	github.com/juju/replicaset/v3 v3.0.1
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
-	github.com/juju/tc v0.0.0-20250508065900-0387ec067c01
+	github.com/juju/tc v0.0.0-20250511064252-ad1b8f30af75
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils/v4 v4.0.3
 	github.com/juju/webbrowser v1.0.0

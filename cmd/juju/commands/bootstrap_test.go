@@ -256,10 +256,10 @@ func (s *BootstrapSuite) run(c *tc.C, test bootstrapTest) testhelpers.Restorer {
 	}
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(s.tw.Log(), mc, test.logs)
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), test.logs)
 	// Check for remaining operations/errors.
 	if test.silentErr {
 		c.Assert(err, tc.Equals, cmd.ErrSilent)
@@ -1066,10 +1066,10 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *tc.C) {
 	)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(s.tw.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.ERROR,
 		Message: "failed to bootstrap model: cannot package bootstrap agent binary: no agent binaries for you",
 	}})
@@ -1329,12 +1329,12 @@ func (s *BootstrapSuite) TestMissingToolsError(c *tc.C) {
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(s.tw.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.ERROR,
-		Message: "failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model",
+		Message: "(?m)failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model.*",
 	}})
 }
 
@@ -1364,10 +1364,10 @@ No packaged binary found, preparing local Juju agent binary
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(s.tw.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.ERROR,
 		Message: "failed to bootstrap model: cannot package bootstrap agent binary: an error",
 	}})
@@ -1405,12 +1405,12 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *tc.C) {
 	c.Assert(opDestroy.Error, tc.ErrorMatches, "dummy.Destroy is broken")
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(s.tw.Log(), mc, []loggo.Entry{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{
 		{Level: loggo.ERROR, Message: "failed to bootstrap model: dummy.Bootstrap is broken"},
-		{Level: loggo.DEBUG, Message: "(error details.*)"},
+		{Level: loggo.DEBUG, Message: "(?m).*error details.*"},
 		{Level: loggo.DEBUG, Message: "cleaning up after failed bootstrap"},
 		{Level: loggo.ERROR, Message: "error cleaning up: dummy.Destroy is broken"},
 	})
@@ -1795,10 +1795,10 @@ func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *tc.C) {
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(s.tw.Log(), mc, []loggo.Entry{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{
 		{Level: loggo.ERROR, Message: "failed to bootstrap model: dummy.Bootstrap is broken"},
 	})
 }
@@ -1967,10 +1967,10 @@ listed is the default. Add more clouds with 'juju add-cloud'.
 `[1:])
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(logWriter.Log(), mc, []loggo.Entry{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{
 		{
 			Level:   loggo.WARNING,
 			Message: `error loading credential for cloud dummy-cloud: expected error`,

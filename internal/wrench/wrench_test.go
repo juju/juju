@@ -122,10 +122,10 @@ func (s *wrenchSuite) TestFileNotOwnedByJujuUser(c *tc.C) {
 	c.Assert(wrench.IsActive("foo", "bar"), tc.IsFalse)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.ERROR,
 		Message: `wrench file for foo/bar has incorrect ownership - ignoring ` + filename,
 	}})
@@ -143,10 +143,10 @@ func (s *wrenchSuite) TestFilePermsTooLoose(c *tc.C) {
 	c.Assert(wrench.IsActive("foo", "bar"), tc.IsFalse)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.ERROR,
 		Message: `wrench file for foo/bar should only be writable by owner - ignoring ` + filename,
 	}})
@@ -159,10 +159,10 @@ func (s *wrenchSuite) TestDirectoryNotOwnedByJujuUser(c *tc.C) {
 	c.Assert(wrench.IsActive("foo", "bar"), tc.IsFalse)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.ERROR,
 		Message: `wrench directory has incorrect ownership - wrench functionality disabled \(.+\)`,
 	}})
@@ -191,10 +191,10 @@ var notJujuUid = uint32(os.Getuid() + 1)
 
 func (s *wrenchSuite) AssertActivationLogged(c *tc.C) {
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.TRACE,
 		Message: `wrench for foo/bar is active`,
 	}})
@@ -206,10 +206,10 @@ func (s *wrenchSuite) AssertNothingLogged(c *tc.C) {
 
 func (s *wrenchSuite) AssertFileErrorLogged(c *tc.C) {
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.TRACE,
 		Message: `no wrench data for foo/bar \(ignored\): ` + fileNotFound,
 	}})
@@ -217,10 +217,10 @@ func (s *wrenchSuite) AssertFileErrorLogged(c *tc.C) {
 
 func (s *wrenchSuite) AssertDirErrorLogged(c *tc.C) {
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Assert(s.logWriter.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.TRACE,
 		Message: `couldn't read wrench directory: ` + fileNotFound,
 	}})

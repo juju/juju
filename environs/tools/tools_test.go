@@ -215,8 +215,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *tc.C) {
 	// properly formed.
 	messages := []loggo.Entry{
 		{Level: loggo.DEBUG, Message: "reading agent binaries with major version 1"},
-		{Level: loggo.DEBUG, Message: "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
-		{Level: loggo.TRACE, Message: "no architecture specified when finding agent binaries, looking for "},
+		{Level: loggo.DEBUG, Message: `filtering agent binaries by version: \d+\.\d+\.\d+`},
+		{Level: loggo.TRACE, Message: "no architecture specified when finding agent binaries, looking for .*"},
 		{Level: loggo.TRACE, Message: "no os type specified when finding agent binaries, looking for .*"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env, ss)
@@ -228,10 +228,10 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *tc.C) {
 	}
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(tw.Log(), mc, messages)
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), messages, tc.Commentf("log messages missing"))
 }
 
 var findExactToolsTests = []struct {

@@ -908,12 +908,12 @@ clouds:
 	c.Check(err, tc.ErrorIsNil)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Check(logWriter.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.WARNING,
-		Message: `property "auth-typs" is invalid. Perhaps you mean "auth-types".`,
+		Message: "\nproperty \"auth-typs\" is invalid. Perhaps you mean \"auth-types\".",
 	}})
 }
 

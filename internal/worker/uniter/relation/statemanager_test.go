@@ -202,10 +202,10 @@ func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_[_]._`, tc.Ignore)
-	c.Assert(tw.Log(), mc, []loggo.Entry{{
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
 		Level:   loggo.WARNING,
 		Message: `unit foo/1 in relation 99 no longer exists`},
 	})
