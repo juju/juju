@@ -68,6 +68,13 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.mockModelDomainServicesGetter = NewMockModelDomainServicesGetter(ctrl)
 	s.mockModelDomainServices = NewMockModelDomainServices(ctrl)
 	s.mockModelService = NewMockModelService(ctrl)
+	c.Cleanup(func() {
+		s.mockAccessService = nil
+		s.mockApplicationService = nil
+		s.mockModelDomainServicesGetter = nil
+		s.mockModelDomainServices = nil
+		s.mockModelService = nil
+	})
 	return ctrl
 }
 

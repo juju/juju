@@ -68,6 +68,9 @@ func (s *offerAccessSuite) setupAPI(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
+	c.Cleanup(func() {
+		s.api = nil
+	})
 }
 
 func (s *offerAccessSuite) modifyAccess(
@@ -388,8 +391,28 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *tc.C) {
 // TestModifyOfferAccessForModelAdminPermission tests modifying offer access when authorized as model admin.
 // It validates bugfix https://bugs.launchpad.net/juju/+bug/2082494
 func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.setupOffer(c, modelUUID.String(), "test", "admin", "someoffer")
+	offerUUID := s.setupOffer(c, modelUUID.String(), "test", "admin", "someoffer")
+
+	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, a access.UpdatePermissionArgs) error {
+		name, err := coreuser.NewName("luke")
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(a, tc.DeepEquals, access.UpdatePermissionArgs{
+			AccessSpec: permission.AccessSpec{
+				Target: permission.ID{
+					ObjectType: permission.Offer,
+					Key:        offerUUID,
+				},
+				Access: permission.ReadAccess,
+			},
+			Change:  permission.Grant,
+			Subject: name,
+		})
+		return nil
+	})
 
 	s.authorizer.Tag = names.NewUserTag("admin-model-" + modelUUID.String())
 	args := params.ModifyOfferAccessRequest{
