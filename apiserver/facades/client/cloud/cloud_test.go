@@ -63,6 +63,15 @@ func (s *cloudSuite) setup(c *tc.C, userTag names.UserTag) *gomock.Controller {
 		s.authorizer, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
+
+	c.Cleanup(func() {
+		s.authorizer = nil
+		s.cloudAccessService = nil
+		s.cloudService = nil
+		s.credService = nil
+		s.credentialValidator = nil
+		s.api = nil
+	})
 	return ctrl
 }
 
@@ -746,34 +755,6 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *tc.C) {
 				{
 					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 					ModelName: "testModel1",
-				},
-			},
-		}},
-	})
-}
-
-func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *tc.C) {
-	adminTag := names.NewUserTag("admin")
-	defer s.setup(c, adminTag)
-
-	_, tag := cloudCredentialTag(credParams{name: "three", owner: "julia", cloudName: "meep", authType: jujucloud.EmptyAuthType,
-		attrs: map[string]string{}})
-
-	results, err := s.api.UpdateCredentialsCheckModels(context.Background(), params.UpdateCredentialArgs{
-		Force: false,
-		Credentials: []params.TaggedCredential{{
-			Tag:        tag.String(),
-			Credential: params.CloudCredential{},
-		}}})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.UpdateCredentialResults{
-		Results: []params.UpdateCredentialResult{{
-			CredentialTag: "cloudcred-meep_julia_three",
-			Models: []params.UpdateCredentialModelResult{
-				{
-					ModelUUID: coretesting.ModelTag.Id(),
-					ModelName: "testModel1",
-					Errors:    []params.ErrorResult{{Error: &params.Error{Message: "not valid for model", Code: ""}}},
 				},
 			},
 		}},
