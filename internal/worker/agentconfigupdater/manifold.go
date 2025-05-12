@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -15,20 +14,47 @@ import (
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	coreagent "github.com/juju/juju/core/agent"
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/services"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/trace"
 )
 
+// ControllerDomainServices is an interface that defines the
+// services that are required by the agent config updater.
+type ControllerDomainServices interface {
+	// ControllerConfig returns the controller configuration service.
+	ControllerConfig() ControllerConfigService
+	// ControllerNode returns the controller node service.
+	ControllerNode() ControllerNodeService
+}
+
+// ControllerNodeService is an interface that defines the methods that are
+// required to check if a machine or container agent is a controller node.
+type ControllerNodeService interface {
+	// IsControllerNode returns true if the machine is a controller node.
+	IsControllerNode(ctx context.Context, nodeID string) (bool, error)
+}
+
+// GetControllerDomainServicesFunc is a function that retrieves the
+// controller domain services from the dependency getter.
+type GetControllerDomainServicesFunc func(dependency.Getter, string) (ControllerDomainServices, error)
+
 // ManifoldConfig provides the dependencies for the
 // agent config updater manifold.
 type ManifoldConfig struct {
-	AgentName      string
-	APICallerName  string
-	CentralHubName string
-	TraceName      string
-	Logger         logger.Logger
+	AgentName                     string
+	DomainServicesName            string
+	TraceName                     string
+	Logger                        logger.Logger
+	GetControllerDomainServicesFn GetControllerDomainServicesFunc
+
+	// TODO (stickupkid): This is only required to know if it's a controller
+	// or not. Along with getting the state serving info. This is all available
+	// in dqlite already.
+	APICallerName string
 }
 
 // Manifold defines a simple start function which
@@ -40,7 +66,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
-			config.CentralHubName,
+			config.DomainServicesName,
 			config.TraceName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -66,14 +92,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			// If the machine needs Client, grab the state serving info
-			// over the API and write it to the agent configuration.
-			if controller, err := apiagent.IsController(ctx, apiCaller, tag); err != nil {
-				return nil, errors.Annotate(err, "checking controller status")
-			} else if !controller {
+
+			controllerServices, err := config.GetControllerDomainServicesFn(getter, config.DomainServicesName)
+			if err != nil {
+				return nil, errors.Annotate(err, "getting controller domain services")
+			}
+
+			controllerNodeService := controllerServices.ControllerNode()
+			if isControllerNode, err := controllerNodeService.IsControllerNode(ctx, tag.Id()); err != nil {
+				return nil, errors.Annotate(err, "checking is controller")
+			} else if !isControllerNode {
 				// Not a controller, nothing to do.
 				return nil, dependency.ErrUninstall
 			}
+
+			controllerConfigService := controllerServices.ControllerConfig()
 
 			// Get the tracer from the context.
 			var tracerGetter trace.TracerGetter
@@ -86,19 +119,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				tracer = coretrace.NoopTracer{}
 			}
 
-			// Do the initial state serving info and mongo profile checks
-			// before attempting to get the central hub. The central hub is only
-			// running when the agent is a controller. If the agent isn't a controller
-			// but should be, the agent config will not have any state serving info
-			// but the database will think that we should be. In those situations
-			// we need to update the local config and restart.
-			apiState, err := apiagent.NewClient(apiCaller, apiagent.WithTracer(tracer))
+			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 			if err != nil {
 				return nil, errors.Trace(err)
-			}
-			controllerConfig, err := apiState.ControllerConfig(ctx)
-			if err != nil {
-				return nil, errors.Annotate(err, "getting controller config")
 			}
 
 			agentsJujuDBSnapChannel := currentConfig.JujuDBSnapChannel()
@@ -141,6 +164,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configObjectStoreType := controllerConfig.ObjectStoreType()
 			objectStoreTypeChanged := agentsObjectStoreType != configObjectStoreType
 
+			apiState, err := apiagent.NewClient(apiCaller, apiagent.WithTracer(tracer))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			// If the machine needs Client, grab the state serving info
+			// over the API and write it to the agent configuration.
 			info, err := apiState.StateServingInfo(ctx)
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
@@ -148,13 +178,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			err = agent.ChangeConfig(func(config jujuagent.ConfigSetter) error {
 				existing, hasInfo := config.StateServingInfo()
 				if hasInfo {
-					// Use the existing cert and key as they appear to
-					// have been already updated by the cert updater
-					// worker to have this machine's IP address as
-					// part of the cert. This changed cert is never
-					// put back into the database, so it isn't
-					// reflected in the copy we have got from
-					// apiState.
+					// Use the existing cert and key as they appear to have been
+					// already updated by the cert updater worker to have this
+					// machine's IP address as part of the cert. This changed
+					// cert is never put back into the database, so it isn't
+					// reflected in the copy we have got from apiState.
 					info.Cert = existing.Cert
 					info.PrivateKey = existing.PrivateKey
 				}
@@ -239,17 +267,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, jworker.ErrRestartAgent
 			}
 
-			// Only get the hub if we are a controller and we haven't updated
-			// the memory profile.
-			var hub *pubsub.StructuredHub
-			if err := getter.Get(config.CentralHubName, &hub); err != nil {
-				logger.Tracef(ctx, "hub dependency not available")
-				return nil, err
-			}
-
 			return NewWorker(WorkerConfig{
 				Agent:                              agent,
-				Hub:                                hub,
+				ControllerConfigService:            controllerConfigService,
 				JujuDBSnapChannel:                  configJujuDBSnapChannel,
 				QueryTracingEnabled:                configQueryTracingEnabled,
 				QueryTracingThreshold:              configQueryTracingThreshold,
@@ -264,4 +284,32 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			})
 		},
 	}
+}
+
+// GetControllerDomainServices retrieves the controller domain services
+// from the dependency getter.
+func GetControllerDomainServices(getter dependency.Getter, name string) (ControllerDomainServices, error) {
+	return coredependency.GetDependencyByName(getter, name, func(s services.ControllerDomainServices) ControllerDomainServices {
+		return controllerDomainServices{
+			ControllerConfigService: s.ControllerConfig(),
+			ControllerNodeService:   s.ControllerNode(),
+		}
+	})
+}
+
+type controllerDomainServices struct {
+	ControllerConfigService
+	ControllerNodeService
+}
+
+// ControllerConfigService is an interface that defines the methods that are
+// required to get the controller configuration.
+func (s controllerDomainServices) ControllerConfig() ControllerConfigService {
+	return s.ControllerConfigService
+}
+
+// ControllerNodeService is an interface that defines the methods that are
+// required to check if a machine or container agent is a controller node.
+func (s controllerDomainServices) ControllerNode() ControllerNodeService {
+	return s.ControllerNodeService
 }
