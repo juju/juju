@@ -571,7 +571,11 @@ func (s *WorkerSuite) runScenario(c *tc.C, newConfig controller.Config) (worker.
 	dispatched1 := make(chan struct{})
 	dispatched2 := make(chan struct{})
 
+<<<<<<< HEAD
 	s.controllerConifgService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
+=======
+	s.controllerConifgService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
+>>>>>>> 879f41abf0 (feat: trace macaroon)
 		close(start)
 		return watchertest.NewMockStringsWatcher(ch), nil
 	})

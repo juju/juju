@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -42,7 +43,13 @@ func NewBakeryConfigService(st BakeryConfigState) *BakeryConfigService {
 }
 
 // InitialiseBakeryConfig creates and fills in the bakery config in state.
-func (s *BakeryConfigService) InitialiseBakeryConfig(ctx context.Context) error {
+func (s *BakeryConfigService) InitialiseBakeryConfig(ctx context.Context) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	localUsersKey, err := bakery.GenerateKey()
 	if err != nil {
 		return errors.Errorf("generating local users keypair: %w", err)
@@ -77,7 +84,13 @@ func (s *BakeryConfigService) InitialiseBakeryConfig(ctx context.Context) error 
 }
 
 // GetLocalUsersKey returns the key pair used with the local users bakery.
-func (s *BakeryConfigService) GetLocalUsersKey(ctx context.Context) (*bakery.KeyPair, error) {
+func (s *BakeryConfigService) GetLocalUsersKey(ctx context.Context) (_ *bakery.KeyPair, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	keyPair, err := s.st.GetLocalUsersKey(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -86,7 +99,13 @@ func (s *BakeryConfigService) GetLocalUsersKey(ctx context.Context) (*bakery.Key
 }
 
 // GetLocalUsersThirdPartyKey returns the third party key pair used with the local users bakery.
-func (s *BakeryConfigService) GetLocalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
+func (s *BakeryConfigService) GetLocalUsersThirdPartyKey(ctx context.Context) (_ *bakery.KeyPair, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	keyPair, err := s.st.GetLocalUsersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -95,7 +114,13 @@ func (s *BakeryConfigService) GetLocalUsersThirdPartyKey(ctx context.Context) (*
 }
 
 // GetExternalUsersThirdPartyKey returns the third party key pair used with the external users bakery.
-func (s *BakeryConfigService) GetExternalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
+func (s *BakeryConfigService) GetExternalUsersThirdPartyKey(ctx context.Context) (_ *bakery.KeyPair, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	keyPair, err := s.st.GetExternalUsersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -104,7 +129,13 @@ func (s *BakeryConfigService) GetExternalUsersThirdPartyKey(ctx context.Context)
 }
 
 // GetOffersThirdPartyKey returns the key pair used with the cross model offers bakery.
-func (s *BakeryConfigService) GetOffersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
+func (s *BakeryConfigService) GetOffersThirdPartyKey(ctx context.Context) (_ *bakery.KeyPair, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	keyPair, err := s.st.GetOffersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
