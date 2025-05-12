@@ -408,7 +408,7 @@ func (s *lxdProfileWatcherSuite) setupWatchers(c *tc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
 	s.machineService.EXPECT().WatchLXDProfiles(gomock.Any(), machine.UUID("uuid0")).Return(s.instanceWatcher, nil)
 
-	s.applicationService.EXPECT().WatchCharms().Return(s.charmsWatcher, nil)
+	s.applicationService.EXPECT().WatchCharms(gomock.Any()).Return(s.charmsWatcher, nil)
 
 	s.charmsWatcher.EXPECT().Changes().AnyTimes().Return(s.charmChanges)
 	s.charmsWatcher.EXPECT().Wait().Return(nil)

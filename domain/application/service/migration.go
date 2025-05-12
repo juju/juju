@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -81,7 +82,13 @@ func NewMigrationService(
 // needing to load the charm metadata.
 // Returns [applicationerrors.CharmNameNotValid] if the name is not valid, and
 // [applicationerrors.CharmNotFound] if the charm is not found.
-func (s *MigrationService) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
+func (s *MigrationService) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (_ corecharm.ID, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if !isValidCharmName(args.Name) {
 		return "", applicationerrors.CharmNameNotValid
 	}
@@ -107,7 +114,13 @@ func (s *MigrationService) GetCharmID(ctx context.Context, args charm.GetCharmAr
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name string) (internalcharm.Charm, charm.CharmLocator, error) {
+func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name string) (_ internalcharm.Charm, _ charm.CharmLocator, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if !isValidApplicationName(name) {
 		return nil, charm.CharmLocator{}, applicationerrors.ApplicationNameNotValid
 	}
@@ -166,14 +179,26 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 }
 
 // GetApplications returns all the applications in the model.
-func (s *MigrationService) GetApplications(ctx context.Context) ([]application.ExportApplication, error) {
+func (s *MigrationService) GetApplications(ctx context.Context) (_ []application.ExportApplication, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return s.st.GetApplicationsForExport(ctx)
 }
 
 // GetApplicationUnits returns all the units for the specified application.
 // If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *MigrationService) GetApplicationUnits(ctx context.Context, name string) ([]application.ExportUnit, error) {
+func (s *MigrationService) GetApplicationUnits(ctx context.Context, name string) (_ []application.ExportUnit, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if !isValidApplicationName(name) {
 		return nil, applicationerrors.ApplicationNameNotValid
 	}
@@ -189,7 +214,13 @@ func (s *MigrationService) GetApplicationUnits(ctx context.Context, name string)
 // GetApplicationCharmOrigin returns the charm origin for the specified
 // application name. If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error) {
+func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name string) (_ application.CharmOrigin, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if !isValidApplicationName(name) {
 		return application.CharmOrigin{}, applicationerrors.ApplicationNameNotValid
 	}
@@ -209,7 +240,13 @@ func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name s
 // If the application does not exist, a [applicationerrors.ApplicationNotFound]
 // error is returned. If no config is set for the application, an empty config
 // is returned.
-func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error) {
+func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, name string) (_ config.ConfigAttributes, _ application.ApplicationSettings, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if !isValidApplicationName(name) {
 		return nil, application.ApplicationSettings{}, applicationerrors.ApplicationNameNotValid
 	}
@@ -237,7 +274,13 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 // application ID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name string) (coreconstraints.Value, error) {
+func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name string) (_ coreconstraints.Value, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if !isValidApplicationName(name) {
 		return coreconstraints.Value{}, applicationerrors.ApplicationNameNotValid
 	}
@@ -254,7 +297,13 @@ func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name s
 // GetUnitUUIDByName returns the unit UUID for the specified unit name.
 // If the unit does not exist, an error satisfying
 // [applicationerrors.UnitNotFound] is returned.
-func (s *MigrationService) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
+func (s *MigrationService) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (_ coreunit.UUID, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := name.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -265,7 +314,13 @@ func (s *MigrationService) GetUnitUUIDByName(ctx context.Context, name coreunit.
 // GetApplicationScaleState returns the scale state of the specified
 // application, returning an error satisfying
 // [applicationerrors.ApplicationNotFound] if the application is not found.
-func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name string) (application.ScaleState, error) {
+func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name string) (_ application.ScaleState, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if !isValidApplicationName(name) {
 		return application.ScaleState{}, applicationerrors.ApplicationNameNotValid
 	}
@@ -282,7 +337,13 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 // if required, returning an error satisfying
 // [applicationerrors.ApplicationAlreadyExists] if the application already
 // exists.
-func (s *MigrationService) ImportCAASApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
+func (s *MigrationService) ImportCAASApplication(ctx context.Context, name string, args ImportApplicationArgs) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	appID, charmUUID, err := s.importApplication(ctx, name, args)
 	if err != nil {
 		return errors.Errorf("importing application %q: %w", name, err)
@@ -311,7 +372,13 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 // if required, returning an error satisfying
 // [applicationerrors.ApplicationAlreadyExists] if the application already
 // exists.
-func (s *MigrationService) ImportIAASApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
+func (s *MigrationService) ImportIAASApplication(ctx context.Context, name string, args ImportApplicationArgs) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	appID, charmUUID, err := s.importApplication(ctx, name, args)
 	if err != nil {
 		return errors.Errorf("importing application %q: %w", name, err)
@@ -414,7 +481,13 @@ func makeInsertApplicationArg(
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *MigrationService) IsApplicationExposed(ctx context.Context, appName string) (bool, error) {
+func (s *MigrationService) IsApplicationExposed(ctx context.Context, appName string) (_ bool, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -430,7 +503,13 @@ func (s *MigrationService) IsApplicationExposed(ctx context.Context, appName str
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *MigrationService) GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error) {
+func (s *MigrationService) GetExposedEndpoints(ctx context.Context, appName string) (_ map[string]application.ExposedEndpoint, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -443,7 +522,13 @@ func (s *MigrationService) GetExposedEndpoints(ctx context.Context, appName stri
 //
 // It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
 // space name doesn't exist.
-func (s *MigrationService) GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error) {
+func (s *MigrationService) GetSpaceUUIDByName(ctx context.Context, name string) (_ network.Id, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return s.st.GetSpaceUUIDByName(ctx, name)
 }
 
@@ -505,7 +590,13 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 // RemoveImportedApplication removes an application that was imported. The
 // application might be in an incomplete state, so it's important to remove
 // as much of the application as possible, even on failure.
-func (s *MigrationService) RemoveImportedApplication(context.Context, string) error {
+func (s *MigrationService) RemoveImportedApplication(ctx context.Context, name string) (err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	// TODO (stickupkid): This is a placeholder for now, we need to implement
 	// this method.
 	return nil

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -194,7 +195,13 @@ func NewWatchableService(
 }
 
 // WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
-func (s *WatchableService) WatchApplicationUnitLife(appName string) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchApplicationUnitLife(ctx context.Context, appName string) (_ watcher.StringsWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	lifeGetter := func(ctx context.Context, ids []string) (map[string]life.Life, error) {
 		unitUUIDs, err := transform.SliceOrErr(ids, coreunit.ParseID)
 		if err != nil {
@@ -220,7 +227,12 @@ func (s *WatchableService) WatchApplicationUnitLife(appName string) (watcher.Str
 }
 
 // WatchApplicationScale returns a watcher that observes changes to an application's scale.
-func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (_ watcher.NotifyWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -257,7 +269,12 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 
 // WatchApplicationsWithPendingCharms returns a watcher that observes changes to
 // applications that have pending charms.
-func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (_ watcher.StringsWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		query,
@@ -339,7 +356,13 @@ type indexedChanged struct {
 // application table.
 // If the application does not exist an error satisfying
 // [applicationerrors.NotFound] will be returned.
-func (s *WatchableService) WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchApplication(ctx context.Context, name string) (_ watcher.NotifyWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	uuid, err := s.GetApplicationIDByName(ctx, name)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
@@ -361,7 +384,13 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (w
 //
 // If the application does not exist an error satisfying
 // [applicationerrors.NotFound] will be returned.
-func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name string) (_ watcher.NotifyWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	uuid, err := s.GetApplicationIDByName(ctx, name)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
@@ -386,7 +415,13 @@ func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name stri
 //
 // If the application does not exist an error satisfying
 // [applicationerrors.NotFound] will be returned.
-func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name string) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name string) (_ watcher.StringsWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	appID, err := s.GetApplicationIDByName(ctx, name)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
@@ -451,7 +486,13 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 //
 // If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
 // will be returned.
-func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName coreunit.Name) (_ watcher.StringsWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	appUUID, err := s.st.GetApplicationIDByUnitName(ctx, unitName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -527,7 +568,13 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 //
 // If the application does not exist an error satisfying
 // [applicationerrors.NotFound] will be returned.
-func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name string) (_ watcher.NotifyWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	uuid, err := s.GetApplicationIDByName(ctx, name)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
@@ -562,7 +609,13 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 // with the uniter agent facade. Specifically, version 20 of the facade implements
 // a Watch endpoint, which can watches for _any_ change to the unit doc in Mongo.
 // Once we no longer need to support facade 20, we can drop this method.
-func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitName coreunit.Name) (_ watcher.NotifyWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	uuid, err := s.GetUnitUUID(ctx, unitName)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of unit %s: %w", unitName, err)
@@ -600,7 +653,7 @@ func newMaskedChangeIDEvent(change changestream.ChangeEvent, id string) changest
 	}
 }
 
-func (m maskedChangeIDEvent) Changed() string {
+func (m maskedChangeIDEvent) Changed() (_ string) {
 	return m.id
 }
 

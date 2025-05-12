@@ -66,7 +66,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchCharms()
+	watcher, err := svc.WatchCharms(context.Background())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -143,7 +143,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	watcher, err := svc.WatchApplicationUnitLife("foo")
+	watcher, err := svc.WatchApplicationUnitLife(context.Background(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -325,7 +325,7 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *tc.C) {
 
 	}
 
-	watcher, err := svc.WatchApplicationUnitLife("foo")
+	watcher, err := svc.WatchApplicationUnitLife(context.Background(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
