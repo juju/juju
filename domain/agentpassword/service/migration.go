@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
 	"github.com/juju/juju/internal/errors"
@@ -40,12 +41,24 @@ func NewMigrationService(
 }
 
 // GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-func (s *MigrationService) GetAllUnitPasswordHashes(ctx context.Context) (agentpassword.UnitPasswordHashes, error) {
+func (s *MigrationService) GetAllUnitPasswordHashes(ctx context.Context) (_ agentpassword.UnitPasswordHashes, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return s.st.GetAllUnitPasswordHashes(ctx)
 }
 
 // SetUnitPasswordHash sets the password hash for the given unit.
-func (s *MigrationService) SetUnitPasswordHash(ctx context.Context, unitName unit.Name, passwordHash agentpassword.PasswordHash) error {
+func (s *MigrationService) SetUnitPasswordHash(ctx context.Context, unitName unit.Name, passwordHash agentpassword.PasswordHash) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := unitName.Validate(); err != nil {
 		return err
 	}

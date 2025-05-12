@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
 	passworderrors "github.com/juju/juju/domain/agentpassword/errors"
@@ -42,7 +43,13 @@ func NewService(st State) *Service {
 
 // SetUnitPassword sets the password for the given unit. If the unit does not
 // exist, an error satisfying [passworderrors.UnitNotFound] is returned.
-func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error {
+func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, password string) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -60,7 +67,13 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 
 // MatchesUnitPasswordHash checks if the password is valid or not against the
 // password hash stored in the database.
-func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Name, password string) (bool, error) {
+func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Name, password string) (_ bool, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := unitName.Validate(); err != nil {
 		return false, errors.Capture(err)
 	}
