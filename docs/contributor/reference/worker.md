@@ -6,7 +6,7 @@
 
 In Juju, a **worker** is any type that implements [the worker interface](worker-interface.md).
 
-Examples of workers include [the dependency engine](dependency-package.md#newengine), instances run by the dependency
+Examples of workers include [the dependency engine](#newengine), instances run by the dependency
 engine (the typical usage of the term "worker"),
 and [watchers](). <!-- TODO: this link was broken in original doc in discourse -->
 
