@@ -98,6 +98,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 		objectStoreType:                    config.ObjectStoreType,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "agent-config-updater",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
