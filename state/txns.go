@@ -68,6 +68,8 @@ func (r *multiModelRunner) RunTransaction(tx *jujutxn.Transaction) error {
 	return r.rawRunner.RunTransaction(tx)
 }
 
+var txnOpLogger = logger.Child("txn.op")
+
 // Run is part of the jujutxn.Runner interface. Operations returned by
 // the given "transactions" function that affect multi-model
 // collections will be modified to ensure correct interaction with
@@ -83,6 +85,10 @@ func (r *multiModelRunner) Run(transactions jujutxn.TransactionSource) error {
 		newOps, err := r.updateOps(ops)
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+
+		if txnOpLogger.IsTraceEnabled() {
+			txnOpLogger.Tracef("%#v", ops)
 		}
 		return newOps, nil
 	})
