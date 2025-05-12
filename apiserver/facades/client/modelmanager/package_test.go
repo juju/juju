@@ -9,11 +9,11 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCheckerInterface
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/domain_mock.go github.com/juju/juju/apiserver/common ControllerConfigService,BlockCommandService
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/migrator_mock.go github.com/juju/juju/apiserver/facades/client/modelmanager ModelExporter
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/service_mock.go github.com/juju/juju/apiserver/facades/client/modelmanager ApplicationService,AccessService,SecretBackendService,ModelService,DomainServicesGetter,ModelDefaultsService,ModelInfoService,ModelConfigService,NetworkService,ModelDomainServices,MachineService,ModelAgentService
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/status_mock.go github.com/juju/juju/apiserver/facades/client/modelmanager ModelStatusAPI
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmanager_test -destination common_mock_test.go github.com/juju/juju/apiserver/common BlockCheckerInterface
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmanager_test -destination domain_mock_test.go github.com/juju/juju/apiserver/common ControllerConfigService,BlockCommandService
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmanager_test -destination migrator_mock_test.go github.com/juju/juju/apiserver/facades/client/modelmanager ModelExporter
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmanager_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/modelmanager ApplicationService,AccessService,SecretBackendService,ModelService,DomainServicesGetter,ModelDefaultsService,ModelInfoService,ModelConfigService,NetworkService,ModelDomainServices,MachineService,ModelAgentService
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmanager_test -destination status_mock_test.go github.com/juju/juju/apiserver/facades/client/modelmanager ModelStatusAPI
 
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
