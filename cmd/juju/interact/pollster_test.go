@@ -20,25 +20,25 @@ type PollsterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(PollsterSuite{})
+var _ = tc.Suite(&PollsterSuite{})
 
-func (p PollsterSuite) TearDownTest(c *tc.C) {
-	p.IsolationSuite.TearDownTest(c)
+func (s *PollsterSuite) TearDownTest(c *tc.C) {
+	s.IsolationSuite.TearDownTest(c)
 	os.Unsetenv("SCHEMA_VAR")
 	os.Unsetenv("SCHEMA_VAR_TWO")
 }
 
-func (PollsterSuite) TestSelect(c *tc.C) {
+func (s *PollsterSuite) TestSelect(c *tc.C) {
 	r := strings.NewReader("macintosh")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
-	s, err := p.Select(List{
+	sel, err := p.Select(List{
 		Singular: "apple",
 		Plural:   "apples",
 		Options:  []string{"macintosh", "granny smith"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s, tc.Equals, "macintosh")
+	c.Assert(sel, tc.Equals, "macintosh")
 
 	// Note: please only check the full output here, so that we don't have to
 	// edit a million tests if we make minor tweaks to the output.
@@ -51,47 +51,47 @@ Select apple:
 `[1:])
 }
 
-func (PollsterSuite) TestSelectDefault(c *tc.C) {
+func (s *PollsterSuite) TestSelectDefault(c *tc.C) {
 	r := strings.NewReader("\n")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
-	s, err := p.Select(List{
+	sel, err := p.Select(List{
 		Singular: "apple",
 		Plural:   "apples",
 		Options:  []string{"macintosh", "granny smith"},
 		Default:  "macintosh",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s, tc.Equals, "macintosh")
+	c.Assert(sel, tc.Equals, "macintosh")
 	c.Assert(w.String(), tc.Contains, `Select apple [macintosh]: `)
 }
 
-func (PollsterSuite) TestSelectDefaultIfOnlyOption(c *tc.C) {
+func (s *PollsterSuite) TestSelectDefaultIfOnlyOption(c *tc.C) {
 	r := strings.NewReader("\n")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
-	s, err := p.Select(List{
+	sel, err := p.Select(List{
 		Singular: "apple",
 		Plural:   "apples",
 		Options:  []string{"macintosh"},
 		Default:  "macintosh",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s, tc.Equals, "macintosh")
+	c.Assert(sel, tc.Equals, "macintosh")
 	c.Assert(w.String(), tc.Contains, `Select apple [macintosh]: `)
 }
 
-func (PollsterSuite) TestSelectIncorrect(c *tc.C) {
+func (s *PollsterSuite) TestSelectIncorrect(c *tc.C) {
 	r := strings.NewReader("mac\nmacintosh")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
-	s, err := p.Select(List{
+	sel, err := p.Select(List{
 		Singular: "apple",
 		Plural:   "apples",
 		Options:  []string{"macintosh", "granny smith"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s, tc.Equals, "macintosh")
+	c.Assert(sel, tc.Equals, "macintosh")
 
 	c.Assert(squash(w.String()), tc.Contains, `Invalid apple: "mac"Select apple:`)
 }
@@ -102,21 +102,21 @@ func squash(s string) string {
 	return strings.Replace(s, "\n", "", -1)
 }
 
-func (PollsterSuite) TestSelectNoMultiple(c *tc.C) {
+func (s *PollsterSuite) TestSelectNoMultiple(c *tc.C) {
 	r := strings.NewReader("macintosh,granny smith\ngranny smith")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
-	s, err := p.Select(List{
+	sel, err := p.Select(List{
 		Singular: "apple",
 		Plural:   "apples",
 		Options:  []string{"macintosh", "granny smith"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s, tc.Equals, "granny smith")
+	c.Assert(sel, tc.Equals, "granny smith")
 	c.Assert(w.String(), tc.Contains, `Invalid apple: "macintosh,granny smith"`)
 }
 
-func (PollsterSuite) TestMultiSelectSingle(c *tc.C) {
+func (s *PollsterSuite) TestMultiSelectSingle(c *tc.C) {
 	r := strings.NewReader("macintosh")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -129,7 +129,7 @@ func (PollsterSuite) TestMultiSelectSingle(c *tc.C) {
 	c.Assert(vals, tc.SameContents, []string{"macintosh"})
 }
 
-func (PollsterSuite) TestMultiSelectMany(c *tc.C) {
+func (s *PollsterSuite) TestMultiSelectMany(c *tc.C) {
 	// note there's a couple spaces in the middle here that we're stripping out.
 	r := strings.NewReader("macintosh,  granny smith")
 	w := &bytes.Buffer{}
@@ -143,7 +143,7 @@ func (PollsterSuite) TestMultiSelectMany(c *tc.C) {
 	c.Assert(vals, tc.SameContents, []string{"macintosh", "granny smith"})
 }
 
-func (PollsterSuite) TestMultiSelectDefault(c *tc.C) {
+func (s *PollsterSuite) TestMultiSelectDefault(c *tc.C) {
 	r := strings.NewReader("\n")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -157,7 +157,7 @@ func (PollsterSuite) TestMultiSelectDefault(c *tc.C) {
 	c.Assert(vals, tc.SameContents, []string{"gala", "granny smith"})
 }
 
-func (PollsterSuite) TestMultiSelectDefaultIfOnlyOne(c *tc.C) {
+func (s *PollsterSuite) TestMultiSelectDefaultIfOnlyOne(c *tc.C) {
 	r := strings.NewReader("\n")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -172,7 +172,7 @@ func (PollsterSuite) TestMultiSelectDefaultIfOnlyOne(c *tc.C) {
 	c.Assert(w.String(), tc.Equals, "Apples\n  macintosh\n\n")
 }
 
-func (PollsterSuite) TestMultiSelectWithMultipleDefaults(c *tc.C) {
+func (s *PollsterSuite) TestMultiSelectWithMultipleDefaults(c *tc.C) {
 	r := strings.NewReader("\n")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -187,7 +187,7 @@ func (PollsterSuite) TestMultiSelectWithMultipleDefaults(c *tc.C) {
 	c.Assert(w.String(), tc.Contains, "Select one or more apples separated by commas [macintosh, gala]: \n")
 }
 
-func (PollsterSuite) TestMultiSelectOneError(c *tc.C) {
+func (s *PollsterSuite) TestMultiSelectOneError(c *tc.C) {
 	r := strings.NewReader("mac\nmacintosh")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -201,7 +201,7 @@ func (PollsterSuite) TestMultiSelectOneError(c *tc.C) {
 	c.Assert(w.String(), tc.Contains, `Invalid apple: "mac"`)
 }
 
-func (PollsterSuite) TestMultiSelectManyErrors(c *tc.C) {
+func (s *PollsterSuite) TestMultiSelectManyErrors(c *tc.C) {
 	r := strings.NewReader("mac,  smith\nmacintosh")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -215,7 +215,7 @@ func (PollsterSuite) TestMultiSelectManyErrors(c *tc.C) {
 	c.Assert(w.String(), tc.Contains, `Invalid apples: "mac", "smith"`)
 }
 
-func (PollsterSuite) TestEnter(c *tc.C) {
+func (s *PollsterSuite) TestEnter(c *tc.C) {
 	r := strings.NewReader("Bill Smith")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -225,7 +225,7 @@ func (PollsterSuite) TestEnter(c *tc.C) {
 	c.Assert(w.String(), tc.Equals, "Enter your name: \n")
 }
 
-func (PollsterSuite) TestEnterEmpty(c *tc.C) {
+func (s *PollsterSuite) TestEnterEmpty(c *tc.C) {
 	r := strings.NewReader("\nBill")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -236,7 +236,7 @@ func (PollsterSuite) TestEnterEmpty(c *tc.C) {
 	c.Assert(squash(w.String()), tc.Contains, "Enter your name: Enter your name: ")
 }
 
-func (PollsterSuite) TestEnterVerify(c *tc.C) {
+func (s *PollsterSuite) TestEnterVerify(c *tc.C) {
 	r := strings.NewReader("Bill Smith")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -252,7 +252,7 @@ func (PollsterSuite) TestEnterVerify(c *tc.C) {
 	c.Assert(w.String(), tc.Equals, "Enter your name: \n")
 }
 
-func (PollsterSuite) TestEnterVerifyBad(c *tc.C) {
+func (s *PollsterSuite) TestEnterVerifyBad(c *tc.C) {
 	r := strings.NewReader("Will Smithy\nBill Smith")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -268,7 +268,7 @@ func (PollsterSuite) TestEnterVerifyBad(c *tc.C) {
 	c.Assert(squash(w.String()), tc.Equals, "Enter your name: not bill!Enter your name: ")
 }
 
-func (PollsterSuite) TestEnterDefaultNonEmpty(c *tc.C) {
+func (s *PollsterSuite) TestEnterDefaultNonEmpty(c *tc.C) {
 	r := strings.NewReader("Bill Smith")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -278,7 +278,7 @@ func (PollsterSuite) TestEnterDefaultNonEmpty(c *tc.C) {
 	c.Assert(w.String(), tc.Equals, "Enter your name [John]: \n")
 }
 
-func (PollsterSuite) TestEnterDefaultEmpty(c *tc.C) {
+func (s *PollsterSuite) TestEnterDefaultEmpty(c *tc.C) {
 	r := strings.NewReader("\n")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -289,7 +289,7 @@ func (PollsterSuite) TestEnterDefaultEmpty(c *tc.C) {
 	c.Assert(squash(w.String()), tc.Contains, "Enter your name [John]: ")
 }
 
-func (PollsterSuite) TestEnterVerifyDefaultEmpty(c *tc.C) {
+func (s *PollsterSuite) TestEnterVerifyDefaultEmpty(c *tc.C) {
 	r := strings.NewReader("\n")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -308,7 +308,7 @@ func (PollsterSuite) TestEnterVerifyDefaultEmpty(c *tc.C) {
 	c.Assert(squash(w.String()), tc.Contains, "Enter your name [John]: ")
 }
 
-func (PollsterSuite) TestYNDefaultFalse(c *tc.C) {
+func (s *PollsterSuite) TestYNDefaultFalse(c *tc.C) {
 	r := strings.NewReader("Y")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -318,7 +318,7 @@ func (PollsterSuite) TestYNDefaultFalse(c *tc.C) {
 	c.Assert(w.String(), tc.Equals, "Should this test pass? (y/N): \n")
 }
 
-func (PollsterSuite) TestYNDefaultTrue(c *tc.C) {
+func (s *PollsterSuite) TestYNDefaultTrue(c *tc.C) {
 	r := strings.NewReader("Y")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -328,7 +328,7 @@ func (PollsterSuite) TestYNDefaultTrue(c *tc.C) {
 	c.Assert(w.String(), tc.Equals, "Should this test pass? (Y/n): \n")
 }
 
-func (PollsterSuite) TestYNTable(c *tc.C) {
+func (s *PollsterSuite) TestYNTable(c *tc.C) {
 	tests := []struct {
 		In       string
 		Def, Res bool
@@ -361,7 +361,7 @@ func (PollsterSuite) TestYNTable(c *tc.C) {
 	}
 }
 
-func (PollsterSuite) TestYNInvalid(c *tc.C) {
+func (s *PollsterSuite) TestYNInvalid(c *tc.C) {
 	r := strings.NewReader("wat\nY")
 	w := &bytes.Buffer{}
 	p := New(r, w, w)
@@ -371,7 +371,7 @@ func (PollsterSuite) TestYNInvalid(c *tc.C) {
 	c.Assert(w.String(), tc.Contains, `Invalid entry: "wat", please choose y or n`)
 }
 
-func (PollsterSuite) TestQueryStringSchema(c *tc.C) {
+func (s *PollsterSuite) TestQueryStringSchema(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "region",
 		Type:     []jsonschema.Type{jsonschema.StringType},
@@ -381,13 +381,13 @@ func (PollsterSuite) TestQueryStringSchema(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	s, ok := v.(string)
+	sel, ok := v.(string)
 	c.Check(ok, tc.IsTrue)
-	c.Check(s, tc.Equals, "wat")
+	c.Check(sel, tc.Equals, "wat")
 	c.Assert(w.String(), tc.Contains, "Enter region:")
 }
 
-func (PollsterSuite) TestQueryStringSchemaWithDefault(c *tc.C) {
+func (s *PollsterSuite) TestQueryStringSchemaWithDefault(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "region",
 		Type:     []jsonschema.Type{jsonschema.StringType},
@@ -398,13 +398,13 @@ func (PollsterSuite) TestQueryStringSchemaWithDefault(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	s, ok := v.(string)
+	sel, ok := v.(string)
 	c.Check(ok, tc.IsTrue)
-	c.Check(s, tc.Equals, "foo")
+	c.Check(sel, tc.Equals, "foo")
 	c.Assert(w.String(), tc.Contains, "Enter region [foo]:")
 }
 
-func (PollsterSuite) TestQueryStringSchemaWithUnusedDefault(c *tc.C) {
+func (s *PollsterSuite) TestQueryStringSchemaWithUnusedDefault(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "region",
 		Type:     []jsonschema.Type{jsonschema.StringType},
@@ -415,13 +415,13 @@ func (PollsterSuite) TestQueryStringSchemaWithUnusedDefault(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	s, ok := v.(string)
+	sel, ok := v.(string)
 	c.Check(ok, tc.IsTrue)
-	c.Check(s, tc.Equals, "bar")
+	c.Check(sel, tc.Equals, "bar")
 	c.Assert(w.String(), tc.Contains, "Enter region [foo]:")
 }
 
-func (PollsterSuite) TestQueryStringSchemaWithPromptDefault(c *tc.C) {
+func (s *PollsterSuite) TestQueryStringSchemaWithPromptDefault(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular:      "region",
 		Type:          []jsonschema.Type{jsonschema.StringType},
@@ -433,13 +433,13 @@ func (PollsterSuite) TestQueryStringSchemaWithPromptDefault(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	s, ok := v.(string)
+	sel, ok := v.(string)
 	c.Check(ok, tc.IsTrue)
-	c.Check(s, tc.Equals, "foo")
+	c.Check(sel, tc.Equals, "foo")
 	c.Check(w.String(), tc.Contains, "Enter region [not foo]:")
 }
 
-func (PollsterSuite) TestQueryStringSchemaWithDefaultEnvVar(c *tc.C) {
+func (s *PollsterSuite) TestQueryStringSchemaWithDefaultEnvVar(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "region",
 		Type:     []jsonschema.Type{jsonschema.StringType},
@@ -452,13 +452,13 @@ func (PollsterSuite) TestQueryStringSchemaWithDefaultEnvVar(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	s, ok := v.(string)
+	sel, ok := v.(string)
 	c.Check(ok, tc.IsTrue)
-	c.Check(s, tc.Equals, "value from env var")
+	c.Check(sel, tc.Equals, "value from env var")
 	c.Assert(w.String(), tc.Contains, "Enter region [value from env var]:")
 }
 
-func (PollsterSuite) TestQueryStringSchemaWithDefaultEnvVarOverride(c *tc.C) {
+func (s *PollsterSuite) TestQueryStringSchemaWithDefaultEnvVarOverride(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "region",
 		Type:     []jsonschema.Type{jsonschema.StringType},
@@ -471,13 +471,13 @@ func (PollsterSuite) TestQueryStringSchemaWithDefaultEnvVarOverride(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	s, ok := v.(string)
+	sel, ok := v.(string)
 	c.Check(ok, tc.IsTrue)
-	c.Check(s, tc.Equals, "use me")
+	c.Check(sel, tc.Equals, "use me")
 	c.Assert(w.String(), tc.Contains, "Enter region [value from env var]:")
 }
 
-func (PollsterSuite) TestQueryStringSchemaWithDefaultTwoEnvVar(c *tc.C) {
+func (s *PollsterSuite) TestQueryStringSchemaWithDefaultTwoEnvVar(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "region",
 		Type:     []jsonschema.Type{jsonschema.StringType},
@@ -490,13 +490,13 @@ func (PollsterSuite) TestQueryStringSchemaWithDefaultTwoEnvVar(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	s, ok := v.(string)
+	sel, ok := v.(string)
 	c.Check(ok, tc.IsTrue)
-	c.Check(s, tc.Equals, "value from second")
+	c.Check(sel, tc.Equals, "value from second")
 	c.Assert(w.String(), tc.Contains, "Enter region [value from second]:")
 }
 
-func (PollsterSuite) TestQueryURISchema(c *tc.C) {
+func (s *PollsterSuite) TestQueryURISchema(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "region",
 		Type:     []jsonschema.Type{jsonschema.StringType},
@@ -515,7 +515,7 @@ Enter region:
 `[1:])
 }
 
-func (PollsterSuite) TestQueryArraySchema(c *tc.C) {
+func (s *PollsterSuite) TestQueryArraySchema(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "number",
 		Plural:   "numbers",
@@ -544,12 +544,12 @@ Numbers
 
 Select one or more numbers separated by commas: 
 `[1:])
-	s, ok := v.([]string)
+	sel, ok := v.([]string)
 	c.Check(ok, tc.IsTrue)
-	c.Check(s, tc.SameContents, []string{"one", "three"})
+	c.Check(sel, tc.SameContents, []string{"one", "three"})
 }
 
-func (PollsterSuite) TestQueryArraySchemaDefault(c *tc.C) {
+func (s *PollsterSuite) TestQueryArraySchemaDefault(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "number",
 		Plural:   "numbers",
@@ -579,12 +579,12 @@ Numbers
 
 Select one or more numbers separated by commas [two]: 
 `[1:])
-	s, ok := v.([]string)
+	sel, ok := v.([]string)
 	c.Check(ok, tc.IsTrue)
-	c.Check(s, tc.SameContents, []string{"two"})
+	c.Check(sel, tc.SameContents, []string{"two"})
 }
 
-func (PollsterSuite) TestQueryArraySchemaNotDefault(c *tc.C) {
+func (s *PollsterSuite) TestQueryArraySchemaNotDefault(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "number",
 		Plural:   "numbers",
@@ -614,12 +614,12 @@ Numbers
 
 Select one or more numbers separated by commas [two]: 
 `[1:])
-	s, ok := v.([]string)
+	sel, ok := v.([]string)
 	c.Check(ok, tc.IsTrue)
-	c.Check(s, tc.SameContents, []string{"three"})
+	c.Check(sel, tc.SameContents, []string{"three"})
 }
 
-func (PollsterSuite) TestQueryEnum(c *tc.C) {
+func (s *PollsterSuite) TestQueryEnum(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "number",
 		Plural:   "numbers",
@@ -648,7 +648,7 @@ Select number:
 	c.Check(i, tc.Equals, 2)
 }
 
-func (PollsterSuite) TestQueryObjectSchema(c *tc.C) {
+func (s *PollsterSuite) TestQueryObjectSchema(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Type: []jsonschema.Type{jsonschema.ObjectType},
 		Properties: map[string]*jsonschema.Schema{
@@ -686,7 +686,7 @@ func (PollsterSuite) TestQueryObjectSchema(c *tc.C) {
 	})
 }
 
-func (PollsterSuite) TestQueryObjectSchemaOrder(c *tc.C) {
+func (s *PollsterSuite) TestQueryObjectSchemaOrder(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Type: []jsonschema.Type{jsonschema.ObjectType},
 		// Order should match up with order of input in strings.NewReader below.
@@ -725,7 +725,7 @@ func (PollsterSuite) TestQueryObjectSchemaOrder(c *tc.C) {
 	})
 }
 
-func (PollsterSuite) TestQueryObjectSchemaAdditional(c *tc.C) {
+func (s *PollsterSuite) TestQueryObjectSchemaAdditional(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Type:     []jsonschema.Type{jsonschema.ObjectType},
 		Singular: "region",
@@ -766,7 +766,7 @@ Enter another region? (y/N):
 `[1:])
 }
 
-func (PollsterSuite) TestQueryObjectSchemaAdditionalEmpty(c *tc.C) {
+func (s *PollsterSuite) TestQueryObjectSchemaAdditionalEmpty(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Type:     []jsonschema.Type{jsonschema.ObjectType},
 		Singular: "region",
@@ -797,7 +797,7 @@ Enter another region? (y/N):
 `[1:])
 }
 
-func (PollsterSuite) TestQueryObjectSchemaWithOutDefault(c *tc.C) {
+func (s *PollsterSuite) TestQueryObjectSchemaWithOutDefault(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Type:  []jsonschema.Type{jsonschema.ObjectType},
 		Order: []string{"name", "nested", "bar"},
@@ -865,7 +865,7 @@ func (PollsterSuite) TestQueryObjectSchemaWithOutDefault(c *tc.C) {
 	})
 }
 
-func (PollsterSuite) TestQueryObjectSchemaWithDefault(c *tc.C) {
+func (s *PollsterSuite) TestQueryObjectSchemaWithDefault(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Type:  []jsonschema.Type{jsonschema.ObjectType},
 		Order: []string{"name", "nested"},
@@ -911,7 +911,7 @@ func (PollsterSuite) TestQueryObjectSchemaWithDefault(c *tc.C) {
 	})
 }
 
-func (PollsterSuite) TestQueryObjectSchemaWithDefaultEnvVars(c *tc.C) {
+func (s *PollsterSuite) TestQueryObjectSchemaWithDefaultEnvVars(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Type:  []jsonschema.Type{jsonschema.ObjectType},
 		Order: []string{"name", "nested"},
@@ -962,7 +962,7 @@ func (PollsterSuite) TestQueryObjectSchemaWithDefaultEnvVars(c *tc.C) {
 	})
 }
 
-func (PollsterSuite) TestQueryObjectSchemaEnvVarsWithOutDefault(c *tc.C) {
+func (s *PollsterSuite) TestQueryObjectSchemaEnvVarsWithOutDefault(c *tc.C) {
 	schema := &jsonschema.Schema{
 		Type:  []jsonschema.Type{jsonschema.ObjectType},
 		Order: []string{"name", "nested"},

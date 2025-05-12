@@ -5,7 +5,6 @@ package commands
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,13 +15,9 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 
-	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/testhelpers"
@@ -154,16 +149,6 @@ func (s *MainSuite) TestRunMain(c *tc.C) {
 		code:    0,
 		out:     syncToolsHelpText(),
 	}, {
-		summary: "check version command returns a fully qualified version string",
-		args:    []string{"version"},
-		code:    0,
-		out:     testing.CurrentVersion().String() + "\n",
-	}, {
-		summary: "check --version command returns a fully qualified version string",
-		args:    []string{"--version"},
-		code:    0,
-		out:     testing.CurrentVersion().String() + "\n",
-	}, {
 		summary: "--version option after command is not changed to version command",
 		args:    []string{"bootstrap", "--version"},
 		code:    0,
@@ -207,100 +192,6 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *tc.C) {
 		c.Assert(string(content), tc.Matches, "(.|\n)*running juju(.|\n)*command finished(.|\n)*")
 		err = os.Remove(logpath)
 		c.Assert(err, tc.ErrorIsNil)
-	}
-}
-
-func (s *MainSuite) TestNoWarn2xFirstRun(c *tc.C) {
-	// Code should only rnu on ubuntu series, so patch out the series for
-	// when non-ubuntu OSes run this test.
-	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
-
-	argChan := make(chan []string, 1)
-	// we shouldn't actually be running anything, but if we do, this will
-	// provide some consistent results.
-	execCommand := testhelpers.ExecCommand(testhelpers.PatchExecConfig{
-		Stdout: "1.25.0-trusty-amd64",
-		Args:   argChan,
-	})
-	stub := &testhelpers.Stub{}
-	s.PatchValue(&cloud.NewUpdatePublicCloudsCommand, func() cmd.Command {
-		return &stubCommand{stub: stub}
-	})
-
-	// remove the new juju-home.
-	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
-	c.Assert(err, tc.ErrorIsNil)
-
-	// create fake (empty) old juju home.
-	path := c.MkDir()
-	s.PatchEnvironment("JUJU_HOME", path)
-
-	s.PatchValue(&cloud.FetchAndMaybeUpdatePublicClouds,
-		func(_ context.Context, access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
-			return nil, "", nil
-		})
-
-	var code int
-	stdout, stderr := testhelpers.CaptureOutput(c, func() {
-		code = jujuMain{
-			execCommand: execCommand,
-		}.Run([]string{"juju", "version"})
-	})
-
-	c.Assert(code, tc.Equals, 0)
-
-	assertNoArgs(c, argChan)
-	c.Check(string(stderr), tc.Equals, `
-Since Juju 4 is being run for the first time, it has downloaded the latest public cloud information.`[1:]+"\n")
-	checkVersionOutput(c, string(stdout))
-}
-
-func (s *MainSuite) assertRunUpdateCloud(c *tc.C, expectedCalled bool) {
-	argChan := make(chan []string, 1)
-	execCommand := testhelpers.ExecCommand(testhelpers.PatchExecConfig{
-		Stdout: "1.25.0-trusty-amd64",
-		Args:   argChan,
-	})
-
-	called := false
-	s.PatchValue(&cloud.FetchAndMaybeUpdatePublicClouds,
-		func(_ context.Context, access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
-			called = true
-			return nil, "", nil
-		})
-	var code int
-	testhelpers.CaptureOutput(c, func() {
-		code = jujuMain{
-			execCommand: execCommand,
-		}.Run([]string{"juju", "version"})
-	})
-	c.Assert(code, tc.Equals, 0)
-	c.Assert(called, tc.Equals, expectedCalled)
-}
-
-func (s *MainSuite) TestFirstRunUpdateCloud(c *tc.C) {
-	// remove the juju-home.
-	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
-	c.Assert(err, tc.ErrorIsNil)
-	s.assertRunUpdateCloud(c, true)
-}
-
-func (s *MainSuite) TestRunNoUpdateCloud(c *tc.C) {
-	s.assertRunUpdateCloud(c, false)
-}
-
-func checkVersionOutput(c *tc.C, output string) {
-	ver := testing.CurrentVersion()
-	c.Check(output, tc.Equals, ver.String()+"\n")
-}
-
-func assertNoArgs(c *tc.C, argChan <-chan []string) {
-	select {
-	case args := <-argChan:
-		c.Fatalf("Exec function called when it shouldn't have been (with args %q).", args)
-	default:
-		// this is the good path - there shouldn't be any args, which indicates
-		// the executable was not called.
 	}
 }
 

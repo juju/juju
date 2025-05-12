@@ -30,8 +30,6 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	testhelpers.IsolationSuite
-
 	logger logger.Logger
 
 	clock       *MockClock
@@ -88,12 +86,10 @@ type dbBaseSuite struct {
 
 func (s *dbBaseSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
-	s.baseSuite.SetUpTest(c)
 }
 
 func (s *dbBaseSuite) TearDownTest(c *tc.C) {
 	s.ControllerSuite.TearDownTest(c)
-	s.baseSuite.TearDownTest(c)
 }
 
 func ensureStartup(c *tc.C, w *dbReplWorker) {

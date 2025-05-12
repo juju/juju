@@ -51,7 +51,7 @@ func GetMockBundleTools(expectedForceVersion semversion.Number) tools.BundleTool
 
 // GetMockBuildTools returns a sync.BuildAgentTarballFunc implementation which generates
 // a fake tools tarball.
-func GetMockBuildTools(c *tc.C) sync.BuildAgentTarballFunc {
+func GetMockBuildTools(c tc.LikeC) sync.BuildAgentTarballFunc {
 	return func(
 		build bool, stream string,
 		getForceVersion func(semversion.Number) semversion.Number,
@@ -78,16 +78,16 @@ func GetMockBuildTools(c *tc.C) sync.BuildAgentTarballFunc {
 }
 
 // MakeTools creates some fake tools with the given version strings.
-func MakeTools(c *tc.C, metadataDir, stream string, versionStrings []string) coretools.List {
+func MakeTools(c tc.LikeC, metadataDir, stream string, versionStrings []string) coretools.List {
 	return makeTools(c, metadataDir, stream, versionStrings, false)
 }
 
 // MakeToolsWithCheckSum creates some fake tools (including checksums) with the given version strings.
-func MakeToolsWithCheckSum(c *tc.C, metadataDir, stream string, versionStrings []string) coretools.List {
+func MakeToolsWithCheckSum(c tc.LikeC, metadataDir, stream string, versionStrings []string) coretools.List {
 	return makeTools(c, metadataDir, stream, versionStrings, true)
 }
 
-func makeTools(c *tc.C, metadataDir, stream string, versionStrings []string, withCheckSum bool) coretools.List {
+func makeTools(c tc.LikeC, metadataDir, stream string, versionStrings []string, withCheckSum bool) coretools.List {
 	toolsDir := filepath.Join(metadataDir, storage.BaseToolsPath, stream)
 	c.Assert(os.MkdirAll(toolsDir, 0755), tc.IsNil)
 	var toolsList coretools.List
@@ -122,7 +122,7 @@ func makeTools(c *tc.C, metadataDir, stream string, versionStrings []string, wit
 }
 
 // SHA256sum creates the sha256 checksum for the specified file.
-func SHA256sum(c *tc.C, path string) (int64, string) {
+func SHA256sum(c tc.LikeC, path string) (int64, string) {
 	path = strings.TrimPrefix(path, "file://")
 	hash, size, err := utils.ReadFileSHA256(path)
 	c.Assert(err, tc.ErrorIsNil)
@@ -130,14 +130,14 @@ func SHA256sum(c *tc.C, path string) (int64, string) {
 }
 
 // ParseMetadataFromDir loads ToolsMetadata from the specified directory.
-func ParseMetadataFromDir(c *tc.C, metadataDir, stream string, expectMirrors bool) []*tools.ToolsMetadata {
+func ParseMetadataFromDir(c tc.LikeC, metadataDir, stream string, expectMirrors bool) []*tools.ToolsMetadata {
 	stor, err := filestorage.NewFileStorageReader(metadataDir)
 	c.Assert(err, tc.ErrorIsNil)
 	return ParseMetadataFromStorage(c, stor, stream, expectMirrors)
 }
 
 // ParseMetadataFromStorage loads ToolsMetadata from the specified storage reader.
-func ParseMetadataFromStorage(c *tc.C, stor storage.StorageReader, stream string, expectMirrors bool) []*tools.ToolsMetadata {
+func ParseMetadataFromStorage(c tc.LikeC, stor storage.StorageReader, stream string, expectMirrors bool) []*tools.ToolsMetadata {
 	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "tools", simplestreams.CUSTOM_CLOUD_DATA, false)
 	params := simplestreams.ValueParams{
 		DataType:      tools.ContentDownload,
@@ -211,7 +211,7 @@ type metadataFile struct {
 	data []byte
 }
 
-func generateMetadata(c *tc.C, streamVersions StreamVersions) []metadataFile {
+func generateMetadata(c tc.LikeC, streamVersions StreamVersions) []metadataFile {
 	streamMetadata := map[string][]*tools.ToolsMetadata{}
 	for stream, versions := range streamVersions {
 		metadata := make([]*tools.ToolsMetadata, len(versions))
@@ -253,7 +253,7 @@ func generateMetadata(c *tc.C, streamVersions StreamVersions) []metadataFile {
 }
 
 // UploadToStorage uploads tools and metadata for the specified versions to storage.
-func UploadToStorage(c *tc.C, stor storage.Storage, stream string, versions ...semversion.Binary) map[semversion.Binary]string {
+func UploadToStorage(c tc.LikeC, stor storage.Storage, stream string, versions ...semversion.Binary) map[semversion.Binary]string {
 	uploaded := map[semversion.Binary]string{}
 	if len(versions) == 0 {
 		return uploaded
@@ -282,7 +282,7 @@ func UploadToStorage(c *tc.C, stor storage.Storage, stream string, versions ...s
 type StreamVersions map[string][]semversion.Binary
 
 // UploadToDirectory uploads tools and metadata for the specified versions to dir.
-func UploadToDirectory(c *tc.C, dir string, streamVersions StreamVersions) map[string]map[semversion.Binary]string {
+func UploadToDirectory(c tc.LikeC, dir string, streamVersions StreamVersions) map[string]map[semversion.Binary]string {
 	allUploaded := map[string]map[semversion.Binary]string{}
 	if len(streamVersions) == 0 {
 		return allUploaded

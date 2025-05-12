@@ -777,7 +777,8 @@ type uniterRelationSuite struct {
 
 var _ = tc.Suite(&uniterRelationSuite{})
 
-func (s *uniterRelationSuite) SetUpSuite(_ *tc.C) {
+func (s *uniterRelationSuite) SetUpSuite(c *tc.C) {
+	s.IsolationSuite.SetUpSuite(c)
 	s.wordpressAppTag = names.NewApplicationTag("wordpress")
 	s.wordpressUnitTag = names.NewUnitTag("wordpress/0")
 	s.authTag = s.wordpressUnitTag

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -70,9 +71,11 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 
 	cfg := s.newManifoldConfig(c)
 
-	work, err := leaseexpiry.Manifold(cfg).Start(context.Background(), s.newGetter())
+	work, err := leaseexpiry.Manifold(cfg).Start(c.Context(), s.newGetter())
 	c.Check(work, tc.NotNil)
 	c.Check(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, work)
 }
 
 func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
