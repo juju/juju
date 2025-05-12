@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -153,9 +154,8 @@ func (s *BootstrapSuite) SetUpTest(c *tc.C) {
 	// so we can inspect the output in tests.
 	s.tw.Clear()
 	c.Assert(loggo.RegisterWriter("bootstrap-test", &s.tw), tc.ErrorIsNil)
-	s.AddCleanup(func(c *tc.C) {
-		_, err := loggo.RemoveWriter("bootstrap-test")
-		c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() {
+		loggo.RemoveWriter("bootstrap-test")
 	})
 
 	s.clock = testclock.NewClock(time.Now())
@@ -179,8 +179,10 @@ func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
 func (s *BootstrapSuite) TestRunTests(c *tc.C) {
 	for i, test := range bootstrapTests {
 		c.Logf("\ntest %d: %s", i, test.info)
-		restore := s.run(c, test)
-		restore()
+		c.Run(fmt.Sprintf("Test%d", i), func(t *testing.T) {
+			c := &tc.TBC{t}
+			s.run(c, test)
+		})
 	}
 }
 
@@ -213,30 +215,30 @@ func (s *BootstrapSuite) patchVersion(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, num)
 }
 
-func (s *BootstrapSuite) run(c *tc.C, test bootstrapTest) testhelpers.Restorer {
+func (s *BootstrapSuite) run(c tc.LikeC, test bootstrapTest) {
 	// Create home with dummy provider and remove all
 	// of its envtools.
 	s.setupAutoUploadTest(c, "1.0.0", "jammy")
 	s.tw.Clear()
 
-	var restore testhelpers.Restorer = func() {
+	c.Cleanup(func() {
 		s.store = jujuclienttesting.MinimalStore()
-	}
+	})
 	bootstrapVersion := v100u64
 	if test.version != "" {
 		bootstrapVersion = semversion.MustParseBinary(test.version)
-		restore = restore.Add(testhelpers.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
-		restore = restore.Add(testhelpers.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
+		c.Cleanup(testhelpers.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
+		c.Cleanup(testhelpers.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
 		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := semversion.MustParseBinary(test.upload)
 			bootstrapVersion.Number = uploadVers.Number
 		}
-		restore = restore.Add(testhelpers.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(bootstrapVersion.Number)))
+		c.Cleanup(testhelpers.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(bootstrapVersion.Number)))
 	}
 
 	if test.hostArch != "" {
-		restore = restore.Add(testhelpers.PatchEnvironment("GOARCH", test.hostArch))
+		c.Cleanup(testhelpers.PatchEnvironment("GOARCH", test.hostArch))
 	}
 
 	controllerName := "peckham-controller"
@@ -263,15 +265,15 @@ func (s *BootstrapSuite) run(c *tc.C, test bootstrapTest) testhelpers.Restorer {
 	// Check for remaining operations/errors.
 	if test.silentErr {
 		c.Assert(err, tc.Equals, cmd.ErrSilent)
-		return restore
+		return
 	} else if test.err != "" {
 		c.Assert(err, tc.NotNil)
 		stripped := strings.Replace(err.Error(), "\n", "", -1)
 		c.Check(stripped, tc.Matches, test.err)
-		return restore
+		return
 	}
 	if !c.Check(err, tc.IsNil) {
-		return restore
+		return
 	}
 
 	op, ok := <-opc
@@ -335,7 +337,7 @@ func (s *BootstrapSuite) run(c *tc.C, test bootstrapTest) testhelpers.Restorer {
 	}
 	c.Assert(bootstrapConfig.Config, tc.DeepEquals, expected)
 
-	return restore
+	return
 }
 
 var bootstrapTests = []bootstrapTest{{
@@ -1279,7 +1281,7 @@ my-dummy-cloud
 	c.Assert(controller.CloudRegion, tc.Equals, "region-1")
 }
 
-func (s *BootstrapSuite) setupAutoUploadTest(c *tc.C, vers, ser string) {
+func (s *BootstrapSuite) setupAutoUploadTest(c tc.LikeC, vers, ser string) {
 	patchedVersion := semversion.MustParse(vers)
 	patchedVersion.Build = 1
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(patchedVersion))
@@ -2207,7 +2209,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 
 // createToolsSource writes the mock tools and metadata into a temporary
 // directory and returns it.
-func createToolsSource(c *tc.C, versions []semversion.Binary) string {
+func createToolsSource(c tc.LikeC, versions []semversion.Binary) string {
 	versionStrings := make([]string, len(versions))
 	for i, vers := range versions {
 		versionStrings[i] = vers.String()
@@ -2218,7 +2220,7 @@ func createToolsSource(c *tc.C, versions []semversion.Binary) string {
 }
 
 // resetJujuXDGDataHome restores an new, clean Juju home environment without tools.
-func resetJujuXDGDataHome(c *tc.C) {
+func resetJujuXDGDataHome(c tc.LikeC) {
 	cloudsPath := cloud.JujuPersonalCloudsPath()
 	err := os.WriteFile(cloudsPath, []byte(`
 clouds:

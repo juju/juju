@@ -27,8 +27,13 @@ var _ = tc.Suite(&certPoolSuite{})
 func (s *certPoolSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.logs = &certLogs{}
+	oldLevel := loggo.GetLogger("juju.api").LogLevel()
 	loggo.GetLogger("juju.api").SetLogLevel(loggo.TRACE)
 	loggo.RegisterWriter("api-certs", s.logs)
+	c.Cleanup(func() {
+		loggo.GetLogger("juju.api").SetLogLevel(oldLevel)
+		loggo.RemoveWriter("api-certs")
+	})
 }
 
 func (*certPoolSuite) TestCreateCertPoolNoCert(c *tc.C) {

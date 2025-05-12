@@ -17,6 +17,7 @@ import (
 // *testing.T or *check.C.
 type CheckLogger interface {
 	Logf(string, ...any)
+	Context() context.Context
 }
 
 // checkLogger is a loggo.Logger that logs to a *testing.T or *check.C.
@@ -48,32 +49,67 @@ func formatMsg(level, name, msg string) string {
 }
 
 func (c checkLogger) Criticalf(ctx context.Context, msg string, args ...any) {
+	select {
+	case <-c.log.Context().Done():
+		return
+	default:
+	}
 	c.log.Logf(formatMsg("CRITICAL", c.name, msg), args...)
 }
 
 func (c checkLogger) Errorf(ctx context.Context, msg string, args ...any) {
+	select {
+	case <-c.log.Context().Done():
+		return
+	default:
+	}
 	c.log.Logf(formatMsg("ERROR", c.name, msg), args...)
 }
 
 func (c checkLogger) Warningf(ctx context.Context, msg string, args ...any) {
+	select {
+	case <-c.log.Context().Done():
+		return
+	default:
+	}
 	c.log.Logf(formatMsg("WARNING", c.name, msg), args...)
 }
 
 func (c checkLogger) Infof(ctx context.Context, msg string, args ...any) {
+	select {
+	case <-c.log.Context().Done():
+		return
+	default:
+	}
 	c.log.Logf(formatMsg("INFO", c.name, msg), args...)
 }
 
 func (c checkLogger) Debugf(ctx context.Context, msg string, args ...any) {
+	select {
+	case <-c.log.Context().Done():
+		return
+	default:
+	}
 	c.log.Logf(formatMsg("DEBUG", c.name, msg), args...)
 }
 
 func (c checkLogger) Tracef(ctx context.Context, msg string, args ...any) {
+	select {
+	case <-c.log.Context().Done():
+		return
+	default:
+	}
 	c.log.Logf(formatMsg("TRACE", c.name, msg), args...)
 }
 
 func (c checkLogger) Logf(ctx context.Context, level logger.Level, labels logger.Labels, msg string, args ...any) {
 	if !c.IsLevelEnabled(level) {
 		return
+	}
+	select {
+	case <-c.log.Context().Done():
+		return
+	default:
 	}
 	c.log.Logf(formatMsg(loggo.Level(level).String(), c.name, msg), args...)
 }

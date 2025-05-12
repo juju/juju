@@ -127,6 +127,9 @@ func (s *logsinkSuite) TestLogMessages(c *tc.C) {
 	var logs loggo.TestWriter
 	writer := loggo.NewMinimumLevelWriter(&logs, loggo.INFO)
 	c.Assert(loggo.RegisterWriter("logsink-tests", writer), tc.ErrorIsNil)
+	c.Cleanup(func() {
+		loggo.RemoveWriter("logsink-tests")
+	})
 
 	// Open, then close connection.
 	conn := s.dialWebsocket(c, srv)
@@ -149,6 +152,9 @@ func (s *logsinkSuite) TestSuccessWithLabels(c *tc.C) {
 	var logs loggo.TestWriter
 	writer := loggo.NewMinimumLevelWriter(&logs, loggo.INFO)
 	c.Assert(loggo.RegisterWriter("logsink-tests", writer), tc.ErrorIsNil)
+	c.Cleanup(func() {
+		loggo.RemoveWriter("logsink-tests")
+	})
 
 	conn := s.dialWebsocket(c, srv)
 	websockettest.AssertJSONInitialErrorNil(c, conn)
