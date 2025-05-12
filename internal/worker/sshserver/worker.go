@@ -37,7 +37,7 @@ v1PxSJ2ipSalQUUIYSFmEdYYTtUegljstnvJfO5aVJVgAAAAAAECAwQF
 type ControllerConfigService interface {
 	// WatchControllerConfig returns a watcher that returns keys for any changes
 	// to controller config.
-	WatchControllerConfig() (watcher.StringsWatcher, error)
+	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 	// ControllerConfig returns the current controller configuration.
 	ControllerConfig(context.Context) (controller.Config, error)
 }
@@ -134,9 +134,11 @@ func (ssw *serverWrapperWorker) Report() map[string]any {
 // loop is the main loop of the server wrapper worker. It starts the server worker
 // and listens for changes in the controller configuration.
 func (ssw *serverWrapperWorker) loop() error {
+	ctx := ssw.catacomb.Context(context.Background())
+
 	// Watch for changes then acquire the latest controller configuration
 	// to avoid starting the server with stale config values.
-	controllerConfigWatcher, err := ssw.config.ControllerConfigService.WatchControllerConfig()
+	controllerConfigWatcher, err := ssw.config.ControllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -145,7 +147,6 @@ func (ssw *serverWrapperWorker) loop() error {
 	}
 	ssw.addWorkerReporter("controller-watcher", controllerConfigWatcher)
 
-	ctx := ssw.catacomb.Context(context.Background())
 	config, err := ssw.config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)

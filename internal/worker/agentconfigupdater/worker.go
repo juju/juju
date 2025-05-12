@@ -28,7 +28,7 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 
 	// WatchControllerConfig watches the controller config for changes.
-	WatchControllerConfig() (watcher.StringsWatcher, error)
+	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
 // WorkerConfig contains the information necessary to run
@@ -113,7 +113,7 @@ func (w *agentConfigUpdater) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	watcher, err := w.config.ControllerConfigService.WatchControllerConfig()
+	watcher, err := w.config.ControllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

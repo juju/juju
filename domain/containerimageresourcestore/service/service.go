@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resource/store"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/containerimageresourcestore"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
@@ -62,6 +63,12 @@ func (s *Service) Get(
 	ctx context.Context,
 	storageKey string,
 ) (r io.ReadCloser, size int64, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	metadata, err := s.st.GetContainerImageMetadata(ctx, storageKey)
 	if err != nil {
 		return nil, 0, errors.Errorf("getting container image metadata from state: %w", err)
@@ -90,7 +97,13 @@ func (s *Service) Put(
 	r io.Reader,
 	_ int64,
 	_ store.Fingerprint,
-) (store.ID, int64, store.Fingerprint, error) {
+) (_ store.ID, _ int64, _ store.Fingerprint, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	respBuf := new(bytes.Buffer)
 	bytesRead, err := respBuf.ReadFrom(r)
 	if err != nil {
@@ -120,9 +133,14 @@ func (s *Service) Put(
 func (s *Service) Remove(
 	ctx context.Context,
 	storageKey string,
-) error {
-	err := s.st.RemoveContainerImageMetadata(ctx, storageKey)
-	if err != nil {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	if err := s.st.RemoveContainerImageMetadata(ctx, storageKey); err != nil {
 		return errors.Errorf("removing container image metadata from state: %w", err)
 	}
 	return nil

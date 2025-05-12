@@ -122,7 +122,7 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
-	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
 	}).AnyTimes()
 	return ctrl

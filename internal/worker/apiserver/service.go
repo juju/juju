@@ -18,7 +18,7 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 	// Watch returns a watcher that returns keys for any changes to controller
 	// config.
-	WatchControllerConfig() (watcher.StringsWatcher, error)
+	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
 // ModelService is the interface that the worker uses to get model information.
