@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
@@ -98,11 +97,7 @@ type apiAddressSetterWorker struct {
 	// controllerNodeChanges is a channel that is used to signal back to the
 	// main worker that the controller node addresses have changed.
 	controllerNodeChanges chan struct{}
-	// controllerTrackers holds the workers which track the nodes we
-	// are currently watching (all the controller nodes).
-	controllerTrackers map[string]*controllerTracker
-
-	runner *worker.Runner
+	runner                *worker.Runner
 }
 
 // Config holds the configuration for the api address setter worker.
@@ -150,13 +145,10 @@ func New(config Config) (worker.Worker, error) {
 	}
 
 	w := &apiAddressSetterWorker{
-		config:                config,
-		controllerNodeChanges: make(chan struct{}),
-		controllerTrackers:    make(map[string]*controllerTracker),
+		config: config,
 		runner: worker.NewRunner(worker.RunnerParams{
-			IsFatal:       func(error) bool { return false },
-			ShouldRestart: func(error) bool { return false },
-			Logger:        internalworker.WrapLogger(config.Logger),
+			IsFatal: func(error) bool { return false },
+			Logger:  internalworker.WrapLogger(config.Logger),
 		}),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -186,19 +178,20 @@ func (w *apiAddressSetterWorker) loop() error {
 		return errors.Capture(err)
 	}
 
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
-	configChanges, err := w.watchForConfigChanges(ctx)
+	configChanges, err := w.watchForConfigChanges()
 	if err != nil {
 		return errors.Capture(err)
 	}
+
+	ctx, cancel := w.scopedContext()
+	defer cancel()
 
 	for {
 		w.config.Logger.Tracef(ctx, "waiting for controller nodes or addresses changes")
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+
 		case <-controllerNodeChanges:
 			// A controller was added or removed.
 			w.config.Logger.Tracef(ctx, "<-controllerChanges")
@@ -210,9 +203,11 @@ func (w *apiAddressSetterWorker) loop() error {
 				continue
 			}
 			w.config.Logger.Tracef(ctx, "controller node added or removed")
+
 		case <-w.controllerNodeChanges:
 			// One of the controller nodes changed.
 			w.config.Logger.Tracef(ctx, "<-w.controllerChanges")
+
 		case <-configChanges:
 			// Controller config has changed.
 			w.config.Logger.Tracef(ctx, "<-w.configChanges")
@@ -222,8 +217,8 @@ func (w *apiAddressSetterWorker) loop() error {
 			// errors will occur when trying to determine peer group changes.
 			// Continuing is OK because subsequent invocations of the loop will
 			// pick up the most recent config from state anyway.
-			if len(w.controllerTrackers) == 0 {
-				w.config.Logger.Tracef(ctx, "no controller information, ignoring config change")
+			if len(w.runner.WorkerNames()) == 0 {
+				w.config.Logger.Errorf(ctx, "no controller information, ignoring config change")
 				continue
 			}
 		}
@@ -254,19 +249,12 @@ func (w *apiAddressSetterWorker) watchForControllerNodeChanges() (<-chan struct{
 
 // watchForConfigChanges starts a watcher for changes to controller config.
 // It returns a channel which will receive events if the watcher fires.
-func (w *apiAddressSetterWorker) watchForConfigChanges(ctx context.Context) (<-chan []string, error) {
+func (w *apiAddressSetterWorker) watchForConfigChanges() (<-chan []string, error) {
 	watcher, err := w.config.ControllerConfigService.WatchControllerConfig()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	if err := w.catacomb.Add(watcher); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// Consume the initial events from the watchers. The watcher will
-	// dispatch an initial event when it is created, so we need to consume
-	// that event before we can start watching.
-	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
 		return nil, errors.Capture(err)
 	}
 
@@ -283,10 +271,12 @@ func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (boo
 	}
 
 	w.config.Logger.Debugf(ctx, "controller nodes: %#v", controllerIDs)
-	changed := false
+
+	var changed bool
 
 	// Stop controller tracker that no longer correspond to controller nodes.
-	for controllerID := range w.controllerTrackers {
+	workerNames := w.runner.WorkerNames()
+	for _, controllerID := range workerNames {
 		if !slices.Contains(controllerIDs, controllerID) {
 			if err := w.stopAndRemoveTracker(ctx, controllerID); err != nil {
 				return false, errors.Capture(err)
@@ -297,21 +287,25 @@ func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (boo
 
 	// Start trackers for new nodes.
 	for _, controllerID := range controllerIDs {
-		if _, ok := w.controllerTrackers[controllerID]; ok {
-			continue
-		}
 		w.config.Logger.Debugf(ctx, "found new controller %q", controllerID)
-		tracker, err := newControllerTracker(controllerID, w.config.ApplicationService, w.controllerNodeChanges)
-		if err != nil {
-			return false, errors.Capture(err)
-		}
+
 		if err := w.runner.StartWorker(controllerID, func() (worker.Worker, error) {
+			id, err := strconv.Atoi(controllerID)
+			if err != nil {
+				return nil, errors.Errorf("invalid controller ID %q: %w", controllerID, err)
+			}
+			unitName, err := unit.NewNameFromParts(application.ControllerApplicationName, id)
+			if err != nil {
+				return nil, errors.Errorf("invalid unit name for controller %q: %w", controllerID, err)
+			}
+			tracker, err := newControllerTracker(unitName, w.config.ApplicationService, w.controllerNodeChanges)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
 			return tracker, nil
-		}); err != nil {
+		}); err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
 			return false, errors.Errorf("failed to start tracker for controller node %q: %w", controllerID, err)
 		}
-
-		w.controllerTrackers[controllerID] = tracker
 		changed = true
 	}
 
@@ -329,15 +323,23 @@ func (w *apiAddressSetterWorker) stopAndRemoveTracker(ctx context.Context, contr
 	} else if err != nil {
 		return errors.Errorf("failed to stop tracker for controller node %q: %w", controllerID, err)
 	}
-	// Remove the tracker from the internal list as well.
-	delete(w.controllerTrackers, controllerID)
 
 	return nil
 }
 
 // updateAPIAddresses updates the API addresses for each tracked controller.
 func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
-	for controllerID := range w.controllerTrackers {
+	cfg, err := w.config.ControllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	mgmtSpace, err := w.config.NetworkService.SpaceByName(ctx, cfg.JujuManagementSpace())
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for _, controllerID := range w.runner.WorkerNames() {
 		unitNumber, err := strconv.Atoi(controllerID)
 		if err != nil {
 			return errors.Capture(err)
@@ -353,16 +355,6 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 		hostPorts := network.SpaceAddressesWithPort(addrs, w.config.APIPort)
 		if len(hostPorts) == 0 {
 			continue
-		}
-
-		cfg, err := w.config.ControllerConfigService.ControllerConfig(ctx)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		mgmtSpace, err := w.config.NetworkService.SpaceByName(ctx, cfg.JujuManagementSpace())
-		if err != nil {
-			return errors.Capture(err)
 		}
 
 		if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, controllerID, hostPorts, *mgmtSpace); err != nil {

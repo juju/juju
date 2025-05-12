@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/worker/v4/catacomb"
 
-	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/errors"
 )
@@ -17,18 +16,15 @@ import (
 // single controller node.
 type controllerTracker struct {
 	catacomb           catacomb.Catacomb
-	notifyCh           chan struct{}
+	notifyCh           chan<- struct{}
 	applicationService ApplicationService
 	controllerUnitName unit.Name
 }
 
-func newControllerTracker(id string, applicationService ApplicationService, notifyCh chan struct{}) (*controllerTracker, error) {
-	// We can assume that the controller node ID is 1:1 to controller units.
-	controllerUnitName := unit.Name(application.ControllerApplicationName + "/" + id)
-
+func newControllerTracker(unitName unit.Name, applicationService ApplicationService, notifyCh chan<- struct{}) (*controllerTracker, error) {
 	c := &controllerTracker{
 		notifyCh:           notifyCh,
-		controllerUnitName: controllerUnitName,
+		controllerUnitName: unitName,
 		applicationService: applicationService,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -68,7 +64,7 @@ func (c *controllerTracker) loop() error {
 		return errors.Capture(err)
 	}
 
-	var notifyCh chan struct{}
+	var notifyCh chan<- struct{}
 	for {
 		select {
 		case <-c.catacomb.Dying():
