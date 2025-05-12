@@ -34,6 +34,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
@@ -384,6 +385,7 @@ func (s *environSuite) initResourceGroupSenders(resourceGroupName string) azuret
 
 type startInstanceSenderParams struct {
 	bootstrap               bool
+	controller              bool
 	subnets                 []*armnetwork.Subnet
 	diskEncryptionSetName   string
 	vaultName               string
@@ -450,7 +452,7 @@ func (s *environSuite) startInstanceSenders(c *gc.C, args startInstanceSenderPar
 		}
 		if len(args.subnets) == 0 {
 			subnetName := "juju-internal-subnet"
-			if args.bootstrap {
+			if args.bootstrap || args.controller {
 				subnetName = "juju-controller-subnet"
 			}
 			args.subnets = []*armnetwork.Subnet{{
@@ -844,6 +846,21 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 	_, err = env.StartInstance(context.Background(), makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
+}
+
+func (s *environSuite) TestStartControllerInstance(c *gc.C) {
+	env := s.openEnviron(c)
+
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap:  false,
+		controller: true,
+	})
+
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.InstanceConfig.Jobs = []model.MachineJob{model.JobManageModel}
+	params.InstanceConfig.ControllerConfig["api-port"] = 17070
+	_, err := env.StartInstance(context.Background(), params)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
