@@ -289,6 +289,10 @@ type MachineService interface {
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	// AllMachineNames returns the display names of all machines.
+	AllMachineNames(ctx context.Context) ([]machine.Name, error)
+	// IsMachineController returns true if the machine is a controller.
+	IsMachineController(ctx context.Context, machineName machine.Name) (bool, error)
 }
 
 // StatusService returns the status of a applications, and units and machines.
