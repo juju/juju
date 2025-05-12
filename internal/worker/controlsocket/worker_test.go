@@ -26,6 +26,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	jujujujutesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/juju/sockets"
 )
 
 type workerSuite struct {
@@ -394,7 +395,10 @@ func client(socketPath string) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (conn net.Conn, err error) {
-				return net.Dial("unix", socketPath)
+				return sockets.Dialer(sockets.Socket{
+					Network: "unix",
+					Address: socketPath,
+				})
 			},
 		},
 	}

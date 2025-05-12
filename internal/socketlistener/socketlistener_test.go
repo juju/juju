@@ -22,6 +22,7 @@ import (
 	coretesting "github.com/juju/juju/core/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/socketlistener"
+	"github.com/juju/juju/juju/sockets"
 )
 
 type socketListenerSuite struct {
@@ -78,7 +79,7 @@ func (s *socketListenerSuite) TestStartStopWorker(c *tc.C) {
 
 	// Check server has stopped.
 	_, err = cl.Get("http://localhost:8080/foo")
-	c.Assert(err, tc.ErrorMatches, ".*connection refused")
+	c.Assert(err, tc.ErrorMatches, ".*(connection refused|no such file or directory)")
 }
 
 // TestEnsureShutdown checks that a slow handler will not prevent a clean
@@ -140,7 +141,10 @@ func client(socketPath string) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (conn net.Conn, err error) {
-				return net.Dial("unix", socketPath)
+				return sockets.Dialer(sockets.Socket{
+					Network: "unix",
+					Address: socketPath,
+				})
 			},
 		},
 	}

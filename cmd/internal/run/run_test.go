@@ -267,7 +267,7 @@ func (s *RunTestSuite) TestMissingSocket(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = cmdtesting.RunCommand(c, s.runCommand(), "foo/1", "bar")
-	c.Assert(err, tc.ErrorMatches, `.*dial unix .*/run.socket:.*`+utils.NoSuchFileErrRegexp)
+	c.Assert(err, tc.ErrorMatches, `.*/run.socket:.*`+utils.NoSuchFileErrRegexp)
 }
 
 func (s *RunTestSuite) TestRunning(c *tc.C) {

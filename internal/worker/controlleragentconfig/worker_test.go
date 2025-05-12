@@ -11,7 +11,6 @@ import (
 	"path"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/juju/clock"
@@ -20,6 +19,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/juju/sockets"
 )
 
 type workerSuite struct {
@@ -400,7 +400,7 @@ func (s *workerSuite) requestReload(c *tc.C, socket string) {
 
 func (s *workerSuite) ensureReloadRequestRefused(c *tc.C, socket string) {
 	_, err := newRequest(c, socket, "/reload", http.MethodPost)
-	c.Assert(err, tc.ErrorIs, syscall.ECONNREFUSED)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *workerSuite) ensureEndpointNotFound(c *tc.C, socket, method string) {
@@ -435,7 +435,10 @@ func client(socketPath string) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (conn net.Conn, err error) {
-				return net.Dial("unix", socketPath)
+				return sockets.Dialer(sockets.Socket{
+					Network: "unix",
+					Address: socketPath,
+				})
 			},
 		},
 	}

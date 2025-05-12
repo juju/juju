@@ -25,6 +25,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/juju/sockets"
 )
 
 type IntrospectCommand struct {
@@ -199,7 +200,10 @@ func unixSocketHTTPClient(socketPath string) *http.Client {
 func unixSocketHTTPTransport(socketPath string) *http.Transport {
 	return &http.Transport{
 		Dial: func(proto, addr string) (net.Conn, error) {
-			return net.Dial("unix", socketPath)
+			return sockets.Dialer(sockets.Socket{
+				Network: "unix",
+				Address: socketPath,
+			})
 		},
 	}
 }

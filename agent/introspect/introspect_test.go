@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/juju/sockets"
 )
 
 type IntrospectCommandSuite struct {
@@ -33,15 +34,7 @@ type IntrospectCommandSuite struct {
 
 func (s *IntrospectCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	// NOTE: this is not using c.Mkdir() for a reason.
-	// Since unix sockets can't have a file path that is too
-	// long.
-	dir, err := os.MkdirTemp("", "juju-introspection*")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Cleanup(func() {
-		_ = os.RemoveAll(dir)
-	})
-	s.PatchValue(&config.DataDir, dir)
+	s.PatchValue(&config.DataDir, c.MkDir())
 }
 
 var _ = tc.Suite(&IntrospectCommandSuite{})
@@ -89,7 +82,11 @@ func (s *IntrospectCommandSuite) TestQuery(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, tc.ErrorIsNil)
-	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
+
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: filepath.Join(agentDir, "introspection.socket"),
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer listener.Close()
 
@@ -106,7 +103,10 @@ func (s *IntrospectCommandSuite) TestQueryFails(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, tc.ErrorIsNil)
-	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: filepath.Join(agentDir, "introspection.socket"),
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer listener.Close()
 
@@ -129,7 +129,10 @@ func (s *IntrospectCommandSuite) TestGetToPostEndpoint(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, tc.ErrorIsNil)
-	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: filepath.Join(agentDir, "introspection.socket"),
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer listener.Close()
 
@@ -147,7 +150,10 @@ func (s *IntrospectCommandSuite) TestPost(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, tc.ErrorIsNil)
-	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: filepath.Join(agentDir, "introspection.socket"),
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer listener.Close()
 
@@ -168,8 +174,10 @@ func (s *IntrospectCommandSuite) TestListen(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, tc.ErrorIsNil)
-	socketName := filepath.Join(agentDir, "introspection.socket")
-	listener, err := net.Listen("unix", socketName)
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: filepath.Join(agentDir, "introspection.socket"),
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer listener.Close()
 

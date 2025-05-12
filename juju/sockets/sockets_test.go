@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/rpc"
+	"path/filepath"
 
 	"github.com/juju/tc"
 
@@ -36,6 +37,16 @@ func (s *SocketSuite) TestTCP(c *tc.C) {
 func (s *SocketSuite) TestAbstractDomain(c *tc.C) {
 	socketDesc := sockets.Socket{
 		Address: "@hello-juju",
+		Network: "unix",
+	}
+	s.testConn(c, socketDesc, socketDesc)
+}
+
+func (s *SocketSuite) TestUNIXSocket(c *tc.C) {
+	socketDir := c.MkDir()
+	socketPath := filepath.Join(socketDir, "a.socket")
+	socketDesc := sockets.Socket{
+		Address: socketPath,
 		Network: "unix",
 	}
 	s.testConn(c, socketDesc, socketDesc)

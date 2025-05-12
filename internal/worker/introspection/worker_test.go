@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/introspection"
+	"github.com/juju/juju/juju/sockets"
 	_ "github.com/juju/juju/state"
 )
 
@@ -34,16 +35,17 @@ type suite struct {
 var _ = tc.Suite(&suite{})
 
 func (s *suite) TestConfigValidation(c *tc.C) {
+	socketName := path.Join(c.MkDir(), "introspection-test.socket")
 	w, err := introspection.NewWorker(introspection.Config{})
 	c.Check(w, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "empty SocketName not valid")
 	w, err = introspection.NewWorker(introspection.Config{
-		SocketName: "socket",
+		SocketName: socketName,
 	})
 	c.Check(w, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "nil PrometheusGatherer not valid")
 	w, err = introspection.NewWorker(introspection.Config{
-		SocketName:         "socket",
+		SocketName:         socketName,
 		PrometheusGatherer: newPrometheusGatherer(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -55,7 +57,7 @@ func (s *suite) TestStartStop(c *tc.C) {
 		c.Skip("introspection worker not supported on non-linux")
 	}
 
-	socketName := path.Join(c.MkDir(), "introspection-test")
+	socketName := path.Join(c.MkDir(), "introspection-test.socket")
 	w, err := introspection.NewWorker(introspection.Config{
 		SocketName:         socketName,
 		PrometheusGatherer: prometheus.NewRegistry(),
@@ -89,7 +91,7 @@ func (s *introspectionSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *introspectionSuite) startWorker(c *tc.C) {
-	s.name = path.Join(c.MkDir(), fmt.Sprintf("introspection-test-%d", os.Getpid()))
+	s.name = path.Join(c.MkDir(), fmt.Sprintf("introspection-test-%d.socket", os.Getpid()))
 	w, err := introspection.NewWorker(introspection.Config{
 		SocketName:         s.name,
 		DepEngine:          s.reporter,
@@ -236,7 +238,10 @@ func unixSocketHTTPClient(socketPath string) *http.Client {
 func unixSocketHTTPTransport(socketPath string) *http.Transport {
 	return &http.Transport{
 		Dial: func(proto, addr string) (net.Conn, error) {
-			return net.Dial("unix", socketPath)
+			return sockets.Dialer(sockets.Socket{
+				Network: "unix",
+				Address: socketPath,
+			})
 		},
 	}
 }
