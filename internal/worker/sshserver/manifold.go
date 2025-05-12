@@ -42,9 +42,6 @@ type ManifoldConfig struct {
 	NewServerWorker func(ServerWorkerConfig) (worker.Worker, error)
 	// GetControllerConfigService is used to get a service from the manifold.
 	GetControllerConfigService GetControllerConfigServiceFunc
-	// NewSSHServerListener is the function that creates a listener, based on
-	// an existing listener for the server worker.
-	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
 	// Logger is the logger to use for the worker.
 	Logger logger.Logger
 }
@@ -65,9 +62,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if config.NewSSHServerListener == nil {
-		return errors.NotValidf("nil NewSSHServerListener")
 	}
 	return nil
 }
@@ -104,7 +98,6 @@ func (config ManifoldConfig) startWrapperWorker(_ context.Context, getter depend
 		ControllerConfigService: controllerConfigService,
 		NewServerWorker:         config.NewServerWorker,
 		Logger:                  config.Logger,
-		NewSSHServerListener:    config.NewSSHServerListener,
 		SessionHandler:          &stubSessionHandler{},
 	})
 }

@@ -63,9 +63,8 @@ func newServerWorkerConfig(
 	modifier func(*ServerWorkerConfig),
 ) *ServerWorkerConfig {
 	cfg := &ServerWorkerConfig{
-		Logger:               l,
-		JumpHostKey:          j,
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger:      l,
+		JumpHostKey: j,
 	}
 
 	modifier(cfg)
@@ -91,11 +90,6 @@ func (s *sshServerSuite) TestValidate(c *gc.C) {
 	})
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	// Test no NewSSHServerListener.
-	cfg = newServerWorkerConfig(l, "NewSSHServerListener", func(cfg *ServerWorkerConfig) {
-		cfg.NewSSHServerListener = nil
-	})
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *sshServerSuite) TestSSHServer(c *gc.C) {
@@ -108,7 +102,6 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 		Logger:                   loggertesting.WrapCheckLog(c),
 		Listener:                 listener,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
@@ -179,7 +172,6 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		Listener:                 listener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
 	})
@@ -264,7 +256,6 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 		Listener:                 listener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
 	})

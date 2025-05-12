@@ -31,7 +31,6 @@ func newServerWrapperWorkerConfig(
 		NewServerWorker:         func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		ControllerConfigService: NewMockControllerConfigService(ctrl),
 		Logger:                  loggertesting.WrapCheckLog(c),
-		NewSSHServerListener:    newTestingSSHServerListener,
 		SessionHandler:          &MockSessionHandler{},
 	}
 
@@ -63,16 +62,6 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 		ctrl,
 		func(cfg *ServerWrapperWorkerConfig) {
 			cfg.NewServerWorker = nil
-		},
-	)
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
-
-	// Test no NewSSHServerListener.
-	cfg = newServerWrapperWorkerConfig(
-		c,
-		ctrl,
-		func(cfg *ServerWrapperWorkerConfig) {
-			cfg.NewSSHServerListener = nil
 		},
 	)
 	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
@@ -115,8 +104,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
-		NewSSHServerListener: newTestingSSHServerListener,
-		SessionHandler:       &stubSessionHandler{},
+		SessionHandler: &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -194,8 +182,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 			c.Check(swc.Port, gc.Equals, 22)
 			return serverWorker, nil
 		},
-		NewSSHServerListener: newTestingSSHServerListener,
-		SessionHandler:       &stubSessionHandler{},
+		SessionHandler: &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -257,8 +244,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return &reportWorker{serverWorker}, nil
 		},
-		NewSSHServerListener: newTestingSSHServerListener,
-		SessionHandler:       &stubSessionHandler{},
+		SessionHandler: &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)

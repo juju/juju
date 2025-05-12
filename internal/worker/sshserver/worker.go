@@ -5,9 +5,7 @@ package sshserver
 
 import (
 	"context"
-	"net"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -49,7 +47,6 @@ type ServerWrapperWorkerConfig struct {
 	ControllerConfigService ControllerConfigService
 	NewServerWorker         func(ServerWorkerConfig) (worker.Worker, error)
 	Logger                  logger.Logger
-	NewSSHServerListener    func(net.Listener, time.Duration) net.Listener
 	SessionHandler          SessionHandler
 }
 
@@ -63,9 +60,6 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("Logger is required")
-	}
-	if c.NewSSHServerListener == nil {
-		return errors.NotValidf("NewSSHServerListener is required")
 	}
 	if c.SessionHandler == nil {
 		return errors.NotValidf("SessionHandler is required")
@@ -164,7 +158,6 @@ func (ssw *serverWrapperWorker) loop() error {
 		JumpHostKey:              temporaryJumpHostKey,
 		Port:                     port,
 		MaxConcurrentConnections: maxConns,
-		NewSSHServerListener:     ssw.config.NewSSHServerListener,
 		SessionHandler:           ssw.config.SessionHandler,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)

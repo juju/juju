@@ -17,6 +17,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/featureflag"
@@ -101,8 +102,7 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		Logger:               loggertesting.WrapCheckLog(c),
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger: loggertesting.WrapCheckLog(c),
 	})
 
 	// Check the inputs are as expected
@@ -115,6 +115,7 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, result)
+	workertest.CheckAlive(c, result)
 
 	c.Check(result, gc.NotNil)
 	workertest.CleanKill(c, result)
@@ -128,6 +129,14 @@ func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
 	}).AnyTimes()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(
+		func(ctx context.Context) (controller.Config, error) {
+			return controller.Config{
+				controller.SSHServerPort:               22,
+				controller.SSHMaxConcurrentConnections: 10,
+			}, nil
+		},
+	).AnyTimes()
 	return ctrl
 }
 
@@ -143,8 +152,7 @@ func (s *manifoldSuite) newManifoldConfig(c *gc.C, modifier func(cfg *ManifoldCo
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		Logger:               loggertesting.WrapCheckLog(c),
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 
 	modifier(cfg)
@@ -169,8 +177,7 @@ func (s *manifoldSuite) TestManifoldUninstall(c *gc.C) {
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		Logger:               loggertesting.WrapCheckLog(c),
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger: loggertesting.WrapCheckLog(c),
 	})
 
 	// Check the inputs are as expected
