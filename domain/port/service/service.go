@@ -9,6 +9,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/port"
 	porterrors "github.com/juju/juju/domain/port/errors"
@@ -60,7 +61,13 @@ func NewService(st State, logger logger.Logger) *Service {
 
 // GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped by
 // endpoint.
-func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (network.GroupedPortRanges, error) {
+func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (_ network.GroupedPortRanges, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return s.st.GetUnitOpenedPorts(ctx, unitUUID)
 }
 
@@ -68,7 +75,13 @@ func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID
 //
 // NOTE: We do not group by endpoint here. It is not needed. Instead, we just
 // group by unit name
-func (s *Service) GetAllOpenedPorts(ctx context.Context) (port.UnitGroupedPortRanges, error) {
+func (s *Service) GetAllOpenedPorts(ctx context.Context) (_ port.UnitGroupedPortRanges, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return s.st.GetAllOpenedPorts(ctx)
 }
 
@@ -77,13 +90,25 @@ func (s *Service) GetAllOpenedPorts(ctx context.Context) (port.UnitGroupedPortRa
 // endpoint.
 //
 // TODO: Once we have a core static machine uuid type, use it here.
-func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (map[coreunit.Name]network.GroupedPortRanges, error) {
+func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (_ map[coreunit.Name]network.GroupedPortRanges, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return s.st.GetMachineOpenedPorts(ctx, machineUUID)
 }
 
 // GetApplicationOpenedPorts returns the opened ports for all the units of the
 // application. Opened ports are grouped first by unit name and then by endpoint.
-func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (map[coreunit.Name]network.GroupedPortRanges, error) {
+func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (_ map[coreunit.Name]network.GroupedPortRanges, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {
 		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)
@@ -97,7 +122,13 @@ func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID
 // NOTE: The returned port ranges are atomised, meaning we guarantee that each
 // port range is of unit length. This is useful for down-stream consumers such
 // as k8s, which can only reason with unit-length port ranges.
-func (s *Service) GetApplicationOpenedPortsByEndpoint(ctx context.Context, applicationUUID coreapplication.ID) (network.GroupedPortRanges, error) {
+func (s *Service) GetApplicationOpenedPortsByEndpoint(ctx context.Context, applicationUUID coreapplication.ID) (_ network.GroupedPortRanges, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {
 		return nil, errors.Errorf("failed to get opened ports for application %s: %w", applicationUUID, err)
@@ -144,15 +175,20 @@ func atomisePortRange(portRange network.PortRange) []network.PortRange {
 // On the other hand, if we close a specific endpoint's port range that is open
 // on the wildcard endpoint, we will close it on the wildcard endpoint and open
 // it on all other endpoints except the targeted endpoint.
-func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, openPorts, closePorts network.GroupedPortRanges) error {
+func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, openPorts, closePorts network.GroupedPortRanges) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if len(openPorts.UniquePortRanges())+len(closePorts.UniquePortRanges()) == 0 {
 		return nil
 	}
 
 	allInputPortRanges := append(openPorts.UniquePortRanges(), closePorts.UniquePortRanges()...)
 	//  verify input port ranges do not conflict with each other.
-	err := verifyNoPortRangeConflicts(allInputPortRanges, allInputPortRanges)
-	if err != nil {
+	if err := verifyNoPortRangeConflicts(allInputPortRanges, allInputPortRanges); err != nil {
 		return errors.Errorf("cannot update unit ports with conflict(s): %w", err)
 	}
 
@@ -164,7 +200,13 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 }
 
 // GetUnitUUID returns the UUID of the unit with the given name.
-func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
+func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (_ coreunit.UUID, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := unitName.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}

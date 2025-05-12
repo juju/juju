@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	_ "github.com/juju/juju/domain/model/errors"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
@@ -223,7 +224,13 @@ func ProviderDefaults(
 func (s *Service) CloudDefaults(
 	ctx context.Context,
 	cloudName string,
-) (modeldefaults.ModelDefaultAttributes, error) {
+) (_ modeldefaults.ModelDefaultAttributes, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
 		return nil, errors.Errorf(
@@ -281,7 +288,13 @@ func (s *Service) UpdateCloudDefaults(
 	ctx context.Context,
 	cloudName string,
 	updateAttrs map[string]any,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
 		return errors.Errorf(
@@ -310,7 +323,13 @@ func (s *Service) UpdateCloudRegionDefaults(
 	cloudName string,
 	regionName string,
 	updateAttrs map[string]any,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
 		return errors.Errorf(
@@ -341,7 +360,13 @@ func (s *Service) RemoveCloudDefaults(
 	ctx context.Context,
 	cloudName string,
 	removeAttrs []string,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
 		return errors.Errorf(
@@ -366,7 +391,13 @@ func (s *Service) RemoveCloudRegionDefaults(
 	cloudName,
 	regionName string,
 	removeAttrs []string,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
 		return errors.Errorf(
@@ -399,7 +430,13 @@ func (s *Service) RemoveCloudRegionDefaults(
 func (s *Service) ModelDefaults(
 	ctx context.Context,
 	uuid coremodel.UUID,
-) (modeldefaults.Defaults, error) {
+) (_ modeldefaults.Defaults, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := uuid.Validate(); err != nil {
 		return modeldefaults.Defaults{}, errors.Errorf("model uuid: %w", err)
 	}
@@ -635,7 +672,13 @@ func coerceDefaultsToSchema(
 func (s *Service) ModelDefaultsProvider(
 	uuid coremodel.UUID,
 ) ModelDefaultsProviderFunc {
-	return func(ctx context.Context) (modeldefaults.Defaults, error) {
+	return func(ctx context.Context) (_ modeldefaults.Defaults, err error) {
+		ctx, span := trace.Start(ctx, trace.NameFromFunc())
+		defer func() {
+			span.RecordError(err)
+			span.End()
+		}()
+
 		return s.ModelDefaults(ctx, uuid)
 	}
 }

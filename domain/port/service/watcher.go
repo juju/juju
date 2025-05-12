@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -86,7 +87,13 @@ type WatcherState interface {
 // watcher emits events for changes to the opened ports table. Each emitted
 // event contains the machine name which is associated with the changed port
 // range.
-func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (_ watcher.StringsWatcher, err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	table, statement := s.st.InitialWatchMachineOpenedPortsStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		eventsource.InitialNamespaceChanges(statement),
@@ -98,7 +105,13 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher
 // WatchOpenedPortsForApplication returns a notify watcher for opened ports. This
 // watcher emits events for changes to the opened ports table that are associated
 // with the given application
-func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (_ watcher.NotifyWatcher, err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return s.watcherFactory.NewNotifyMapperWatcher(
 		s.filterForApplication(applicationUUID),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchOpenedPort(), changestream.All),
@@ -200,13 +213,13 @@ type maskedChangeEvent struct {
 
 // Namespace returns the namespace of the change. This is normally the
 // table name.
-func (e maskedChangeEvent) Namespace() string {
+func (e maskedChangeEvent) Namespace() (_ string) {
 	return e.namespace
 }
 
 // Changed returns the changed value of event. This logically can be
 // the primary key of the row that was changed or the field of the change
 // that was changed.
-func (e maskedChangeEvent) Changed() string {
+func (e maskedChangeEvent) Changed() (_ string) {
 	return e.machineName
 }

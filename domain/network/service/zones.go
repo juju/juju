@@ -8,12 +8,19 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
 )
 
 // GetProviderAvailabilityZones returns all the availability zones
 // retrieved from the model's cloud provider.
-func (s *ProviderService) GetProviderAvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
+func (s *ProviderService) GetProviderAvailabilityZones(ctx context.Context) (_ network.AvailabilityZones, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	zoneProvider, err := s.providerWithZones(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return network.AvailabilityZones{}, nil

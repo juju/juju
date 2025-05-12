@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 )
@@ -44,7 +45,13 @@ func NewWatchableService(st State,
 // WatchSubnets returns a watcher that observes changes to subnets and their
 // association (fan underlays), filtered based on the provided list of subnets
 // to watch.
-func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (_ watcher.StringsWatcher, err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	filter := subnetUUIDsFilter(subnetUUIDsToWatch)
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(

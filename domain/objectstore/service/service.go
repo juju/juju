@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -85,7 +86,13 @@ func NewService(st State) *Service {
 }
 
 // GetMetadata returns the persistence metadata for the specified path.
-func (s *Service) GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error) {
+func (s *Service) GetMetadata(ctx context.Context, path string) (_ objectstore.Metadata, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	metadata, err := s.st.GetMetadata(ctx, path)
 	if err != nil {
 		return objectstore.Metadata{}, errors.Errorf("retrieving metadata %s: %w", path, err)
@@ -100,7 +107,13 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (objectstore.Met
 
 // GetMetadataBySHA256 returns the persistence metadata for the object
 // with SHA256 starting with the provided prefix.
-func (s *Service) GetMetadataBySHA256(ctx context.Context, sha256 string) (objectstore.Metadata, error) {
+func (s *Service) GetMetadataBySHA256(ctx context.Context, sha256 string) (_ objectstore.Metadata, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if len(sha256) != hashLength {
 		return objectstore.Metadata{}, objectstoreerrors.ErrInvalidHashLength
 	} else if !hashRegexp.MatchString(sha256) {
@@ -121,7 +134,13 @@ func (s *Service) GetMetadataBySHA256(ctx context.Context, sha256 string) (objec
 
 // GetMetadataBySHA256Prefix returns the persistence metadata for the object
 // with SHA256 starting with the provided prefix.
-func (s *Service) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix string) (objectstore.Metadata, error) {
+func (s *Service) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix string) (_ objectstore.Metadata, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if len(sha256Prefix) < minHashPrefixLength {
 		return objectstore.Metadata{}, errors.Errorf("minimum has prefix length is %d: %w", minHashPrefixLength, objectstoreerrors.ErrHashPrefixTooShort)
 	} else if !hashPrefixRegexp.MatchString(sha256Prefix) {
@@ -141,7 +160,13 @@ func (s *Service) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix st
 }
 
 // ListMetadata returns the persistence metadata for all paths.
-func (s *Service) ListMetadata(ctx context.Context) ([]objectstore.Metadata, error) {
+func (s *Service) ListMetadata(ctx context.Context) (_ []objectstore.Metadata, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	metadata, err := s.st.ListMetadata(ctx)
 	if err != nil {
 		return nil, errors.Errorf("retrieving metadata: %w", err)
@@ -162,7 +187,13 @@ func (s *Service) ListMetadata(ctx context.Context) ([]objectstore.Metadata, err
 // hash is missing, a [objectstoreerrors.ErrMissingHash] error is returned. It
 // is expected that the caller supplies both hashes or none and they should be
 // consistent with the object. That's the caller's responsibility.
-func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata) (objectstore.UUID, error) {
+func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata) (_ objectstore.UUID, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	// If you have one hash, you must have the other.
 	if h1, h2 := metadata.SHA384, metadata.SHA256; h1 != "" && h2 == "" {
 		return "", errors.Errorf("missing hash256: %w", objectstoreerrors.ErrMissingHash)
@@ -184,9 +215,14 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 }
 
 // RemoveMetadata removes the specified path for the persistence metadata.
-func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
-	err := s.st.RemoveMetadata(ctx, path)
-	if err != nil {
+func (s *Service) RemoveMetadata(ctx context.Context, path string) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	if err := s.st.RemoveMetadata(ctx, path); err != nil {
 		return errors.Errorf("removing path %s: %w", path, err)
 	}
 	return nil
@@ -211,7 +247,8 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 
 // Watch returns a watcher that emits the path changes that either have been
 // added or removed.
-func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
+func (s *WatchableService) Watch() (_ watcher.StringsWatcher, err error) {
+	// TODO (stickupkid): Wire up context.Context to the watcher.
 	table, stmt := s.st.InitialWatchStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges(stmt),

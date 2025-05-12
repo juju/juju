@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/trace"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelprovider"
 	"github.com/juju/juju/environs/cloudspec"
@@ -60,7 +61,13 @@ func NewService(
 }
 
 // GetCloudSpec returns the cloud spec for the model.
-func (s *Service) GetCloudSpec(ctx context.Context) (cloudspec.CloudSpec, error) {
+func (s *Service) GetCloudSpec(ctx context.Context) (_ cloudspec.CloudSpec, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	cld, cloudRegion, credInfo, err := s.st.GetModelCloudAndCredential(ctx, s.modelUUID)
 	if errors.Is(err, modelerrors.NotFound) {
 		err = coreerrors.NotFound
@@ -78,7 +85,13 @@ func (s *Service) GetCloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
 }
 
 // GetCloudSpecForSSH returns a cloud spec suitable for sshing into a k8s container.
-func (s *Service) GetCloudSpecForSSH(ctx context.Context) (cloudspec.CloudSpec, error) {
+func (s *Service) GetCloudSpecForSSH(ctx context.Context) (_ cloudspec.CloudSpec, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	provider, err := s.providerWithSecretToken(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return cloudspec.CloudSpec{}, errors.Errorf("getting secret token %w", coreerrors.NotSupported)

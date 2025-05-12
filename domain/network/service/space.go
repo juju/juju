@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/trace"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -37,7 +38,13 @@ func NewService(st State, logger logger.Logger) *Service {
 }
 
 // AddSpace creates and returns a new space.
-func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error) {
+func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (_ network.Id, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if !names.IsValidSpace(string(space.Name)) {
 		return "", errors.Errorf("space name %q not valid", space.Name).Add(networkerrors.SpaceNameNotValid)
 	}
@@ -64,14 +71,24 @@ func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (networ
 // UpdateSpace updates the space name identified by the passed uuid. If the
 // space is not found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) error {
+func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	return errors.Capture(s.st.UpdateSpace(ctx, uuid, name))
 }
 
 // Space returns a space from state that matches the input ID. If the space is
 // not found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-func (s *Service) Space(ctx context.Context, uuid string) (*network.SpaceInfo, error) {
+func (s *Service) Space(ctx context.Context, uuid string) (_ *network.SpaceInfo, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	sp, err := s.st.GetSpace(ctx, uuid)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -82,7 +99,13 @@ func (s *Service) Space(ctx context.Context, uuid string) (*network.SpaceInfo, e
 // SpaceByName returns a space from state that matches the input name. If the
 // space is not found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-func (s *Service) SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error) {
+func (s *Service) SpaceByName(ctx context.Context, name string) (_ *network.SpaceInfo, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	sp, err := s.st.GetSpaceByName(ctx, name)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -91,7 +114,13 @@ func (s *Service) SpaceByName(ctx context.Context, name string) (*network.SpaceI
 }
 
 // GetAllSpaces returns all spaces for the model.
-func (s *Service) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) {
+func (s *Service) GetAllSpaces(ctx context.Context) (_ network.SpaceInfos, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	spaces, err := s.st.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -102,7 +131,12 @@ func (s *Service) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) 
 // RemoveSpace deletes a space identified by its uuid. If the space is not
 // found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-func (s *Service) RemoveSpace(ctx context.Context, uuid string) error {
+func (s *Service) RemoveSpace(ctx context.Context, uuid string) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	return errors.Capture(s.st.DeleteSpace(ctx, uuid))
 }
 
@@ -131,7 +165,13 @@ func NewProviderService(
 }
 
 // ReloadSpaces loads spaces and subnets from the provider into state.
-func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
+func (s *ProviderService) ReloadSpaces(ctx context.Context) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	networkProvider, err := s.providerWithNetworking(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return errors.Errorf("spaces discovery in a non-networking environ %w", coreerrors.NotSupported)
@@ -184,9 +224,7 @@ func (s *ProviderService) saveProviderSubnets(
 	subnets []network.SubnetInfo,
 	spaceUUID string,
 ) error {
-
 	var subnetsToUpsert []network.SubnetInfo
-
 	for _, subnet := range subnets {
 		ip, _, err := net.ParseCIDR(subnet.CIDR)
 		if err != nil {
@@ -230,7 +268,13 @@ func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUp
 }
 
 // SupportsSpaces returns whether the provider supports spaces.
-func (s *ProviderService) SupportsSpaces(ctx context.Context) (bool, error) {
+func (s *ProviderService) SupportsSpaces(ctx context.Context) (_ bool, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	networkProvider, err := s.providerWithNetworking(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return false, nil
@@ -242,7 +286,13 @@ func (s *ProviderService) SupportsSpaces(ctx context.Context) (bool, error) {
 
 // SupportsSpaceDiscovery returns whether the provider supports discovering
 // spaces from the provider.
-func (s *ProviderService) SupportsSpaceDiscovery(ctx context.Context) (bool, error) {
+func (s *ProviderService) SupportsSpaceDiscovery(ctx context.Context) (_ bool, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	networkProvider, err := s.providerWithNetworking(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return false, nil
