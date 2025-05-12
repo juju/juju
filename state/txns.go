@@ -4,9 +4,11 @@
 package state
 
 import (
+	"fmt"
 	"runtime/debug"
 	"strings"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -88,7 +90,9 @@ func (r *multiModelRunner) Run(transactions jujutxn.TransactionSource) error {
 		}
 
 		if txnOpLogger.IsTraceEnabled() {
-			txnOpLogger.Tracef("%#v", ops)
+			txnOpLogger.Tracef(string(debug.Stack()))
+			txnOpLogger.Tracef(
+				strings.Join(transform.Slice(ops, func(op txn.Op) string { return fmt.Sprintf("%#v", op) }), "\n"))
 		}
 		return newOps, nil
 	})
