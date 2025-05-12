@@ -40,5 +40,5 @@ jobs:
       if: (matrix.os == 'macOS-latest')
       shell: bash
       run: |
-        go test -race -v ./cmd/juju/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
-        go test -race -v ./cmd/plugins/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
+        go test -race -v ./cmd/juju/... -coverprofile=coverage.txt -covermode=atomic -timeout=15m
+        go test -race -v ./cmd/plugins/... -coverprofile=coverage.txt -covermode=atomic -timeout=15m
