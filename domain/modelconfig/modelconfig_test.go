@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -36,8 +37,7 @@ import (
 )
 
 type modelConfigSuite struct {
-	changestreamtesting.ControllerSuite
-	changestreamtesting.ModelSuite
+	changestreamtesting.ControllerModelSuite
 
 	modelID model.UUID
 }
@@ -45,8 +45,7 @@ type modelConfigSuite struct {
 var _ = tc.Suite(&modelConfigSuite{})
 
 func (s *modelConfigSuite) SetUpTest(c *tc.C) {
-	s.ControllerSuite.SetUpTest(c)
-	s.ModelSuite.SetUpTest(c)
+	s.ControllerModelSuite.SetUpTest(c)
 
 	controllerUUID := s.SeedControllerUUID(c)
 
@@ -110,7 +109,7 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
-		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -133,16 +132,22 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 		"logging-config": "<root>=ERROR",
 	}
 
-	st := state.NewState(s.ModelSuite.TxnRunnerFactory())
+	modelTxnRunnerFactory := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(c, string(s.modelID)), nil
+	}
+
+	_, idler := s.InitWatchableDB(c, s.modelID.String())
+
+	st := state.NewState(modelTxnRunnerFactory)
 	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.ModelSuite.GetWatchableDB, s.modelID.String()),
+		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelID.String()),
 		loggertesting.WrapCheckLog(c))
 	svc := service.NewWatchableService(defaults, config.ModelValidator(), st, factory)
 
 	watcher, err := svc.Watch()
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = bootstrap.SetModelConfig(s.modelID, attrs, defaults)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner())
+	err = bootstrap.SetModelConfig(s.modelID, attrs, defaults)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.modelID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
 	w := watchertest.NewStringsWatcherC(c, watcher)
@@ -152,7 +157,7 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 	w.AssertChange("name", "uuid", "type", "foo", "logging-config")
 
 	// Ensure that the changestream is idle.
-	s.ModelSuite.AssertChangeStreamIdle(c)
+	idler.AssertChangeStreamIdle(c)
 
 	// Now insert the change and watch it come through.
 	attrs["logging-config"] = "<root>=WARNING"
@@ -160,7 +165,7 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 	err = svc.SetModelConfig(ctx, attrs)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.ModelSuite.AssertChangeStreamIdle(c)
+	idler.AssertChangeStreamIdle(c)
 
 	w.AssertChange("logging-config")
 }

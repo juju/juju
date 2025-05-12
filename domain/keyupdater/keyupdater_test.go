@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -40,8 +41,7 @@ import (
 )
 
 type keyUpdaterSuite struct {
-	changestreamtesting.ControllerSuite
-	changestreamtesting.ModelSuite
+	changestreamtesting.ControllerModelSuite
 
 	modelID model.UUID
 	userID  user.UUID
@@ -50,14 +50,13 @@ type keyUpdaterSuite struct {
 var _ = tc.Suite(&keyUpdaterSuite{})
 
 func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
-	s.ControllerSuite.SetUpTest(c)
-	s.ModelSuite.SetUpTest(c)
+	s.ControllerModelSuite.SetUpTest(c)
 
 	s.SeedControllerUUID(c)
 
 	s.userID = usertesting.GenUserUUID(c)
 
-	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := accessState.AddUser(
 		context.Background(), s.userID,
 		user.AdminUserName,
@@ -74,7 +73,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 	})
 
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	credentialName := "test"
@@ -108,7 +107,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
-		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, string(s.modelID)))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.createMachine(c, "0")
@@ -123,10 +122,15 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 	ctx, cancel := jujutesting.LongWaitContext()
 	defer cancel()
 
+	modelTxnRunnerFactory := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(c, string(s.modelID)), nil
+	}
+
 	controllerSt := state.NewControllerState(s.ControllerSuite.TxnRunnerFactory())
-	st := state.NewState(s.ModelSuite.TxnRunnerFactory())
+	st := state.NewState(modelTxnRunnerFactory)
+	_, idler := s.InitWatchableDB(c, database.ControllerNS)
 	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.ControllerSuite.GetWatchableDB, "model_authorized_keys"),
+		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, database.ControllerNS),
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -140,10 +144,10 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 	watcher, err := svc.WatchAuthorisedKeysForMachine(ctx, machine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	keyManagerSt := keymanagerstate.NewState(s.ControllerSuite.TxnRunnerFactory())
+	keyManagerSt := keymanagerstate.NewState(s.TxnRunnerFactory())
 	keyManagerSvc := keymanagerservice.NewService(s.modelID, keyManagerSt)
 
-	harness := watchertest.NewHarness(&s.ControllerSuite, watchertest.NewWatcherC(c, watcher))
+	harness := watchertest.NewHarness(idler, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *tc.C) {
 		err = keyManagerSvc.AddPublicKeysForUser(
@@ -246,7 +250,7 @@ VALUES ($createMachine.*)
 	createNodeStmt, err := sqlair.Prepare(createNode, machine)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.ModelTxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = s.ModelTxnRunner(c, string(s.modelID)).Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, createNodeStmt, machine).Run(); err != nil {
 			return errors.Errorf("creating net node row for bootstrap machine %q: %w", machineId, err)
 		}

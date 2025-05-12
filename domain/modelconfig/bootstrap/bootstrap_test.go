@@ -26,8 +26,7 @@ import (
 )
 
 type bootstrapSuite struct {
-	schematesting.ControllerSuite
-	schematesting.ModelSuite
+	schematesting.ControllerModelSuite
 
 	modelID coremodel.UUID
 }
@@ -43,13 +42,12 @@ func (f ModelDefaultsProviderFunc) ModelDefaults(
 }
 
 func (s *bootstrapSuite) SetUpTest(c *tc.C) {
-	s.ControllerSuite.SetUpTest(c)
-	s.ModelSuite.SetUpTest(c)
+	s.ControllerModelSuite.SetUpTest(c)
 
 	controllerUUID := s.SeedControllerUUID(c)
 	userID, err := coreuser.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = accessState.AddUserWithPermission(
 		context.Background(), userID,
 		coreuser.AdminUserName,
@@ -73,7 +71,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 	})
 
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	credentialName := "test"
@@ -85,7 +83,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 		cloud.NewCredential(cloud.EmptyAuthType, nil),
 	)
 
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
@@ -106,7 +104,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	)
 	s.modelID = modelUUID
 
-	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -126,10 +124,13 @@ func (s *bootstrapSuite) TestSetModelConfig(c *tc.C) {
 	//})
 	//c.Assert(err, jc.ErrorIsNil)
 
-	err := SetModelConfig(s.modelID, nil, defaults)(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+	err := SetModelConfig(s.modelID, nil, defaults)(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, string(s.modelID)))
 	c.Assert(err, tc.ErrorIsNil)
 
-	rows, err := s.ModelSuite.DB().Query("SELECT * FROM model_config")
+	_, db := s.OpenDBForNamespace(c, string(s.modelID), true)
+	defer db.Close()
+
+	rows, err := db.Query("SELECT * FROM model_config")
 	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
