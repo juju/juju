@@ -5,7 +5,6 @@ package testing
 
 import (
 	"net"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -52,33 +51,16 @@ func CreateTCPServer(c *tc.C, callback func(net.Conn)) (string, chan struct{}) {
 	localAddress := listener.Addr().String()
 
 	shutdown := make(chan struct{}, 0)
-
+	go func() {
+		<-shutdown
+		listener.Close()
+	}()
 	go func() {
 		for {
-			select {
-			case <-shutdown:
-				// no more listening
-				c.Logf("shutting down %s", localAddress)
-				listener.Close()
-				return
-			default:
-			}
-			// Don't get hung on Accept, set a deadline
-			if tcpListener, ok := listener.(*net.TCPListener); ok {
-				_ = tcpListener.SetDeadline(time.Now().Add(1 * time.Second))
-			}
 			tcpConn, err := listener.Accept()
 			if err != nil {
-				if netErr, ok := err.(net.Error); ok {
-					if netErr.Timeout() {
-						// Try again, so we reevaluate if we need to shut down
-						continue
-					}
-				}
-			}
-			if err != nil {
 				c.Logf("failed to accept connection on %s: %v", localAddress, err)
-				continue
+				return
 			}
 			remoteAddress := tcpConn.RemoteAddr().String()
 			c.Logf("accepted tcp connection on %s from %s", localAddress, remoteAddress)

@@ -42,7 +42,7 @@ func (s *SSHReachableHostPortSuite) TestAllUnreachable(c *tc.C) {
 func (s *SSHReachableHostPortSuite) TestReachableInvalidPublicKey(c *tc.C) {
 	hostPorts := network.HostPorts{
 		// We use Key2, but are looking for Pub1
-		testSSHServer(c, s, sshtesting.SSHKey2),
+		testSSHServer(c, sshtesting.SSHKey2),
 	}
 	checker := makeChecker()
 	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1})
@@ -52,7 +52,7 @@ func (s *SSHReachableHostPortSuite) TestReachableInvalidPublicKey(c *tc.C) {
 
 func (s *SSHReachableHostPortSuite) TestReachableValidPublicKey(c *tc.C) {
 	hostPorts := network.HostPorts{
-		testSSHServer(c, s, sshtesting.SSHKey1),
+		testSSHServer(c, sshtesting.SSHKey1),
 	}
 	checker := makeChecker()
 	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1})
@@ -66,9 +66,9 @@ func (s *SSHReachableHostPortSuite) TestReachableMixedPublicKeys(c *tc.C) {
 	fakeHostPort := closedTCPHostPorts(c, 1)[0]
 	hostPorts := network.HostPorts{
 		fakeHostPort,
-		testTCPServer(c, s),
-		testSSHServer(c, s, sshtesting.SSHKey2),
-		testSSHServer(c, s, sshtesting.SSHKey1),
+		testTCPServer(c),
+		testSSHServer(c, sshtesting.SSHKey2),
+		testSSHServer(c, sshtesting.SSHKey1),
 	}
 	checker := makeChecker()
 	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1})
@@ -80,8 +80,8 @@ func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysPassed(c *tc.C) {
 	fakeHostPort := closedTCPHostPorts(c, 1)[0]
 	hostPorts := network.HostPorts{
 		fakeHostPort,
-		testTCPServer(c, s),
-		testSSHServer(c, s, sshtesting.SSHKey1),
+		testTCPServer(c),
+		testSSHServer(c, sshtesting.SSHKey1),
 	}
 	checker := makeChecker()
 	// Without a list of public keys, we should just check that the remote host is an SSH server
@@ -94,7 +94,7 @@ func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysAvailable(c *tc.C) 
 	fakeHostPort := closedTCPHostPorts(c, 1)[0]
 	hostPorts := network.HostPorts{
 		fakeHostPort,
-		testTCPServer(c, s),
+		testTCPServer(c),
 	}
 	checker := makeChecker()
 	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1})
@@ -104,7 +104,7 @@ func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysAvailable(c *tc.C) 
 
 func (s *SSHReachableHostPortSuite) TestMultiplePublicKeys(c *tc.C) {
 	hostPorts := network.HostPorts{
-		testSSHServer(c, s, sshtesting.SSHKey1, sshtesting.SSHKey2),
+		testSSHServer(c, sshtesting.SSHKey1, sshtesting.SSHKey2),
 	}
 	checker := makeChecker()
 	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1, sshtesting.SSHPub2})
@@ -130,30 +130,26 @@ func closedTCPHostPorts(c *tc.C, count int) network.HostPorts {
 	return ports.HostPorts()
 }
 
-type Cleaner interface {
-	AddCleanup(cleanup func(*tc.C))
-}
-
 // testTCPServer only listens on the socket, but doesn't speak SSH
-func testTCPServer(c *tc.C, cleaner Cleaner) network.HostPort {
+func testTCPServer(c *tc.C) network.HostPort {
 	listenAddress, shutdown := sshtesting.CreateTCPServer(c, func(tcpConn net.Conn) {
 		// We accept a connection, but then immediately close.
 		_ = tcpConn.Close()
 	})
 	hostPort, err := network.ParseMachineHostPort(listenAddress)
 	c.Assert(err, tc.ErrorIsNil)
-	cleaner.AddCleanup(func(*tc.C) { close(shutdown) })
+	c.Cleanup(func() { close(shutdown) })
 
 	return *hostPort
 }
 
 // testSSHServer will listen on the socket and respond with the appropriate
 // public key information and then die.
-func testSSHServer(c *tc.C, cleaner Cleaner, privateKeys ...string) network.HostPort {
+func testSSHServer(c *tc.C, privateKeys ...string) network.HostPort {
 	address, shutdown := sshtesting.CreateSSHServer(c, privateKeys...)
 	hostPort, err := network.ParseMachineHostPort(address)
 	c.Assert(err, tc.ErrorIsNil)
-	cleaner.AddCleanup(func(*tc.C) { close(shutdown) })
+	c.Cleanup(func() { close(shutdown) })
 
 	return *hostPort
 }
