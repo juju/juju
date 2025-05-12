@@ -16,6 +16,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/agentbinary"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -100,7 +101,13 @@ func (s *AgentBinaryStore) AddAgentBinary(
 	version coreagentbinary.Version,
 	size int64,
 	sha384 string,
-) (resultErr error) {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := version.Validate(); err != nil {
 		return errors.Errorf("agent version %q is not valid: %w", version, err)
 	}
@@ -186,7 +193,12 @@ func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
 	ctx context.Context, r io.Reader,
 	version coreagentbinary.Version,
 	size int64, sha256 string,
-) (resultErr error) {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	if err := version.Validate(); err != nil {
 		return errors.Errorf("agent version %q is not valid: %w", version, err)
 	}
@@ -216,7 +228,13 @@ func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
 func (s *AgentBinaryStore) GetAgentBinaryForSHA256(
 	ctx context.Context,
 	sha256Sum string,
-) (io.ReadCloser, int64, error) {
+) (_ io.ReadCloser, _ int64, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	// We check that this sha256 exists in the database and is associated with
 	// agent binaries. If we don't do this the possability exists to leak other
 	// non related objects out of the store via this interface.
@@ -302,5 +320,8 @@ func tmpCacheAndHash(r io.Reader, size int64) (_ io.ReadCloser, _ string, _ stri
 		return nil, "", "", errors.Capture(err)
 	}
 	cleanupFunc := func() { _ = os.Remove(tmpFile.Name()) }
-	return &cleanupCloser{tmpFile, cleanupFunc}, encoded256, encoded384, nil
+	return &cleanupCloser{
+		ReadCloser:  tmpFile,
+		cleanupFunc: cleanupFunc,
+	}, encoded256, encoded384, nil
 }

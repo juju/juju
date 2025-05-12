@@ -9,6 +9,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
@@ -90,7 +91,12 @@ func NewAgentBinaryService(
 // taking precedence over the controller agent binaries.
 // It returns a slice of agent binary metadata. The order of the metadata is not guaranteed.
 // An empty slice is returned if no agent binaries are found.
-func (s *AgentBinaryService) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
+func (s *AgentBinaryService) ListAgentBinaries(ctx context.Context) (_ []agentbinary.Metadata, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	controllerAgentBinaries, err := s.controllerState.ListAgentBinaries(ctx)
 	if err != nil {
 		return nil, errors.Errorf("listing agent binaries from controller state: %w", err)
@@ -138,7 +144,13 @@ func (s *AgentBinaryService) GetEnvironAgentBinariesFinder() EnvironAgentBinarie
 		version semversion.Number,
 		requestedStream string,
 		filter coretools.Filter,
-	) (coretools.List, error) {
+	) (_ coretools.List, err error) {
+		ctx, span := trace.Start(ctx, trace.NameFromFunc())
+		defer func() {
+			span.RecordError(err)
+			span.End()
+		}()
+
 		provider, err := s.providerForAgentBinaryFinder(ctx)
 		if errors.Is(err, coreerrors.NotSupported) {
 			return nil, errors.Errorf("getting provider for agent binary finder %w", coreerrors.NotSupported)
