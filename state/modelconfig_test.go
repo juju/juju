@@ -239,7 +239,9 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 	modelSettings, err := s.State.ReadSettings(state.SettingsC, state.ModelGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedTags := map[string]string{"a": "b", "c": "d"}
-	tagsStr := config.CoerceForStorage(modelSettings.Map())["resource-tags"].(string)
+	coerced, err := config.CoerceForStorage(modelSettings.Map())
+	c.Assert(err, jc.ErrorIsNil)
+	tagsStr := coerced["resource-tags"].(string)
 	tagItems := strings.Split(tagsStr, " ")
 	tagsMap := make(map[string]string)
 	for _, kv := range tagItems {

@@ -1691,7 +1691,9 @@ func (s *ConfigSuite) TestCoerceForStorage(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	expectedTags := map[string]string{"a": "b", "c": "d"}
 	c.Assert(tags, gc.DeepEquals, expectedTags)
-	tagsStr := config.CoerceForStorage(cfg.AllAttrs())["resource-tags"].(string)
+	coerced, err := config.CoerceForStorage(cfg.AllAttrs())
+	c.Assert(err, jc.ErrorIsNil)
+	tagsStr := coerced["resource-tags"].(string)
 	tagItems := strings.Split(tagsStr, " ")
 	tagsMap := make(map[string]string)
 	for _, kv := range tagItems {
@@ -1699,6 +1701,18 @@ func (s *ConfigSuite) TestCoerceForStorage(c *gc.C) {
 		tagsMap[parts[0]] = parts[1]
 	}
 	c.Assert(tagsMap, gc.DeepEquals, expectedTags)
+}
+
+func (s *ConfigSuite) TestCoerceForStorageBoolean(c *gc.C) {
+	attrs := map[string]any{
+		"automatically-retry-hooks": "false",
+	}
+	coerced, err := config.CoerceForStorage(attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]any{
+		"automatically-retry-hooks": false,
+	}
+	c.Assert(coerced, gc.DeepEquals, expected)
 }
 
 func (s *ConfigSuite) TestLXDSnapChannelConfig(c *gc.C) {
