@@ -176,6 +176,8 @@ func processMethod(funcDecl *ast.FuncDecl) bool {
 		return false
 	}
 
+	fmt.Fprintln(os.Stderr, "Processing method", funcDecl.Name.Name)
+
 	stmts := traceExpr(funcDecl.Name.Name)
 	funcDecl.Body.List = append(stmts, funcDecl.Body.List...)
 
@@ -186,13 +188,13 @@ func processMethod(funcDecl *ast.FuncDecl) bool {
 }
 
 func traceExpr(name string) []ast.Stmt {
-	// 1. ctx, span := trace.Start(ctx, "CreatePermission")
+	// 1. ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	assignStmt := &ast.AssignStmt{
 		Lhs: []ast.Expr{
 			ast.NewIdent("ctx"),
 			ast.NewIdent("span"),
 		},
-		Tok: token.DEFINE, // :=
+		Tok: token.DEFINE,
 		Rhs: []ast.Expr{
 			&ast.CallExpr{
 				Fun: &ast.SelectorExpr{
@@ -201,9 +203,11 @@ func traceExpr(name string) []ast.Stmt {
 				},
 				Args: []ast.Expr{
 					ast.NewIdent("ctx"),
-					&ast.BasicLit{
-						Kind:  token.STRING,
-						Value: fmt.Sprintf("%q", name),
+					&ast.CallExpr{
+						Fun: &ast.SelectorExpr{
+							X:   ast.NewIdent("trace"),
+							Sel: ast.NewIdent("NameFromFunc"),
+						},
 					},
 				},
 			},
@@ -215,7 +219,7 @@ func traceExpr(name string) []ast.Stmt {
 		Call: &ast.CallExpr{
 			Fun: &ast.FuncLit{
 				Type: &ast.FuncType{
-					Params: &ast.FieldList{}, // no parameters
+					Params: &ast.FieldList{},
 				},
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
