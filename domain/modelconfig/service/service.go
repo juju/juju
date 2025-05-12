@@ -9,6 +9,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/modelconfig/validators"
@@ -97,7 +98,13 @@ func NewService(
 }
 
 // ModelConfig returns the current config for the model.
-func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
+func (s *Service) ModelConfig(ctx context.Context) (_ *config.Config, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	stConfig, err := s.st.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting model config from state: %w", err)
@@ -123,7 +130,13 @@ func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 // the value.
 func (s *Service) ModelConfigValues(
 	ctx context.Context,
-) (config.ConfigValues, error) {
+) (_ config.ConfigValues, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	cfg, err := s.ModelConfig(ctx)
 	if err != nil {
 		return config.ConfigValues{}, err
@@ -224,7 +237,13 @@ func (s *Service) reconcileRemovedAttributes(
 func (s *Service) SetModelConfig(
 	ctx context.Context,
 	cfg map[string]any,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
 	if err != nil {
 		return errors.Errorf("getting model defaults: %w", err)
@@ -282,7 +301,13 @@ func (s *Service) UpdateModelConfig(
 	updateAttrs map[string]any,
 	removeAttrs []string,
 	additionalValidators ...config.Validator,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	// noop with no updates or removals to perform.
 	if len(updateAttrs) == 0 && len(removeAttrs) == 0 {
 		return nil
@@ -341,7 +366,13 @@ type spaceValidator struct {
 
 // HasSpace implements validators.SpaceProvider. It checks whether the
 // given space exists.
-func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (bool, error) {
+func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (_ bool, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return v.st.SpaceExists(ctx, spaceName)
 }
 
@@ -419,6 +450,8 @@ func NewWatchableService(
 // Watch returns a watcher that returns keys for any changes to model
 // config.
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
+	// TODO (stickupkid): Wire up trace here. The fallout from this change
+	// is quite large.
 	return s.watcherFactory.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchModelConfig(), changestream.All),
