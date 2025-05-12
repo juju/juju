@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/keymanager"
@@ -148,7 +149,13 @@ func (s *Service) AddPublicKeysForUser(
 	ctx context.Context,
 	userUUID user.UUID,
 	keys ...string,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := userUUID.Validate(); err != nil {
 		return errors.Errorf("validating user uuid %q when adding public keys: %w", userUUID, err)
 	}
@@ -204,7 +211,13 @@ func (s *Service) DeleteKeysForUser(
 	ctx context.Context,
 	userUUID user.UUID,
 	targets ...string,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := userUUID.Validate(); err != nil {
 		return errors.Errorf(
 			"validating user uuid %q when deleting public keys: %w",
@@ -222,7 +235,13 @@ func (s *Service) DeleteKeysForUser(
 // not exist.
 func (s *Service) GetAllUsersPublicKeys(
 	ctx context.Context,
-) (map[user.Name][]string, error) {
+) (_ map[user.Name][]string, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return s.st.GetAllUsersPublicKeys(ctx, s.modelUUID)
 }
 
@@ -249,7 +268,13 @@ func (s *ImporterService) ImportPublicKeysForUser(
 	ctx context.Context,
 	userUUID user.UUID,
 	subject *url.URL,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := userUUID.Validate(); err != nil {
 		return errors.Errorf(
 			"validating user uuid %q when importing public keys from %q: %w",
@@ -318,7 +343,13 @@ func (s *ImporterService) ImportPublicKeysForUser(
 func (s *Service) ListPublicKeysForUser(
 	ctx context.Context,
 	userUUID user.UUID,
-) ([]coressh.PublicKey, error) {
+) (_ []coressh.PublicKey, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := userUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
 			"validating user uuid %q when listing public keys: %w",

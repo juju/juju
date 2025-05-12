@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -126,7 +127,13 @@ func NewWatchableService(
 func (s *Service) GetAuthorisedKeysForMachine(
 	ctx context.Context,
 	machineName coremachine.Name,
-) ([]string, error) {
+) (_ []string, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := machineName.Validate(); err != nil {
 		return nil, errors.Errorf(
 			"validating machine name when getting authorized keys for machine: %w",
@@ -134,8 +141,7 @@ func (s *Service) GetAuthorisedKeysForMachine(
 		)
 	}
 
-	err := s.st.CheckMachineExists(ctx, machineName)
-	if errors.Is(err, machineerrors.MachineNotFound) {
+	if err := s.st.CheckMachineExists(ctx, machineName); errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.Errorf(
 			"machine %q does not exist", machineName,
 		).Add(machineerrors.MachineNotFound)
@@ -180,7 +186,13 @@ func (s *Service) GetAuthorisedKeysForMachine(
 func (s *WatchableService) WatchAuthorisedKeysForMachine(
 	ctx context.Context,
 	machineName coremachine.Name,
-) (watcher.NotifyWatcher, error) {
+) (_ watcher.NotifyWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := machineName.Validate(); err != nil {
 		return nil, errors.Errorf(
 			"validating machine name when getting authorized keys for machine: %w",
@@ -188,8 +200,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 		)
 	}
 
-	err := s.st.CheckMachineExists(ctx, machineName)
-	if errors.Is(err, machineerrors.MachineNotFound) {
+	if err := s.st.CheckMachineExists(ctx, machineName); errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.Errorf(
 			"watching authorized keys for machine %q, machine does not exist",
 			machineName,
@@ -219,7 +230,13 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 
 // GetInitialAuthorisedKeysForContainer returns the authorised keys to be used
 // when provisioning a new container for the model.
-func (s *Service) GetInitialAuthorisedKeysForContainer(ctx context.Context) ([]string, error) {
+func (s *Service) GetInitialAuthorisedKeysForContainer(ctx context.Context) (_ []string, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	modelId, err := s.st.GetModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
