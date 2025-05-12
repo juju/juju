@@ -74,6 +74,7 @@ properly into unit tests and not integration tests.
 
 We will get this done as part of dqlite transition.
 `)
+	s.StateSuite.SetUpSuite(c)
 }
 
 func (s *Suite) SetUpTest(c *tc.C) {
