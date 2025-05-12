@@ -120,7 +120,7 @@ func (s *ManifoldSuite) newWorker(config modelworkermanager.Config) (worker.Work
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return worker.NewRunner(worker.RunnerParams{}), nil
+	return worker.NewRunner(worker.RunnerParams{Name: "model"})
 }
 
 func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig) (worker.Worker, error) {
@@ -128,7 +128,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return worker.NewRunner(worker.RunnerParams{}), nil
+	return worker.NewRunner(worker.RunnerParams{Name: "model-worker"})
 }
 
 var expectedInputs = []string{"authority", "lease-manager", "log-sink", "domain-services", "provider-services", "http-client"}

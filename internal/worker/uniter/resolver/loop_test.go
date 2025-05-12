@@ -32,7 +32,6 @@ type LoopSuite struct {
 	executor  *mockOpExecutor
 	charmURL  string
 	charmDir  string
-	abort     chan struct{}
 	onIdle    func() error
 }
 
@@ -49,30 +48,32 @@ func (s *LoopSuite) SetUpTest(c *gc.C) {
 	s.opFactory = &mockOpFactory{}
 	s.executor = &mockOpExecutor{}
 	s.charmURL = "ch:trusty/mysql-1"
-	s.abort = make(chan struct{})
 }
 
-func (s *LoopSuite) loop(c *gc.C) (resolver.LocalState, error) {
-	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+func (s *LoopSuite) loop(c *gc.C) func(context.Context) (resolver.LocalState, error) {
+	return func(ctx context.Context) (resolver.LocalState, error) {
+		localState := resolver.LocalState{
+			CharmURL: s.charmURL,
+		}
+		err := resolver.Loop(ctx, resolver.LoopConfig{
+			Resolver:      s.resolver,
+			Factory:       s.opFactory,
+			Watcher:       s.watcher,
+			Executor:      s.executor,
+			OnIdle:        s.onIdle,
+			CharmDir:      s.charmDir,
+			CharmDirGuard: &mockCharmDirGuard{},
+			Logger:        loggertesting.WrapCheckLog(c),
+		}, &localState)
+		return localState, err
 	}
-	err := resolver.Loop(context.Background(), resolver.LoopConfig{
-		Resolver:      s.resolver,
-		Factory:       s.opFactory,
-		Watcher:       s.watcher,
-		Executor:      s.executor,
-		Abort:         s.abort,
-		OnIdle:        s.onIdle,
-		CharmDir:      s.charmDir,
-		CharmDirGuard: &mockCharmDirGuard{},
-		Logger:        loggertesting.WrapCheckLog(c),
-	}, &localState)
-	return localState, err
 }
 
 func (s *LoopSuite) TestAbort(c *gc.C) {
-	close(s.abort)
-	_, err := s.loop(c)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := s.loop(c)(ctx)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 }
 
@@ -83,16 +84,21 @@ func (s *LoopSuite) TestOnIdle(c *gc.C) {
 		return nil
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	loopFn := s.loop(c)
+
 	done := make(chan interface{}, 1)
 	go func() {
-		_, err := s.loop(c)
+		_, err := loopFn(ctx)
 		done <- err
 	}()
 
 	waitChannel(c, onIdleCh, "waiting for onIdle")
 	s.watcher.changes <- struct{}{}
 	waitChannel(c, onIdleCh, "waiting for onIdle")
-	close(s.abort)
+	cancel()
 
 	err := waitChannel(c, done, "waiting for loop to exit")
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
@@ -108,8 +114,11 @@ func (s *LoopSuite) TestOnIdleError(c *gc.C) {
 	s.onIdle = func() error {
 		return errors.New("onIdle failed")
 	}
-	close(s.abort)
-	_, err := s.loop(c)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := s.loop(c)(ctx)
 	c.Assert(err, gc.ErrorMatches, "onIdle failed")
 }
 
@@ -127,8 +136,11 @@ func (s *LoopSuite) TestErrWaitingNoOnIdle(c *gc.C) {
 	) (operation.Operation, error) {
 		return nil, resolver.ErrWaiting
 	})
-	close(s.abort)
-	_, err := s.loop(c)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := s.loop(c)(ctx)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 	c.Assert(onIdleCalled, jc.IsFalse)
 }
@@ -145,8 +157,10 @@ func (s *LoopSuite) TestInitialFinalLocalState(c *gc.C) {
 		return nil, resolver.ErrNoOperation
 	})
 
-	close(s.abort)
-	lastLocal, err := s.loop(c)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	lastLocal, err := s.loop(c)(ctx)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 	c.Assert(local, jc.DeepEquals, resolver.LocalState{
 		CharmURL: s.charmURL,
@@ -155,6 +169,9 @@ func (s *LoopSuite) TestInitialFinalLocalState(c *gc.C) {
 }
 
 func (s *LoopSuite) TestLoop(c *gc.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var resolverCalls int
 	theOp := &mockOp{}
 	s.resolver = resolver.ResolverFunc(func(
@@ -174,16 +191,14 @@ func (s *LoopSuite) TestLoop(c *gc.C) {
 		// change.
 		case 2:
 			s.watcher.changes <- struct{}{}
-			break
 		// On the third call, kill the loop.
 		case 3:
-			close(s.abort)
-			break
+			cancel()
 		}
 		return nil, resolver.ErrNoOperation
 	})
 
-	_, err := s.loop(c)
+	_, err := s.loop(c)(ctx)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 	c.Assert(resolverCalls, gc.Equals, 3)
 	s.executor.CheckCallNames(c, "State", "State", "State", "Run", "State", "State")
@@ -195,6 +210,9 @@ func (s *LoopSuite) TestLoop(c *gc.C) {
 }
 
 func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var resolverCalls int
 	theOp := &mockOp{}
 	s.resolver = resolver.ResolverFunc(func(
@@ -214,13 +232,10 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 		// change.
 		case 2:
 			s.watcher.changes <- struct{}{}
-			break
 		case 3:
-			break
 		// On the fourth call, kill the loop.
 		case 4:
-			close(s.abort)
-			break
+			cancel()
 		}
 		return nil, resolver.ErrNoOperation
 	})
@@ -245,7 +260,7 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 		return nil
 	}
 
-	_, err := s.loop(c)
+	_, err := s.loop(c)(ctx)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 	c.Assert(resolverCalls, gc.Equals, 4)
 	s.executor.CheckCallNames(c, "State", "State", "State", "Run", "State", "State", "State")
@@ -265,6 +280,9 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 }
 
 func (s *LoopSuite) TestRunFails(c *gc.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.executor.SetErrors(errors.New("run fails"))
 	s.resolver = resolver.ResolverFunc(func(
 		_ context.Context,
@@ -274,11 +292,14 @@ func (s *LoopSuite) TestRunFails(c *gc.C) {
 	) (operation.Operation, error) {
 		return mockOp{}, nil
 	})
-	_, err := s.loop(c)
+	_, err := s.loop(c)(ctx)
 	c.Assert(err, gc.ErrorMatches, "run fails")
 }
 
 func (s *LoopSuite) TestNextOpFails(c *gc.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.resolver = resolver.ResolverFunc(func(
 		_ context.Context,
 		_ resolver.LocalState,
@@ -287,7 +308,7 @@ func (s *LoopSuite) TestNextOpFails(c *gc.C) {
 	) (operation.Operation, error) {
 		return nil, errors.New("NextOp fails")
 	})
-	_, err := s.loop(c)
+	_, err := s.loop(c)(ctx)
 	c.Assert(err, gc.ErrorMatches, "NextOp fails")
 }
 
@@ -364,6 +385,9 @@ func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *gc.C) {
 }
 
 func (s *LoopSuite) testCheckCharmUpgradeDoesNothing(c *gc.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.resolver = resolver.ResolverFunc(func(
 		_ context.Context,
 		_ resolver.LocalState,
@@ -372,8 +396,10 @@ func (s *LoopSuite) testCheckCharmUpgradeDoesNothing(c *gc.C) {
 	) (operation.Operation, error) {
 		return nil, resolver.ErrWaiting
 	})
-	close(s.abort)
-	_, err := s.loop(c)
+
+	cancel()
+
+	_, err := s.loop(c)(ctx)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 
 	// Run not called
@@ -459,6 +485,9 @@ func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *gc.C) {
 }
 
 func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C, op string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.opFactory = &mockOpFactory{
 		Factory: nil,
 		Stub:    envtesting.Stub{},
@@ -472,8 +501,10 @@ func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C, op string) {
 	) (operation.Operation, error) {
 		return nil, resolver.ErrWaiting
 	})
-	close(s.abort)
-	_, err := s.loop(c)
+
+	cancel()
+
+	_, err := s.loop(c)(ctx)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 
 	// Run not called
@@ -485,6 +516,9 @@ func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C, op string) {
 }
 
 func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *gc.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	s.executor = &mockOpExecutor{
 		Executor: nil,
 		Stub:     envtesting.Stub{},
@@ -506,7 +540,7 @@ func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *gc.C) {
 		return &mockOp{}, nil
 	})
 
-	_, err := s.loop(c)
+	_, err := s.loop(c)(ctx)
 	c.Assert(err, gc.Equals, resolver.ErrRestart)
 }
 

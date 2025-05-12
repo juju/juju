@@ -228,6 +228,7 @@ func New(config Config) (worker.Worker, error) {
 		metrics:            NewMetricsCollector(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "peergrouper",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

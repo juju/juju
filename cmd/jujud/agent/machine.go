@@ -242,16 +242,22 @@ func MachineAgentFactoryFn(
 	rootDir string,
 ) machineAgentFactoryFnType {
 	return func(agentTag names.Tag, isCaasAgent bool) (*MachineAgent, error) {
+		runner, err := worker.NewRunner(worker.RunnerParams{
+			Name:          "machine-agent",
+			IsFatal:       agenterrors.IsFatal,
+			MoreImportant: agenterrors.MoreImportant,
+			RestartDelay:  internalworker.RestartDelay,
+			Logger:        internalworker.WrapLogger(logger),
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		return NewMachineAgent(
 			agentTag,
 			agentConfWriter,
 			bufferedLogger,
-			worker.NewRunner(worker.RunnerParams{
-				IsFatal:       agenterrors.IsFatal,
-				MoreImportant: agenterrors.MoreImportant,
-				RestartDelay:  internalworker.RestartDelay,
-				Logger:        internalworker.WrapLogger(logger),
-			}),
+			runner,
 			looputil.NewLoopDeviceManager(),
 			preUpgradeSteps,
 			upgradeSteps,
@@ -483,7 +489,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err
 	}
-	_ = a.runner.StartWorker("engine", createEngine)
+	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
@@ -501,8 +507,8 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion semversion.Number,
-) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) {
+) func(ctx context.Context) (worker.Worker, error) {
+	return func(ctx context.Context) (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()
 		engineConfigFunc := agentengine.DependencyEngineConfig
 		metrics := agentengine.NewMetrics()

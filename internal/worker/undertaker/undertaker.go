@@ -69,6 +69,7 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 		config: config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "undertaker",
 		Site: &u.catacomb,
 		Work: u.run,
 	})

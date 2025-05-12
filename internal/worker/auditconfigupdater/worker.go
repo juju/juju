@@ -65,6 +65,7 @@ func newWorker(
 		logFactory:              logFactory,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "audit-config-updater",
 		Site: &u.catacomb,
 		Work: u.loop,
 	})

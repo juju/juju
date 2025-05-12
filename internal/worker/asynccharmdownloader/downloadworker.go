@@ -107,27 +107,33 @@ func newWorker(config Config, internalState chan string) (*Worker, error) {
 		return nil, errors.Capture(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "async-charm-downloader",
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return false
+		},
+		Clock:  config.Clock,
+		Logger: internalworker.WrapLogger(config.Logger),
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	cd := &Worker{
-		config: config,
-		runner: worker.NewRunner(worker.RunnerParams{
-			IsFatal: func(err error) bool {
-				return false
-			},
-			ShouldRestart: func(err error) bool {
-				return false
-			},
-			Clock:  config.Clock,
-			Logger: internalworker.WrapLogger(config.Logger),
-		}),
+		config:         config,
+		runner:         runner,
 		internalStates: internalState,
 	}
 
-	err := catacomb.Invoke(catacomb.Plan{
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "async-charm-downloader",
 		Site: &cd.catacomb,
 		Work: cd.loop,
 		Init: []worker.Worker{cd.runner},
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, errors.Capture(err)
 	}
 	return cd, nil
@@ -207,7 +213,7 @@ func (w *Worker) loop() error {
 				}
 
 				// Kick off the async download worker for the application.
-				if err := w.initAsyncDownloadWorker(appID, downloader); err != nil {
+				if err := w.initAsyncDownloadWorker(ctx, appID, downloader); err != nil {
 					return errors.Capture(err)
 				}
 			}
@@ -237,8 +243,8 @@ func (w *Worker) workerFromCache(appID application.ID) (bool, error) {
 	return false, nil
 }
 
-func (w *Worker) initAsyncDownloadWorker(appID application.ID, downloader Downloader) error {
-	err := w.runner.StartWorker(appID.String(), func() (worker.Worker, error) {
+func (w *Worker) initAsyncDownloadWorker(ctx context.Context, appID application.ID, downloader Downloader) error {
+	err := w.runner.StartWorker(ctx, appID.String(), func(ctx context.Context) (worker.Worker, error) {
 		wrk := w.config.NewAsyncDownloadWorker(
 			appID,
 			w.config.ApplicationService,

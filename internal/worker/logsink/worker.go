@@ -61,23 +61,30 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 }
 
 func newWorker(cfg Config, internalState chan string) (worker.Worker, error) {
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "log-sink",
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return !errors.Is(err, logger.ErrLoggerDying)
+		},
+		RestartDelay: time.Second,
+		Clock:        cfg.Clock,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &LogSink{
-		cfg: cfg,
-		runner: worker.NewRunner(worker.RunnerParams{
-			IsFatal: func(err error) bool {
-				return false
-			},
-			ShouldRestart: func(err error) bool {
-				return !errors.Is(err, logger.ErrLoggerDying)
-			},
-			RestartDelay: time.Second,
-			Clock:        cfg.Clock,
-		}),
+		cfg:            cfg,
+		runner:         runner,
 		requests:       make(chan request),
 		internalStates: internalState,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "log-sink",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{
@@ -126,13 +133,15 @@ func (w *LogSink) loop() error {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
+	ctx := w.catacomb.Context(context.Background())
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
 		case req := <-w.requests:
-			err := w.initLogger(req.modelUUID)
+			err := w.initLogger(ctx, req.modelUUID)
 
 			select {
 			case req.done <- err:
@@ -214,8 +223,8 @@ func (w *LogSink) workerFromCache(modelUUID model.UUID) (LogSinkWriter, error) {
 	return nil, nil
 }
 
-func (w *LogSink) initLogger(modelUUID model.UUID) error {
-	err := w.runner.StartWorker(modelUUID.String(), func() (worker.Worker, error) {
+func (w *LogSink) initLogger(ctx context.Context, modelUUID model.UUID) error {
+	err := w.runner.StartWorker(ctx, modelUUID.String(), func(ctx context.Context) (worker.Worker, error) {
 		return w.cfg.NewModelLogger(w.cfg.LogSink, modelUUID, w.cfg.AgentTag)
 	})
 	if errors.Is(err, errors.AlreadyExists) {

@@ -46,6 +46,7 @@ func Normalise[T any](source Watcher[T]) (NotifyWatcher, error) {
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "normalise-watcher",
 		Site: &w.catacomb,
 		Work: loop,
 		Init: []worker.Worker{source},

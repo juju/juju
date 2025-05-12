@@ -45,6 +45,7 @@ func NewController(probes *CAASProbes, mux Mux) (*Controller, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-prober",
 		Site: &c.catacomb,
 		Work: c.loop,
 	}); err != nil {

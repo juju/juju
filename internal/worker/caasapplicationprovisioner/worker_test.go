@@ -63,9 +63,9 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *gc.C) {
 	}, nil)
 	facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil)
 	runner.EXPECT().Worker("test", gomock.Any()).Return(nil, errors.NotFoundf(""))
-	runner.EXPECT().StartWorker("test", gomock.Any()).DoAndReturn(
-		func(_ string, startFunc func() (worker.Worker, error)) error {
-			startFunc()
+	runner.EXPECT().StartWorker(gomock.Any(), "test", gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _ string, startFunc func(ctx context.Context) (worker.Worker, error)) error {
+			startFunc(ctx)
 			return nil
 		},
 	)
@@ -76,7 +76,7 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *gc.C) {
 	runner.EXPECT().Kill().AnyTimes()
 
 	called := false
-	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
+	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func(ctx context.Context) (worker.Worker, error) {
 		c.Assert(called, jc.IsFalse)
 		called = true
 		mc := jc.NewMultiChecker()
@@ -89,7 +89,7 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *gc.C) {
 			Name:     "test",
 			ModelTag: s.modelTag,
 		})
-		return func() (worker.Worker, error) {
+		return func(ctx context.Context) (worker.Worker, error) {
 			close(done)
 			return workertest.NewErrorWorker(nil), nil
 		}
@@ -135,9 +135,9 @@ func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *gc.C) {
 	}, nil)
 	facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil)
 	runner.EXPECT().Worker("test", gomock.Any()).Return(nil, errors.NotFoundf(""))
-	runner.EXPECT().StartWorker("test", gomock.Any()).DoAndReturn(
-		func(_ string, startFunc func() (worker.Worker, error)) error {
-			startFunc()
+	runner.EXPECT().StartWorker(gomock.Any(), "test", gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _ string, startFunc func(ctx context.Context) (worker.Worker, error)) error {
+			startFunc(ctx)
 			return nil
 		},
 	)
@@ -148,7 +148,7 @@ func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *gc.C) {
 	runner.EXPECT().Kill().AnyTimes()
 
 	called := false
-	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
+	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func(ctx context.Context) (worker.Worker, error) {
 		c.Assert(called, jc.IsFalse)
 		called = true
 		mc := jc.NewMultiChecker()
@@ -162,7 +162,7 @@ func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *gc.C) {
 			ModelTag:   s.modelTag,
 			StatusOnly: true,
 		})
-		return func() (worker.Worker, error) {
+		return func(ctx context.Context) (worker.Worker, error) {
 			close(done)
 			return workertest.NewErrorWorker(nil), nil
 		}
@@ -213,9 +213,9 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 		facade.EXPECT().ProvisionerConfig(gomock.Any()).Return(params.CAASApplicationProvisionerConfig{}, nil),
 		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 		runner.EXPECT().Worker("test", gomock.Any()).Return(nil, errors.NotFoundf("")),
-		runner.EXPECT().StartWorker("test", gomock.Any()).DoAndReturn(
-			func(_ string, startFunc func() (worker.Worker, error)) error {
-				startFunc()
+		runner.EXPECT().StartWorker(gomock.Any(), "test", gomock.Any()).DoAndReturn(
+			func(ctx context.Context, _ string, startFunc func(ctx context.Context) (worker.Worker, error)) error {
+				startFunc(ctx)
 				return nil
 			},
 		),
@@ -244,7 +244,7 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 	runner.EXPECT().Kill().AnyTimes()
 
 	called := 0
-	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
+	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func(ctx context.Context) (worker.Worker, error) {
 		called++
 		mc := jc.NewMultiChecker()
 		mc.AddExpr("_.Facade", gc.NotNil)
@@ -256,7 +256,7 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 			Name:     "test",
 			ModelTag: s.modelTag,
 		})
-		return func() (worker.Worker, error) {
+		return func(ctx context.Context) (worker.Worker, error) {
 			return notifyWorker, nil
 		}
 	}

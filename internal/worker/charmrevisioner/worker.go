@@ -193,6 +193,7 @@ func newWorker(config Config, internalState chan string) (worker.Worker, error) 
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "charm-revision-updater",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {

@@ -152,6 +152,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		instanceIDToGroupEntry: make(map[instance.Id]*pollGroupEntry),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "instance-poller",
 		Site: &u.catacomb,
 		Work: u.loop,
 	})

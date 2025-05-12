@@ -165,6 +165,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "control-socket",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{sl},

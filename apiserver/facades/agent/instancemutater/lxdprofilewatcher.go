@@ -125,6 +125,7 @@ func newMachineLXDProfileWatcher(ctx context.Context, config MachineLXDProfileWa
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "machine-lxd-profile-watcher",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {

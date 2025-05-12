@@ -109,6 +109,7 @@ func newWorker(config workerConfig, internalStates chan string) (*s3Worker, erro
 
 	// Now start the catacomb once we have the initial session.
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "object-strore-s3",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {

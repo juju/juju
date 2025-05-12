@@ -152,6 +152,7 @@ func newWorker(ctx context.Context, config Config) (*mutaterWorker, error) {
 	// getRequiredContextFunc returns a MutaterContext, this is for overriding
 	// during testing.
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "instance-mutater",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{watcher},

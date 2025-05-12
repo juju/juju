@@ -88,6 +88,7 @@ func NewAgentUpgrader(config Config) (*Upgrader, error) {
 		config:  config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "agent-upgrader",
 		Site: &u.catacomb,
 		Work: u.loop,
 	})

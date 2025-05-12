@@ -138,6 +138,7 @@ func NewTracker(ctx context.Context, config Config) (*Tracker, error) {
 		broker: broker,
 	}
 	err = catacomb.Invoke(catacomb.Plan{
+		Name: "container-broker-tracker",
 		Site: &t.catacomb,
 		Work: t.loop,
 	})

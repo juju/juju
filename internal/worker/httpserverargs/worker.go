@@ -85,6 +85,7 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "http-server-args",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{
