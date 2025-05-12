@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelconfig"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 )
@@ -91,7 +92,13 @@ func NewService(
 func (s *Service) ContainerManagerConfigForType(
 	ctx context.Context,
 	containerType instance.ContainerType,
-) (containermanager.Config, error) {
+) (_ containermanager.Config, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	rval := containermanager.Config{}
 
 	modelID, err := s.st.ModelID(ctx)
@@ -126,7 +133,13 @@ func (s *Service) ContainerManagerConfigForType(
 // ContainerNetworkingMethod determines the container networking method that
 // should be used, based on the model config key "container-networking-method"
 // and the current provider.
-func (s *Service) ContainerNetworkingMethod(ctx context.Context) (containermanager.NetworkingMethod, error) {
+func (s *Service) ContainerNetworkingMethod(ctx context.Context) (_ containermanager.NetworkingMethod, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	cfg, err := s.st.GetModelConfigKeyValues(ctx, config.ContainerNetworkingMethodKey)
 	if err != nil {
 		return "", errors.Errorf("getting container networking method from model config: %w", err)
@@ -171,7 +184,13 @@ func (s *Service) ContainerNetworkingMethod(ctx context.Context) (containermanag
 }
 
 // ContainerConfig returns the container config for the model.
-func (s *Service) ContainerConfig(ctx context.Context) (container.Config, error) {
+func (s *Service) ContainerConfig(ctx context.Context) (_ container.Config, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	result := container.Config{}
 
 	modelConfig, err := s.st.GetModelConfigKeyValues(ctx, keysForContainerConfig...)
