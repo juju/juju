@@ -1,4 +1,3 @@
-(controller-config-audit-log-exclude-methods)=
 # `audit-log-exclude-methods`
 
 This document describes the `audit-log-exclude-methods` controller configuration key.
