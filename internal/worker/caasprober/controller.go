@@ -126,22 +126,22 @@ func ProbeHandler(name probe.ProbeType, probes *CAASProbes) http.Handler {
 
 				if val {
 					// Print + on probe success
-					fmt.Fprintf(detail, "+ ")
+					detail.WriteString("+ ")
 				} else {
 					// Print - on probe failure
-					fmt.Fprintf(detail, "- ")
+					detail.WriteString("- ")
 				}
 
 				// Print the probe name
-				fmt.Fprintf(detail, "%s", probeKey)
+				detail.WriteString(probeKey)
 
 				// Print the error if one exists
 				if err != nil {
-					fmt.Fprintf(detail, ": %s", err)
+					_, _ = fmt.Fprintf(detail, ": %s", err)
 				}
 
 				// Finish the current line
-				fmt.Fprintf(detail, "\n")
+				detail.WriteString("\n")
 			}),
 		)
 
@@ -149,11 +149,17 @@ func ProbeHandler(name probe.ProbeType, probes *CAASProbes) http.Handler {
 			http.Error(res, fmt.Sprintf("%s: probe %s",
 				http.StatusText(http.StatusNotImplemented), name),
 				http.StatusNotImplemented)
+			if shouldDetailResponse {
+				_, _ = io.Copy(res, detail)
+			}
 			return
 		} else if err != nil {
 			http.Error(res, fmt.Sprintf("%s: probe %s",
 				http.StatusText(http.StatusInternalServerError), name),
 				http.StatusInternalServerError)
+			if shouldDetailResponse {
+				_, _ = io.Copy(res, detail)
+			}
 			return
 		}
 
@@ -168,12 +174,15 @@ func ProbeHandler(name probe.ProbeType, probes *CAASProbes) http.Handler {
 			http.Error(res, fmt.Sprintf("%s: probe %s",
 				http.StatusText(http.StatusTeapot), name),
 				http.StatusTeapot)
+			if shouldDetailResponse {
+				_, _ = io.Copy(res, detail)
+			}
 			return
 		}
 
 		res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		res.WriteHeader(http.StatusOK)
-		fmt.Fprintf(res, "%s: probe %s", http.StatusText(http.StatusOK), name)
+		_, _ = fmt.Fprintf(res, "%s: probe %s\n", http.StatusText(http.StatusOK), name)
 		if shouldDetailResponse {
 			_, _ = io.Copy(res, detail)
 		}

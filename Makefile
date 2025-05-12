@@ -769,6 +769,11 @@ k3s-operator-update: host-install operator-image
 ## k3s-operator-update: Inject the newly built operator image into k3s
 	$(OCI_BUILDER) save "$(shell ${OPERATOR_IMAGE_PATH})" | sudo k3s ctr images import -
 
+.PHONY: ck8s-operator-update
+ck8s-operator-update: host-install operator-image
+## ck8s-operator-update: Inject the newly built operator image into Canonical K8s
+	$(OCI_BUILDER) save "$(shell ${OPERATOR_IMAGE_PATH})" | sudo /snap/k8s/current/bin/ctr -n k8s.io images import -
+
 
 .PHONY: check-k8s-model
 check-k8s-model:
