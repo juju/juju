@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/filesystem"
@@ -62,12 +63,24 @@ func NewService(st State, logger logger.Logger) *Service {
 }
 
 // BlockDevices returns the block devices for a specified machine.
-func (s *Service) BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error) {
+func (s *Service) BlockDevices(ctx context.Context, machineId string) (_ []blockdevice.BlockDevice, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return s.st.BlockDevices(ctx, machineId)
 }
 
 // UpdateBlockDevices updates the block devices for a specified machine.
-func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) error {
+func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	for i := range devices {
 		if devices[i].FilesystemType == "" {
 			devices[i].FilesystemType = filesystem.UnspecifiedType
@@ -77,7 +90,13 @@ func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devi
 }
 
 // AllBlockDevices returns all block devices in the model, keyed on machine id.
-func (s *Service) AllBlockDevices(ctx context.Context) (map[string]blockdevice.BlockDevice, error) {
+func (s *Service) AllBlockDevices(ctx context.Context) (_ map[string]blockdevice.BlockDevice, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	machineDevices, err := s.st.MachineBlockDevices(ctx)
 	if err != nil {
 		return nil, errors.Errorf("loading all block devices: %w", err)
@@ -113,6 +132,12 @@ func NewWatchableService(st State, wf WatcherFactory, logger logger.Logger) *Wat
 func (s *WatchableService) WatchBlockDevices(
 	ctx context.Context,
 	machineId string,
-) (watcher.NotifyWatcher, error) {
+) (_ watcher.NotifyWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	return s.st.WatchBlockDevices(ctx, s.watcherFactory.NewNotifyWatcher, machineId)
 }
