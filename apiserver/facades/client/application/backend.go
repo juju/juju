@@ -36,12 +36,8 @@ type Backend interface {
 // details on the methods, see the methods on state.Application with
 // the same names.
 type Application interface {
-	Name() string
 	AddUnit(state.AddUnitParams) (Unit, error)
 	AllUnits() ([]Unit, error)
-	ApplicationTag() names.ApplicationTag
-	CharmURL() (*string, bool)
-	CharmOrigin() *state.CharmOrigin
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
 	Endpoints() ([]relation.Endpoint, error)
@@ -96,14 +92,10 @@ type Machine interface {
 // details on the methods, see the methods on state.Unit with
 // the same names.
 type Unit interface {
-	Name() string
-	Tag() names.Tag
 	UnitTag() names.UnitTag
-	ApplicationName() string
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
 	IsPrincipal() bool
 
-	AssignedMachineId() (string, error)
 	AssignUnit() error
 	AssignWithPlacement(*instance.Placement, network.SpaceInfos) error
 	ContainerInfo() (state.CloudContainer, error)

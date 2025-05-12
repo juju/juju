@@ -1158,6 +1158,22 @@ func (s *Service) GetApplicationTrustSetting(ctx context.Context, appID coreappl
 	return s.st.GetApplicationTrustSetting(ctx, appID)
 }
 
+// GetApplicationCharmOrigin returns the charm origin for the specified
+// application name. If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *Service) GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error) {
+	if !isValidApplicationName(name) {
+		return application.CharmOrigin{}, applicationerrors.ApplicationNameNotValid
+	}
+
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return application.CharmOrigin{}, errors.Capture(err)
+	}
+
+	return s.st.GetApplicationCharmOrigin(ctx, appID)
+}
+
 // GetApplicationAndCharmConfig returns the application and charm config for the
 // specified application ID.
 func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreapplication.ID) (ApplicationConfig, error) {

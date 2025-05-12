@@ -547,6 +547,43 @@ func (s *applicationServiceSuite) TestGetApplicationTrustSettingInvalidApplicati
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
+func (s *applicationServiceSuite) TestGetApplicationCharmOrigin(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), id).Return(application.CharmOrigin{
+		Name:   "foo",
+		Source: applicationcharm.CharmHubSource,
+	}, nil)
+
+	origin, err := s.service.GetApplicationCharmOrigin(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
+		Name:   "foo",
+		Source: applicationcharm.CharmHubSource,
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationCharmOriginGetApplicationError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, errors.Errorf("boom"))
+
+	_, err := s.service.GetApplicationCharmOrigin(context.Background(), "foo")
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *applicationServiceSuite) TestGetApplicationCharmOriginInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetApplicationCharmOrigin(context.Background(), "!!!!!!!!!!!")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
+}
+
 func (s *applicationServiceSuite) TestUnsetApplicationConfigKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
