@@ -1013,12 +1013,11 @@ func (st *mockState) MigrationMode() (state.MigrationMode, error) {
 
 type mockModel struct {
 	jujutesting.Stub
-	owner          names.UserTag
-	life           state.Life
-	tag            names.ModelTag
-	status         status.StatusInfo
-	cfg            *config.Config
-	controllerUUID string
+	owner  names.UserTag
+	life   state.Life
+	tag    names.ModelTag
+	status status.StatusInfo
+	cfg    *config.Config
 }
 
 func (m *mockModel) ModelTag() names.ModelTag {
@@ -1049,12 +1048,6 @@ func (m *mockModel) Destroy(args state.DestroyModelParams) error {
 func (m *mockModel) UUID() string {
 	m.MethodCall(m, "UUID")
 	return m.cfg.UUID()
-}
-
-type mockModelUser struct {
-	jujutesting.Stub
-	userName string
-	access   permission.Access
 }
 
 type mockMigration struct {

@@ -26,7 +26,6 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/objectstore"
@@ -254,7 +253,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 // a simple convenience function to avoid having to first generate a model uuid
 // then cast it into a tag. This function does not setup any preconditions in
 // testing states.
-func generateModelUUIDAndTag(c *gc.C) (model.UUID, names.ModelTag) {
+func generateModelUUIDAndTag(c *gc.C) (coremodel.UUID, names.ModelTag) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	return modelUUID, names.NewModelTag(modelUUID.String())
 }
