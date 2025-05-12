@@ -496,6 +496,18 @@ func decodeUnitWorkloadStatuses(statuses status.UnitWorkloadStatuses) (map[unit.
 	return ret, nil
 }
 
+func decodeUnitAgentStatusesWithoutPresence(statuses status.UnitAgentStatuses) (map[unit.Name]corestatus.StatusInfo, error) {
+	ret := make(map[unit.Name]corestatus.StatusInfo, len(statuses))
+	for unitName, status := range statuses {
+		info, err := decodeUnitAgentStatus(status, true)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		ret[unitName] = info
+	}
+	return ret, nil
+}
+
 // selectWorkloadOrK8sPodStatus determines which of the two statuses to use
 // when displaying unit status. It is used in CAAS models where the status of
 // the unit could be overridden by the status of the container.

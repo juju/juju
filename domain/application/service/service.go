@@ -255,6 +255,14 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 	)
 }
 
+// WatchApplications returns a watcher that observes changes to applications.
+func (s *WatchableService) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
+	return s.watcherFactory.NewUUIDsWatcher(
+		s.st.NamespaceForWatchApplication(),
+		changestream.All,
+	)
+}
+
 // WatchApplicationsWithPendingCharms returns a watcher that observes changes to
 // applications that have pending charms.
 func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error) {
