@@ -118,6 +118,9 @@ func (s *LeaseService) WithLeader(
 			// know if the lease is held by the holder or what state we're in.
 			return errors.Errorf("unable to wait for leadership to expire whilst holding lease")
 		}
+		if ctxErr := leaseCtx.Err(); ctxErr != nil {
+			return errors.Errorf("waiting for leadership finished before execution").Add(ctxErr)
+		}
 		return err
 	case <-start:
 	}

@@ -62,6 +62,8 @@ func (s *leaseServiceSuite) TestWithLeader(c *gc.C) {
 	c.Check(called, jc.IsTrue)
 }
 
+// TestWithLeaderWaitReturnsError checks that if WaitUntilExpired returns an
+// error, the context is always cancelled.
 func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
