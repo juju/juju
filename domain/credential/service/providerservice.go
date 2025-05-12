@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/credential"
@@ -52,7 +53,13 @@ type ProviderService struct {
 }
 
 // CloudCredential returns the cloud credential for the given tag.
-func (s *ProviderService) CloudCredential(ctx context.Context, key corecredential.Key) (cloud.Credential, error) {
+func (s *ProviderService) CloudCredential(ctx context.Context, key corecredential.Key) (_ cloud.Credential, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := key.Validate(); err != nil {
 		return cloud.Credential{}, errors.Errorf("invalid id getting cloud credential: %w", err)
 	}
@@ -70,7 +77,13 @@ func (s *ProviderService) CloudCredential(ctx context.Context, key corecredentia
 // The following errors can be expected:
 // - [github.com/juju/juju/domain/credential/errors.NotFound] when the
 // credential specified by key does not exist.
-func (s *ProviderService) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) error {
+func (s *ProviderService) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := key.Validate(); err != nil {
 		return errors.Errorf("invalidating cloud credential with invalid key: %w", err)
 	}
@@ -101,7 +114,13 @@ func NewWatchableProviderService(st ProviderState, watcherFactory WatcherFactory
 
 // WatchCredential returns a watcher that observes changes to the specified
 // credential.
-func (s *WatchableProviderService) WatchCredential(ctx context.Context, key corecredential.Key) (watcher.NotifyWatcher, error) {
+func (s *WatchableProviderService) WatchCredential(ctx context.Context, key corecredential.Key) (_ watcher.NotifyWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := key.Validate(); err != nil {
 		return nil, errors.Errorf("watching cloud credential with invalid key: %w", err)
 	}

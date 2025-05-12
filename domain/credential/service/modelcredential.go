@@ -14,6 +14,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -97,6 +98,12 @@ func (v defaultCredentialValidator) Validate(
 	cred *cloud.Credential,
 	checkCloudInstances bool,
 ) (machineErrors []error, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := key.Validate(); err != nil {
 		return nil, errors.Errorf("credential %w", err)
 	}

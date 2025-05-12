@@ -17,16 +17,18 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// ECService provides a subset of the external controller domain service methods.
-type ECService interface {
+// ExternalControllerService provides a subset of the external controller domain
+// service methods.
+type ExternalControllerService interface {
 	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
-	Watch() (watcher.StringsWatcher, error)
+	Watch(context.Context) (watcher.StringsWatcher, error)
 }
 
-// ExternalControllerUpdaterAPI provides access to the CrossModelRelations API facade.
+// ExternalControllerUpdaterAPI provides access to the CrossModelRelations API
+// facade.
 type ExternalControllerUpdaterAPI struct {
-	ecService ECService
+	ecService ExternalControllerService
 	resources facade.Resources
 }
 
@@ -34,7 +36,7 @@ type ExternalControllerUpdaterAPI struct {
 // by the given interfaces.
 func NewAPI(
 	resources facade.Resources,
-	ecService ECService,
+	ecService ExternalControllerService,
 ) (*ExternalControllerUpdaterAPI, error) {
 	return &ExternalControllerUpdaterAPI{
 		ecService: ecService,
@@ -45,7 +47,7 @@ func NewAPI(
 // WatchExternalControllers watches for the addition and removal of external
 // controller records to the local controller's database.
 func (api *ExternalControllerUpdaterAPI) WatchExternalControllers(ctx context.Context) (params.StringsWatchResults, error) {
-	w, err := api.ecService.Watch()
+	w, err := api.ecService.Watch(ctx)
 	if err != nil {
 		return params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{
