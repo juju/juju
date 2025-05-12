@@ -144,19 +144,25 @@ func New(config Config) (worker.Worker, error) {
 		return nil, errors.Capture(err)
 	}
 
-	w := &apiAddressSetterWorker{
-		config: config,
-		runner: worker.NewRunner(worker.RunnerParams{
-			IsFatal: func(error) bool { return false },
-			Logger:  internalworker.WrapLogger(config.Logger),
-		}),
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:    "apiaddresssetter",
+		IsFatal: func(error) bool { return false },
+		Logger:  internalworker.WrapLogger(config.Logger),
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
-	err := catacomb.Invoke(catacomb.Plan{
+	w := &apiAddressSetterWorker{
+		config:                config,
+		controllerNodeChanges: make(chan struct{}),
+		runner:                runner,
+	}
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "apiaddresssetter",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{w.runner},
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, errors.Capture(err)
 	}
 	return w, nil
@@ -194,7 +200,7 @@ func (w *apiAddressSetterWorker) loop() error {
 
 		case <-controllerNodeChanges:
 			// A controller was added or removed.
-			w.config.Logger.Tracef(ctx, "<-controllerChanges")
+			w.config.Logger.Tracef(ctx, "<-controllerNodeChanges")
 			changed, err := w.updateControllerNodes(ctx)
 			if err != nil {
 				return errors.Capture(err)
@@ -206,17 +212,12 @@ func (w *apiAddressSetterWorker) loop() error {
 
 		case <-w.controllerNodeChanges:
 			// One of the controller nodes changed.
-			w.config.Logger.Tracef(ctx, "<-w.controllerChanges")
+			w.config.Logger.Tracef(ctx, "<-w.controllerNodeChanges")
 
 		case <-configChanges:
 			// Controller config has changed.
 			w.config.Logger.Tracef(ctx, "<-w.configChanges")
 
-			// If a config change wakes up the loop before the topology has
-			// been represented in the worker's controller trackers, ignore it;
-			// errors will occur when trying to determine peer group changes.
-			// Continuing is OK because subsequent invocations of the loop will
-			// pick up the most recent config from state anyway.
 			if len(w.runner.WorkerNames()) == 0 {
 				w.config.Logger.Errorf(ctx, "no controller information, ignoring config change")
 				continue
@@ -289,7 +290,7 @@ func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (boo
 	for _, controllerID := range controllerIDs {
 		w.config.Logger.Debugf(ctx, "found new controller %q", controllerID)
 
-		if err := w.runner.StartWorker(controllerID, func() (worker.Worker, error) {
+		if err := w.runner.StartWorker(ctx, controllerID, func(ctx context.Context) (worker.Worker, error) {
 			id, err := strconv.Atoi(controllerID)
 			if err != nil {
 				return nil, errors.Errorf("invalid controller ID %q: %w", controllerID, err)
@@ -298,7 +299,7 @@ func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (boo
 			if err != nil {
 				return nil, errors.Errorf("invalid unit name for controller %q: %w", controllerID, err)
 			}
-			tracker, err := newControllerTracker(unitName, w.config.ApplicationService, w.controllerNodeChanges)
+			tracker, err := newControllerTracker(unitName, w.config.ApplicationService, w.controllerNodeChanges, w.config.Logger.Child("controllertracker"))
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
@@ -354,6 +355,7 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 		}
 		hostPorts := network.SpaceAddressesWithPort(addrs, w.config.APIPort)
 		if len(hostPorts) == 0 {
+			w.config.Logger.Errorf(ctx, "no public address for controller %q", controllerID)
 			continue
 		}
 

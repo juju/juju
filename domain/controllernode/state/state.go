@@ -102,8 +102,7 @@ func (st *State) UpdateDqliteNode(ctx context.Context, controllerID string, node
 UPDATE controller_node 
 SET    dqlite_node_id = $dbControllerNode.dqlite_node_id,
        dqlite_bind_address = $dbControllerNode.dqlite_bind_address 
-WHERE  controller_id = $dbControllerNode.controller_id
-AND    (dqlite_node_id != $dbControllerNode.dqlite_node_id OR dqlite_bind_address != $dbControllerNode.dqlite_bind_address)`
+WHERE  controller_id = $dbControllerNode.controller_id`
 	stmt, err := st.Prepare(q, controllerNode)
 	if err != nil {
 		return errors.Errorf("preparing update controller node statement: %w", err)
@@ -304,8 +303,8 @@ WHERE controller_id = $controllerID.controller_id
 	}
 
 	deleteExistingAddressesStmt, err := st.Prepare(`
-	DELETE FROM controller_api_address
-	WHERE controller_id = $controllerID.controller_id
+DELETE FROM controller_api_address
+WHERE controller_id = $controllerID.controller_id
 	`, ident)
 	if err != nil {
 		return errors.Capture(err)
@@ -370,7 +369,9 @@ FROM controller_node
 	var controllerIDs []controllerID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&controllerIDs)
-		if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return controllernodeerrors.EmptyControllerIDs
+		} else if err != nil {
 			return errors.Errorf("getting controller node ids: %w", err)
 		}
 		return nil

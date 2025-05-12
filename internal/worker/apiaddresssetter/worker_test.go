@@ -100,18 +100,9 @@ func (s *workerSuite) TestNewControllerNode(c *gc.C) {
 	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
 	s.controllerNodeService.EXPECT().WatchControllerNodes().Return(nodeWatcher, nil)
 
-	// Send an initial change to the (mocked) controller config watcher.
-	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
-		ch := make(chan []string)
-		go func() {
-			select {
-			case ch <- []string{}:
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out sending initial change")
-			}
-		}()
-		return watchertest.NewMockStringsWatcher(ch), nil
-	})
+	cfgCh := make(chan []string)
+	cfgWatcher := watchertest.NewMockStringsWatcher(cfgCh)
+	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(cfgWatcher, nil)
 
 	// Starts the controller tracker for the new node.
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
@@ -126,13 +117,13 @@ func (s *workerSuite) TestNewControllerNode(c *gc.C) {
 			SpaceID: "space0",
 		},
 	}
-	s.applicationService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 		controller.JujuManagementSpace: "space0",
 	}, nil)
 	sp := network.SpaceInfo{
 		ID: "space0",
 	}
+	s.applicationService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), "space0").Return(&sp, nil)
 	// Synchronization point to ensure the worker processes the event.
 	sync := make(chan struct{})
@@ -167,6 +158,216 @@ func (s *workerSuite) TestNewControllerNode(c *gc.C) {
 	case <-sync:
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("timed out waiting for API address update")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+// TestConfigChange tests that when the controller config changes, the worker
+// will update the api addresses for the controller.
+func (s *workerSuite) TestConfigChange(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	// Mock the controller node watcher.
+	nodeCh := make(chan struct{})
+	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
+	s.controllerNodeService.EXPECT().WatchControllerNodes().Return(nodeWatcher, nil)
+
+	cfgCh := make(chan []string)
+	cfgWatcher := watchertest.NewMockStringsWatcher(cfgCh)
+	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(cfgWatcher, nil)
+
+	// Starts the controller tracker for the new node.
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
+	s.applicationService.EXPECT().GetUnitNetNodes(gomock.Any(), unit.Name("controller/1")).Return([]string{"net-node-0"}, nil)
+	s.applicationService.EXPECT().WatchNetNodeAddress(gomock.Any(), "net-node-0").Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil)
+
+	// Updates the API addresses for the new node.
+	addrs := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+			},
+			SpaceID: "space0",
+		},
+	}
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.JujuManagementSpace: "space0",
+	}, nil)
+	sp0 := network.SpaceInfo{
+		ID: "space0",
+	}
+	s.applicationService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), "space0").Return(&sp0, nil)
+	// Synchronization point to ensure the worker processes the event.
+	sync := make(chan struct{})
+	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "1", hostPorts, sp0).DoAndReturn(func(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, sp network.SpaceInfo) error {
+		sync <- struct{}{}
+		return nil
+	})
+	// Expected calls after the controller config change.
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.JujuManagementSpace: "space1",
+	}, nil)
+	sp1 := network.SpaceInfo{
+		ID: "space1",
+	}
+	s.applicationService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), "space1").Return(&sp1, nil)
+	// Synchronization point to ensure the worker processes the config event.
+	cfgSync := make(chan struct{})
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "1", hostPorts, sp1).DoAndReturn(func(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, sp network.SpaceInfo) error {
+		cfgSync <- struct{}{}
+		return nil
+	})
+
+	cfg := Config{
+		ControllerConfigService: s.controllerConfigService,
+		ApplicationService:      s.applicationService,
+		ControllerNodeService:   s.controllerNodeService,
+		NetworkService:          s.networkService,
+		APIPort:                 17070,
+		ControllerAPIPort:       17070,
+		Logger:                  loggertesting.WrapCheckLog(c),
+	}
+	w, err := New(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Simulate a new controller node event.
+	select {
+	case nodeCh <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out sending controller node event")
+	}
+
+	// Wait for the worker to process the initial (new node) event.
+	select {
+	case <-sync:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting for API address update")
+	}
+
+	// Now we can trigger the config change on the cfgWatcher channel, and sync
+	// on the second set api addresses call.
+	select {
+	case cfgCh <- []string{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out sending controller config change")
+	}
+
+	// Wait for the worker to process the config event.
+	select {
+	case <-cfgSync:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting for API address update after config change")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+// TestNodeAddressChange tests that when the controller node address changes,
+// the worker will update the api addresses for the controller.
+func (s *workerSuite) TestNodeAddressChange(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	// Mock the controller node watcher.
+	nodeCh := make(chan struct{})
+	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
+	s.controllerNodeService.EXPECT().WatchControllerNodes().Return(nodeWatcher, nil)
+
+	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(watchertest.NewMockStringsWatcher(make(chan []string)), nil)
+
+	// Starts the controller tracker for the new node.
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
+	s.applicationService.EXPECT().GetUnitNetNodes(gomock.Any(), unit.Name("controller/1")).Return([]string{"net-node-0"}, nil)
+	addrCh := make(chan struct{})
+	netNodeAddressWatcher := watchertest.NewMockNotifyWatcher(addrCh)
+	s.applicationService.EXPECT().WatchNetNodeAddress(gomock.Any(), "net-node-0").Return(netNodeAddressWatcher, nil)
+
+	// Updates the API addresses for the new node.
+	addrs := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+			},
+			SpaceID: "space0",
+		},
+	}
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.JujuManagementSpace: "space0",
+	}, nil).MaxTimes(2)
+	sp0 := network.SpaceInfo{
+		ID: "space0",
+	}
+	s.applicationService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), "space0").Return(&sp0, nil).MaxTimes(2)
+	// Synchronization point to ensure the worker processes the event.
+	sync := make(chan struct{})
+	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "1", hostPorts, sp0).DoAndReturn(func(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, sp network.SpaceInfo) error {
+		sync <- struct{}{}
+		return nil
+	})
+	// Expected calls after the controller node address change.
+	newAddrs := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "192.168.0.1",
+			},
+			SpaceID: "space0",
+		},
+	}
+	s.applicationService.EXPECT().GetUnitPublicAddresses(gomock.Any(), unit.Name("controller/1")).Return(newAddrs, nil)
+	// Synchronization point to ensure the worker processes the config event.
+	addrSync := make(chan struct{})
+	newHP := network.SpaceAddressesWithPort(newAddrs, 17070)
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "1", newHP, sp0).DoAndReturn(func(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, sp network.SpaceInfo) error {
+		addrSync <- struct{}{}
+		return nil
+	})
+
+	cfg := Config{
+		ControllerConfigService: s.controllerConfigService,
+		ApplicationService:      s.applicationService,
+		ControllerNodeService:   s.controllerNodeService,
+		NetworkService:          s.networkService,
+		APIPort:                 17070,
+		ControllerAPIPort:       17070,
+		Logger:                  loggertesting.WrapCheckLog(c),
+	}
+	w, err := New(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Simulate a new controller node event.
+	select {
+	case nodeCh <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out sending controller node event")
+	}
+
+	// Wait for the worker to process the initial (new node) event.
+	select {
+	case <-sync:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting for API address update")
+	}
+
+	// Now we can trigger the node address change on the watcher, and sync
+	// on the second set api addresses call.
+	select {
+	case addrCh <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out sending controller node address change")
+	}
+
+	// Wait for the worker to process the new addrs event.
+	select {
+	case <-addrSync:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting for API address update after address change")
 	}
 
 	workertest.CleanKill(c, w)

@@ -13,4 +13,8 @@ const (
 	// ControllerAddressNotValid describes an error that occurs when a
 	// controller address is not valid.
 	ControllerAddressNotValid = errors.ConstError("controller address not valid")
+
+	// EmptyControllerIDs describes an error that occurs when no controller IDs
+	// are found.
+	EmptyControllerIDs = errors.ConstError("no controller IDs found")
 )

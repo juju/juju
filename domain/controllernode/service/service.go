@@ -206,7 +206,7 @@ func (s *Service) SetAPIAddresses(ctx context.Context, controllerID string, addr
 	// We map the SpaceHostPorts addresses to controller api addresses by
 	// checking if the address is available for agents (this is the case if the
 	// space ID of the address matches the management space ID), and also by
-	// joiping the address host and port to a string "host:port".
+	// joining the address host and port to a string "host:port".
 	addresses := make([]controllernode.APIAddress, 0, len(addrs))
 	for _, spHostPort := range addrs {
 		// Check if the address is available for agents.

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/errors"
 )
@@ -19,15 +20,19 @@ type controllerTracker struct {
 	notifyCh           chan<- struct{}
 	applicationService ApplicationService
 	controllerUnitName unit.Name
+
+	logger logger.Logger
 }
 
-func newControllerTracker(unitName unit.Name, applicationService ApplicationService, notifyCh chan<- struct{}) (*controllerTracker, error) {
+func newControllerTracker(unitName unit.Name, applicationService ApplicationService, notifyCh chan<- struct{}, logger logger.Logger) (*controllerTracker, error) {
 	c := &controllerTracker{
 		notifyCh:           notifyCh,
 		controllerUnitName: unitName,
 		applicationService: applicationService,
+		logger:             logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "controllertracker",
 		Site: &c.catacomb,
 		Work: c.loop,
 	})
@@ -66,6 +71,7 @@ func (c *controllerTracker) loop() error {
 
 	var notifyCh chan<- struct{}
 	for {
+		c.logger.Tracef(ctx, "waiting for addresses changes")
 		select {
 		case <-c.catacomb.Dying():
 			return c.catacomb.ErrDying()
@@ -73,8 +79,10 @@ func (c *controllerTracker) loop() error {
 			if !ok {
 				return errors.Errorf("watcher for net nodes %+v closed", netNodes)
 			}
+			c.logger.Tracef(ctx, "<-netNodeAddressChanges")
 			notifyCh = c.notifyCh
 		case notifyCh <- struct{}{}:
+			c.logger.Tracef(ctx, "<-notifyCh")
 			notifyCh = nil
 		}
 	}
