@@ -27,7 +27,6 @@ import (
 	model0 "github.com/juju/juju/domain/model"
 	modeldefaults "github.com/juju/juju/domain/modeldefaults"
 	service "github.com/juju/juju/domain/secretbackend/service"
-	config "github.com/juju/juju/environs/config"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -1379,45 +1378,6 @@ func NewMockModelConfigService(ctrl *gomock.Controller) *MockModelConfigService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelConfigService) EXPECT() *MockModelConfigServiceMockRecorder {
 	return m.recorder
-}
-
-// ModelConfig mocks base method.
-func (m *MockModelConfigService) ModelConfig(arg0 context.Context) (*config.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig", arg0)
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockModelConfigServiceMockRecorder) ModelConfig(arg0 any) *MockModelConfigServiceModelConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockModelConfigService)(nil).ModelConfig), arg0)
-	return &MockModelConfigServiceModelConfigCall{Call: call}
-}
-
-// MockModelConfigServiceModelConfigCall wrap *gomock.Call
-type MockModelConfigServiceModelConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelConfigServiceModelConfigCall) Return(arg0 *config.Config, arg1 error) *MockModelConfigServiceModelConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelConfigServiceModelConfigCall) Do(f func(context.Context) (*config.Config, error)) *MockModelConfigServiceModelConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelConfigServiceModelConfigCall) DoAndReturn(f func(context.Context) (*config.Config, error)) *MockModelConfigServiceModelConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // SetModelConfig mocks base method.

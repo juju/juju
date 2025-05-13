@@ -322,11 +322,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotatef(err, "reloading spaces for model %q", creationArgs.Name)
 	}
 
-	newConfig, err := modelDomainServices.Config().ModelConfig(ctx)
-	if err != nil {
-		return result, errors.Annotatef(err, "getting config for %q", creationArgs.Name)
-	}
-
 	modelInfo, err := m.getModelInfo(ctx, modelUUID)
 	if err != nil {
 		return result, err
@@ -343,11 +338,12 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 
 	// TODO: remove model creation from the mongo state.
 	_, st, err := m.state.NewModel(state.ModelArgs{
+		Name:            modelInfo.Name,
+		UUID:            modelUUID,
 		Type:            state.ModelType(modelInfo.Type),
 		CloudName:       cloudTag.Id(),
 		CloudRegion:     modelInfo.CloudRegion,
 		CloudCredential: credentialTag,
-		Config:          newConfig,
 		Owner:           ownerTag,
 	})
 	if err != nil {

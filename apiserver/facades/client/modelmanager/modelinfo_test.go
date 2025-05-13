@@ -817,23 +817,12 @@ type mockState struct {
 	controllerNodes []commonmodel.ControllerNode
 	migration       *mockMigration
 	migrationStatus state.MigrationMode
-	modelConfig     *config.Config
 }
 
 type fakeModelDescription struct {
 	description.Model `yaml:"-"`
 
 	ModelUUID string `yaml:"model-uuid"`
-}
-
-func (st *mockState) ModelUUID() string {
-	st.MethodCall(st, "ModelUUID")
-	return st.model.UUID()
-}
-
-func (st *mockState) Name() string {
-	st.MethodCall(st, "Name")
-	return "test-model"
 }
 
 func (st *mockState) ControllerModelTag() names.ModelTag {
@@ -887,7 +876,7 @@ func (st *mockState) AllFilesystems() ([]state.Filesystem, error) {
 
 func (st *mockState) NewModel(args state.ModelArgs) (commonmodel.Model, commonmodel.ModelManagerBackend, error) {
 	st.MethodCall(st, "NewModel", args)
-	st.model.tag = names.NewModelTag(args.Config.UUID())
+	st.model.tag = names.NewModelTag(args.UUID.String())
 	err := st.NextErr()
 	return st.model, st, err
 }
@@ -1024,19 +1013,11 @@ func (st *mockState) MigrationMode() (state.MigrationMode, error) {
 
 type mockModel struct {
 	jujutesting.Stub
-	owner               names.UserTag
-	life                state.Life
-	tag                 names.ModelTag
-	status              status.StatusInfo
-	cfg                 *config.Config
-	users               []*mockModelUser
-	controllerUUID      string
-	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
-}
-
-func (m *mockModel) Owner() names.UserTag {
-	m.MethodCall(m, "Owner")
-	return m.owner
+	owner  names.UserTag
+	life   state.Life
+	tag    names.ModelTag
+	status status.StatusInfo
+	cfg    *config.Config
 }
 
 func (m *mockModel) ModelTag() names.ModelTag {
@@ -1059,50 +1040,14 @@ func (m *mockModel) Status() (status.StatusInfo, error) {
 	return m.status, m.NextErr()
 }
 
-func (m *mockModel) CloudName() string {
-	m.MethodCall(m, "CloudName")
-	return "dummy"
-}
-
-func (m *mockModel) CloudRegion() string {
-	m.MethodCall(m, "CloudRegion")
-	return "dummy-region"
-}
-
-func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
-	m.MethodCall(m, "CloudCredentialTag")
-	return names.NewCloudCredentialTag("dummy/bob/some-credential"), true
-}
-
 func (m *mockModel) Destroy(args state.DestroyModelParams) error {
 	m.MethodCall(m, "Destroy", args)
 	return m.NextErr()
 }
 
-func (m *mockModel) ControllerUUID() string {
-	m.MethodCall(m, "ControllerUUID")
-	return m.controllerUUID
-}
-
 func (m *mockModel) UUID() string {
 	m.MethodCall(m, "UUID")
 	return m.cfg.UUID()
-}
-
-func (m *mockModel) Name() string {
-	m.MethodCall(m, "Name")
-	return m.cfg.Name()
-}
-
-func (m *mockModel) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
-	m.MethodCall(m, "SetCloudCredential", tag)
-	return m.setCloudCredentialF(tag)
-}
-
-type mockModelUser struct {
-	jujutesting.Stub
-	userName string
-	access   permission.Access
 }
 
 type mockMigration struct {
