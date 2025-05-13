@@ -832,6 +832,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			destroyStorage, force, maxWait, timeout,
 		)
 		if err != nil {
+			logger.Warningf(ctx, "failed destroying model %v: %v", modelUUID, err)
 			return errors.Trace(err)
 		}
 

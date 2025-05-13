@@ -33,6 +33,18 @@ type ModelInfoService interface {
 	// The following error types can be expected to be returned:
 	// - [github.com/juju/juju/modelerrors.NotFound]: When the model does not exist.
 	GetStatus(context.Context) (domainmodel.StatusInfo, error)
+
+	// IsControllerModel returns true if the model is the controller model.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model does not exist.
+	IsControllerModel(context.Context) (bool, error)
+}
+
+// ModelService provides access to information about the models within the this
+// controller.
+type ModelService interface {
+	// ListModelUUIDs returns a list of all model UUIDs in the controller.
+	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
 }
 
 // ModelStatusAPI implements the ModelStatus() API.
@@ -40,6 +52,7 @@ type ModelStatusAPI struct {
 	authorizer        facade.Authorizer
 	apiUser           names.UserTag
 	backend           ModelManagerBackend
+	controllerTag     names.ControllerTag
 	getMachineService MachineServiceGetter
 	getStatusService  StatusServiceGetter
 }
@@ -47,15 +60,18 @@ type ModelStatusAPI struct {
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
 func NewModelStatusAPI(
 	backend ModelManagerBackend,
+	controllerUUID string,
 	getMachineService MachineServiceGetter,
 	getStatusService StatusServiceGetter,
 	authorizer facade.Authorizer,
 	apiUser names.UserTag,
 ) *ModelStatusAPI {
+	controllerTag := names.NewControllerTag(controllerUUID)
 	return &ModelStatusAPI{
 		authorizer:        authorizer,
 		apiUser:           apiUser,
 		backend:           backend,
+		controllerTag:     controllerTag,
 		getMachineService: getMachineService,
 		getStatusService:  getStatusService,
 	}
@@ -82,7 +98,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	isAdmin, err := HasModelAdmin(ctx, c.authorizer, c.backend.ControllerTag(), modelTag)
+	isAdmin, err := HasModelAdmin(ctx, c.authorizer, c.controllerTag, modelTag)
 	if err != nil {
 		return status, errors.Trace(err)
 	}

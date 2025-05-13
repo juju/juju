@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
+	interrors "github.com/juju/juju/internal/errors"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/model"
@@ -37,9 +37,11 @@ type BlockCommandService interface {
 // remaining.
 func DestroyController(
 	ctx context.Context,
+	modelUUIDs []model.UUID,
 	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
 	modelInfoService ModelInfoService,
+	modelService ModelService,
 	blockCommandServiceGetter func(context.Context, model.UUID) (BlockCommandService, error),
 	destroyHostedModels bool,
 	destroyStorage *bool,
@@ -47,32 +49,29 @@ func DestroyController(
 	maxWait *time.Duration,
 	modelTimeout *time.Duration,
 ) error {
-	modelTag := st.ModelTag()
-	controllerModelTag := st.ControllerModelTag()
-	if modelTag != controllerModelTag {
-		return errors.Errorf(
-			"expected state for controller model UUID %v, got %v",
-			controllerModelTag.Id(),
-			modelTag.Id(),
-		)
+
+	isControllerModel, err := modelInfoService.IsControllerModel(ctx)
+	if err != nil {
+		return interrors.Capture(err)
+
 	}
+	if !isControllerModel {
+		return interrors.Errorf("current model is not the controller model")
+	}
+
 	if destroyHostedModels {
-		uuids, err := st.AllModelUUIDs()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for _, uuid := range uuids {
-			svc, err := blockCommandServiceGetter(ctx, model.UUID(uuid))
+		for _, uuid := range modelUUIDs {
+			svc, err := blockCommandServiceGetter(ctx, uuid)
 			if err != nil {
-				return errors.Trace(err)
+				return interrors.Capture(err)
 			}
 
 			check := common.NewBlockChecker(svc)
-			if err = check.DestroyAllowed(ctx); errors.Is(err, modelerrors.NotFound) {
+			if err = check.DestroyAllowed(ctx); interrors.Is(err, modelerrors.NotFound) {
 				logger.Errorf(ctx, "model %v not found, skipping", uuid)
 				continue
 			} else if err != nil {
-				return errors.Trace(err)
+				return interrors.Capture(err)
 			}
 		}
 	}
@@ -106,37 +105,38 @@ func DestroyModel(
 }
 
 func destroyModel(
-	ctx context.Context, st ModelManagerBackend,
-	blockCommandService BlockCommandService, modelInfoService ModelInfoService,
+	ctx context.Context,
+	st ModelManagerBackend,
+	blockCommandService BlockCommandService,
+	modelInfoService ModelInfoService,
 	args state.DestroyModelParams,
 ) error {
 	check := common.NewBlockChecker(blockCommandService)
 	if err := check.DestroyAllowed(ctx); err != nil {
-		return errors.Trace(err)
+		return interrors.Capture(err)
 	}
 
 	model, err := st.Model()
 	if err != nil {
-		return errors.Trace(err)
+		return interrors.Capture(err)
 	}
 	notForcing := args.Force == nil || !*args.Force
 	if notForcing {
 		// If model status is suspended, then model's cloud credential is invalid.
 		modelStatus, err := modelInfoService.GetStatus(ctx)
 		if err != nil {
-			return errors.Trace(err)
+			return interrors.Capture(err)
 		}
 		if modelStatus.Status == status.Suspended {
-			return errors.Errorf("invalid cloud credential, use --force")
+			return interrors.Errorf("invalid cloud credential, use --force")
 		}
 	}
 	if err := model.Destroy(args); err != nil {
 		if notForcing {
-			return errors.Trace(err)
+			return interrors.Capture(err)
 		}
-		logger.Warningf(ctx, "failed destroying model %v: %v", model.UUID(), err)
 		if err := filterNonCriticalErrorForForce(err); err != nil {
-			return errors.Trace(err)
+			return interrors.Capture(err)
 		}
 	}
 
@@ -149,7 +149,7 @@ func destroyModel(
 }
 
 func filterNonCriticalErrorForForce(err error) error {
-	if errors.Is(err, stateerrors.PersistentStorageError) {
+	if interrors.Is(err, stateerrors.PersistentStorageError) {
 		return err
 	}
 	return nil

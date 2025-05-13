@@ -25,6 +25,7 @@ import (
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -32,6 +33,8 @@ import (
 
 type modelStatusSuite struct {
 	statetesting.StateSuite
+
+	controllerUUID uuid.UUID
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -59,6 +62,10 @@ func (s *modelStatusSuite) SetUpTest(c *tc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
+
+	controllerUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.controllerUUID = controllerUUID
 }
 
 func (s *modelStatusSuite) TestStub(c *tc.C) {
@@ -79,6 +86,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *tc.C) {
 
 	api := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
+		s.controllerUUID.String(),
 		s.machineServiceGetter,
 		s.statusServiceGetter,
 		anAuthoriser,
@@ -107,6 +115,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *tc.C) {
 
 	api := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
+		s.controllerUUID.String(),
 		s.machineServiceGetter,
 		s.statusServiceGetter,
 		anAuthoriser,
@@ -153,6 +162,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 
 	modelStatusAPI := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
+		s.controllerUUID.String(),
 		s.machineServiceGetter,
 		s.statusServiceGetter,
 		s.authorizer,

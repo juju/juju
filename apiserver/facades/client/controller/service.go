@@ -74,10 +74,12 @@ type ModelService interface {
 type ModelInfoService interface {
 	// GetStatus returns the current status of the model. The following error
 	// types can be expected to be returned:
-	//
-	//  - [github.com/juju/juju/modelerrors.NotFound]: When the model does not
-	//    exist.
+	//  - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does not exist.
 	GetStatus(context.Context) (domainmodel.StatusInfo, error)
+	// IsControllerModel returns true if the model is the controller model.
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/model/errors.NotFound] When the model does not exist.
+	IsControllerModel(context.Context) (bool, error)
 }
 
 // ApplicationService provides access to the application service.
@@ -109,7 +111,7 @@ type StatusService interface {
 	// GetModelStatusInfo returns information about the current model for the
 	// purpose of reporting its status.
 	// The following error types can be expected to be returned:
-	// - [modelerrors.NotFound]: When the model does not exist.
+	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
 }
 
@@ -163,7 +165,7 @@ type ModelAgentService interface {
 
 	// GetModelTargetAgentVersion returns the target agent version for the
 	// entire model. The following errors can be returned:
-	// - [github.com/juju/juju/domain/modelagent/errors.NotFound] when the model
+	// - [github.com/juju/juju/domain/modelagent/errors.NotFound] When the model
 	// does not exist.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 
