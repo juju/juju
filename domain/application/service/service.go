@@ -36,7 +36,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
@@ -689,20 +688,21 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 	)
 }
 
-// WatchNetNodeAddress watches for changes to the specified net nodes
-// addresses.
-// This notifies on any changes to the net nodes addresses. It is up to the
-// caller to determine if the addresses they're interested in has changed.
-func (s *WatchableService) WatchNetNodeAddress(
-	_ context.Context, netNodeUUIDs ...network.NetNodeUUID,
-) (watcher.NotifyWatcher, error) {
+// WatchUnitAddresses watches for changes to the addresses of the specified
+// unit.
+// This notifies on any changes to the unit addresses and it is up to the
+// caller to determine if the addresses they're interested in have changed.
+func (s *WatchableService) WatchUnitAddresses(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
+	netNodeUUIDs, err := s.st.GetUnitNetNodesByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchNetNodeAddress(),
 			changestream.All,
-			eventsource.ContainsPredicate(transform.Slice(netNodeUUIDs, func(uuid network.NetNodeUUID) string {
-				return uuid.String()
-			})),
+			eventsource.ContainsPredicate(netNodeUUIDs),
 		),
 	)
 }

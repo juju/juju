@@ -1990,30 +1990,30 @@ WHERE     u.uuid = $unitUUID.uuid
 	return encodeIpAddresses(address), nil
 }
 
-// GetUnitNetNodes returns the net node UUIDs associated with the specified
-// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
-// the union of the net nodes of the cloud service (if any) and the net node
-// of the unit.
+// GetUnitNetNodesByName returns the net node UUIDs associated with the
+// specified unit. The net nodes are selected in the same way as in
+// GetUnitAddresses, i.e. the union of the net nodes of the cloud service (if
+// any) and the net node of the unit.
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
-func (st *State) GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]string, error) {
+func (st *State) GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	ident := unitUUID{UnitUUID: uuid}
+	ident := unitName{Name: name}
 	stmt, err := st.Prepare(`
 SELECT &unitNetNodeUUID.*
 FROM (
-    SELECT s.net_node_uuid, u.uuid
+    SELECT s.net_node_uuid, u.name
     FROM unit u
     JOIN k8s_service s on s.application_uuid = u.application_uuid
     UNION
-    SELECT net_node_uuid, uuid FROM unit
+    SELECT net_node_uuid, name FROM unit
 ) AS n
-WHERE n.uuid = $unitUUID.uuid
+WHERE n.name = $unitName.name
 `, unitNetNodeUUID{}, ident)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2023,7 +2023,7 @@ WHERE n.uuid = $unitUUID.uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, ident).GetAll(&netNodeUUIDs)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("%w: %s", applicationerrors.UnitNotFound, uuid)
+			return errors.Errorf("%w: %s", applicationerrors.UnitNotFound, name)
 		}
 		return errors.Capture(err)
 	})

@@ -240,6 +240,9 @@ ON ip_address (device_uuid);
 CREATE INDEX idx_ip_address_subnet_uuid
 ON ip_address (subnet_uuid);
 
+CREATE INDEX idx_ip_address_net_node_uuid
+ON ip_address (net_node_uuid);
+
 CREATE TABLE provider_ip_address (
     provider_id TEXT NOT NULL PRIMARY KEY,
     address_uuid TEXT NOT NULL,

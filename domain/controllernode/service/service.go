@@ -62,6 +62,14 @@ type State interface {
 	// GetControllerIDs returns the list of controller IDs from the controller node
 	// records.
 	GetControllerIDs(ctx context.Context) ([]string, error)
+
+	// GetAPIAddresses returns the list of API addresses for the provided controller
+	// node.
+	GetAPIAddresses(ctx context.Context, ctrlID string) ([]string, error)
+
+	// GetAPIAddressesForAgents returns the list of API addresses for the provided
+	// controller node that are available for agents.
+	GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error)
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -247,4 +255,22 @@ func (s *Service) GetControllerIDs(ctx context.Context) ([]string, error) {
 		return nil, errors.Capture(err)
 	}
 	return res, nil
+}
+
+// GetAPIAddresses returns the list of API addresses for the provided controller
+// node.
+func (s *Service) GetAPIAddresses(ctx context.Context, nodeID string) ([]string, error) {
+	if nodeID == "" {
+		return nil, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
+	}
+	return s.st.GetAPIAddresses(ctx, nodeID)
+}
+
+// GetAPIAddressesForAgents returns the list of API addresses for the provided
+// controller node that are available for agents.
+func (s *Service) GetAPIAddressesForAgents(ctx context.Context, nodeID string) ([]string, error) {
+	if nodeID == "" {
+		return nil, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
+	}
+	return s.st.GetAPIAddressesForAgents(ctx, nodeID)
 }

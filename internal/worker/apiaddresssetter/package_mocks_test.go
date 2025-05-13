@@ -17,7 +17,6 @@ import (
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
-	network0 "github.com/juju/juju/domain/network"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -145,45 +144,6 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
-// GetUnitNetNodes mocks base method.
-func (m *MockApplicationService) GetUnitNetNodes(arg0 context.Context, arg1 unit.Name) ([]network0.NetNodeUUID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitNetNodes", arg0, arg1)
-	ret0, _ := ret[0].([]network0.NetNodeUUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitNetNodes indicates an expected call of GetUnitNetNodes.
-func (mr *MockApplicationServiceMockRecorder) GetUnitNetNodes(arg0, arg1 any) *MockApplicationServiceGetUnitNetNodesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNetNodes", reflect.TypeOf((*MockApplicationService)(nil).GetUnitNetNodes), arg0, arg1)
-	return &MockApplicationServiceGetUnitNetNodesCall{Call: call}
-}
-
-// MockApplicationServiceGetUnitNetNodesCall wrap *gomock.Call
-type MockApplicationServiceGetUnitNetNodesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetUnitNetNodesCall) Return(arg0 []network0.NetNodeUUID, arg1 error) *MockApplicationServiceGetUnitNetNodesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetUnitNetNodesCall) Do(f func(context.Context, unit.Name) ([]network0.NetNodeUUID, error)) *MockApplicationServiceGetUnitNetNodesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetUnitNetNodesCall) DoAndReturn(f func(context.Context, unit.Name) ([]network0.NetNodeUUID, error)) *MockApplicationServiceGetUnitNetNodesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetUnitPublicAddresses mocks base method.
 func (m *MockApplicationService) GetUnitPublicAddresses(arg0 context.Context, arg1 unit.Name) (network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()
@@ -223,46 +183,41 @@ func (c *MockApplicationServiceGetUnitPublicAddressesCall) DoAndReturn(f func(co
 	return c
 }
 
-// WatchNetNodeAddress mocks base method.
-func (m *MockApplicationService) WatchNetNodeAddress(arg0 context.Context, arg1 ...network0.NetNodeUUID) (watcher.Watcher[struct{}], error) {
+// WatchUnitAddresses mocks base method.
+func (m *MockApplicationService) WatchUnitAddresses(arg0 context.Context, arg1 unit.Name) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "WatchNetNodeAddress", varargs...)
+	ret := m.ctrl.Call(m, "WatchUnitAddresses", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchNetNodeAddress indicates an expected call of WatchNetNodeAddress.
-func (mr *MockApplicationServiceMockRecorder) WatchNetNodeAddress(arg0 any, arg1 ...any) *MockApplicationServiceWatchNetNodeAddressCall {
+// WatchUnitAddresses indicates an expected call of WatchUnitAddresses.
+func (mr *MockApplicationServiceMockRecorder) WatchUnitAddresses(arg0, arg1 any) *MockApplicationServiceWatchUnitAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchNetNodeAddress", reflect.TypeOf((*MockApplicationService)(nil).WatchNetNodeAddress), varargs...)
-	return &MockApplicationServiceWatchNetNodeAddressCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnitAddresses", reflect.TypeOf((*MockApplicationService)(nil).WatchUnitAddresses), arg0, arg1)
+	return &MockApplicationServiceWatchUnitAddressesCall{Call: call}
 }
 
-// MockApplicationServiceWatchNetNodeAddressCall wrap *gomock.Call
-type MockApplicationServiceWatchNetNodeAddressCall struct {
+// MockApplicationServiceWatchUnitAddressesCall wrap *gomock.Call
+type MockApplicationServiceWatchUnitAddressesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceWatchNetNodeAddressCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockApplicationServiceWatchNetNodeAddressCall {
+func (c *MockApplicationServiceWatchUnitAddressesCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockApplicationServiceWatchUnitAddressesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceWatchNetNodeAddressCall) Do(f func(context.Context, ...network0.NetNodeUUID) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchNetNodeAddressCall {
+func (c *MockApplicationServiceWatchUnitAddressesCall) Do(f func(context.Context, unit.Name) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchUnitAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceWatchNetNodeAddressCall) DoAndReturn(f func(context.Context, ...network0.NetNodeUUID) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchNetNodeAddressCall {
+func (c *MockApplicationServiceWatchUnitAddressesCall) DoAndReturn(f func(context.Context, unit.Name) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchUnitAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

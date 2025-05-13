@@ -53,16 +53,11 @@ func (c *controllerTracker) Wait() error {
 }
 
 func (c *controllerTracker) loop() error {
-	ctx, cancel := c.scopedContext()
-	defer cancel()
+	ctx := c.catacomb.Context(context.Background())
 
-	netNodes, err := c.applicationService.GetUnitNetNodes(ctx, c.controllerUnitName)
+	addressWatcher, err := c.applicationService.WatchUnitAddresses(ctx, c.controllerUnitName)
 	if err != nil {
-		return errors.Errorf("getting net nodes for controller %q: %w", c.controllerUnitName, err)
-	}
-	addressWatcher, err := c.applicationService.WatchNetNodeAddress(ctx, netNodes...)
-	if err != nil {
-		return errors.Errorf("starting watcher for net nodes %v: %w", netNodes, err)
+		return errors.Errorf("starting watcher for unit %q addresses: %w", c.controllerUnitName, err)
 	}
 
 	if err := c.catacomb.Add(addressWatcher); err != nil {
@@ -77,7 +72,7 @@ func (c *controllerTracker) loop() error {
 			return c.catacomb.ErrDying()
 		case _, ok := <-addressWatcher.Changes():
 			if !ok {
-				return errors.Errorf("watcher for net nodes %+v closed", netNodes)
+				return errors.Errorf("watcher for unit %q addresses closed", c.controllerUnitName)
 			}
 			c.logger.Tracef(ctx, "<-netNodeAddressChanges")
 			notifyCh = c.notifyCh
@@ -86,8 +81,4 @@ func (c *controllerTracker) loop() error {
 			notifyCh = nil
 		}
 	}
-}
-
-func (w *controllerTracker) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
