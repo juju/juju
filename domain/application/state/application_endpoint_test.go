@@ -365,10 +365,6 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointUnknownRela
 }
 
 func (s *applicationEndpointStateSuite) TestGetEndpointBindings(c *tc.C) {
-	// Arrange: Get DB.
-	db, err := s.state.DB()
-	c.Assert(err, tc.ErrorIsNil)
-
 	// Arrange: create two application endpoints
 	relationName1 := "charmRelation1"
 	relationName2 := "charmRelation2"
@@ -394,11 +390,7 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindings(c *tc.C) {
 	s.setApplicationDefaultSpace(c, spaceUUID5)
 
 	// Act:
-	var bindings map[string]string
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		bindings, err = s.state.getEndpointBindings(context.Background(), tx, s.appID)
-		return err
-	})
+	bindings, err := s.state.GetApplicationEndpointBindings(context.Background(), s.appID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -414,10 +406,6 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindings(c *tc.C) {
 // TestGetEndpointBindingsReturnsUnset checks that endpoints with an unset
 // space_uuid are included.
 func (s *applicationEndpointStateSuite) TestGetEndpointBindingsReturnsUnset(c *tc.C) {
-	// Arrange: Get DB.
-	db, err := s.state.DB()
-	c.Assert(err, tc.ErrorIsNil)
-
 	// Arrange: create two application endpoints
 	relationName1 := "charmRelation1"
 	relationUUID1 := s.addRelation(c, relationName1)
@@ -429,18 +417,14 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsReturnsUnset(c *t
 	s.addApplicationExtraEndpointNullSpace(c, extraBindingUUID1)
 
 	// Act:
-	var bindings map[string]string
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		bindings, err = s.state.getEndpointBindings(context.Background(), tx, s.appID)
-		return err
-	})
+	bindings, err := s.state.GetApplicationEndpointBindings(context.Background(), s.appID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bindings, tc.DeepEquals, map[string]string{
 		"":            network.AlphaSpaceId,
-		relationName1: "",
-		extraName1:    "",
+		relationName1: network.AlphaSpaceId,
+		extraName1:    network.AlphaSpaceId,
 	})
 }
 
@@ -448,20 +432,12 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsReturnsUnset(c *t
 // are set, the default application bindings is still returned. This is always
 // set.
 func (s *applicationEndpointStateSuite) TestGetEndpointBindingsOnlyDefault(c *tc.C) {
-	// Arrange: Get DB.
-	db, err := s.state.DB()
-	c.Assert(err, tc.ErrorIsNil)
-
 	// Arrange: Set the application default space.
 	spaceUUID := s.addSpace(c, "space")
 	s.setApplicationDefaultSpace(c, spaceUUID)
 
 	// Act:
-	var bindings map[string]string
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		bindings, err = s.state.getEndpointBindings(context.Background(), tx, s.appID)
-		return err
-	})
+	bindings, err := s.state.GetApplicationEndpointBindings(context.Background(), s.appID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -470,15 +446,8 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsOnlyDefault(c *tc
 }
 
 func (s *applicationEndpointStateSuite) TestGetEndpointBindingsApplicationNotFound(c *tc.C) {
-	// Arrange: Get DB.
-	db, err := s.state.DB()
-	c.Assert(err, tc.ErrorIsNil)
-
 	// Act:
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err = s.state.getEndpointBindings(context.Background(), tx, "bad-uuid")
-		return err
-	})
+	_, err := s.state.GetApplicationEndpointBindings(context.Background(), "bad-uuid")
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)

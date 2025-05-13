@@ -39,9 +39,7 @@ type Application interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
 	AllUnits() ([]Unit, error)
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
-	EndpointBindings() (Bindings, error)
 	Endpoints() ([]relation.Endpoint, error)
-	IsRemote() bool
 	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
 	SetConstraints(constraints.Value) error
 	UpdateCharmConfig(charm.Settings) error
@@ -222,10 +220,6 @@ func (a stateApplicationShim) AllUnits() ([]Unit, error) {
 		}
 	}
 	return out, nil
-}
-
-func (a stateApplicationShim) EndpointBindings() (Bindings, error) {
-	return a.Application.EndpointBindings()
 }
 
 func (a stateApplicationShim) SetCharm(

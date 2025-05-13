@@ -12,7 +12,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -224,17 +223,6 @@ type Application interface {
 	// and whether units should upgrade to the charm with that URL even if
 	// they are in an error state.
 	CharmURL() (curl *string, force bool)
-
-	// EndpointBindings returns the Bindings object for this application.
-	EndpointBindings() (Bindings, error)
-}
-
-// Bindings defines a subset of the functionality provided by the
-// state.Bindings type, as required by the application facade. For
-// details on the methods, see the methods on state.Bindings with
-// the same names.
-type Bindings interface {
-	MapWithSpaceNames(network.SpaceInfos) (map[string]string, error)
 }
 
 type Charm interface {

@@ -59,10 +59,10 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *tc.C) {
 			Subordinate: false,
 			EndpointBindings: map[string]string{
 				"":          network.AlphaSpaceId,
-				"endpoint":  "",
-				"extra":     "",
-				"juju-info": "",
-				"misc":      "",
+				"endpoint":  network.AlphaSpaceId,
+				"extra":     network.AlphaSpaceId,
+				"juju-info": network.AlphaSpaceId,
+				"misc":      network.AlphaSpaceId,
 			},
 		},
 	})
@@ -93,10 +93,10 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *tc.C) {
 			Subordinate: false,
 			EndpointBindings: map[string]string{
 				"":          network.AlphaSpaceId,
-				"endpoint":  "",
-				"extra":     "",
-				"juju-info": "",
-				"misc":      "",
+				"endpoint":  network.AlphaSpaceId,
+				"extra":     network.AlphaSpaceId,
+				"juju-info": network.AlphaSpaceId,
+				"misc":      network.AlphaSpaceId,
 			},
 		})
 	}
@@ -137,10 +137,10 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 			Subordinate: false,
 			EndpointBindings: map[string]string{
 				"":          network.AlphaSpaceId,
-				"endpoint":  "",
-				"extra":     "",
-				"misc":      "",
-				"juju-info": "",
+				"endpoint":  network.AlphaSpaceId,
+				"extra":     network.AlphaSpaceId,
+				"misc":      network.AlphaSpaceId,
+				"juju-info": network.AlphaSpaceId,
 			},
 		},
 		{
@@ -157,10 +157,10 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 			Subordinate: false,
 			EndpointBindings: map[string]string{
 				"":          network.AlphaSpaceId,
-				"endpoint":  "",
-				"extra":     "",
-				"misc":      "",
-				"juju-info": "",
+				"endpoint":  network.AlphaSpaceId,
+				"extra":     network.AlphaSpaceId,
+				"misc":      network.AlphaSpaceId,
+				"juju-info": network.AlphaSpaceId,
 			},
 		},
 	}
@@ -389,8 +389,8 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *tc
 				"":          network.AlphaSpaceId,
 				"endpoint":  spaceUUID1,
 				"misc":      spaceUUID2,
-				"extra":     "",
-				"juju-info": "",
+				"extra":     network.AlphaSpaceId,
+				"juju-info": network.AlphaSpaceId,
 			},
 		},
 	})

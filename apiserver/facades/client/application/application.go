@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
@@ -2092,6 +2093,11 @@ func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolve
 }
 
 // ApplicationsInfo returns applications information.
+//
+// TODO (stickupkid/jack-w-shaw): This should be one call to the application
+// service. There is no reason to split all these calls into multiple DB calls.
+// Once application service is refactored to return the merged config, this
+// should be a single call.
 func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (params.ApplicationInfoResults, error) {
 	var result params.ApplicationInfoResults
 	if err := api.checkCanRead(ctx); err != nil {
@@ -2114,39 +2120,42 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 
 		appLife, err := api.applicationService.GetApplicationLife(ctx, tag.Name)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			err = errors.NotFoundf("application %q", tag.Name)
-		}
-		if err != nil {
+			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
+			continue
+		} else if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		details, err := api.getConfig(ctx, params.ApplicationGet{ApplicationName: tag.Name}, describe)
-		if err != nil {
+		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Name)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
+			continue
+		} else if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		app, err := api.backend.Application(tag.Name)
-		if err != nil {
+		bindings, err := api.applicationService.GetApplicationEndpointBindings(ctx, appID)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
+			continue
+		} else if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		bindings, err := app.EndpointBindings()
-		if err != nil {
-			out[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		bindingsMap, err := bindings.MapWithSpaceNames(allSpaceInfosLookup)
+		bindingsMap, err := network.MapBindingsWithSpaceNames(bindings, allSpaceInfosLookup)
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		exposedEndpoints, err := api.applicationService.GetExposedEndpoints(ctx, tag.Name)
-		if err != nil {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
+			continue
+		} else if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -2158,45 +2167,69 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 		}
 
 		isExposed, err := api.applicationService.IsApplicationExposed(ctx, tag.Name)
-		if err != nil {
-			out[i].Error = apiservererrors.ServerError(err)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
 			continue
-		}
-
-		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Name)
-		if err != nil {
+		} else if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		isSubordinate, err := api.applicationService.IsSubordinateApplication(ctx, appID)
-		if err != nil {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
+			continue
+		} else if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
+		}
+
+		var cons constraints.Value
+		if !isSubordinate {
+			cons, err = api.applicationService.GetApplicationConstraints(ctx, appID)
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
+				continue
+			} else if err != nil {
+				out[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
 		}
 
 		origin, err := api.applicationService.GetApplicationCharmOrigin(ctx, tag.Name)
-		if err != nil {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
+			continue
+		} else if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+
+		// If the applications charm origin is from charm-hub, then build the real
+		// channel and send that back.
 		var channel string
-		if origin.Channel != nil {
+		if corecharm.CharmHub.Matches(string(origin.Source)) && origin.Channel != nil {
 			ch := origin.Channel
 			channel = charm.MakePermissiveChannel(ch.Track, string(ch.Risk), ch.Branch).String()
-		} else {
-			channel = details.Channel
+		}
+
+		osType, err := encodeOSType(origin.Platform.OSType)
+		if err != nil {
+			out[i].Error = apiservererrors.ServerError(errors.Trace(err))
+			continue
 		}
 
 		out[i].Result = &params.ApplicationResult{
-			Tag:              tag.String(),
-			Charm:            details.Charm,
-			Base:             details.Base,
+			Tag:   tag.String(),
+			Charm: origin.Name,
+			Base: params.Base{
+				Name:    osType,
+				Channel: origin.Platform.Channel,
+			},
 			Channel:          channel,
-			Constraints:      details.Constraints,
+			Constraints:      cons,
 			Principal:        !isSubordinate,
 			Exposed:          isExposed,
-			Remote:           app.IsRemote(),
 			Life:             string(appLife),
 			EndpointBindings: bindingsMap,
 			ExposedEndpoints: mappedExposedEndpoints,

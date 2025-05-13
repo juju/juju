@@ -458,44 +458,6 @@ func (c *MockApplicationEndpointsCall) DoAndReturn(f func() ([]relation.Endpoint
 	return c
 }
 
-// IsRemote mocks base method.
-func (m *MockApplication) IsRemote() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsRemote")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsRemote indicates an expected call of IsRemote.
-func (mr *MockApplicationMockRecorder) IsRemote() *MockApplicationIsRemoteCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRemote", reflect.TypeOf((*MockApplication)(nil).IsRemote))
-	return &MockApplicationIsRemoteCall{Call: call}
-}
-
-// MockApplicationIsRemoteCall wrap *gomock.Call
-type MockApplicationIsRemoteCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationIsRemoteCall) Return(arg0 bool) *MockApplicationIsRemoteCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationIsRemoteCall) Do(f func() bool) *MockApplicationIsRemoteCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationIsRemoteCall) DoAndReturn(f func() bool) *MockApplicationIsRemoteCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MergeBindings mocks base method.
 func (m *MockApplication) MergeBindings(arg0 *state.Bindings, arg1 bool) error {
 	m.ctrl.T.Helper()

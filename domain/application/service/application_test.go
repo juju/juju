@@ -1030,6 +1030,33 @@ func (s *applicationServiceSuite) TestDecodeRisk(c *tc.C) {
 	}
 }
 
+func (s *applicationServiceSuite) TestGetApplicationEndpointBindingsNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationEndpointBindings(context.Background(), appID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(map[string]string{
+		"foo": "bar",
+	}, nil)
+
+	result, err := s.service.GetApplicationEndpointBindings(context.Background(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, map[string]string{
+		"foo": "bar",
+	})
+}
+
 func (s *applicationServiceSuite) TestGetDeviceConstraintsAppNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
