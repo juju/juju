@@ -87,7 +87,10 @@ func (s *Service) RemoveUnit(
 	// If the unit was the last one on the machine, we need to schedule
 	// a removal job for the machine.
 	if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); err != nil {
-		return "", errors.Errorf("removing machine %q: %w", machineUUID, err)
+		// If the machine fails to be scheduled, then log out an error. The
+		// units have been transitioned to dying and there is no way to
+		// transition them back to alive.
+		s.logger.Errorf(ctx, "failed to schedule removal of machine %q: %v", machineUUID, err)
 	}
 
 	return unitJobUUID, nil
