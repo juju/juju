@@ -53,7 +53,7 @@ func (st *State) EnsureUnitNotAlive(ctx context.Context, uUUID string) error {
 	}
 
 	unitUUID := entityUUID{UUID: uUUID}
-	stmt, err := st.Prepare(`
+	updateUnitStmt, err := st.Prepare(`
 UPDATE unit
 SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
@@ -62,11 +62,53 @@ AND    life_id = 0`, unitUUID)
 		return errors.Errorf("preparing unit life update: %w", err)
 	}
 
+	lastUnitStmt, err := st.Prepare(`
+With machines AS (
+	SELECT    m.uuid AS machine_uuid,
+	          u.uuid AS unit_uuid,
+			  COUNT(u.uuid) AS unit_count
+	FROM      machine AS m
+	JOIN      net_node AS nn ON nn.uuid = m.net_node_uuid
+	LEFT JOIN unit AS u ON u.net_node_uuid = nn.uuid
+	GROUP BY  m.uuid
+)
+SELECT unit_count AS &entityAssoicationCount.count,
+	   machine_uuid AS &entityAssoicationCount.uuid
+FROM   machines
+WHERE  unit_uuid = $entityUUID.uuid;
+	`, unitUUID, entityAssoicationCount{})
+	if err != nil {
+		return errors.Errorf("preparing unit count query: %w", err)
+	}
+
+	updateMachineStmt, err := st.Prepare(`
+UPDATE machine
+SET    life_id = 1
+WHERE  uuid = $entityAssoicationCount.uuid
+AND    life_id = 0`, entityAssoicationCount{})
+	if err != nil {
+		return errors.Errorf("preparing machine life update: %w", err)
+	}
+
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, unitUUID).Run()
-		if err != nil {
+		if err := tx.Query(ctx, updateUnitStmt, unitUUID).Run(); err != nil {
 			return errors.Errorf("advancing unit life: %w", err)
 		}
+
+		var unitCount entityAssoicationCount
+		if err := tx.Query(ctx, lastUnitStmt, unitUUID).Get(&unitCount); errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("getting unit count: %w", err)
+		} else if unitCount.Count != 1 {
+			// The unit is not the last one on the machine.
+			return nil
+		}
+
+		if err := tx.Query(ctx, updateMachineStmt, unitCount).Run(); err != nil {
+			return errors.Errorf("advancing machine life: %w", err)
+		}
+
 		return nil
 	}))
 }
