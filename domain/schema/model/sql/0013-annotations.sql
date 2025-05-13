@@ -41,12 +41,10 @@ CREATE TABLE annotation_unit (
     uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
     value TEXT NOT NULL,
-    PRIMARY KEY (uuid, "key")
-    -- Following needs to be uncommented when we do have the
-    -- annotatables as real domain entities.
-    -- CONSTRAINT          fk_annotation_unit
-    --     FOREIGN KEY     (uuid)
-    --     REFERENCES      unit(uuid)
+    PRIMARY KEY (uuid, "key"),
+    CONSTRAINT fk_annotation_unit
+    FOREIGN KEY (uuid)
+    REFERENCES unit (uuid)
 );
 
 CREATE TABLE annotation_storage_instance (

@@ -10,7 +10,9 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -29,6 +31,12 @@ type UnitState interface {
 	// UnitScheduleRemoval schedules a removal job for the unit with the
 	// input name, qualified with the input force boolean.
 	UnitScheduleRemoval(ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time) error
+
+	// GetUnitLife returns the life of the unit with the input UUID.
+	GetUnitLife(ctx context.Context, unitUUID string) (life.Life, error)
+
+	// DeleteUnit removes a unit from the database completely.
+	DeleteUnit(ctx context.Context, unitUUID string) error
 }
 
 // RemoveUnit checks if a unit with the input name exists.
@@ -112,4 +120,36 @@ func (s *Service) unitScheduleRemoval(
 
 	s.logger.Infof(ctx, "scheduled removal job %q for unit %q", jobUUID, unitUUID)
 	return jobUUID, nil
+}
+
+// processUnitRemovalJob deletes a unit if it is dying.
+// Note that we do not need transactionality here:
+//   - Life can only advance - it cannot become alive if dying or dead.
+func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) error {
+	if job.RemovalType != removal.UnitJob {
+		return errors.Errorf("job type: %q not valid for unit removal", job.RemovalType).Add(
+			removalerrors.RemovalJobTypeNotValid)
+	}
+
+	l, err := s.st.GetUnitLife(ctx, job.EntityUUID)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		// The unit has already been removed.
+		// Indicate success so that this job will be deleted.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting unit %q life: %w", job.EntityUUID, err)
+	}
+
+	if l == life.Alive {
+		return errors.Errorf("unit %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
+	}
+
+	if err := s.st.DeleteUnit(ctx, job.EntityUUID); errors.Is(err, applicationerrors.UnitNotFound) {
+		// The unit has already been removed.
+		// Indicate success so that this job will be deleted.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("deleting unit %q: %w", job.EntityUUID, err)
+	}
+	return nil
 }

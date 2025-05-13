@@ -97,8 +97,7 @@ func (st *State) DeleteJob(ctx context.Context, jUUID string) error {
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, jobUUID).Run()
-		if err != nil {
+		if err := tx.Query(ctx, stmt, jobUUID).Run(); err != nil {
 			return errors.Errorf("deleting removal row: %w", err)
 		}
 		return nil

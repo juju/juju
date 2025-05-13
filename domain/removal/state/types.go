@@ -46,3 +46,9 @@ type entityAssoicationCount struct {
 type entityLife struct {
 	Life life.Life `db:"life_id"`
 }
+
+// unitUUID holds a unit UUID in string form.
+type unitUUID struct {
+	// UUID uniquely identifies a unit.
+	UUID string `db:"unit_uuid"`
+}
