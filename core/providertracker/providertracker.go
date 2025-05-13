@@ -59,6 +59,14 @@ type EphemeralProviderConfig struct {
 	ControllerUUID uuid.UUID
 }
 
+// EphemeralProviderConfigGetter is an interface for late binding of the
+// ephemeral provider config till the moment that it is required.
+type EphemeralProviderConfigGetter interface {
+	// GetEphemeralProviderConfig returns the ephemeral provider config for the
+	// context.
+	GetEphemeralProviderConfig(ctx context.Context) (EphemeralProviderConfig, error)
+}
+
 // ProviderFactory is an interface that provides a way to get a provider
 // for a given model namespace. It will continue to be updated in the background
 // for as long as the Worker continues to run.
@@ -102,8 +110,14 @@ func ProviderRunner[T any](providerFactory ProviderFactory, namespace string) fu
 // but instead created and discarded. Credential invalidation is not enforced
 // during the call to the provider. For that reason alone, a closure is returned
 // and the provider is created and discarded on each call.
-func EphemeralProviderRunnerFromConfig[T any](providerFactory ProviderFactory, config EphemeralProviderConfig) func(context.Context, func(context.Context, T) error) error {
+func EphemeralProviderRunnerFromConfig[T any](providerFactory ProviderFactory, getter EphemeralProviderConfigGetter) func(context.Context, func(context.Context, T) error) error {
 	return func(ctx context.Context, fn func(context.Context, T) error) error {
+		config, err := getter.GetEphemeralProviderConfig(ctx)
+		if err != nil {
+			return errors.Errorf(
+				"getting epehemeral provider config: %w", err,
+			)
+		}
 		provider, err := providerFactory.EphemeralProviderFromConfig(ctx, config)
 		if err != nil {
 			return errors.Capture(err)

@@ -22,7 +22,19 @@ type providerSuite struct {
 	providerFactory *MockProviderFactory
 }
 
+type ephemeralProviderConfigGetter struct {
+	EphemeralProviderConfig
+}
+
 var _ = tc.Suite(&providerSuite{})
+
+// GetEphemeralProviderConfig returns the ephemeral provider config set on this
+// getter. This func implements the [EphemeralProviderConfigGetter] interface.
+func (e *ephemeralProviderConfigGetter) GetEphemeralProviderConfig(
+	_ context.Context,
+) (EphemeralProviderConfig, error) {
+	return e.EphemeralProviderConfig, nil
+}
 
 func (s *providerSuite) TestProviderRunner(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -63,13 +75,15 @@ func (s *providerSuite) TestProviderRunnerIsNotSubsetType(c *tc.C) {
 func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := EphemeralProviderConfig{
-		ControllerUUID: uuid.MustNewUUID(),
+	configGetter := ephemeralProviderConfigGetter{
+		EphemeralProviderConfig: EphemeralProviderConfig{
+			ControllerUUID: uuid.MustNewUUID(),
+		},
 	}
 
-	s.providerFactory.EXPECT().EphemeralProviderFromConfig(gomock.Any(), config).Return(s.provider, nil)
+	s.providerFactory.EXPECT().EphemeralProviderFromConfig(gomock.Any(), configGetter.EphemeralProviderConfig).Return(s.provider, nil)
 
-	runner := EphemeralProviderRunnerFromConfig[Provider](s.providerFactory, config)
+	runner := EphemeralProviderRunnerFromConfig[Provider](s.providerFactory, &configGetter)
 
 	var provider Provider
 	err := runner(context.Background(), func(ctx context.Context, p Provider) error {
@@ -83,17 +97,19 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *tc.C) {
 func (s *providerSuite) TestEphemeralProviderRunnerFromConfigSubsetType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := EphemeralProviderConfig{
-		ControllerUUID: uuid.MustNewUUID(),
+	configGetter := ephemeralProviderConfigGetter{
+		EphemeralProviderConfig: EphemeralProviderConfig{
+			ControllerUUID: uuid.MustNewUUID(),
+		},
 	}
 
 	fooProvider := &fooProvider{
 		Provider: s.provider,
 	}
 
-	s.providerFactory.EXPECT().EphemeralProviderFromConfig(gomock.Any(), config).Return(fooProvider, nil)
+	s.providerFactory.EXPECT().EphemeralProviderFromConfig(gomock.Any(), configGetter.EphemeralProviderConfig).Return(fooProvider, nil)
 
-	runner := EphemeralProviderRunnerFromConfig[FooProvider](s.providerFactory, config)
+	runner := EphemeralProviderRunnerFromConfig[FooProvider](s.providerFactory, &configGetter)
 
 	var provider FooProvider
 	err := runner(context.Background(), func(ctx context.Context, p FooProvider) error {
@@ -107,17 +123,19 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfigSubsetType(c *tc.C)
 func (s *providerSuite) TestEphemeralProviderRunnerFromConfigIsNotSubsetType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := EphemeralProviderConfig{
-		ControllerUUID: uuid.MustNewUUID(),
+	configGetter := ephemeralProviderConfigGetter{
+		EphemeralProviderConfig: EphemeralProviderConfig{
+			ControllerUUID: uuid.MustNewUUID(),
+		},
 	}
 
 	fooProvider := &fooProvider{
 		Provider: s.provider,
 	}
 
-	s.providerFactory.EXPECT().EphemeralProviderFromConfig(gomock.Any(), config).Return(fooProvider, nil)
+	s.providerFactory.EXPECT().EphemeralProviderFromConfig(gomock.Any(), configGetter.EphemeralProviderConfig).Return(fooProvider, nil)
 
-	runner := EphemeralProviderRunnerFromConfig[BarProvider](s.providerFactory, config)
+	runner := EphemeralProviderRunnerFromConfig[BarProvider](s.providerFactory, &configGetter)
 	err := runner(context.Background(), func(ctx context.Context, p BarProvider) error {
 		c.Fail()
 		return nil
