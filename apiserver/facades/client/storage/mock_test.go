@@ -46,7 +46,6 @@ type mockStorageAccessor struct {
 	machineFilesystemAttachments        func(machine names.MachineTag) ([]state.FilesystemAttachment, error)
 	filesystemAttachments               func(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error)
 	allFilesystems                      func() ([]state.Filesystem, error)
-	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
 	destroyStorageInstance              func(names.StorageTag, bool, bool) error
 	releaseStorageInstance              func(names.StorageTag, bool, bool) error
 	attachStorage                       func(names.StorageTag, names.UnitTag) error
@@ -129,10 +128,6 @@ func (st *mockStorageAccessor) MachineFilesystemAttachments(machine names.Machin
 
 func (st *mockStorageAccessor) Filesystem(tag names.FilesystemTag) (state.Filesystem, error) {
 	return st.filesystem(tag)
-}
-
-func (st *mockStorageAccessor) AddStorageForUnit(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
-	return st.addStorageForUnit(u, name, cons)
 }
 
 func (st *mockStorageAccessor) AttachStorage(storage names.StorageTag, unit names.UnitTag) error {

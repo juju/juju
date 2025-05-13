@@ -4,18 +4,21 @@
 package storage_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	blockcommand "github.com/juju/juju/domain/blockcommand"
+	corestorage "github.com/juju/juju/core/storage"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type storageAddSuite struct {
@@ -51,12 +54,14 @@ func (s *storageAddSuite) TestStorageAddEmpty(c *tc.C) {
 func (s *storageAddSuite) TestStorageAddUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.applicationService.EXPECT().AddStorageForUnit(
+		gomock.Any(), corestorage.Name("data"), coreunit.Name(s.unitTag.Id()), storage.Directive{})
+
 	args := params.StorageAddParams{
 		UnitTag:     s.unitTag.String(),
 		StorageName: "data",
 	}
 	s.assertStorageAddedNoErrors(c, args)
-	s.assertCalls(c, []string{addStorageForUnitCall})
 }
 
 func (s *storageAddSuite) TestStorageAddUnitBlocked(c *tc.C) {
@@ -70,17 +75,6 @@ func (s *storageAddSuite) TestStorageAddUnitBlocked(c *tc.C) {
 	}
 	_, err := s.api.AddToUnit(c.Context(), params.StoragesAddParams{Storages: []params.StorageAddParams{args}})
 	s.assertBlocked(c, err, "TestStorageAddUnitBlocked")
-}
-
-func (s *storageAddSuite) TestStorageAddUnitDestroyIgnored(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	args := params.StorageAddParams{
-		UnitTag:     s.unitTag.String(),
-		StorageName: "data",
-	}
-	s.assertStorageAddedNoErrors(c, args)
-	s.assertCalls(c, []string{addStorageForUnitCall})
 }
 
 func (s *storageAddSuite) TestStorageAddUnitInvalidName(c *tc.C) {
@@ -103,10 +97,9 @@ func (s *storageAddSuite) TestStorageAddUnitStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	msg := "add test directive error"
-	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
-		s.stub.AddCall(addStorageForUnitCall)
-		return nil, errors.New(msg)
-	}
+	s.applicationService.EXPECT().AddStorageForUnit(
+		gomock.Any(), corestorage.Name("data"), coreunit.Name(s.unitTag.Id()), storage.Directive{}).
+		Return(nil, errors.New(msg))
 
 	args := params.StorageAddParams{
 		UnitTag:     s.unitTag.String(),
@@ -116,8 +109,6 @@ func (s *storageAddSuite) TestStorageAddUnitStateError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, 1)
 	c.Assert(failures.Results[0].Error.Error(), tc.Matches, fmt.Sprintf(".*%v.*", msg))
-
-	s.assertCalls(c, []string{addStorageForUnitCall})
 }
 
 func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *tc.C) {
@@ -133,14 +124,15 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *tc.C) {
 	wrong1 := params.StorageAddParams{
 		UnitTag: s.unitTag.String(),
 	}
-	msg := "storage name missing error"
-	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
-		s.stub.AddCall(addStorageForUnitCall)
-		if name == "" {
-			return nil, errors.New(msg)
-		}
-		return nil, nil
-	}
+	msg := "storage name missing"
+	s.applicationService.EXPECT().AddStorageForUnit(
+		gomock.Any(), corestorage.Name("data"), coreunit.Name(s.unitTag.Id()), storage.Directive{}).DoAndReturn(
+		func(_ context.Context, name corestorage.Name, unit coreunit.Name, directive storage.Directive) ([]corestorage.ID, error) {
+			if name == "" {
+				return nil, errors.New(msg)
+			}
+			return nil, nil
+		})
 	failures, err := s.api.AddToUnit(c.Context(), params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
 			wrong0,
@@ -153,17 +145,14 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *tc.C) {
 	c.Assert(failures.Results[0].Error.Error(), tc.Matches, ".*is not a valid tag.*")
 	c.Assert(failures.Results[1].Error, tc.IsNil)
 	c.Assert(failures.Results[2].Error.Error(), tc.Matches, fmt.Sprintf(".*%v.*", msg))
-
-	s.assertCalls(c, []string{addStorageForUnitCall, addStorageForUnitCall})
 }
 
 func (s *storageAddSuite) TestStorageAddUnitTags(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tags := []names.StorageTag{names.NewStorageTag("foo/0"), names.NewStorageTag("foo/1")}
-	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
-		return tags, nil
-	}
+	s.applicationService.EXPECT().AddStorageForUnit(
+		gomock.Any(), corestorage.Name("data"), coreunit.Name(s.unitTag.Id()), storage.Directive{}).
+		Return([]corestorage.ID{"foo/0", "foo/1"}, nil)
 
 	args := params.StorageAddParams{
 		UnitTag:     s.unitTag.String(),
@@ -181,11 +170,9 @@ func (s *storageAddSuite) TestStorageAddUnitTags(c *tc.C) {
 func (s *storageAddSuite) TestStorageAddUnitNotFoundErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	msg := "sanity"
-	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
-		s.stub.AddCall(addStorageForUnitCall)
-		return nil, errors.NotFoundf(msg)
-	}
+	s.applicationService.EXPECT().AddStorageForUnit(
+		gomock.Any(), corestorage.Name("data"), coreunit.Name(s.unitTag.Id()), storage.Directive{}).
+		Return(nil, storageerrors.StorageNotFound)
 
 	args := params.StorageAddParams{
 		UnitTag:     s.unitTag.String(),
@@ -194,7 +181,7 @@ func (s *storageAddSuite) TestStorageAddUnitNotFoundErr(c *tc.C) {
 	failures, err := s.api.AddToUnit(c.Context(), params.StoragesAddParams{[]params.StorageAddParams{args}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, 1)
-	c.Assert(failures.Results[0].Error.Error(), tc.Matches, "sanity not found")
+	c.Assert(failures.Results[0].Error.Error(), tc.Matches, "storage data not found")
 	c.Assert(failures.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 

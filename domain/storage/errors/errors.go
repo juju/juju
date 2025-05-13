@@ -32,6 +32,10 @@ const (
 	// on does not exist.
 	StorageNotFound = errors.ConstError("storage not found")
 
+	// StorageAttachmentNotFound describes an error that occurs when the storage attachment
+	// being operated on does not exist.
+	StorageAttachmentNotFound = errors.ConstError("storage attachment not found")
+
 	// FilesystemNotFound describes an error that occurs when the filesystem being operated
 	// on does not exist.
 	FilesystemNotFound = errors.ConstError("filesystem not found")
