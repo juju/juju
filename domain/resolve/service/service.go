@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -70,7 +71,13 @@ func NewService(st State) *Service {
 // with the given name, an error satisfying [resolveerrors.UnitNotFound] is returned.
 // if no resolved marker is found for the unit, an error satisfying
 // [resolveerrors.UnitNotResolved] is returned.
-func (s *Service) UnitResolveMode(ctx context.Context, unitName coreunit.Name) (resolve.ResolveMode, error) {
+func (s *Service) UnitResolveMode(ctx context.Context, unitName coreunit.Name) (_ resolve.ResolveMode, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := unitName.Validate(); err != nil {
 		return "", err
 	}
@@ -85,7 +92,13 @@ func (s *Service) UnitResolveMode(ctx context.Context, unitName coreunit.Name) (
 // satisfying [resolveerrors.UnitNotFound] is returned. If the unit is not in
 // error state, an error satisfying [resolveerrors.UnitNotInErrorState] is
 // returned.
-func (s *Service) ResolveUnit(ctx context.Context, unitName coreunit.Name, mode resolve.ResolveMode) error {
+func (s *Service) ResolveUnit(ctx context.Context, unitName coreunit.Name, mode resolve.ResolveMode) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := unitName.Validate(); err != nil {
 		return err
 	}
@@ -97,13 +110,24 @@ func (s *Service) ResolveUnit(ctx context.Context, unitName coreunit.Name, mode 
 }
 
 // ResolveAllUnits marks all units as resolved.
-func (s *Service) ResolveAllUnits(ctx context.Context, mode resolve.ResolveMode) error {
+func (s *Service) ResolveAllUnits(ctx context.Context, mode resolve.ResolveMode) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	return s.st.ResolveAllUnits(ctx, mode)
 }
 
 // ClearResolved removes any resolved marker from the unit. If the unit is not
 // found, an error satisfying [resolveerrors.UnitNotFound] is returned.
-func (s *Service) ClearResolved(ctx context.Context, unitName coreunit.Name) error {
+func (s *Service) ClearResolved(ctx context.Context, unitName coreunit.Name) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := unitName.Validate(); err != nil {
 		return err
 	}
@@ -135,7 +159,13 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 //
 // If the unit does not exist an error satisfying [resolveerrors.UnitNotFound]
 // will be returned.
-func (s *WatchableService) WatchUnitResolveMode(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchUnitResolveMode(ctx context.Context, unitName coreunit.Name) (_ watcher.NotifyWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := unitName.Validate(); err != nil {
 		return nil, err
 	}

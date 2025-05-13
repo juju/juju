@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
@@ -44,7 +45,12 @@ type Service struct {
 }
 
 // GetAllJobs returns all removal jobs.
-func (s *Service) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
+func (s *Service) GetAllJobs(ctx context.Context) (_ []removal.Job, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	jobs, err := s.st.GetAllJobs(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -55,8 +61,12 @@ func (s *Service) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 // ExecuteJob runs the appropriate removal logic for the input job.
 // If the job is determined to have run successfully, we ensure that
 // no removal job with the same UUID exists in the database.
-func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
-	var err error
+func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 
 	switch job.RemovalType {
 	case removal.RelationJob:

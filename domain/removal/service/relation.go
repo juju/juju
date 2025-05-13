@@ -8,6 +8,7 @@ import (
 	"time"
 
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
@@ -59,7 +60,13 @@ type RelationState interface {
 // The UUID for the scheduled removal job is returned.
 // [relationerrors.RelationNotFound] is returned if no such relation exists.
 func (s *Service) RemoveRelation(
-	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration) (removal.UUID, error) {
+	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration) (_ removal.UUID, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	exists, err := s.st.RelationExists(ctx, relUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if relation %q exists: %w", relUUID, err)
