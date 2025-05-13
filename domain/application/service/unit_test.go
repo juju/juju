@@ -965,3 +965,33 @@ func (s *unitServiceSuite) TestGetPrivateAddressMatchingAddress(c *tc.C) {
 	// be returned.
 	c.Check(addrs, tc.DeepEquals, matchingScopeAddrs[1])
 }
+
+func (s *unitServiceSuite) TestGetUnitSubordinates(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	names := []coreunit.Name{"sub/667"}
+	s.state.EXPECT().GetUnitSubordinates(gomock.Any(), unitName).Return(names, nil)
+
+	foundNames, err := s.service.GetUnitSubordinates(context.Background(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(foundNames, tc.DeepEquals, names)
+}
+
+func (s *unitServiceSuite) TestGetUnitSubordinatesUnitNameNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetUnitSubordinates(context.Background(), "bad-name")
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestGetUnitSubordinatesError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	boom := errors.New("boom")
+	s.state.EXPECT().GetUnitSubordinates(gomock.Any(), unitName).Return(nil, boom)
+
+	_, err := s.service.GetUnitSubordinates(context.Background(), unitName)
+	c.Assert(err, tc.ErrorIs, boom)
+}

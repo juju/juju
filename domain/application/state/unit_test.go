@@ -1817,6 +1817,44 @@ func (s *unitStateSubordinateSuite) TestGetUnitPrincipalNoUnitExists(c *tc.C) {
 	c.Check(ok, tc.IsFalse)
 }
 
+func (s *unitStateSubordinateSuite) TestGetUnitSubordinates(c *tc.C) {
+	principalAppID := s.createApplication(c, "principal", life.Alive)
+	subAppID1 := s.createSubordinateApplication(c, "sub1", life.Alive)
+	subAppID2 := s.createSubordinateApplication(c, "sub2", life.Alive)
+	principalName := coreunittesting.GenNewName(c, "principal/0")
+	subName1 := coreunittesting.GenNewName(c, "sub1/0")
+	subName2 := coreunittesting.GenNewName(c, "sub2/0")
+	subName3 := coreunittesting.GenNewName(c, "sub2/1")
+	principalUnitUUID := s.addUnit(c, principalName, principalAppID)
+	subUnitUUID1 := s.addUnit(c, subName1, subAppID1)
+	subUnitUUID2 := s.addUnit(c, subName2, subAppID2)
+	subUnitUUID3 := s.addUnit(c, subName3, subAppID2)
+	s.addUnitPrincipal(c, principalUnitUUID, subUnitUUID1)
+	s.addUnitPrincipal(c, principalUnitUUID, subUnitUUID2)
+	s.addUnitPrincipal(c, principalUnitUUID, subUnitUUID3)
+
+	names, err := s.state.GetUnitSubordinates(context.Background(), principalName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.SameContents, []coreunit.Name{subName1, subName2, subName3})
+}
+
+func (s *unitStateSubordinateSuite) TestGetUnitSubordinatesEmpty(c *tc.C) {
+	principalAppID := s.createApplication(c, "principal", life.Alive)
+	principalName := coreunittesting.GenNewName(c, "principal/0")
+	s.addUnit(c, principalName, principalAppID)
+
+	names, err := s.state.GetUnitSubordinates(context.Background(), principalName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.HasLen, 0)
+}
+
+func (s *unitStateSubordinateSuite) TestGetUnitSubordinatesNotFound(c *tc.C) {
+	principalName := coreunittesting.GenNewName(c, "principal/0")
+
+	_, err := s.state.GetUnitSubordinates(context.Background(), principalName)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *unitStateSubordinateSuite) assertUnitMachinesMatch(c *tc.C, unit1, unit2 coreunit.Name) {
 	m1 := s.getUnitMachine(c, unit1)
 	m2 := s.getUnitMachine(c, unit2)

@@ -16,10 +16,8 @@ import (
 	"github.com/juju/names/v6"
 	jujutxn "github.com/juju/txn/v3"
 
-	"github.com/juju/juju/core/constraints"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
 	internalpassword "github.com/juju/juju/internal/password"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -81,11 +79,6 @@ type modelDoc struct {
 	ControllerUUID string        `bson:"controller-uuid"`
 	MigrationMode  MigrationMode `bson:"migration-mode"`
 
-	// EnvironVersion is the version of the Environ. As providers
-	// evolve, cloud resource representations may change; the environ
-	// version tracks the current version of that.
-	EnvironVersion int `bson:"environ-version"`
-
 	// Cloud is the name of the cloud to which the model is deployed.
 	Cloud string `bson:"cloud"`
 
@@ -97,12 +90,6 @@ type modelDoc struct {
 	// for managing cloud resources for this model. This will be empty
 	// for clouds that do not require credentials.
 	CloudCredential string `bson:"cloud-credential,omitempty"`
-
-	// InvalidCredential is used to indicate if the model's credential is valid.
-	InvalidCredential bool `bson:"invalid-credential,omitempty"`
-
-	// InvalidCredentialReason is the reason why a model's credential is invalid.
-	InvalidCredentialReason string `bson:"invalid-credential-reason,omitempty"`
 
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
@@ -196,6 +183,10 @@ func (st *State) ModelExists(uuid string) (bool, error) {
 
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
+	UUID coremodel.UUID
+
+	Name string
+
 	// Type specifies the general type of the model (IAAS or CAAS).
 	Type ModelType
 
@@ -211,24 +202,11 @@ type ModelArgs struct {
 	// empty for clouds that do not require credentials.
 	CloudCredential names.CloudCredentialTag
 
-	// Config is the model config.
-	//
-	// Deprecated. ModelConfig is now handled by the model config domain.
-	// Has values necessary for creating a model, e.g. name and uuid,
-	// however will not be used to set model config in settingsC.
-	Config *config.Config
-
-	// Constraints contains the initial constraints for the model.
-	Constraints constraints.Value
-
 	// Owner is the user that owns the model.
 	Owner names.UserTag
 
 	// MigrationMode is the initial migration mode of the model.
 	MigrationMode MigrationMode
-
-	// EnvironVersion is the initial version of the Environ for the model.
-	EnvironVersion int
 
 	// PasswordHash is used by the caas model operator.
 	PasswordHash string
@@ -238,12 +216,6 @@ type ModelArgs struct {
 func (m ModelArgs) Validate() error {
 	if m.Type == modelTypeNone {
 		return errors.NotValidf("empty Type")
-	}
-	if m.Config == nil {
-		return errors.NotValidf("nil Config")
-	}
-	if !names.IsValidCloud(m.CloudName) {
-		return errors.NotValidf("Cloud Name %q", m.CloudName)
 	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
@@ -289,7 +261,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	// We no longer validate args.CloudCredential here as credential
 	// management is moved to domain/credential.
 
-	uuid := args.Config.UUID()
+	uuid := args.UUID.String()
 	session := st.session.Copy()
 	newSt, err := newState(
 		st.controllerTag,
@@ -321,19 +293,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 
 	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
-		// Check that the cloud exists.
-		// TODO(wallyworld) - this can't yet be tested since we check that the
-		// model cloud is the same as the controller cloud, and hooks can't be
-		// used because a new state is created.
-		//if _, err := newSt.Cloud(args.CloudName); err != nil {
-		//	return nil, nil, errors.Trace(err)
-		//}
-
-		// We have a  unique key restriction on the "owner" and "name" fields,
-		// which will cause the insert to fail if there is another record with
-		// the same "owner" and "name" in the collection. If the txn is
-		// aborted, check if it is due to the unique key restriction.
-		name := args.Config.Name()
+		name := args.Name
 		models, closer := st.db().GetCollection(modelsC)
 		defer closer()
 		modelCount, countErr := models.Find(bson.D{
@@ -516,17 +476,6 @@ func (m *Model) Owner() names.UserTag {
 	return names.NewUserTag(m.doc.Owner)
 }
 
-// ModelStatusInvalidCredential returns the model status for an invalid credential.
-func ModelStatusInvalidCredential(reason string) status.StatusInfo {
-	return status.StatusInfo{
-		Status:  status.Suspended,
-		Message: "suspended since cloud credential is not valid",
-		Data: map[string]interface{}{
-			"reason": reason,
-		},
-	}
-}
-
 // localID returns the local id value by stripping off the model uuid prefix
 // if it is there.
 func (m *Model) localID(id string) string {
@@ -570,15 +519,6 @@ func (m *Model) LatestToolsVersion() semversion.Number {
 		return semversion.Zero
 	}
 	return v
-}
-
-// EnvironVersion is the version of the model's environ -- the related
-// cloud provider resources. The environ version is used by the controller
-// to identify environ/provider upgrade steps to run for a model's environ
-// after the controller is upgraded, or the model is migrated to another
-// controller.
-func (m *Model) EnvironVersion() int {
-	return m.doc.EnvironVersion
 }
 
 // globalKey returns the global database key for the model.
@@ -1200,7 +1140,6 @@ func createModelOp(
 	name, uuid, controllerUUID, cloudName, cloudRegion, passwordHash string,
 	cloudCredential names.CloudCredentialTag,
 	migrationMode MigrationMode,
-	environVersion int,
 ) txn.Op {
 	doc := &modelDoc{
 		Type:            modelType,
@@ -1210,7 +1149,6 @@ func createModelOp(
 		Owner:           owner.Id(),
 		ControllerUUID:  controllerUUID,
 		MigrationMode:   migrationMode,
-		EnvironVersion:  environVersion,
 		Cloud:           cloudName,
 		CloudRegion:     cloudRegion,
 		CloudCredential: cloudCredential.Id(),

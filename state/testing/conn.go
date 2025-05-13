@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/testing"
@@ -60,10 +61,11 @@ func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 		Clock:            args.Clock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
+			Name:        args.InitialConfig.Name(),
+			UUID:        coremodel.UUID(args.InitialConfig.UUID()),
 			Type:        modelType,
 			CloudName:   "dummy",
 			CloudRegion: "dummy-region",
-			Config:      args.InitialConfig,
 			Owner:       args.Owner,
 		},
 		ControllerInheritedConfig: args.ControllerInheritedConfig,

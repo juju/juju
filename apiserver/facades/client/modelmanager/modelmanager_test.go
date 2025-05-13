@@ -128,16 +128,6 @@ func (s *modelManagerSuite) SetUpTest(c *tc.C) {
 			Status: status.Available,
 			Since:  &time.Time{},
 		},
-		users: []*mockModelUser{{
-			userName: "admin",
-			access:   permission.AdminAccess,
-		}, {
-			userName: "add-model",
-			access:   permission.AdminAccess,
-		}, {
-			userName: "otheruser",
-			access:   permission.WriteAccess,
-		}},
 	}
 
 	s.st = &mockState{
@@ -151,18 +141,7 @@ func (s *modelManagerSuite) SetUpTest(c *tc.C) {
 				Status: status.Available,
 				Since:  &time.Time{},
 			},
-			users: []*mockModelUser{{
-				userName: "admin",
-				access:   permission.AdminAccess,
-			}, {
-				userName: "add-model",
-				access:   permission.AdminAccess,
-			}, {
-				userName: "otheruser",
-				access:   permission.WriteAccess,
-			}},
 		},
-		modelConfig: coretesting.ModelConfig(c),
 	}
 	s.ctlrSt = &mockState{
 		model:           s.st.model,
@@ -181,15 +160,7 @@ func (s *modelManagerSuite) SetUpTest(c *tc.C) {
 				Status: status.Available,
 				Since:  &time.Time{},
 			},
-			users: []*mockModelUser{{
-				userName: "admin",
-				access:   permission.AdminAccess,
-			}, {
-				userName: "add-model",
-				access:   permission.AdminAccess,
-			}},
 		},
-		modelConfig: coretesting.ModelConfig(c),
 	}
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
@@ -276,6 +247,15 @@ func (s *modelManagerSuite) setAPIUser(c *tc.C, user names.UserTag) {
 	)
 }
 
+// generateModelUUIDAndTag generates a model UUID and tag for testing. This is
+// a simple convenience function to avoid having to first generate a model uuid
+// then cast it into a tag. This function does not setup any preconditions in
+// testing states.
+func generateModelUUIDAndTag(c *tc.C) (coremodel.UUID, names.ModelTag) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	return modelUUID, names.NewModelTag(modelUUID.String())
+}
+
 // expectCreateModel expects all the calls to the services made during model
 // creation. It generates the calls based off the modelCreateArgs.
 func (s *modelManagerSuite) expectCreateModel(
@@ -345,10 +325,6 @@ func (s *modelManagerSuite) expectCreateModel(
 	modelConfig["uuid"] = modelUUID
 	modelConfig["name"] = modelCreateArgs.Name
 	modelConfig["type"] = expectedCloudName
-
-	cfg, err := config.New(config.NoDefaults, modelConfig)
-	c.Assert(err, tc.ErrorIsNil)
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
 	// Called as part of getModelInfo which returns information to the user
 	// about the newly created model.
@@ -846,11 +822,11 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.st.SetErrors(errors.NotFoundf("boom"))
-	tag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f000")
-	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: tag.String()}}}
+	_, modelTag := generateModelUUIDAndTag(c)
+	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: modelTag.String()}}}
 	results := s.api.DumpModels(context.Background(), models)
 	s.st.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "GetBackend", Args: []interface{}{tag.Id()}},
+		{FuncName: "GetBackend", Args: []interface{}{modelTag.Id()}},
 	})
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
@@ -863,7 +839,8 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *tc.C) {
 func (s *modelManagerSuite) TestDumpModelUsers(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: s.st.ModelTag().String()}}}
+	_, modelTag := generateModelUUIDAndTag(c)
+	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: modelTag.String()}}}
 	for _, user := range []names.UserTag{
 		names.NewUserTag("otheruser"),
 		names.NewUserTag("unknown"),
@@ -897,13 +874,13 @@ func (s *modelManagerSuite) TestUpdatedModel(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	as := s.accessService.EXPECT()
-	modelUUID := modeltesting.GenModelUUID(c).String()
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
 	testUser := names.NewUserTag("foobar")
 	updateArgs := access.UpdatePermissionArgs{
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Model,
-				Key:        modelUUID,
+				Key:        modelUUID.String(),
 			},
 			Access: permission.WriteAccess,
 		},
@@ -920,7 +897,7 @@ func (s *modelManagerSuite) TestUpdatedModel(c *tc.C) {
 				UserTag:  testUser.String(),
 				Action:   params.GrantModelAccess,
 				Access:   params.ModelWriteAccess,
-				ModelTag: names.NewModelTag(modelUUID).String(),
+				ModelTag: modelTag.String(),
 			},
 		}}
 
@@ -1066,7 +1043,6 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	modelConfig["name"] = modelCreateArgs.Name
 	modelConfig["type"] = "dummy"
 
-	cfg, err := config.New(config.NoDefaults, modelConfig)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Expect call to get the model domain services
@@ -1091,7 +1067,6 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 	// Expect calls to functions of the model services.
 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	modelConfigService.EXPECT().SetModelConfig(gomock.Any(), gomock.Any())
-	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
 	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
 		Status: status.Active,
@@ -1188,9 +1163,7 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	defer newState.Release()
 
-	newModel, err := newState.Model()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(newModel.Owner(), tc.Equals, owner)
 }
 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *tc.C) {
@@ -1631,52 +1604,28 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *tc.C) {
 	// c.Assert(info.ControllerAlias, tc.Equals, "target")
 }
 
-func (s *modelManagerSuite) TestModelStatus(c *tc.C) {
-	defer s.setUpAPI(c).Finish()
-
-	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(s.domainServices, nil).AnyTimes()
-	s.domainServices.EXPECT().Machine().Return(s.machineService).AnyTimes()
-	s.modelStatusAPI.EXPECT().ModelStatus(gomock.Any(), params.Entities{
-		Entities: []params.Entity{
-			{Tag: s.st.ModelTag().String()},
-		},
-	}).Return(params.ModelStatusResults{
-		Results: []params.ModelStatus{
-			{ModelTag: s.st.ModelTag().String()},
-		},
-	}, nil)
-
-	results, err := s.api.ModelStatus(context.Background(), params.Entities{
-		Entities: []params.Entity{
-			{Tag: s.st.ModelTag().String()},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.ModelStatusResults{
-		Results: []params.ModelStatus{
-			{ModelTag: s.st.ModelTag().String()},
-		},
-	})
-}
-
 func (s *modelManagerSuite) TestChangeModelCredential(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar")
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
 	s.modelService.EXPECT().UpdateCredential(
 		gomock.Any(),
-		coremodel.UUID(s.st.ModelTag().Id()),
+		modelUUID,
 		credential.KeyFromTag(credentialTag),
 	).Return(nil)
 	results, err := s.api.ChangeModelCredential(context.Background(), params.ChangeModelCredentialsParams{
 		Models: []params.ChangeModelCredentialParams{
-			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag.String()},
+			{
+				ModelTag:           modelTag.String(),
+				CloudCredentialTag: credentialTag.String(),
+			},
 		},
 	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
 }
 
 func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *tc.C) {
@@ -1685,29 +1634,33 @@ func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *tc.C) 
 		Return("", blockcommanderrors.NotFound).AnyTimes()
 
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar")
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
 	s.modelService.EXPECT().UpdateCredential(
 		gomock.Any(),
-		coremodel.UUID(s.st.ModelTag().Id()),
+		modelUUID,
 		credential.KeyFromTag(credentialTag),
 	).Return(nil)
 	// Check that we don't err out immediately if a model errs.
 	results, err := s.api.ChangeModelCredential(context.Background(), params.ChangeModelCredentialsParams{
 		Models: []params.ChangeModelCredentialParams{
 			{ModelTag: "bad-model-tag"},
-			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag.String()},
+			{
+				ModelTag:           modelTag.String(),
+				CloudCredentialTag: credentialTag.String(),
+			},
 		},
 	})
 
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results, tc.HasLen, 2)
-	c.Assert(results.Results[0].Error, tc.ErrorMatches, `"bad-model-tag" is not a valid tag`)
-	c.Assert(results.Results[1].Error, tc.IsNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 2)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, `"bad-model-tag" is not a valid tag`)
+	c.Check(results.Results[1].Error, tc.IsNil)
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
 	results, err = s.api.ChangeModelCredential(context.Background(), params.ChangeModelCredentialsParams{
 		Models: []params.ChangeModelCredentialParams{
-			{ModelTag: s.st.ModelTag().String()},
-			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: "bad-credential-tag"},
+			{ModelTag: modelTag.String()},
+			{ModelTag: modelTag.String(), CloudCredentialTag: "bad-credential-tag"},
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1719,13 +1672,14 @@ func (s *modelManagerSuite) TestChangeModelCredentialUnauthorisedUser(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
+	_, modelTag := generateModelUUIDAndTag(c)
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 	apiUser := names.NewUserTag("bob@remote")
 	s.setAPIUser(c, apiUser)
 
 	results, err := s.api.ChangeModelCredential(context.Background(), params.ChangeModelCredentialsParams{
 		Models: []params.ChangeModelCredentialParams{
-			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
+			{ModelTag: modelTag.String(), CloudCredentialTag: credentialTag},
 		},
 	})
 

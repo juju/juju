@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
@@ -54,21 +55,15 @@ func (ctrl *Controller) Import(
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Create the model.
-	cfg, err := config.New(config.NoDefaults, model.Config())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	args := ModelArgs{
-		Type:           modelType,
-		CloudName:      model.Cloud(),
-		CloudRegion:    model.CloudRegion(),
-		Config:         cfg,
-		Owner:          names.NewUserTag(model.Owner()),
-		MigrationMode:  MigrationModeImporting,
-		EnvironVersion: model.EnvironVersion(),
-		PasswordHash:   model.PasswordHash(),
+		Name:          model.Config()[config.NameKey].(string),
+		UUID:          coremodel.UUID(modelUUID),
+		Type:          modelType,
+		CloudName:     model.Cloud(),
+		CloudRegion:   model.CloudRegion(),
+		Owner:         names.NewUserTag(model.Owner()),
+		MigrationMode: MigrationModeImporting,
+		PasswordHash:  model.PasswordHash(),
 	}
 	if creds := model.CloudCredential(); creds != nil {
 		// Need to add credential or make sure an existing credential

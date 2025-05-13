@@ -63,7 +63,7 @@ require (
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mgo/v3 v3.0.4
 	github.com/juju/mutex/v2 v2.0.0
-	github.com/juju/names/v6 v6.0.0-20250318090139-ec8d71d906f5
+	github.com/juju/names/v6 v6.0.0-20250512075813-b50ca77a4137
 	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.5
 	github.com/juju/persistent-cookiejar v1.0.0

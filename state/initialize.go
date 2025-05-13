@@ -89,11 +89,6 @@ func (p InitializeParams) Validate() error {
 	if p.ControllerModelArgs.MigrationMode != MigrationModeNone {
 		return errors.NotValidf("migration mode %q", p.ControllerModelArgs.MigrationMode)
 	}
-	uuid := p.ControllerModelArgs.Config.UUID()
-	controllerUUID := p.ControllerConfig.ControllerUUID()
-	if uuid == controllerUUID {
-		return errors.NotValidf("same controller model uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
-	}
 	if p.MongoSession == nil {
 		return errors.NotValidf("nil MongoSession")
 	}
@@ -121,10 +116,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 
 	controllerTag := names.NewControllerTag(args.ControllerConfig.ControllerUUID())
 
-	modelUUID := args.ControllerModelArgs.Config.UUID()
-	if !names.IsValidModel(modelUUID) {
-		return nil, errors.New("invalid model UUID")
-	}
+	modelUUID := args.ControllerModelArgs.UUID.String()
 	modelTag := names.NewModelTag(modelUUID)
 
 	ctlr, err := OpenController(OpenParams{
@@ -240,7 +232,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs) ([]txn.Op,
 	var modelStatusDoc statusDoc
 
 	controllerModelUUID := st.controllerModelTag.Id()
-	modelUUID := args.Config.UUID()
+	modelUUID := args.UUID.String()
 	modelStatusDoc = statusDoc{
 		ModelUUID: modelUUID,
 		Updated:   st.clock().Now().UnixNano(),
@@ -249,7 +241,6 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs) ([]txn.Op,
 
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
-		createConstraintsOp(modelGlobalKey, args.Constraints),
 	}
 	// Inc ref count for hosted models.
 	if controllerModelUUID != modelUUID {
@@ -261,7 +252,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs) ([]txn.Op,
 		createModelOp(
 			args.Type,
 			args.Owner,
-			args.Config.Name(),
+			args.Name,
 			modelUUID,
 			controllerUUID,
 			args.CloudName,
@@ -269,9 +260,8 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs) ([]txn.Op,
 			args.PasswordHash,
 			args.CloudCredential,
 			args.MigrationMode,
-			args.EnvironVersion,
 		),
-		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
+		createUniqueOwnerModelNameOp(args.Owner, args.Name),
 	)
 	return ops, modelStatusDoc, nil
 }
