@@ -90,16 +90,16 @@ func (s *LogSuite) TestStderr(c *tc.C) {
 	l := &cmd.Log{ShowLog: true, Config: "<root>=INFO"}
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	logger.Infof(ctx, "hello")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Matches, `^.* INFO .* hello\n`)
 }
 
 func (s *LogSuite) TestRelPathLog(c *tc.C) {
 	l := &cmd.Log{Path: "foo.log", Config: "<root>=INFO"}
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	logger.Infof(ctx, "hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, tc.IsNil)
@@ -113,9 +113,9 @@ func (s *LogSuite) TestAbsPathLog(c *tc.C) {
 	l := &cmd.Log{Path: path, Config: "<root>=INFO"}
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	logger.Infof(ctx, "hello")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, tc.IsNil)
 	c.Assert(string(content), tc.Matches, `^.* INFO .* hello\n`)
@@ -125,7 +125,7 @@ func (s *LogSuite) TestLoggingToFileAndStderr(c *tc.C) {
 	l := &cmd.Log{Path: "foo.log", Config: "<root>=INFO", ShowLog: true}
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	logger.Infof(ctx, "hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, tc.IsNil)
@@ -139,12 +139,12 @@ func (s *LogSuite) TestErrorAndWarningLoggingToStderr(c *tc.C) {
 	l := &cmd.Log{Config: "<root>=INFO", ShowLog: false}
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	logger.Warningf(ctx, "a warning")
 	logger.Errorf(ctx, "an error")
 	logger.Infof(ctx, "an info")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `^.*WARNING a warning\n.*ERROR an error\n.*`)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Matches, `^.*WARNING a warning\n.*ERROR an error\n.*`)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
 
 func (s *LogSuite) TestQuietAndVerbose(c *tc.C) {

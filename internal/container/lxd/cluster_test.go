@@ -33,7 +33,7 @@ func (s *imageSuite) TestUseTargetGoodNode(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = jujuSvr.UseTargetServer(context.Background(), "cluster-2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *imageSuite) TestUseTargetBadNode(c *tc.C) {
@@ -50,5 +50,5 @@ func (s *imageSuite) TestUseTargetBadNode(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = jujuSvr.UseTargetServer(context.Background(), "cluster-2")
-	c.Assert(err, gc.ErrorMatches, "not a cluster member")
+	c.Assert(err, tc.ErrorMatches, "not a cluster member")
 }

@@ -141,7 +141,7 @@ func (s *NetworkSuite) TestFilterBridgeAddresses(c *tc.C) {
 		"localhost",
 		"252.16.134.1",
 	}).AsProviderAddresses()
-	c.Assert(network.FilterBridgeAddresses(context.Background(), inputAddresses), jc.DeepEquals, filteredAddresses)
+	c.Assert(network.FilterBridgeAddresses(context.Background(), inputAddresses), tc.DeepEquals, filteredAddresses)
 }
 
 func checkQuoteSpaceSet(c *tc.C, expected string, spaces ...string) {

@@ -25,8 +25,8 @@ func (*ParseAliasFileSuite) TestMissing(c *tc.C) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "missing")
 	aliases := cmd.ParseAliasFile(context.Background(), filename)
-	c.Assert(aliases, gc.NotNil)
-	c.Assert(aliases, gc.HasLen, 0)
+	c.Assert(aliases, tc.NotNil)
+	c.Assert(aliases, tc.HasLen, 0)
 }
 
 func (*ParseAliasFileSuite) TestParse(c *tc.C) {
@@ -49,9 +49,9 @@ key =
 = value
 `
 	err := os.WriteFile(filename, []byte(content), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	aliases := cmd.ParseAliasFile(context.Background(), filename)
-	c.Assert(aliases, gc.DeepEquals, map[string][]string{
+	c.Assert(aliases, tc.DeepEquals, map[string][]string{
 		"foo":    {"trailing-space"},
 		"repeat": {"second"},
 		"flags":  {"flags", "--with", "flag"},

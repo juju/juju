@@ -6,8 +6,7 @@ package charmhub
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charmhub/transport"
 )
@@ -21,17 +20,17 @@ var _ = tc.Suite(&ErrorsSuite{})
 func (s *ErrorsSuite) TestHandleBasicAPIErrors(c *tc.C) {
 	var list transport.APIErrors
 	err := handleBasicAPIErrors(context.Background(), list, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ErrorsSuite) TestHandleBasicAPIErrorsNotFound(c *tc.C) {
 	list := transport.APIErrors{{Code: transport.ErrorCodeNotFound, Message: "foo"}}
 	err := handleBasicAPIErrors(context.Background(), list, s.logger)
-	c.Assert(err, gc.ErrorMatches, `charm or bundle not found`)
+	c.Assert(err, tc.ErrorMatches, `charm or bundle not found`)
 }
 
 func (s *ErrorsSuite) TestHandleBasicAPIErrorsOther(c *tc.C) {
 	list := transport.APIErrors{{Code: "other", Message: "foo"}}
 	err := handleBasicAPIErrors(context.Background(), list, s.logger)
-	c.Assert(err, gc.ErrorMatches, `foo`)
+	c.Assert(err, tc.ErrorMatches, `foo`)
 }

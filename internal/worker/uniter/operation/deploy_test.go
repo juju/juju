@@ -132,9 +132,9 @@ func (s *DeploySuite) testPrepareStageError(c *tc.C, newDeploy newDeploy) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(context.Background(), operation.State{})
-	c.Check(newState, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "squish")
-	c.Check(*deployer.MockStage.gotInfo, gc.Equals, callbacks.MockGetArchiveInfo.info)
+	c.Check(newState, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "squish")
+	c.Check(*deployer.MockStage.gotInfo, tc.Equals, callbacks.MockGetArchiveInfo.info)
 }
 
 func (s *DeploySuite) TestPrepareStageError_Install(c *tc.C) {

@@ -56,7 +56,7 @@ func (s *ManifestDeployerSuite) addCharm(c *tc.C, revision int, content ...filet
 func (s *ManifestDeployerSuite) deployCharm(c *tc.C, revision int, content ...filetesting.Entry) charm.BundleInfo {
 	info := s.addCharm(c, revision, content...)
 	err := s.deployer.Stage(context.Background(), info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertCharm(c, revision, content...)
@@ -194,7 +194,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *tc.C
 	}
 	info := s.addMockCharm(2, mockCharm)
 	err := s.deployer.Stage(context.Background(), info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// ...and see it fail to expand. We're not too bothered about the actual
 	// content of the target dir at this stage, but we do want to check it's
@@ -237,7 +237,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 	}
 	badInfo := s.addMockCharm(2, badCharm)
 	err := s.deployer.Stage(context.Background(), badInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, tc.Equals, charm.ErrConflict)
 
@@ -279,7 +279,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *tc.C) {
 	}()
 
 	_, err := s.rbr.Read(context.Background(), s.bundleInfo)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *tc.C) {
@@ -298,8 +298,8 @@ func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *tc.C) {
 	}()
 
 	got, err := s.rbr.Read(context.Background(), s.bundleInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.Equals, s.bundle)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.Equals, s.bundle)
 }
 
 func (s *RetryingBundleReaderSuite) setupMocks(c *tc.C) *gomock.Controller {

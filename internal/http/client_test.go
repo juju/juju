@@ -44,13 +44,13 @@ func (s *httpSuite) SetUpTest(c *tc.C) {
 func (s *httpSuite) TestInsecureClientAllowAccess(c *tc.C) {
 	client := NewClient(WithSkipHostnameVerification(true))
 	_, err := client.Get(context.Background(), s.server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *httpSuite) TestSecureClientAllowAccess(c *tc.C) {
 	client := NewClient()
 	_, err := client.Get(context.Background(), s.server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // NewClient with a default config used to overwrite http.DefaultClient.Jar
@@ -94,11 +94,11 @@ func (s *httpSuite) TestRequestRecorder(c *tc.C) {
 
 	client := NewClient(WithRequestRecorder(recorder))
 	res, err := client.Get(context.Background(), validTarget)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer res.Body.Close()
 
 	req, err := http.NewRequestWithContext(context.Background(), "PUT", invalidTarget, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = client.Do(req)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
@@ -138,7 +138,7 @@ func (s *httpSuite) TestRetry(c *tc.C) {
 		}),
 	)
 	res, err := client.Get(context.Background(), validTarget)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer res.Body.Close()
 }
 
@@ -171,7 +171,7 @@ func (s *httpSuite) TestRetryExceeded(c *tc.C) {
 		}),
 	)
 	_, err = client.Get(context.Background(), validTarget)
-	c.Assert(err, gc.ErrorMatches, `.*attempt count exceeded: retryable error`)
+	c.Assert(err, tc.ErrorMatches, `.*attempt count exceeded: retryable error`)
 }
 
 type httpTLSServerSuite struct {
@@ -200,13 +200,13 @@ func (s *httpTLSServerSuite) TearDownTest(c *tc.C) {
 func (s *httpTLSServerSuite) TestValidatingClientGetter(c *tc.C) {
 	client := NewClient()
 	_, err := client.Get(context.Background(), s.server.URL)
-	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 }
 
 func (s *httpTLSServerSuite) TestNonValidatingClientGetter(c *tc.C) {
 	client := NewClient(WithSkipHostnameVerification(true))
 	resp, err := client.Get(context.Background(), s.server.URL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	_ = resp.Body.Close()
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
@@ -232,9 +232,9 @@ func (s *httpTLSServerSuite) testGetHTTPClientWithCerts(c *tc.C, skip bool) {
 		WithSkipHostnameVerification(skip),
 	)
 	resp, err := client.Get(context.Background(), s.server.URL)
-	c.Assert(err, gc.IsNil)
-	c.Assert(resp.Body.Close(), gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.IsNil)
+	c.Assert(resp.Body.Close(), tc.IsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
 func (s *clientSuite) TestDisableKeepAlives(c *tc.C) {

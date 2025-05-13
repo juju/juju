@@ -26,7 +26,7 @@ var _ = tc.Suite(&tracerSuite{})
 
 var _ coretrace.Tracer = (*tracer)(nil)
 
-func (s *tracerSuite) TestTracer(c *gc.C) {
+func (s *tracerSuite) TestTracer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClient()

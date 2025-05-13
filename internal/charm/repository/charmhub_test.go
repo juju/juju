@@ -123,7 +123,7 @@ func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *tc.C) {
 		"instance-key", "charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
 			Architecture: arch.DefaultArchitecture,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectCharmRefresh(c, cfg, hash)
 
 	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
@@ -722,12 +722,12 @@ func (s *charmHubRepositorySuite) TestResourceInfo(c *tc.C) {
 	})
 }
 
-func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannel(c *gc.C, hash string) {
+func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannel(c *tc.C, hash string) {
 	cfg, err := charmhub.InstallOneFromChannel(context.Background(),
 		"wordpress", "latest/stable", charmhub.RefreshBase{
 			Architecture: arch.DefaultArchitecture,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectCharmRefresh(c, cfg, hash)
 }
 
@@ -771,12 +771,12 @@ options:
 	})
 }
 
-func (s *charmHubRepositorySuite) expectBundleRefresh(c *gc.C) {
+func (s *charmHubRepositorySuite) expectBundleRefresh(c *tc.C) {
 	cfg, err := charmhub.InstallOneFromChannel(context.Background(),
 		"core-kubernetes", "latest/stable", charmhub.RefreshBase{
 			Architecture: arch.DefaultArchitecture,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.client.EXPECT().Refresh(gomock.Any(), RefreshConfigMatcher{c: c, Config: cfg}).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		id := charmhub.ExtractConfigInstanceKey(cfg)
 
@@ -841,7 +841,7 @@ func (s *charmHubRepositorySuite) expectedRefreshRevisionNotFoundError() {
 	})
 }
 
-func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannelFullBase(c *gc.C) {
+func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannelFullBase(c *tc.C) {
 	cfg, err := charmhub.InstallOneFromChannel(context.Background(), "wordpress", "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture, Name: "ubuntu", Channel: "20.04",
 	})
@@ -849,9 +849,9 @@ func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannelFullBas
 	s.expectCharmRefreshFullWithResources(c, cfg)
 }
 
-func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneByRevisionResources(c *gc.C, hash string) {
+func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneByRevisionResources(c *tc.C, hash string) {
 	cfg, err := charmhub.InstallOneFromRevision(context.Background(), "wordpress", 16)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectCharmRefresh(c, cfg, hash)
 }
 
@@ -967,14 +967,14 @@ func (s *refreshConfigSuite) TestRefreshByChannel(c *tc.C) {
 	}
 
 	cfg, err := refreshConfig(context.Background(), name, origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ch := channel.String()
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
 	build, err := cfg.Build(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
 			InstanceKey: instanceKey,
@@ -1001,14 +1001,14 @@ func (s *refreshConfigSuite) TestRefreshByChannelVersion(c *tc.C) {
 	}
 
 	cfg, err := refreshConfig(context.Background(), name, origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ch := channel.String()
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
 	build, err := cfg.Build(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
 			InstanceKey: instanceKey,
@@ -1035,13 +1035,13 @@ func (s *refreshConfigSuite) TestRefreshByRevision(c *tc.C) {
 	}
 
 	cfg, err := refreshConfig(context.Background(), name, origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
 	build, err := cfg.Build(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
 			InstanceKey: instanceKey,
@@ -1068,13 +1068,13 @@ func (s *refreshConfigSuite) TestRefreshByID(c *tc.C) {
 	}
 
 	cfg, err := refreshConfig(context.Background(), "wordpress", origin)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
 	build, err := cfg.Build(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(build, gc.DeepEquals, transport.RefreshRequest{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",
 			InstanceKey: instanceKey,
@@ -1259,7 +1259,7 @@ func (s *composeSuggestionsSuite) TestNoReleases(c *tc.C) {
 		logger: loggertesting.WrapCheckLog(c),
 	}
 	suggestions := repo.composeSuggestions(context.Background(), []transport.Release{}, corecharm.Origin{})
-	c.Assert(suggestions, gc.DeepEquals, []string(nil))
+	c.Assert(suggestions, tc.DeepEquals, []string(nil))
 }
 
 func (s *composeSuggestionsSuite) TestNoMatchingArch(c *tc.C) {
@@ -1398,11 +1398,11 @@ func (m RefreshConfigMatcher) Matches(x interface{}) bool {
 	}
 
 	cb, err := m.Config.Build(context.Background())
-	m.c.Assert(err, jc.ErrorIsNil)
+	m.c.Assert(err, tc.ErrorIsNil)
 
 	rcb, err := rc.Build(context.Background())
-	m.c.Assert(err, jc.ErrorIsNil)
-	m.c.Assert(len(cb.Actions), gc.Equals, len(rcb.Actions))
+	m.c.Assert(err, tc.ErrorIsNil)
+	m.c.Assert(len(cb.Actions), tc.Equals, len(rcb.Actions))
 
 	if cb.Actions[0].ID == nil && rcb.Actions[0].ID == nil {
 		return true

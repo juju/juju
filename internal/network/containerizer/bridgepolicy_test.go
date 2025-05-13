@@ -103,7 +103,7 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *tc.C) {
 	exp.Constraints().Return(constraints.MustParse("spaces=foo,bar,^baz"), nil)
 
 	obtained, err := s.policy().determineContainerSpaces(context.Background(), s.machine, s.guest)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := corenetwork.SpaceInfos{
 		*s.spaces.GetByName("foo"),
 		*s.spaces.GetByName("bar"),
@@ -118,7 +118,7 @@ func (s *bridgePolicySuite) TestDetermineContainerNoSpacesConstraints(c *tc.C) {
 	exp.Constraints().Return(constraints.MustParse(""), nil)
 
 	obtained, err := s.policy().determineContainerSpaces(context.Background(), s.machine, s.guest)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := corenetwork.SpaceInfos{
 		*s.spaces.GetByName(corenetwork.AlphaSpaceName),
 	}

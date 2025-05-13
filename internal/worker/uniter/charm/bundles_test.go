@@ -100,36 +100,36 @@ func (s *BundlesDirSuite) TestGet(c *tc.C) {
 
 	// Try to get the charm when the content doesn't match.
 	_, err = d.Read(context.Background(), &fakeBundleInfo{BundleInfo: apiCharm, curl: "", sha256: "..."})
-	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/wordpress-1" from API server: `)+`expected sha256 "...", got ".*"`)
+	c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/wordpress-1" from API server: `)+`expected sha256 "...", got ".*"`)
 	checkDownloadsEmpty()
 
 	// Try to get a charm whose bundle doesn't exist.
 	_, err = d.Read(context.Background(), &fakeBundleInfo{BundleInfo: apiCharm, curl: "ch:quantal/spam-1", sha256: ""})
-	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/spam-1" from API server: `)+`.* not found`)
+	c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/spam-1" from API server: `)+`.* not found`)
 	checkDownloadsEmpty()
 
 	// Get a charm whose bundle exists and whose content matches.
 	ch, err := d.Read(context.Background(), apiCharm)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCharm(c, ch, sch)
 	checkDownloadsEmpty()
 
 	// Get the same charm again, without preparing a response from the server.
 	ch, err = d.Read(context.Background(), apiCharm)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCharm(c, ch, sch)
 	checkDownloadsEmpty()
 
 	// Check the abort chan is honoured.
 	err = os.RemoveAll(bunsDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	ch, err = d.Read(ctx, apiCharm)
-	c.Check(ch, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/wordpress-1" from API server: download aborted`))
+	c.Check(ch, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/wordpress-1" from API server: download aborted`))
 	checkDownloadsEmpty()
 }
 

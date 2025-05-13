@@ -143,7 +143,7 @@ func (s *DownloadSuite) TestVerifyInvalid(c *tc.C) {
 
 func (s *DownloadSuite) TestAbort(c *tc.C) {
 	tmp := c.MkDir()
-	jujutesting.Server.Response(200, nil, []byte("archive"))
+	testhelpers.Server.Response(200, nil, []byte("archive"))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
