@@ -33,24 +33,24 @@ func (s *WorkerSuite) testValidate(c *tc.C, config retrystrategy.WorkerConfig, e
 	c.Check(worker, tc.IsNil)
 }
 
-func (s WorkerSuite) TestValidateInvalidFacade(c *tc.C) {
+func (s *WorkerSuite) TestValidateInvalidFacade(c *tc.C) {
 	s.testValidate(c, retrystrategy.WorkerConfig{}, "nil Facade not valid")
 }
 
-func (s WorkerSuite) TestValidateInvalidAgentTag(c *tc.C) {
+func (s *WorkerSuite) TestValidateInvalidAgentTag(c *tc.C) {
 	s.testValidate(c, retrystrategy.WorkerConfig{
 		Facade: &stubFacade{},
 	}, "nil AgentTag not valid")
 }
 
-func (s WorkerSuite) TestValidateInvalidRetryStrategy(c *tc.C) {
+func (s *WorkerSuite) TestValidateInvalidRetryStrategy(c *tc.C) {
 	s.testValidate(c, retrystrategy.WorkerConfig{
 		Facade:   &stubFacade{},
 		AgentTag: &stubTag{},
 	}, "empty RetryStrategy not valid")
 }
 
-func (s WorkerSuite) TestWatchError(c *tc.C) {
+func (s *WorkerSuite) TestWatchError(c *tc.C) {
 	fix := newFixture(c, errors.New("supersonybunduru"))
 	fix.Run(c, func(w worker.Worker) {
 		err := w.Wait()
@@ -59,7 +59,7 @@ func (s WorkerSuite) TestWatchError(c *tc.C) {
 	fix.CheckCallNames(c, "WatchRetryStrategy")
 }
 
-func (s WorkerSuite) TestGetStrategyError(c *tc.C) {
+func (s *WorkerSuite) TestGetStrategyError(c *tc.C) {
 	fix := newFixture(c, nil, errors.New("blackfridaybunduru"))
 	fix.Run(c, func(w worker.Worker) {
 		err := w.Wait()
@@ -68,7 +68,7 @@ func (s WorkerSuite) TestGetStrategyError(c *tc.C) {
 	fix.CheckCallNames(c, "WatchRetryStrategy", "RetryStrategy")
 }
 
-func (s WorkerSuite) TestBounce(c *tc.C) {
+func (s *WorkerSuite) TestBounce(c *tc.C) {
 	fix := newFixture(c, nil, nil, nil)
 	fix.Run(c, func(w worker.Worker) {
 		err := w.Wait()

@@ -13,9 +13,7 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-type metricsSuite struct {
-	baseSuite
-}
+type metricsSuite struct{}
 
 var _ = tc.Suite(&metricsSuite{})
 

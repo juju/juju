@@ -340,7 +340,7 @@ type NewGetBootstrapConfigParamsFuncSuite struct {
 
 var _ = tc.Suite(&NewGetBootstrapConfigParamsFuncSuite{})
 
-func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *tc.C) {
+func (s *NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *tc.C) {
 	clientStore := jujuclient.NewMemStore()
 	clientStore.Controllers["foo"] = jujuclient.ControllerDetails{}
 	clientStore.BootstrapConfig["foo"] = jujuclient.BootstrapConfig{
@@ -365,7 +365,7 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *tc.C) {
 	c.Assert(spec.Credential.Label, tc.Equals, "finalized")
 }
 
-func (NewGetBootstrapConfigParamsFuncSuite) TestCloudCACert(c *tc.C) {
+func (s *NewGetBootstrapConfigParamsFuncSuite) TestCloudCACert(c *tc.C) {
 	fakeCert := coretesting.CACert
 	clientStore := jujuclient.NewMemStore()
 	clientStore.Controllers["foo"] = jujuclient.ControllerDetails{}

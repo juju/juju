@@ -19,7 +19,7 @@ type filterSuite struct {
 
 var _ = tc.Suite(&filterSuite{})
 
-func (filterSuite) TestFilterChannels(c *tc.C) {
+func (s *filterSuite) TestFilterChannels(c *tc.C) {
 	tests := []struct {
 		Name     string
 		Arch     string

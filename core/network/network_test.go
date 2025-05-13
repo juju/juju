@@ -23,53 +23,53 @@ func (s *NetworkSuite) TestGenerateVirtualMACAddress(c *tc.C) {
 	c.Check(mac, tc.Matches, "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
 }
 
-func (NetworkSuite) TestIDSetSize(c *tc.C) {
+func (s *NetworkSuite) TestIDSetSize(c *tc.C) {
 	// Empty sets are empty.
-	s := network.MakeIDSet()
-	c.Assert(s.Size(), tc.Equals, 0)
+	set := network.MakeIDSet()
+	c.Assert(set.Size(), tc.Equals, 0)
 
 	// Size returns number of unique values.
-	s = network.MakeIDSet("foo", "foo", "bar")
-	c.Assert(s.Size(), tc.Equals, 2)
+	set = network.MakeIDSet("foo", "foo", "bar")
+	c.Assert(set.Size(), tc.Equals, 2)
 }
 
-func (NetworkSuite) TestIDSetEmpty(c *tc.C) {
-	s := network.MakeIDSet()
-	assertValues(c, s)
+func (s *NetworkSuite) TestIDSetEmpty(c *tc.C) {
+	set := network.MakeIDSet()
+	assertValues(c, set)
 }
 
-func (NetworkSuite) TestIDSetInitialValues(c *tc.C) {
+func (s *NetworkSuite) TestIDSetInitialValues(c *tc.C) {
 	values := []network.Id{"foo", "bar", "baz"}
-	s := network.MakeIDSet(values...)
-	assertValues(c, s, values...)
+	set := network.MakeIDSet(values...)
+	assertValues(c, set, values...)
 }
 
-func (NetworkSuite) TestIDSetIsEmpty(c *tc.C) {
+func (s *NetworkSuite) TestIDSetIsEmpty(c *tc.C) {
 	// Empty sets are empty.
-	s := network.MakeIDSet()
-	c.Assert(s.IsEmpty(), tc.Equals, true)
+	set := network.MakeIDSet()
+	c.Assert(set.IsEmpty(), tc.Equals, true)
 
 	// Non-empty sets are not empty.
-	s = network.MakeIDSet("foo")
-	c.Assert(s.IsEmpty(), tc.Equals, false)
+	set = network.MakeIDSet("foo")
+	c.Assert(set.IsEmpty(), tc.Equals, false)
 }
 
-func (NetworkSuite) TestIDSetAdd(c *tc.C) {
-	s := network.MakeIDSet()
-	s.Add("foo")
-	s.Add("foo")
-	s.Add("bar")
-	assertValues(c, s, "foo", "bar")
+func (s *NetworkSuite) TestIDSetAdd(c *tc.C) {
+	set := network.MakeIDSet()
+	set.Add("foo")
+	set.Add("foo")
+	set.Add("bar")
+	assertValues(c, set, "foo", "bar")
 }
 
-func (NetworkSuite) TestIDSetContains(c *tc.C) {
-	s := network.MakeIDSet("foo", "bar")
-	c.Assert(s.Contains("foo"), tc.Equals, true)
-	c.Assert(s.Contains("bar"), tc.Equals, true)
-	c.Assert(s.Contains("baz"), tc.Equals, false)
+func (s *NetworkSuite) TestIDSetContains(c *tc.C) {
+	set := network.MakeIDSet("foo", "bar")
+	c.Assert(set.Contains("foo"), tc.Equals, true)
+	c.Assert(set.Contains("bar"), tc.Equals, true)
+	c.Assert(set.Contains("baz"), tc.Equals, false)
 }
 
-func (NetworkSuite) TestIDSetDifference(c *tc.C) {
+func (s *NetworkSuite) TestIDSetDifference(c *tc.C) {
 	s1 := network.MakeIDSet("foo", "bar")
 	s2 := network.MakeIDSet("foo", "baz", "bang")
 	diff1 := s1.Difference(s2)

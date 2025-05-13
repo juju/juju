@@ -504,7 +504,7 @@ regions:
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (localTests) TestPingInvalidHost(c *tc.C) {
+func (s *localTests) TestPingInvalidHost(c *tc.C) {
 	tests := []string{
 		"foo.com",
 		"http://IHopeNoOneEverBuysThisVerySpecificJujuDomainName.com",
@@ -523,7 +523,7 @@ func (localTests) TestPingInvalidHost(c *tc.C) {
 		c.Check(err, tc.ErrorMatches, "(?m)No Openstack server running at "+t+".*")
 	}
 }
-func (localTests) TestPingNoEndpoint(c *tc.C) {
+func (s *localTests) TestPingNoEndpoint(c *tc.C) {
 	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
 	defer server.Close()
 	p, err := environs.Provider("openstack")
@@ -532,7 +532,7 @@ func (localTests) TestPingNoEndpoint(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "(?m)No Openstack server running at "+server.URL+".*")
 }
 
-func (localTests) TestPingInvalidResponse(c *tc.C) {
+func (s *localTests) TestPingInvalidResponse(c *tc.C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Hi!")
 	}))
@@ -543,13 +543,13 @@ func (localTests) TestPingInvalidResponse(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "(?m)No Openstack server running at "+server.URL+".*")
 }
 
-func (localTests) TestPingOKCACertificate(c *tc.C) {
+func (s *localTests) TestPingOKCACertificate(c *tc.C) {
 	server := httptest.NewTLSServer(handlerFunc)
 	defer server.Close()
 	pingOk(c, server)
 }
 
-func (localTests) TestPingOK(c *tc.C) {
+func (s *localTests) TestPingOK(c *tc.C) {
 	server := httptest.NewServer(handlerFunc)
 	defer server.Close()
 	pingOk(c, server)

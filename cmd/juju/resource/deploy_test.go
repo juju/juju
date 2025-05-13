@@ -34,7 +34,7 @@ func (s *DeploySuite) SetUpTest(c *tc.C) {
 	s.stub = &testhelpers.Stub{}
 }
 
-func (s DeploySuite) TestDeployResourcesWithoutFiles(c *tc.C) {
+func (s *DeploySuite) TestDeployResourcesWithoutFiles(c *tc.C) {
 	deps := uploadDeps{stub: s.stub}
 	cURL := "spam"
 	chID := apiresources.CharmID{
@@ -79,7 +79,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *tc.C) {
 	}})
 }
 
-func (s DeploySuite) TestUploadFilesOnly(c *tc.C) {
+func (s *DeploySuite) TestUploadFilesOnly(c *tc.C) {
 	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
 	cURL := "spam"
 	chID := apiresources.CharmID{
@@ -138,7 +138,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *tc.C) {
 	s.stub.CheckCall(c, 3, "UploadPendingResource", expectedUploadArgs)
 }
 
-func (s DeploySuite) TestUploadRevisionsOnly(c *tc.C) {
+func (s *DeploySuite) TestUploadRevisionsOnly(c *tc.C) {
 	deps := uploadDeps{stub: s.stub}
 	cURL := "spam"
 	chID := apiresources.CharmID{
@@ -187,7 +187,7 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *tc.C) {
 	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", chID, expectedStore)
 }
 
-func (s DeploySuite) TestUploadFilesAndRevisions(c *tc.C) {
+func (s *DeploySuite) TestUploadFilesAndRevisions(c *tc.C) {
 	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
 	cURL := "spam"
 	chID := apiresources.CharmID{
@@ -248,7 +248,7 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *tc.C) {
 	s.stub.CheckCall(c, 3, "UploadPendingResource", expectedUploadArgs)
 }
 
-func (s DeploySuite) TestUploadUnexpectedResourceFile(c *tc.C) {
+func (s *DeploySuite) TestUploadUnexpectedResourceFile(c *tc.C) {
 	deps := uploadDeps{stub: s.stub}
 	du := deployUploader{
 		applicationID: "mysql",
@@ -271,7 +271,7 @@ func (s DeploySuite) TestUploadUnexpectedResourceFile(c *tc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
-func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *tc.C) {
+func (s *DeploySuite) TestUploadUnexpectedResourceRevision(c *tc.C) {
 	deps := uploadDeps{stub: s.stub}
 	du := deployUploader{
 		applicationID: "mysql",
@@ -294,7 +294,7 @@ func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *tc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
-func (s DeploySuite) TestMissingResource(c *tc.C) {
+func (s *DeploySuite) TestMissingResource(c *tc.C) {
 	deps := uploadDeps{stub: s.stub}
 	du := deployUploader{
 		applicationID: "mysql",
@@ -319,7 +319,7 @@ func (s DeploySuite) TestMissingResource(c *tc.C) {
 	c.Check(errors.Cause(err), tc.Satisfies, os.IsNotExist)
 }
 
-func (s DeploySuite) TestDeployDockerResource(c *tc.C) {
+func (s *DeploySuite) TestDeployDockerResource(c *tc.C) {
 	tests := []struct {
 		about              string
 		fileContents       string
@@ -454,7 +454,7 @@ password: 'hunter2',,
 	}
 }
 
-func (s DeploySuite) TestUnMarshallingDockerDetails(c *tc.C) {
+func (s *DeploySuite) TestUnMarshallingDockerDetails(c *tc.C) {
 	content := `
 registrypath: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image
 username: docker-registry
@@ -511,7 +511,7 @@ func (osFilesystem) Open(name string) (modelcmd.ReadSeekCloser, error) {
 	return os.Open(name)
 }
 
-func (s DeploySuite) TestGetDockerDetailsData(c *tc.C) {
+func (s *DeploySuite) TestGetDockerDetailsData(c *tc.C) {
 	fs := osFilesystem{}
 	result, err := getDockerDetailsData("registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image", fs.Open)
 	c.Assert(err, tc.ErrorIsNil)

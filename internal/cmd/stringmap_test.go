@@ -16,7 +16,7 @@ type StringMapSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func (StringMapSuite) TestStringMapNilOk(c *tc.C) {
+func (s *StringMapSuite) TestStringMapNilOk(c *tc.C) {
 	// note that the map may start out nil
 	var values map[string]string
 	c.Assert(values, tc.IsNil)
@@ -33,13 +33,13 @@ func (StringMapSuite) TestStringMapNilOk(c *tc.C) {
 	})
 }
 
-func (StringMapSuite) TestStringMapBadVal(c *tc.C) {
+func (s *StringMapSuite) TestStringMapBadVal(c *tc.C) {
 	sm := cmd.StringMap{Mapping: &map[string]string{}}
 	err := sm.Set("foo")
 	c.Assert(err, tc.ErrorMatches, "expected key=value format")
 }
 
-func (StringMapSuite) TestStringMapDupVal(c *tc.C) {
+func (s *StringMapSuite) TestStringMapDupVal(c *tc.C) {
 	sm := cmd.StringMap{Mapping: &map[string]string{}}
 	err := sm.Set("bar=somevalue")
 	c.Assert(err, tc.ErrorIsNil)
@@ -47,13 +47,13 @@ func (StringMapSuite) TestStringMapDupVal(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "duplicate key specified")
 }
 
-func (StringMapSuite) TestStringMapNoValue(c *tc.C) {
+func (s *StringMapSuite) TestStringMapNoValue(c *tc.C) {
 	sm := cmd.StringMap{Mapping: &map[string]string{}}
 	err := sm.Set("bar=")
 	c.Assert(err, tc.ErrorMatches, "key and value must be non-empty")
 }
 
-func (StringMapSuite) TestStringMapNoKey(c *tc.C) {
+func (s *StringMapSuite) TestStringMapNoKey(c *tc.C) {
 	sm := cmd.StringMap{Mapping: &map[string]string{}}
 	err := sm.Set("=bar")
 	c.Assert(err, tc.ErrorMatches, "key and value must be non-empty")

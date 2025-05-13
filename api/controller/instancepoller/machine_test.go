@@ -308,7 +308,7 @@ func MakeResultsWithErrors(resultsRef interface{}, err *params.Error, howMany in
 }
 
 // TODO(dimitern): Move this and MakeResultsWithErrors in params/testing ?
-func (MachineSuite) TestMakeResultsWithErrors(c *tc.C) {
+func (s *MachineSuite) TestMakeResultsWithErrors(c *tc.C) {
 	err := apiservertesting.ServerError("foo")
 	r1 := MakeResultsWithErrors(params.LifeResults{}, err, 2)
 	r2 := params.LifeResults{Results: []params.LifeResult{{Error: err}, {Error: err}}}

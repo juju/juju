@@ -15,7 +15,7 @@ type archSuite struct {
 
 var _ = tc.Suite(&archSuite{})
 
-func (s archSuite) TestArchOrDefault(c *tc.C) {
+func (s *archSuite) TestArchOrDefault(c *tc.C) {
 	a := ArchOrDefault(MustParse("mem=4G"), nil)
 	c.Assert(a, tc.Equals, "amd64")
 	a = ArchOrDefault(MustParse("arch=arm64"), nil)

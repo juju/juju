@@ -16,18 +16,18 @@ type archSuite struct {
 
 var _ = tc.Suite(&archSuite{})
 
-func (s archSuite) TestContains(c *tc.C) {
+func (s *archSuite) TestContains(c *tc.C) {
 	arches := arch.AllArches()
 	c.Assert(arches.Contains(arch.Arch("amd64")), tc.IsTrue)
 	c.Assert(arches.Contains(arch.Arch("risc")), tc.IsFalse)
 }
 
-func (s archSuite) TestStringList(c *tc.C) {
+func (s *archSuite) TestStringList(c *tc.C) {
 	arches := arch.AllArches()
 	c.Assert(arches.StringList(), tc.DeepEquals, []string{"amd64", "arm64", "ppc64el", "riscv64", "s390x"})
 }
 
-func (s archSuite) TestString(c *tc.C) {
+func (s *archSuite) TestString(c *tc.C) {
 	arches := arch.AllArches()
 	c.Assert(arches.String(), tc.Equals, "amd64,arm64,ppc64el,riscv64,s390x")
 }

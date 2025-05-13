@@ -83,7 +83,7 @@ func (s *FileVarSuite) TestIsStdin(c *tc.C) {
 	c.Check(config.IsStdin(), tc.IsTrue)
 }
 
-func (FileVarSuite) checkOpen(c *tc.C, file io.ReadCloser, expected string) {
+func (s *FileVarSuite) checkOpen(c *tc.C, file io.ReadCloser, expected string) {
 	defer file.Close()
 
 	data, err := ioutil.ReadAll(file)

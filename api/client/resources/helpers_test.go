@@ -24,7 +24,7 @@ type HelpersSuite struct {
 
 var _ = tc.Suite(&HelpersSuite{})
 
-func (HelpersSuite) TestResource2API(c *tc.C) {
+func (s *HelpersSuite) TestResource2API(c *tc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, tc.ErrorIsNil)
 	now := time.Now()
@@ -68,7 +68,7 @@ func (HelpersSuite) TestResource2API(c *tc.C) {
 	})
 }
 
-func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *tc.C) {
+func (s *HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *tc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, tc.ErrorIsNil)
 	resUUID, err := resource.NewUUID()
@@ -221,7 +221,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *tc.C) {
 	c.Check(res, tc.DeepEquals, serviceResource)
 }
 
-func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *tc.C) {
+func (s *HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *tc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, tc.ErrorIsNil)
 	now := time.Now()
@@ -319,7 +319,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*got bad data from server.*")
 }
 
-func (HelpersSuite) TestAPIResult2ApplicationResourcesFailure(c *tc.C) {
+func (s *HelpersSuite) TestAPIResult2ApplicationResourcesFailure(c *tc.C) {
 	apiRes := params.Resource{
 		CharmResource: params.CharmResource{
 			Name:        "spam",
@@ -350,7 +350,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesFailure(c *tc.C) {
 	c.Check(errors.Cause(err), tc.Not(tc.Equals), failure)
 }
 
-func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *tc.C) {
+func (s *HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *tc.C) {
 	apiRes := params.Resource{
 		CharmResource: params.CharmResource{
 			Name:        "spam",
@@ -380,7 +380,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (HelpersSuite) TestAPI2Resource(c *tc.C) {
+func (s *HelpersSuite) TestAPI2Resource(c *tc.C) {
 	now := time.Now()
 	resUUID, err := resource.NewUUID()
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot create resource UUID"))
@@ -429,7 +429,7 @@ func (HelpersSuite) TestAPI2Resource(c *tc.C) {
 	c.Check(res, tc.DeepEquals, expected)
 }
 
-func (HelpersSuite) TestCharmResource2API(c *tc.C) {
+func (s *HelpersSuite) TestCharmResource2API(c *tc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, tc.ErrorIsNil)
 	res := charmresource.Resource{
@@ -460,7 +460,7 @@ func (HelpersSuite) TestCharmResource2API(c *tc.C) {
 	})
 }
 
-func (HelpersSuite) TestAPI2CharmResource(c *tc.C) {
+func (s *HelpersSuite) TestAPI2CharmResource(c *tc.C) {
 	res, err := API2CharmResource(params.CharmResource{
 		Name:        "spam",
 		Type:        "file",

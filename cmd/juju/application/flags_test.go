@@ -18,7 +18,7 @@ type FlagSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func (FlagSuite) TestStringMapNilOk(c *tc.C) {
+func (s *FlagSuite) TestStringMapNilOk(c *tc.C) {
 	// note that the map may start out nil
 	var values map[string]string
 	c.Assert(values, tc.IsNil)
@@ -35,14 +35,14 @@ func (FlagSuite) TestStringMapNilOk(c *tc.C) {
 	})
 }
 
-func (FlagSuite) TestStringMapBadVal(c *tc.C) {
+func (s *FlagSuite) TestStringMapBadVal(c *tc.C) {
 	sm := stringMap{&map[string]string{}}
 	err := sm.Set("foo")
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "badly formatted name value pair: foo")
 }
 
-func (FlagSuite) TestStringMapDupVal(c *tc.C) {
+func (s *FlagSuite) TestStringMapDupVal(c *tc.C) {
 	sm := stringMap{&map[string]string{}}
 	err := sm.Set("bar=somevalue")
 	c.Assert(err, tc.ErrorIsNil)
@@ -50,7 +50,7 @@ func (FlagSuite) TestStringMapDupVal(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*duplicate.*bar.*")
 }
 
-func (FlagSuite) TestStorageFlag(c *tc.C) {
+func (s *FlagSuite) TestStorageFlag(c *tc.C) {
 	var stores map[string]storage.Directive
 	flag := storageFlag{&stores, nil}
 	err := flag.Set("foo=bar")
@@ -60,7 +60,7 @@ func (FlagSuite) TestStorageFlag(c *tc.C) {
 	})
 }
 
-func (FlagSuite) TestStorageFlagErrors(c *tc.C) {
+func (s *FlagSuite) TestStorageFlagErrors(c *tc.C) {
 	flag := storageFlag{new(map[string]storage.Directive), nil}
 	err := flag.Set("foo")
 	c.Assert(err, tc.ErrorMatches, `expected <store>=<directive>`)
@@ -70,7 +70,7 @@ func (FlagSuite) TestStorageFlagErrors(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `cannot parse disk storage directive: storage directives require at least one field to be specified`)
 }
 
-func (FlagSuite) TestStorageFlagBundleStorage(c *tc.C) {
+func (s *FlagSuite) TestStorageFlagBundleStorage(c *tc.C) {
 	var stores map[string]storage.Directive
 	var bundleStores map[string]map[string]storage.Directive
 	flag := storageFlag{&stores, &bundleStores}
@@ -88,13 +88,13 @@ func (FlagSuite) TestStorageFlagBundleStorage(c *tc.C) {
 	})
 }
 
-func (FlagSuite) TestStorageFlagBundleStorageErrors(c *tc.C) {
+func (s *FlagSuite) TestStorageFlagBundleStorageErrors(c *tc.C) {
 	flag := storageFlag{new(map[string]storage.Directive), new(map[string]map[string]storage.Directive)}
 	err := flag.Set("foo")
 	c.Assert(err, tc.ErrorMatches, `expected \[<application>\:]<store>=<directive>`)
 }
 
-func (FlagSuite) TestAttachStorageFlag(c *tc.C) {
+func (s *FlagSuite) TestAttachStorageFlag(c *tc.C) {
 	var stores []string
 	flag := attachStorageFlag{&stores}
 	err := flag.Set("foo/0,bar/1")
@@ -102,13 +102,13 @@ func (FlagSuite) TestAttachStorageFlag(c *tc.C) {
 	c.Assert(stores, tc.DeepEquals, []string{"foo/0", "bar/1"})
 }
 
-func (FlagSuite) TestAttachStorageFlagErrors(c *tc.C) {
+func (s *FlagSuite) TestAttachStorageFlagErrors(c *tc.C) {
 	flag := attachStorageFlag{new([]string)}
 	err := flag.Set("zing")
 	c.Assert(err, tc.ErrorMatches, `storage ID "zing" not valid`)
 }
 
-func (FlagSuite) TestDevicesFlag(c *tc.C) {
+func (s *FlagSuite) TestDevicesFlag(c *tc.C) {
 	var devs map[string]devices.Constraints
 	flag := devicesFlag{&devs, nil}
 	err := flag.Set("foo=3,nvidia.com/gpu,gpu=nvidia-tesla-p100")
@@ -129,7 +129,7 @@ func testFlagErrors(c *tc.C, flag devicesFlag, flagStr string, expectedErr strin
 	c.Assert(err, tc.ErrorMatches, expectedErr)
 }
 
-func (FlagSuite) TestDevicesFlagErrors(c *tc.C) {
+func (s *FlagSuite) TestDevicesFlagErrors(c *tc.C) {
 	flag := devicesFlag{new(map[string]devices.Constraints), nil}
 	testFlagErrors(c, flag, "foo", `expected <device>=<constraints>`)
 	testFlagErrors(c, flag, "foo:bar=baz", `expected <device>=<constraints>`)
@@ -142,7 +142,7 @@ func (FlagSuite) TestDevicesFlagErrors(c *tc.C) {
 	testFlagErrors(c, flag, "foo=-1,nvidia.com/gpu", `cannot parse device constraints: count must be greater than zero, got \"-1\"`)
 }
 
-func (FlagSuite) TestDevicesFlagBundleDevices(c *tc.C) {
+func (s *FlagSuite) TestDevicesFlagBundleDevices(c *tc.C) {
 	var devs map[string]devices.Constraints
 	var bundleDevices map[string]map[string]devices.Constraints
 	flag := devicesFlag{&devs, &bundleDevices}
@@ -160,7 +160,7 @@ func (FlagSuite) TestDevicesFlagBundleDevices(c *tc.C) {
 	})
 }
 
-func (FlagSuite) TestDevicesFlagBundleDevicesErrors(c *tc.C) {
+func (s *FlagSuite) TestDevicesFlagBundleDevicesErrors(c *tc.C) {
 	flag := devicesFlag{new(map[string]devices.Constraints), new(map[string]map[string]devices.Constraints)}
 	err := flag.Set("foo")
 	c.Assert(err, tc.ErrorMatches, `expected \[<application>\:]<device>=<constraints>`)

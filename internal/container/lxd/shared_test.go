@@ -17,8 +17,7 @@ type sharedSuite struct {
 
 var _ = tc.Suite(&sharedSuite{})
 
-func (sharedSuite) TestGenerateMemCert(c *tc.C) {
-
+func (s *sharedSuite) TestGenerateMemCert(c *tc.C) {
 	cert, key, err := GenerateMemCert(false, true)
 	if err != nil {
 		c.Error(err)

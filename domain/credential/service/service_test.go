@@ -441,7 +441,7 @@ func (s *serviceSuite) TestInvalidateModelCloudCredenntialInvalidModelUUID(c *tc
 
 // TestInvalidateModelCloudCredential asserts the happy path of invalidating the
 // cloud credential associated with a model.
-func (s serviceSuite) TestInvalidateModelCloudCredential(c *tc.C) {
+func (s *serviceSuite) TestInvalidateModelCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	modelUUID := modeltesting.GenModelUUID(c)
 

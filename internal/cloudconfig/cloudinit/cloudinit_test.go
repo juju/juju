@@ -20,11 +20,11 @@ import (
 
 // TODO integration tests, but how?
 
-type S struct {
+type cloudInitSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(S{})
+var _ = tc.Suite(&cloudInitSuite{})
 
 var ctests = []struct {
 	name      string
@@ -497,7 +497,7 @@ var ctests = []struct {
 },
 }
 
-func (S) TestOutput(c *tc.C) {
+func (s *cloudInitSuite) TestOutput(c *tc.C) {
 	for i, t := range ctests {
 		c.Logf("test %d: %s", i, t.name)
 		cfg, err := cloudinit.New("ubuntu")
@@ -515,7 +515,7 @@ func (S) TestOutput(c *tc.C) {
 	}
 }
 
-func (S) TestRunCmds(c *tc.C) {
+func (s *cloudInitSuite) TestRunCmds(c *tc.C) {
 	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.RunCmds(), tc.HasLen, 0)
@@ -526,7 +526,7 @@ func (S) TestRunCmds(c *tc.C) {
 	})
 }
 
-func (S) TestPackages(c *tc.C) {
+func (s *cloudInitSuite) TestPackages(c *tc.C) {
 	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Packages(), tc.HasLen, 0)
@@ -536,7 +536,7 @@ func (S) TestPackages(c *tc.C) {
 	c.Assert(cfg.Packages(), tc.DeepEquals, expectedPackages)
 }
 
-func (S) TestSetOutput(c *tc.C) {
+func (s *cloudInitSuite) TestSetOutput(c *tc.C) {
 	type test struct {
 		kind   cloudinit.OutputKind
 		stdout string
@@ -569,7 +569,7 @@ func (S) TestSetOutput(c *tc.C) {
 	}
 }
 
-func (S) TestFileTransporter(c *tc.C) {
+func (s *cloudInitSuite) TestFileTransporter(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

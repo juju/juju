@@ -17,19 +17,19 @@ type ErrorSuite struct {
 
 var _ = tc.Suite(&ErrorSuite{})
 
-func (ErrorSuite) TestNoErrors(c *tc.C) {
+func (s *ErrorSuite) TestNoErrors(c *tc.C) {
 	var errors APIErrors
 	err := errors.Error()
 	c.Assert(err, tc.DeepEquals, "")
 }
 
-func (ErrorSuite) TestNoErrorsWithEmptySlice(c *tc.C) {
+func (s *ErrorSuite) TestNoErrorsWithEmptySlice(c *tc.C) {
 	errors := make(APIErrors, 0)
 	err := errors.Error()
 	c.Assert(err, tc.DeepEquals, "")
 }
 
-func (ErrorSuite) TestWithOneError(c *tc.C) {
+func (s *ErrorSuite) TestWithOneError(c *tc.C) {
 	errors := APIErrors{{
 		Message: "one",
 	}}
@@ -37,7 +37,7 @@ func (ErrorSuite) TestWithOneError(c *tc.C) {
 	c.Assert(err, tc.DeepEquals, `one`)
 }
 
-func (ErrorSuite) TestWithMultipleErrors(c *tc.C) {
+func (s *ErrorSuite) TestWithMultipleErrors(c *tc.C) {
 	errors := APIErrors{
 		{Message: "one"},
 		{Message: "two"},
@@ -47,7 +47,7 @@ func (ErrorSuite) TestWithMultipleErrors(c *tc.C) {
 two`)
 }
 
-func (ErrorSuite) TestExtras(c *tc.C) {
+func (s *ErrorSuite) TestExtras(c *tc.C) {
 	expected := APIError{
 		Extra: APIErrorExtra{
 			DefaultBases: []Base{

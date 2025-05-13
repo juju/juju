@@ -17,7 +17,7 @@ type OriginSuite struct {
 
 var _ = tc.Suite(&OriginSuite{})
 
-func (OriginSuite) TestParseOriginKnown(c *tc.C) {
+func (s *OriginSuite) TestParseOriginKnown(c *tc.C) {
 	recognized := map[string]resource.Origin{
 		"upload": resource.OriginUpload,
 		"store":  resource.OriginStore,
@@ -30,13 +30,13 @@ func (OriginSuite) TestParseOriginKnown(c *tc.C) {
 	}
 }
 
-func (OriginSuite) TestParseOriginUnknown(c *tc.C) {
+func (s *OriginSuite) TestParseOriginUnknown(c *tc.C) {
 	_, err := resource.ParseOrigin("<invalid>")
 
 	c.Check(err, tc.ErrorMatches, `.*unknown origin "<invalid>".*`)
 }
 
-func (OriginSuite) TestValidateKnown(c *tc.C) {
+func (s *OriginSuite) TestValidateKnown(c *tc.C) {
 	recognized := []resource.Origin{
 		resource.OriginUpload,
 		resource.OriginStore,
@@ -48,7 +48,7 @@ func (OriginSuite) TestValidateKnown(c *tc.C) {
 	}
 }
 
-func (OriginSuite) TestValidateUnknown(c *tc.C) {
+func (s *OriginSuite) TestValidateUnknown(c *tc.C) {
 	var origin resource.Origin
 	err := origin.Validate()
 

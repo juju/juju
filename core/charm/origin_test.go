@@ -16,12 +16,12 @@ type sourceSuite struct {
 
 var _ = tc.Suite(&sourceSuite{})
 
-func (s sourceSuite) TestMatches(c *tc.C) {
+func (s *sourceSuite) TestMatches(c *tc.C) {
 	ok := charm.Source("xxx").Matches("xxx")
 	c.Assert(ok, tc.IsTrue)
 }
 
-func (s sourceSuite) TestNotMatches(c *tc.C) {
+func (s *sourceSuite) TestNotMatches(c *tc.C) {
 	ok := charm.Source("xxx").Matches("yyy")
 	c.Assert(ok, tc.IsFalse)
 }
@@ -32,7 +32,7 @@ type platformSuite struct {
 
 var _ = tc.Suite(&platformSuite{})
 
-func (s platformSuite) TestParsePlatform(c *tc.C) {
+func (s *platformSuite) TestParsePlatform(c *tc.C) {
 	tests := []struct {
 		Name        string
 		Value       string
@@ -105,7 +105,7 @@ func (s platformSuite) TestParsePlatform(c *tc.C) {
 	}
 }
 
-func (s platformSuite) TestString(c *tc.C) {
+func (s *platformSuite) TestString(c *tc.C) {
 	tests := []struct {
 		Name     string
 		Value    string

@@ -17,7 +17,7 @@ type channelSuite struct {
 
 var _ = tc.Suite(&channelSuite{})
 
-func (s channelSuite) TestParseChannelNormalize(c *tc.C) {
+func (s *channelSuite) TestParseChannelNormalize(c *tc.C) {
 	// ParseChannelNormalize tests ParseChannel as well.
 	tests := []struct {
 		Name        string
@@ -88,7 +88,7 @@ func (s channelSuite) TestParseChannelNormalize(c *tc.C) {
 	}
 }
 
-func (s channelSuite) TestString(c *tc.C) {
+func (s *channelSuite) TestString(c *tc.C) {
 	tests := []struct {
 		Name     string
 		Value    string
@@ -126,7 +126,7 @@ func (s channelSuite) TestString(c *tc.C) {
 	}
 }
 
-func (s channelSuite) TestMakeChannel(c *tc.C) {
+func (s *channelSuite) TestMakeChannel(c *tc.C) {
 	tests := []struct {
 		Name      string
 		Track     string
@@ -164,7 +164,7 @@ func (s channelSuite) TestMakeChannel(c *tc.C) {
 	}
 }
 
-func (s channelSuite) TestMakePermissiveChannelAndEmpty(c *tc.C) {
+func (s *channelSuite) TestMakePermissiveChannelAndEmpty(c *tc.C) {
 	tests := []struct {
 		Name     string
 		Track    string
@@ -188,6 +188,6 @@ func (s channelSuite) TestMakePermissiveChannelAndEmpty(c *tc.C) {
 	}
 }
 
-func (s channelSuite) TestEmpty(c *tc.C) {
+func (s *channelSuite) TestEmpty(c *tc.C) {
 	c.Assert(charm.Channel{}.Empty(), tc.IsTrue)
 }

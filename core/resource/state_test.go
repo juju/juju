@@ -15,7 +15,7 @@ type StateSuite struct {
 
 var _ = tc.Suite(&StateSuite{})
 
-func (StateSuite) TestParseStateKnown(c *tc.C) {
+func (s *StateSuite) TestParseStateKnown(c *tc.C) {
 	recognized := map[string]State{
 		"potential": StatePotential,
 		"available": StateAvailable,
@@ -28,13 +28,13 @@ func (StateSuite) TestParseStateKnown(c *tc.C) {
 	}
 }
 
-func (StateSuite) TestParseStateUnknown(c *tc.C) {
+func (s *StateSuite) TestParseStateUnknown(c *tc.C) {
 	_, err := ParseState("<invalid>")
 
 	c.Check(err, tc.ErrorMatches, `.*state "<invalid>" invalid.*`)
 }
 
-func (StateSuite) TestValidateKnown(c *tc.C) {
+func (s *StateSuite) TestValidateKnown(c *tc.C) {
 	recognized := []State{
 		StatePotential,
 		StateAvailable,
@@ -46,7 +46,7 @@ func (StateSuite) TestValidateKnown(c *tc.C) {
 	}
 }
 
-func (StateSuite) TestValidateUnknown(c *tc.C) {
+func (s *StateSuite) TestValidateUnknown(c *tc.C) {
 	var state State
 	err := state.Validate()
 

@@ -20,7 +20,7 @@ type ResourceSuite struct {
 
 var _ = tc.Suite(&ResourceSuite{})
 
-func (ResourceSuite) TestValidateUploadUsed(c *tc.C) {
+func (s *ResourceSuite) TestValidateUploadUsed(c *tc.C) {
 	res := resource.Resource{
 		Resource:        newFullCharmResource(c, "spam"),
 		UUID:            "a-application/spam",
@@ -34,7 +34,7 @@ func (ResourceSuite) TestValidateUploadUsed(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 }
 
-func (ResourceSuite) TestValidateUploadNotUsed(c *tc.C) {
+func (s *ResourceSuite) TestValidateUploadNotUsed(c *tc.C) {
 	res := resource.Resource{
 		Resource:        newFullCharmResource(c, "spam"),
 		UUID:            "a-application/spam",
@@ -46,7 +46,7 @@ func (ResourceSuite) TestValidateUploadNotUsed(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 }
 
-func (ResourceSuite) TestValidateZeroValue(c *tc.C) {
+func (s *ResourceSuite) TestValidateZeroValue(c *tc.C) {
 	var res resource.Resource
 
 	err := res.Validate()
@@ -55,7 +55,7 @@ func (ResourceSuite) TestValidateZeroValue(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `.*bad info.*`)
 }
 
-func (ResourceSuite) TestValidateBadInfo(c *tc.C) {
+func (s *ResourceSuite) TestValidateBadInfo(c *tc.C) {
 	var charmRes charmresource.Resource
 	c.Assert(charmRes.Validate(), tc.NotNil)
 
@@ -69,7 +69,7 @@ func (ResourceSuite) TestValidateBadInfo(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `.*bad info.*`)
 }
 
-func (ResourceSuite) TestValidateMissingID(c *tc.C) {
+func (s *ResourceSuite) TestValidateMissingID(c *tc.C) {
 	res := resource.Resource{
 		Resource:        newFullCharmResource(c, "spam"),
 		ApplicationName: "a-application",
@@ -82,7 +82,7 @@ func (ResourceSuite) TestValidateMissingID(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 }
 
-func (ResourceSuite) TestValidateMissingApplicationName(c *tc.C) {
+func (s *ResourceSuite) TestValidateMissingApplicationName(c *tc.C) {
 	res := resource.Resource{
 		Resource:    newFullCharmResource(c, "spam"),
 		UUID:        "a-application/spam",
@@ -96,7 +96,7 @@ func (ResourceSuite) TestValidateMissingApplicationName(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `.*missing application name.*`)
 }
 
-func (ResourceSuite) TestValidateMissingUsername(c *tc.C) {
+func (s *ResourceSuite) TestValidateMissingUsername(c *tc.C) {
 	res := resource.Resource{
 		Resource:        newFullCharmResource(c, "spam"),
 		UUID:            "a-application/spam",
@@ -110,7 +110,7 @@ func (ResourceSuite) TestValidateMissingUsername(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 }
 
-func (ResourceSuite) TestValidateMissingTimestamp(c *tc.C) {
+func (s *ResourceSuite) TestValidateMissingTimestamp(c *tc.C) {
 	res := resource.Resource{
 		Resource:        newFullCharmResource(c, "spam"),
 		UUID:            "a-application/spam",
@@ -125,7 +125,7 @@ func (ResourceSuite) TestValidateMissingTimestamp(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `.*missing timestamp.*`)
 }
 
-func (ResourceSuite) TestRevisionStringNone(c *tc.C) {
+func (s *ResourceSuite) TestRevisionStringNone(c *tc.C) {
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -145,7 +145,7 @@ func (ResourceSuite) TestRevisionStringNone(c *tc.C) {
 	c.Check(res.RevisionString(), tc.Equals, "-")
 }
 
-func (ResourceSuite) TestRevisionStringTime(c *tc.C) {
+func (s *ResourceSuite) TestRevisionStringTime(c *tc.C) {
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -167,7 +167,7 @@ func (ResourceSuite) TestRevisionStringTime(c *tc.C) {
 	c.Check(res.RevisionString(), tc.Equals, "2012-07-08 15:59:05 +0000 UTC")
 }
 
-func (ResourceSuite) TestRevisionStringNumber(c *tc.C) {
+func (s *ResourceSuite) TestRevisionStringNumber(c *tc.C) {
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{

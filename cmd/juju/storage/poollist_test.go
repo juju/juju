@@ -125,7 +125,7 @@ func (s *poolListSuite) assertUnmarshalledOutput(c *tc.C, unmarshall unmarshalle
 	s.assertSamePoolInfos(c, result, expected)
 }
 
-func (s poolListSuite) assertSamePoolInfos(c *tc.C, one, two map[string]storage.PoolInfo) {
+func (s *poolListSuite) assertSamePoolInfos(c *tc.C, one, two map[string]storage.PoolInfo) {
 	c.Assert(one, tc.HasLen, len(two))
 
 	sameAttributes := func(a, b map[string]interface{}) {
@@ -147,7 +147,7 @@ func (s poolListSuite) assertSamePoolInfos(c *tc.C, one, two map[string]storage.
 	}
 }
 
-func (s poolListSuite) expect(c *tc.C, types, names []string) map[string]storage.PoolInfo {
+func (s *poolListSuite) expect(c *tc.C, types, names []string) map[string]storage.PoolInfo {
 	all, err := s.mockAPI.ListPools(context.Background(), types, names)
 	c.Assert(err, tc.ErrorIsNil)
 	result := make(map[string]storage.PoolInfo, len(all))

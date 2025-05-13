@@ -19,7 +19,7 @@ type ErrorSuite struct {
 
 var _ = tc.Suite(&ErrorSuite{})
 
-func (ErrorSuite) TestAsDataError(c *tc.C) {
+func (s *ErrorSuite) TestAsDataError(c *tc.C) {
 	dataErr := odataerrors.NewODataError()
 	dataErr.SetBackingStore(store.NewInMemoryBackingStore())
 	me := odataerrors.NewMainError()

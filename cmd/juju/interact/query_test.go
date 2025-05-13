@@ -20,14 +20,14 @@ type Suite struct {
 
 var _ = tc.Suite(Suite{})
 
-func (Suite) TestAnswer(c *tc.C) {
+func (s *Suite) TestAnswer(c *tc.C) {
 	scanner := bufio.NewScanner(strings.NewReader("hi!\n"))
 	answer, err := QueryVerify("boo: ", scanner, io.Discard, io.Discard, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(answer, tc.Equals, "hi!")
 }
 
-func (Suite) TestVerify(c *tc.C) {
+func (s *Suite) TestVerify(c *tc.C) {
 	scanner := bufio.NewScanner(strings.NewReader("hi!\nok!\n"))
 	out := bytes.Buffer{}
 	verify := func(s string) (ok bool, errmsg string, err error) {
@@ -50,7 +50,7 @@ boo:
 	c.Assert(out.String(), tc.Equals, expected)
 }
 
-func (Suite) TestQueryMultiple(c *tc.C) {
+func (s *Suite) TestQueryMultiple(c *tc.C) {
 	scanner := bufio.NewScanner(strings.NewReader(`
 hi!
 ok!
@@ -71,7 +71,7 @@ bob
 	c.Assert(answer, tc.Equals, "bob")
 }
 
-func (Suite) TestMatchOptions(c *tc.C) {
+func (s *Suite) TestMatchOptions(c *tc.C) {
 	f := MatchOptions([]string{"foo", "BAR"}, "nope")
 	for _, s := range []string{"foo", "FOO", "BAR", "bar"} {
 		ok, msg, err := f(s)
@@ -85,7 +85,7 @@ func (Suite) TestMatchOptions(c *tc.C) {
 	c.Check(ok, tc.IsFalse)
 }
 
-func (Suite) TestFindMatch(c *tc.C) {
+func (s *Suite) TestFindMatch(c *tc.C) {
 	options := []string{"foo", "BAR"}
 	m, ok := FindMatch("foo", options)
 	c.Check(m, tc.Equals, "foo")

@@ -953,7 +953,7 @@ type refreshConfigSuite struct {
 
 var _ = tc.Suite(&refreshConfigSuite{})
 
-func (refreshConfigSuite) TestRefreshByChannel(c *tc.C) {
+func (s *refreshConfigSuite) TestRefreshByChannel(c *tc.C) {
 	name := "wordpress"
 	// 'mistakenly' include a risk in the platform
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.04/stable")
@@ -988,7 +988,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *tc.C) {
 	})
 }
 
-func (refreshConfigSuite) TestRefreshByChannelVersion(c *tc.C) {
+func (s *refreshConfigSuite) TestRefreshByChannelVersion(c *tc.C) {
 	name := "wordpress"
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.10")
 	channel := corecharm.MustParseChannel("latest/stable").Normalize()
@@ -1022,7 +1022,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *tc.C) {
 	})
 }
 
-func (refreshConfigSuite) TestRefreshByRevision(c *tc.C) {
+func (s *refreshConfigSuite) TestRefreshByRevision(c *tc.C) {
 	revision := 1
 	name := "wordpress"
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.04")
@@ -1050,7 +1050,7 @@ func (refreshConfigSuite) TestRefreshByRevision(c *tc.C) {
 	})
 }
 
-func (refreshConfigSuite) TestRefreshByID(c *tc.C) {
+func (s *refreshConfigSuite) TestRefreshByID(c *tc.C) {
 	id := "aaabbbccc"
 	revision := 1
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.04")
@@ -1098,13 +1098,13 @@ type selectNextBaseSuite struct {
 
 var _ = tc.Suite(&selectNextBaseSuite{})
 
-func (*selectNextBaseSuite) TestSelectNextBaseWithNoBases(c *tc.C) {
+func (s *selectNextBaseSuite) TestSelectNextBaseWithNoBases(c *tc.C) {
 	repo := new(CharmHubRepository)
 	_, err := repo.selectNextBases(nil, corecharm.Origin{})
 	c.Assert(err, tc.ErrorMatches, `no bases available`)
 }
 
-func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *tc.C) {
+func (s *selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *tc.C) {
 	repo := new(CharmHubRepository)
 	_, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "all",
@@ -1116,7 +1116,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `bases matching architecture "amd64" not found`)
 }
 
-func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *tc.C) {
+func (s *selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *tc.C) {
 	repo := new(CharmHubRepository)
 	_, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
@@ -1129,7 +1129,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *tc.C) {
+func (s *selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *tc.C) {
 	repo := new(CharmHubRepository)
 	_, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
@@ -1142,7 +1142,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (*selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *tc.C) {
+func (s *selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *tc.C) {
 	repo := new(CharmHubRepository)
 	platform, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
@@ -1163,7 +1163,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *tc.C) {
 	}})
 }
 
-func (*selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *tc.C) {
+func (s *selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *tc.C) {
 	repo := new(CharmHubRepository)
 	platform, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
@@ -1184,7 +1184,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *tc.C) {
 	}})
 }
 
-func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *tc.C) {
+func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *tc.C) {
 	channel := corecharm.MustParseChannel("stable/foo")
 	repo := new(CharmHubRepository)
 	err := repo.handleRevisionNotFound([]transport.Release{}, corecharm.Origin{
@@ -1193,7 +1193,7 @@ func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *tc
 	c.Assert(err, tc.ErrorMatches, `no releases available`)
 }
 
-func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c *tc.C) {
+func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c *tc.C) {
 	channel := corecharm.MustParseChannel("stable/foo")
 	repo := new(CharmHubRepository)
 	err := repo.handleRevisionNotFound([]transport.Release{

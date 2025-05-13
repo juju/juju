@@ -18,12 +18,12 @@ type nameSuite struct {
 
 var _ = tc.Suite(&nameSuite{})
 
-func (nameSuite) TestNameFromFuncMethod(c *tc.C) {
+func (s *nameSuite) TestNameFromFuncMethod(c *tc.C) {
 	name := NameFromFunc()
-	c.Assert(name, tc.Equals, Name("trace.nameSuite.TestNameFromFuncMethod"))
+	c.Assert(name, tc.Equals, Name("trace.(*nameSuite).TestNameFromFuncMethod"))
 }
 
-func (nameSuite) TestControllerNamespaceConstant(c *tc.C) {
+func (s *nameSuite) TestControllerNamespaceConstant(c *tc.C) {
 	c.Assert(controllerNamespace, tc.Equals, database.ControllerNS)
 }
 
@@ -33,7 +33,7 @@ type namespaceSuite struct {
 
 var _ = tc.Suite(&namespaceSuite{})
 
-func (namespaceSuite) TestNamespaceShortNamespace(c *tc.C) {
+func (s *namespaceSuite) TestNamespaceShortNamespace(c *tc.C) {
 	tests := []struct {
 		workerName string
 		namespace  string
@@ -63,7 +63,7 @@ func (namespaceSuite) TestNamespaceShortNamespace(c *tc.C) {
 	}
 }
 
-func (namespaceSuite) TestNamespaceString(c *tc.C) {
+func (s *namespaceSuite) TestNamespaceString(c *tc.C) {
 	tests := []struct {
 		workerName string
 		namespace  string
