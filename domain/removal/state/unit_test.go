@@ -16,6 +16,8 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -72,7 +74,7 @@ func (s *unitSuite) TestUnitExists(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
@@ -80,6 +82,8 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
+
+	machineUUID := s.getUnitMachineUUID(c, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -92,6 +96,48 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 1)
+
+	// The last machine had life "alive" and should now be "dying".
+	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID.String())
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+}
+
+func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddUnitArg{},
+		applicationservice.AddUnitArg{
+			// Place this unit on the same machine as the first one.
+			Placement: instance.MustParsePlacement("0"),
+		},
+	)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 2)
+	unitUUID := unitUUIDs[0]
+
+	machineUUID := s.getUnitMachineUUID(c, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Unit had life "alive" and should now be "dying".
+	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+
+	// Don't set the machine life to "dying" if there are other units on it.
+	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID.String())
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 0)
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
@@ -266,6 +312,35 @@ func (s *unitSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UU
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return unitUUIDs
+}
+
+func (s *unitSuite) getUnitMachineUUID(c *tc.C, unitUUID unit.UUID) machine.UUID {
+	var machineUUIDs []machine.UUID
+	err := s.ModelTxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT m.uuid
+FROM   machine AS m
+JOIN   net_node AS nn ON nn.uuid = m.net_node_uuid
+JOIN   unit AS u ON u.net_node_uuid = nn.uuid
+WHERE u.uuid = ?
+`, unitUUID)
+		if err != nil {
+			return err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			var machineUUID machine.UUID
+			if err := rows.Scan(&machineUUID); err != nil {
+				return err
+			}
+			machineUUIDs = append(machineUUIDs, machineUUID)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(machineUUIDs), tc.Equals, 1)
+	return machineUUIDs[0]
 }
 
 type stubCharm struct {
