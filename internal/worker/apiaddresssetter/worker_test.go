@@ -14,7 +14,6 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -106,9 +105,7 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 
 	// Starts the controller tracker for the new node.
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
-	s.applicationService.EXPECT().GetUnitNetNodes(gomock.Any(), unit.Name("controller/1")).Return([]network.NetNodeUUID{netNodeUUID}, nil)
-	s.applicationService.EXPECT().WatchNetNodeAddress(gomock.Any(), netNodeUUID).Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil)
+	s.applicationService.EXPECT().WatchUnitAddresses(gomock.Any(), unit.Name("controller/1")).Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil)
 	// Updates the API addresses for the new node.
 	addrs := network.SpaceAddresses{
 		{
@@ -180,9 +177,7 @@ func (s *workerSuite) TestConfigChange(c *tc.C) {
 
 	// Starts the controller tracker for the new node.
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
-	s.applicationService.EXPECT().GetUnitNetNodes(gomock.Any(), unit.Name("controller/1")).Return([]network.NetNodeUUID{netNodeUUID}, nil)
-	s.applicationService.EXPECT().WatchNetNodeAddress(gomock.Any(), netNodeUUID).Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil)
+	s.applicationService.EXPECT().WatchUnitAddresses(gomock.Any(), unit.Name("controller/1")).Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil)
 
 	// Updates the API addresses for the new node.
 	addrs := network.SpaceAddresses{
@@ -283,11 +278,9 @@ func (s *workerSuite) TestNodeAddressChange(c *tc.C) {
 
 	// Starts the controller tracker for the new node.
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
-	s.applicationService.EXPECT().GetUnitNetNodes(gomock.Any(), unit.Name("controller/1")).Return([]network.NetNodeUUID{netNodeUUID}, nil)
 	addrCh := make(chan struct{})
 	netNodeAddressWatcher := watchertest.NewMockNotifyWatcher(addrCh)
-	s.applicationService.EXPECT().WatchNetNodeAddress(gomock.Any(), netNodeUUID).Return(netNodeAddressWatcher, nil)
+	s.applicationService.EXPECT().WatchUnitAddresses(gomock.Any(), unit.Name("controller/1")).Return(netNodeAddressWatcher, nil)
 
 	// Updates the API addresses for the new node.
 	addrs := network.SpaceAddresses{
