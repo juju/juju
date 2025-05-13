@@ -168,44 +168,6 @@ func (c *MockResourceServiceOpenResourceCall) DoAndReturn(f func(context.Context
 	return c
 }
 
-// SetApplicationResource mocks base method.
-func (m *MockResourceService) SetApplicationResource(arg0 context.Context, arg1 resource.UUID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetApplicationResource", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetApplicationResource indicates an expected call of SetApplicationResource.
-func (mr *MockResourceServiceMockRecorder) SetApplicationResource(arg0, arg1 any) *MockResourceServiceSetApplicationResourceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationResource", reflect.TypeOf((*MockResourceService)(nil).SetApplicationResource), arg0, arg1)
-	return &MockResourceServiceSetApplicationResourceCall{Call: call}
-}
-
-// MockResourceServiceSetApplicationResourceCall wrap *gomock.Call
-type MockResourceServiceSetApplicationResourceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockResourceServiceSetApplicationResourceCall) Return(arg0 error) *MockResourceServiceSetApplicationResourceCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockResourceServiceSetApplicationResourceCall) Do(f func(context.Context, resource.UUID) error) *MockResourceServiceSetApplicationResourceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceServiceSetApplicationResourceCall) DoAndReturn(f func(context.Context, resource.UUID) error) *MockResourceServiceSetApplicationResourceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetUnitResource mocks base method.
 func (m *MockResourceService) SetUnitResource(arg0 context.Context, arg1 resource.UUID, arg2 unit.UUID) error {
 	m.ctrl.T.Helper()

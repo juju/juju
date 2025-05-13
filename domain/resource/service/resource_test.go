@@ -272,26 +272,6 @@ func (s *resourceServiceSuite) TestGetResourceBadID(c *gc.C) {
 
 var fingerprint = []byte("123456789012345678901234567890123456789012345678")
 
-func (s *resourceServiceSuite) TestSetApplicationResource(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	resourceUUID := resourcetesting.GenResourceUUID(c)
-	s.state.EXPECT().SetApplicationResource(gomock.Any(), resourceUUID)
-
-	err := s.service.SetApplicationResource(
-		context.Background(),
-		resourceUUID,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *resourceServiceSuite) TestSetApplicationResourceBadResourceUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := s.service.SetApplicationResource(context.Background(), "bad-uuid")
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
-}
-
 func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

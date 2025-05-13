@@ -109,14 +109,6 @@ type State interface {
 	//    to an existing resource.
 	SetUnitResource(ctx context.Context, resourceUUID coreresource.UUID, unitUUID coreunit.UUID) error
 
-	// SetApplicationResource marks an existing resource as in use by a CAAS
-	// application.
-	//
-	// The following error types can be expected to be returned:
-	//  - [resourceerrors.ResourceNotFound] if the resource id doesn't belong
-	//    to an existing resource.
-	SetApplicationResource(ctx context.Context, resourceUUID coreresource.UUID) error
-
 	// SetRepositoryResources sets the "polled" resource for the
 	// application to the provided values. The current data for this
 	// application/resource combination will be overwritten.
@@ -540,27 +532,6 @@ func (s *Service) SetUnitResource(
 	err := s.st.SetUnitResource(ctx, resourceUUID, unitUUID)
 	if err != nil {
 		return errors.Errorf("recording resource for unit: %w", err)
-	}
-	return nil
-}
-
-// SetApplicationResource marks an existing resource as in use by a CAAS
-// application.
-//
-// The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
-//     found.
-func (s *Service) SetApplicationResource(
-	ctx context.Context,
-	resourceUUID coreresource.UUID,
-) error {
-	if err := resourceUUID.Validate(); err != nil {
-		return errors.Errorf("resource id: %w", err)
-	}
-
-	err := s.st.SetApplicationResource(ctx, resourceUUID)
-	if err != nil {
-		return errors.Errorf("recording resource for application: %w", err)
 	}
 	return nil
 }
