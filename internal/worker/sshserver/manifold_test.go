@@ -100,8 +100,7 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		Logger:               loggertesting.WrapCheckLog(c),
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger: loggertesting.WrapCheckLog(c),
 	})
 
 	// Check the inputs are as expected
@@ -142,8 +141,7 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldCo
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		Logger:               loggertesting.WrapCheckLog(c),
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 
 	modifier(cfg)
@@ -168,8 +166,7 @@ func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		Logger:               loggertesting.WrapCheckLog(c),
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger: loggertesting.WrapCheckLog(c),
 	})
 
 	// Check the inputs are as expected

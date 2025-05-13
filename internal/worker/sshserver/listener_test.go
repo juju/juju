@@ -28,31 +28,30 @@ type testingSSHServerListener struct {
 	// closeAllowed indicates when the server has reached
 	// a safe point that it can be killed.
 	closeAllowed chan struct{}
-	once         *sync.Once
+	once         sync.Once
 
 	timeout time.Duration
 }
 
 // newTestingSSHServerListener returns a listener.
 func newTestingSSHServerListener(l net.Listener, timeout time.Duration) net.Listener {
-	return testingSSHServerListener{
+	return &testingSSHServerListener{
 		Listener:     l,
 		closeAllowed: make(chan struct{}),
-		once:         &sync.Once{},
 		timeout:      timeout,
 	}
 }
 
 // Accept runs the listeners accept, but firstly closes the closeAllowed channel,
 // signalling that any routines waiting to close the listener may proceed.
-func (l testingSSHServerListener) Accept() (net.Conn, error) {
+func (l *testingSSHServerListener) Accept() (net.Conn, error) {
 	l.once.Do(func() {
 		close(l.closeAllowed)
 	})
 	return l.Listener.Accept()
 }
 
-func (l testingSSHServerListener) Close() error {
+func (l *testingSSHServerListener) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
 	defer cancel()
 

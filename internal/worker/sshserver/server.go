@@ -49,10 +49,6 @@ type ServerWorkerConfig struct {
 	// we accept for our ssh server.
 	MaxConcurrentConnections int
 
-	// NewSSHServerListener is a function that returns a listener and a
-	// closeAllowed channel.
-	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
-
 	// disableAuth is a test-only flag that disables authentication.
 	disableAuth bool
 
@@ -67,9 +63,6 @@ func (c ServerWorkerConfig) Validate() error {
 	}
 	if c.JumpHostKey == "" {
 		return errors.NotValidf("empty JumpHostKey")
-	}
-	if c.NewSSHServerListener == nil {
-		return errors.NotValidf("missing NewSSHServerListener")
 	}
 	if c.SessionHandler == nil {
 		return errors.NotValidf("missing SessionHandler")
@@ -115,26 +108,19 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 		s.config.Listener = listener
 	}
 
-	listener := config.NewSSHServerListener(s.config.Listener, time.Second*10)
-
-	// Start server.
 	s.tomb.Go(func() error {
-		err := s.Server.Serve(listener)
-		if errors.Is(err, ssh.ErrServerClosed) {
-			return nil
-		}
-		return errors.Trace(err)
-	})
+		// Start server.
+		s.tomb.Go(func() error {
+			err := s.Server.Serve(s.config.Listener)
+			if errors.Is(err, ssh.ErrServerClosed) {
+				return nil
+			}
+			return errors.Trace(err)
+		})
 
-	// Handle server cleanup.
-	s.tomb.Go(func() error {
+		// Handle server cleanup.
 		// Keep the listener and the server alive until the tomb is killed.
 		<-s.tomb.Dying()
-
-		// Close the listener, this prevents a race in the test.
-		if err := listener.Close(); err != nil {
-			s.config.Logger.Errorf(context.TODO(), "failed to close listener: %v", err)
-		}
 
 		if err := s.Server.Close(); err != nil {
 			// There's really not a lot we can do if the shutdown fails,
