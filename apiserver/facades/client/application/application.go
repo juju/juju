@@ -1551,22 +1551,22 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return nil, errors.NotSupportedf("removing the controller application")
 		}
 
+		unitNames, err := api.applicationService.GetUnitNamesForApplication(ctx, tag.Id())
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return nil, errors.NotFoundf("application %q", tag.Id())
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		var info params.DestroyApplicationInfo
-		app, err := api.backend.Application(tag.Id())
-		if err != nil {
-			return nil, err
-		}
-		units, err := app.AllUnits()
-		if err != nil {
-			return nil, err
-		}
 		storageSeen := names.NewSet()
-		for _, unit := range units {
+		for _, unitName := range unitNames {
+			unitTag := names.NewUnitTag(unitName.String())
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
-				params.Entity{Tag: unit.UnitTag().String()},
+				params.Entity{Tag: unitTag.String()},
 			)
-			unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
+			unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unitTag)
 			if err != nil {
 				return nil, err
 			}
@@ -1614,6 +1614,10 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return nil, errors.Annotatef(err, "destroying application %q", tag.Id())
 		}
 
+		app, err := api.backend.Application(tag.Id())
+		if err != nil {
+			return nil, err
+		}
 		op := app.DestroyOperation(api.store)
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force

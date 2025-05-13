@@ -37,7 +37,6 @@ type Backend interface {
 // the same names.
 type Application interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
-	AllUnits() ([]Unit, error)
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	Endpoints() ([]relation.Endpoint, error)
 	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error

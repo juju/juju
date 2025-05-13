@@ -303,45 +303,6 @@ func (c *MockApplicationAddUnitCall) DoAndReturn(f func(state.AddUnitParams) (Un
 	return c
 }
 
-// AllUnits mocks base method.
-func (m *MockApplication) AllUnits() ([]Unit, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllUnits")
-	ret0, _ := ret[0].([]Unit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllUnits indicates an expected call of AllUnits.
-func (mr *MockApplicationMockRecorder) AllUnits() *MockApplicationAllUnitsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllUnits", reflect.TypeOf((*MockApplication)(nil).AllUnits))
-	return &MockApplicationAllUnitsCall{Call: call}
-}
-
-// MockApplicationAllUnitsCall wrap *gomock.Call
-type MockApplicationAllUnitsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationAllUnitsCall) Return(arg0 []Unit, arg1 error) *MockApplicationAllUnitsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationAllUnitsCall) Do(f func() ([]Unit, error)) *MockApplicationAllUnitsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationAllUnitsCall) DoAndReturn(f func() ([]Unit, error)) *MockApplicationAllUnitsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DestroyOperation mocks base method.
 func (m *MockApplication) DestroyOperation(arg0 objectstore.ObjectStore) *state.DestroyApplicationOperation {
 	m.ctrl.T.Helper()
@@ -376,45 +337,6 @@ func (c *MockApplicationDestroyOperationCall) Do(f func(objectstore.ObjectStore)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationDestroyOperationCall) DoAndReturn(f func(objectstore.ObjectStore) *state.DestroyApplicationOperation) *MockApplicationDestroyOperationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// EndpointBindings mocks base method.
-func (m *MockApplication) EndpointBindings() (Bindings, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EndpointBindings")
-	ret0, _ := ret[0].(Bindings)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EndpointBindings indicates an expected call of EndpointBindings.
-func (mr *MockApplicationMockRecorder) EndpointBindings() *MockApplicationEndpointBindingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointBindings", reflect.TypeOf((*MockApplication)(nil).EndpointBindings))
-	return &MockApplicationEndpointBindingsCall{Call: call}
-}
-
-// MockApplicationEndpointBindingsCall wrap *gomock.Call
-type MockApplicationEndpointBindingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationEndpointBindingsCall) Return(arg0 Bindings, arg1 error) *MockApplicationEndpointBindingsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationEndpointBindingsCall) Do(f func() (Bindings, error)) *MockApplicationEndpointBindingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationEndpointBindingsCall) DoAndReturn(f func() (Bindings, error)) *MockApplicationEndpointBindingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
