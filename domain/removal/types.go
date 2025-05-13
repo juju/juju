@@ -8,8 +8,12 @@ import "time"
 // JobType indicates the type of entity that a removal job is for.
 type JobType uint64
 
-// RelationJob indicates a job to remove a relation.
-const RelationJob JobType = iota
+const (
+	// RelationJob indicates a job to remove a relation.
+	RelationJob JobType = iota
+	// UnitJob indicates a job to remove a unit.
+	UnitJob
+)
 
 // Job is a removal job for a single entity.
 type Job struct {
