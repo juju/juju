@@ -2535,6 +2535,45 @@ func (c *MockStateGetUnitAddressesCall) DoAndReturn(f func(context.Context, unit
 	return c
 }
 
+// GetUnitAndK8sServiceAddresses mocks base method.
+func (m *MockState) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid unit.UUID) (network.SpaceAddresses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitAndK8sServiceAddresses", ctx, uuid)
+	ret0, _ := ret[0].(network.SpaceAddresses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitAndK8sServiceAddresses indicates an expected call of GetUnitAndK8sServiceAddresses.
+func (mr *MockStateMockRecorder) GetUnitAndK8sServiceAddresses(ctx, uuid any) *MockStateGetUnitAndK8sServiceAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAndK8sServiceAddresses", reflect.TypeOf((*MockState)(nil).GetUnitAndK8sServiceAddresses), ctx, uuid)
+	return &MockStateGetUnitAndK8sServiceAddressesCall{Call: call}
+}
+
+// MockStateGetUnitAndK8sServiceAddressesCall wrap *gomock.Call
+type MockStateGetUnitAndK8sServiceAddressesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitAndK8sServiceAddressesCall) Return(arg0 network.SpaceAddresses, arg1 error) *MockStateGetUnitAndK8sServiceAddressesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitAndK8sServiceAddressesCall) Do(f func(context.Context, unit.UUID) (network.SpaceAddresses, error)) *MockStateGetUnitAndK8sServiceAddressesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitAndK8sServiceAddressesCall) DoAndReturn(f func(context.Context, unit.UUID) (network.SpaceAddresses, error)) *MockStateGetUnitAndK8sServiceAddressesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitLife mocks base method.
 func (m *MockState) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Life, error) {
 	m.ctrl.T.Helper()

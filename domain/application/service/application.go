@@ -75,12 +75,18 @@ type ApplicationState interface {
 	// exist.
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
 
-	// GetUnitAddresses returns the addresses of the specified unit.
+	// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
 	// The addresses are taken by unioning the net node UUIDs of the cloud service
 	// (if any) and the net node UUIDs of the unit, where each net node has an
 	// associated address.
 	// This apprach allows us to get the addresses regardless of the substrate
 	// (k8s or machines).
+	//
+	// The following errors may be returned:
+	// - [uniterrors.UnitNotFound] if the unit does not exist
+	GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
+
+	// GetUnitAddresses returns the addresses of the specified unit.
 	//
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist

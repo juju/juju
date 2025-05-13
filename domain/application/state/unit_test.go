@@ -1302,7 +1302,7 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *unitStateSuite) TestGetUnitAddressesIncludingK8sService(c *tc.C) {
+func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
@@ -1364,7 +1364,7 @@ func (s *unitStateSuite) TestGetUnitAddressesIncludingK8sService(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	addr, err := s.state.GetUnitAddresses(c.Context(), unitUUID)
+	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addr, tc.DeepEquals, network.SpaceAddresses{
 		{
@@ -1390,7 +1390,70 @@ func (s *unitStateSuite) TestGetUnitAddressesIncludingK8sService(c *tc.C) {
 	})
 }
 
-func (s *unitStateSuite) TestGetUnitAddressesWithoutK8sService(c *tc.C) {
+func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c *tc.C) {
+	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
+		_, err := tx.ExecContext(ctx, insertNetNode0, "machine-net-node-uuid")
+		if err != nil {
+			return err
+		}
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, "machine-net-node-uuid", "foo/0")
+		if err != nil {
+			return err
+		}
+		insertLLD0 := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD0, "lld0-uuid", "machine-net-node-uuid", "lld0-name", 1500, "00:11:22:33:44:55", 0, 0)
+		if err != nil {
+			return err
+		}
+		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
+		if err != nil {
+			return err
+		}
+		insertSubnet := `INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertSubnet, "subnet-uuid", "10.0.0.0/24", "space0-uuid")
+		if err != nil {
+			return err
+		}
+		insertIPAddress0 := `INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "machine-net-node-uuid", "lld0-uuid", "10.0.0.1", 0, 3, 1, 1, "subnet-uuid")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addr, tc.DeepEquals, network.SpaceAddresses{
+		{
+			SpaceID: "space0-uuid",
+			Origin:  network.OriginProvider,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1",
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+				ConfigType: network.ConfigDHCP,
+			},
+		},
+	})
+}
+
+func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesNotFound(c *tc.C) {
+	_, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), coreunit.UUID("foo"))
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitAddresses(c *tc.C) {
 	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
@@ -1449,7 +1512,7 @@ func (s *unitStateSuite) TestGetUnitAddressesWithoutK8sService(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitNetNodesNotFound(c *tc.C) {
-	_, err := s.state.GetUnitNetNodes(context.Background(), "unknown-unit-uuid")
+	_, err := s.state.GetUnitNetNodes(c.Context(), "unknown-unit-uuid")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -1457,10 +1520,10 @@ func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
-	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), "foo/0")
+	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
 		_, err := tx.ExecContext(ctx, insertNetNode0, "pod-net-node-uuid")
 		if err != nil {
@@ -1485,7 +1548,7 @@ func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	netNodeUUID, err := s.state.GetUnitNetNodes(context.Background(), unitUUID)
+	netNodeUUID, err := s.state.GetUnitNetNodes(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNodeUUID, tc.SameContents, []string{"svc-net-node-uuid", "pod-net-node-uuid"})
 }
@@ -1494,10 +1557,10 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
-	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), "foo/0")
+	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
 		_, err := tx.ExecContext(ctx, insertNetNode0, "machine-net-node-uuid")
 		if err != nil {
@@ -1512,9 +1575,14 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	netNodeUUID, err := s.state.GetUnitNetNodes(context.Background(), unitUUID)
+	netNodeUUID, err := s.state.GetUnitNetNodes(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNodeUUID, tc.SameContents, []string{"machine-net-node-uuid"})
+}
+
+func (s *unitStateSuite) TestGetUnitAddressesNotFound(c *tc.C) {
+	_, err := s.state.GetUnitAddresses(c.Context(), coreunit.UUID("foo"))
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 type applicationSpace struct {
