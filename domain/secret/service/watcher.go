@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -49,7 +50,13 @@ func NewWatchableService(
 
 // WatchConsumedSecretsChanges watches secrets consumed by the specified unit
 // and returns a watcher which notifies of secret URIs that have had a new revision added.
-func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName coreunit.Name) (_ watcher.StringsWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	tableLocal, queryLocal := s.secretState.InitialWatchStatementForConsumedSecretsChange(unitName)
 	wLocal, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are only interested in CREATE changes because
@@ -90,7 +97,13 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 // WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any unit
 // of the specified app and retuens a watcher which notifies of secret URIs
 // that have had a new revision added.
-func (s *WatchableService) WatchRemoteConsumedSecretsChanges(_ context.Context, appName string) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (_ watcher.StringsWatcher, err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	table, query := s.secretState.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		query,
@@ -112,7 +125,12 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(_ context.Context, 
 //
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
-func (s *WatchableService) WatchObsolete(_ context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSecretOwner) (_ watcher.StringsWatcher, err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -120,7 +138,13 @@ func (s *WatchableService) WatchObsolete(_ context.Context, owners ...CharmSecre
 }
 
 // WatchSecretRevisionsExpiryChanges returns a watcher that notifies when the expiry time of a secret revision changes.
-func (s *WatchableService) WatchSecretRevisionsExpiryChanges(_ context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
+func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...CharmSecretOwner) (_ watcher.SecretTriggerWatcher, err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -393,12 +417,17 @@ func (w *obsoleteWatcher) Kill() {
 
 // Wait waits for the watcher to die,
 // and returns the error with which it was killed.
-func (w *obsoleteWatcher) Wait() error {
+func (w *obsoleteWatcher) Wait() (err error) {
 	return w.catacomb.Wait()
 }
 
 // WatchSecretsRotationChanges returns a watcher that notifies when the rotation time of a secret changes.
-func (s *WatchableService) WatchSecretsRotationChanges(_ context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
+func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owners ...CharmSecretOwner) (_ watcher.SecretTriggerWatcher, err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -431,7 +460,13 @@ func (s *WatchableService) WatchSecretsRotationChanges(_ context.Context, owners
 }
 
 // WatchObsoleteUserSecretsToPrune returns a watcher that notifies when a user secret revision is obsolete and ready to be pruned.
-func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) (_ watcher.NotifyWatcher, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		if len(changes) == 0 {
 			return nil, nil

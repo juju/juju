@@ -7,6 +7,7 @@ import (
 	"context"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -26,7 +27,13 @@ func NewModelSecretBackendService(modelID coremodel.UUID, st State) *ModelSecret
 
 // GetModelSecretBackend returns the secret backend name for the current model ID,
 // returning an error satisfying [modelerrors.NotFound] if the model provided does not exist.
-func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (string, error) {
+func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (_ string, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
 	if err != nil {
 		return "", errors.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
@@ -49,7 +56,13 @@ func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (
 // returning an error satisfying [secretbackenderrors.NotFound] if the backend provided does not exist,
 // returning an error satisfying [modelerrors.NotFound] if the model provided does not exist,
 // returning an error satisfying [secretbackenderrors.NotValid] if the backend name provided is not valid.
-func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, backendName string) error {
+func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, backendName string) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if backendName == "" {
 		return errors.Errorf("missing backend name")
 	}
