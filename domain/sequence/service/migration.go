@@ -3,7 +3,11 @@
 
 package service
 
-import "context"
+import (
+	"context"
+
+	"github.com/juju/juju/core/trace"
+)
 
 // State describes retrieval and persistence methods for sequences.
 type State interface {
@@ -34,18 +38,33 @@ func NewMigrationService(st State) *MigrationServic {
 
 // GetSequencesForExport returns the sequences for export. This is used to
 // retrieve the sequences for export in the database.
-func (m *MigrationServic) GetSequencesForExport(ctx context.Context) (map[string]uint64, error) {
+func (m *MigrationServic) GetSequencesForExport(ctx context.Context) (_ map[string]uint64, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	return m.st.GetSequencesForExport(ctx)
 }
 
 // ImportSequences imports the sequences from the given map. This is used to
 // import the sequences from the database.
-func (m *MigrationServic) ImportSequences(ctx context.Context, seqs map[string]uint64) error {
+func (m *MigrationServic) ImportSequences(ctx context.Context, seqs map[string]uint64) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	return m.st.ImportSequences(ctx, seqs)
 }
 
 // RemoveAllSequences removes all sequences from the database. This is used to
 // remove all sequences from the database.
-func (m *MigrationServic) RemoveAllSequences(ctx context.Context) error {
+func (m *MigrationServic) RemoveAllSequences(ctx context.Context) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
 	return m.st.RemoveAllSequences(ctx)
 }

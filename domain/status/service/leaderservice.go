@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
@@ -60,7 +61,13 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 	ctx context.Context,
 	unitName coreunit.Name,
 	status corestatus.StatusInfo,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := unitName.Validate(); err != nil {
 		return errors.Errorf("unit name: %w", err)
 	}
@@ -105,6 +112,12 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	unitWorkloadStatuses map[coreunit.Name]corestatus.StatusInfo,
 	err error,
 ) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := unitName.Validate(); err != nil {
 		return corestatus.StatusInfo{}, nil, errors.Errorf("unit name: %w", err)
 	}
@@ -171,14 +184,20 @@ func (s *LeadershipService) SetRelationStatus(
 	unitName coreunit.Name,
 	relationUUID corerelation.UUID,
 	info corestatus.StatusInfo,
-) error {
+) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	// Check that the time has been provided
 	if info.Since == nil || info.Since.IsZero() {
 		return errors.Errorf("invalid time: %v", info.Since)
 	}
 
 	// Status can only be set by the leader unit.
-	err := s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
+	if err := s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
 		// Encode status.
 		relationStatus, err := encodeRelationStatus(info)
 		if err != nil {
@@ -186,8 +205,7 @@ func (s *LeadershipService) SetRelationStatus(
 		}
 
 		return s.st.SetRelationStatus(ctx, relationUUID, relationStatus)
-	})
-	if err != nil {
+	}); err != nil {
 		return errors.Capture(err)
 	}
 
