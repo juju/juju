@@ -22,8 +22,10 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/life"
 	domaintesting "github.com/juju/juju/domain/testing"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -55,7 +57,7 @@ func (s *unitSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *unitSuite) TestUnitExists(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
 
@@ -75,7 +77,7 @@ func (s *unitSuite) TestUnitExists(c *tc.C) {
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
 
@@ -107,7 +109,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDying(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createApplication(c, svc, "some-app",
 		applicationservice.AddUnitArg{},
@@ -144,7 +146,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDyi
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
 		applicationservice.AddUnitArg{},
@@ -184,7 +186,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
 
@@ -214,7 +216,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNotExistsSuccess(c *tc.C) {
 }
 
 func (s *unitSuite) TestUnitRemovalNormalSuccess(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
 
@@ -281,6 +283,53 @@ where  r.uuid = ?`, "removal-uuid",
 	c.Check(rUUID, tc.Equals, "some-unit-uuid")
 	c.Check(force, tc.Equals, true)
 	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *unitSuite) TestGetUnitLifeSuccess(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	// Set the unit to "dying" manually.
+	_, err := s.DB().Exec("UPDATE unit SET life_id = 1 WHERE uuid = ?", unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetUnitLife(context.Background(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dying)
+}
+
+func (s *unitSuite) TestGetUnitLifeNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetUnitLife(context.Background(), "some-unit-uuid")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitSuite) TestDeleteUnit(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(context.Background(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The unit should be gone.
+	exists, err := st.UnitExists(context.Background(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
 }
 
 func (s *unitSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *applicationservice.WatchableService {

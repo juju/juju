@@ -68,15 +68,18 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	switch job.RemovalType {
 	case removal.RelationJob:
 		err = s.processRelationRemovalJob(ctx, job)
+
+	case removal.UnitJob:
+		err = s.processUnitRemovalJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)
 	}
 
-	if err != nil {
-		if errors.Is(err, removalerrors.RemovalJobIncomplete) {
-			return nil
-		}
+	if errors.Is(err, removalerrors.RemovalJobIncomplete) {
+		return nil
+	} else if err != nil {
 		return errors.Capture(err)
 	}
 

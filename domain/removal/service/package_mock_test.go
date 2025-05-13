@@ -156,6 +156,44 @@ func (c *MockStateDeleteRelationUnitsCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// DeleteUnit mocks base method.
+func (m *MockState) DeleteUnit(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteUnit", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteUnit indicates an expected call of DeleteUnit.
+func (mr *MockStateMockRecorder) DeleteUnit(arg0, arg1 any) *MockStateDeleteUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnit", reflect.TypeOf((*MockState)(nil).DeleteUnit), arg0, arg1)
+	return &MockStateDeleteUnitCall{Call: call}
+}
+
+// MockStateDeleteUnitCall wrap *gomock.Call
+type MockStateDeleteUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteUnitCall) Return(arg0 error) *MockStateDeleteUnitCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteUnitCall) Do(f func(context.Context, string) error) *MockStateDeleteUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteUnitCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // EnsureRelationNotAlive mocks base method.
 func (m *MockState) EnsureRelationNotAlive(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -307,6 +345,45 @@ func (c *MockStateGetRelationLifeCall) Do(f func(context.Context, string) (life.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetRelationLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockStateGetRelationLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitLife mocks base method.
+func (m *MockState) GetUnitLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitLife indicates an expected call of GetUnitLife.
+func (mr *MockStateMockRecorder) GetUnitLife(arg0, arg1 any) *MockStateGetUnitLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockState)(nil).GetUnitLife), arg0, arg1)
+	return &MockStateGetUnitLifeCall{Call: call}
+}
+
+// MockStateGetUnitLifeCall wrap *gomock.Call
+type MockStateGetUnitLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitLifeCall) Return(arg0 life.Life, arg1 error) *MockStateGetUnitLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockStateGetUnitLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockStateGetUnitLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

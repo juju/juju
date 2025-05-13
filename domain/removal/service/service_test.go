@@ -44,6 +44,23 @@ func (s *serviceSuite) TestGetAllJobsSuccess(c *tc.C) {
 				"key": "value",
 			},
 		},
+		{
+			UUID:         "job-3",
+			RemovalType:  removal.UnitJob,
+			EntityUUID:   "unit-1",
+			Force:        false,
+			ScheduledFor: time.Now().UTC(),
+		},
+		{
+			UUID:         "job-4",
+			RemovalType:  removal.UnitJob,
+			EntityUUID:   "unit-2",
+			Force:        true,
+			ScheduledFor: time.Now().UTC().Add(time.Hour),
+			Arg: map[string]any{
+				"key": "value",
+			},
+		},
 	}
 
 	s.state.EXPECT().GetAllJobs(gomock.Any()).Return(dbJobs, nil)
