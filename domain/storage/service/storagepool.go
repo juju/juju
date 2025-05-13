@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/trace"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
@@ -38,9 +39,14 @@ type PoolAttrs map[string]any
 
 // CreateStoragePool creates a storage pool, returning an error satisfying [errors.AlreadyExists]
 // if a pool with the same name already exists.
-func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) error {
-	err := s.validateConfig(ctx, name, providerType, attrs)
-	if err != nil {
+func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	if err := s.validateConfig(ctx, name, providerType, attrs); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -92,7 +98,13 @@ func (s *StoragePoolService) validateConfig(ctx context.Context, name string, pr
 
 // DeleteStoragePool deletes a storage pool, returning an error satisfying
 // [errors.NotFound] if it doesn't exist.
-func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string) error {
+func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	// TODO(storage) - check in use when we have storage in dqlite
 	// Below is the code from state that will need to be ported.
 	/*
@@ -120,8 +132,7 @@ func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string)
 			return errors.Errorf("storage pool %q in use", poolName)
 		}
 	*/
-	err := s.st.DeleteStoragePool(ctx, name)
-	if err != nil {
+	if err := s.st.DeleteStoragePool(ctx, name); err != nil {
 		return errors.Errorf("deleting storage pool %q: %w", name, err)
 	}
 	return nil
@@ -129,7 +140,13 @@ func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string)
 
 // ReplaceStoragePool replaces an existing storage pool, returning an error
 // satisfying [storageerrors.PoolNotFoundError] if a pool with the name does not exist.
-func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) error {
+func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	// Use the existing provider type unless explicitly overwritten.
 	if providerType == "" {
 		existingConfig, err := s.st.GetStoragePoolByName(ctx, name)
@@ -139,8 +156,7 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 		providerType = storage.ProviderType(existingConfig.Provider)
 	}
 
-	err := s.validateConfig(ctx, name, providerType, attrs)
-	if err != nil {
+	if err := s.validateConfig(ctx, name, providerType, attrs); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -158,12 +174,24 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 }
 
 // AllStoragePools returns the all storage pools.
-func (s *StoragePoolService) AllStoragePools(ctx context.Context) ([]*storage.Config, error) {
+func (s *StoragePoolService) AllStoragePools(ctx context.Context) (_ []*storage.Config, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	// ListStoragePools returns the storage pools matching the specified filter.
 	return s.ListStoragePools(ctx, domainstorage.NilNames, domainstorage.NilProviders)
 }
 
-// ListStoragePools returns the storage pools matching the specified filter.
-func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error) {
+func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) (_ []*storage.Config, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := s.validatePoolListFilterTerms(ctx, names, providers); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -227,7 +255,13 @@ func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, provi
 
 // GetStoragePoolByName returns the storage pool with the specified name, returning an error
 // satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
-func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error) {
+func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name string) (_ *storage.Config, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if !storage.IsValidPoolName(name) {
 		return nil, errors.Errorf("pool name %q not valid", name).Add(storageerrors.InvalidPoolNameError)
 	}
