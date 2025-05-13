@@ -52,7 +52,7 @@ var logger = internallogger.GetLogger("juju.cmd.testing")
 //	fmt.Fprintf(checker, "And your age: ")
 //	n, _ = checker.Read(buf)
 //	age, err := strconv.Atoi(strings.TrimSpace(string(buf[0:n])))
-//	c.Assert(err, gc.IsNil)
+//	c.Assert(err, tc.IsNil)
 //	if age > 90 {
 //		fmt.Fprintf(checker, "You're very old, %s!\n", name)
 //	}

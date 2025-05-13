@@ -228,7 +228,7 @@ func (f *Stub) CheckCallsUnordered(c StubC, expected []StubCall) {
 // The receiver is not checked. If it is significant for a test then it
 // can be checked separately:
 //
-//	c.Check(mystub.Receivers[index], gc.Equals, expected)
+//	c.Check(mystub.Receivers[index], tc.Equals, expected)
 func (f *Stub) CheckCall(c StubC, index int, funcName string, args ...interface{}) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

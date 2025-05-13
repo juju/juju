@@ -122,7 +122,7 @@ func (s *bootstrapSuite) TestSetModelConfig(c *tc.C) {
 	//	"uuid": "a677bdfd-3c96-46b2-912f-38e25faceaf7",
 	//	"type": "sometype",
 	//})
-	//c.Assert(err, jc.ErrorIsNil)
+	//c.Assert(err, tc.ErrorIsNil)
 
 	err := SetModelConfig(s.modelID, nil, defaults)(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, string(s.modelID)))
 	c.Assert(err, tc.ErrorIsNil)

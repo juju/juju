@@ -342,8 +342,8 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *tc.C) {
 	// TODO(jam): 2014-06-05 http://pad.lv/1326802
 	// we want to test this eventually, but for now s.APIInfo uses
 	// conn.StateInfo() which doesn't know about ModelTag.
-	// c.Check(info.ModelTag, gc.Equals, model.Tag())
-	// c.Assert(info.ModelTag, gc.Not(gc.Equals), "")
+	// c.Check(info.ModelTag, tc.Equals, model.Tag())
+	// c.Assert(info.ModelTag, tc.Not(gc.Equals), "")
 
 	// We start by ensuring we have an invalid tag, and Open should fail.
 	info.ModelTag = names.NewModelTag("0b501e7e-cafe-f00d-ba1d-b1a570c0e199")

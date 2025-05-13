@@ -96,6 +96,7 @@ func NewWorker(config Config) (*Worker, error) {
 	w.holdable = newHeldListener(listener, config.Clock)
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "httpserver",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {

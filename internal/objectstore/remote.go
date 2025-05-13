@@ -34,6 +34,7 @@ func newRemoteFileObjectStore(objectStore TrackedObjectStore, remoteWorker worke
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "remote-file-object-store",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{objectStore, remoteWorker},

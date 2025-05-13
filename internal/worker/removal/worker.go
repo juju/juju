@@ -65,18 +65,25 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		return nil, errors.Capture(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:          "removal",
+		IsFatal:       func(error) bool { return false },
+		ShouldRestart: func(error) bool { return false },
+		Logger:        internalworker.WrapLogger(cfg.Logger),
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	w := &removalWorker{
 		cfg: cfg,
 		// Scheduled removal jobs never restart and never
 		// propagate their errors up to the worker.
-		runner: worker.NewRunner(worker.RunnerParams{
-			IsFatal:       func(error) bool { return false },
-			ShouldRestart: func(error) bool { return false },
-			Logger:        internalworker.WrapLogger(cfg.Logger),
-		}),
+		runner: runner,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "removal",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{w.runner},
@@ -154,7 +161,7 @@ func (w *removalWorker) processRemovalJobs(ctx context.Context) error {
 		}
 
 		w.cfg.Logger.Infof(ctx, "scheduling job %q", id)
-		if err := w.runner.StartWorker(id, newJobWorker(w.cfg.RemovalService, j)); err != nil {
+		if err := w.runner.StartWorker(ctx, id, newJobWorker(w.cfg.RemovalService, j)); err != nil {
 			return errors.Capture(err)
 		}
 	}
@@ -189,8 +196,8 @@ type jobWorker struct {
 // newJobWorker returns a closure suitable for passing to
 // a runner's StartWorker method.
 // It uses the input service to run the input removal job.
-func newJobWorker(svc RemovalService, job removal.Job) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) {
+func newJobWorker(svc RemovalService, job removal.Job) func(context.Context) (worker.Worker, error) {
+	return func(ctx context.Context) (worker.Worker, error) {
 		w := jobWorker{job: job}
 		w.tomb.Go(func() error {
 			return svc.ExecuteJob(w.tomb.Context(context.Background()), job)

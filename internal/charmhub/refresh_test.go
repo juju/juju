@@ -81,7 +81,7 @@ func (s *RefreshSuite) TestRefresh(c *tc.C) {
 	c.Assert(responses[0].Name, tc.Equals, id)
 }
 
-// c.Assert(results.Results[0].Error, gc.ErrorMatches, `.* pool "foo" not found`)
+// c.Assert(results.Results[0].Error, tc.ErrorMatches, `.* pool "foo" not found`)
 func (s *RefreshSuite) TestRefeshConfigValidateArch(c *tc.C) {
 	err := s.testRefeshConfigValidate(c, RefreshBase{
 		Name:         "ubuntu",

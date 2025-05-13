@@ -145,7 +145,9 @@ func (s *ManifoldSuite) newWorker(config httpserver.Config) (worker.Worker, erro
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return worker.NewRunner(worker.RunnerParams{}), nil
+	return worker.NewRunner(worker.RunnerParams{
+		Name: "httpserver",
+	})
 }
 
 var expectedInputs = []string{

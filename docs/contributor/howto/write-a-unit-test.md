@@ -111,7 +111,7 @@ b := 3
 
 res := magic.Sum(a, b)
 
-c.Assert(res, gc.Equals, 8)
+c.Assert(res, tc.Equals, 8)
 }
 ```
 

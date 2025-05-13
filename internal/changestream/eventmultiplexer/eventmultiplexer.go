@@ -102,6 +102,7 @@ func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger logg
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "event-multiplexer",
 		Site: &queue.catacomb,
 		Work: queue.loop,
 	}); err != nil {

@@ -425,7 +425,7 @@ func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *tc.C) {
 	_, err = agenttools.ReadTools(s.dataDir, downgradeTools.Version)
 	// TODO: ReadTools *should* be returning some form of
 	// errors.NotFound, however, it just passes back a fmt.Errorf so
-	// we live with it c.Assert(err, jc.ErrorIs, errors.NotFound)
+	// we live with it c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Check(err, tc.ErrorMatches, "cannot read agent metadata in directory.*"+utils.NoSuchFileErrRegexp)
 }
 

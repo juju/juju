@@ -14,11 +14,11 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&controllerSuite{})
+var _ = tc.Suite(&controllerInternalSuite{})
 
-type controllerSuite struct{}
+type controllerInternalSuite struct{}
 
-func (s *controllerSuite) TestUserListCompatibility(c *tc.C) {
+func (s *controllerInternalSuite) TestUserListCompatibility(c *tc.C) {
 	extProvider1 := "https://api.jujucharms.com/identity"
 	extProvider2 := "http://candid.provider/identity"
 	specs := []struct {
@@ -108,7 +108,7 @@ the current model:
 	}
 }
 
-func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *tc.C) {
+func (s *controllerInternalSuite) TestTargetToAPIInfoLocalUser(c *tc.C) {
 	targetInfo := migration.TargetInfo{
 		Addrs:     []string{"6.6.6.6"},
 		CACert:    testing.CACert,
@@ -126,7 +126,7 @@ func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *tc.C) {
 	})
 }
 
-func (s *controllerSuite) TestTargetToAPIInfoExternalUser(c *tc.C) {
+func (s *controllerInternalSuite) TestTargetToAPIInfoExternalUser(c *tc.C) {
 	targetInfo := migration.TargetInfo{
 		Addrs:     []string{"6.6.6.6"},
 		CACert:    testing.CACert,

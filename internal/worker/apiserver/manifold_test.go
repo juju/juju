@@ -167,7 +167,9 @@ func (s *ManifoldSuite) newWorker(ctx context.Context, config apiserver.Config) 
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return worker.NewRunner(worker.RunnerParams{}), nil
+	return worker.NewRunner(worker.RunnerParams{
+		Name: "apiserver",
+	})
 }
 
 func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {

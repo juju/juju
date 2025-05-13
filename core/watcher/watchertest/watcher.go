@@ -194,7 +194,7 @@ func (w *WatcherC[T]) AssertKilled() {
 // returned error is nil. It's particularly suitable for deferring:
 //
 //	someWatcher, err := some.NewWatcher()
-//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(err, tc.ErrorIsNil)
 //	watchertest.CleanKill(c, someWatcher)
 //
 // ...in the large number (majority?) of situations where a worker is expected
@@ -210,7 +210,7 @@ func CleanKill[T any](c *tc.C, w watcher.Watcher[T]) {
 // error. It's particularly suitable for deferring:
 //
 //	someWatcher, err := some.NewWatcher()
-//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(err, tc.ErrorIsNil)
 //	defer watchertest.DirtyKill(c, someWatcher)
 //
 // ...in the cases where we expect a worker to fail, but aren't specifically

@@ -174,6 +174,7 @@ var NewStorageProvisioner = func(config Config) (worker.Worker, error) {
 		config: config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "storage-provisioner",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

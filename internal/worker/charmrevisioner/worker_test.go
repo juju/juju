@@ -1033,7 +1033,7 @@ func (s *WorkerSuite) TestEncodeCharmID(c *tc.C) {
 		osChannel:   "22.04",
 		arch:        "amd64",
 		metrics:     map[charmmetrics.MetricValueKey]string(nil),
-		instanceKey: charmhub.CreateInstanceKey(names.NewApplicationTag("foo"), modelTag),
+		instanceKey: charmhub.CreateInstanceKey("foo", modelTag),
 	})
 }
 

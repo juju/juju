@@ -65,6 +65,7 @@ func New(config Config) (worker.Worker, error) {
 		secretRevisions: make(map[string]secretRevisionExpiryInfo),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "secret-expiry",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

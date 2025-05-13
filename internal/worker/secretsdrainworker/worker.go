@@ -59,6 +59,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	w := &Worker{config: config}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "secrets-drain",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

@@ -65,6 +65,7 @@ func New(config Config) (worker.Worker, error) {
 		secrets: make(map[string]secretRotateInfo),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "secret-rotate",
 		Site: &w.catacomb,
 		Work: w.loop,
 	})

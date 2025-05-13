@@ -74,12 +74,18 @@ func (m *ModelCommand) Init(args []string) error {
 		return err
 	}
 
-	m.runner = worker.NewRunner(worker.RunnerParams{
+	var err error
+	m.runner, err = worker.NewRunner(worker.RunnerParams{
+		Name:          "model",
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  internalworker.RestartDelay,
 		Logger:        internalworker.WrapLogger(logger),
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
@@ -134,7 +140,7 @@ func NewModelCommand(
 
 // Run implements Command
 func (m *ModelCommand) Run(ctx *cmd.Context) error {
-	logger.Infof(context.TODO(), "caas model operator start (%s [%s])", jujuversion.Current,
+	logger.Infof(ctx, "caas model operator start (%s [%s])", jujuversion.Current,
 		runtime.Compiler)
 
 	if err := m.maybeCopyAgentConfig(); err != nil {
@@ -143,7 +149,7 @@ func (m *ModelCommand) Run(ctx *cmd.Context) error {
 
 	m.upgradeStepsLock = upgrade.NewLock(m.CurrentConfig(), jujuversion.Current)
 
-	_ = m.runner.StartWorker("modeloperator", m.Workers)
+	_ = m.runner.StartWorker(ctx, "modeloperator", m.Workers)
 	return cmdutil.AgentDone(logger, m.runner.Wait())
 }
 
@@ -168,7 +174,7 @@ func (m *ModelCommand) Wait() error {
 	return m.errReason
 }
 
-func (m *ModelCommand) Workers() (worker.Worker, error) {
+func (m *ModelCommand) Workers(ctx context.Context) (worker.Worker, error) {
 	port := os.Getenv(caasprovider.EnvModelAgentHTTPPort)
 	if port == "" {
 		return nil, errors.NotValidf("env %s missing", caasprovider.EnvModelAgentHTTPPort)

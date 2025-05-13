@@ -68,6 +68,7 @@ func NewUpgrader(config Config) (*Upgrader, error) {
 		config:           config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-upgrader",
 		Site: &u.catacomb,
 		Work: u.loop,
 	})

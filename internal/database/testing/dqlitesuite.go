@@ -70,6 +70,15 @@ type DqliteSuite struct {
 func (s *DqliteSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	// Ensure TearDownTest is called.
+	c.Cleanup(func() {
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+		if s.references != nil {
+			panic("database references left: TearDownTest not called!")
+		}
+	})
+
 	s.rootPath = c.MkDir()
 
 	path := filepath.Join(s.rootPath, "dqlite")
@@ -135,6 +144,7 @@ func (s *DqliteSuite) TearDownTest(c *tc.C) {
 			c.Check(err, tc.ErrorIsNil)
 		}
 	}
+	s.references = nil
 	s.mutex.Unlock()
 
 	if s.dqlite != nil {
@@ -204,7 +214,7 @@ func (s *DqliteSuite) OpenDBForNamespace(c *tc.C, domain string, foreignKey bool
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure we close all databases that are opened during the tests.
-	s.cleanupDB(c, domain, db)
+	s.cleanupDB(domain, db)
 
 	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, foreignKey)
 	c.Assert(err, tc.ErrorIsNil)
@@ -237,7 +247,7 @@ func (s *DqliteSuite) DumpTable(c *tc.C, table string, additionalTables ...strin
 	DumpTable(c, s.DB(), table, additionalTables...)
 }
 
-func (s *DqliteSuite) cleanupDB(c *tc.C, namespace string, db *sql.DB) {
+func (s *DqliteSuite) cleanupDB(namespace string, db *sql.DB) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

@@ -688,7 +688,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *tc.C) {
 	// TODO(aflynn): reinstate check for unauthorised user (JUJU-6669).
 	//info.Tag = names.NewUserTag("some-other-user")
 	//_, err = api.Open(context.Background(), info, fastDialOpts)
-	//c.Assert(params.ErrCode(errors.Cause(err)), gc.Equals, params.CodeUnauthorized)
+	//c.Assert(params.ErrCode(errors.Cause(err)), tc.Equals, params.CodeUnauthorized)
 
 	// Attempt to open an API connection to the migrated model as the
 	// anonymous user; this should also be allowed on account of CMRs.
@@ -1062,7 +1062,7 @@ func (s *loginSuite) assertRemoteModel(c *tc.C, conn api.Connection, expected na
 
 	expectedCons := constraints.MustParse("mem=8G")
 	// err := m.State().SetModelConstraints(expectedCons)
-	// c.Assert(err, jc.ErrorIsNil)
+	// c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := client.GetModelConstraints(context.Background())
 	c.Assert(err, tc.ErrorIsNil)

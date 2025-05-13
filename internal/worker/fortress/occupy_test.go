@@ -4,6 +4,7 @@
 package fortress_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -30,11 +31,13 @@ func (*OccupySuite) TestAbort(c *tc.C) {
 	run := func() (worker.Worker, error) {
 		panic("shouldn't happen")
 	}
-	abort := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		worker, err := fortress.Occupy(fix.Guest(c), run, abort)
+		worker, err := fortress.Occupy(ctx, fix.Guest(c), run)
 		c.Check(worker, tc.IsNil)
 		c.Check(errors.Cause(err), tc.Equals, fortress.ErrAborted)
 	}()
@@ -47,7 +50,7 @@ func (*OccupySuite) TestAbort(c *tc.C) {
 	}
 
 	// Abort and wait for completion.
-	close(abort)
+	cancel()
 	select {
 	case <-done:
 	case <-time.After(coretesting.LongWait):
@@ -58,18 +61,18 @@ func (*OccupySuite) TestAbort(c *tc.C) {
 func (*OccupySuite) TestStartError(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
-	c.Check(fix.Guard(c).Unlock(), tc.ErrorIsNil)
+	c.Check(fix.Guard(c).Unlock(context.Background()), tc.ErrorIsNil)
 
 	// Error just passes straight through.
 	run := func() (worker.Worker, error) {
 		return nil, errors.New("splosh")
 	}
-	worker, err := fortress.Occupy(fix.Guest(c), run, nil)
+	worker, err := fortress.Occupy(context.Background(), fix.Guest(c), run)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "splosh")
 
 	// Guard can lock fortress immediately.
-	err = fix.Guard(c).Lockdown(nil)
+	err = fix.Guard(c).Lockdown(context.Background())
 	c.Check(err, tc.ErrorIsNil)
 	AssertLocked(c, fix.Guest(c))
 }
@@ -77,7 +80,7 @@ func (*OccupySuite) TestStartError(c *tc.C) {
 func (*OccupySuite) TestStartSuccess(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
-	c.Check(fix.Guard(c).Unlock(), tc.ErrorIsNil)
+	c.Check(fix.Guard(c).Unlock(context.Background()), tc.ErrorIsNil)
 
 	// Start a worker...
 	expect := workertest.NewErrorWorker(nil)
@@ -85,14 +88,14 @@ func (*OccupySuite) TestStartSuccess(c *tc.C) {
 	run := func() (worker.Worker, error) {
 		return expect, nil
 	}
-	worker, err := fortress.Occupy(fix.Guest(c), run, nil)
+	worker, err := fortress.Occupy(context.Background(), fix.Guest(c), run)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, expect)
 
 	// ...and check we can't lockdown again...
 	locked := make(chan error, 1)
 	go func() {
-		locked <- fix.Guard(c).Lockdown(nil)
+		locked <- fix.Guard(c).Lockdown(context.Background())
 	}()
 	select {
 	case err := <-locked:

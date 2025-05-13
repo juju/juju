@@ -1031,7 +1031,7 @@ func (s *RefreshCharmHubSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *BaseRefreshSuite) TearDownTest(c *tc.C) {
-	//func (s *RefreshCharmHubSuite) TearDownTest(c *gc.C) {
+	//func (s *RefreshCharmHubSuite) TearDownTest(c *tc.C) {
 	s.ResetCalls()
 }
 

@@ -162,15 +162,20 @@ func DBReplMachineAgentFactoryFn(
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
 ) dbReplMachineAgentFactoryFnType {
 	return func(agentTag names.Tag, isCaasAgent bool) (*replMachineAgent, error) {
+		runner, err := worker.NewRunner(worker.RunnerParams{
+			Name:          "repl",
+			IsFatal:       agenterrors.IsFatal,
+			MoreImportant: agenterrors.MoreImportant,
+			RestartDelay:  internalworker.RestartDelay,
+			Logger:        internalworker.WrapLogger(logger),
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return NewREPLMachineAgent(
 			agentTag,
 			agentConfWriter,
-			worker.NewRunner(worker.RunnerParams{
-				IsFatal:       agenterrors.IsFatal,
-				MoreImportant: agenterrors.MoreImportant,
-				RestartDelay:  internalworker.RestartDelay,
-				Logger:        internalworker.WrapLogger(logger),
-			}),
+			runner,
 			newDBReplWorkerFunc,
 			isCaasAgent,
 		)
@@ -244,7 +249,7 @@ func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), agentConfig)
 
 	createEngine := a.makeEngineCreator(ctx.Stdout, ctx.Stderr, ctx.Stdin)
-	_ = a.runner.StartWorker("engine", createEngine)
+	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
 	// At this point, all workers will have been configured to start
 	err = a.runner.Wait()
@@ -273,8 +278,8 @@ func (a *replMachineAgent) makeEngineCreator(
 	stdout io.Writer,
 	stderr io.Writer,
 	stdin io.Reader,
-) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) {
+) func(ctx context.Context) (worker.Worker, error) {
+	return func(ctx context.Context) (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
 			dependency.DefaultMetrics(),
 			internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),

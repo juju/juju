@@ -27,7 +27,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/rpc"
 )
@@ -531,12 +530,12 @@ type stubGuard struct {
 	lockdownErr error
 }
 
-func (g *stubGuard) Lockdown(fortress.Abort) error {
+func (g *stubGuard) Lockdown(ctx context.Context) error {
 	g.stub.AddCall("Lockdown")
 	return g.lockdownErr
 }
 
-func (g *stubGuard) Unlock() error {
+func (g *stubGuard) Unlock(ctx context.Context) error {
 	g.stub.AddCall("Unlock")
 	return g.unlockErr
 }

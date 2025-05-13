@@ -48,7 +48,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers/filetesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/charm"
@@ -1914,13 +1913,13 @@ func (cmds runCommands) step(c *tc.C, ctx *testContext) {
 type forceMinion struct{}
 
 func (forceMinion) step(c *tc.C, ctx *testContext) {
-	ctx.leaderTracker.setLeader(c, false)
+	ctx.leaderTracker.setLeader(false)
 }
 
 type forceLeader struct{}
 
 func (forceLeader) step(c *tc.C, ctx *testContext) {
-	ctx.leaderTracker.setLeader(c, true)
+	ctx.leaderTracker.setLeader(true)
 }
 
 func newMockLeaderTracker(ctx *testContext, minion bool) *mockLeaderTracker {
@@ -1937,9 +1936,7 @@ type mockLeaderTracker struct {
 	waiting  []chan struct{}
 }
 
-func (mock *mockLeaderTracker) Kill() {
-	return
-}
+func (mock *mockLeaderTracker) Kill() {}
 
 func (mock *mockLeaderTracker) Wait() error {
 	return nil
@@ -1987,7 +1984,7 @@ func (mock *mockLeaderTracker) waitTicket() leadership.Ticket {
 	return waitTicket{ch}
 }
 
-func (mock *mockLeaderTracker) setLeader(c *tc.C, isLeader bool) {
+func (mock *mockLeaderTracker) setLeader(isLeader bool) {
 	mock.mu.Lock()
 	defer mock.mu.Unlock()
 	if mock.isLeader == isLeader {
@@ -2029,10 +2026,10 @@ func (t fastTicket) Wait() bool {
 type mockCharmDirGuard struct{}
 
 // Unlock implements fortress.Guard.
-func (*mockCharmDirGuard) Unlock() error { return nil }
+func (*mockCharmDirGuard) Unlock(context.Context) error { return nil }
 
 // Lockdown implements fortress.Guard.
-func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
+func (*mockCharmDirGuard) Lockdown(context.Context) error { return nil }
 
 type provisionStorage struct{}
 
@@ -2072,15 +2069,9 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-type createSecret struct {
-	applicationName string
-}
+type createSecret struct{}
 
 func (s createSecret) step(c *tc.C, ctx *testContext) {
-	if s.applicationName == "" {
-		s.applicationName = "u"
-	}
-
 	uri := secrets.NewURI()
 	ctx.secretBackends.EXPECT().GetContent(gomock.Any(), uri, "foorbar", false, false).Return(
 		secrets.NewSecretValue(map[string]string{"foo": "bar"}), nil).AnyTimes()

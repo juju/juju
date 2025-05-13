@@ -218,37 +218,44 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	w := &dbWorker{
-		cfg: cfg,
-		dbRunner: worker.NewRunner(worker.RunnerParams{
-			Clock: cfg.Clock,
-			// If a worker goes down, we've attempted multiple retries and in
-			// that case we do want to cause the dbaccessor to go down. This
-			// will then bring up a new dqlite app.
-			IsFatal: func(err error) bool {
-				// If a database is dead we should not kill the worker of the
-				// runner.
-				if errors.Is(err, database.ErrDBDead) {
-					return false
-				}
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:  "dbaccessor",
+		Clock: cfg.Clock,
+		// If a worker goes down, we've attempted multiple retries and in
+		// that case we do want to cause the dbaccessor to go down. This
+		// will then bring up a new dqlite app.
+		IsFatal: func(err error) bool {
+			// If a database is dead we should not kill the worker of the
+			// runner.
+			if errors.Is(err, database.ErrDBDead) {
+				return false
+			}
 
-				// If there is a rebind during starting up a worker the dbApp
-				// will be nil. In this case, we'll return ErrTryAgain. In this
-				// case we don't want to kill the worker. We'll force the
-				// worker to try again.
-				return !errors.Is(err, errTryAgain)
-			},
-			ShouldRestart: func(err error) bool {
-				return !errors.Is(err, database.ErrDBDead)
-			},
-			RestartDelay: time.Second * 10,
-			Logger:       internalworker.WrapLogger(cfg.Logger),
-		}),
+			// If there is a rebind during starting up a worker the dbApp
+			// will be nil. In this case, we'll return ErrTryAgain. In this
+			// case we don't want to kill the worker. We'll force the
+			// worker to try again.
+			return !errors.Is(err, errTryAgain)
+		},
+		ShouldRestart: func(err error) bool {
+			return !errors.Is(err, database.ErrDBDead)
+		},
+		RestartDelay: time.Second * 10,
+		Logger:       internalworker.WrapLogger(cfg.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	w := &dbWorker{
+		cfg:        cfg,
+		dbRunner:   runner,
 		dbReady:    make(chan struct{}),
 		dbRequests: make(chan dbRequest),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
+		Name: "db-accessor",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{
@@ -653,7 +660,7 @@ func (w *dbWorker) openDatabase(ctx context.Context, namespace string) error {
 	// Note: Do not be tempted to create the worker outside of the StartWorker
 	// function. This will create potential data race if openDatabase is called
 	// multiple times for the same namespace.
-	err := w.dbRunner.StartWorker(namespace, func() (worker.Worker, error) {
+	err := w.dbRunner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 		w.mu.RLock()
 		defer w.mu.RUnlock()
 		if w.dbApp == nil {

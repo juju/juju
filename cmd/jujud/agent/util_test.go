@@ -213,20 +213,24 @@ func NewTestMachineAgentFactory(
 	}
 
 	return func(agentTag names.Tag, isCAAS bool) (*MachineAgent, error) {
+		runner, err := worker.NewRunner(worker.RunnerParams{
+			Name:          "machine-agent",
+			IsFatal:       agenterrors.IsFatal,
+			MoreImportant: agenterrors.MoreImportant,
+			RestartDelay:  jworker.RestartDelay,
+		})
+		c.Assert(err, tc.ErrorIsNil)
+
 		prometheusRegistry, err := addons.NewPrometheusRegistry()
 		c.Assert(err, tc.ErrorIsNil)
 		a := &MachineAgent{
-			agentTag:          agentTag,
-			AgentConfigWriter: agentConfWriter,
-			configChangedVal:  voyeur.NewValue(true),
-			bufferedLogger:    bufferedLogger,
-			workersStarted:    make(chan struct{}),
-			dead:              make(chan struct{}),
-			runner: worker.NewRunner(worker.RunnerParams{
-				IsFatal:       agenterrors.IsFatal,
-				MoreImportant: agenterrors.MoreImportant,
-				RestartDelay:  jworker.RestartDelay,
-			}),
+			agentTag:                    agentTag,
+			AgentConfigWriter:           agentConfWriter,
+			configChangedVal:            voyeur.NewValue(true),
+			bufferedLogger:              bufferedLogger,
+			workersStarted:              make(chan struct{}),
+			dead:                        make(chan struct{}),
+			runner:                      runner,
 			rootDir:                     rootDir,
 			initialUpgradeCheckComplete: gate.NewLock(),
 			loopDeviceManager:           &mockLoopDeviceManager{},

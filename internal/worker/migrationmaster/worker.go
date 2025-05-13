@@ -195,6 +195,7 @@ func New(config Config) (*Worker, error) {
 		logger: logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
+		Name: "migration-master",
 		Site: &w.catacomb,
 		Work: w.run,
 	})
@@ -233,7 +234,7 @@ func (w *Worker) run() error {
 		return errors.Trace(err)
 	}
 
-	err = w.config.Guard.Lockdown(w.catacomb.Dying())
+	err = w.config.Guard.Lockdown(ctx)
 	if errors.Cause(err) == fortress.ErrAborted {
 		return w.catacomb.ErrDying()
 	} else if err != nil {
@@ -748,7 +749,7 @@ func (w *Worker) waitForActiveMigration(ctx context.Context) (coremigration.Migr
 		}
 
 		// While waiting for a migration, ensure the fortress is open.
-		if err := w.config.Guard.Unlock(); err != nil {
+		if err := w.config.Guard.Unlock(ctx); err != nil {
 			return empty, errors.Trace(err)
 		}
 	}
@@ -893,7 +894,7 @@ func formatMinionWaitDone(reports coremigration.MinionReports, infoPrefix string
 
 func formatMinionWaitUpdate(reports coremigration.MinionReports) string {
 	if reports.IsZero() {
-		return fmt.Sprintf("no reports from agents yet")
+		return "no reports from agents yet"
 	}
 
 	msg := fmt.Sprintf("waiting for agents to report back: %d succeeded, %d still to report",

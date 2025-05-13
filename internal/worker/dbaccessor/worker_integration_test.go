@@ -30,33 +30,9 @@ import (
 	"github.com/juju/juju/internal/worker/dbaccessor"
 )
 
-// dqliteAppIntegrationSuite defines a base suite for running integration
-// tests against the Dqlite database. It overrides the various methods to
-// prevent the creation of a new database for each test.
-type dqliteAppIntegrationSuite struct {
-	databasetesting.DqliteSuite
-}
-
-func (s *dqliteAppIntegrationSuite) TearDownSuite(c *tc.C) {
-	// We don't call s.DBSuite.TearDownSuite here because
-	// we don't want to double close the dqlite app.
-	s.IsolationSuite.TearDownSuite(c)
-}
-
-func (s *dqliteAppIntegrationSuite) SetUpTest(c *tc.C) {
-	s.IsolationSuite.SetUpTest(c)
-
-	if !dqlite.Enabled {
-		c.Skip("This requires a dqlite server to be running")
-	}
-}
-
-func (s *dqliteAppIntegrationSuite) TearDownTest(c *tc.C) {
-	s.IsolationSuite.TearDownTest(c)
-}
-
 type integrationSuite struct {
-	dqliteAppIntegrationSuite
+	//dqliteAppIntegrationSuite
+	databasetesting.DqliteSuite
 
 	db        *sql.DB
 	dbGetter  coredatabase.DBGetter
@@ -67,14 +43,17 @@ type integrationSuite struct {
 var _ = tc.Suite(&integrationSuite{})
 
 func (s *integrationSuite) SetUpSuite(c *tc.C) {
+	if !dqlite.Enabled {
+		c.Skip("This requires a dqlite server to be running")
+	}
+
 	// This suite needs Dqlite setup on a tcp port.
 	s.UseTCP = true
-	s.dqliteAppIntegrationSuite.SetUpSuite(c)
+	s.DqliteSuite.SetUpSuite(c)
 }
 
 func (s *integrationSuite) SetUpTest(c *tc.C) {
 	s.DqliteSuite.SetUpTest(c)
-	s.dqliteAppIntegrationSuite.SetUpTest(c)
 
 	params := agent.AgentConfigParams{
 		Tag:               names.NewMachineTag("1"),
@@ -138,7 +117,6 @@ func (s *integrationSuite) TearDownTest(c *tc.C) {
 	if s.db != nil {
 		s.db.Close()
 	}
-	s.dqliteAppIntegrationSuite.TearDownTest(c)
 	s.DqliteSuite.TearDownTest(c)
 }
 

@@ -51,6 +51,7 @@ func newRelationUnitsWatcher(unit names.UnitTag, relUUID corerelation.UUID, rela
 		out:          make(chan params.RelationUnitsChange),
 	}
 	return w, catacomb.Invoke(catacomb.Plan{
+		Name: "relation-units-watcher",
 		Site: &w.catacomb,
 		Work: func() error {
 			return w.loop(w.catacomb.Context(nil))

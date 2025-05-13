@@ -170,6 +170,7 @@ func NewUpgradeDatabaseWorker(config Config) (worker.Worker, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "upgrade-database",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {

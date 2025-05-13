@@ -118,12 +118,12 @@ type mockCharmDirGuard struct {
 	testhelpers.Stub
 }
 
-func (l *mockCharmDirGuard) Unlock() error {
+func (l *mockCharmDirGuard) Unlock(context.Context) error {
 	l.MethodCall(l, "Unlock")
 	return l.NextErr()
 }
 
-func (l *mockCharmDirGuard) Lockdown(abort fortress.Abort) error {
-	l.MethodCall(l, "Lockdown", abort)
+func (l *mockCharmDirGuard) Lockdown(context.Context) error {
+	l.MethodCall(l, "Lockdown")
 	return l.NextErr()
 }

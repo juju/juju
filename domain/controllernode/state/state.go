@@ -235,3 +235,39 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 
 	return nil
 }
+
+// IsControllerNode returns true if the supplied nodeID is a controller node.
+func (st *State) IsControllerNode(ctx context.Context, nodeID string) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	controllerNode := dbControllerNode{ControllerID: nodeID}
+
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &dbControllerNodeCount.count
+FROM controller_node
+WHERE controller_id = $dbControllerNode.controller_id`, controllerNode, dbControllerNodeCount{})
+	if err != nil {
+		return false, errors.Errorf("preparing select controller node statement: %w", err)
+	}
+
+	var result dbControllerNodeCount
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, controllerNode).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("selecting controller node %q: %w", nodeID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	} else if result.Count > 1 {
+		// This is impossible with FK, but we should check anyway.
+		return false, errors.Errorf("multiple controller nodes with ID %q", nodeID)
+	}
+	return result.Count == 1, nil
+}

@@ -91,6 +91,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	// miss out on a first call of Worker's Plan.Work method and can, thus,
 	// be missing out on an initial change.
 	plan := catacomb.Plan{
+		Name: "credential-validator",
 		Site: &v.catacomb,
 		Work: v.loop,
 		Init: []worker.Worker{v.modelCredentialWatcher},

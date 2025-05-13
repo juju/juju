@@ -285,7 +285,7 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *tc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
-	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
 
 	// Update the API addresses.
@@ -326,7 +326,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *tc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
-	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
 	started.assertTriggered(c, "diskmanager worker to start")
 }
@@ -343,7 +343,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *tc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
-	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
 
 	// Wait for state to be updated.
@@ -374,7 +374,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *tc.C) {
 	// Start the machine agent.
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
-	go func() { c.Check(a.Run(nil), tc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(cmdtesting.Context(c)), tc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), tc.ErrorIsNil) }()
 	started.assertTriggered(c, "storage worker to start")
 }
@@ -408,7 +408,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *tc.C) {
 		defer a.Stop()
 		doneCh := make(chan error)
 		go func() {
-			doneCh <- a.Run(nil)
+			doneCh <- a.Run(cmdtesting.Context(c))
 		}()
 
 		select {
@@ -446,7 +446,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *tc.C) {
 	defer a.Stop()
 	doneCh := make(chan error)
 	go func() {
-		doneCh <- a.Run(nil)
+		doneCh <- a.Run(cmdtesting.Context(c))
 	}()
 
 	select {

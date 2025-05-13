@@ -27,6 +27,7 @@ func NewProbeBinder(probes *caasprober.CAASProbes, providers map[string]probe.Pr
 		providers: providers,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "caas-probe-binder",
 		Site: &pb.catacomb,
 		Work: pb.loop,
 	}); err != nil {

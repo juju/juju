@@ -71,13 +71,13 @@ func (s *CleanupSuite) AddCleanup(cleanup func(*tc.C)) {
 	}
 	if s != s.origSuite {
 		// If you write a test like:
-		// func (s MySuite) TestFoo(c *gc.C) {
+		// func (s MySuite) TestFoo(c *tc.C) {
 		//   s.AddCleanup(foo)
 		// }
 		// The AddCleanup call is unsafe because it modifes
 		// s.origSuite but that object disappears once TestFoo
 		// returns. So you have to use:
-		// func (s *MySuite) TestFoo(c *gc.C) if you want the Cleanup
+		// func (s *MySuite) TestFoo(c *tc.C) if you want the Cleanup
 		// funcs.
 		panic("unsafe to call AddCleanup from non pointer receiver test")
 	}

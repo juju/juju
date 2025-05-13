@@ -1263,7 +1263,7 @@ func (s *cloudinitSuite) testAptMirror(c *tc.C, cfg *config.Config, expect strin
 	//mirror, ok := cloudcfg.AptMirror()
 	mirror := cloudcfg.PackageMirror()
 	c.Assert(mirror, tc.Equals, expect)
-	//c.Assert(ok, gc.Equals, expect != "")
+	//c.Assert(ok, tc.Equals, expect != "")
 }
 
 var serverCert = []byte(`

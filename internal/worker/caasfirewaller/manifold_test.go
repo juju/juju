@@ -89,7 +89,10 @@ func (s *manifoldSuite) newWorker(config caasfirewaller.Config) (worker.Worker, 
 	if err := s.NextErr(); err != nil {
 		return nil, err
 	}
-	w := worker.NewRunner(worker.RunnerParams{})
+	w, err := worker.NewRunner(worker.RunnerParams{Name: "test"})
+	if err != nil {
+		return nil, err
+	}
 	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 	return w, nil
 }

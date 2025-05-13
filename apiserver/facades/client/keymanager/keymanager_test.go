@@ -579,16 +579,16 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 	})
 }
 
-//func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
+//func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //	defer s.setup(c).Finish()
 //	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(errors.OperationBlockedError("TestDeleteKeys"))
 //
 //	_, err := s.api.DeleteKeys(context.Background(), params.ModifyUserSSHKeys{})
 //
-//	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+//	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
 //}
 //
-//func (s *keyManagerSuite) TestDeleteJujuSystemKey(c *gc.C) {
+//func (s *keyManagerSuite) TestDeleteJujuSystemKey(c *tc.C) {
 //	defer s.setup(c).Finish()
 //	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil)
 //
@@ -607,8 +607,8 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //		Keys: []string{"juju-client-key", config.JujuSystemKey},
 //	}
 //	results, err := s.api.DeleteKeys(context.Background(), args)
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+//	c.Assert(err, tc.ErrorIsNil)
+//	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 //		Results: []params.ErrorResult{
 //			{Error: apiservertesting.ServerError("may not delete internal key: juju-client-key")},
 //			{Error: apiservertesting.ServerError("may not delete internal key: " + config.JujuSystemKey)},
@@ -618,7 +618,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //
 //// This should be impossible to do anyway since it's impossible to request
 //// to remove the client and system key
-//func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
+//func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *tc.C) {
 //	defer s.setup(c).Finish()
 //	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil)
 //
@@ -631,10 +631,10 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, "user@host"},
 //	}
 //	_, err := s.api.DeleteKeys(context.Background(), args)
-//	c.Assert(err, gc.ErrorMatches, "cannot delete all keys")
+//	c.Assert(err, tc.ErrorMatches, "cannot delete all keys")
 //}
 //
-//func (s *keyManagerSuite) assertImportKeys(c *gc.C) {
+//func (s *keyManagerSuite) assertImportKeys(c *tc.C) {
 //	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 //	key2 := sshtesting.ValidKeyTwo.Key
 //	key3 := sshtesting.ValidKeyThree.Key
@@ -666,9 +666,9 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //	}
 //	results, err := s.api.ImportKeys(context.Background(), args)
 //
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(results.Results, gc.HasLen, 8)
-//	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+//	c.Assert(err, tc.ErrorIsNil)
+//	c.Assert(results.Results, tc.HasLen, 8)
+//	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 //		Results: []params.ErrorResult{
 //			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", key2))},
 //			{Error: nil},
@@ -691,36 +691,36 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //	})
 //}
 //
-//func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
+//func (s *keyManagerSuite) TestImportKeys(c *tc.C) {
 //	defer s.setup(c).Finish()
 //	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 //	s.assertImportKeys(c)
 //}
 //
-//func (s *keyManagerSuite) TestImportKeysSuperUser(c *gc.C) {
+//func (s *keyManagerSuite) TestImportKeysSuperUser(c *tc.C) {
 //	s.apiUser = names.NewUserTag("superuser-fred")
 //	defer s.setup(c).Finish()
 //	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 //	s.assertImportKeys(c)
 //}
 //
-//func (s *keyManagerSuite) TestImportKeysModelAdmin(c *gc.C) {
+//func (s *keyManagerSuite) TestImportKeysModelAdmin(c *tc.C) {
 //	s.apiUser = names.NewUserTag("admin" + coretesting.ModelTag.String())
 //	defer s.setup(c).Finish()
 //	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 //	s.assertImportKeys(c)
 //}
 //
-//func (s *keyManagerSuite) TestImportKeysNonAuthorised(c *gc.C) {
+//func (s *keyManagerSuite) TestImportKeysNonAuthorised(c *tc.C) {
 //	s.apiUser = names.NewUserTag("fred")
 //	defer s.setup(c).Finish()
 //
 //	_, err := s.api.ImportKeys(context.Background(), params.ModifyUserSSHKeys{})
-//	c.Assert(err, gc.ErrorMatches, "permission denied")
-//	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+//	c.Assert(err, tc.ErrorMatches, "permission denied")
+//	c.Assert(params.ErrCode(err), tc.Equals, params.CodeUnauthorized)
 //}
 //
-//func (s *keyManagerSuite) TestImportJujuSystemKey(c *gc.C) {
+//func (s *keyManagerSuite) TestImportJujuSystemKey(c *tc.C) {
 //	defer s.setup(c).Finish()
 //	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 //
@@ -736,20 +736,20 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //		Keys: []string{"lp:systemkey"},
 //	}
 //	results, err := s.api.ImportKeys(context.Background(), args)
-//	c.Assert(err, gc.IsNil)
-//	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+//	c.Assert(err, tc.IsNil)
+//	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 //		Results: []params.ErrorResult{
 //			{Error: apiservertesting.ServerError("may not add key with comment juju-system-key: " + keymanagertesting.SystemKey)},
 //		},
 //	})
 //}
 //
-//func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
+//func (s *keyManagerSuite) TestBlockImportKeys(c *tc.C) {
 //	defer s.setup(c).Finish()
 //	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.OperationBlockedError("TestImportKeys"))
 //
 //	_, err := s.api.ImportKeys(context.Background(), params.ModifyUserSSHKeys{})
 //
-//	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+//	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
 //}
 //

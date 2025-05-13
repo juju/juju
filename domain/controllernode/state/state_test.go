@@ -207,3 +207,18 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionArchNotSupported(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
+
+func (s *stateSuite) TestIsControllerNode(c *tc.C) {
+	controllerID := "1"
+
+	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	isControllerNode, err := s.state.IsControllerNode(context.Background(), controllerID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isControllerNode, tc.Equals, true)
+
+	isControllerNode, err = s.state.IsControllerNode(context.Background(), "99")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isControllerNode, tc.Equals, false)
+}

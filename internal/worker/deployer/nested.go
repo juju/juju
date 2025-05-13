@@ -99,6 +99,18 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:          "nested-deployer",
+		Logger:        internalworker.WrapLogger(config.Logger),
+		IsFatal:       agenterrors.IsFatal,
+		MoreImportant: agenterrors.MoreImportant,
+		RestartDelay:  internalworker.RestartDelay,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	agentConfig := config.Agent.CurrentConfig()
 	nContext := &nestedContext{
 		logger:      config.Logger,
@@ -113,14 +125,9 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 			SetupLogging:     config.SetupLogging,
 		},
 
-		units:  make(map[string]*UnitAgent),
-		errors: make(map[string]error),
-		runner: worker.NewRunner(worker.RunnerParams{
-			Logger:        internalworker.WrapLogger(config.Logger),
-			IsFatal:       agenterrors.IsFatal,
-			MoreImportant: agenterrors.MoreImportant,
-			RestartDelay:  internalworker.RestartDelay,
-		}),
+		units:                    make(map[string]*UnitAgent),
+		errors:                   make(map[string]error),
+		runner:                   runner,
 		rebootMonitorStatePurger: config.RebootMonitorStatePurger,
 	}
 
@@ -143,7 +150,7 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 			continue
 		}
 		nContext.units[u] = agent
-		if err := nContext.startUnitWorkers(u); err != nil {
+		if err := nContext.startUnitWorkers(context.TODO(), u); err != nil {
 			config.Logger.Errorf(context.TODO(), "unable to start workers for unit %q: %v", u, err)
 			nContext.errors[u] = err
 		}
@@ -237,7 +244,7 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 		c.logger.Errorf(context.TODO(), "unable to create unit agent %q: %v", unitName, err)
 		c.errors[unitName] = err
 	} else {
-		if err := c.startUnitWorkers(unitName); err != nil {
+		if err := c.startUnitWorkers(context.TODO(), unitName); err != nil {
 			c.logger.Errorf(context.TODO(), "unable to start workers for unit %q: %v", unitName, err)
 			c.errors[unitName] = err
 		}
@@ -257,19 +264,19 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 	return nil
 }
 
-func (c *nestedContext) startUnitWorkers(unitName string) error {
+func (c *nestedContext) startUnitWorkers(ctx context.Context, unitName string) error {
 	// Assumes lock is held.
-	c.logger.Infof(context.TODO(), "starting workers for %q", unitName)
+	c.logger.Infof(ctx, "starting workers for %q", unitName)
 	agent, ok := c.units[unitName]
 	if !ok {
 		return errors.NotFoundf("unit %q", unitName)
 	}
 	if agent.running() {
-		c.logger.Infof(context.TODO(), "unit workers for %q are already running", unitName)
+		c.logger.Infof(ctx, "unit workers for %q are already running", unitName)
 		return nil
 	}
 
-	err := c.runner.StartWorker(unitName, agent.start)
+	err := c.runner.StartWorker(ctx, unitName, agent.start)
 	// Ensure starting a unit worker is idempotent.
 	if err == nil || errors.Is(err, errors.AlreadyExists) {
 		return nil

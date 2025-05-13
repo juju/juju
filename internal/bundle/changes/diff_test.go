@@ -1472,10 +1472,10 @@ func (s *diffSuite) checkDiffImpl(c *tc.C, config bundlechanges.DiffConfig, expe
 	} else {
 		c.Assert(err, tc.ErrorIsNil)
 		//diffOut, err := yaml.Marshal(diff)
-		//c.Assert(err, jc.ErrorIsNil)
+		//c.Assert(err, tc.ErrorIsNil)
 		c.Logf("actual: %s", pretty.Sprint(diff))
 		//expectedOut, err := yaml.Marshal(expected)
-		//c.Assert(err, jc.ErrorIsNil)
+		//c.Assert(err, tc.ErrorIsNil)
 		c.Logf("expected: %s", pretty.Sprint(expected))
 		c.Assert(diff, tc.DeepEquals, expected)
 	}

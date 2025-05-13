@@ -138,6 +138,7 @@ func (s *manifoldSuite) TestIAASManifoldOutput(c *tc.C) {
 				provider: s.environ,
 			}
 			err := catacomb.Invoke(catacomb.Plan{
+				Name: "tracker-worker",
 				Site: &w.catacomb,
 				Work: func() error {
 					<-w.catacomb.Dying()
@@ -194,6 +195,7 @@ func (s *manifoldSuite) TestCAASManifoldOutput(c *tc.C) {
 				provider: s.broker,
 			}
 			err := catacomb.Invoke(catacomb.Plan{
+				Name: "tracker-worker",
 				Site: &w.catacomb,
 				Work: func() error {
 					<-w.catacomb.Dying()

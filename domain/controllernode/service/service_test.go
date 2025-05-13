@@ -141,3 +141,37 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotFound(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
 }
+
+func (s *serviceSuite) TestIsControllerNode(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerID := "1"
+	fakeID := "fake"
+
+	exp := s.state.EXPECT()
+	gomock.InOrder(
+		exp.IsControllerNode(gomock.Any(), fakeID).Return(false, controllernodeerrors.NotFound),
+		exp.IsControllerNode(gomock.Any(), controllerID).Return(true, nil),
+	)
+
+	svc := NewService(s.state)
+
+	is, err := svc.IsControllerNode(context.Background(), fakeID)
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+	c.Check(is, tc.IsFalse)
+
+	is, err = svc.IsControllerNode(context.Background(), controllerID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(is, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestIsControllerNodeNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	controllerID := ""
+
+	is, err := svc.IsControllerNode(context.Background(), controllerID)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Check(is, tc.IsFalse)
+}

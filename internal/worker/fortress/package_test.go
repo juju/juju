@@ -7,8 +7,11 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
+	"go.uber.org/goleak"
 )
 
 func TestPackage(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	tc.TestingT(t)
 }

@@ -114,24 +114,31 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:  "object-store",
+		Clock: cfg.Clock,
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return !errors.Is(err, database.ErrDBDead)
+		},
+		RestartDelay: time.Second * 10,
+		Logger:       internalworker.WrapLogger(cfg.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &objectStoreWorker{
-		internalStates: internalStates,
-		cfg:            cfg,
-		runner: worker.NewRunner(worker.RunnerParams{
-			Clock: cfg.Clock,
-			IsFatal: func(err error) bool {
-				return false
-			},
-			ShouldRestart: func(err error) bool {
-				return !errors.Is(err, database.ErrDBDead)
-			},
-			RestartDelay: time.Second * 10,
-			Logger:       internalworker.WrapLogger(cfg.Logger),
-		}),
+		internalStates:      internalStates,
+		cfg:                 cfg,
+		runner:              runner,
 		objectStoreRequests: make(chan objectStoreRequest),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "object-store",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{
@@ -148,6 +155,9 @@ func (w *objectStoreWorker) loop() (err error) {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -156,7 +166,7 @@ func (w *objectStoreWorker) loop() (err error) {
 		// The following ensures that all objectStoreRequests are serialised and
 		// processed in order.
 		case req := <-w.objectStoreRequests:
-			err := w.initObjectStore(req.namespace)
+			err := w.initObjectStore(ctx, req.namespace)
 
 			select {
 			case req.done <- err:
@@ -254,11 +264,8 @@ func (w *objectStoreWorker) workerFromCache(namespace string) (objectstore.Objec
 	return nil, nil
 }
 
-func (w *objectStoreWorker) initObjectStore(namespace string) error {
-	err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
-		ctx, cancel := w.scopedContext()
-		defer cancel()
-
+func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace string) error {
+	err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 		tracer, err := w.cfg.TracerGetter.GetTracer(ctx, coretrace.Namespace("objectstore", namespace))
 		if err != nil {
 			return nil, errors.Trace(err)

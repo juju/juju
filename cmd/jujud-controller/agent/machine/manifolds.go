@@ -538,11 +538,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The agent-config-updater manifold sets the state serving info from
 		// the API connection and writes it to the agent config.
 		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
-			AgentName:      agentName,
-			APICallerName:  apiCallerName,
-			CentralHubName: centralHubName,
-			TraceName:      traceName,
-			Logger:         internallogger.GetLogger("juju.worker.agentconfigupdater"),
+			AgentName:                     agentName,
+			APICallerName:                 apiCallerName,
+			DomainServicesName:            domainServicesName,
+			TraceName:                     traceName,
+			GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
+			Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
 		})),
 
 		// The logging config updater is a leaf worker that indirectly

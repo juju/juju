@@ -5,26 +5,37 @@ package agentconfigupdater
 
 import (
 	"context"
+	"strings"
 	"time"
 
-	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
-	"gopkg.in/tomb.v2"
+	"github.com/juju/worker/v4/catacomb"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	controllermsg "github.com/juju/juju/internal/pubsub/controller"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/errors"
 	jworker "github.com/juju/juju/internal/worker"
 )
+
+// ControllerConfigService defines the methods required to get the controller
+// configuration.
+type ControllerConfigService interface {
+	// ControllerConfig returns the config values for the controller.
+	ControllerConfig(context.Context) (controller.Config, error)
+
+	// WatchControllerConfig watches the controller config for changes.
+	WatchControllerConfig() (watcher.StringsWatcher, error)
+}
 
 // WorkerConfig contains the information necessary to run
 // the agent config updater worker.
 type WorkerConfig struct {
 	Agent                              coreagent.Agent
-	Hub                                *pubsub.StructuredHub
+	ControllerConfigService            ControllerConfigService
 	JujuDBSnapChannel                  string
 	QueryTracingEnabled                bool
 	QueryTracingThreshold              time.Duration
@@ -41,21 +52,22 @@ type WorkerConfig struct {
 // Validate ensures that the required values are set in the structure.
 func (c *WorkerConfig) Validate() error {
 	if c.Agent == nil {
-		return errors.NotValidf("missing agent")
+		return errors.Errorf("missing agent %w", coreerrors.NotValid)
 	}
-	if c.Hub == nil {
-		return errors.NotValidf("missing hub")
+	if c.ControllerConfigService == nil {
+		return errors.Errorf("missing ControllerConfigService %w", coreerrors.NotValid)
 	}
 	if c.Logger == nil {
-		return errors.NotValidf("missing logger")
+		return errors.Errorf("missing logger %w", coreerrors.NotValid)
 	}
 	return nil
 }
 
 type agentConfigUpdater struct {
+	catacomb catacomb.Catacomb
+
 	config WorkerConfig
 
-	tomb                               tomb.Tomb
 	jujuDBSnapChannel                  string
 	queryTracingEnabled                bool
 	queryTracingThreshold              time.Duration
@@ -71,10 +83,9 @@ type agentConfigUpdater struct {
 // NewWorker creates a new agent config updater worker.
 func NewWorker(config WorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
-	started := make(chan struct{})
 	w := &agentConfigUpdater{
 		config:                             config,
 		jujuDBSnapChannel:                  config.JujuDBSnapChannel,
@@ -88,72 +99,76 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 		openTelemetryTailSamplingThreshold: config.OpenTelemetryTailSamplingThreshold,
 		objectStoreType:                    config.ObjectStoreType,
 	}
-	w.tomb.Go(func() error {
-		return w.loop(started)
-	})
-	select {
-	case <-started:
-	case <-time.After(10 * time.Second):
-		return nil, errors.New("worker failed to start properly")
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "agent-config-updater",
+		Site: &w.catacomb,
+		Work: w.loop,
+	}); err != nil {
+		return nil, errors.Capture(err)
 	}
 	return w, nil
 }
 
-func (w *agentConfigUpdater) loop(started chan struct{}) error {
+func (w *agentConfigUpdater) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	unsubscribe, err := w.config.Hub.Subscribe(controllermsg.ConfigChanged, w.onConfigChanged)
+	watcher, err := w.config.ControllerConfigService.WatchControllerConfig()
 	if err != nil {
-		w.config.Logger.Criticalf(ctx, "programming error in subscribe function: %v", err)
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
-	defer unsubscribe()
-	// Let the caller know we are done.
-	close(started)
-	// Don't exit until we are told to. Exiting unsubscribes.
-	<-w.tomb.Dying()
-	w.config.Logger.Tracef(ctx, "agentConfigUpdater loop finished")
-	return nil
+
+	if err := w.catacomb.Add(watcher); err != nil {
+		return errors.Capture(err)
+	}
+
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+
+		case <-watcher.Changes():
+			if err := w.handleConfigChange(ctx); err != nil {
+				return errors.Capture(err)
+			}
+		}
+	}
 }
 
-func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.ConfigChangedMessage, err error) {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
+func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
+	config, err := w.config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
-		w.config.Logger.Criticalf(ctx, "programming error in %s message data: %v", topic, err)
-		return
+		return errors.Capture(err)
 	}
 
-	jujuDBSnapChannel := data.Config.JujuDBSnapChannel()
+	jujuDBSnapChannel := config.JujuDBSnapChannel()
 	jujuDBSnapChannelChanged := jujuDBSnapChannel != w.jujuDBSnapChannel
 
-	queryTracingEnabled := data.Config.QueryTracingEnabled()
+	queryTracingEnabled := config.QueryTracingEnabled()
 	queryTracingEnabledChanged := queryTracingEnabled != w.queryTracingEnabled
 
-	queryTracingThreshold := data.Config.QueryTracingThreshold()
+	queryTracingThreshold := config.QueryTracingThreshold()
 	queryTracingThresholdChanged := queryTracingThreshold != w.queryTracingThreshold
 
-	openTelemetryEnabled := data.Config.OpenTelemetryEnabled()
+	openTelemetryEnabled := config.OpenTelemetryEnabled()
 	openTelemetryEnabledChanged := openTelemetryEnabled != w.openTelemetryEnabled
 
-	openTelemetryEndpoint := data.Config.OpenTelemetryEndpoint()
+	openTelemetryEndpoint := config.OpenTelemetryEndpoint()
 	openTelemetryEndpointChanged := openTelemetryEndpoint != w.openTelemetryEndpoint
 
-	openTelemetryInsecure := data.Config.OpenTelemetryInsecure()
+	openTelemetryInsecure := config.OpenTelemetryInsecure()
 	openTelemetryInsecureChanged := openTelemetryInsecure != w.openTelemetryInsecure
 
-	openTelemetryStackTraces := data.Config.OpenTelemetryStackTraces()
+	openTelemetryStackTraces := config.OpenTelemetryStackTraces()
 	openTelemetryStackTracesChanged := openTelemetryStackTraces != w.openTelemetryStackTraces
 
-	openTelemetrySampleRatio := data.Config.OpenTelemetrySampleRatio()
+	openTelemetrySampleRatio := config.OpenTelemetrySampleRatio()
 	openTelemetrySampleRatioChanged := openTelemetrySampleRatio != w.openTelemetrySampleRatio
 
-	openTelemetryTailSamplingThreshold := data.Config.OpenTelemetryTailSamplingThreshold()
+	openTelemetryTailSamplingThreshold := config.OpenTelemetryTailSamplingThreshold()
 	openTelemetryTailSamplingThresholdChanged := openTelemetryTailSamplingThreshold != w.openTelemetryTailSamplingThreshold
 
-	objectStoreType := data.Config.ObjectStoreType()
+	objectStoreType := config.ObjectStoreType()
 	objectStoreTypeChanged := objectStoreType != w.objectStoreType
 
 	changeDetected := jujuDBSnapChannelChanged ||
@@ -170,7 +185,7 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	// If any changes are detected, we need to update the agent config.
 	if !changeDetected {
 		// Nothing to do, all good.
-		return
+		return nil
 	}
 
 	err = w.config.Agent.ChangeConfig(func(setter coreagent.ConfigSetter) error {
@@ -217,31 +232,63 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		return nil
 	})
 	if err != nil {
-		w.tomb.Kill(errors.Annotate(err, "failed to update agent config"))
-		return
+		return errors.Errorf("%w: failed to update agent config", err)
 	}
 
 	// If the object store type is set to "s3" then state that the associated
 	// config also needs to be set.
 	if objectStoreType == objectstore.S3Backend {
-		if err := controller.HasCompleteS3ControllerConfig(data.Config); err != nil {
+		if err := controller.HasCompleteS3ControllerConfig(config); err != nil {
 			w.config.Logger.Warningf(ctx, "object store type is set to s3 but config not set: %v", err)
 		}
 	}
 
-	w.tomb.Kill(jworker.ErrRestartAgent)
+	reason := []string{}
+	if jujuDBSnapChannelChanged {
+		reason = append(reason, controller.JujuDBSnapChannel)
+	}
+	if queryTracingEnabledChanged {
+		reason = append(reason, controller.QueryTracingEnabled)
+	}
+	if queryTracingThresholdChanged {
+		reason = append(reason, controller.QueryTracingThreshold)
+	}
+	if openTelemetryEnabledChanged {
+		reason = append(reason, controller.OpenTelemetryEnabled)
+	}
+	if openTelemetryEndpointChanged {
+		reason = append(reason, controller.OpenTelemetryEndpoint)
+	}
+	if openTelemetryInsecureChanged {
+		reason = append(reason, controller.OpenTelemetryInsecure)
+	}
+	if openTelemetryStackTracesChanged {
+		reason = append(reason, controller.OpenTelemetryStackTraces)
+	}
+	if openTelemetrySampleRatioChanged {
+		reason = append(reason, controller.OpenTelemetrySampleRatio)
+	}
+	if openTelemetryTailSamplingThresholdChanged {
+		reason = append(reason, controller.OpenTelemetryTailSamplingThreshold)
+	}
+	if objectStoreTypeChanged {
+		reason = append(reason, controller.ObjectStoreType)
+	}
+
+	return errors.Errorf("%w: controller config changed: %s",
+		jworker.ErrRestartAgent, strings.Join(reason, ", "))
 }
 
 // Kill implements Worker.Kill().
 func (w *agentConfigUpdater) Kill() {
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
 }
 
 // Wait implements Worker.Wait().
 func (w *agentConfigUpdater) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
 }
 
 func (w *agentConfigUpdater) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.tomb.Context(context.Background()))
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

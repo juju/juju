@@ -193,6 +193,7 @@ func newWorker(config Config, internalState chan string) (worker.Worker, error) 
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "charm-revision-updater",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
@@ -703,8 +704,6 @@ func encodeCharmhubID(app application.RevisionUpdaterApplication, modelTag names
 		return charmhubID{}, internalerrors.Errorf("invalid application name %q", app.Name)
 	}
 
-	appTag := names.NewApplicationTag(app.Name)
-
 	origin := app.Origin
 	risk, err := encodeRisk(origin.Channel.Risk)
 	if err != nil {
@@ -735,7 +734,7 @@ func encodeCharmhubID(app application.RevisionUpdaterApplication, modelTag names
 		osType:      osType,
 		osChannel:   origin.Platform.Channel,
 		arch:        arch,
-		instanceKey: charmhub.CreateInstanceKey(appTag, modelTag),
+		instanceKey: charmhub.CreateInstanceKey(app.Name, modelTag),
 	}, nil
 }
 

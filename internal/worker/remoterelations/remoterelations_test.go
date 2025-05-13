@@ -58,6 +58,14 @@ func (s *remoteRelationsSuite) SetUpTest(c *tc.C) {
 	s.remoteRelationsFacade = newMockRemoteRelationsFacade(s.stub)
 
 	clk := testclock.NewClock(time.Time{})
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:         "remote-relations",
+		Clock:        clk,
+		IsFatal:      func(error) bool { return false },
+		RestartDelay: time.Second,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	s.config = remoterelations.Config{
 		ModelUUID:       "local-model-uuid",
 		RelationsFacade: s.relationsFacade,
@@ -66,11 +74,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *tc.C) {
 		},
 		Clock:  clk,
 		Logger: loggertesting.WrapCheckLog(c),
-		Runner: worker.NewRunner(worker.RunnerParams{
-			Clock:        clk,
-			IsFatal:      func(error) bool { return false },
-			RestartDelay: time.Second,
-		}),
+		Runner: runner,
 	}
 }
 

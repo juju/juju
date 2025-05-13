@@ -167,18 +167,18 @@ func (s *commonMachineSuite) primeAgent(c *tc.C, jobs ...state.MachineJob) (
 }
 
 // TODO(wallyworld) - we need the dqlite model database to be available.
-//func (s *commonMachineSuite) createMachine(c *gc.C, machineId string) string {
+//func (s *commonMachineSuite) createMachine(c *tc.C, machineId string) string {
 //	db := s.DB()
 //
 //	netNodeUUID := uuid.MustNewUUID().String()
 //	_, err := db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
-//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(err, tc.ErrorIsNil)
 //	machineUUID := uuid.MustNewUUID().String()
 //	_, err = db.ExecContext(context.Background(), `
 //INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
 //VALUES (?, ?, ?, ?)
 //`, machineUUID, life.Alive, machineId, netNodeUUID)
-//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(err, tc.ErrorIsNil)
 //	return machineUUID
 //}
 
@@ -255,19 +255,23 @@ func NewTestMachineAgentFactory(
 	}
 
 	return func(agentTag names.Tag, isCAAS bool) (*MachineAgent, error) {
+		runner, err := worker.NewRunner(worker.RunnerParams{
+			Name:          "machine",
+			IsFatal:       agenterrors.IsFatal,
+			MoreImportant: agenterrors.MoreImportant,
+			RestartDelay:  jworker.RestartDelay,
+		})
+		c.Assert(err, tc.ErrorIsNil)
+
 		prometheusRegistry, err := addons.NewPrometheusRegistry()
 		c.Assert(err, tc.ErrorIsNil)
 		a := &MachineAgent{
-			agentTag:          agentTag,
-			AgentConfigWriter: agentConfWriter,
-			configChangedVal:  voyeur.NewValue(true),
-			workersStarted:    make(chan struct{}),
-			dead:              make(chan struct{}),
-			runner: worker.NewRunner(worker.RunnerParams{
-				IsFatal:       agenterrors.IsFatal,
-				MoreImportant: agenterrors.MoreImportant,
-				RestartDelay:  jworker.RestartDelay,
-			}),
+			agentTag:                    agentTag,
+			AgentConfigWriter:           agentConfWriter,
+			configChangedVal:            voyeur.NewValue(true),
+			workersStarted:              make(chan struct{}),
+			dead:                        make(chan struct{}),
+			runner:                      runner,
 			rootDir:                     rootDir,
 			initialUpgradeCheckComplete: gate.NewLock(),
 			loopDeviceManager:           &mockLoopDeviceManager{},

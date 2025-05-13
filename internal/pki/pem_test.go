@@ -39,7 +39,7 @@ func (p *PEMSuite) TestCertificateToPemString(c *tc.C) {
 	//TODO re-enable headers on certificate to pem when Juju upgrade
 	//CAAS mongo to something compiled with latest openssl. Currently
 	//not all our Openssl versions support pem headers.
-	//c.Assert(strings.Contains(certString, "test: test-header"), jc.IsTrue)
+	//c.Assert(strings.Contains(certString, "test: test-header"), tc.IsTrue)
 	c.Assert(strings.Contains(certString, "BEGIN CERTIFICATE"), tc.IsTrue)
 	c.Assert(strings.Contains(certString, "END CERTIFICATE"), tc.IsTrue)
 }
@@ -58,7 +58,7 @@ func (p *PEMSuite) TestCertificateToPemWriter(c *tc.C) {
 	//TODO re-enable headers on certificate to pem when Juju upgrade
 	//CAAS mongo to something compiled with latest openssl. Currently
 	//not all our Openssl versions support pem headers.
-	//c.Assert(strings.Contains(certString, "test: test-header"), jc.IsTrue)
+	//c.Assert(strings.Contains(certString, "test: test-header"), tc.IsTrue)
 	c.Assert(strings.Contains(certString, "BEGIN CERTIFICATE"), tc.IsTrue)
 	c.Assert(strings.Contains(certString, "END CERTIFICATE"), tc.IsTrue)
 }
