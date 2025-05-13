@@ -195,11 +195,12 @@ func (c *MockStateEnsureRelationNotAliveCall) DoAndReturn(f func(context.Context
 }
 
 // EnsureUnitNotAlive mocks base method.
-func (m *MockState) EnsureUnitNotAlive(arg0 context.Context, arg1 string) error {
+func (m *MockState) EnsureUnitNotAlive(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureUnitNotAlive", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // EnsureUnitNotAlive indicates an expected call of EnsureUnitNotAlive.
@@ -215,19 +216,19 @@ type MockStateEnsureUnitNotAliveCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateEnsureUnitNotAliveCall) Return(arg0 error) *MockStateEnsureUnitNotAliveCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStateEnsureUnitNotAliveCall) Return(arg0 string, arg1 error) *MockStateEnsureUnitNotAliveCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateEnsureUnitNotAliveCall) Do(f func(context.Context, string) error) *MockStateEnsureUnitNotAliveCall {
+func (c *MockStateEnsureUnitNotAliveCall) Do(f func(context.Context, string) (string, error)) *MockStateEnsureUnitNotAliveCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateEnsureUnitNotAliveCall) DoAndReturn(f func(context.Context, string) error) *MockStateEnsureUnitNotAliveCall {
+func (c *MockStateEnsureUnitNotAliveCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateEnsureUnitNotAliveCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

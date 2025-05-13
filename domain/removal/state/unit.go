@@ -46,10 +46,10 @@ WHERE  uuid = $entityUUID.uuid`, unitUUID)
 
 // EnsureUnitNotAlive ensures that there is no unit
 // identified by the input UUID, that is still alive.
-func (st *State) EnsureUnitNotAlive(ctx context.Context, uUUID string) error {
+func (st *State) EnsureUnitNotAlive(ctx context.Context, uUUID string) (machineUUID string, err error) {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	unitUUID := entityUUID{UUID: uUUID}
@@ -59,7 +59,7 @@ SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
 AND    life_id = 0`, unitUUID)
 	if err != nil {
-		return errors.Errorf("preparing unit life update: %w", err)
+		return "", errors.Errorf("preparing unit life update: %w", err)
 	}
 
 	lastUnitStmt, err := st.Prepare(`
@@ -78,7 +78,7 @@ FROM   machines
 WHERE  unit_uuid = $entityUUID.uuid;
 	`, unitUUID, entityAssoicationCount{})
 	if err != nil {
-		return errors.Errorf("preparing unit count query: %w", err)
+		return "", errors.Errorf("preparing unit count query: %w", err)
 	}
 
 	updateMachineStmt, err := st.Prepare(`
@@ -87,10 +87,11 @@ SET    life_id = 1
 WHERE  uuid = $entityAssoicationCount.uuid
 AND    life_id = 0`, entityAssoicationCount{})
 	if err != nil {
-		return errors.Errorf("preparing machine life update: %w", err)
+		return "", errors.Errorf("preparing machine life update: %w", err)
 	}
 
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	var mUUID string
+	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, updateUnitStmt, unitUUID).Run(); err != nil {
 			return errors.Errorf("advancing unit life: %w", err)
 		}
@@ -109,8 +110,14 @@ AND    life_id = 0`, entityAssoicationCount{})
 			return errors.Errorf("advancing machine life: %w", err)
 		}
 
+		mUUID = unitCount.UUID
+
 		return nil
-	}))
+	})); err != nil {
+		return "", err
+	}
+
+	return mUUID, nil
 }
 
 // UnitScheduleRemoval schedules a removal job for the unit with the
