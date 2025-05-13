@@ -1435,20 +1435,22 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 		}
 
 		name := unitTag.Id()
-		unit, err := api.backend.Unit(name)
-		if errors.Is(err, errors.NotFound) {
-			return nil, errors.Errorf("unit %q does not exist", name)
+		unitName, err := coreunit.NewName(unitTag.Id())
+		if err != nil {
+			return nil, internalerrors.Errorf("parsing unit name %q: %w", unitName, err)
+		}
+		appName := unitName.Application()
+
+		isSubordinate, err := api.applicationService.IsSubordinateApplicationByName(ctx, appName)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return nil, errors.NotFoundf("application %s", appName)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !unit.IsPrincipal() {
+		if isSubordinate {
 			return nil, errors.Errorf("unit %q is a subordinate, to remove use remove-relation. Note: this will remove all units of %q",
-				name, coreunit.Name(name).Application())
+				unitName, appName)
 		}
-
-		// TODO(wallyworld) - enable-ha is how we remove controllers at the
-		// moment Remove this check before 3.0 when enable-ha is refactored.
-		appName, _ := names.UnitApplication(unitTag.Id())
 
 		locator, err := api.getCharmLocatorByApplicationName(ctx, appName)
 		if err != nil {
@@ -1462,7 +1464,7 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 		}
 
 		var info params.DestroyUnitInfo
-		unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
+		unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unitTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1486,10 +1488,6 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 			return &info, nil
 		}
 
-		unitName, err := coreunit.NewName(name)
-		if err != nil {
-			return nil, internalerrors.Errorf("parsing unit name %q: %w", name, err)
-		}
 		if err := api.applicationService.DestroyUnit(ctx, unitName); err != nil {
 			if !errors.Is(err, applicationerrors.UnitNotFound) {
 				return nil, errors.Trace(err)
@@ -1497,6 +1495,12 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 		}
 
 		// TODO(units) - remove dual write to state
+		unit, err := api.backend.Unit(name)
+		if errors.Is(err, errors.NotFound) {
+			return nil, errors.Errorf("unit %q does not exist", name)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
 		op := unit.DestroyOperation(api.store)
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force

@@ -260,6 +260,12 @@ type ApplicationService interface {
 	// - [appliationerrors.ApplicationNotFound] if the application does not exist
 	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
 
+	// IsSubordinateApplicationByName returns true if the application is a
+	// subordinate application.
+	// The following errors may be returned:
+	// - [appliationerrors.ApplicationNotFound] if the application does not exist
+	IsSubordinateApplicationByName(context.Context, string) (bool, error)
+
 	// GetApplicationEndpointBindings returns the mapping for each endpoint name and
 	// the space ID it is bound to (or empty if unspecified). When no bindings are
 	// stored for the application, defaults are returned.

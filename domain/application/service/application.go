@@ -868,6 +868,18 @@ func (s *Service) IsSubordinateApplication(ctx context.Context, appUUID coreappl
 	return subordinate, nil
 }
 
+// IsSubordinateApplicationByName returns true if the application is a subordinate
+// application.
+// The following errors may be returned:
+// - [appliationerrors.ApplicationNotFound] if the application does not exist
+func (s *Service) IsSubordinateApplicationByName(ctx context.Context, appName string) (bool, error) {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return s.IsSubordinateApplication(ctx, appID)
+}
+
 // SetApplicationScale sets the application's desired scale value, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
 // This is used on CAAS models.

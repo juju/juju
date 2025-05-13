@@ -1807,6 +1807,45 @@ func (c *MockApplicationServiceIsSubordinateApplicationCall) DoAndReturn(f func(
 	return c
 }
 
+// IsSubordinateApplicationByName mocks base method.
+func (m *MockApplicationService) IsSubordinateApplicationByName(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSubordinateApplicationByName", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsSubordinateApplicationByName indicates an expected call of IsSubordinateApplicationByName.
+func (mr *MockApplicationServiceMockRecorder) IsSubordinateApplicationByName(arg0, arg1 any) *MockApplicationServiceIsSubordinateApplicationByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSubordinateApplicationByName", reflect.TypeOf((*MockApplicationService)(nil).IsSubordinateApplicationByName), arg0, arg1)
+	return &MockApplicationServiceIsSubordinateApplicationByNameCall{Call: call}
+}
+
+// MockApplicationServiceIsSubordinateApplicationByNameCall wrap *gomock.Call
+type MockApplicationServiceIsSubordinateApplicationByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceIsSubordinateApplicationByNameCall) Return(arg0 bool, arg1 error) *MockApplicationServiceIsSubordinateApplicationByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceIsSubordinateApplicationByNameCall) Do(f func(context.Context, string) (bool, error)) *MockApplicationServiceIsSubordinateApplicationByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceIsSubordinateApplicationByNameCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockApplicationServiceIsSubordinateApplicationByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MergeExposeSettings mocks base method.
 func (m *MockApplicationService) MergeExposeSettings(arg0 context.Context, arg1 string, arg2 map[string]application0.ExposedEndpoint) error {
 	m.ctrl.T.Helper()

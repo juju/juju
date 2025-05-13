@@ -91,7 +91,6 @@ type Machine interface {
 type Unit interface {
 	UnitTag() names.UnitTag
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
-	IsPrincipal() bool
 
 	AssignUnit() error
 	AssignWithPlacement(*instance.Placement, network.SpaceInfos) error
