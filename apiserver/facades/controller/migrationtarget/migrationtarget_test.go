@@ -220,7 +220,7 @@ func (s *Suite) TestImport(c *gc.C) {
 	model, ph, err := s.StatePool.GetModel(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	defer ph.Release()
-	c.Assert(model.Name(), gc.Equals, "some-model")
+	c.Assert(model.NameOld(), gc.Equals, "some-model")
 	mode, err := model.State().MigrationMode()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mode, gc.Equals, state.MigrationModeImporting)

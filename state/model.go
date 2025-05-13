@@ -431,7 +431,7 @@ func (m *Model) ControllerTag() names.ControllerTag {
 }
 
 // UUID returns the universally unique identifier of the model.
-func (m *Model) UUID() string {
+func (m *Model) UUIDOld() string {
 	return m.doc.UUID
 }
 
@@ -442,28 +442,28 @@ func (m *Model) ControllerUUID() string {
 }
 
 // Name returns the human friendly name of the model.
-func (m *Model) Name() string {
+func (m *Model) NameOld() string {
 	return m.doc.Name
 }
 
 // Type returns the type of the model.
-func (m *Model) Type() ModelType {
+func (m *Model) TypeOld() ModelType {
 	return m.doc.Type
 }
 
 // CloudName returns the name of the cloud to which the model is deployed.
-func (m *Model) CloudName() string {
+func (m *Model) CloudNameOld() string {
 	return m.doc.Cloud
 }
 
 // CloudRegion returns the name of the cloud region to which the model is deployed.
-func (m *Model) CloudRegion() string {
+func (m *Model) CloudRegionOld() string {
 	return m.doc.CloudRegion
 }
 
 // CloudCredentialTag returns the tag of the cloud credential used for managing the
 // model's cloud resources, and a boolean indicating whether a credential is set.
-func (m *Model) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+func (m *Model) CloudCredentialTagOld() (names.CloudCredentialTag, bool) {
 	if names.IsValidCloudCredential(m.doc.CloudCredential) {
 		return names.NewCloudCredentialTag(m.doc.CloudCredential), true
 	}
@@ -587,7 +587,7 @@ func (m *Model) globalKey() string {
 }
 
 func (m *Model) Refresh() error {
-	return m.refresh(m.UUID())
+	return m.refresh(m.UUIDOld())
 }
 
 func (m *Model) refresh(uuid string) error {
@@ -617,7 +617,7 @@ func (st *State) AllUnits() ([]*Unit, error) {
 	}
 	var units []*Unit
 	for i := range docs {
-		units = append(units, newUnit(st, m.Type(), &docs[i]))
+		units = append(units, newUnit(st, m.TypeOld(), &docs[i]))
 	}
 	return units, nil
 }
@@ -752,7 +752,7 @@ func (m *Model) destroyOps(
 	ensureEmpty bool,
 	destroyingController bool,
 ) ([]txn.Op, error) {
-	modelUUID := m.UUID()
+	modelUUID := m.UUIDOld()
 	force := args.Force != nil && *args.Force
 	if m.Life() != Alive && !force {
 		currentTimeout := m.DestroyTimeout()
@@ -781,9 +781,9 @@ func (m *Model) destroyOps(
 	modelEntityRefs, err := m.getEntityRefs()
 	if err != nil {
 		if !force {
-			return nil, errors.Annotatef(err, "getting model %v entity refs", m.UUID())
+			return nil, errors.Annotatef(err, "getting model %v entity refs", m.UUIDOld())
 		}
-		logger.Warningf(context.TODO(), "getting model %v entity refs: %v", m.UUID(), err)
+		logger.Warningf(context.TODO(), "getting model %v entity refs: %v", m.UUIDOld(), err)
 	}
 	isEmpty := true
 	nextLife := Dying
@@ -839,7 +839,7 @@ func (m *Model) destroyOps(
 		}
 		var aliveEmpty, aliveNonEmpty, dying, dead int
 		for _, aModelUUID := range modelUUIDs {
-			if aModelUUID == m.UUID() {
+			if aModelUUID == m.UUIDOld() {
 				// Ignore the controller model.
 				continue
 			}
@@ -967,7 +967,7 @@ func (m *Model) destroyOps(
 		// that case we'll get errors if we try to enqueue model
 		// cleanups, because the cleanups collection is non-global.
 		ops = append(ops, newCleanupOp(cleanupApplicationsForDyingModel, modelUUID, args))
-		if m.Type() == ModelTypeIAAS {
+		if m.TypeOld() == ModelTypeIAAS {
 			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID, args))
 		}
 		if args.DestroyStorage != nil {
@@ -987,11 +987,11 @@ func (m *Model) getEntityRefs() (*modelEntityRefsDoc, error) {
 	defer closer()
 
 	var doc modelEntityRefsDoc
-	if err := modelEntityRefs.FindId(m.UUID()).One(&doc); err != nil {
+	if err := modelEntityRefs.FindId(m.UUIDOld()).One(&doc); err != nil {
 		if err == mgo.ErrNotFound {
-			return nil, errors.NotFoundf("entity references doc for model %s", m.UUID())
+			return nil, errors.NotFoundf("entity references doc for model %s", m.UUIDOld())
 		}
-		return nil, errors.Annotatef(err, "getting entity references for model %s", m.UUID())
+		return nil, errors.Annotatef(err, "getting entity references for model %s", m.UUIDOld())
 	}
 	return &doc, nil
 }
@@ -1281,7 +1281,7 @@ func createUniqueOwnerModelNameOp(owner names.UserTag, modelName string) txn.Op 
 
 // assertAliveOp returns a txn.Op that asserts the model is alive.
 func (m *Model) assertActiveOp() txn.Op {
-	return assertModelActiveOp(m.UUID())
+	return assertModelActiveOp(m.UUIDOld())
 }
 
 // assertModelActiveOp returns a txn.Op that asserts the given
@@ -1309,11 +1309,11 @@ func checkModelUsable(st *State, validLife func(Life) bool) error {
 	}
 
 	if !validLife(model.Life()) {
-		return errors.Errorf("model %q is %s", model.Name(), model.Life().String())
+		return errors.Errorf("model %q is %s", model.NameOld(), model.Life().String())
 	}
 
 	if model.doc.MigrationMode != MigrationModeNone {
-		return errors.Errorf("model %q is being migrated", model.Name())
+		return errors.Errorf("model %q is being migrated", model.NameOld())
 	}
 
 	return nil

@@ -880,7 +880,7 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.openModelAPIWithoutLogin(c, model.UUID())
+	st := s.openModelAPIWithoutLogin(c, model.UUIDOld())
 
 	// If the agent attempts Login before the provisioner has recorded
 	// the machine's nonce in state, then the agent should get back an

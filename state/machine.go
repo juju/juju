@@ -1028,7 +1028,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 		return nil, errors.Trace(err)
 	}
 	for _, pudoc := range pudocs {
-		units = append(units, newUnit(m.st, model.Type(), &pudoc))
+		units = append(units, newUnit(m.st, model.TypeOld(), &pudoc))
 	}
 	return units, nil
 }

@@ -1320,11 +1320,11 @@ func (a *Application) addUnitOpsWithCons(
 		Updated:    now.UnixNano(),
 	}
 
-	if m.Type() != ModelTypeCAAS {
+	if m.TypeOld() != ModelTypeCAAS {
 		unitStatusDoc.StatusInfo = status.MessageWaitForMachine
 	}
 	var containerDoc *cloudContainerDoc
-	if m.Type() == ModelTypeCAAS {
+	if m.TypeOld() == ModelTypeCAAS {
 		if args.providerId != nil || args.address != nil || args.ports != nil {
 			containerDoc = &cloudContainerDoc{
 				Id: globalKey,
@@ -1602,7 +1602,7 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if m.Type() == ModelTypeCAAS {
+	if m.TypeOld() == ModelTypeCAAS {
 		ops = append(ops, u.removeCloudContainerOps()...)
 		ops = append(ops, newCleanupOp(cleanupDyingUnitResources, u.doc.Name, op.Force, op.MaxWait))
 	}
@@ -1656,7 +1656,7 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 		return nil, errors.Trace(err)
 	}
 	for i := range docs {
-		units = append(units, newUnit(st, m.Type(), &docs[i]))
+		units = append(units, newUnit(st, m.TypeOld(), &docs[i]))
 	}
 	return units, nil
 }
@@ -1922,7 +1922,7 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if m.Type() == ModelTypeCAAS {
+	if m.TypeOld() == ModelTypeCAAS {
 		operatorStatusDoc := args.statusDoc
 		if args.operatorStatus != nil {
 			operatorStatusDoc = *args.operatorStatus

@@ -828,7 +828,7 @@ type fakeModelDescription struct {
 
 func (st *mockState) ModelUUID() string {
 	st.MethodCall(st, "ModelUUID")
-	return st.model.UUID()
+	return st.model.UUIDOld()
 }
 
 func (st *mockState) Name() string {
@@ -843,7 +843,7 @@ func (st *mockState) ControllerModelTag() names.ModelTag {
 
 func (st *mockState) Export(store objectstore.ObjectStore) (description.Model, error) {
 	st.MethodCall(st, "Export")
-	return &fakeModelDescription{ModelUUID: st.model.UUID()}, nil
+	return &fakeModelDescription{ModelUUID: st.model.UUIDOld()}, nil
 }
 
 func (st *mockState) ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
@@ -851,12 +851,12 @@ func (st *mockState) ExportPartial(cfg state.ExportConfig, store objectstore.Obj
 	if !cfg.IgnoreIncompleteModel {
 		return nil, errors.New("expected IgnoreIncompleteModel=true")
 	}
-	return &fakeModelDescription{ModelUUID: st.model.UUID()}, nil
+	return &fakeModelDescription{ModelUUID: st.model.UUIDOld()}, nil
 }
 
 func (st *mockState) AllModelUUIDs() ([]string, error) {
 	st.MethodCall(st, "AllModelUUIDs")
-	return []string{st.model.UUID()}, st.NextErr()
+	return []string{st.model.UUIDOld()}, st.NextErr()
 }
 
 func (st *mockState) GetBackend(modelUUID string) (commonmodel.ModelManagerBackend, func() bool, error) {
@@ -899,7 +899,7 @@ func (st *mockState) ControllerTag() names.ControllerTag {
 
 func (st *mockState) IsController() bool {
 	st.MethodCall(st, "IsController")
-	return st.controllerUUID == st.model.UUID()
+	return st.controllerUUID == st.model.UUIDOld()
 }
 
 func (st *mockState) ControllerNodes() ([]commonmodel.ControllerNode, error) {
@@ -1044,7 +1044,7 @@ func (m *mockModel) ModelTag() names.ModelTag {
 	return m.tag
 }
 
-func (m *mockModel) Type() state.ModelType {
+func (m *mockModel) TypeOld() state.ModelType {
 	m.MethodCall(m, "Type")
 	return state.ModelTypeIAAS
 }
@@ -1059,12 +1059,12 @@ func (m *mockModel) Status() (status.StatusInfo, error) {
 	return m.status, m.NextErr()
 }
 
-func (m *mockModel) CloudName() string {
+func (m *mockModel) CloudNameOld() string {
 	m.MethodCall(m, "CloudName")
 	return "dummy"
 }
 
-func (m *mockModel) CloudRegion() string {
+func (m *mockModel) CloudRegionOld() string {
 	m.MethodCall(m, "CloudRegion")
 	return "dummy-region"
 }
@@ -1084,12 +1084,12 @@ func (m *mockModel) ControllerUUID() string {
 	return m.controllerUUID
 }
 
-func (m *mockModel) UUID() string {
+func (m *mockModel) UUIDOld() string {
 	m.MethodCall(m, "UUID")
 	return m.cfg.UUID()
 }
 
-func (m *mockModel) Name() string {
+func (m *mockModel) NameOld() string {
 	m.MethodCall(m, "Name")
 	return m.cfg.Name()
 }

@@ -59,7 +59,7 @@ func (st stateShim) IsMigrationActive() (bool, error) {
 }
 
 type Model interface {
-	Name() string
+	NameOld() string
 	Owner() names.UserTag
 }
 
