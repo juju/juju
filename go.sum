@@ -424,8 +424,8 @@ github.com/juju/mutex/v2 v2.0.0-20220128011612-57176ebdcfa3/go.mod h1:TTCG9BJD9r
 github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c/go.mod h1:jwCfBs/smYDaeZLqeaCi8CB8M+tOes4yf827HoOEoqk=
 github.com/juju/mutex/v2 v2.0.0 h1:rVmJdOaXGWF8rjcFHBNd4x57/1tks5CgXHx55O55SB0=
 github.com/juju/mutex/v2 v2.0.0/go.mod h1:jwCfBs/smYDaeZLqeaCi8CB8M+tOes4yf827HoOEoqk=
-github.com/juju/names/v6 v6.0.0-20250318090139-ec8d71d906f5 h1:1eVFjYvtBVLGdisz+jbjfks5AC1oeyM0Ef1Q1IrZBGE=
-github.com/juju/names/v6 v6.0.0-20250318090139-ec8d71d906f5/go.mod h1:msqFCjHhF+wL7NR5aEDRlpxCybna0+5E9kbRSb2fiz4=
+github.com/juju/names/v6 v6.0.0-20250512075813-b50ca77a4137 h1:y78AjQajOIz8xxLXENqZ/QlLNKrp4HL2VHeT+iXTDPM=
+github.com/juju/names/v6 v6.0.0-20250512075813-b50ca77a4137/go.mod h1:msqFCjHhF+wL7NR5aEDRlpxCybna0+5E9kbRSb2fiz4=
 github.com/juju/naturalsort v1.0.0 h1:kGmUUy3h8mJ5/SJYaqKOBR3f3owEd5R52Lh+Tjg/dNM=
 github.com/juju/naturalsort v1.0.0/go.mod h1:Zqa/vGkXr78k47zM6tFmU9phhxKz/PIdqBzpLhJ86zc=
 github.com/juju/os/v2 v2.2.5 h1:Ayw9aC7axKtGgzy3dFRKx84FxasfISMege0iYDsH6io=
