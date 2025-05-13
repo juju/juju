@@ -26,7 +26,11 @@ type apiserverSuite struct {
 var _ = tc.Suite(&apiserverSuite{})
 
 func (s *apiserverSuite) TestCleanStop(c *tc.C) {
-	workertest.CleanKill(c, s.Server)
+	err := workertest.CheckKill(c, s.Server)
+	if err != nil {
+		// Either err is nil or ErrAPIServerDying
+		c.Assert(err, tc.ErrorIs, apiserver.ErrAPIServerDying)
+	}
 }
 
 func (s *apiserverSuite) getHealth(c *tc.C) (string, int) {
