@@ -41,9 +41,12 @@ type controllerNodeAgentVersion struct {
 // controllerAPIAddress is the database representation of a controller api
 // address.
 type controllerAPIAddress struct {
+	// ControllerID is the controller node id.
 	ControllerID string `db:"controller_id"`
-	Address      string `db:"address"`
-	IsAgent      bool   `db:"is_agent"`
+	// Address is the address of the controller node.
+	Address string `db:"address"`
+	// IsAgent is whether the address is for agents as well as for clients.
+	IsAgent bool `db:"is_agent"`
 }
 
 // countResult is the database representation of a count result.

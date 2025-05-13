@@ -1095,17 +1095,19 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniterBadName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
+func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "ip_address")
 
 	svc := s.setupService(c, factory)
 
-	ctx := context.Background()
-
-	// Insert a net node first.
+	s.createApplication(c, svc, "foo", service.AddUnitArg{})
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
 		_, err := tx.ExecContext(ctx, insertNetNode0, "net-node-uuid")
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, "UPDATE unit SET net_node_uuid = ? WHERE name = ?", "net-node-uuid", "foo/0")
 		if err != nil {
 			return err
 		}
@@ -1113,7 +1115,9 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	watcher, err := svc.WatchNetNodeAddress(ctx, "net-node-uuid")
+	ctx := context.Background()
+
+	watcher, err := svc.WatchUnitAddresses(ctx, unit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
