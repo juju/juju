@@ -637,20 +637,22 @@ func (u *UniterAPI) DestroyAllSubordinates(ctx context.Context, args params.Enti
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
-			if err == nil {
-				err = u.destroySubordinates(ctx, unit)
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		err = u.destroySubordinates(ctx, unitName)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-// HasSubordinates returns the whether each given unit has any subordinates.
+// HasSubordinates returns whether each given unit has any subordinates.
 func (u *UniterAPI) HasSubordinates(ctx context.Context, args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
@@ -665,16 +667,21 @@ func (u *UniterAPI) HasSubordinates(ctx context.Context, args params.Entities) (
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
-			if err == nil {
-				subordinates := unit.SubordinateNames()
-				result.Results[i].Result = len(subordinates) > 0
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		subordinates, err := u.applicationService.GetUnitSubordinates(ctx, unitName)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = len(subordinates) > 0
 	}
 	return result, nil
 }
@@ -1364,7 +1371,7 @@ func (u *UniterAPI) CurrentModel(ctx context.Context) (params.ModelResult, error
 // model.
 //
 // TODO(dimitern): Refactor the uniter to call this instead of calling
-// ModelConfig() just to get the provider type. Once we have machine
+// ModeltConfig() just to get the provider type. Once we have machine
 // addresses, this might be completely unnecessary though.
 func (u *UniterAPI) ProviderType(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
@@ -2039,16 +2046,15 @@ func (u *UniterAPI) getOneRelation(
 	return u.prepareRelationResult(rel, appName)
 }
 
-func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Unit) error {
-	subordinates := principal.SubordinateNames()
-	for _, sub := range subordinates {
-		subName, err := coreunit.NewName(sub)
-		if err != nil {
-			return err
-		}
+func (u *UniterAPI) destroySubordinates(ctx context.Context, principal coreunit.Name) error {
+	subordinates, err := u.applicationService.GetUnitSubordinates(ctx, principal)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+	for _, subName := range subordinates {
 		err = u.applicationService.DestroyUnit(ctx, subName)
 		if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
-			return err
+			return internalerrors.Capture(err)
 		}
 
 		// TODO(units) - remove dual write to state

@@ -183,6 +183,10 @@ type ApplicationService interface {
 	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
 	// will be returned.
 	WatchUnitAddressesHash(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
+
+	// GetUnitSubordinates returns the names of all the subordinate units of the
+	// given principal unit.
+	GetUnitSubordinates(ctx context.Context, unitName coreunit.Name) ([]coreunit.Name, error)
 }
 
 type ResolveService interface {
