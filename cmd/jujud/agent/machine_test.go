@@ -360,6 +360,8 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *tc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *tc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 
 	started := newSignal()
