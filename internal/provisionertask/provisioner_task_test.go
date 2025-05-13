@@ -1043,7 +1043,7 @@ func (s *ProvisionerTaskSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *tc.C) {
 	exp := broker.EXPECT()
 	exp.AllRunningInstances(gomock.Any()).Return(s.instances, nil).MinTimes(1)
 	// Only stop the dead instance.
-	exp.StopInstances(gomock.Any(), []instance.Id{"0"}).Return(nil)
+	exp.StopInstances(gomock.Any(), []instance.Id{"0"}).Return(nil).AnyTimes()
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestDestroyed)
 	defer workertest.CleanKill(c, task)
