@@ -153,13 +153,9 @@ WHERE  machine_uuid = $machineUUID.uuid`
 			return errors.Errorf("machine %q: %w", mName, machineerrors.MachineAlreadyExists)
 		}
 		if !errors.Is(err, sqlair.ErrNoRows) {
-			if err !=
-				// Return error if the query failed for any reason other than not
-				// found.
-				nil {
-				return errors.Errorf("querying machine %q: %w", mName, err)
-			}
-			return nil
+			// Return error if the query failed for any reason other than not
+			// found.
+			return errors.Errorf("querying machine %q: %w", mName, err)
 		}
 
 		// Run query to create net node row.
@@ -194,13 +190,9 @@ WHERE  machine_uuid = $machineUUID.uuid`
 				return errors.Errorf("machine %q: %w", mName, machineerrors.GrandParentNotSupported)
 			}
 			if !errors.Is(err, sqlair.ErrNoRows) {
-				if err !=
-					// Return error if the query failed for any reason other than not
-					// found.
-					nil {
-					return errors.Errorf("querying for grandparent UUID for machine %q: %w", mName, err)
-				}
-				return nil
+				// Return error if the query failed for any reason other than not
+				// found.
+				return errors.Errorf("querying for grandparent UUID for machine %q: %w", mName, err)
 			}
 
 			// Run query to associate parent machine.
