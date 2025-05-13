@@ -83,12 +83,14 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
 
-	machineUUID := s.getUnitMachineUUID(c, unitUUID)
+	unitMachineUUID := s.getUnitMachineUUID(c, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(machineUUID, tc.Equals, unitMachineUUID.String())
 
 	// Unit had life "alive" and should now be "dying".
 	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
@@ -98,7 +100,44 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnit(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 
 	// The last machine had life "alive" and should now be "dying".
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID.String())
+	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID)
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+}
+
+func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccessLastUnitMachineAlreadyDying(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
+	svc := s.setupService(c, factory)
+	appUUID := s.createApplication(c, svc, "some-app",
+		applicationservice.AddUnitArg{},
+	)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	unitMachineUUID := s.getUnitMachineUUID(c, unitUUID)
+	// Set the machine to "dying" manually.
+	_, err := s.DB().Exec("UPDATE machine SET life_id = 1 WHERE uuid = ?", unitMachineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	machineUUID, err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(machineUUID, tc.Equals, unitMachineUUID.String())
+
+	// Unit had life "alive" and should now be "dying".
+	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+
+	// The last machine had life "alive" and should now be "dying".
+	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID)
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 1)
@@ -119,12 +158,16 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 	c.Assert(len(unitUUIDs), tc.Equals, 2)
 	unitUUID := unitUUIDs[0]
 
-	machineUUID := s.getUnitMachineUUID(c, unitUUID)
+	unitMachineUUID := s.getUnitMachineUUID(c, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
+	machineUUID, err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+
+	// This isn't the last unit on the machine, so we don't expect a machine
+	// UUID.
+	c.Assert(machineUUID, tc.Equals, "")
 
 	// Unit had life "alive" and should now be "dying".
 	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
@@ -134,7 +177,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 
 	// Don't set the machine life to "dying" if there are other units on it.
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID.String())
+	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", unitMachineUUID)
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 0)
@@ -151,7 +194,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
+	_, err := st.EnsureUnitNotAlive(context.Background(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Unit was already "dying" and should be unchanged.
@@ -166,7 +209,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	err := st.EnsureUnitNotAlive(context.Background(), "some-unit-uuid")
+	_, err := st.EnsureUnitNotAlive(context.Background(), "some-unit-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 

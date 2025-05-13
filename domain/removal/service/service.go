@@ -21,6 +21,7 @@ import (
 type State interface {
 	RelationState
 	UnitState
+	MachineState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
