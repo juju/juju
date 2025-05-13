@@ -20,6 +20,7 @@ import (
 // State describes retrieval and persistence methods for entity removal.
 type State interface {
 	RelationState
+	UnitState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
