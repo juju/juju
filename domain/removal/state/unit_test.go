@@ -55,7 +55,7 @@ func (s *unitSuite) SetUpTest(c *tc.C) {
 func (s *unitSuite) TestUnitExists(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 	svc := s.setupService(c, factory)
-	appUUID := s.createApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
@@ -75,7 +75,7 @@ func (s *unitSuite) TestUnitExists(c *tc.C) {
 func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 	svc := s.setupService(c, factory)
-	appUUID := s.createApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
@@ -97,7 +97,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNormalSuccess(c *tc.C) {
 func (s *unitSuite) TestEnsureUnitNotAliveDyingSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 	svc := s.setupService(c, factory)
-	appUUID := s.createApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
@@ -127,7 +127,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveNotExistsSuccess(c *tc.C) {
 func (s *unitSuite) TestUnitRemovalNormalSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 	svc := s.setupService(c, factory)
-	appUUID := s.createApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
@@ -225,10 +225,10 @@ func (s *unitSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *ap
 	)
 }
 
-func (s *unitSuite) createApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
+func (s *unitSuite) createIAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
 	ctx := context.Background()
 	ch := &stubCharm{name: "test-charm"}
-	appID, err := svc.CreateApplication(ctx, name, ch, corecharm.Origin{
+	appID, err := svc.CreateIAASApplication(ctx, name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
 			Channel:      "24.04",
