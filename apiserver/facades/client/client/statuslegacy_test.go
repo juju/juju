@@ -4,17 +4,18 @@
 package client_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type statusSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&statusSuite{})
+var _ = tc.Suite(&statusSuite{})
 
-func (s *statusSuite) TestStub(c *gc.C) {
+func (s *statusSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Full status (assert on machine, application, unit, relation, offers, model).
 - Full status with leadership (assert a unit is leader).
@@ -25,12 +26,12 @@ func (s *statusSuite) TestStub(c *gc.C) {
 }
 
 type statusUnitTestSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&statusUnitTestSuite{})
+var _ = tc.Suite(&statusUnitTestSuite{})
 
-func (s *statusUnitTestSuite) TestStub(c *gc.C) {
+func (s *statusUnitTestSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 -- Note: This comment was taken from the original test suite:
 -- // Complete testing of status functionality happens elsewhere in the codebase,

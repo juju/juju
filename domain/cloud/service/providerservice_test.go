@@ -6,9 +6,8 @@ package service
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -20,9 +19,9 @@ type providerServiceSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&providerServiceSuite{})
+var _ = tc.Suite(&providerServiceSuite{})
 
-func (s *providerServiceSuite) TestCloud(c *gc.C) {
+func (s *providerServiceSuite) TestCloud(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	one := &cloud.Cloud{
@@ -31,22 +30,22 @@ func (s *providerServiceSuite) TestCloud(c *gc.C) {
 	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(one, nil)
 
 	result, err := NewWatchableProviderService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, one)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, one)
 }
 
-func (s *providerServiceSuite) TestCloudNotFound(c *gc.C) {
+func (s *providerServiceSuite) TestCloudNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(nil, errors.Errorf(`cloud "fluffy"`+" %w", coreerrors.NotFound))
 
 	result, err := NewWatchableProviderService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
-	c.Assert(err, gc.ErrorMatches, `cloud "fluffy" not found`)
-	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
-	c.Check(result, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `cloud "fluffy" not found`)
+	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Check(result, tc.IsNil)
 }
 
-func (s *providerServiceSuite) TestWatchCloud(c *gc.C) {
+func (s *providerServiceSuite) TestWatchCloud(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	nw := watchertest.NewMockNotifyWatcher(nil)
@@ -54,6 +53,6 @@ func (s *providerServiceSuite) TestWatchCloud(c *gc.C) {
 	s.state.EXPECT().WatchCloud(gomock.Any(), gomock.Any(), "cirrus").Return(nw, nil)
 
 	w, err := NewWatchableProviderService(s.state, s.watcherFactory).WatchCloud(context.Background(), "cirrus")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(w, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(w, tc.NotNil)
 }

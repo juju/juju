@@ -6,17 +6,18 @@ package charm
 import (
 	"strings"
 
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type manifestSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
-var _ = gc.Suite(&manifestSuite{})
+var _ = tc.Suite(&manifestSuite{})
 
-func (s *manifestSuite) TestReadManifest(c *gc.C) {
+func (s *manifestSuite) TestReadManifest(c *tc.C) {
 	manifest, err := ReadManifest(strings.NewReader(`
 bases:
   - name: ubuntu
@@ -25,8 +26,8 @@ bases:
   - name: ubuntu
     channel: "20.04/stable"
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(manifest, gc.DeepEquals, &Manifest{Bases: []Base{{
+	c.Assert(err, tc.IsNil)
+	c.Assert(manifest, tc.DeepEquals, &Manifest{Bases: []Base{{
 		Name: "ubuntu",
 		Channel: Channel{
 			Track:  "18.04",
@@ -45,20 +46,20 @@ bases:
 	}})
 }
 
-func (s *manifestSuite) TestReadValidateManifest(c *gc.C) {
+func (s *manifestSuite) TestReadValidateManifest(c *tc.C) {
 	_, err := ReadManifest(strings.NewReader(`
 bases:
   - name: ""
     channel: "18.04"
 `))
-	c.Assert(err, gc.ErrorMatches, "manifest: base without name not valid")
+	c.Assert(err, tc.ErrorMatches, "manifest: base without name not valid")
 }
 
-func (s *manifestSuite) TestValidateManifest(c *gc.C) {
+func (s *manifestSuite) TestValidateManifest(c *tc.C) {
 	manifest := &Manifest{
 		Bases: []Base{{
 			Name: "",
 		}},
 	}
-	c.Assert(manifest.Validate(), gc.ErrorMatches, "validating manifest: base without name not valid")
+	c.Assert(manifest.Validate(), tc.ErrorMatches, "validating manifest: base without name not valid")
 }

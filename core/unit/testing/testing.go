@@ -4,24 +4,23 @@
 package testing
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreunit "github.com/juju/juju/core/unit"
 )
 
 // GenUnitUUID can be used in testing for generating a unit uuid that is checked
 // for subsequent errors using the test suits go check instance.
-func GenUnitUUID(c *gc.C) coreunit.UUID {
+func GenUnitUUID(c *tc.C) coreunit.UUID {
 	uuid, err := coreunit.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }
 
 // GenNewName returns a new unit name object.
 // It asserts that the unit name is valid.
-func GenNewName(c *gc.C, name string) coreunit.Name {
+func GenNewName(c *tc.C, name string) coreunit.Name {
 	un, err := coreunit.NewName(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return un
 }

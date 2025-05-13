@@ -10,14 +10,11 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
@@ -27,6 +24,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -45,7 +43,7 @@ type JujuOSEnvSuite struct {
 	initialFeatureFlags string
 }
 
-func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
+func (s *JujuOSEnvSuite) SetUpTest(c *tc.C) {
 	s.oldEnvironment = make(map[string]string)
 	for _, name := range []string{
 		osenv.JujuXDGDataHomeEnvKey,
@@ -62,7 +60,7 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	s.oldHomeEnv = utils.Home()
 	os.Setenv(osenv.JujuXDGDataHomeEnvKey, c.MkDir())
 	err := utils.SetHome("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Update the feature flag set to be the requested initial set.
 	// For tests, setting with the environment variable isolates us
@@ -72,17 +70,17 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
-func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
+func (s *JujuOSEnvSuite) TearDownTest(c *tc.C) {
 	for name, value := range s.oldEnvironment {
 		os.Setenv(name, value)
 	}
 	err := utils.SetHome(s.oldHomeEnv)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // SkipIfPPC64EL skips the test if the arch is PPC64EL and the
 // compiler is gccgo.
-func SkipIfPPC64EL(c *gc.C, bugID string) {
+func SkipIfPPC64EL(c *tc.C, bugID string) {
 	if runtime.Compiler == "gccgo" &&
 		arch.NormaliseArch(runtime.GOARCH) == arch.PPC64EL {
 		c.Skip(fmt.Sprintf("Test disabled on PPC64EL until fixed - see bug %s", bugID))
@@ -90,14 +88,14 @@ func SkipIfPPC64EL(c *gc.C, bugID string) {
 }
 
 // SkipIfS390X skips the test if the arch is S390X.
-func SkipIfS390X(c *gc.C, bugID string) {
+func SkipIfS390X(c *tc.C, bugID string) {
 	if arch.NormaliseArch(runtime.GOARCH) == arch.S390X {
 		c.Skip(fmt.Sprintf("Test disabled on S390X until fixed - see bug %s", bugID))
 	}
 }
 
 // SkipIfWindowsBug skips the test if the OS is Windows.
-func SkipIfWindowsBug(c *gc.C, bugID string) {
+func SkipIfWindowsBug(c *tc.C, bugID string) {
 	if runtime.GOOS == "windows" {
 		c.Skip(fmt.Sprintf("Test disabled on Windows until fixed - see bug %s", bugID))
 	}
@@ -105,21 +103,21 @@ func SkipIfWindowsBug(c *gc.C, bugID string) {
 
 // SkipUnlessControllerOS skips the test if the current OS is not a supported
 // controller OS.
-func SkipUnlessControllerOS(c *gc.C) {
+func SkipUnlessControllerOS(c *tc.C) {
 	if coreos.HostOS() != ostype.Ubuntu {
 		c.Skip("Test disabled for non-controller OS")
 	}
 }
 
 // SkipLXDNotSupported will skip tests if the host does not support LXD
-func SkipLXDNotSupported(c *gc.C) {
+func SkipLXDNotSupported(c *tc.C) {
 	if coreos.HostOS() != ostype.Ubuntu {
 		c.Skip("Test disabled for non-LXD OS")
 	}
 }
 
 // SkipFlaky skips the test if there is an open bug for intermittent test failures
-func SkipFlaky(c *gc.C, bugID string) {
+func SkipFlaky(c *tc.C, bugID string) {
 	c.Skip(fmt.Sprintf("Test disabled until flakiness is fixed - see bug %s", bugID))
 }
 
@@ -149,13 +147,13 @@ func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
 // to the IsolationSuite that rely on external things in PATH.
 type BaseSuite struct {
 	oldLtsForTesting string
-	testing.CleanupSuite
-	testing.LoggingSuite
+	testhelpers.CleanupSuite
+	testhelpers.LoggingSuite
 	JujuOSEnvSuite
 	InitialLoggingConfig string
 }
 
-func (s *BaseSuite) SetUpSuite(c *gc.C) {
+func (s *BaseSuite) SetUpSuite(c *tc.C) {
 	wrench.SetEnabled(false)
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
@@ -164,14 +162,14 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.oldLtsForTesting = series.SetLatestLtsForTesting("xenial")
 }
 
-func (s *BaseSuite) TearDownSuite(c *gc.C) {
+func (s *BaseSuite) TearDownSuite(c *tc.C) {
 	// JujuOSEnvSuite does not have a suite teardown.
 	_ = series.SetLatestLtsForTesting(s.oldLtsForTesting)
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
@@ -186,7 +184,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("BASH_ENV", "")
 }
 
-func (s *BaseSuite) TearDownTest(c *gc.C) {
+func (s *BaseSuite) TearDownTest(c *tc.C) {
 	s.JujuOSEnvSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	s.CleanupSuite.TearDownTest(c)
@@ -194,13 +192,13 @@ func (s *BaseSuite) TearDownTest(c *gc.C) {
 
 // CheckString compares two strings. If they do not match then the spot
 // where they do not match is logged.
-func CheckString(c *gc.C, value, expected string) {
-	if !c.Check(value, gc.Equals, expected) {
+func CheckString(c *tc.C, value, expected string) {
+	if !c.Check(value, tc.Equals, expected) {
 		diffStrings(c, value, expected)
 	}
 }
 
-func diffStrings(c *gc.C, value, expected string) {
+func diffStrings(c *tc.C, value, expected string) {
 	// If only Go had a diff library.
 	vlines := strings.Split(value, "\n")
 	elines := strings.Split(expected, "\n")
@@ -226,28 +224,6 @@ func diffStrings(c *gc.C, value, expected string) {
 			break
 		}
 	}
-}
-
-// TestCleanup is used to allow DumpTestLogsAfter to take any test suite
-// that supports the standard cleanup function.
-type TestCleanup interface {
-	AddCleanup(func(*gc.C))
-}
-
-// DumpTestLogsAfter will write the test logs to stdout if the timeout
-// is reached.
-func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
-	done := make(chan interface{})
-	go func() {
-		select {
-		case <-time.After(timeout):
-			fmt.Print(c.GetTestLog())
-		case <-done:
-		}
-	}()
-	cleaner.AddCleanup(func(_ *gc.C) {
-		close(done)
-	})
 }
 
 // GetExportedFields return the exported fields of a struct.
@@ -278,8 +254,8 @@ func CurrentVersion() semversion.Binary {
 }
 
 // HostSeries returns series.HostSeries(), asserting on error.
-func HostBase(c *gc.C) base.Base {
+func HostBase(c *tc.C) base.Base {
 	hostBase, err := coreos.HostBase()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hostBase
 }

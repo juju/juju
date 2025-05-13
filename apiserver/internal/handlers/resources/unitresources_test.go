@@ -12,18 +12,17 @@ import (
 	"strings"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreresource "github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type UnitResourcesHandlerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	opener       *MockOpener
 	openerGetter *MockResourceOpenerGetter
@@ -32,9 +31,9 @@ type UnitResourcesHandlerSuite struct {
 	recorder *httptest.ResponseRecorder
 }
 
-var _ = gc.Suite(&UnitResourcesHandlerSuite{})
+var _ = tc.Suite(&UnitResourcesHandlerSuite{})
 
-func (s *UnitResourcesHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *UnitResourcesHandlerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.opener = NewMockOpener(ctrl)
@@ -43,7 +42,7 @@ func (s *UnitResourcesHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *UnitResourcesHandlerSuite) SetUpTest(c *gc.C) {
+func (s *UnitResourcesHandlerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	args := url.Values{}
@@ -54,7 +53,7 @@ func (s *UnitResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	s.recorder = httptest.NewRecorder()
 }
 
-func (s *UnitResourcesHandlerSuite) newUnitResourceHander(c *gc.C) *UnitResourcesHandler {
+func (s *UnitResourcesHandlerSuite) newUnitResourceHander(c *tc.C) *UnitResourcesHandler {
 	s.openerGetter.EXPECT().Opener(gomock.Any(), names.UnitTagKind, names.ApplicationTagKind).Return(s.opener, nil)
 	return NewUnitResourcesHandler(
 		s.openerGetter,
@@ -62,7 +61,7 @@ func (s *UnitResourcesHandlerSuite) newUnitResourceHander(c *gc.C) *UnitResource
 	)
 }
 
-func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
+func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	handler := NewUnitResourcesHandler(
 		nil,
@@ -70,14 +69,14 @@ func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
 	)
 
 	req, err := http.NewRequest("POST", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
-	c.Assert(s.recorder.Code, gc.Equals, http.StatusMethodNotAllowed)
+	c.Assert(s.recorder.Code, tc.Equals, http.StatusMethodNotAllowed)
 }
 
-func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
+func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	failure, expectedBody := apiFailure("boom", "")
 	s.openerGetter.EXPECT().Opener(gomock.Any(), names.UnitTagKind, names.ApplicationTagKind).Return(nil, failure)
@@ -87,7 +86,7 @@ func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 	)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
@@ -98,25 +97,25 @@ func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 	)
 }
 
-func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
+func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	failure, expectedBody := apiFailure("boom", "")
 	handler := s.newUnitResourceHander(c)
 	s.opener.EXPECT().OpenResource(gomock.Any(), "blob").Return(coreresource.Opened{}, failure)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expectedBody)
 }
 
-func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
+func (s *UnitResourcesHandlerSuite) TestSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	const body = "some data"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(body))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	size := int64(len(body))
 	handler := s.newUnitResourceHander(c)
 
@@ -133,20 +132,20 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
 	s.opener.EXPECT().SetResourceUsed(gomock.Any(), "blob").Return(nil)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
 	s.checkResp(c, http.StatusOK, "application/octet-stream", body)
 }
 
-func (s *UnitResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body string) {
-	c.Assert(s.recorder.Code, gc.Equals, status)
+func (s *UnitResourcesHandlerSuite) checkResp(c *tc.C, status int, ctype, body string) {
+	c.Assert(s.recorder.Code, tc.Equals, status)
 	hdr := s.recorder.Header()
-	c.Check(hdr.Get("Content-Type"), gc.Equals, ctype)
-	c.Check(hdr.Get("Content-Length"), gc.Equals, strconv.Itoa(len(body)))
+	c.Check(hdr.Get("Content-Type"), tc.Equals, ctype)
+	c.Check(hdr.Get("Content-Length"), tc.Equals, strconv.Itoa(len(body)))
 
 	actualBody, err := io.ReadAll(s.recorder.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(actualBody), gc.Equals, body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(actualBody), tc.Equals, body)
 }

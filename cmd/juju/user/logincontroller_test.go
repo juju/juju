@@ -14,8 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/user"
@@ -25,7 +24,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-func (s *LoginCommandSuite) TestLoginFromDirectory(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginFromDirectory(c *tc.C) {
 	dirSrv := serveDirectory(map[string]string{
 		"bighost": "bighost.jujucharms.com:443",
 	})
@@ -34,122 +33,122 @@ func (s *LoginCommandSuite) TestLoginFromDirectory(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "bighost")
-	c.Check(stderr, gc.Equals, `
+	c.Check(stderr, tc.Equals, `
 Welcome, bob@external. You are now logged into "bighost".
 `[1:]+user.NoModelsMessage)
-	c.Check(stdout, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
 
 	// The controller and account details should be recorded with
 	// the specified controller name and user
 	// name from the auth tag.
 
 	controller, err := s.store.ControllerByName("bighost")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controller, tc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: mockControllerUUID,
 		APIEndpoints:   []string{"bighost.jujucharms.com:443"},
 	})
 	account, err := s.store.AccountDetails("bighost")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(account, tc.DeepEquals, &jujuclient.AccountDetails{
 		User:            "bob@external",
 		LastKnownAccess: "login",
 	})
 
 	// Test that we can run the same command again and it works.
 	stdout, stderr, code = s.run(c, "bighost")
-	c.Check(code, gc.Equals, 0)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Equals, "")
 }
 
-func (s *LoginCommandSuite) TestLoginPublicDNSName(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginPublicDNSName(c *tc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "0.1.2.3")
-	c.Check(stderr, gc.Equals, `
+	c.Check(stderr, tc.Equals, `
 Welcome, bob@external. You are now logged into "0.1.2.3".
 `[1:]+user.NoModelsMessage)
-	c.Check(stdout, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
 
 	// The controller and account details should be recorded with
 	// the specified controller name and user
 	// name from the auth tag.
 	controller, err := s.store.ControllerByName("0.1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controller, tc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: mockControllerUUID,
 		APIEndpoints:   []string{"0.1.2.3:443"},
 	})
 	account, err := s.store.AccountDetails("0.1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(account, tc.DeepEquals, &jujuclient.AccountDetails{
 		User:            "bob@external",
 		LastKnownAccess: "login",
 	})
 }
 
-func (s *LoginCommandSuite) TestLoginWithControllerOnPathSegment(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginWithControllerOnPathSegment(c *tc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "-c", "foo", "mycontroller.com:443/bar")
-	c.Check(stderr, gc.Equals, `
+	c.Check(stderr, tc.Equals, `
 Welcome, bob@external. You are now logged into "foo".
 `[1:]+user.NoModelsMessage)
-	c.Check(stdout, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
 
 	// The controller and account details should be recorded with
 	// the specified controller name and user
 	// name from the auth tag.
 	controller, err := s.store.ControllerByName("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controller, tc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: mockControllerUUID,
 		APIEndpoints:   []string{"mycontroller.com:443/bar"},
 	})
 	account, err := s.store.AccountDetails("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(account, tc.DeepEquals, &jujuclient.AccountDetails{
 		User:            "bob@external",
 		LastKnownAccess: "login",
 	})
 }
 
-func (s *LoginCommandSuite) TestRegisterPublicDNSNameWithPort(c *gc.C) {
+func (s *LoginCommandSuite) TestRegisterPublicDNSNameWithPort(c *tc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "0.1.2.3:5678")
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, "ERROR cannot use \"0.1.2.3:5678\" as a controller name - use -c option to choose a different one\n")
-	c.Check(code, gc.Equals, 1)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Equals, "ERROR cannot use \"0.1.2.3:5678\" as a controller name - use -c option to choose a different one\n")
+	c.Check(code, tc.Equals, 1)
 }
 
-func (s *LoginCommandSuite) TestRegisterPublicDNSNameWithPortAndControllerFlag(c *gc.C) {
+func (s *LoginCommandSuite) TestRegisterPublicDNSNameWithPortAndControllerFlag(c *tc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "-c", "foo", "0.1.2.3:5678")
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, `
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Equals, `
 Welcome, bob@external. You are now logged into "foo".
 `[1:]+user.NoModelsMessage)
-	c.Check(stdout, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
 
 	// The controller and account details should be recorded with
 	// the specified controller name and user
 	// name from the auth tag.
 	controller, err := s.store.ControllerByName("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controller, tc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: mockControllerUUID,
 		APIEndpoints:   []string{"0.1.2.3:5678"},
 	})
 }
 
-func (s *LoginCommandSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
+func (s *LoginCommandSuite) TestRegisterPublicAPIOpenError(c *tc.C) {
 	srv := serveDirectory(map[string]string{"bighost": "https://0.1.2.3/directory"})
 	defer srv.Close()
 	os.Setenv("JUJU_DIRECTORY", srv.URL)
@@ -157,12 +156,12 @@ func (s *LoginCommandSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
 		return nil, errors.New("open failed")
 	}
 	stdout, stderr, code := s.run(c, "bighost")
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `ERROR cannot log into "bighost": open failed\n`)
-	c.Check(code, gc.Equals, 1)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Matches, `ERROR cannot log into "bighost": open failed\n`)
+	c.Check(code, tc.Equals, 1)
 }
 
-func (s *LoginCommandSuite) TestRegisterPublicControllerMismatch(c *gc.C) {
+func (s *LoginCommandSuite) TestRegisterPublicControllerMismatch(c *tc.C) {
 	srv := serveDirectory(map[string]string{"bighost": "https://0.1.2.3/directory"})
 	defer srv.Close()
 	os.Setenv("JUJU_DIRECTORY", srv.URL)
@@ -172,16 +171,16 @@ func (s *LoginCommandSuite) TestRegisterPublicControllerMismatch(c *gc.C) {
 		ControllerUUID: "00000000-1111-2222-3333-444444444444",
 	}
 	stdout, stderr, code := s.run(c, "-c", "other", "bighost")
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Matches, `
 ERROR controller at "bighost" does not match existing controller.
 Please choose a different controller name with the -c option, or
 use "juju unregister other" to remove the existing controller\.
 `[1:])
-	c.Check(code, gc.Equals, 1)
+	c.Check(code, tc.Equals, 1)
 }
 
-func (s *LoginCommandSuite) run(c *gc.C, args ...string) (stdout, stderr string, errCode int) {
+func (s *LoginCommandSuite) run(c *tc.C, args ...string) (stdout, stderr string, errCode int) {
 	var stdoutBuf, stderrBuf bytes.Buffer
 	ctxt := &cmd.Context{
 		Dir:    c.MkDir(),

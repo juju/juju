@@ -11,8 +11,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
@@ -47,14 +46,14 @@ type addRelationSuite struct {
 	charmByApp map[coreapplication.ID]corecharm.ID
 }
 
-var _ = gc.Suite(&addRelationSuite{})
+var _ = tc.Suite(&addRelationSuite{})
 
-func (s *addRelationSuite) SetUpTest(c *gc.C) {
+func (s *addRelationSuite) SetUpTest(c *tc.C) {
 	s.baseRelationSuite.SetUpTest(c)
 	s.charmByApp = make(map[coreapplication.ID]corecharm.ID)
 }
 
-func (s *addRelationSuite) TestAddRelation(c *gc.C) {
+func (s *addRelationSuite) TestAddRelation(c *tc.C) {
 	// Arrange
 	relProvider := charm.Relation{
 		Name:  "prov",
@@ -81,7 +80,7 @@ func (s *addRelationSuite) TestAddRelation(c *gc.C) {
 		ApplicationName: "application-2",
 		EndpointName:    "req",
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while inserting the first relation: %s",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while inserting the first relation: %s",
 		errors.ErrorStack(err)))
 	ep3, ep4, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
@@ -90,41 +89,41 @@ func (s *addRelationSuite) TestAddRelation(c *gc.C) {
 		ApplicationName: "application-2",
 		EndpointName:    "prov",
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while inserting the second relation: %s",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while inserting the second relation: %s",
 		errors.ErrorStack(err)))
 
 	// Assert
-	c.Check(ep1, gc.Equals, relation.Endpoint{
+	c.Check(ep1, tc.Equals, relation.Endpoint{
 		ApplicationName: "application-1",
 		Relation:        relProvider,
 	})
-	c.Check(ep2, gc.Equals, relation.Endpoint{
+	c.Check(ep2, tc.Equals, relation.Endpoint{
 		ApplicationName: "application-2",
 		Relation:        relRequirer,
 	})
-	c.Check(ep3, gc.Equals, relation.Endpoint{
+	c.Check(ep3, tc.Equals, relation.Endpoint{
 		ApplicationName: "application-1",
 		Relation:        relRequirer,
 	})
-	c.Check(ep4, gc.Equals, relation.Endpoint{
+	c.Check(ep4, tc.Equals, relation.Endpoint{
 		ApplicationName: "application-2",
 		Relation:        relProvider,
 	})
 	epUUIDsByRelID := s.fetchAllEndpointUUIDsByRelationIDs(c)
-	c.Check(epUUIDsByRelID, gc.HasLen, 2)
-	c.Check(epUUIDsByRelID[0], jc.SameContents, []corerelation.EndpointUUID{epUUID1, epUUID2},
-		gc.Commentf("full map: %v", epUUIDsByRelID))
-	c.Check(epUUIDsByRelID[1], jc.SameContents, []corerelation.EndpointUUID{epUUID3, epUUID4},
-		gc.Commentf("full map: %v", epUUIDsByRelID))
+	c.Check(epUUIDsByRelID, tc.HasLen, 2)
+	c.Check(epUUIDsByRelID[0], tc.SameContents, []corerelation.EndpointUUID{epUUID1, epUUID2},
+		tc.Commentf("full map: %v", epUUIDsByRelID))
+	c.Check(epUUIDsByRelID[1], tc.SameContents, []corerelation.EndpointUUID{epUUID3, epUUID4},
+		tc.Commentf("full map: %v", epUUIDsByRelID))
 
 	// check all relation have a status
 	statuses := s.fetchAllRelationStatusesOrderByRelationIDs(c)
-	c.Check(statuses, jc.DeepEquals, []corestatus.Status{corestatus.Joining, corestatus.Joining},
-		gc.Commentf("all relations should have the same starting status: %q", corestatus.Joining))
+	c.Check(statuses, tc.DeepEquals, []corestatus.Status{corestatus.Joining, corestatus.Joining},
+		tc.Commentf("all relations should have the same starting status: %q", corestatus.Joining))
 
 }
 
-func (s *addRelationSuite) TestAddRelationSubordinate(c *gc.C) {
+func (s *addRelationSuite) TestAddRelationSubordinate(c *tc.C) {
 	// Arrange
 	relProvider := charm.Relation{
 		Name:  "prov",
@@ -157,27 +156,27 @@ func (s *addRelationSuite) TestAddRelationSubordinate(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ep1, gc.Equals, relation.Endpoint{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ep1, tc.Equals, relation.Endpoint{
 		ApplicationName: "application-1",
 		Relation:        relProvider,
 	})
-	c.Check(ep2, gc.Equals, relation.Endpoint{
+	c.Check(ep2, tc.Equals, relation.Endpoint{
 		ApplicationName: "application-2",
 		Relation:        relRequirer,
 	})
 	epUUIDsByRelID := s.fetchAllEndpointUUIDsByRelationIDs(c)
-	c.Check(epUUIDsByRelID, gc.HasLen, 1)
-	c.Check(epUUIDsByRelID[0], jc.SameContents, []corerelation.EndpointUUID{epUUID1, epUUID2},
-		gc.Commentf("full map: %v", epUUIDsByRelID))
+	c.Check(epUUIDsByRelID, tc.HasLen, 1)
+	c.Check(epUUIDsByRelID[0], tc.SameContents, []corerelation.EndpointUUID{epUUID1, epUUID2},
+		tc.Commentf("full map: %v", epUUIDsByRelID))
 
 	// check all relation have a status
 	statuses := s.fetchAllRelationStatusesOrderByRelationIDs(c)
-	c.Check(statuses, jc.DeepEquals, []corestatus.Status{corestatus.Joining},
-		gc.Commentf("all relations should have the same starting status: %q", corestatus.Joining))
+	c.Check(statuses, tc.DeepEquals, []corestatus.Status{corestatus.Joining},
+		tc.Commentf("all relations should have the same starting status: %q", corestatus.Joining))
 }
 
-func (s *addRelationSuite) TestAddRelationSubordinateNotCompatible(c *gc.C) {
+func (s *addRelationSuite) TestAddRelationSubordinateNotCompatible(c *tc.C) {
 	// Arrange
 	relProvider := charm.Relation{
 		Name:  "prov",
@@ -214,10 +213,10 @@ func (s *addRelationSuite) TestAddRelationSubordinateNotCompatible(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.CompatibleEndpointsNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.CompatibleEndpointsNotFound)
 }
 
-func (s *addRelationSuite) TestAddRelationErrorInfersEndpoint(c *gc.C) {
+func (s *addRelationSuite) TestAddRelationErrorInfersEndpoint(c *tc.C) {
 	// Act
 	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
@@ -226,10 +225,10 @@ func (s *addRelationSuite) TestAddRelationErrorInfersEndpoint(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationEndpointNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationEndpointNotFound)
 }
 
-func (s *addRelationSuite) TestAddRelationErrorAlreadyExists(c *gc.C) {
+func (s *addRelationSuite) TestAddRelationErrorAlreadyExists(c *tc.C) {
 	// Arrange
 	relProvider := charm.Relation{
 		Name:  "prov",
@@ -254,7 +253,7 @@ func (s *addRelationSuite) TestAddRelationErrorAlreadyExists(c *gc.C) {
 		ApplicationName: "application-2",
 		EndpointName:    "req",
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while inserting the first relation: %s",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while inserting the first relation: %s",
 		errors.ErrorStack(err)))
 	_, _, err = s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
@@ -265,10 +264,10 @@ func (s *addRelationSuite) TestAddRelationErrorAlreadyExists(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationAlreadyExists)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationAlreadyExists)
 }
 
-func (s *addRelationSuite) TestAddRelationErrorCandidateIsPeer(c *gc.C) {
+func (s *addRelationSuite) TestAddRelationErrorCandidateIsPeer(c *tc.C) {
 	// Arrange
 	relPeer := charm.Relation{
 		Name:  "peer",
@@ -288,10 +287,10 @@ func (s *addRelationSuite) TestAddRelationErrorCandidateIsPeer(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.CompatibleEndpointsNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.CompatibleEndpointsNotFound)
 }
 
-func (s *addRelationSuite) TestAddRelationErrorNotAliveFirstApp(c *gc.C) {
+func (s *addRelationSuite) TestAddRelationErrorNotAliveFirstApp(c *tc.C) {
 	// Arrange
 	relProvider := charm.Relation{
 		Name:  "prov",
@@ -319,11 +318,11 @@ func (s *addRelationSuite) TestAddRelationErrorNotAliveFirstApp(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotAlive, gc.Commentf("(Assert) %s",
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotAlive, tc.Commentf("(Assert) %s",
 		errors.ErrorStack(err)))
 }
 
-func (s *addRelationSuite) TestAddRelationErrorNotAliveSecond(c *gc.C) {
+func (s *addRelationSuite) TestAddRelationErrorNotAliveSecond(c *tc.C) {
 	// Arrange
 	relProvider := charm.Relation{
 		Name:  "prov",
@@ -351,11 +350,11 @@ func (s *addRelationSuite) TestAddRelationErrorNotAliveSecond(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotAlive, gc.Commentf("(Assert) %s",
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotAlive, tc.Commentf("(Assert) %s",
 		errors.ErrorStack(err)))
 }
 
-func (s *addRelationSuite) TestAddRelationErrorProviderCapacityExceeded(c *gc.C) {
+func (s *addRelationSuite) TestAddRelationErrorProviderCapacityExceeded(c *tc.C) {
 	// Arrange
 	relProvider := charm.Relation{
 		Name:  "prov",
@@ -383,7 +382,7 @@ func (s *addRelationSuite) TestAddRelationErrorProviderCapacityExceeded(c *gc.C)
 		ApplicationName: "application-2",
 		EndpointName:    "req",
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while inserting the first relation: %s",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while inserting the first relation: %s",
 		errors.ErrorStack(err)))
 	_, _, err = s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
@@ -394,10 +393,10 @@ func (s *addRelationSuite) TestAddRelationErrorProviderCapacityExceeded(c *gc.C)
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
+	c.Assert(err, tc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
 }
 
-func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *gc.C) {
+func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *tc.C) {
 	// Arrange
 	relProvider := charm.Relation{
 		Name:  "prov",
@@ -425,7 +424,7 @@ func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *gc.C)
 		ApplicationName: "application-3",
 		EndpointName:    "req",
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while inserting the first relation: %s",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while inserting the first relation: %s",
 		errors.ErrorStack(err)))
 	_, _, err = s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-2",
@@ -436,10 +435,10 @@ func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *gc.C)
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
+	c.Assert(err, tc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
 }
 
-func (s *addRelationSuite) TestAddRelationWithID(c *gc.C) {
+func (s *addRelationSuite) TestAddRelationWithID(c *tc.C) {
 	// Arrange
 	relProvider := charm.Relation{
 		Name:  "prov",
@@ -469,15 +468,15 @@ func (s *addRelationSuite) TestAddRelationWithID(c *gc.C) {
 	}, expectedRelID)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	foundRelUUID := s.fetchRelationUUIDByRelationID(c, expectedRelID)
-	c.Assert(obtainedRelUUID, gc.Equals, foundRelUUID)
+	c.Assert(obtainedRelUUID, tc.Equals, foundRelUUID)
 }
 
-func (s *addRelationSuite) TestInferEndpoints(c *gc.C) {
+func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 	// Arrange:
 	db, err := s.state.DB()
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
 
 	appUUID1 := s.addApplication(c, "application-1")
 	appUUID2 := s.addApplication(c, "application-2")
@@ -554,9 +553,9 @@ func (s *addRelationSuite) TestInferEndpoints(c *gc.C) {
 		},
 	}
 
-	for i, tc := range cases {
-		identifier1 := s.newEndpointIdentifier(c, tc.input1)
-		identifier2 := s.newEndpointIdentifier(c, tc.input2)
+	for i, testCase := range cases {
+		identifier1 := s.newEndpointIdentifier(c, testCase.input1)
+		identifier2 := s.newEndpointIdentifier(c, testCase.input2)
 
 		// Act
 		var uuid1, uuid2 corerelation.EndpointUUID
@@ -568,19 +567,19 @@ func (s *addRelationSuite) TestInferEndpoints(c *gc.C) {
 		})
 
 		// Assert
-		c.Logf("test %d of %d: %s", i+1, len(cases), tc.description)
-		if c.Check(err, jc.ErrorIsNil, gc.Commentf("(Assert) %s: unexpected error: %s", tc.description,
+		c.Logf("test %d of %d: %s", i+1, len(cases), testCase.description)
+		if c.Check(err, tc.ErrorIsNil, tc.Commentf("(Assert) %s: unexpected error: %s", testCase.description,
 			errors.ErrorStack(err))) {
-			c.Check(uuid1, gc.Equals, uuids[tc.expected1], gc.Commentf("(Assert) %s", tc.description))
-			c.Check(uuid2, gc.Equals, uuids[tc.expected2], gc.Commentf("(Assert) %s", tc.description))
+			c.Check(uuid1, tc.Equals, uuids[testCase.expected1], tc.Commentf("(Assert) %s", testCase.description))
+			c.Check(uuid2, tc.Equals, uuids[testCase.expected2], tc.Commentf("(Assert) %s", testCase.description))
 		}
 	}
 }
 
-func (s *addRelationSuite) TestInferEndpointsError(c *gc.C) {
+func (s *addRelationSuite) TestInferEndpointsError(c *tc.C) {
 	// Arrange:
 	db, err := s.state.DB()
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
 
 	// Create endpoints on applications:
 	appUUID1 := s.addApplication(c, "application-1")
@@ -677,9 +676,9 @@ func (s *addRelationSuite) TestInferEndpointsError(c *gc.C) {
 		},
 	}
 
-	for i, tc := range cases {
-		identifier1 := s.newEndpointIdentifier(c, tc.input1)
-		identifier2 := s.newEndpointIdentifier(c, tc.input2)
+	for i, testCase := range cases {
+		identifier1 := s.newEndpointIdentifier(c, testCase.input1)
+		identifier2 := s.newEndpointIdentifier(c, testCase.input2)
 
 		// Act
 		err := db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -688,8 +687,8 @@ func (s *addRelationSuite) TestInferEndpointsError(c *gc.C) {
 		})
 
 		// Assert
-		c.Logf("test %d of %d: %s", i+1, len(cases), tc.description)
-		c.Check(err, jc.ErrorIs, tc.expectedError, gc.Commentf("(Assert) %s", tc.description))
+		c.Logf("test %d of %d: %s", i+1, len(cases), testCase.description)
+		c.Check(err, tc.ErrorIs, testCase.expectedError, tc.Commentf("(Assert) %s", testCase.description))
 	}
 }
 
@@ -697,7 +696,7 @@ func (s *addRelationSuite) TestInferEndpointsError(c *gc.C) {
 // returns its unique identifier.
 // It creates a specific charm for this application.
 func (s *addRelationSuite) addApplication(
-	c *gc.C,
+	c *tc.C,
 	applicationName string,
 ) coreapplication.ID {
 	charmUUID := s.addCharm(c)
@@ -711,7 +710,7 @@ func (s *addRelationSuite) addApplication(
 // using the provided application UUID and channel.
 // Os is defaulted to ubuntu and architecture to AMD64 (db zero-values)
 func (s *addRelationSuite) addApplicationPlatform(
-	c *gc.C,
+	c *tc.C,
 	appUUID coreapplication.ID,
 	channel corebase.Channel,
 ) {
@@ -724,7 +723,7 @@ VALUES (?, 0, ?, 0)`, appUUID, channel.String())
 // with the specified name and returns its unique identifier.
 // It creates a specific charm for this application.
 func (s *addRelationSuite) addSubordinateApplication(
-	c *gc.C,
+	c *tc.C,
 	applicationName string,
 ) coreapplication.ID {
 	charmUUID := s.addCharm(c)
@@ -737,7 +736,7 @@ func (s *addRelationSuite) addSubordinateApplication(
 // addApplicationEndpoint adds a new application endpoint with the specified
 // attributes and returns its unique identifier.
 func (s *addRelationSuite) addApplicationEndpoint(
-	c *gc.C,
+	c *tc.C,
 	appUUID coreapplication.ID,
 	name string,
 	role charm.RelationRole,
@@ -753,7 +752,7 @@ func (s *addRelationSuite) addApplicationEndpoint(
 
 // addApplicationEndpointFromRelation creates and associates a new application
 // endpoint based on the provided relation.
-func (s *addRelationSuite) addApplicationEndpointFromRelation(c *gc.C,
+func (s *addRelationSuite) addApplicationEndpointFromRelation(c *tc.C,
 	appUUID coreapplication.ID,
 	relation charm.Relation) corerelation.EndpointUUID {
 
@@ -794,9 +793,9 @@ type relationSuite struct {
 	fakeCharmRelationProvidesUUID string
 }
 
-var _ = gc.Suite(&relationSuite{})
+var _ = tc.Suite(&relationSuite{})
 
-func (s *relationSuite) SetUpTest(c *gc.C) {
+func (s *relationSuite) SetUpTest(c *tc.C) {
 	s.baseRelationSuite.SetUpTest(c)
 
 	s.fakeApplicationName1 = "fake-application-1"
@@ -810,7 +809,7 @@ func (s *relationSuite) SetUpTest(c *gc.C) {
 	s.fakeApplicationUUID2 = s.addApplication(c, s.fakeCharmUUID2, s.fakeApplicationName2)
 }
 
-func (s *relationSuite) TestGetRelationUUIDByID(c *gc.C) {
+func (s *relationSuite) TestGetRelationUUIDByID(c *tc.C) {
 	// Arrange.
 	relationID := 1
 	relationUUID := s.addRelationWithID(c, relationID)
@@ -819,21 +818,21 @@ func (s *relationSuite) TestGetRelationUUIDByID(c *gc.C) {
 	uuid, err := s.state.GetRelationUUIDByID(context.Background(), relationID)
 
 	// Assert.
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(uuid, tc.Equals, relationUUID)
 }
 
-func (s *relationSuite) TestGetRelationUUIDByIDNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRelationUUIDByIDNotFound(c *tc.C) {
 	// Act.
 	_, err := s.state.GetRelationUUIDByID(context.Background(), 1)
 
 	// Assert.
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 // TestGetRelationEndpointUUID validates that the correct relation endpoint UUID
 // is retrieved for given application and relation ids.
-func (s *relationSuite) TestGetRelationEndpointUUID(c *gc.C) {
+func (s *relationSuite) TestGetRelationEndpointUUID(c *tc.C) {
 	// Arrange: create relation endpoint.
 	relationUUID := s.addRelation(c)
 	applicationEndpointUUID := s.addApplicationEndpoint(c, s.fakeApplicationUUID1,
@@ -845,16 +844,16 @@ func (s *relationSuite) TestGetRelationEndpointUUID(c *gc.C) {
 		ApplicationID: s.fakeApplicationUUID1,
 		RelationUUID:  relationUUID,
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
 
 	// Assert: check the right relation has been fetched.
-	c.Check(uuid, gc.Equals, corerelation.EndpointUUID(relationEndpointUUID),
-		gc.Commentf("(Assert) wrong relation endpoint uuid"))
+	c.Check(uuid, tc.Equals, corerelation.EndpointUUID(relationEndpointUUID),
+		tc.Commentf("(Assert) wrong relation endpoint uuid"))
 }
 
 // TestGetRelationEndpointUUIDRelationNotFound verifies that attempting to retrieve
 // a relation endpoint UUID for a nonexistent relation returns RelationNotFound.
-func (s *relationSuite) TestGetRelationEndpointUUIDRelationNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRelationEndpointUUIDRelationNotFound(c *tc.C) {
 	// Arrange: nothing to do, no relations.
 
 	// Act: get a relation.
@@ -864,13 +863,13 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationNotFound(c *gc.C) {
 	})
 
 	// Assert: check that RelationNotFound is returned.
-	c.Check(err, jc.ErrorIs, relationerrors.RelationNotFound, gc.Commentf("(Assert) wrong error: %v", errors.ErrorStack(err)))
+	c.Check(err, tc.ErrorIs, relationerrors.RelationNotFound, tc.Commentf("(Assert) wrong error: %v", errors.ErrorStack(err)))
 }
 
 // TestGetRelationEndpointUUIDApplicationNotFound verifies that attempting to
 // fetch a relation endpoint UUID with a non-existent application ID returns
 // the ApplicationNotFound error.
-func (s *relationSuite) TestGetRelationEndpointUUIDApplicationNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRelationEndpointUUIDApplicationNotFound(c *tc.C) {
 	// Arrange: nothing to do, will fail on application fetch anyway.
 
 	// Act: get a relation.
@@ -880,13 +879,13 @@ func (s *relationSuite) TestGetRelationEndpointUUIDApplicationNotFound(c *gc.C) 
 	})
 
 	// Assert: check that ApplicationNotFound is returned.
-	c.Check(err, jc.ErrorIs, relationerrors.ApplicationNotFound, gc.Commentf("(Assert) wrong error: %v", errors.ErrorStack(err)))
+	c.Check(err, tc.ErrorIs, relationerrors.ApplicationNotFound, tc.Commentf("(Assert) wrong error: %v", errors.ErrorStack(err)))
 }
 
 // TestGetRelationEndpointUUIDRelationEndPointNotFound verifies that attempting
 // to fetch a relation endpoint UUID for an existing relation without a
 // corresponding endpoint returns the RelationEndpointNotFound error.
-func (s *relationSuite) TestGetRelationEndpointUUIDRelationEndPointNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRelationEndpointUUIDRelationEndPointNotFound(c *tc.C) {
 	// Arrange: add a relation, but no relation endpoint between apps and relation.
 	relationUUID := s.addRelation(c)
 	s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
@@ -898,10 +897,10 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationEndPointNotFound(c *g
 	})
 
 	// Assert: check that ApplicationNotFound is returned.
-	c.Check(err, jc.ErrorIs, relationerrors.RelationEndpointNotFound, gc.Commentf("(Assert) wrong error: %v", errors.ErrorStack(err)))
+	c.Check(err, tc.ErrorIs, relationerrors.RelationEndpointNotFound, tc.Commentf("(Assert) wrong error: %v", errors.ErrorStack(err)))
 }
 
-func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *gc.C) {
+func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *tc.C) {
 	// Arrange: Add two endpoints and a relation on them.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -949,14 +948,14 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *gc.C)
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
-	c.Assert(uuid, gc.Equals, expectedRelationUUID)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
+	c.Assert(uuid, tc.Equals, expectedRelationUUID)
 }
 
 // TestGetRegularRelationUUIDByEndpointIdentifiersRelationNotFoundPeerRelation
 // checks that the function returns not found if only one of the endpoints
 // exists (i.e. it is a peer relation).
-func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationNotFoundPeerRelation(c *gc.C) {
+func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationNotFoundPeerRelation(c *tc.C) {
 	// Arrange: Add an endpoint and a peer relation on it.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -989,10 +988,10 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationN
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationNotFound(c *tc.C) {
 	// Act: Try and get relation UUID from endpoints.
 	_, err := s.state.GetRegularRelationUUIDByEndpointIdentifiers(
 		context.Background(),
@@ -1007,10 +1006,10 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationN
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiers(c *gc.C) {
+func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiers(c *tc.C) {
 	// Arrange: Add an endpoint and a peer relation on it.
 
 	endpoint1 := relation.Endpoint{
@@ -1040,13 +1039,13 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiers(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 // TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotFoundRegularRelation
 // checks that the function returns not found if the endpoint is part of a
 // regular relation, not a peer relation.
-func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotFoundRegularRelation(c *gc.C) {
+func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotFoundRegularRelation(c *tc.C) {
 	// Arrange: Add two endpoints and a relation on them.
 
 	endpoint1 := relation.Endpoint{
@@ -1090,10 +1089,10 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotF
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersNotFound(c *gc.C) {
+func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersNotFound(c *tc.C) {
 	// Act: Try and get relation UUID from endpoint.
 	_, err := s.state.GetPeerRelationUUIDByEndpointIdentifiers(
 		context.Background(),
@@ -1104,10 +1103,10 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersNotFound(c *
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
+func (s *relationSuite) TestGetRelationsStatusForUnit(c *tc.C) {
 	// Arrange: Add a relation with two endpoints.
 
 	endpoint1 := relation.Endpoint{
@@ -1152,17 +1151,17 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 	results, err := s.state.GetRelationsStatusForUnit(context.Background(), unitUUID)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert): %v",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert): %v",
 		errors.ErrorStack(err)))
-	c.Assert(results, gc.HasLen, 1)
-	c.Check(results[0].InScope, gc.Equals, expectedResults[0].InScope)
-	c.Check(results[0].Suspended, gc.Equals, expectedResults[0].Suspended)
-	c.Check(results[0].Endpoints, jc.SameContents, expectedResults[0].Endpoints)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0].InScope, tc.Equals, expectedResults[0].InScope)
+	c.Check(results[0].Suspended, tc.Equals, expectedResults[0].Suspended)
+	c.Check(results[0].Endpoints, tc.SameContents, expectedResults[0].Endpoints)
 }
 
 // TestGetRelationsStatusForUnit checks that GetRelationStatusesForUnit works
 // well with peer relations.
-func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
+func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *tc.C) {
 	// Arrange: Add two peer relations with one endpoint each.
 
 	endpoint1 := relation.Endpoint{
@@ -1213,23 +1212,23 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 	results, err := s.state.GetRelationsStatusForUnit(context.Background(), unitUUID)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert): %v",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert): %v",
 		errors.ErrorStack(err)))
-	c.Assert(results, jc.SameContents, expectedResults)
+	c.Assert(results, tc.SameContents, expectedResults)
 }
 
 // TestGetRelationStatusesForUnitEmptyResult checks that an empty slice is
 // returned when a unit is in no relations.
-func (s *relationSuite) TestGetRelationsStatusForUnitEmptyResult(c *gc.C) {
+func (s *relationSuite) TestGetRelationsStatusForUnitEmptyResult(c *tc.C) {
 	// Act: Get relation endpoints.
 	results, err := s.state.GetRelationsStatusForUnit(context.Background(), "fake-unit-uuid")
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("%v", errors.ErrorStack(err)))
-	c.Check(results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("%v", errors.ErrorStack(err)))
+	c.Check(results, tc.HasLen, 0)
 }
 
-func (s *relationSuite) TestGetRelationDetails(c *gc.C) {
+func (s *relationSuite) TestGetRelationDetails(c *tc.C) {
 	// Arrange: Add two endpoints and a relation on them.
 	relationID := 7
 
@@ -1275,22 +1274,22 @@ func (s *relationSuite) TestGetRelationDetails(c *gc.C) {
 	details, err := s.state.GetRelationDetails(context.Background(), relationUUID)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.Life, gc.Equals, expectedDetails.Life)
-	c.Assert(details.UUID, gc.Equals, expectedDetails.UUID)
-	c.Assert(details.ID, gc.Equals, expectedDetails.ID)
-	c.Assert(details.Endpoints, jc.SameContents, expectedDetails.Endpoints)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(details.Life, tc.Equals, expectedDetails.Life)
+	c.Assert(details.UUID, tc.Equals, expectedDetails.UUID)
+	c.Assert(details.ID, tc.Equals, expectedDetails.ID)
+	c.Assert(details.Endpoints, tc.SameContents, expectedDetails.Endpoints)
 }
 
-func (s *relationSuite) TestGetRelationDetailsNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRelationDetailsNotFound(c *tc.C) {
 	// Act: Get relation details.
 	_, err := s.state.GetRelationDetails(context.Background(), "unknown-relation-uuid")
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestGetRelationUnit(c *gc.C) {
+func (s *relationSuite) TestGetRelationUnit(c *tc.C) {
 	// Arrange: one relation unit
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, "my-app")
@@ -1305,19 +1304,19 @@ func (s *relationSuite) TestGetRelationUnit(c *gc.C) {
 	uuid, err := s.state.GetRelationUnit(context.Background(), relUUID, "my-app/0")
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
-	c.Assert(uuid, gc.Equals, relUnitUUID)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
+	c.Assert(uuid, tc.Equals, relUnitUUID)
 }
 
-func (s *relationSuite) TestGetRelationUnitNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRelationUnitNotFound(c *tc.C) {
 	// Act
 	_, err := s.state.GetRelationUnit(context.Background(), "unknown-relation-uuid", "some-unit-name")
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
-func (s *relationSuite) TestGetAllRelationDetails(c *gc.C) {
+func (s *relationSuite) TestGetAllRelationDetails(c *tc.C) {
 	// Arrange: Add three endpoints and two relations on them.
 	relationID1 := 7
 	relationID2 := 8
@@ -1393,34 +1392,34 @@ func (s *relationSuite) TestGetAllRelationDetails(c *gc.C) {
 	details, err := s.state.GetAllRelationDetails(context.Background())
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(details, tc.HasLen, 2)
 	detailsByRelationID := make(map[int]relation.RelationDetailsResult)
 	for _, detail := range details {
 		detailsByRelationID[detail.ID] = detail
 	}
 	// First relation
-	c.Check(detailsByRelationID[relationID1].Life, gc.Equals, expectedDetails[relationID1].Life)
-	c.Check(detailsByRelationID[relationID1].UUID, gc.Equals, expectedDetails[relationID1].UUID)
-	c.Check(detailsByRelationID[relationID1].ID, gc.Equals, expectedDetails[relationID1].ID)
-	c.Check(detailsByRelationID[relationID1].Endpoints, jc.SameContents, expectedDetails[relationID1].Endpoints)
+	c.Check(detailsByRelationID[relationID1].Life, tc.Equals, expectedDetails[relationID1].Life)
+	c.Check(detailsByRelationID[relationID1].UUID, tc.Equals, expectedDetails[relationID1].UUID)
+	c.Check(detailsByRelationID[relationID1].ID, tc.Equals, expectedDetails[relationID1].ID)
+	c.Check(detailsByRelationID[relationID1].Endpoints, tc.SameContents, expectedDetails[relationID1].Endpoints)
 	// Second relation
-	c.Check(detailsByRelationID[relationID2].Life, gc.Equals, expectedDetails[relationID2].Life)
-	c.Check(detailsByRelationID[relationID2].UUID, gc.Equals, expectedDetails[relationID2].UUID)
-	c.Check(detailsByRelationID[relationID2].ID, gc.Equals, expectedDetails[relationID2].ID)
-	c.Check(detailsByRelationID[relationID2].Endpoints, jc.SameContents, expectedDetails[relationID2].Endpoints)
+	c.Check(detailsByRelationID[relationID2].Life, tc.Equals, expectedDetails[relationID2].Life)
+	c.Check(detailsByRelationID[relationID2].UUID, tc.Equals, expectedDetails[relationID2].UUID)
+	c.Check(detailsByRelationID[relationID2].ID, tc.Equals, expectedDetails[relationID2].ID)
+	c.Check(detailsByRelationID[relationID2].Endpoints, tc.SameContents, expectedDetails[relationID2].Endpoints)
 }
 
-func (s *relationSuite) TestGetAllRelationDetailsNone(c *gc.C) {
+func (s *relationSuite) TestGetAllRelationDetailsNone(c *tc.C) {
 	// Act: Get relation details.
 	result, err := s.state.GetAllRelationDetails(context.Background())
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 0)
 }
 
-func (s *relationSuite) TestEnterScope(c *gc.C) {
+func (s *relationSuite) TestEnterScope(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
@@ -1461,21 +1460,21 @@ func (s *relationSuite) TestEnterScope(c *gc.C) {
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName, settings)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	relationUnitUUID := s.getRelationUnitInScope(c, relationUUID, unitUUID)
-	c.Check(relationUUID.Validate(), jc.ErrorIsNil)
+	c.Check(relationUUID.Validate(), tc.ErrorIsNil)
 
 	obtainedSettings := s.getRelationUnitSettings(c, relationUnitUUID)
-	c.Check(obtainedSettings, jc.DeepEquals, settings)
+	c.Check(obtainedSettings, tc.DeepEquals, settings)
 
 	obtainedHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
-	c.Assert(obtainedHash, gc.Not(gc.Equals), "")
+	c.Assert(obtainedHash, tc.Not(tc.Equals), "")
 }
 
 // TestEnterScopeIdempotent checks that no error is returned if the unit is
 // already in scope.
-func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
+func (s *relationSuite) TestEnterScopeIdempotent(c *tc.C) {
 	// Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
@@ -1517,41 +1516,41 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
 
 	// Enter scope.
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName, settings)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	relationUnitUUID := s.getRelationUnitInScope(c, relationUUID, unitUUID)
-	c.Check(relationUUID.Validate(), jc.ErrorIsNil)
+	c.Check(relationUUID.Validate(), tc.ErrorIsNil)
 
 	obtainedSettings := s.getRelationUnitSettings(c, relationUnitUUID)
-	c.Check(obtainedSettings, jc.DeepEquals, settings)
+	c.Check(obtainedSettings, tc.DeepEquals, settings)
 
 	obtainedHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
-	c.Assert(obtainedHash, gc.Not(gc.Equals), "")
+	c.Assert(obtainedHash, tc.Not(tc.Equals), "")
 
 	// Change the settings.
 	newSettings := map[string]string{"ingress-address": "y.y.y.y"}
 
 	// EnterScope a second time, with change settings.
 	err = s.state.EnterScope(context.Background(), relationUUID, unitName, newSettings)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the same relation unit uuid is found and the settings have
 	// changed.
 	newRelationUnitUUID := s.getRelationUnitInScope(c, relationUUID, unitUUID)
-	if c.Check(newRelationUnitUUID.Validate(), jc.ErrorIsNil) {
-		c.Check(newRelationUnitUUID.String(), gc.Equals, relationUnitUUID.String())
+	if c.Check(newRelationUnitUUID.Validate(), tc.ErrorIsNil) {
+		c.Check(newRelationUnitUUID.String(), tc.Equals, relationUnitUUID.String())
 	}
 
 	newObtainedSettings := s.getRelationUnitSettings(c, relationUnitUUID)
-	c.Check(newObtainedSettings, jc.DeepEquals, newSettings)
+	c.Check(newObtainedSettings, tc.DeepEquals, newSettings)
 
 	newObtainedHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
-	c.Assert(newObtainedHash, gc.Not(gc.Equals), obtainedHash)
+	c.Assert(newObtainedHash, tc.Not(tc.Equals), obtainedHash)
 }
 
 // TestEnterScopeSubordinate checks that a subordinate unit can enter scope to
 // with its principal application.
-func (s *relationSuite) TestEnterScopeSubordinate(c *gc.C) {
+func (s *relationSuite) TestEnterScopeSubordinate(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, true)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
@@ -1598,17 +1597,17 @@ func (s *relationSuite) TestEnterScopeSubordinate(c *gc.C) {
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName1, map[string]string{})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: relation unit is in scope:
 	relationUnitUUID := s.getRelationUnitInScope(c, relationUUID, unitUUID1)
-	c.Check(relationUnitUUID.Validate(), jc.ErrorIsNil)
+	c.Check(relationUnitUUID.Validate(), tc.ErrorIsNil)
 }
 
 // TestEnterScopePotentialRelationUnitNotValidSubordinate checks the right error
 // is returned if the unit is a subordinate of an application that is not in the
 // relation.
-func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c *gc.C) {
+func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, true)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
@@ -1663,13 +1662,13 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName1, map[string]string{})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.PotentialRelationUnitNotValid)
+	c.Assert(err, tc.ErrorIs, relationerrors.PotentialRelationUnitNotValid)
 }
 
 // TestEnterScopePotentialRelationUnitNotValid checks that the correct error
 // is returned when the unit specified is not a unit of the application in the
 // relation.
-func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValid(c *gc.C) {
+func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValid(c *tc.C) {
 	// Arrange: Add a peer relation on application 1.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -1693,10 +1692,10 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValid(c *gc.C) {
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName, map[string]string{})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotInRelation)
+	c.Assert(err, tc.ErrorIs, relationerrors.UnitNotInRelation)
 }
 
-func (s *relationSuite) TestEnterScopeRelationNotAlive(c *gc.C) {
+func (s *relationSuite) TestEnterScopeRelationNotAlive(c *tc.C) {
 	// Arrange: Add two endpoints and a relation
 	endpoint1 := relation.Endpoint{
 		Relation: charm.Relation{
@@ -1729,10 +1728,10 @@ func (s *relationSuite) TestEnterScopeRelationNotAlive(c *gc.C) {
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName, map[string]string{})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
+	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
 }
 
-func (s *relationSuite) TestEnterScopeUnitNotAlive(c *gc.C) {
+func (s *relationSuite) TestEnterScopeUnitNotAlive(c *tc.C) {
 	// Arrange: Add two endpoints and a relation on them.
 	endpoint1 := relation.Endpoint{
 		Relation: charm.Relation{
@@ -1765,10 +1764,10 @@ func (s *relationSuite) TestEnterScopeUnitNotAlive(c *gc.C) {
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName, map[string]string{})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
+	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
 }
 
-func (s *relationSuite) TestEnterScopeRelationNotFound(c *gc.C) {
+func (s *relationSuite) TestEnterScopeRelationNotFound(c *tc.C) {
 	// Arrange: Add unit to application in the relation.
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := coreunittesting.GenNewName(c, "app1/0")
@@ -1778,10 +1777,10 @@ func (s *relationSuite) TestEnterScopeRelationNotFound(c *gc.C) {
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName, map[string]string{})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestEnterScopeUnitNotFound(c *gc.C) {
+func (s *relationSuite) TestEnterScopeUnitNotFound(c *tc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	// Act: Try and enter scope.
 	err := s.state.EnterScope(
@@ -1792,10 +1791,10 @@ func (s *relationSuite) TestEnterScopeUnitNotFound(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.UnitNotFound)
 }
 
-func (s *relationSuite) TestLeaveScope(c *gc.C) {
+func (s *relationSuite) TestLeaveScope(c *tc.C) {
 	// Arrange: Add two endpoints.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -1840,25 +1839,25 @@ func (s *relationSuite) TestLeaveScope(c *gc.C) {
 	err := s.state.LeaveScope(context.Background(), relationUnitUUID)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	// Assert: check the unit relation has been deleted. This can only be
 	// deleted if the unit settings have also been deleted, so no need to check
 	// them separately.
-	c.Assert(s.doesRelationUnitExist(c, relationUnitUUID), jc.IsFalse)
+	c.Assert(s.doesRelationUnitExist(c, relationUnitUUID), tc.IsFalse)
 }
 
-func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *gc.C) {
+func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
 	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
 
 	// Act: Leave scope with the first unit.
 	err := s.state.LeaveScope(context.Background(), relationUnitUUID)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
-func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *gc.C) {
+func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *tc.C) {
 	// Arrange: add a relation with a single endpoint which is suspended
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -1899,16 +1898,16 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Life, jc.DeepEquals, corelife.Alive)
-	c.Check(result.Suspended, jc.IsTrue)
-	c.Check(result.EndpointIdentifiers, jc.SameContents, []corerelation.EndpointIdentifier{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Life, tc.DeepEquals, corelife.Alive)
+	c.Check(result.Suspended, tc.IsTrue)
+	c.Check(result.EndpointIdentifiers, tc.SameContents, []corerelation.EndpointIdentifier{
 		endpoint1.EndpointIdentifier(),
 		endpoint2.EndpointIdentifier(),
 	})
 }
 
-func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatusWrongApp(c *gc.C) {
+func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatusWrongApp(c *tc.C) {
 	// Arrange: add a relation with a single endpoint. Make the
 	// call to GetMapperDataForWatchLifeSuspendedStatus with a different
 	// application.
@@ -1925,10 +1924,10 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatusWrongApp(c *
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
 }
 
-func (s *relationSuite) TestGetOtherRelatedEndpointApplicationData(c *gc.C) {
+func (s *relationSuite) TestGetOtherRelatedEndpointApplicationData(c *tc.C) {
 	// Arrange:
 	endpoint1 := relation.Endpoint{
 		Relation: charm.Relation{
@@ -1970,14 +1969,14 @@ func (s *relationSuite) TestGetOtherRelatedEndpointApplicationData(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, relation.OtherApplicationForWatcher{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, relation.OtherApplicationForWatcher{
 		ApplicationID: s.fakeApplicationUUID2,
 		Subordinate:   false,
 	})
 }
 
-func (s *relationSuite) TestGetRelationEndpointScope(c *gc.C) {
+func (s *relationSuite) TestGetRelationEndpointScope(c *tc.C) {
 	// Arrange:
 	endpoint1 := relation.Endpoint{
 		Relation: charm.Relation{
@@ -2001,11 +2000,11 @@ func (s *relationSuite) TestGetRelationEndpointScope(c *gc.C) {
 		relationUUID, s.fakeApplicationUUID1)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedScope, gc.Equals, charm.ScopeContainer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedScope, tc.Equals, charm.ScopeContainer)
 }
 
-func (s *relationSuite) TestGetRelationEndpointScopeRelationNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRelationEndpointScopeRelationNotFound(c *tc.C) {
 	// Arrange:
 	applicationUUID := coreapplicationtesting.GenApplicationUUID(c)
 	relationUUID := corerelationtesting.GenRelationUUID(c)
@@ -2015,10 +2014,10 @@ func (s *relationSuite) TestGetRelationEndpointScopeRelationNotFound(c *gc.C) {
 		relationUUID, applicationUUID)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestGetRelationApplicationSettings(c *gc.C) {
+func (s *relationSuite) TestGetRelationApplicationSettings(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2053,11 +2052,11 @@ func (s *relationSuite) TestGetRelationApplicationSettings(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expectedSettings)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(settings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationSuite) TestGetRelationApplicationSettingsEmptyList(c *gc.C) {
+func (s *relationSuite) TestGetRelationApplicationSettingsEmptyList(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2083,12 +2082,12 @@ func (s *relationSuite) TestGetRelationApplicationSettingsEmptyList(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.HasLen, 0)
-	c.Assert(settings, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(settings, tc.HasLen, 0)
+	c.Assert(settings, tc.NotNil)
 }
 
-func (s *relationSuite) TestGetRelationApplicationSettingsRelationNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRelationApplicationSettingsRelationNotFound(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
@@ -2097,10 +2096,10 @@ func (s *relationSuite) TestGetRelationApplicationSettingsRelationNotFound(c *gc
 		relationUUID, s.fakeApplicationUUID1)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestGetRelationApplicationSettingsApplicationNotFoundForRelation(c *gc.C) {
+func (s *relationSuite) TestGetRelationApplicationSettingsApplicationNotFoundForRelation(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	relationUUID := s.addRelation(c)
 
@@ -2109,10 +2108,10 @@ func (s *relationSuite) TestGetRelationApplicationSettingsApplicationNotFoundFor
 		relationUUID, s.fakeApplicationUUID1)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
 }
 
-func (s *relationSuite) TestGetRelationUnitChanges(c *gc.C) {
+func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 
 	// Arrange
 	// - 1 application with no settings hash => will return a version of 0
@@ -2138,7 +2137,7 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *gc.C) {
 	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84")
 
 	db, err := s.state.DB()
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
 
 	// Act
 	var changes relation.RelationUnitsChange
@@ -2151,23 +2150,23 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
-	c.Assert(changes.Changed, jc.DeepEquals, map[coreunit.Name]int64{
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
+	c.Assert(changes.Changed, tc.DeepEquals, map[coreunit.Name]int64{
 		"noSetting/0":   0,
 		"withSetting/0": hashToInt("42"),
 	})
-	c.Assert(changes.AppChanged, jc.DeepEquals, map[string]int64{
+	c.Assert(changes.AppChanged, tc.DeepEquals, map[string]int64{
 		"noSetting":   0,
 		"withSetting": hashToInt("84"),
 	})
-	c.Assert(changes.Departed, jc.SameContents, []coreunit.Name{"noSetting/1"})
+	c.Assert(changes.Departed, tc.SameContents, []coreunit.Name{"noSetting/1"})
 }
 
-func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *gc.C) {
+func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *tc.C) {
 
 	// Arrange
 	db, err := s.state.DB()
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
 
 	// Act
 	var changes relation.RelationUnitsChange
@@ -2177,15 +2176,15 @@ func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
-	c.Check(changes, gc.DeepEquals, relation.RelationUnitsChange{
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
+	c.Check(changes, tc.DeepEquals, relation.RelationUnitsChange{
 		Changed:    map[coreunit.Name]int64{},
 		AppChanged: map[string]int64{},
 		Departed:   []coreunit.Name{},
 	})
 }
 
-func (s *relationSuite) TestSetRelationApplicationSettings(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationSettings(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2228,13 +2227,13 @@ func (s *relationSuite) TestSetRelationApplicationSettings(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	foundSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
-	c.Assert(foundSettings, gc.DeepEquals, expectedSettings)
+	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationSuite) TestSetRelationApplicationSettingsNothingToSet(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationSettingsNothingToSet(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2276,13 +2275,13 @@ func (s *relationSuite) TestSetRelationApplicationSettingsNothingToSet(c *gc.C) 
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	foundSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
-	c.Assert(foundSettings, gc.DeepEquals, expectedSettings)
+	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationSuite) TestSetRelationApplicationSettingsNothingToUnSet(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationSettingsNothingToUnSet(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2324,13 +2323,13 @@ func (s *relationSuite) TestSetRelationApplicationSettingsNothingToUnSet(c *gc.C
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	foundSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
-	c.Assert(foundSettings, gc.DeepEquals, expectedSettings)
+	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationSuite) TestSetRelationApplicationSettingsNilMap(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationSettingsNilMap(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2355,15 +2354,15 @@ func (s *relationSuite) TestSetRelationApplicationSettingsNilMap(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	foundSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
-	c.Assert(foundSettings, gc.HasLen, 0)
+	c.Assert(foundSettings, tc.HasLen, 0)
 }
 
 // TestSetRelationApplicationSettingsCheckHash checks that the settings hash is
 // updated when the settings are updated.
-func (s *relationSuite) TestSetRelationApplicationSettingsHashUpdated(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationSettingsHashUpdated(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2389,7 +2388,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsHashUpdated(c *gc.C) {
 		s.fakeApplicationUUID1,
 		initialSettings,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	initialHash := s.getRelationApplicationSettingsHash(c, relationEndpointUUID1)
 
@@ -2404,16 +2403,16 @@ func (s *relationSuite) TestSetRelationApplicationSettingsHashUpdated(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	// Assert: Check the hash has changed.
 	foundHash := s.getRelationApplicationSettingsHash(c, relationEndpointUUID1)
-	c.Assert(initialHash, gc.Not(gc.Equals), foundHash)
+	c.Assert(initialHash, tc.Not(tc.Equals), foundHash)
 }
 
 // TestSetRelationApplicationSettingsHashConstant checks that the settings hash
 // is stays the same if the update does not actually change the settings.
-func (s *relationSuite) TestSetRelationApplicationSettingsHashConstant(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationSettingsHashConstant(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2439,7 +2438,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsHashConstant(c *gc.C) 
 		s.fakeApplicationUUID1,
 		settings,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	initialHash := s.getRelationApplicationSettingsHash(c, relationEndpointUUID1)
 
@@ -2452,14 +2451,14 @@ func (s *relationSuite) TestSetRelationApplicationSettingsHashConstant(c *gc.C) 
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	// Assert: Check the hash has changed.
 	foundHash := s.getRelationApplicationSettingsHash(c, relationEndpointUUID1)
-	c.Assert(initialHash, gc.Equals, foundHash)
+	c.Assert(initialHash, tc.Equals, foundHash)
 }
 
-func (s *relationSuite) TestSetRelationApplicationSettingsApplicationNotFoundInRelation(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationSettingsApplicationNotFoundInRelation(c *tc.C) {
 	// Arrange: Add relation.
 	relationUUID := s.addRelation(c)
 
@@ -2472,10 +2471,10 @@ func (s *relationSuite) TestSetRelationApplicationSettingsApplicationNotFoundInR
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
 }
 
-func (s *relationSuite) TestSetRelationApplicationSettingsRelationNotFound(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationSettingsRelationNotFound(c *tc.C) {
 	// Act:
 	err := s.state.SetRelationApplicationSettings(
 		context.Background(),
@@ -2485,10 +2484,10 @@ func (s *relationSuite) TestSetRelationApplicationSettingsRelationNotFound(c *gc
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *gc.C) {
+func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	subordinateCharm := s.fakeCharmUUID1
 	subordinateAppUUID := s.fakeApplicationUUID1
@@ -2509,12 +2508,12 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *gc.C) {
 		context.Background(), subordinateUnitUUID)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedPrincipal, gc.Equals, principalAppUUID)
-	c.Check(obtainedSubordinate, gc.Equals, subordinateAppUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedPrincipal, tc.Equals, principalAppUUID)
+	c.Check(obtainedSubordinate, tc.Equals, subordinateAppUUID)
 }
 
-func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c *gc.C) {
+func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	principalCharm := s.fakeCharmUUID1
 	principalAppUUID := s.fakeApplicationUUID2
@@ -2529,12 +2528,12 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c
 		context.Background(), principalUnitUUID)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedPrincipal, gc.Equals, principalAppUUID)
-	c.Check(obtainedSubordinate.String(), gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedPrincipal, tc.Equals, principalAppUUID)
+	c.Check(obtainedSubordinate.String(), tc.Equals, "")
 }
 
-func (s *relationSuite) TestGetRelationUnitSettings(c *gc.C) {
+func (s *relationSuite) TestGetRelationUnitSettings(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2573,11 +2572,11 @@ func (s *relationSuite) TestGetRelationUnitSettings(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expectedSettings)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(settings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationSuite) TestGetRelationUnitSettingsEmptyList(c *gc.C) {
+func (s *relationSuite) TestGetRelationUnitSettingsEmptyList(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2607,12 +2606,12 @@ func (s *relationSuite) TestGetRelationUnitSettingsEmptyList(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.HasLen, 0)
-	c.Assert(settings, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(settings, tc.HasLen, 0)
+	c.Assert(settings, tc.NotNil)
 }
 
-func (s *relationSuite) TestGetRelationUnitSettingsRelationUnitNotFound(c *gc.C) {
+func (s *relationSuite) TestGetRelationUnitSettingsRelationUnitNotFound(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
 
@@ -2623,10 +2622,10 @@ func (s *relationSuite) TestGetRelationUnitSettingsRelationUnitNotFound(c *gc.C)
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
-func (s *relationSuite) TestSetRelationUnitSettings(c *gc.C) {
+func (s *relationSuite) TestSetRelationUnitSettings(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2673,13 +2672,13 @@ func (s *relationSuite) TestSetRelationUnitSettings(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
-	c.Assert(foundSettings, gc.DeepEquals, expectedSettings)
+	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationSuite) TestSetRelationUnitSettingsNothingToSet(c *gc.C) {
+func (s *relationSuite) TestSetRelationUnitSettingsNothingToSet(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2725,13 +2724,13 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToSet(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
-	c.Assert(foundSettings, gc.DeepEquals, expectedSettings)
+	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationSuite) TestSetRelationUnitSettingsNothingToUnset(c *gc.C) {
+func (s *relationSuite) TestSetRelationUnitSettingsNothingToUnset(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2779,13 +2778,13 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToUnset(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
-	c.Assert(foundSettings, gc.DeepEquals, expectedSettings)
+	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
 }
 
-func (s *relationSuite) TestSetRelationUnitSettingsNilMap(c *gc.C) {
+func (s *relationSuite) TestSetRelationUnitSettingsNilMap(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2814,15 +2813,15 @@ func (s *relationSuite) TestSetRelationUnitSettingsNilMap(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
-	c.Assert(foundSettings, gc.HasLen, 0)
+	c.Assert(foundSettings, tc.HasLen, 0)
 }
 
 // TestSetRelationUnitSettingsCheckHash checks that the settings hash is
 // updated when the settings are updated.
-func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *gc.C) {
+func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2852,7 +2851,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *gc.C) {
 		relationUnitUUID,
 		initialSettings,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	initialHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
 
@@ -2866,16 +2865,16 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	// Assert: Check the hash has changed.
 	foundHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
-	c.Assert(initialHash, gc.Not(gc.Equals), foundHash)
+	c.Assert(initialHash, tc.Not(tc.Equals), foundHash)
 }
 
 // TestSetRelationUnitSettingsHashConstant checks that the settings hash
 // is stays the same if the update does not actually change the settings.
-func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *gc.C) {
+func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -2905,7 +2904,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *gc.C) {
 		relationUnitUUID,
 		settings,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	initialHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
 
@@ -2917,14 +2916,14 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	// Assert: Check the hash has changed.
 	foundHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
-	c.Assert(initialHash, gc.Equals, foundHash)
+	c.Assert(initialHash, tc.Equals, foundHash)
 }
 
-func (s *relationSuite) TestSetRelationUnitSettingsRelationUnitNotFound(c *gc.C) {
+func (s *relationSuite) TestSetRelationUnitSettingsRelationUnitNotFound(c *tc.C) {
 	// Act:
 	err := s.state.SetRelationUnitSettings(
 		context.Background(),
@@ -2933,10 +2932,10 @@ func (s *relationSuite) TestSetRelationUnitSettingsRelationUnitNotFound(c *gc.C)
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
-func (s *relationSuite) TestSetRelationApplicationAndUnitSettings(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -3001,15 +3000,15 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettings(c *gc.C) {
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	foundAppSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
-	c.Assert(foundAppSettings, gc.DeepEquals, appExpectedSettings)
+	c.Assert(foundAppSettings, tc.DeepEquals, appExpectedSettings)
 	foundUnitSettings := s.getRelationUnitSettings(c, relationUnitUUID)
-	c.Assert(foundUnitSettings, gc.DeepEquals, unitExpectedSettings)
+	c.Assert(foundUnitSettings, tc.DeepEquals, unitExpectedSettings)
 }
 
-func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsNilMap(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsNilMap(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -3039,15 +3038,15 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsNilMap(c *gc.C)
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
-	c.Assert(foundSettings, gc.HasLen, 0)
+	c.Assert(foundSettings, tc.HasLen, 0)
 	foundSettings = s.getRelationApplicationSettings(c, relationEndpointUUID1)
-	c.Assert(foundSettings, gc.HasLen, 0)
+	c.Assert(foundSettings, tc.HasLen, 0)
 }
 
-func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitNotFound(c *gc.C) {
+func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitNotFound(c *tc.C) {
 	// Act:
 	err := s.state.SetRelationApplicationAndUnitSettings(
 		context.Background(),
@@ -3057,12 +3056,12 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitNot
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
 // TestApplicationRelationsInfo tests getting ApplicationRelationsInfo for
 // an application related to 2 other applications.
-func (s *relationSuite) TestApplicationRelationsInfo(c *gc.C) {
+func (s *relationSuite) TestApplicationRelationsInfo(c *tc.C) {
 	// Arrange: add application endpoints for the 2 default applications.
 	appEndpoint1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
 	charm2RelationUUID := s.addCharmRelationWithDefaults(c, s.fakeCharmUUID2)
@@ -3133,14 +3132,14 @@ func (s *relationSuite) TestApplicationRelationsInfo(c *gc.C) {
 	results, err := s.state.ApplicationRelationsInfo(context.Background(), app3)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.HasLen, 2)
-	c.Assert(results, jc.SameContents, expectedData)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 2)
+	c.Assert(results, tc.SameContents, expectedData)
 }
 
 // TestApplicationRelationsInfo tests getting ApplicationRelationsInfo for
 // an application with a peer relation.
-func (s *relationSuite) TestApplicationRelationsInfoPeerRelation(c *gc.C) {
+func (s *relationSuite) TestApplicationRelationsInfoPeerRelation(c *tc.C) {
 	// Arrange: add a third application with 2 units, this is the one tested.
 	charm3 := s.addCharm(c)
 	app3 := s.addApplication(c, charm3, "three")
@@ -3186,11 +3185,11 @@ func (s *relationSuite) TestApplicationRelationsInfoPeerRelation(c *gc.C) {
 	results, err := s.state.ApplicationRelationsInfo(context.Background(), app3)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.SameContents, expectedData)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.SameContents, expectedData)
 }
 
-func (s *relationSuite) TestApplicationRelationsInfoNoApp(c *gc.C) {
+func (s *relationSuite) TestApplicationRelationsInfoNoApp(c *tc.C) {
 	// Arrange:
 	appID := coreapplicationtesting.GenApplicationUUID(c)
 
@@ -3198,18 +3197,18 @@ func (s *relationSuite) TestApplicationRelationsInfoNoApp(c *gc.C) {
 	_, err := s.state.ApplicationRelationsInfo(context.Background(), appID)
 
 	// Assert: fail if the application does not exist.
-	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotFound)
 }
 
-func (s *relationSuite) TestApplicationRelationsInfoNoRelations(c *gc.C) {
+func (s *relationSuite) TestApplicationRelationsInfoNoRelations(c *tc.C) {
 	// Act:
 	_, err := s.state.ApplicationRelationsInfo(context.Background(), s.fakeApplicationUUID1)
 
 	// Assert: do not fail if an application has no relations.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestNeedsSubordinateUnit(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnit(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
@@ -3231,14 +3230,14 @@ func (s *relationSuite) TestNeedsSubordinateUnit(c *gc.C) {
 	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subAppID, gc.NotNil)
-	c.Check(*subAppID, gc.Equals, subordinateApplicationID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subAppID, tc.NotNil)
+	c.Check(*subAppID, tc.Equals, subordinateApplicationID)
 }
 
 // TestNeedsSubordinateUnitGlobalScopedRelation checks that no parameters are
 // returned if the relation is globally scoped.
-func (s *relationSuite) TestNeedsSubordinateUnitGlobalScopedRelation(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitGlobalScopedRelation(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
@@ -3260,13 +3259,13 @@ func (s *relationSuite) TestNeedsSubordinateUnitGlobalScopedRelation(c *gc.C) {
 	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subAppID, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subAppID, tc.IsNil)
 }
 
 // TestNeedsSubordinateUnitPeerRelation checks that no parameters are
 // returned for a peer relation.
-func (s *relationSuite) TestNeedsSubordinateUnitPeerRelation(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitPeerRelation(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
 
@@ -3286,13 +3285,13 @@ func (s *relationSuite) TestNeedsSubordinateUnitPeerRelation(c *gc.C) {
 	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subAppID, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subAppID, tc.IsNil)
 }
 
 // TestNeedsSubordinateUnitAppNotSubordinate checks that no parameters are
 // returned if the related app is not a subordinate.
-func (s *relationSuite) TestNeedsSubordinateUnitAppNotSubordinate(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitAppNotSubordinate(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
@@ -3311,13 +3310,13 @@ func (s *relationSuite) TestNeedsSubordinateUnitAppNotSubordinate(c *gc.C) {
 	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subAppID, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subAppID, tc.IsNil)
 }
 
 // TestNeedsSubordinateUnitSubordinateAlreadyExists checks that no parameters
 // are returned if a subordinate unit already exists
-func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExists(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExists(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
@@ -3342,11 +3341,11 @@ func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExists(c *gc.C
 	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, principalUnitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subAppID, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subAppID, tc.IsNil)
 }
 
-func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExistsButIsDying(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExistsButIsDying(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
@@ -3372,10 +3371,10 @@ func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExistsButIsDyi
 	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, principalUnitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.CannotEnterScopeSubordinateNotAlive)
+	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeSubordinateNotAlive)
 }
 
-func (s *relationSuite) TestNeedsSubordinateUnitRelationNotAlive(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitRelationNotAlive(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
@@ -3400,10 +3399,10 @@ func (s *relationSuite) TestNeedsSubordinateUnitRelationNotAlive(c *gc.C) {
 	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
+	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
 }
 
-func (s *relationSuite) TestNeedsSubordinateUnitRelationUnitNotFound(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitRelationUnitNotFound(c *tc.C) {
 	// Arrange:
 	relationUUID := s.addRelation(c)
 
@@ -3411,10 +3410,10 @@ func (s *relationSuite) TestNeedsSubordinateUnitRelationUnitNotFound(c *gc.C) {
 	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, "")
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
-func (s *relationSuite) TestNeedsSubordinateUnitUnitNotAlive(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitUnitNotAlive(c *tc.C) {
 	// Arrange: Add unit to application in the relation.
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	unitUUID := s.addUnitWithLife(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1, corelife.Dying)
@@ -3429,10 +3428,10 @@ func (s *relationSuite) TestNeedsSubordinateUnitUnitNotAlive(c *gc.C) {
 	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
+	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
 }
 
-func (s *relationSuite) TestGetGoalStateRelationDataForApplication(c *gc.C) {
+func (s *relationSuite) TestGetGoalStateRelationDataForApplication(c *tc.C) {
 	// Arrange: add application endpoints for the 2 default applications.
 	appEndpoint1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
 	charm2RelationUUID := s.addCharmRelationWithDefaults(c, s.fakeCharmUUID2)
@@ -3502,31 +3501,31 @@ func (s *relationSuite) TestGetGoalStateRelationDataForApplication(c *gc.C) {
 	obtained, err := s.state.GetGoalStateRelationDataForApplication(context.Background(), app3)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.HasLen, 2)
-	c.Assert(obtained, jc.SameContents, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 2)
+	c.Assert(obtained, tc.SameContents, expected)
 }
 
-func (s *relationSuite) TestGetGoalStateRelationDataForApplicationNoRows(c *gc.C) {
+func (s *relationSuite) TestGetGoalStateRelationDataForApplicationNoRows(c *tc.C) {
 	// Act
 	_, err := s.state.GetGoalStateRelationDataForApplication(context.Background(), s.fakeApplicationUUID1)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestGetApplicationIDByName(c *gc.C) {
+func (s *relationSuite) TestGetApplicationIDByName(c *tc.C) {
 	obtainedID, err := s.state.GetApplicationIDByName(context.Background(), s.fakeApplicationName1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedID, gc.Equals, s.fakeApplicationUUID1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedID, tc.Equals, s.fakeApplicationUUID1)
 }
 
-func (s *relationSuite) TestGetApplicationIDByNameNotFound(c *gc.C) {
+func (s *relationSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
 	_, err := s.state.GetApplicationIDByName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *relationSuite) TestDeleteImportedRelations(c *gc.C) {
+func (s *relationSuite) TestDeleteImportedRelations(c *tc.C) {
 	// Arrange: Add a peer relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -3570,7 +3569,7 @@ func (s *relationSuite) TestDeleteImportedRelations(c *gc.C) {
 	err := s.state.DeleteImportedRelations(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.checkTableEmpty(c, "relation_unit_uuid", "relation_unit_settings")
 	s.checkTableEmpty(c, "relation_unit_uuid", "relation_unit_settings_hash")
 	s.checkTableEmpty(c, "uuid", "relation_unit")
@@ -3580,7 +3579,7 @@ func (s *relationSuite) TestDeleteImportedRelations(c *gc.C) {
 	s.checkTableEmpty(c, "uuid", "relation")
 }
 
-func (s *relationSuite) checkTableEmpty(c *gc.C, colName, tableName string) {
+func (s *relationSuite) checkTableEmpty(c *tc.C, colName, tableName string) {
 	query := fmt.Sprintf(`
 SELECT %s
 FROM   %s
@@ -3604,10 +3603,10 @@ FROM   %s
 		}
 		return nil
 	})
-	c.Check(values, jc.DeepEquals, []string{}, gc.Commentf("table %q first value: %q", tableName, strings.Join(values, ", ")))
+	c.Check(values, tc.DeepEquals, []string{}, tc.Commentf("table %q first value: %q", tableName, strings.Join(values, ", ")))
 }
 
-func (s *relationSuite) TestExportRelations(c *gc.C) {
+func (s *relationSuite) TestExportRelations(c *tc.C) {
 	// Arrange: Add two endpoints and a relation on them.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -3675,8 +3674,8 @@ func (s *relationSuite) TestExportRelations(c *gc.C) {
 	exported, err := s.state.ExportRelations(context.Background())
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exported, jc.SameContents, []relation.ExportRelation{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exported, tc.SameContents, []relation.ExportRelation{{
 		ID: relationID,
 		Endpoints: []relation.ExportEndpoint{{
 			ApplicationName: s.fakeApplicationName1,
@@ -3724,7 +3723,7 @@ func (s *relationSuite) TestExportRelations(c *gc.C) {
 	}})
 }
 
-func (s *relationSuite) TestIsPeerRelation(c *gc.C) {
+func (s *relationSuite) TestIsPeerRelation(c *tc.C) {
 	// Arrange: add peer relation.
 	peerEndpoint := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
@@ -3744,11 +3743,11 @@ func (s *relationSuite) TestIsPeerRelation(c *gc.C) {
 	obtained, err := s.state.IsPeerRelation(context.Background(), peerRelationUUID)
 
 	// Assert
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.IsTrue)
 }
 
-func (s *relationSuite) TestIsPeerRelationNotPeer(c *gc.C) {
+func (s *relationSuite) TestIsPeerRelationNotPeer(c *tc.C) {
 	// Arrange: add application endpoints for the 2 default applications.
 	appEndpoint1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
 	charm2RelationUUID := s.addCharmRelationWithDefaults(c, s.fakeCharmUUID2)
@@ -3780,11 +3779,11 @@ func (s *relationSuite) TestIsPeerRelationNotPeer(c *gc.C) {
 	obtained, err := s.state.IsPeerRelation(context.Background(), relUUID1)
 
 	// Assert
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.IsFalse)
 }
 
-func (s *relationSuite) TestIsPeerRelationNotFound(c *gc.C) {
+func (s *relationSuite) TestIsPeerRelationNotFound(c *tc.C) {
 	// Arrange
 	relUUID := corerelationtesting.GenRelationUUID(c)
 
@@ -3792,14 +3791,14 @@ func (s *relationSuite) TestIsPeerRelationNotFound(c *gc.C) {
 	obtained, err := s.state.IsPeerRelation(context.Background(), relUUID)
 
 	// Assert
-	c.Check(err, jc.ErrorIs, relationerrors.RelationNotFound)
-	c.Check(obtained, jc.IsFalse)
+	c.Check(err, tc.ErrorIs, relationerrors.RelationNotFound)
+	c.Check(obtained, tc.IsFalse)
 }
 
 // TestInferRelationUUIDByEndpoints tests InferRelationUUIDByEndpoints
 // method to find an relation UUID. The methods called are also well
 // tested in other methods.
-func (s *relationSuite) TestInferRelationUUIDByEndpoints(c *gc.C) {
+func (s *relationSuite) TestInferRelationUUIDByEndpoints(c *tc.C) {
 	// Arrange
 	relation1 := charm.Relation{
 		Name:      "fake-endpoint-name-1",
@@ -3838,11 +3837,11 @@ func (s *relationSuite) TestInferRelationUUIDByEndpoints(c *gc.C) {
 	obtainedUUID, err := s.state.InferRelationUUIDByEndpoints(context.Background(), candidate1, candidate2)
 
 	// Assert
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(obtainedUUID, gc.Equals, relUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(obtainedUUID, tc.Equals, relUUID)
 }
 
-func (s *relationSuite) TestInferRelationUUIDByEndpointsFailInfer(c *gc.C) {
+func (s *relationSuite) TestInferRelationUUIDByEndpointsFailInfer(c *tc.C) {
 	// Arrange relation endpoints where neither the name nor the interface
 	// match.
 	relation1 := charm.Relation{
@@ -3881,10 +3880,10 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsFailInfer(c *gc.C) {
 	_, err := s.state.InferRelationUUIDByEndpoints(context.Background(), candidate1, candidate2)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *relationSuite) TestInferRelationUUIDByEndpointsFailGetUUID(c *gc.C) {
+func (s *relationSuite) TestInferRelationUUIDByEndpointsFailGetUUID(c *tc.C) {
 	// Arrange application endpoints where the relation does not
 	// exist
 	relation1 := charm.Relation{
@@ -3924,12 +3923,12 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsFailGetUUID(c *gc.C) {
 	_, err := s.state.InferRelationUUIDByEndpoints(context.Background(), candidate1, candidate2)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 // addRelationUnitSetting inserts a relation unit setting into the database
 // using the provided relationUnitUUID.
-func (s *relationSuite) addRelationUnitSetting(c *gc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {
+func (s *relationSuite) addRelationUnitSetting(c *tc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {
 	s.query(c, `
 INSERT INTO relation_unit_setting (relation_unit_uuid, key, value)
 VALUES (?,?,?)
@@ -3938,7 +3937,7 @@ VALUES (?,?,?)
 
 // addRelationUnitSettingsHash inserts a relation unit settings hash into the
 // database using the provided relationUnitUUID.
-func (s *relationSuite) addRelationUnitSettingsHash(c *gc.C, relationUnitUUID corerelation.UnitUUID, hash string) {
+func (s *relationSuite) addRelationUnitSettingsHash(c *tc.C, relationUnitUUID corerelation.UnitUUID, hash string) {
 	s.query(c, `
 INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256)
 VALUES (?,?)
@@ -3947,7 +3946,7 @@ VALUES (?,?)
 
 // addRelationApplicationSetting inserts a relation application setting into the database
 // using the provided relation and application ID.
-func (s *relationSuite) addRelationApplicationSetting(c *gc.C, relationEndpointUUID, key, value string) {
+func (s *relationSuite) addRelationApplicationSetting(c *tc.C, relationEndpointUUID, key, value string) {
 	s.query(c, `
 INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value)
 VALUES (?,?,?)
@@ -3956,7 +3955,7 @@ VALUES (?,?,?)
 
 // addRelationApplicationSettingsHash inserts a relation application settings hash into the
 // database using the provided relationEndpointUUID.
-func (s *relationSuite) addRelationApplicationSettingsHash(c *gc.C, relationEndpointUUID string, hash string) {
+func (s *relationSuite) addRelationApplicationSettingsHash(c *tc.C, relationEndpointUUID string, hash string) {
 	s.query(c, `
 INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
 VALUES (?,?)
@@ -3964,7 +3963,7 @@ VALUES (?,?)
 }
 
 // getRelationApplicationSettings gets the relation application settings.
-func (s *relationSuite) getRelationApplicationSettings(c *gc.C, relationEndpointUUID string) map[string]string {
+func (s *relationSuite) getRelationApplicationSettings(c *tc.C, relationEndpointUUID string) map[string]string {
 	settings := map[string]string{}
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
@@ -3987,12 +3986,12 @@ WHERE relation_endpoint_uuid = ?
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) getting relation settings: %s",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting relation settings: %s",
 		errors.ErrorStack(err)))
 	return settings
 }
 
-func (s *relationSuite) getRelationApplicationSettingsHash(c *gc.C, relationEndpointUUID string) string {
+func (s *relationSuite) getRelationApplicationSettingsHash(c *tc.C, relationEndpointUUID string) string {
 	var hash string
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
@@ -4006,12 +4005,12 @@ WHERE  relation_endpoint_uuid = ?
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hash
 }
 
 // getRelationUnitSettings gets the relation application settings.
-func (s *relationSuite) getRelationUnitSettings(c *gc.C, relationUnitUUID corerelation.UnitUUID) map[string]string {
+func (s *relationSuite) getRelationUnitSettings(c *tc.C, relationUnitUUID corerelation.UnitUUID) map[string]string {
 	settings := map[string]string{}
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
@@ -4034,12 +4033,12 @@ WHERE relation_unit_uuid = ?
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) getting relation settings: %s",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting relation settings: %s",
 		errors.ErrorStack(err)))
 	return settings
 }
 
-func (s *relationSuite) getRelationUnitSettingsHash(c *gc.C, relationUnitUUID corerelation.UnitUUID) string {
+func (s *relationSuite) getRelationUnitSettingsHash(c *tc.C, relationUnitUUID corerelation.UnitUUID) string {
 	var hash string
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
@@ -4053,7 +4052,7 @@ WHERE  relation_unit_uuid = ?
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hash
 }
 
@@ -4061,7 +4060,7 @@ WHERE  relation_unit_uuid = ?
 // ordered by their relation IDs.
 // It executes a database query within a transaction and returns a slice of
 // corestatus.Status objects.
-func (s *addRelationSuite) fetchAllRelationStatusesOrderByRelationIDs(c *gc.C) []corestatus.Status {
+func (s *addRelationSuite) fetchAllRelationStatusesOrderByRelationIDs(c *tc.C) []corestatus.Status {
 	var statuses []corestatus.Status
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		query := `
@@ -4085,7 +4084,7 @@ ORDER BY r.relation_id
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) fetching inserted relation statuses: %s",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching inserted relation statuses: %s",
 		errors.ErrorStack(err)))
 	return statuses
 }
@@ -4095,7 +4094,7 @@ ORDER BY r.relation_id
 // It executes a query within a transaction to fetch data from the
 // `relation_endpoint` and `relation` tables.  The result is returned as a map
 // where the key is the relation ID and the value is a slice of EndpointUUIDs.
-func (s *addRelationSuite) fetchAllEndpointUUIDsByRelationIDs(c *gc.C) map[int][]corerelation.EndpointUUID {
+func (s *addRelationSuite) fetchAllEndpointUUIDsByRelationIDs(c *tc.C) map[int][]corerelation.EndpointUUID {
 	epUUIDsByRelID := make(map[int][]corerelation.EndpointUUID)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		query := `
@@ -4118,11 +4117,11 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) fetching inserted relation endpoint: %s", errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) fetching inserted relation endpoint: %s", errors.ErrorStack(err)))
 	return epUUIDsByRelID
 }
 
-func (s *addRelationSuite) fetchRelationUUIDByRelationID(c *gc.C, id uint64) corerelation.UUID {
+func (s *addRelationSuite) fetchRelationUUIDByRelationID(c *tc.C, id uint64) corerelation.UUID {
 	var relationUUID corerelation.UUID
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
@@ -4136,14 +4135,14 @@ WHERE  r.relation_id = ?
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return relationUUID
 }
 
 // getRelationUnitInScope verifies that the expected row is populated in
 // relation_unit table.
 func (s *relationSuite) getRelationUnitInScope(
-	c *gc.C,
+	c *tc.C,
 	relationUUID corerelation.UUID,
 	unitUUID coreunit.UUID,
 ) corerelation.UnitUUID {
@@ -4162,12 +4161,12 @@ AND    ru.unit_uuid = ?
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return relationUnitUUID
 }
 
 // setRelationStatus inserts a relation status into the relation_status table.
-func (s *relationSuite) setRelationStatus(c *gc.C, relationUUID corerelation.UUID, status corestatus.Status, since time.Time) {
+func (s *relationSuite) setRelationStatus(c *tc.C, relationUUID corerelation.UUID, status corestatus.Status, since time.Time) {
 	encodedStatus := s.encodeStatusID(status)
 	s.query(c, `
 INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
@@ -4177,18 +4176,18 @@ ON CONFLICT (relation_uuid) DO UPDATE SET relation_status_type_id = ?, updated_a
 }
 
 // setUnitSubordinate sets unit 1 to be a subordinate of unit 2.
-func (s *relationSuite) setUnitSubordinate(c *gc.C, unitUUID1, unitUUID2 coreunit.UUID) {
+func (s *relationSuite) setUnitSubordinate(c *tc.C, unitUUID1, unitUUID2 coreunit.UUID) {
 	s.query(c, `
 INSERT INTO unit_principal (unit_uuid, principal_uuid)
 VALUES (?,?)
 `, unitUUID1, unitUUID2)
 }
 
-func (s *relationSuite) doesRelationUnitExist(c *gc.C, relationUnitUUID corerelation.UnitUUID) bool {
+func (s *relationSuite) doesRelationUnitExist(c *tc.C, relationUnitUUID corerelation.UnitUUID) bool {
 	return s.doesUUIDExist(c, "relation_unit", relationUnitUUID.String())
 }
 
-func (s *relationSuite) addContainerScopedRelation(c *gc.C, app1ID, app2ID coreapplication.ID) (corerelation.UUID, string, string) {
+func (s *relationSuite) addContainerScopedRelation(c *tc.C, app1ID, app2ID coreapplication.ID) (corerelation.UUID, string, string) {
 	// Arrange: Add two endpoints
 	endpoint1 := charm.Relation{
 		Name:      "fake-endpoint-name-1",
@@ -4213,7 +4212,7 @@ func (s *relationSuite) addContainerScopedRelation(c *gc.C, app1ID, app2ID corea
 	return relationUUID, relationEndpointUUID1, relationEndpointUUID2
 }
 
-func (s *relationSuite) addGlobalScopedRelation(c *gc.C, app1ID, app2ID coreapplication.ID) (corerelation.UUID, string, string) {
+func (s *relationSuite) addGlobalScopedRelation(c *tc.C, app1ID, app2ID coreapplication.ID) (corerelation.UUID, string, string) {
 	// Arrange: Add two endpoints
 	endpoint1 := charm.Relation{
 		Name:      "fake-endpoint-name-1",
@@ -4238,7 +4237,7 @@ func (s *relationSuite) addGlobalScopedRelation(c *gc.C, app1ID, app2ID coreappl
 	return relationUUID, relationEndpointUUID1, relationEndpointUUID2
 }
 
-func (s *relationSuite) addPeerRelation(c *gc.C, charmUUID corecharm.ID, appUUID coreapplication.ID) (corerelation.UUID, string) {
+func (s *relationSuite) addPeerRelation(c *tc.C, charmUUID corecharm.ID, appUUID coreapplication.ID) (corerelation.UUID, string) {
 	endpoint1 := charm.Relation{
 		Name:      "fake-endpoint-name-1",
 		Role:      charm.RoleProvider,
@@ -4253,7 +4252,7 @@ func (s *relationSuite) addPeerRelation(c *gc.C, charmUUID corecharm.ID, appUUID
 	return relationUUID, relationEndpointUUID
 }
 
-func (s *relationSuite) addUnitPrincipal(c *gc.C, principalUnit, subordinateUnit coreunit.UUID) {
+func (s *relationSuite) addUnitPrincipal(c *tc.C, principalUnit, subordinateUnit coreunit.UUID) {
 	s.query(c, `
 INSERT INTO unit_principal (principal_uuid, unit_uuid)
 VALUES (?, ?)

@@ -6,9 +6,8 @@ package eventsource
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/internal/testing"
@@ -20,9 +19,9 @@ type consumeSuite struct {
 	watcher *MockWatcher[[]string]
 }
 
-var _ = gc.Suite(&consumeSuite{})
+var _ = tc.Suite(&consumeSuite{})
 
-func (s *consumeSuite) TestConsumeInitialEventReturnsChanges(c *gc.C) {
+func (s *consumeSuite) TestConsumeInitialEventReturnsChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	contents := []string{"a", "b"}
@@ -31,11 +30,11 @@ func (s *consumeSuite) TestConsumeInitialEventReturnsChanges(c *gc.C) {
 	s.watcher.EXPECT().Changes().Return(changes)
 
 	res, err := ConsumeInitialEvent[[]string](context.Background(), s.watcher)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, jc.SameContents, contents)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.SameContents, contents)
 }
 
-func (s *consumeSuite) TestConsumeInitialEventWorkerKilled(c *gc.C) {
+func (s *consumeSuite) TestConsumeInitialEventWorkerKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 1)
@@ -47,11 +46,11 @@ func (s *consumeSuite) TestConsumeInitialEventWorkerKilled(c *gc.C) {
 	s.watcher.EXPECT().Wait().Return(tomb.ErrDying)
 
 	res, err := ConsumeInitialEvent[[]string](context.Background(), s.watcher)
-	c.Assert(err, gc.ErrorMatches, tomb.ErrDying.Error())
-	c.Assert(res, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, tomb.ErrDying.Error())
+	c.Assert(res, tc.IsNil)
 }
 
-func (s *consumeSuite) TestConsumeInitialEventWatcherStoppedNilErr(c *gc.C) {
+func (s *consumeSuite) TestConsumeInitialEventWatcherStoppedNilErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string, 1)
@@ -63,12 +62,12 @@ func (s *consumeSuite) TestConsumeInitialEventWatcherStoppedNilErr(c *gc.C) {
 	s.watcher.EXPECT().Wait().Return(nil)
 
 	res, err := ConsumeInitialEvent[[]string](context.Background(), s.watcher)
-	c.Assert(err, gc.ErrorMatches, "expected an error from .* got nil.*")
-	c.Assert(err, jc.ErrorIs, ErrWorkerStopped)
-	c.Assert(res, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "expected an error from .* got nil.*")
+	c.Assert(err, tc.ErrorIs, ErrWorkerStopped)
+	c.Assert(res, tc.IsNil)
 }
 
-func (s *consumeSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *consumeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.watcher = NewMockWatcher[[]string](ctrl)

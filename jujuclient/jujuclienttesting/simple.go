@@ -4,8 +4,7 @@
 package jujuclienttesting
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -31,15 +30,15 @@ func MinimalStore() *jujuclient.MemStore {
 
 // SetupMinimalFileStore creates a minimal file backed Juju
 // ClientStore in the current XDG Juju directory.
-func SetupMinimalFileStore(c *gc.C) {
+func SetupMinimalFileStore(c *tc.C) {
 	store := MinimalStore()
 	err := jujuclient.WriteControllersFile(&jujuclient.Controllers{
 		Controllers:       store.Controllers,
 		CurrentController: store.CurrentControllerName,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = jujuclient.WriteModelsFile(store.Models)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = jujuclient.WriteAccountsFile(store.Accounts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

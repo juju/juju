@@ -4,17 +4,16 @@
 package status_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
 )
 
 type StatusSuite struct{}
 
-var _ = gc.Suite(&StatusSuite{})
+var _ = tc.Suite(&StatusSuite{})
 
-func (s *StatusSuite) TestModification(c *gc.C) {
+func (s *StatusSuite) TestModification(c *tc.C) {
 	testcases := []struct {
 		name   string
 		status status.Status
@@ -48,11 +47,11 @@ func (s *StatusSuite) TestModification(c *gc.C) {
 	}
 	for k, v := range testcases {
 		c.Logf("Testing modification status %d %s", k, v.name)
-		c.Assert(v.status.KnownModificationStatus(), gc.Equals, v.valid)
+		c.Assert(v.status.KnownModificationStatus(), tc.Equals, v.valid)
 	}
 }
 
-func (s *StatusSuite) TestValidModelStatus(c *gc.C) {
+func (s *StatusSuite) TestValidModelStatus(c *tc.C) {
 	for _, v := range []status.Status{
 		status.Available,
 		status.Busy,
@@ -60,11 +59,11 @@ func (s *StatusSuite) TestValidModelStatus(c *gc.C) {
 		status.Error,
 		status.Suspended,
 	} {
-		c.Assert(status.ValidModelStatus(v), jc.IsTrue, gc.Commentf("status %q is not valid for a model", v))
+		c.Assert(status.ValidModelStatus(v), tc.IsTrue, tc.Commentf("status %q is not valid for a model", v))
 	}
 }
 
-func (s *StatusSuite) TestInvalidModelStatus(c *gc.C) {
+func (s *StatusSuite) TestInvalidModelStatus(c *tc.C) {
 	for _, v := range []status.Status{
 		status.Active,
 		status.Allocating,
@@ -96,13 +95,13 @@ func (s *StatusSuite) TestInvalidModelStatus(c *gc.C) {
 		status.Unknown,
 		status.Waiting,
 	} {
-		c.Assert(status.ValidModelStatus(v), jc.IsFalse, gc.Commentf("status %q is valid for a model", v))
+		c.Assert(status.ValidModelStatus(v), tc.IsFalse, tc.Commentf("status %q is valid for a model", v))
 	}
 }
 
 // TestKnownInstanceStatus asserts that the KnownInstanceStatus method checks
 // for the correct statuses for instances.
-func (s *StatusSuite) TestKnownInstanceStatus(c *gc.C) {
+func (s *StatusSuite) TestKnownInstanceStatus(c *tc.C) {
 	for _, t := range []struct {
 		status status.Status
 		known  bool
@@ -143,12 +142,12 @@ func (s *StatusSuite) TestKnownInstanceStatus(c *gc.C) {
 		{status.Error, true},
 		{status.Unknown, true},
 	} {
-		c.Check(t.status.KnownInstanceStatus(), gc.Equals, t.known, gc.Commentf("checking status %q", t.status))
+		c.Check(t.status.KnownInstanceStatus(), tc.Equals, t.known, tc.Commentf("checking status %q", t.status))
 	}
 }
 
 // TestKnownMachineStatus asserts that the KnownMachineStatus method checks for the correct statuses for machines.
-func (s *StatusSuite) TestKnownMachineStatus(c *gc.C) {
+func (s *StatusSuite) TestKnownMachineStatus(c *tc.C) {
 	for _, t := range []struct {
 		status status.Status
 		known  bool
@@ -187,6 +186,6 @@ func (s *StatusSuite) TestKnownMachineStatus(c *gc.C) {
 		{status.Stopped, true},
 		{status.Down, true},
 	} {
-		c.Check(t.status.KnownMachineStatus(), gc.Equals, t.known, gc.Commentf("checking status %q", t.status))
+		c.Check(t.status.KnownMachineStatus(), tc.Equals, t.known, tc.Commentf("checking status %q", t.status))
 	}
 }

@@ -7,9 +7,8 @@ import (
 	"context"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreresource "github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
@@ -25,7 +24,7 @@ type BaseSuite struct {
 	factory            func(context.Context, *charm.URL) (NewCharmRepository, error)
 }
 
-func (s *BaseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
@@ -36,14 +35,14 @@ func (s *BaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *BaseSuite) newFacade(c *gc.C) *API {
+func (s *BaseSuite) newFacade(c *tc.C) *API {
 	facade, err := NewResourcesAPI(s.applicationService, s.resourceService, s.factory,
 		loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return facade
 }
 
-func newResource(c *gc.C, name, username, data string) (coreresource.Resource, params.Resource) {
+func newResource(c *tc.C, name, username, data string) (coreresource.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.RetrievedBy = username

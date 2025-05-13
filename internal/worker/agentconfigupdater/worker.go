@@ -5,17 +5,19 @@ package agentconfigupdater
 
 import (
 	"context"
+	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/errors"
 	jworker "github.com/juju/juju/internal/worker"
 )
 
@@ -50,13 +52,13 @@ type WorkerConfig struct {
 // Validate ensures that the required values are set in the structure.
 func (c *WorkerConfig) Validate() error {
 	if c.Agent == nil {
-		return errors.NotValidf("missing agent")
+		return errors.Errorf("missing agent %w", coreerrors.NotValid)
 	}
 	if c.ControllerConfigService == nil {
-		return errors.NotValidf("missing ControllerConfigService")
+		return errors.Errorf("missing ControllerConfigService %w", coreerrors.NotValid)
 	}
 	if c.Logger == nil {
-		return errors.NotValidf("missing logger")
+		return errors.Errorf("missing logger %w", coreerrors.NotValid)
 	}
 	return nil
 }
@@ -81,7 +83,7 @@ type agentConfigUpdater struct {
 // NewWorker creates a new agent config updater worker.
 func NewWorker(config WorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	w := &agentConfigUpdater{
@@ -102,7 +104,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return w, nil
 }
@@ -113,11 +115,11 @@ func (w *agentConfigUpdater) loop() error {
 
 	watcher, err := w.config.ControllerConfigService.WatchControllerConfig()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	if err := w.catacomb.Add(watcher); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	for {
@@ -127,7 +129,7 @@ func (w *agentConfigUpdater) loop() error {
 
 		case <-watcher.Changes():
 			if err := w.handleConfigChange(ctx); err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 		}
 	}
@@ -136,7 +138,7 @@ func (w *agentConfigUpdater) loop() error {
 func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 	config, err := w.config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	jujuDBSnapChannel := config.JujuDBSnapChannel()
@@ -230,7 +232,7 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 		return nil
 	})
 	if err != nil {
-		return errors.Annotate(err, "failed to update agent config")
+		return errors.Errorf("%w: failed to update agent config", err)
 	}
 
 	// If the object store type is set to "s3" then state that the associated
@@ -241,7 +243,40 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 		}
 	}
 
-	return jworker.ErrRestartAgent
+	reason := []string{}
+	if jujuDBSnapChannelChanged {
+		reason = append(reason, controller.JujuDBSnapChannel)
+	}
+	if queryTracingEnabledChanged {
+		reason = append(reason, controller.QueryTracingEnabled)
+	}
+	if queryTracingThresholdChanged {
+		reason = append(reason, controller.QueryTracingThreshold)
+	}
+	if openTelemetryEnabledChanged {
+		reason = append(reason, controller.OpenTelemetryEnabled)
+	}
+	if openTelemetryEndpointChanged {
+		reason = append(reason, controller.OpenTelemetryEndpoint)
+	}
+	if openTelemetryInsecureChanged {
+		reason = append(reason, controller.OpenTelemetryInsecure)
+	}
+	if openTelemetryStackTracesChanged {
+		reason = append(reason, controller.OpenTelemetryStackTraces)
+	}
+	if openTelemetrySampleRatioChanged {
+		reason = append(reason, controller.OpenTelemetrySampleRatio)
+	}
+	if openTelemetryTailSamplingThresholdChanged {
+		reason = append(reason, controller.OpenTelemetryTailSamplingThreshold)
+	}
+	if objectStoreTypeChanged {
+		reason = append(reason, controller.ObjectStoreType)
+	}
+
+	return errors.Errorf("%w: controller config changed: %s",
+		jworker.ErrRestartAgent, strings.Join(reason, ", "))
 }
 
 // Kill implements Worker.Kill().

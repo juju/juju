@@ -7,11 +7,10 @@ import (
 	"context"
 	"time"
 
-	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -20,12 +19,12 @@ type periodicWorkerSuite struct {
 }
 
 var (
-	_                   = gc.Suite(&periodicWorkerSuite{})
+	_                   = tc.Suite(&periodicWorkerSuite{})
 	defaultPeriod       = time.Second
 	defaultFireOnceWait = defaultPeriod / 2
 )
 
-func (s *periodicWorkerSuite) TestWait(c *gc.C) {
+func (s *periodicWorkerSuite) TestWait(c *tc.C) {
 	funcHasRun := make(chan struct{})
 	doWork := func(ctx context.Context) error {
 		funcHasRun <- struct{}{}
@@ -33,14 +32,14 @@ func (s *periodicWorkerSuite) TestWait(c *gc.C) {
 	}
 
 	w := NewPeriodicWorker(doWork, defaultPeriod, NewTimer)
-	defer func() { c.Assert(worker.Stop(w), gc.Equals, errTest) }()
+	defer func() { c.Assert(worker.Stop(w), tc.Equals, errTest) }()
 	select {
 	case <-funcHasRun:
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("The doWork function should have been called by now")
 	}
 	w.Kill()
-	c.Assert(w.Wait(), gc.Equals, errTest)
+	c.Assert(w.Wait(), tc.Equals, errTest)
 	select {
 	case <-funcHasRun:
 		c.Fatalf("After the kill we don't expect anymore calls to the function")
@@ -49,7 +48,7 @@ func (s *periodicWorkerSuite) TestWait(c *gc.C) {
 }
 
 type testNextPeriod struct {
-	jtesting.Stub
+	testhelpers.Stub
 }
 
 func (t *testNextPeriod) nextPeriod(period time.Duration, jitter float64) time.Duration {
@@ -57,22 +56,22 @@ func (t *testNextPeriod) nextPeriod(period time.Duration, jitter float64) time.D
 	return period
 }
 
-func (s *periodicWorkerSuite) TestNextPeriod(c *gc.C) {
+func (s *periodicWorkerSuite) TestNextPeriod(c *tc.C) {
 	for i := 0; i < 100; i++ {
 		p := nextPeriod(time.Second, 0.1)
-		c.Assert(p.Seconds()/time.Second.Seconds() <= 1.1, jc.IsTrue)
-		c.Assert(p.Seconds()/time.Second.Seconds() >= 0.9, jc.IsTrue)
+		c.Assert(p.Seconds()/time.Second.Seconds() <= 1.1, tc.IsTrue)
+		c.Assert(p.Seconds()/time.Second.Seconds() >= 0.9, tc.IsTrue)
 	}
 }
 
-func (s *periodicWorkerSuite) TestNextPeriodWithoutJitter(c *gc.C) {
+func (s *periodicWorkerSuite) TestNextPeriodWithoutJitter(c *tc.C) {
 	for i := 0; i < 100; i++ {
 		p := nextPeriod(time.Second, 0)
-		c.Assert(p, gc.DeepEquals, time.Second)
+		c.Assert(p, tc.DeepEquals, time.Second)
 	}
 }
 
-func (s *periodicWorkerSuite) TestWaitWithJitter(c *gc.C) {
+func (s *periodicWorkerSuite) TestWaitWithJitter(c *tc.C) {
 	funcHasRun := make(chan struct{}, 1)
 	doWork := func(ctx context.Context) error {
 		funcHasRun <- struct{}{}
@@ -80,11 +79,11 @@ func (s *periodicWorkerSuite) TestWaitWithJitter(c *gc.C) {
 	}
 
 	tPeriod := &testNextPeriod{}
-	cleanup := jtesting.PatchValue(&nextPeriod, tPeriod.nextPeriod)
+	cleanup := testhelpers.PatchValue(&nextPeriod, tPeriod.nextPeriod)
 	defer cleanup()
 
 	w := NewPeriodicWorker(doWork, testing.ShortWait, NewTimer, Jitter(0.2))
-	defer func() { c.Assert(worker.Stop(w), gc.Equals, nil) }()
+	defer func() { c.Assert(worker.Stop(w), tc.Equals, nil) }()
 
 	select {
 	case <-funcHasRun:
@@ -98,11 +97,11 @@ func (s *periodicWorkerSuite) TestWaitWithJitter(c *gc.C) {
 		c.Fatalf("The doWork function should have been called by now")
 	}
 	w.Kill()
-	c.Assert(w.Wait(), gc.Equals, nil)
+	c.Assert(w.Wait(), tc.Equals, nil)
 
 	// We expect to see 2 calls to nextPeriod, corresponding to 2 calls to doWork. We then expect to see no more calls
 	// to nextPeriod because we have Kill()ed the worker.
-	tPeriod.CheckCalls(c, []jtesting.StubCall{{
+	tPeriod.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "nextPeriod",
 		Args:     []interface{}{testing.ShortWait, float64(0.2)},
 	}, {
@@ -120,7 +119,7 @@ func (s *periodicWorkerSuite) TestWaitWithJitter(c *gc.C) {
 // TestWaitNil starts a periodicWorker asserts that after
 // killing the worker Wait() returns nil after at least
 // one call of the doWork function
-func (s *periodicWorkerSuite) TestWaitNil(c *gc.C) {
+func (s *periodicWorkerSuite) TestWaitNil(c *tc.C) {
 	funcHasRun := make(chan struct{})
 	doWork := func(ctx context.Context) error {
 		funcHasRun <- struct{}{}
@@ -128,20 +127,20 @@ func (s *periodicWorkerSuite) TestWaitNil(c *gc.C) {
 	}
 
 	w := NewPeriodicWorker(doWork, defaultPeriod, NewTimer)
-	defer func() { c.Assert(worker.Stop(w), gc.IsNil) }()
+	defer func() { c.Assert(worker.Stop(w), tc.IsNil) }()
 	select {
 	case <-funcHasRun:
 	case <-time.After(defaultFireOnceWait):
 		c.Fatalf("The doWork function should have been called by now")
 	}
 	w.Kill()
-	c.Assert(w.Wait(), gc.Equals, nil)
+	c.Assert(w.Wait(), tc.Equals, nil)
 }
 
 // TestKill starts a periodic worker and Kills it
 // it expects the doWork function to be notified of this and the error from
 // doWork is returned by Wait()
-func (s *periodicWorkerSuite) TestKill(c *gc.C) {
+func (s *periodicWorkerSuite) TestKill(c *tc.C) {
 	tests := []struct {
 		ReturnValue   error
 		ExpectedValue error
@@ -157,7 +156,7 @@ func (s *periodicWorkerSuite) TestKill(c *gc.C) {
 	}
 }
 
-func runKillTest(c *gc.C, returnValue, expected error) {
+func runKillTest(c *tc.C, returnValue, expected error) {
 	ready := make(chan struct{})
 	doWorkNotification := make(chan struct{})
 	doWork := func(ctx context.Context) error {
@@ -168,7 +167,7 @@ func runKillTest(c *gc.C, returnValue, expected error) {
 	}
 
 	w := NewPeriodicWorker(doWork, defaultPeriod, NewTimer)
-	defer func() { c.Assert(worker.Stop(w), gc.Equals, expected) }()
+	defer func() { c.Assert(worker.Stop(w), tc.Equals, expected) }()
 
 	select {
 	case <-ready:
@@ -181,7 +180,7 @@ func runKillTest(c *gc.C, returnValue, expected error) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("The doWork function should have been notified of the stop by now")
 	}
-	c.Assert(w.Wait(), gc.Equals, expected)
+	c.Assert(w.Wait(), tc.Equals, expected)
 
 	// test we can kill again without a panic and our death reason stays intact
 	w.Kill()
@@ -190,7 +189,7 @@ func runKillTest(c *gc.C, returnValue, expected error) {
 // TestCallUntilKilled checks that our function is called
 // at least 5 times, and that with a period of 500ms each call is made
 // in a reasonable time
-func (s *periodicWorkerSuite) TestCallUntilKilled(c *gc.C) {
+func (s *periodicWorkerSuite) TestCallUntilKilled(c *tc.C) {
 	funcHasRun := make(chan struct{}, 5)
 	doWork := func(ctx context.Context) error {
 		funcHasRun <- struct{}{}
@@ -200,7 +199,7 @@ func (s *periodicWorkerSuite) TestCallUntilKilled(c *gc.C) {
 	period := time.Millisecond * 500
 	unacceptableWait := time.Second * 10
 	w := NewPeriodicWorker(doWork, period, NewTimer)
-	defer func() { c.Assert(worker.Stop(w), gc.IsNil) }()
+	defer func() { c.Assert(worker.Stop(w), tc.IsNil) }()
 	for i := 0; i < 5; i++ {
 		select {
 		case <-funcHasRun:
@@ -209,5 +208,5 @@ func (s *periodicWorkerSuite) TestCallUntilKilled(c *gc.C) {
 		}
 	}
 	w.Kill()
-	c.Assert(w.Wait(), gc.Equals, nil)
+	c.Assert(w.Wait(), tc.Equals, nil)
 }

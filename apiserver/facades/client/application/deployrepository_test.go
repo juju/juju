@@ -7,9 +7,8 @@ import (
 	"context"
 	"errors"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -24,9 +23,9 @@ type deployRepositorySuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&deployRepositorySuite{})
+var _ = tc.Suite(&deployRepositorySuite{})
 
-func (s *deployRepositorySuite) TestResolveResourcesNoResourcesOverride(c *gc.C) {
+func (s *deployRepositorySuite) TestResolveResourcesNoResourcesOverride(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -64,14 +63,14 @@ func (s *deployRepositorySuite) TestResolveResourcesNoResourcesOverride(c *gc.C)
 		map[string]string{},
 		resMeta,
 	)
-	c.Assert(err, gc.IsNil, gc.Commentf("(Act) unexpected error occurred"))
+	c.Assert(err, tc.IsNil, tc.Commentf("(Act) unexpected error occurred"))
 
 	// Assert
-	c.Check(result, gc.DeepEquals, expectedResult, gc.Commentf("(Assert) expected result did not match"))
-	c.Check(resourceToUpload, gc.IsNil, gc.Commentf("(Assert) expected resourcesToUpload did not match"))
+	c.Check(result, tc.DeepEquals, expectedResult, tc.Commentf("(Assert) expected result did not match"))
+	c.Check(resourceToUpload, tc.IsNil, tc.Commentf("(Assert) expected resourcesToUpload did not match"))
 }
 
-func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c *gc.C) {
+func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -127,14 +126,14 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c 
 		deployResArg,
 		resMeta,
 	)
-	c.Assert(err, gc.IsNil, gc.Commentf("(Act) unexpected error occurred"))
+	c.Assert(err, tc.IsNil, tc.Commentf("(Act) unexpected error occurred"))
 
 	// Assert
-	c.Check(result, gc.DeepEquals, expectedResult, gc.Commentf("(Assert) expected result did not match"))
-	c.Check(resourcesToUpload, jc.SameContents, expectedResourcesToUpload, gc.Commentf("(Assert) expected resourceToUpload did not match"))
+	c.Check(result, tc.DeepEquals, expectedResult, tc.Commentf("(Assert) expected result did not match"))
+	c.Check(resourcesToUpload, tc.SameContents, expectedResourcesToUpload, tc.Commentf("(Assert) expected resourceToUpload did not match"))
 }
 
-func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharmRepositoryResolve(c *gc.C) {
+func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharmRepositoryResolve(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -154,8 +153,8 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharm
 	_, _, err := validator.resolveResources(context.Background(), charmURL, origin, map[string]string{}, resMeta)
 
 	// Assert
-	c.Check(err, jc.ErrorIs, mockRepoError,
-		gc.Commentf("(Assert) should return the same error as returned when resolving resources on charm repository"))
+	c.Check(err, tc.ErrorIs, mockRepoError,
+		tc.Commentf("(Assert) should return the same error as returned when resolving resources on charm repository"))
 }
 
 // expectValidator sets up a mock deployFromRepositoryValidator with predefined expectations for testing purposes.

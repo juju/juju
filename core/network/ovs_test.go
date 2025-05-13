@@ -6,31 +6,31 @@ package network
 import (
 	"os/exec"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ovsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ovsSuite{})
+var _ = tc.Suite(&ovsSuite{})
 
-func (s *ovsSuite) SetUpSuite(c *gc.C) {
+func (s *ovsSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 }
 
-func (s *ovsSuite) SetUpTest(c *gc.C) {
+func (s *ovsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *ovsSuite) TestExistingOvsManagedBridgeInterfaces(c *gc.C) {
+func (s *ovsSuite) TestExistingOvsManagedBridgeInterfaces(c *tc.C) {
 	// Patch output for "ovs-vsctl list-br" and make sure exec.LookPath can
 	// detect it in the path
-	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
 	s.PatchValue(&getCommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
-		c.Assert(cmd.Args, gc.DeepEquals, []string{"ovs-vsctl", "list-br"}, gc.Commentf("expected ovs-vsctl to be invoked with 'list-br' as an argument"))
+		c.Assert(cmd.Args, tc.DeepEquals, []string{"ovs-vsctl", "list-br"}, tc.Commentf("expected ovs-vsctl to be invoked with 'list-br' as an argument"))
 		return []byte("ovsbr1" + "\n"), nil
 	})
 
@@ -42,17 +42,17 @@ func (s *ovsSuite) TestExistingOvsManagedBridgeInterfaces(c *gc.C) {
 	}
 
 	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ovsIfaces, gc.HasLen, 1, gc.Commentf("expected ovs-managed bridge list to contain a single entry"))
-	c.Assert(ovsIfaces[0].InterfaceName, gc.Equals, "ovsbr1", gc.Commentf("expected ovs-managed bridge list to contain iface 'ovsbr1'"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ovsIfaces, tc.HasLen, 1, tc.Commentf("expected ovs-managed bridge list to contain a single entry"))
+	c.Assert(ovsIfaces[0].InterfaceName, tc.Equals, "ovsbr1", tc.Commentf("expected ovs-managed bridge list to contain iface 'ovsbr1'"))
 }
 
-func (s *ovsSuite) TestNonExistingOvsManagedBridgeInterfaces(c *gc.C) {
+func (s *ovsSuite) TestNonExistingOvsManagedBridgeInterfaces(c *tc.C) {
 	// Patch output for "ovs-vsctl list-br" and make sure exec.LookPath can
 	// detect it in the path
-	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
 	s.PatchValue(&getCommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
-		c.Assert(cmd.Args, gc.DeepEquals, []string{"ovs-vsctl", "list-br"}, gc.Commentf("expected ovs-vsctl to be invoked with 'list-br' as an argument"))
+		c.Assert(cmd.Args, tc.DeepEquals, []string{"ovs-vsctl", "list-br"}, tc.Commentf("expected ovs-vsctl to be invoked with 'list-br' as an argument"))
 		return []byte("\n"), nil
 	})
 
@@ -63,13 +63,13 @@ func (s *ovsSuite) TestNonExistingOvsManagedBridgeInterfaces(c *gc.C) {
 	}
 
 	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ovsIfaces, gc.HasLen, 0, gc.Commentf("expected ovs-managed bridge list to be empty"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ovsIfaces, tc.HasLen, 0, tc.Commentf("expected ovs-managed bridge list to be empty"))
 }
 
-func (s *ovsSuite) TestMissingOvsTools(c *gc.C) {
+func (s *ovsSuite) TestMissingOvsTools(c *tc.C) {
 	ifaces := InterfaceInfos{{InterfaceName: "eth0"}}
 	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ovsIfaces, gc.HasLen, 0, gc.Commentf("expected ovs-managed bridge list to be empty"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ovsIfaces, tc.HasLen, 0, tc.Commentf("expected ovs-managed bridge list to be empty"))
 }

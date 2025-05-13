@@ -9,8 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	model "github.com/juju/juju/core/crossmodel"
@@ -43,9 +42,9 @@ type ListSuite struct {
 	endpoints    []charm.Relation
 }
 
-var _ = gc.Suite(&ListSuite{})
+var _ = tc.Suite(&ListSuite{})
 
-func (s *ListSuite) SetUpTest(c *gc.C) {
+func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 
 	s.endpoints = []charm.Relation{
@@ -65,13 +64,13 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ListSuite) TestListNoCurrentModel(c *gc.C) {
+func (s *ListSuite) TestListNoCurrentModel(c *tc.C) {
 	s.store.Models["test-master"].CurrentModel = ""
 	_, err := s.runList(c, nil)
-	c.Assert(err, gc.ErrorMatches, `current model for controller test-master not found`)
+	c.Assert(err, tc.ErrorMatches, `current model for controller test-master not found`)
 }
 
-func (s *ListSuite) TestListError(c *gc.C) {
+func (s *ListSuite) TestListError(c *tc.C) {
 	msg := "fail api"
 
 	s.mockAPI.list = func(filters ...model.ApplicationOfferFilter) ([]*model.ApplicationOfferDetails, error) {
@@ -79,15 +78,15 @@ func (s *ListSuite) TestListError(c *gc.C) {
 	}
 
 	_, err := s.runList(c, nil)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 }
 
-func (s *ListSuite) TestListFilterArgs(c *gc.C) {
+func (s *ListSuite) TestListFilterArgs(c *tc.C) {
 	_, err := s.runList(c, []string{
 		"--interface", "mysql", "--application", "mysql-lite", "--connected-user", "user", "--allowed-consumer", "consumer"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.filters, gc.HasLen, 1)
-	c.Assert(s.mockAPI.filters[0], jc.DeepEquals, model.ApplicationOfferFilter{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.mockAPI.filters, tc.HasLen, 1)
+	c.Assert(s.mockAPI.filters[0], tc.DeepEquals, model.ApplicationOfferFilter{
 		OwnerName:       "fred",
 		ModelName:       "test",
 		ApplicationName: "mysql-lite",
@@ -99,25 +98,25 @@ func (s *ListSuite) TestListFilterArgs(c *gc.C) {
 	})
 }
 
-func (s *ListSuite) TestListOfferArg(c *gc.C) {
+func (s *ListSuite) TestListOfferArg(c *tc.C) {
 	_, err := s.runList(c, []string{"mysql-lite"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.filters, gc.HasLen, 1)
-	c.Assert(s.mockAPI.filters[0], jc.DeepEquals, model.ApplicationOfferFilter{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.mockAPI.filters, tc.HasLen, 1)
+	c.Assert(s.mockAPI.filters[0], tc.DeepEquals, model.ApplicationOfferFilter{
 		OwnerName: "fred",
 		ModelName: "test",
 		OfferName: "^mysql-lite$",
 	})
 }
 
-func (s *ListSuite) TestListFormatError(c *gc.C) {
+func (s *ListSuite) TestListFormatError(c *tc.C) {
 	s.applications = append(s.applications, s.createOfferItem("zdi^%", "different_store", nil))
 
 	_, err := s.runList(c, nil)
-	c.Assert(err, gc.ErrorMatches, ".*failed to format.*")
+	c.Assert(err, tc.ErrorMatches, ".*failed to format.*")
 }
 
-func (s *ListSuite) TestListSummary(c *gc.C) {
+func (s *ListSuite) TestListSummary(c *tc.C) {
 	// For summary output, we don't care about the content, just the count.
 	conns1 := []model.OfferConnection{{Status: relation.Joined}, {}, {}}
 	conns2 := []model.OfferConnection{{}, {}}
@@ -141,7 +140,7 @@ zdiff-db2   app-zdiff-db2   ch:db2-5  1/3        differentstore  differentstore:
 	)
 }
 
-func (s *ListSuite) TestListTabularNoConnections(c *gc.C) {
+func (s *ListSuite) TestListTabularNoConnections(c *tc.C) {
 	s.assertValidList(
 		c,
 		[]string{"--format", "tabular"},
@@ -198,7 +197,7 @@ func (s *ListSuite) setupListTabular() {
 	}
 }
 
-func (s *ListSuite) TestListTabular(c *gc.C) {
+func (s *ListSuite) TestListTabular(c *tc.C) {
 	s.setupListTabular()
 	s.assertValidList(
 		c,
@@ -215,7 +214,7 @@ zdiff-db2   fred  1            joined  server    mysql      provider
 	)
 }
 
-func (s *ListSuite) TestListTabularActiveOnly(c *gc.C) {
+func (s *ListSuite) TestListTabularActiveOnly(c *tc.C) {
 	s.setupListTabular()
 	s.assertValidList(
 		c,
@@ -231,7 +230,7 @@ zdiff-db2  fred  1            joined  server    mysql      provider
 	)
 }
 
-func (s *ListSuite) TestListYAML(c *gc.C) {
+func (s *ListSuite) TestListYAML(c *tc.C) {
 	// Since applications are in the map and ordering is unreliable, ensure that there is only one endpoint.
 	// We only need one to demonstrate display anyway :D
 	s.applications[0].Endpoints = []charm.Relation{{Name: "mysql", Interface: "db2", Role: charm.RoleRequirer}}
@@ -306,19 +305,19 @@ func (s *ListSuite) createOfferItem(name, store string, connections []model.Offe
 	}
 }
 
-func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
+func (s *ListSuite) runList(c *tc.C, args []string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, newListEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
-func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expectedErr string) {
+func (s *ListSuite) assertValidList(c *tc.C, args []string, expectedValid, expectedErr string) {
 	context, err := s.runList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedErr := strings.Replace(cmdtesting.Stderr(context), "\n", "", -1)
-	c.Assert(obtainedErr, gc.Matches, expectedErr)
+	c.Assert(obtainedErr, tc.Matches, expectedErr)
 
 	obtainedValid := cmdtesting.Stdout(context)
-	c.Assert(obtainedValid, gc.Matches, expectedValid)
+	c.Assert(obtainedValid, tc.Matches, expectedValid)
 }
 
 type mockListAPI struct {

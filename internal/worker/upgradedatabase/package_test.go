@@ -6,9 +6,8 @@ package upgradedatabase
 import (
 	"testing"
 
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -22,12 +21,10 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination worker_mock_test.go github.com/juju/worker/v4 Worker
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
-
 	lock           *MockLock
 	agent          *MockAgent
 	agentConfig    *MockConfig
@@ -41,7 +38,7 @@ type baseSuite struct {
 	logger logger.Logger
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.lock = NewMockLock(ctrl)

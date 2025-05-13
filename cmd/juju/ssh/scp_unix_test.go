@@ -6,19 +6,20 @@
 package ssh
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 
-var _ = gc.Suite(&SCPSuiteLegacy{})
+var _ = tc.Suite(&SCPSuiteLegacy{})
 
 type SCPSuiteLegacy struct {
 	SSHMachineSuite
@@ -31,6 +32,7 @@ var scpTests = []struct {
 	hostChecker jujussh.ReachableChecker
 	expected    argsSpec
 	error       string
+	noClose     bool
 }{
 	{
 		about:       "scp from machine 0 to current dir",
@@ -109,6 +111,7 @@ var scpTests = []struct {
 		args:    []string{"-q", "-r", "0:foo", "mysql/0:/foo"},
 		targets: []string{"mysql/0", "0"},
 		error:   "option provided but not defined: -q",
+		noClose: true,
 	}, {
 		about:       "scp two local files to unit mysql/0",
 		args:        []string{"file1", "file2", "mysql/0:/foo/"},
@@ -199,35 +202,40 @@ var scpTests = []struct {
 		hostChecker: validAddresses("0.public"),
 		error:       `can't determine host keys for all targets: consider --no-host-key-checks`,
 	}, {
-		about: "scp with no arguments",
-		args:  nil,
-		error: `at least two arguments required`,
+		about:   "scp with no arguments",
+		args:    nil,
+		error:   `at least two arguments required`,
+		noClose: true,
 	},
 }
 
-func (s *SCPSuiteLegacy) TestSCPCommand(c *gc.C) {
-	for i, t := range scpTests {
-		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
+func (s *SCPSuiteLegacy) TestSCPCommand(c *tc.C) {
+	for i, test := range scpTests {
+		c.Logf("test %d: %s -> %s\n", i, test.about, test.args)
+		c.Run(fmt.Sprintf("Test%d", i), func(t *testing.T) {
+			c := &tc.TBC{t}
+			s.setHostChecker(test.hostChecker)
 
-		s.setHostChecker(t.hostChecker)
+			ctrl := gomock.NewController(c)
+			defer ctrl.Finish()
 
-		ctrl := gomock.NewController(c)
-		ssh, app, status := s.setupModel(ctrl, t.expected.withProxy, nil, nil, t.targets...)
-		scpCmd := NewSCPCommandForTest(app, ssh, status, t.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
+			ssh, app, status := s.setupModel(ctrl, test.expected.withProxy, test.noClose, nil, nil, test.targets...)
+			scpCmd := NewSCPCommandForTest(app, ssh, status, test.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
-		ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(scpCmd), t.args...)
-		if t.error != "" {
-			c.Assert(err, gc.ErrorMatches, t.error, gc.Commentf("test %d", i))
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			// we suppress stdout from scp, so get the scp args used
-			// from the "scp.args" file that the fake scp executable
-			// installed by SSHMachineSuite generates.
-			c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "", gc.Commentf("test %d", i))
-			c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "", gc.Commentf("test %d", i))
-			actual, err := os.ReadFile(filepath.Join(s.binDir, "scp.args"))
-			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", i))
-			t.expected.check(c, string(actual))
-		}
+			ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(scpCmd), test.args...)
+			if test.error != "" {
+				c.Assert(err, tc.ErrorMatches, test.error, tc.Commentf("test %d", i))
+			} else {
+				c.Assert(err, tc.ErrorIsNil)
+				// we suppress stdout from scp, so get the scp args used
+				// from the "scp.args" file that the fake scp executable
+				// installed by SSHMachineSuite generates.
+				c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "", tc.Commentf("test %d", i))
+				c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "", tc.Commentf("test %d", i))
+				actual, err := os.ReadFile(filepath.Join(s.binDir, "scp.args"))
+				c.Assert(err, tc.ErrorIsNil, tc.Commentf("test %d", i))
+				test.expected.check(c, string(actual))
+			}
+		})
 	}
 }

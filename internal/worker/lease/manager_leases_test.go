@@ -8,29 +8,28 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lease"
 )
 
 type LeasesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	appName string
 }
 
-var _ = gc.Suite(&LeasesSuite{})
+var _ = tc.Suite(&LeasesSuite{})
 
-func (s *LeasesSuite) SetUpTest(c *gc.C) {
+func (s *LeasesSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.appName = "redis"
 }
 
-func (s *LeasesSuite) TestLeases(c *gc.C) {
+func (s *LeasesSuite) TestLeases(c *tc.C) {
 	leases := map[corelease.Key]corelease.Info{
 		key(s.appName): {
 			Holder: "redis/0",
@@ -54,13 +53,13 @@ func (s *LeasesSuite) TestLeases(c *gc.C) {
 	fix := &Fixture{leases: leases}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		leases, err := getReader(c, manager).Leases()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(leases, gc.DeepEquals, map[string]string{s.appName: "redis/0"})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(leases, tc.DeepEquals, map[string]string{s.appName: "redis/0"})
 	})
 }
 
-func getReader(c *gc.C, manager *lease.Manager) corelease.Reader {
+func getReader(c *tc.C, manager *lease.Manager) corelease.Reader {
 	reader, err := manager.Reader("namespace", "modelUUID")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return reader
 }

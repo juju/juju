@@ -804,7 +804,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewServerWrapperWorker:     sshserver.NewServerWrapperWorker,
 			NewServerWorker:            sshserver.NewServerWorker,
 			GetControllerConfigService: sshserver.GetControllerConfigService,
-			NewSSHServerListener:       sshserver.NewSSHServerListener,
 		})),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{

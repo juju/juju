@@ -7,15 +7,14 @@ import (
 	"fmt"
 	"runtime"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	semversion "github.com/juju/juju/core/semversion"
 )
 
 type suite struct{}
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
 var isDevTests = []struct {
 	num semversion.Number
@@ -53,18 +52,18 @@ var isDevTests = []struct {
 	num: semversion.Number{Major: 1, Minor: 21},
 }}
 
-func (*suite) TestIsDev(c *gc.C) {
+func (*suite) TestIsDev(c *tc.C) {
 	for i, test := range isDevTests {
 		c.Logf("test %d", i)
-		c.Check(IsDev(test.num), gc.Equals, test.dev)
+		c.Check(IsDev(test.num), tc.Equals, test.dev)
 	}
 }
 
-func (s *suite) TestCompiler(c *gc.C) {
-	c.Assert(Compiler, gc.Equals, runtime.Compiler)
+func (s *suite) TestCompiler(c *tc.C) {
+	c.Assert(Compiler, tc.Equals, runtime.Compiler)
 }
 
-func (s *suite) TestCheckJujuMinVersion(c *gc.C) {
+func (s *suite) TestCheckJujuMinVersion(c *tc.C) {
 	for _, test := range []struct {
 		toCheck     semversion.Number
 		jujuVersion semversion.Number
@@ -102,12 +101,12 @@ func (s *suite) TestCheckJujuMinVersion(c *gc.C) {
 	} {
 		err := CheckJujuMinVersion(test.toCheck, test.jujuVersion)
 		if test.error {
-			c.Assert(err, jc.Satisfies, IsMinVersionError)
-			c.Assert(err.Error(), gc.Equals,
+			c.Assert(err, tc.Satisfies, IsMinVersionError)
+			c.Assert(err.Error(), tc.Equals,
 				fmt.Sprintf("charm's min version (%s) is higher than this juju model's version (%s)",
 					test.toCheck, test.jujuVersion))
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 	}
 }

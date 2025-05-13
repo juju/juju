@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -23,20 +22,20 @@ type relationUnitSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&relationUnitSuite{})
+var _ = tc.Suite(&relationUnitSuite{})
 
-func (s *relationUnitSuite) getRelationUnit(c *gc.C) *uniter.RelationUnit {
+func (s *relationUnitSuite) getRelationUnit(c *tc.C) *uniter.RelationUnit {
 	relUnitArg := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{
 			{Relation: "relation-wordpress.db#mysql.server", Unit: "unit-mysql-0"},
 		},
 	}
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(objType, tc.Equals, "Uniter")
 		switch request {
 		case "Relation":
-			c.Assert(arg, gc.DeepEquals, relUnitArg)
-			c.Assert(result, gc.FitsTypeOf, &params.RelationResultsV2{})
+			c.Assert(arg, tc.DeepEquals, relUnitArg)
+			c.Assert(result, tc.FitsTypeOf, &params.RelationResultsV2{})
 			*(result.(*params.RelationResultsV2)) = params.RelationResultsV2{
 				Results: []params.RelationResultV2{{
 					Id:        666,
@@ -60,20 +59,20 @@ func (s *relationUnitSuite) getRelationUnit(c *gc.C) *uniter.RelationUnit {
 				}},
 			}
 		case "EnterScope":
-			c.Assert(arg, gc.DeepEquals, relUnitArg)
-			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			c.Assert(arg, tc.DeepEquals, relUnitArg)
+			c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 			*(result.(*params.ErrorResults)) = params.ErrorResults{
 				Results: []params.ErrorResult{{Error: &params.Error{Message: "boom"}}},
 			}
 		case "LeaveScope":
-			c.Assert(arg, gc.DeepEquals, relUnitArg)
-			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			c.Assert(arg, tc.DeepEquals, relUnitArg)
+			c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 			*(result.(*params.ErrorResults)) = params.ErrorResults{
 				Results: []params.ErrorResult{{Error: &params.Error{Message: "bam"}}},
 			}
 		case "ReadSettings":
-			c.Assert(arg, gc.DeepEquals, relUnitArg)
-			c.Assert(result, gc.FitsTypeOf, &params.SettingsResults{})
+			c.Assert(arg, tc.DeepEquals, relUnitArg)
+			c.Assert(result, tc.FitsTypeOf, &params.SettingsResults{})
 			*(result.(*params.SettingsResults)) = params.SettingsResults{
 				Results: []params.SettingsResult{{
 					Settings: params.Settings{
@@ -83,10 +82,10 @@ func (s *relationUnitSuite) getRelationUnit(c *gc.C) *uniter.RelationUnit {
 				}},
 			}
 		case "ReadLocalApplicationSettings":
-			c.Assert(arg, gc.DeepEquals, params.RelationUnit{
+			c.Assert(arg, tc.DeepEquals, params.RelationUnit{
 				Relation: "relation-wordpress.db#mysql.server", Unit: "unit-mysql-0",
 			})
-			c.Assert(result, gc.FitsTypeOf, &params.SettingsResult{})
+			c.Assert(result, tc.FitsTypeOf, &params.SettingsResult{})
 			*(result.(*params.SettingsResult)) = params.SettingsResult{
 				Settings: params.Settings{
 					"foo": "bar",
@@ -102,22 +101,22 @@ func (s *relationUnitSuite) getRelationUnit(c *gc.C) *uniter.RelationUnit {
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
 	relUnit, err := rel.Unit(context.Background(), names.NewUnitTag("mysql/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return relUnit
 }
 
-func (s *relationUnitSuite) TestRelation(c *gc.C) {
+func (s *relationUnitSuite) TestRelation(c *tc.C) {
 	relUnit := s.getRelationUnit(c)
 	apiRel := relUnit.Relation()
-	c.Assert(apiRel, gc.NotNil)
-	c.Assert(apiRel.String(), gc.Equals, "wordpress:db mysql:server")
+	c.Assert(apiRel, tc.NotNil)
+	c.Assert(apiRel.String(), tc.Equals, "wordpress:db mysql:server")
 }
 
-func (s *relationUnitSuite) TestEndpoint(c *gc.C) {
+func (s *relationUnitSuite) TestEndpoint(c *tc.C) {
 	relUnit := s.getRelationUnit(c)
 
 	apiEndpoint := relUnit.Endpoint()
-	c.Assert(apiEndpoint, gc.DeepEquals, uniter.Endpoint{
+	c.Assert(apiEndpoint, tc.DeepEquals, uniter.Endpoint{
 		charm.Relation{
 			Name:      "db",
 			Role:      "requirer",
@@ -129,50 +128,50 @@ func (s *relationUnitSuite) TestEndpoint(c *gc.C) {
 	})
 }
 
-func (s *relationUnitSuite) TestEnterScope(c *gc.C) {
+func (s *relationUnitSuite) TestEnterScope(c *tc.C) {
 	relUnit := s.getRelationUnit(c)
 	err := relUnit.EnterScope(context.Background())
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *relationUnitSuite) TestLeaveScope(c *gc.C) {
+func (s *relationUnitSuite) TestLeaveScope(c *tc.C) {
 	relUnit := s.getRelationUnit(c)
 	err := relUnit.LeaveScope(context.Background())
-	c.Assert(err, gc.ErrorMatches, "bam")
+	c.Assert(err, tc.ErrorMatches, "bam")
 }
 
-func (s *relationUnitSuite) TestSettings(c *gc.C) {
+func (s *relationUnitSuite) TestSettings(c *tc.C) {
 	relUnit := s.getRelationUnit(c)
 	gotSettings, err := relUnit.Settings(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), tc.DeepEquals, params.Settings{
 		"some":  "settings",
 		"other": "things",
 	})
 }
 
-func (s *relationUnitSuite) TestApplicationSettings(c *gc.C) {
+func (s *relationUnitSuite) TestApplicationSettings(c *tc.C) {
 	relUnit := s.getRelationUnit(c)
 	gotSettings, err := relUnit.ApplicationSettings(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), tc.DeepEquals, params.Settings{
 		"foo": "bar",
 		"baz": "1",
 	})
 }
 
-func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
+func (s *relationUnitSuite) TestWatchRelationUnits(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if request == "Stop" || request == "Next" {
 			return nil
 		}
-		c.Assert(request, gc.Equals, "WatchRelationUnits")
-		c.Assert(arg, gc.DeepEquals, params.RelationUnits{
+		c.Assert(request, tc.Equals, "WatchRelationUnits")
+		c.Assert(arg, tc.DeepEquals, params.RelationUnits{
 			RelationUnits: []params.RelationUnit{
 				{Relation: "relation-wordpress.db#mysql.server", Unit: "unit-mysql-0"},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.RelationUnitsWatchResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.RelationUnitsWatchResults{})
 		*(result.(*params.RelationUnitsWatchResults)) = params.RelationUnitsWatchResults{
 			Results: []params.RelationUnitsWatchResult{{
 				RelationUnitsWatcherId: "1",
@@ -188,7 +187,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	w, err := client.WatchRelationUnits(context.Background(), tag, names.NewUnitTag("mysql/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewRelationUnitsWatcherC(c, w)
 	defer wc.AssertStops()
 

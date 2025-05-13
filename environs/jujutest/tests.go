@@ -7,9 +7,8 @@ import (
 	"context"
 	"path/filepath"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
@@ -58,13 +57,13 @@ type Tests struct {
 }
 
 // Open opens an instance of the testing environment.
-func (t *Tests) Open(c *gc.C, ctx context.Context, cfg *config.Config) environs.Environ {
+func (t *Tests) Open(c *tc.C, ctx context.Context, cfg *config.Config) environs.Environ {
 	e, err := environs.New(ctx, environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: cfg,
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", cfg.AllAttrs()))
-	c.Assert(e, gc.NotNil)
+	c.Assert(err, tc.IsNil, tc.Commentf("opening environ %#v", cfg.AllAttrs()))
+	c.Assert(e, tc.NotNil)
 	return e
 }
 
@@ -84,7 +83,7 @@ func (t *Tests) CloudSpec() environscloudspec.CloudSpec {
 
 // PrepareParams returns the environs.PrepareParams that will be used to call
 // environs.Prepare.
-func (t *Tests) PrepareParams(c *gc.C) bootstrap.PrepareParams {
+func (t *Tests) PrepareParams(c *tc.C) bootstrap.PrepareParams {
 	testConfigCopy := t.TestConfig.Merge(nil)
 
 	return bootstrap.PrepareParams{
@@ -97,37 +96,37 @@ func (t *Tests) PrepareParams(c *gc.C) bootstrap.PrepareParams {
 }
 
 // Prepare prepares an instance of the testing environment.
-func (t *Tests) Prepare(c *gc.C) environs.Environ {
+func (t *Tests) Prepare(c *tc.C) environs.Environ {
 	t.Env = t.PrepareWithParams(c, t.PrepareParams(c))
 	return t.Env
 }
 
 // PrepareWithParams prepares an instance of the testing environment.
-func (t *Tests) PrepareWithParams(c *gc.C, params bootstrap.PrepareParams) environs.Environ {
+func (t *Tests) PrepareWithParams(c *tc.C, params bootstrap.PrepareParams) environs.Environ {
 	e, err := bootstrap.PrepareController(false, t.BootstrapContext, t.ControllerStore, params)
-	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", params.ModelConfig))
-	c.Assert(e, gc.NotNil)
+	c.Assert(err, tc.IsNil, tc.Commentf("preparing environ %#v", params.ModelConfig))
+	c.Assert(e, tc.NotNil)
 	t.Env = e.(environs.Environ)
 	return t.Env
 }
 
-func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attrs, errorMatches string) error {
+func (t *Tests) AssertPrepareFailsWithConfig(c *tc.C, badConfig coretesting.Attrs, errorMatches string) error {
 	args := t.PrepareParams(c)
 	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(badConfig)
 
 	e, err := bootstrap.PrepareController(false, t.BootstrapContext, t.ControllerStore, args)
-	c.Assert(err, gc.ErrorMatches, errorMatches)
-	c.Assert(e, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, errorMatches)
+	c.Assert(e, tc.IsNil)
 	return err
 }
 
-func (t *Tests) SetUpTest(c *gc.C) {
+func (t *Tests) SetUpTest(c *tc.C) {
 	storageDir := c.MkDir()
 	baseURLPath := filepath.Join(storageDir, "tools")
 	t.DefaultBaseURL = utils.MakeFileURL(baseURLPath)
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	t.UploadFakeTools(c, stor, "released")
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclient.NewMemStore()
@@ -138,62 +137,62 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
 }
 
-func (t *Tests) TearDownTest(c *gc.C) {
+func (t *Tests) TearDownTest(c *tc.C) {
 	t.ToolsFixture.TearDownTest(c)
 }
 
-func (t *Tests) TestStartStop(c *gc.C) {
+func (t *Tests) TestStartStop(c *tc.C) {
 	e := t.Prepare(c)
 	cfg, err := e.Config().Apply(map[string]interface{}{
 		"agent-version": jujuversion.Current.String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = e.SetConfig(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	insts, err := e.Instances(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insts, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(insts, tc.HasLen, 0)
 
 	inst0, hc := testing.AssertStartInstance(c, e, t.ControllerUUID, "0")
-	c.Assert(inst0, gc.NotNil)
+	c.Assert(inst0, tc.NotNil)
 	id0 := inst0.Id()
 	// Sanity check for hardware characteristics.
-	c.Assert(hc.Arch, gc.NotNil)
-	c.Assert(hc.Mem, gc.NotNil)
-	c.Assert(hc.CpuCores, gc.NotNil)
+	c.Assert(hc.Arch, tc.NotNil)
+	c.Assert(hc.Mem, tc.NotNil)
+	c.Assert(hc.CpuCores, tc.NotNil)
 
 	inst1, _ := testing.AssertStartInstance(c, e, t.ControllerUUID, "1")
-	c.Assert(inst1, gc.NotNil)
+	c.Assert(inst1, tc.NotNil)
 	id1 := inst1.Id()
 
 	insts, err = e.Instances(context.Background(), []instance.Id{id0, id1})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insts, gc.HasLen, 2)
-	c.Assert(insts[0].Id(), gc.Equals, id0)
-	c.Assert(insts[1].Id(), gc.Equals, id1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(insts, tc.HasLen, 2)
+	c.Assert(insts[0].Id(), tc.Equals, id0)
+	c.Assert(insts[1].Id(), tc.Equals, id1)
 
 	// order of results is not specified
 	insts, err = e.AllInstances(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insts, gc.HasLen, 2)
-	c.Assert(insts[0].Id(), gc.Not(gc.Equals), insts[1].Id())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(insts, tc.HasLen, 2)
+	c.Assert(insts[0].Id(), tc.Not(tc.Equals), insts[1].Id())
 
 	err = e.StopInstances(context.Background(), inst0.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	insts, err = e.Instances(context.Background(), []instance.Id{id0, id1})
-	c.Assert(err, jc.ErrorIs, environs.ErrPartialInstances)
-	c.Assert(insts, gc.HasLen, 2)
-	c.Assert(insts[0], gc.IsNil)
-	c.Assert(insts[1].Id(), gc.Equals, id1)
+	c.Assert(err, tc.ErrorIs, environs.ErrPartialInstances)
+	c.Assert(insts, tc.HasLen, 2)
+	c.Assert(insts[0], tc.IsNil)
+	c.Assert(insts[1].Id(), tc.Equals, id1)
 
 	insts, err = e.AllInstances(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insts[0].Id(), gc.Equals, id1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(insts[0].Id(), tc.Equals, id1)
 }
 
-func (t *Tests) TestBootstrap(c *gc.C) {
+func (t *Tests) TestBootstrap(c *tc.C) {
 	credential := t.Credential
 	if credential.AuthType() == "" {
 		credential = cloud.NewEmptyCredential()
@@ -227,27 +226,27 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	e := t.Prepare(c)
 	err := bootstrap.Bootstrap(t.BootstrapContext, e, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerInstances, err := e.ControllerInstances(context.Background(), t.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerInstances, gc.Not(gc.HasLen), 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controllerInstances, tc.Not(tc.HasLen), 0)
 
 	e2 := t.Open(c, t.BootstrapContext, e.Config())
 	controllerInstances2, err := e2.ControllerInstances(context.Background(), t.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)
-	c.Assert(controllerInstances2, jc.SameContents, controllerInstances)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controllerInstances2, tc.Not(tc.HasLen), 0)
+	c.Assert(controllerInstances2, tc.SameContents, controllerInstances)
 
 	err = environs.Destroy(e2.Config().Name(), e2, context.Background(), t.ControllerStore)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
 	err = bootstrap.Bootstrap(t.BootstrapContext, e3, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = environs.Destroy(e3.Config().Name(), e3, context.Background(), t.ControllerStore)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

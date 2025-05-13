@@ -8,15 +8,14 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -28,14 +27,14 @@ type applicationSuite struct {
 	statusSet bool
 }
 
-var _ = gc.Suite(&applicationSuite{})
+var _ = tc.Suite(&applicationSuite{})
 
-func (s *applicationSuite) SetUpTest(c *gc.C) {
+func (s *applicationSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.life = life.Alive
 }
 
-func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
+func (s *applicationSuite) apiCallerFunc(c *tc.C) basetesting.APICallerFunc {
 	return func(objType string, version int, id, request string, arg, result interface{}) error {
 		if objType == "NotifyWatcher" {
 			if request != "Next" && request != "Stop" {
@@ -43,25 +42,25 @@ func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
 			}
 			return nil
 		}
-		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(objType, tc.Equals, "Uniter")
 		switch request {
 		case "Life":
-			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
-			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
 			*(result.(*params.LifeResults)) = params.LifeResults{
 				Results: []params.LifeResult{{
 					Life: s.life,
 				}},
 			}
 		case "WatchApplication":
-			c.Assert(arg, jc.DeepEquals, params.Entity{Tag: "application-mysql"})
-			c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+			c.Assert(arg, tc.DeepEquals, params.Entity{Tag: "application-mysql"})
+			c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResult{})
 			*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 				NotifyWatcherId: "1",
 			}
 		case "CharmURL":
-			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
-			c.Assert(result, gc.FitsTypeOf, &params.StringBoolResults{})
+			c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(result, tc.FitsTypeOf, &params.StringBoolResults{})
 			*(result.(*params.StringBoolResults)) = params.StringBoolResults{
 				Results: []params.StringBoolResult{{
 					Result: "ch:mysql",
@@ -69,16 +68,16 @@ func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
 				}},
 			}
 		case "CharmModifiedVersion":
-			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
-			c.Assert(result, gc.FitsTypeOf, &params.IntResults{})
+			c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(result, tc.FitsTypeOf, &params.IntResults{})
 			*(result.(*params.IntResults)) = params.IntResults{
 				Results: []params.IntResult{{
 					Result: 1,
 				}},
 			}
 		case "ApplicationStatus":
-			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-			c.Assert(result, gc.FitsTypeOf, &params.ApplicationStatusResults{})
+			c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+			c.Assert(result, tc.FitsTypeOf, &params.ApplicationStatusResults{})
 			*(result.(*params.ApplicationStatusResults)) = params.ApplicationStatusResults{
 				Results: []params.ApplicationStatusResult{{
 					Application: params.StatusResult{Status: "alive"},
@@ -88,7 +87,7 @@ func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
 				}},
 			}
 		case "SetApplicationStatus":
-			c.Assert(arg, jc.DeepEquals, params.SetStatus{
+			c.Assert(arg, tc.DeepEquals, params.SetStatus{
 				Entities: []params.EntityStatusArgs{
 					{
 						Tag:    "unit-mysql-0",
@@ -98,7 +97,7 @@ func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
 					},
 				},
 			})
-			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 			*(result.(*params.ErrorResults)) = params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			}
@@ -110,86 +109,86 @@ func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
 	}
 }
 
-func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
+func (s *applicationSuite) TestNameTagAndString(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	tag := names.NewApplicationTag("mysql")
 	app, err := client.Application(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.Name(), gc.Equals, "mysql")
-	c.Assert(app.String(), gc.Equals, "mysql")
-	c.Assert(app.Tag(), gc.Equals, tag)
-	c.Assert(app.Life(), gc.Equals, life.Alive)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(app.Name(), tc.Equals, "mysql")
+	c.Assert(app.String(), tc.Equals, "mysql")
+	c.Assert(app.Tag(), tc.Equals, tag)
+	c.Assert(app.Life(), tc.Equals, life.Alive)
 }
 
-func (s *applicationSuite) TestWatch(c *gc.C) {
+func (s *applicationSuite) TestWatch(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w, err := app.Watch(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-	case <-time.After(testing.LongWait):
+		c.Assert(ok, tc.IsTrue)
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
 }
 
-func (s *applicationSuite) TestRefresh(c *gc.C) {
+func (s *applicationSuite) TestRefresh(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.life = life.Dying
 	err = app.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.Life(), gc.Equals, life.Dying)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(app.Life(), tc.Equals, life.Dying)
 }
 
-func (s *applicationSuite) TestCharmURL(c *gc.C) {
+func (s *applicationSuite) TestCharmURL(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	curl, force, err := app.CharmURL(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.Equals, "ch:mysql")
-	c.Assert(force, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(curl, tc.Equals, "ch:mysql")
+	c.Assert(force, tc.IsTrue)
 }
 
-func (s *applicationSuite) TestCharmModifiedVersion(c *gc.C) {
+func (s *applicationSuite) TestCharmModifiedVersion(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ver, err := app.CharmModifiedVersion(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ver, tc.Equals, 1)
 }
 
-func (s *applicationSuite) TestSetApplicationStatus(c *gc.C) {
+func (s *applicationSuite) TestSetApplicationStatus(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = app.SetStatus(context.Background(), "mysql/0", status.Blocked, "app blocked", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.statusSet, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.statusSet, tc.IsTrue)
 }
 
-func (s *applicationSuite) TestApplicationStatus(c *gc.C) {
+func (s *applicationSuite) TestApplicationStatus(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	status, err := app.Status(context.Background(), "mysql/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, jc.DeepEquals, params.ApplicationStatusResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status, tc.DeepEquals, params.ApplicationStatusResult{
 		Application: params.StatusResult{Status: "alive"},
 		Units: map[string]params.StatusResult{
 			"unit-mysql-0": {Status: "dying"},

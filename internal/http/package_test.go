@@ -6,7 +6,7 @@ package http
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package http -destination client_mock_test.go github.com/juju/juju/internal/http RequestRecorder,RoundTripper
@@ -14,5 +14,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package http -destination clock_mock_test.go github.com/juju/clock Clock
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

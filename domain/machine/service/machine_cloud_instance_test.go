@@ -6,16 +6,15 @@ package service
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/internal/errors"
 )
 
-func (s *serviceSuite) TestRetrieveHardwareCharacteristics(c *gc.C) {
+func (s *serviceSuite) TestRetrieveHardwareCharacteristics(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expected := &instance.HardwareCharacteristics{
@@ -28,33 +27,33 @@ func (s *serviceSuite) TestRetrieveHardwareCharacteristics(c *gc.C) {
 		Return(expected, nil)
 
 	hc, err := NewService(s.state).HardwareCharacteristics(context.Background(), "42")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(hc, gc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hc, tc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestRetrieveHardwareCharacteristicsFails(c *gc.C) {
+func (s *serviceSuite) TestRetrieveHardwareCharacteristicsFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("42")).
 		Return(nil, errors.New("boom"))
 
 	hc, err := NewService(s.state).HardwareCharacteristics(context.Background(), "42")
-	c.Check(hc, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "retrieving hardware characteristics for machine \"42\": boom")
+	c.Check(hc, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "retrieving hardware characteristics for machine \"42\": boom")
 }
 
-func (s *serviceSuite) TestRetrieveAvailabilityZone(c *gc.C) {
+func (s *serviceSuite) TestRetrieveAvailabilityZone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().AvailabilityZone(gomock.Any(), machine.UUID("42")).
 		Return("foo", nil)
 
 	hc, err := NewService(s.state).AvailabilityZone(context.Background(), "42")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(hc, gc.DeepEquals, "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hc, tc.DeepEquals, "foo")
 }
 
-func (s *serviceSuite) TestSetMachineCloudInstance(c *gc.C) {
+func (s *serviceSuite) TestSetMachineCloudInstance(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hc := &instance.HardwareCharacteristics{
@@ -72,10 +71,10 @@ func (s *serviceSuite) TestSetMachineCloudInstance(c *gc.C) {
 	).Return(nil)
 
 	err := NewService(s.state).SetMachineCloudInstance(context.Background(), "42", "instance-42", "42", hc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *gc.C) {
+func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hc := &instance.HardwareCharacteristics{
@@ -93,25 +92,25 @@ func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *gc.C) {
 	).Return(errors.New("boom"))
 
 	err := NewService(s.state).SetMachineCloudInstance(context.Background(), "42", "instance-42", "42", hc)
-	c.Assert(err, gc.ErrorMatches, "setting machine cloud instance for machine \"42\": boom")
+	c.Assert(err, tc.ErrorMatches, "setting machine cloud instance for machine \"42\": boom")
 }
 
-func (s *serviceSuite) TestDeleteMachineCloudInstance(c *gc.C) {
+func (s *serviceSuite) TestDeleteMachineCloudInstance(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), machine.UUID("42")).Return(nil)
 
 	err := NewService(s.state).DeleteMachineCloudInstance(context.Background(), "42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestDeleteMachineCloudInstanceFails(c *gc.C) {
+func (s *serviceSuite) TestDeleteMachineCloudInstanceFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), machine.UUID("42")).Return(errors.New("boom"))
 
 	err := NewService(s.state).DeleteMachineCloudInstance(context.Background(), "42")
-	c.Assert(err, gc.ErrorMatches, "deleting machine cloud instance for machine \"42\": boom")
+	c.Assert(err, tc.ErrorMatches, "deleting machine cloud instance for machine \"42\": boom")
 }
 
 func uintptr(u uint64) *uint64 {

@@ -5,8 +5,7 @@ package space_test
 
 import (
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/space"
 )
@@ -15,14 +14,14 @@ type RenameSuite struct {
 	BaseSpaceSuite
 }
 
-var _ = gc.Suite(&RenameSuite{})
+var _ = tc.Suite(&RenameSuite{})
 
-func (s *RenameSuite) SetUpTest(c *gc.C) {
+func (s *RenameSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewRenameCommand
 }
 
-func (s *RenameSuite) TestInit(c *gc.C) {
+func (s *RenameSuite) TestInit(c *tc.C) {
 	for i, test := range []struct {
 		about         string
 		args          []string
@@ -74,19 +73,19 @@ func (s *RenameSuite) TestInit(c *gc.C) {
 		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
-			c.Check(err, gc.ErrorMatches, prefixedErr)
+			c.Check(err, tc.ErrorMatches, prefixedErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			command := command.(*space.RenameCommand)
-			c.Check(command.Name, gc.Equals, test.expectName)
-			c.Check(command.NewName, gc.Equals, test.expectNewName)
+			c.Check(command.Name, tc.Equals, test.expectName)
+			c.Check(command.NewName, tc.Equals, test.expectNewName)
 		}
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
 	}
 }
 
-func (s *RenameSuite) TestRunWithValidNamesSucceeds(c *gc.C) {
+func (s *RenameSuite) TestRunWithValidNamesSucceeds(c *tc.C) {
 	s.AssertRunSucceeds(c,
 		`renamed space "a-space" to "another-space"\n`,
 		"", // no stdout, just stderr
@@ -97,7 +96,7 @@ func (s *RenameSuite) TestRunWithValidNamesSucceeds(c *gc.C) {
 	s.api.CheckCall(c, 0, "RenameSpace", "a-space", "another-space")
 }
 
-func (s *RenameSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
+func (s *RenameSuite) TestRunWhenSpacesAPIFails(c *tc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
 	_ = s.AssertRunFails(c,

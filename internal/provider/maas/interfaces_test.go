@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/gomaasapi/v2"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 )
@@ -17,7 +16,7 @@ type interfacesSuite struct {
 	maasSuite
 }
 
-var _ = gc.Suite(&interfacesSuite{})
+var _ = tc.Suite(&interfacesSuite{})
 
 func newAddressOnSpaceWithId(
 	space string, id network.Id, address string, options ...func(network.AddressMutator),
@@ -415,19 +414,19 @@ const exampleInterfaceSetJSON = `
         }
 ]`
 
-func (s *interfacesSuite) TestParseInterfacesNoJSON(c *gc.C) {
+func (s *interfacesSuite) TestParseInterfacesNoJSON(c *tc.C) {
 	result, err := parseInterfaces(nil)
-	c.Check(err, gc.ErrorMatches, "parsing interfaces: unexpected end of JSON input")
-	c.Check(result, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "parsing interfaces: unexpected end of JSON input")
+	c.Check(result, tc.IsNil)
 }
 
-func (s *interfacesSuite) TestParseInterfacesBadJSON(c *gc.C) {
+func (s *interfacesSuite) TestParseInterfacesBadJSON(c *tc.C) {
 	result, err := parseInterfaces([]byte("$bad"))
-	c.Check(err, gc.ErrorMatches, `parsing interfaces: invalid character '\$' .*`)
-	c.Check(result, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, `parsing interfaces: invalid character '\$' .*`)
+	c.Check(result, tc.IsNil)
 }
 
-func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
+func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *tc.C) {
 
 	vlan0 := maasVLAN{
 		ID:          5001,
@@ -626,11 +625,11 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	}}
 
 	result, err := parseInterfaces([]byte(exampleInterfaceSetJSON))
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, expected)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expected)
 }
 
-func (s *interfacesSuite) TestMAASNetworkInterfaces(c *gc.C) {
+func (s *interfacesSuite) TestMAASNetworkInterfaces(c *tc.C) {
 	vlan0 := fakeVLAN{
 		id:  5001,
 		vid: 0,
@@ -985,11 +984,11 @@ func (s *interfacesSuite) TestMAASNetworkInterfaces(c *gc.C) {
 	instance := &maasInstance{machine: machine}
 
 	infos, err := maasNetworkInterfaces(context.Background(), instance, subnetsMap)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(infos, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(infos, tc.DeepEquals, expected)
 }
 
-func (s *interfacesSuite) TestMAASInterfacesNilVLAN(c *gc.C) {
+func (s *interfacesSuite) TestMAASInterfacesNilVLAN(c *tc.C) {
 	vlan0 := fakeVLAN{
 		id:  5001,
 		vid: 0,
@@ -1051,6 +1050,6 @@ func (s *interfacesSuite) TestMAASInterfacesNilVLAN(c *gc.C) {
 	}}
 
 	infos, err := maasNetworkInterfaces(context.Background(), instance, map[string]network.Id{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(infos, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(infos, tc.DeepEquals, expected)
 }

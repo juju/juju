@@ -4,8 +4,7 @@
 package modeloperator_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
@@ -17,31 +16,31 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ManifoldsSuite{})
+var _ = tc.Suite(&ManifoldsSuite{})
 
 type fakeAgent struct {
 	agent.Agent
 }
 
-func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
+func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 	manifolds := modeloperator.Manifolds(modeloperator.ManifoldConfig{
 		Agent: fakeAgent{},
 	})
 
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
-		c.Check(manifold.Start, gc.NotNil)
+		c.Check(manifold.Start, tc.NotNil)
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	manifolds := modeloperator.Manifolds(modeloperator.ManifoldConfig{Agent: &fakeAgent{}})
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
 		keys = append(keys, k)
 	}
 
-	c.Check(keys, jc.SameContents, []string{
+	c.Check(keys, tc.SameContents, []string{
 		"caas-broker-tracker",
 		"api-caller",
 		"log-sender",
@@ -57,7 +56,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	})
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		modeloperator.Manifolds(modeloperator.ManifoldConfig{
 			Agent: &fakeAgent{},

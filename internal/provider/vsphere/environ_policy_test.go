@@ -6,11 +6,10 @@ package vsphere_test
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
@@ -21,55 +20,55 @@ type environPolSuite struct {
 	EnvironFixture
 }
 
-var _ = gc.Suite(&environPolSuite{})
+var _ = tc.Suite(&environPolSuite{})
 
-func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
+func (s *environPolSuite) TestConstraintsValidator(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unsupported, gc.HasLen, 0)
+	c.Check(unsupported, tc.HasLen, 0)
 }
 
-func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
+func (s *environPolSuite) TestConstraintsValidatorEmpty(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unsupported, gc.HasLen, 0)
+	c.Check(unsupported, tc.HasLen, 0)
 }
 
-func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
+func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unsupported, jc.SameContents, []string{"tags", "virt-type"})
+	c.Check(unsupported, tc.SameContents, []string{"tags", "virt-type"})
 }
 
-func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {
+func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *tc.C) {
 	validator, err := s.env.ConstraintsValidator(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
+	c.Check(err, tc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
 }
 
-func (s *environPolSuite) TestPrecheckInstanceChecksPlacementZone(c *gc.C) {
+func (s *environPolSuite) TestPrecheckInstanceChecksPlacementZone(c *tc.C) {
 	s.client.folders = makeFolders("/DC/host")
 	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Placement: "zone=some-zone",
 	})
-	c.Assert(err, gc.ErrorMatches, `availability zone "some-zone" not found`)
+	c.Assert(err, tc.ErrorMatches, `availability zone "some-zone" not found`)
 
 	s.client.computeResources = []vsphereclient.ComputeResource{
 		{Resource: newComputeResource("z1"), Path: "/DC/host/z1"},
@@ -81,10 +80,10 @@ func (s *environPolSuite) TestPrecheckInstanceChecksPlacementZone(c *gc.C) {
 	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Placement: "zone=z1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environPolSuite) TestPrecheckInstanceChecksConstraintZones(c *gc.C) {
+func (s *environPolSuite) TestPrecheckInstanceChecksConstraintZones(c *tc.C) {
 	s.client.folders = makeFolders("/DC/host")
 	s.client.computeResources = []vsphereclient.ComputeResource{
 		{Resource: newComputeResource("z1"), Path: "/DC/host/z1"},
@@ -103,20 +102,20 @@ func (s *environPolSuite) TestPrecheckInstanceChecksConstraintZones(c *gc.C) {
 	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraints.MustParse("zones=z1,z2/child,z2/fish"),
 	})
-	c.Assert(err, gc.ErrorMatches, `availability zone "z2/fish" not found`)
+	c.Assert(err, tc.ErrorMatches, `availability zone "z2/fish" not found`)
 
 	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraints.MustParse("zones=z2/fish"),
 	})
-	c.Assert(err, gc.ErrorMatches, `availability zone "z2/fish" not found`)
+	c.Assert(err, tc.ErrorMatches, `availability zone "z2/fish" not found`)
 
 	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraints.MustParse("zones=z1,z2/child"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environPolSuite) TestPrecheckInstanceChecksConstraintDatastore(c *gc.C) {
+func (s *environPolSuite) TestPrecheckInstanceChecksConstraintDatastore(c *tc.C) {
 	s.client.datastores = []mo.Datastore{{
 		ManagedEntity: mo.ManagedEntity{Name: "foo"},
 	}, {
@@ -129,15 +128,15 @@ func (s *environPolSuite) TestPrecheckInstanceChecksConstraintDatastore(c *gc.C)
 	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraints.MustParse("root-disk-source=blam"),
 	})
-	c.Assert(err, gc.ErrorMatches, `datastore "blam" not found`)
+	c.Assert(err, tc.ErrorMatches, `datastore "blam" not found`)
 
 	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraints.MustParse("root-disk-source=foo"),
 	})
-	c.Assert(err, gc.ErrorMatches, `datastore "foo" not found`)
+	c.Assert(err, tc.ErrorMatches, `datastore "foo" not found`)
 
 	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraints.MustParse("root-disk-source=bar"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

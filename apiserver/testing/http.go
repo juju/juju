@@ -7,12 +7,11 @@ import (
 	"io"
 	"net/http"
 
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/testing/httptesting"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	jujuversion "github.com/juju/juju/core/version"
 	jujuhttp "github.com/juju/juju/internal/http"
+	"github.com/juju/juju/internal/testhelpers/httptesting"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -65,7 +64,7 @@ type HTTPRequestParams struct {
 	Nonce string
 }
 
-func SendHTTPRequest(c *gc.C, p HTTPRequestParams) *http.Response {
+func SendHTTPRequest(c *tc.C, p HTTPRequestParams) *http.Response {
 	c.Logf("sendRequest: %s", p.URL)
 	hp := httptesting.DoRequestParams{
 		Do:           p.Do,
@@ -96,12 +95,12 @@ func SendHTTPRequest(c *gc.C, p HTTPRequestParams) *http.Response {
 	return httptesting.Do(c, hp)
 }
 
-func AssertResponse(c *gc.C, resp *http.Response, expHTTPStatus int, expContentType string) []byte {
+func AssertResponse(c *tc.C, resp *http.Response, expHTTPStatus int, expContentType string) []byte {
 	body, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(resp.StatusCode, gc.Equals, expHTTPStatus, gc.Commentf("body: %s", body))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resp.StatusCode, tc.Equals, expHTTPStatus, tc.Commentf("body: %s", body))
 	ctype := resp.Header.Get("Content-Type")
-	c.Assert(ctype, gc.Equals, expContentType)
+	c.Assert(ctype, tc.Equals, expContentType)
 	return body
 }

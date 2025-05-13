@@ -8,16 +8,15 @@ import (
 	"errors"
 	"time"
 
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/database/dqlite"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -27,9 +26,9 @@ type workerSuite struct {
 	trackedDB *MockTrackedDB
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
+func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -64,10 +63,10 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
 	w.Kill()
 
 	_, err := dbw.GetDB("anything")
-	c.Assert(err, jc.ErrorIs, database.ErrDBAccessorDying)
+	c.Assert(err, tc.ErrorIs, database.ErrDBAccessorDying)
 }
 
-func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
+func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -98,10 +97,10 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
+	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
+func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -147,7 +146,7 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
+func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -205,7 +204,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	// This is the first config change, which has incomplete cluster config.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 
@@ -221,7 +220,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	// The node should start subsequently.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 
@@ -240,7 +239,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupExistingNode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -284,7 +283,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	ensureStartup(c, w.(*dbWorker))
 }
 
-func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -323,7 +322,7 @@ func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C
 	ensureStartup(c, w.(*dbWorker))
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -378,18 +377,18 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	// None of the cause reconfiguration.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -459,7 +458,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	defer func() {
 		close(dbDone)
 		err := workertest.CheckKilled(c, w)
-		c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
+		c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 	}()
 	dbw := w.(*dbWorker)
 
@@ -469,16 +468,16 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	// Push a config change notification to simulate a move into HA.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	return s.newWorkerWithDB(c, s.trackedDB)
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferred(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferred(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -529,12 +528,12 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	// loopback binding is preferred.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for config change to be processed")
 	}
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.trackedDB = NewMockTrackedDB(ctrl)

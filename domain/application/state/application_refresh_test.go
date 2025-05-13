@@ -10,9 +10,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/domain/application"
@@ -32,9 +31,9 @@ type applicationRefreshSuite struct {
 	otherAppCount int
 }
 
-var _ = gc.Suite(&applicationRefreshSuite{})
+var _ = tc.Suite(&applicationRefreshSuite{})
 
-func (s *applicationRefreshSuite) SetUpTest(c *gc.C) {
+func (s *applicationRefreshSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -42,7 +41,7 @@ func (s *applicationRefreshSuite) SetUpTest(c *gc.C) {
 
 // TestSetApplicationCharmNoRelation verifies that an application charm can be
 // updated when no active relations exist, even if the new charm has no relation
-func (s *applicationRefreshSuite) TestSetApplicationCharmNoRelation(c *gc.C) {
+func (s *applicationRefreshSuite) TestSetApplicationCharmNoRelation(c *tc.C) {
 	// Arrange
 	appID := s.createApplication(c, createApplicationArgs{
 		relations: []charm.Relation{
@@ -59,14 +58,14 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmNoRelation(c *gc.C) {
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSetApplicationCharmSuccessWithRelationEstablished verifies that an
 // application charm can be updated successfully when an active relation exists
 // and the updated charm's relation limit is greater than the currently
 // established usages.
-func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEstablished(c *gc.C) {
+func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEstablished(c *tc.C) {
 	// Arrange
 	appID := s.createApplication(c, createApplicationArgs{
 		relations: []charm.Relation{
@@ -99,12 +98,12 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEsta
 	})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSetApplicationCharmErrorWithRelation verifies that an application charm cannot
 // be updated if an established relation is suppressed.
-func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRelationSuppressed(c *gc.C) {
+func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRelationSuppressed(c *tc.C) {
 	// Arrange
 	appID := s.createApplication(c, createApplicationArgs{
 		appName: "my-app",
@@ -130,13 +129,13 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	})
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, `would break relation my-app:established`)
+	c.Assert(err, tc.ErrorMatches, `would break relation my-app:established`)
 }
 
 // TestSetApplicationCharmErrorWithEstablishedRelationExceedLimits verifies
 // that updating an application charm fails when the new charm's relation
 // limit is lower than the number of already established relations.
-func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRelationExceedLimits(c *gc.C) {
+func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRelationExceedLimits(c *tc.C) {
 	// Arrange
 	appID := s.createApplication(c, createApplicationArgs{
 		appName: "my-app",
@@ -170,12 +169,12 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	})
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		".*limit of 1 for my-app:established.*established relations[^0-9]+2[^0-9]+")
 }
 
 // createApplication creates a new application in the state with the provided arguments and returns its unique ID.
-func (s *applicationRefreshSuite) createApplication(c *gc.C, args createApplicationArgs) coreapplication.ID {
+func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicationArgs) coreapplication.ID {
 	appName := args.appName
 	if appName == "" {
 		appName = "some-app"
@@ -213,13 +212,13 @@ func (s *applicationRefreshSuite) createApplication(c *gc.C, args createApplicat
 		Scale:             1,
 		Channel:           channel,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to create application %q", appName))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to create application %q", appName))
 	return appID
 }
 
 // createCharm creates a mock Charm instance with provided relation metadata
 // and returns it along with a cleanup function.
-func (s *applicationRefreshSuite) createCharm(c *gc.C, args createCharmArgs) (internalcharm.Charm, func()) {
+func (s *applicationRefreshSuite) createCharm(c *tc.C, args createCharmArgs) (internalcharm.Charm, func()) {
 	ctrl := gomock.NewController(c)
 
 	newCharm := NewMockCharm(ctrl)
@@ -233,7 +232,7 @@ func (s *applicationRefreshSuite) createCharm(c *gc.C, args createCharmArgs) (in
 
 // establishRelationWith creates a new relation between the current application
 // and another, created on the fly, based on the given parameters.
-func (s *applicationRefreshSuite) establishRelationWith(c *gc.C, currentAppID coreapplication.ID, relationName string,
+func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID coreapplication.ID, relationName string,
 	role charm.RelationRole) {
 	s.otherAppCount++
 	// Create relation metadata based on the role.
@@ -309,7 +308,7 @@ func (s *applicationRefreshSuite) establishRelationWith(c *gc.C, currentAppID co
 		return nil
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // createApplicationArgs represents the arguments required to create a
@@ -323,10 +322,10 @@ type createApplicationArgs struct {
 
 // relationMap processes the relations of a createApplicationArgs instance,
 // filtering by role and returning a mapped result.
-func (caa createApplicationArgs) relationMap(c *gc.C,
+func (caa createApplicationArgs) relationMap(c *tc.C,
 	role charm.RelationRole) map[string]charm.Relation {
 	result := transform.SliceToMap(caa.relations, func(f charm.Relation) (string, charm.Relation) {
-		c.Assert(f.Role, gc.Not(gc.Equals), "", gc.Commentf("(Arrange) relation role must not be empty"))
+		c.Assert(f.Role, tc.Not(tc.Equals), "", tc.Commentf("(Arrange) relation role must not be empty"))
 		if f.Role != role {
 			return "", charm.Relation{}
 		}
@@ -362,10 +361,10 @@ type createCharmArgs struct {
 
 // relationMap processes the relations of a createCharmArgs instance,
 // filtering by role and returning a mapped result.
-func (cca createCharmArgs) relationMap(c *gc.C,
+func (cca createCharmArgs) relationMap(c *tc.C,
 	role internalcharm.RelationRole) map[string]internalcharm.Relation {
 	result := transform.SliceToMap(cca.relations, func(f internalcharm.Relation) (string, internalcharm.Relation) {
-		c.Assert(f.Role, gc.Not(gc.Equals), "", gc.Commentf("(Arrange) relation role must not be empty"))
+		c.Assert(f.Role, tc.Not(tc.Equals), "", tc.Commentf("(Arrange) relation role must not be empty"))
 		if f.Role != role {
 			return "", internalcharm.Relation{}
 		}

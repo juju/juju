@@ -7,53 +7,56 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
+	net "net"
 	"time"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
-	"google.golang.org/grpc/test/bufconn"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 const maxConcurrentConnections = 10
 const testVirtualHostname = "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"
 
 type sshServerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	userSigner     ssh.Signer
 	sessionHandler *MockSessionHandler
 }
 
-var _ = gc.Suite(&sshServerSuite{})
+var _ = tc.Suite(&sshServerSuite{})
 
-func (s *sshServerSuite) SetUpSuite(c *gc.C) {
+func (s *sshServerSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
 	// Setup user signer
 	userKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	userSigner, err := gossh.NewSignerFromKey(userKey)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.userSigner = userSigner
 }
 
-func (s *sshServerSuite) SetUpMocks(c *gc.C) *gomock.Controller {
+func (s *sshServerSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.sessionHandler = NewMockSessionHandler(ctrl)
 
+	c.Cleanup(func() {
+		s.sessionHandler = nil
+	})
 	return ctrl
 }
 
@@ -63,9 +66,8 @@ func newServerWorkerConfig(
 	modifier func(*ServerWorkerConfig),
 ) *ServerWorkerConfig {
 	cfg := &ServerWorkerConfig{
-		Logger:               l,
-		JumpHostKey:          j,
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger:      l,
+		JumpHostKey: j,
 	}
 
 	modifier(cfg)
@@ -73,53 +75,50 @@ func newServerWorkerConfig(
 	return cfg
 }
 
-func (s *sshServerSuite) TestValidate(c *gc.C) {
+func (s *sshServerSuite) TestValidate(c *tc.C) {
 	cfg := &ServerWorkerConfig{}
 	l := loggertesting.WrapCheckLog(c)
 
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	// Test no Logger.
 	cfg = newServerWorkerConfig(l, "Logger", func(cfg *ServerWorkerConfig) {
 		cfg.Logger = nil
 	})
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	// Test no JumpHostKey.
 	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
 		cfg.JumpHostKey = ""
 	})
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	// Test no NewSSHServerListener.
-	cfg = newServerWorkerConfig(l, "NewSSHServerListener", func(cfg *ServerWorkerConfig) {
-		cfg.NewSSHServerListener = nil
-	})
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-func (s *sshServerSuite) TestSSHServer(c *gc.C) {
+func (s *sshServerSuite) TestSSHServer(c *tc.C) {
 	defer s.SetUpMocks(c).Finish()
 
-	// Firstly, start the server on an in-memory listener
-	listener := bufconn.Listen(1024)
+	// Start a real unix domain socket at a random name.
+	endpoint := "@" + uuid.MustNewUUID().String()
+	listener, err := net.Listen("unix", endpoint)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = listener.Close() }()
 
 	server, err := NewServerWorker(ServerWorkerConfig{
 		Logger:                   loggertesting.WrapCheckLog(c),
 		Listener:                 listener,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)
 	workertest.CheckAlive(c, server)
 
 	// Dial the in-memory listener
-	conn, err := listener.Dial()
-	c.Assert(err, jc.ErrorIsNil)
+	conn, err := net.Dial("unix", endpoint)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = conn.Close() }()
 
 	// Open a client connection
 	jumpConn, chans, terminatingReqs, err := gossh.NewClientConn(
@@ -132,12 +131,12 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Open jump connection
 	client := gossh.NewClient(jumpConn, chans, terminatingReqs)
 	tunnel, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now with this opened direct-tcpip channel, open a session connection
 	terminatingClientConn, terminatingClientChan, terminatingReqs, err := gossh.NewClientConn(
@@ -150,40 +149,45 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 				gossh.PublicKeys(s.userSigner),
 			},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	terminatingClient := gossh.NewClient(terminatingClientConn, terminatingClientChan, terminatingReqs)
 	terminatingSession, err := terminatingClient.NewSession()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.sessionHandler.EXPECT().Handle(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(session ssh.Session, destination virtualhostname.Info) {
-			c.Check(destination.String(), gc.Equals, testVirtualHostname)
+			c.Check(destination.String(), tc.Equals, testVirtualHostname)
 			_, _ = session.Write(fmt.Appendf([]byte{}, "Your final destination is: %s\n", destination.String()))
 		},
 	)
 	output, err := terminatingSession.CombinedOutput("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(output), gc.Equals, fmt.Sprintf("Your final destination is: %s\n", testVirtualHostname))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(output), tc.Equals, fmt.Sprintf("Your final destination is: %s\n", testVirtualHostname))
 
 	// Server isn't gracefully closed, it's forcefully closed. All connections ended
 	// from server side.
 	workertest.CleanKill(c, server)
 }
 
-func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
-	// Firstly, start the server on an in-memory listener
-	listener := bufconn.Listen(1024)
+func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
+	defer s.SetUpMocks(c).Finish()
+
+	// Start a real unix domain socket at a random name.
+	endpoint := "@" + uuid.MustNewUUID().String()
+	listener, err := net.Listen("unix", endpoint)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = listener.Close() }()
+
 	worker, err := NewServerWorker(ServerWorkerConfig{
 		Logger:                   loggertesting.WrapCheckLog(c),
 		Listener:                 listener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
 
 	srv := worker.(*ServerWorker)
@@ -191,7 +195,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 	// Check server side that the connection count matches the expected value
 	// otherwise we face a race condition in tests where the server hasn't yet
 	// decreased the connection count.
-	checkConnCount := func(c *gc.C, expected int32) {
+	checkConnCount := func(c *tc.C, expected int32) {
 		done := time.After(200 * time.Millisecond)
 		for {
 			connCount := srv.concurrentConnections.Load()
@@ -221,15 +225,15 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		}
 		checkConnCount(c, 0)
 		for range maxConcurrentConnections {
-			client := inMemoryDial(c, listener, config)
+			client := dial(c, "unix", endpoint, config)
 			clients = append(clients, client)
 		}
 		checkConnCount(c, maxConcurrentConnections)
-		jumpServerConn, err := listener.Dial()
-		c.Assert(err, jc.ErrorIsNil)
+		jumpServerConn, err := net.Dial("unix", endpoint)
+		c.Assert(err, tc.ErrorIsNil)
 
 		_, _, _, err = gossh.NewClientConn(jumpServerConn, "", config)
-		c.Assert(err, gc.ErrorMatches, ".*handshake failed:.*")
+		c.Assert(err, tc.ErrorMatches, ".*handshake failed:.*")
 
 		// close the connections
 		for _, client := range clients {
@@ -237,52 +241,60 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		}
 		checkConnCount(c, 0)
 		// check the next connection is accepted
-		client := inMemoryDial(c, listener, config)
+		client := dial(c, "unix", endpoint, config)
 		client.Close()
 		checkConnCount(c, 0)
 	}
 }
 
-// inMemoryDial returns and SSH connection that uses an in-memory transport.
-func inMemoryDial(c *gc.C, listener *bufconn.Listener, config *gossh.ClientConfig) *gossh.Client {
-	jumpServerConn, err := listener.Dial()
-	c.Assert(err, jc.ErrorIsNil)
+// dial returns and SSH connection that uses an in-memory transport.
+func dial(c *tc.C, network string, addr string, config *gossh.ClientConfig) *gossh.Client {
+	jumpServerConn, err := net.Dial(network, addr)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sshConn, newChan, reqs, err := gossh.NewClientConn(jumpServerConn, "", config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return gossh.NewClient(sshConn, newChan, reqs)
 }
 
-func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
-	c.Skip("this test is flaky, skipping until it is fixed")
+func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 	defer s.SetUpMocks(c).Finish()
 
-	// Firstly, start the server on an in-memory listener
-	listener := bufconn.Listen(1024)
+	// Start a real unix domain socket at a random name.
+	endpoint := "@" + uuid.MustNewUUID().String()
+	listener, err := net.Listen("unix", endpoint)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = listener.Close() }()
+
 	worker, err := NewServerWorker(ServerWorkerConfig{
 		Logger:                   loggertesting.WrapCheckLog(c),
 		Listener:                 listener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
 
 	report := worker.(*ServerWorker).Report()
-	c.Assert(report, gc.DeepEquals, map[string]interface{}{
+	c.Assert(report, tc.DeepEquals, map[string]interface{}{
 		"concurrent_connections": int32(0),
 	})
 
-	// Dial the in-memory listener
-	conn, err := listener.Dial()
-	c.Assert(err, jc.ErrorIsNil)
-	defer conn.Close()
+	// Dial the listener
+	config := &gossh.ClientConfig{
+		User:            "ubuntu",
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		Auth: []gossh.AuthMethod{
+			gossh.PublicKeys(s.userSigner),
+		},
+	}
+	client := dial(c, "unix", endpoint, config)
+	defer func() { _ = client.Close() }()
 
 	report = worker.(*ServerWorker).Report()
-	c.Assert(report, gc.DeepEquals, map[string]interface{}{
+	c.Assert(report, tc.DeepEquals, map[string]interface{}{
 		"concurrent_connections": int32(1),
 	})
 }

@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/modelmanager"
@@ -21,20 +20,20 @@ type modelInfoSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&modelInfoSuite{})
+var _ = tc.Suite(&modelInfoSuite{})
 
-func (s *modelInfoSuite) checkCall(c *gc.C, objType string, id, request string) {
-	c.Check(objType, gc.Equals, "ModelManager")
-	c.Check(id, gc.Equals, "")
-	c.Check(request, gc.Equals, "ModelInfo")
+func (s *modelInfoSuite) checkCall(c *tc.C, objType string, id, request string) {
+	c.Check(objType, tc.Equals, "ModelManager")
+	c.Check(id, tc.Equals, "")
+	c.Check(request, tc.Equals, "ModelInfo")
 }
 
-func (s *modelInfoSuite) assertResponse(c *gc.C, result interface{}) *params.ModelInfoResults {
-	c.Assert(result, gc.FitsTypeOf, &params.ModelInfoResults{})
+func (s *modelInfoSuite) assertResponse(c *tc.C, result interface{}) *params.ModelInfoResults {
+	c.Assert(result, tc.FitsTypeOf, &params.ModelInfoResults{})
 	return result.(*params.ModelInfoResults)
 }
 
-func (s *modelInfoSuite) assertExpectedModelInfo(c *gc.C, expectedInfo params.ModelInfoResults) {
+func (s *modelInfoSuite) assertExpectedModelInfo(c *tc.C, expectedInfo params.ModelInfoResults) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, result interface{}) error {
 			s.checkCall(c, objType, id, request)
@@ -48,11 +47,11 @@ func (s *modelInfoSuite) assertExpectedModelInfo(c *gc.C, expectedInfo params.Mo
 		input = append(input, testing.ModelTag)
 	}
 	info, err := client.ModelInfo(context.Background(), input)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, expectedInfo.Results)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, expectedInfo.Results)
 }
 
-func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfo(c *tc.C) {
 	results := params.ModelInfoResults{
 		Results: []params.ModelInfoResult{{
 			Result: &params.ModelInfo{Name: "name", UUID: "etc.", Type: "foo"},
@@ -63,7 +62,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.assertExpectedModelInfo(c, results)
 }
 
-func (s *modelInfoSuite) TestModelInfoOldController(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoOldController(c *tc.C) {
 	results := params.ModelInfoResults{
 		Results: []params.ModelInfoResult{{
 			Result: &params.ModelInfo{Name: "name", UUID: "etc."},
@@ -72,10 +71,10 @@ func (s *modelInfoSuite) TestModelInfoOldController(c *gc.C) {
 		}},
 	}
 	s.assertExpectedModelInfo(c, results)
-	c.Assert(results.Results[0].Result.Type, gc.Equals, "iaas")
+	c.Assert(results.Results[0].Result.Type, tc.Equals, "iaas")
 }
 
-func (s *modelInfoSuite) TestModelInfoWithAgentVersion(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoWithAgentVersion(c *tc.C) {
 	results := params.ModelInfoResults{
 		Results: []params.ModelInfoResult{{
 			Result: &params.ModelInfo{Name: "name", UUID: "etc.", Type: "foo", AgentVersion: &version.Current},
@@ -84,7 +83,7 @@ func (s *modelInfoSuite) TestModelInfoWithAgentVersion(c *gc.C) {
 	s.assertExpectedModelInfo(c, results)
 }
 
-func (s *modelInfoSuite) TestModelInfoWithSupportedFeatures(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoWithSupportedFeatures(c *tc.C) {
 	results := params.ModelInfoResults{
 		Results: []params.ModelInfoResult{{
 			Result: &params.ModelInfo{
@@ -100,11 +99,11 @@ func (s *modelInfoSuite) TestModelInfoWithSupportedFeatures(c *gc.C) {
 	s.assertExpectedModelInfo(c, results)
 }
 
-func (s *modelInfoSuite) TestInvalidResultCount(c *gc.C) {
+func (s *modelInfoSuite) TestInvalidResultCount(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, result interface{}) error {
 			s.checkCall(c, objType, id, request)
-			c.Assert(a, jc.DeepEquals, params.Entities{
+			c.Assert(a, tc.DeepEquals, params.Entities{
 				Entities: []params.Entity{{testing.ModelTag.String()}, {testing.ModelTag.String()}},
 			})
 			resp := s.assertResponse(c, result)
@@ -114,5 +113,5 @@ func (s *modelInfoSuite) TestInvalidResultCount(c *gc.C) {
 	)
 	client := modelmanager.NewClient(apiCaller)
 	_, err := client.ModelInfo(context.Background(), []names.ModelTag{testing.ModelTag, testing.ModelTag})
-	c.Assert(err, gc.ErrorMatches, "expected 2 result\\(s\\), got 1")
+	c.Assert(err, tc.ErrorMatches, "expected 2 result\\(s\\), got 1")
 }

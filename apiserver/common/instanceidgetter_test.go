@@ -9,9 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -24,15 +23,15 @@ type instanceIdGetterSuite struct {
 	machineService *mocks.MockMachineService
 }
 
-var _ = gc.Suite(&instanceIdGetterSuite{})
+var _ = tc.Suite(&instanceIdGetterSuite{})
 
-func (s *instanceIdGetterSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *instanceIdGetterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.machineService = mocks.NewMockMachineService(ctrl)
 	return ctrl
 }
 
-func (s *instanceIdGetterSuite) TestInstanceId(c *gc.C) {
+func (s *instanceIdGetterSuite) TestInstanceId(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
@@ -54,8 +53,8 @@ func (s *instanceIdGetterSuite) TestInstanceId(c *gc.C) {
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"}, {Tag: "unit-x-4"},
 	}}
 	results, err := ig.InstanceId(context.Background(), entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "foo"},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -66,11 +65,11 @@ func (s *instanceIdGetterSuite) TestInstanceId(c *gc.C) {
 	})
 }
 
-func (s *instanceIdGetterSuite) TestInstanceIdError(c *gc.C) {
+func (s *instanceIdGetterSuite) TestInstanceIdError(c *tc.C) {
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	ig := common.NewInstanceIdGetter(s.machineService, getCanRead)
 	_, err := ig.InstanceId(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "unit-x-0"}}})
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }

@@ -6,8 +6,7 @@ package secretsbackendmanager_test
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/secretsbackendmanager"
@@ -15,28 +14,28 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&SecretBackendsSuite{})
+var _ = tc.Suite(&SecretBackendsSuite{})
 
 type SecretBackendsSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *SecretBackendsSuite) TestNewClient(c *gc.C) {
+func (s *SecretBackendsSuite) TestNewClient(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
 	client := secretsbackendmanager.NewClient(apiCaller)
-	c.Assert(client, gc.NotNil)
+	c.Assert(client, tc.NotNil)
 }
 
-func (s *SecretBackendsSuite) TestWatchSecretsRotationChanges(c *gc.C) {
+func (s *SecretBackendsSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretBackendsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchSecretBackendsRotateChanges")
-		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.SecretBackendRotateWatchResult{})
+		c.Check(objType, tc.Equals, "SecretBackendsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchSecretBackendsRotateChanges")
+		c.Check(arg, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.SecretBackendRotateWatchResult{})
 		*(result.(*params.SecretBackendRotateWatchResult)) = params.SecretBackendRotateWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
@@ -44,19 +43,19 @@ func (s *SecretBackendsSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	})
 	client := secretsbackendmanager.NewClient(apiCaller)
 	_, err := client.WatchTokenRotationChanges(context.Background())
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *SecretBackendsSuite) TestRotateBackendTokens(c *gc.C) {
+func (s *SecretBackendsSuite) TestRotateBackendTokens(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretBackendsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "RotateBackendTokens")
-		c.Check(arg, jc.DeepEquals, params.RotateSecretBackendArgs{
+		c.Check(objType, tc.Equals, "SecretBackendsManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "RotateBackendTokens")
+		c.Check(arg, tc.DeepEquals, params.RotateSecretBackendArgs{
 			BackendIDs: []string{"backend-id"},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
 				Error: &params.Error{Message: "boom"},
@@ -66,5 +65,5 @@ func (s *SecretBackendsSuite) TestRotateBackendTokens(c *gc.C) {
 	})
 	client := secretsbackendmanager.NewClient(apiCaller)
 	err := client.RotateBackendTokens(context.Background(), "backend-id")
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

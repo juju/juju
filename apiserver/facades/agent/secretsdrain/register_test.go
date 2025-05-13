@@ -6,22 +6,22 @@ package secretsdrain_test
 import (
 	"context"
 
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/secretsdrain"
 	"github.com/juju/juju/apiserver/facades/agent/secretsdrain/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type drainSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&drainSuite{})
+var _ = tc.Suite(&drainSuite{})
 
-func (s *drainSuite) TestNewSecretManagerAPIPermissionCheck(c *gc.C) {
+func (s *drainSuite) TestNewSecretManagerAPIPermissionCheck(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -31,5 +31,5 @@ func (s *drainSuite) TestNewSecretManagerAPIPermissionCheck(c *gc.C) {
 	_, err := secretsdrain.NewSecretsDrainAPI(context.Background(), facadetest.ModelContext{
 		Auth_: authorizer,
 	})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

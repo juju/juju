@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/macaroon.v2"
 
@@ -30,12 +29,13 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
 type mockState struct {
-	testing.Stub
+	testhelpers.Stub
 	crossmodelrelations.CrossModelRelationsState
 	modelConfig           coretesting.Attrs
 	relations             map[string]*mockRelation
@@ -351,7 +351,7 @@ func (m *mockModel) Owner() names.UserTag {
 
 type mockRelation struct {
 	commoncrossmodel.Relation
-	testing.Stub
+	testhelpers.Stub
 	id              int
 	key             string
 	suspended       bool
@@ -510,7 +510,7 @@ func (m *mockDestroyOperation) Done(error) error {
 
 type mockRemoteApplication struct {
 	commoncrossmodel.RemoteApplication
-	testing.Stub
+	testhelpers.Stub
 	consumerproxy   bool
 	sourceModelUUID string
 	consumeversion  int
@@ -540,7 +540,7 @@ type mockApplication struct {
 	commoncrossmodel.Application
 	name      string
 	appStatus status.Status
-	testing.Stub
+	testhelpers.Stub
 	life state.Life
 	eps  []relation.Endpoint
 }
@@ -587,7 +587,7 @@ func (m *mockOfferConnection) UserName() string {
 
 type mockRelationUnit struct {
 	commoncrossmodel.RelationUnit
-	testing.Stub
+	testhelpers.Stub
 	inScope  bool
 	settings map[string]interface{}
 }
@@ -666,7 +666,7 @@ func (m mockVerifier) VerifyMacaroon(ctx context.Context, ms macaroon.Slice) ([]
 }
 
 type mockBakeryService struct {
-	testing.Stub
+	testhelpers.Stub
 	authentication.ExpirableStorageBakery
 	ops []bakery.Op
 }

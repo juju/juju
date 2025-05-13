@@ -6,8 +6,7 @@ package instances
 import (
 	"sort"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/testing"
@@ -17,7 +16,7 @@ type instanceTypeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&instanceTypeSuite{})
+var _ = tc.Suite(&instanceTypeSuite{})
 
 var hvm = "hvm"
 
@@ -229,7 +228,7 @@ var getInstanceTypesTest = []struct {
 	},
 }
 
-func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *gc.C) {
+func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *tc.C) {
 	for i, t := range getInstanceTypesTest {
 		c.Logf("test %d: %s", i, t.about)
 		itypesToUse := t.itypesToUse
@@ -237,35 +236,35 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *gc.C) {
 			itypesToUse = instanceTypes
 		}
 		itypes, err := MatchingInstanceTypes(itypesToUse, "test", constraints.MustParse(t.cons))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
 			if t.arch != "" {
-				c.Check(itype.Arch, gc.Equals, t.arch)
+				c.Check(itype.Arch, tc.Equals, t.arch)
 			} else {
-				c.Check(itype.Arch, gc.Not(gc.Equals), "")
+				c.Check(itype.Arch, tc.Not(tc.Equals), "")
 			}
 			names[i] = itype.Name
 		}
-		c.Check(names, gc.DeepEquals, t.expectedItypes)
+		c.Check(names, tc.DeepEquals, t.expectedItypes)
 	}
 }
 
-func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *gc.C) {
+func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *tc.C) {
 	_, err := MatchingInstanceTypes(nil, "test", constraints.MustParse("cpu-power=9001"))
-	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cpu-power=9001"`)
+	c.Check(err, tc.ErrorMatches, `no instance types in test matching constraints "cpu-power=9001"`)
 
 	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("arch=arm64 mem=8G"))
-	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "arch=arm64 mem=8192M"`)
+	c.Check(err, tc.ErrorMatches, `no instance types in test matching constraints "arch=arm64 mem=8192M"`)
 
 	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("cores=9000"))
-	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cores=9000"`)
+	c.Check(err, tc.ErrorMatches, `no instance types in test matching constraints "cores=9000"`)
 
 	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("mem=900000M"))
-	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "mem=900000M"`)
+	c.Check(err, tc.ErrorMatches, `no instance types in test matching constraints "mem=900000M"`)
 
 	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("instance-type=dep.medium mem=8G"))
-	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "instance-type=dep.medium mem=8192M"`)
+	c.Check(err, tc.ErrorMatches, `no instance types in test matching constraints "instance-type=dep.medium mem=8192M"`)
 }
 
 var instanceTypeMatchTests = []struct {
@@ -300,7 +299,7 @@ var instanceTypeMatchTests = []struct {
 	{"mem=511G", "VM.Standard3.Flex", "amd64"},
 }
 
-func (s *instanceTypeSuite) TestMatch(c *gc.C) {
+func (s *instanceTypeSuite) TestMatch(c *tc.C) {
 	for i, t := range instanceTypeMatchTests {
 		c.Logf("test %d", i)
 		cons := constraints.MustParse(t.cons)
@@ -310,14 +309,14 @@ func (s *instanceTypeSuite) TestMatch(c *gc.C) {
 				break
 			}
 		}
-		c.Assert(itype.Name, gc.Not(gc.Equals), "")
+		c.Assert(itype.Name, tc.Not(tc.Equals), "")
 		itype, match := itype.match(cons)
 		if t.arch != "" {
-			c.Check(match, jc.IsTrue)
-			c.Check(itype, gc.DeepEquals, itype)
+			c.Check(match, tc.IsTrue)
+			c.Check(itype, tc.DeepEquals, itype)
 		} else {
-			c.Check(match, jc.IsFalse)
-			c.Check(itype, gc.DeepEquals, InstanceType{})
+			c.Check(match, tc.IsFalse)
+			c.Check(itype, tc.DeepEquals, InstanceType{})
 		}
 	}
 }
@@ -402,7 +401,7 @@ var byCostTests = []struct {
 	},
 }
 
-func (s *instanceTypeSuite) TestSortByCost(c *gc.C) {
+func (s *instanceTypeSuite) TestSortByCost(c *tc.C) {
 	for i, t := range byCostTests {
 		c.Logf("test %d: %s", i, t.about)
 		sort.Sort(byCost(t.itypesToUse))
@@ -410,7 +409,7 @@ func (s *instanceTypeSuite) TestSortByCost(c *gc.C) {
 		for i, itype := range t.itypesToUse {
 			names[i] = itype.Name
 		}
-		c.Check(names, gc.DeepEquals, t.expectedItypes)
+		c.Check(names, tc.DeepEquals, t.expectedItypes)
 	}
 }
 
@@ -473,7 +472,7 @@ var byNameTests = []struct {
 	},
 }
 
-func (s *instanceTypeSuite) TestSortByName(c *gc.C) {
+func (s *instanceTypeSuite) TestSortByName(c *tc.C) {
 	for i, t := range byNameTests {
 		c.Logf("test %d: %s", i, t.about)
 		sort.Sort(ByName(t.itypesToUse))
@@ -481,7 +480,7 @@ func (s *instanceTypeSuite) TestSortByName(c *gc.C) {
 		for i, itype := range t.itypesToUse {
 			names[i] = itype.Name
 		}
-		c.Check(names, gc.DeepEquals, t.expectedItypes)
+		c.Check(names, tc.DeepEquals, t.expectedItypes)
 	}
 }
 

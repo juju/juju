@@ -7,8 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	autocerterrors "github.com/juju/juju/domain/autocert/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -19,9 +18,9 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestRetrieveCertX509(c *gc.C) {
+func (s *stateSuite) TestRetrieveCertX509(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -45,16 +44,16 @@ Hn+GmxZA
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
 (?, "cert1", ?, 0)`, certUUID, x509Cert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(string(retrievedCertBytes), gc.Equals, x509Cert)
+	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 }
 
-func (s *stateSuite) TestRetrieveSpecialChars(c *gc.C) {
+func (s *stateSuite) TestRetrieveSpecialChars(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -67,24 +66,24 @@ abc123!?$*&()'-=@~;\|/"
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
 (?, "cert1", ?, 0)`, certUUID, specialCharsCert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(string(retrievedCertBytes), gc.Equals, specialCharsCert)
+	c.Assert(string(retrievedCertBytes), tc.Equals, specialCharsCert)
 }
 
-func (s *stateSuite) TestRetrieveNoCert(c *gc.C) {
+func (s *stateSuite) TestRetrieveNoCert(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Retrieve an arbitrary non existent cert.
 	_, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIs, autocerterrors.NotFound)
+	c.Assert(err, tc.ErrorIs, autocerterrors.NotFound)
 }
 
-func (s *stateSuite) TestInsertX509(c *gc.C) {
+func (s *stateSuite) TestInsertX509(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -105,7 +104,7 @@ Hn+GmxZA
 -----END CERTIFICATE-----`
 
 	err := st.Put(context.Background(), "cert1", []byte(x509Cert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	row := db.QueryRow("SELECT name, data FROM autocert_cache WHERE name = 'cert1'")
@@ -113,12 +112,12 @@ Hn+GmxZA
 		name, data string
 	)
 	err = row.Scan(&name, &data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(name, gc.Equals, "cert1")
-	c.Check(data, gc.Equals, x509Cert)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "cert1")
+	c.Check(data, tc.Equals, x509Cert)
 }
 
-func (s *stateSuite) TestInsertSpecialChars(c *gc.C) {
+func (s *stateSuite) TestInsertSpecialChars(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -128,7 +127,7 @@ abc123!?$*&()'-=@~;\|/"
 -----END CERTIFICATE-----`
 
 	err := st.Put(context.Background(), "cert1", []byte(specialCharsCert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	row := db.QueryRow("SELECT name, data FROM autocert_cache WHERE name = 'cert1'")
@@ -136,12 +135,12 @@ abc123!?$*&()'-=@~;\|/"
 		name, data string
 	)
 	err = row.Scan(&name, &data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(name, gc.Equals, "cert1")
-	c.Check(data, gc.Equals, specialCharsCert)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "cert1")
+	c.Check(data, tc.Equals, specialCharsCert)
 }
 
-func (s *stateSuite) TestDeleteCertX509(c *gc.C) {
+func (s *stateSuite) TestDeleteCertX509(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -165,21 +164,21 @@ Hn+GmxZA
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
 (?, "cert1", ?, 0)`, certUUID, x509Cert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Delete the inserted cert.
 	err = st.Delete(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	row := db.QueryRow("SELECT name, data FROM autocert_cache WHERE name = 'cert1'")
 	var (
 		name, data string
 	)
 	err = row.Scan(&name, &data)
-	c.Assert(err, gc.Equals, sql.ErrNoRows)
+	c.Assert(err, tc.Equals, sql.ErrNoRows)
 }
 
-func (s *stateSuite) TestDeleteSpecialChars(c *gc.C) {
+func (s *stateSuite) TestDeleteSpecialChars(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
@@ -192,21 +191,21 @@ abc123!?$*&()'-=@~;\|/"
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
 (?, "cert1", ?, 0)`, certUUID, specialCharsCert)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Delete the inserted cert.
 	err = st.Delete(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	row := db.QueryRow("SELECT name, data FROM autocert_cache WHERE name = 'cert1'")
 	var (
 		name, data string
 	)
 	err = row.Scan(&name, &data)
-	c.Assert(err, gc.Equals, sql.ErrNoRows)
+	c.Assert(err, tc.Equals, sql.ErrNoRows)
 }
 
-func (s *stateSuite) TestReplaceCert(c *gc.C) {
+func (s *stateSuite) TestReplaceCert(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Insert one cert.
@@ -215,7 +214,7 @@ func (s *stateSuite) TestReplaceCert(c *gc.C) {
 abc123!?$*&()'-=@~;\|/"
 -----END CERTIFICATE-----`
 	err := st.Put(context.Background(), "cert1", []byte(specialCharsCert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Replace the contents of the cert "cert1".
 	x509Cert := `
@@ -236,15 +235,15 @@ Hn+GmxZA
 
 	// Insert a cert.
 	err = st.Put(context.Background(), "cert1", []byte(x509Cert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(retrievedCertBytes), gc.Equals, x509Cert)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 }
 
-func (s *stateSuite) TestFullCRUD(c *gc.C) {
+func (s *stateSuite) TestFullCRUD(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	x509Cert := `
@@ -265,18 +264,18 @@ Hn+GmxZA
 
 	// Insert a cert.
 	err := st.Put(context.Background(), "cert1", []byte(x509Cert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
 	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(retrievedCertBytes), gc.Equals, x509Cert)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 
 	// Delete the inserted cert.
 	err = st.Delete(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the non-existent cert.
 	_, err = st.Get(context.Background(), "cert1")
-	c.Assert(err, jc.ErrorIs, autocerterrors.NotFound)
+	c.Assert(err, tc.ErrorIs, autocerterrors.NotFound)
 }

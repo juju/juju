@@ -13,21 +13,20 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/gnuflag"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	jujucmd "github.com/juju/juju/internal/cmd"
 )
 
 type suite struct{}
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
-func (s *suite) TestSetFlags(c *gc.C) {
+func (s *suite) TestSetFlags(c *tc.C) {
 	for _, resettable := range []bool{true, false} {
 		cmd := ConfigCommandBase{Resettable: resettable}
 		f := flagSetForTest(c)
@@ -43,9 +42,9 @@ func (s *suite) TestSetFlags(c *gc.C) {
 		f.VisitAll(
 			func(f *gnuflag.Flag) { flags = append(flags, f.Name) },
 		)
-		c.Check(flags, jc.SameContents, expectedFlags)
+		c.Check(flags, tc.SameContents, expectedFlags)
 
-		c.Check(sliceContains(flags, "reset"), gc.Equals, resettable)
+		c.Check(sliceContains(flags, "reset"), tc.Equals, resettable)
 	}
 
 }
@@ -60,7 +59,7 @@ type parseFailTest struct {
 
 // testParse checks that parsing of the given args fails or succeeds
 // (depending on the value of `fail`).
-func testParse(c *gc.C, test parseFailTest, fail bool) {
+func testParse(c *tc.C, test parseFailTest, fail bool) {
 	cmd := ConfigCommandBase{Resettable: test.resettable}
 	f := &gnuflag.FlagSet{}
 	f.SetOutput(io.Discard)
@@ -68,9 +67,9 @@ func testParse(c *gc.C, test parseFailTest, fail bool) {
 	cmd.SetFlags(f)
 	err := f.Parse(true, test.args)
 	if fail {
-		c.Assert(err, gc.ErrorMatches, test.errMsg)
+		c.Assert(err, tc.ErrorMatches, test.errMsg)
 	} else {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -98,7 +97,7 @@ type initTest struct {
 
 // setupInitTest sets up the ConfigCommandBase and error for TestInitFail and
 // TestInitSucceed.
-func setupInitTest(c *gc.C, args []string, cantReset []string) (ConfigCommandBase, error) {
+func setupInitTest(c *tc.C, args []string, cantReset []string) (ConfigCommandBase, error) {
 	cmd := ConfigCommandBase{
 		Resettable: true,
 		CantReset:  cantReset,
@@ -106,54 +105,54 @@ func setupInitTest(c *gc.C, args []string, cantReset []string) (ConfigCommandBas
 	f := flagSetForTest(c)
 	cmd.SetFlags(f)
 	err := f.Parse(true, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmd.Init(f.Args())
 
 	return cmd, err
 }
 
-func (s *suite) TestParseFail(c *gc.C) {
+func (s *suite) TestParseFail(c *tc.C) {
 	for i, test := range parseTests {
 		c.Logf("test %d: %s", i, test.about)
 		testParse(c, test, true)
 	}
 }
 
-func (s *suite) TestInitFail(c *gc.C) {
+func (s *suite) TestInitFail(c *tc.C) {
 	for i, test := range initFailTests {
 		c.Logf("test %d: %s", i, test.about)
 		// Check parsing succeeds
 		testParse(c, parseFailTest{resettable: true, args: test.args}, false)
 
 		_, err := setupInitTest(c, test.args, test.cantReset)
-		c.Check(err, gc.ErrorMatches, test.errMsg)
+		c.Check(err, tc.ErrorMatches, test.errMsg)
 	}
 }
 
-func (s *suite) TestInitSuccess(c *gc.C) {
+func (s *suite) TestInitSuccess(c *tc.C) {
 	for i, test := range initTests {
 		c.Logf("test %d: %s", i, test.about)
 		// Check parsing succeeds
 		testParse(c, parseFailTest{resettable: true, args: test.args}, false)
 
 		cmd, err := setupInitTest(c, test.args, test.cantReset)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(cmd.Actions, jc.SameContents, test.actions)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(cmd.Actions, tc.SameContents, test.actions)
 		s.checkFileFirst(c, cmd.Actions)
-		c.Check(cmd.ConfigFile, gc.DeepEquals, test.configFile)
+		c.Check(cmd.ConfigFile, tc.DeepEquals, test.configFile)
 
 		if sliceContains(cmd.Actions, GetOne) {
-			c.Assert(cmd.KeysToGet, gc.HasLen, 1)
-			c.Check(cmd.KeysToGet[0], gc.Equals, test.keyToGet)
+			c.Assert(cmd.KeysToGet, tc.HasLen, 1)
+			c.Check(cmd.KeysToGet[0], tc.Equals, test.keyToGet)
 		} else {
-			c.Assert(cmd.KeysToGet, gc.HasLen, 0)
+			c.Assert(cmd.KeysToGet, tc.HasLen, 0)
 		}
 
-		c.Check(cmd.KeysToReset, gc.DeepEquals, test.keysToReset)
+		c.Check(cmd.KeysToReset, tc.DeepEquals, test.keysToReset)
 		if test.valsToSet == nil {
-			c.Check(cmd.ValsToSet, gc.HasLen, 0)
+			c.Check(cmd.ValsToSet, tc.HasLen, 0)
 		} else {
-			c.Check(cmd.ValsToSet, gc.DeepEquals, test.valsToSet)
+			c.Check(cmd.ValsToSet, tc.DeepEquals, test.valsToSet)
 		}
 	}
 }
@@ -166,12 +165,12 @@ var configAttrs = Attrs{
 	"key2": "val2",
 }
 
-func (s *suite) TestReadFile(c *gc.C) {
+func (s *suite) TestReadFile(c *tc.C) {
 	// Create file to read from
 	dir := c.MkDir()
 	filename := "cfg.yaml"
 	err := os.WriteFile(path.Join(dir, filename), fileContents, 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cmd := ConfigCommandBase{
 		ConfigFile: jujucmd.FileVar{Path: filename},
@@ -182,11 +181,11 @@ func (s *suite) TestReadFile(c *gc.C) {
 	}
 
 	attrs, err := cmd.ReadFile(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(attrs, gc.DeepEquals, configAttrs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(attrs, tc.DeepEquals, configAttrs)
 }
 
-func (s *suite) TestReadFileStdin(c *gc.C) {
+func (s *suite) TestReadFileStdin(c *tc.C) {
 	stdin := &bytes.Buffer{}
 	stdin.Write(fileContents)
 
@@ -199,16 +198,16 @@ func (s *suite) TestReadFileStdin(c *gc.C) {
 	}
 
 	attrs, err := cmd.ReadFile(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(attrs, gc.DeepEquals, configAttrs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(attrs, tc.DeepEquals, configAttrs)
 }
 
-func (s *suite) TestReadNoSuchFile(c *gc.C) {
+func (s *suite) TestReadNoSuchFile(c *tc.C) {
 	// Create empty dir
 	dir := c.MkDir()
 	filename := "cfg.yaml"
 	_, err := os.Stat(path.Join(dir, filename))
-	c.Assert(err, jc.ErrorIs, fs.ErrNotExist)
+	c.Assert(err, tc.ErrorIs, fs.ErrNotExist)
 
 	cmd := ConfigCommandBase{
 		ConfigFile: jujucmd.FileVar{Path: filename},
@@ -219,15 +218,15 @@ func (s *suite) TestReadNoSuchFile(c *gc.C) {
 	}
 
 	_, err = cmd.ReadFile(ctx)
-	c.Assert(err, gc.ErrorMatches, ".*no such file or directory")
+	c.Assert(err, tc.ErrorMatches, ".*no such file or directory")
 }
 
-func (s *suite) TestReadFileBadYAML(c *gc.C) {
+func (s *suite) TestReadFileBadYAML(c *tc.C) {
 	// Create file to read from
 	dir := c.MkDir()
 	filename := "cfg.yaml"
 	err := os.WriteFile(path.Join(dir, filename), []byte("foo: foo: foo"), 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cmd := ConfigCommandBase{
 		ConfigFile: jujucmd.FileVar{Path: filename},
@@ -238,21 +237,21 @@ func (s *suite) TestReadFileBadYAML(c *gc.C) {
 	}
 
 	_, err = cmd.ReadFile(ctx)
-	c.Assert(err, gc.ErrorMatches, ".*yaml.*")
+	c.Assert(err, tc.ErrorMatches, ".*yaml.*")
 }
 
 // checkFileFirst checks that if the provided list of Actions contains the
 // SetFile action, then this is the first action in the list. This is important
 // so that set/reset values from the command-line will override anything
 // specified in a file.
-func (s *suite) checkFileFirst(c *gc.C, actions []Action) {
+func (s *suite) checkFileFirst(c *tc.C, actions []Action) {
 	if sliceContains(actions, SetFile) {
-		c.Check(actions[0], gc.Equals, SetFile)
+		c.Check(actions[0], tc.Equals, SetFile)
 	}
 }
 
 // flagSetForTest returns a flag set for running the parse/init tests.
-func flagSetForTest(c *gc.C) *gnuflag.FlagSet {
+func flagSetForTest(c *tc.C) *gnuflag.FlagSet {
 	f := &gnuflag.FlagSet{
 		Usage: func() { c.Fatalf("error occurred while parsing flags") },
 	}

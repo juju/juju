@@ -7,12 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
@@ -26,9 +25,9 @@ type deleteImageSuite struct {
 	deletedIds []string
 }
 
-var _ = gc.Suite(&deleteImageSuite{})
+var _ = tc.Suite(&deleteImageSuite{})
 
-func (s *deleteImageSuite) SetUpTest(c *gc.C) {
+func (s *deleteImageSuite) SetUpTest(c *tc.C) {
 	s.BaseCloudImageMetadataSuite.SetUpTest(c)
 
 	s.deletedIds = []string{}
@@ -37,23 +36,23 @@ func (s *deleteImageSuite) SetUpTest(c *gc.C) {
 			s.deletedIds = append(s.deletedIds, imageId)
 			return nil
 		},
-		Stub: &jujutesting.Stub{},
+		Stub: &testhelpers.Stub{},
 	}
 }
 
-func (s *deleteImageSuite) TestDeleteImageMetadata(c *gc.C) {
+func (s *deleteImageSuite) TestDeleteImageMetadata(c *tc.C) {
 	s.assertDeleteImageMetadata(c, deleteTestId)
 }
 
-func (s *deleteImageSuite) TestDeleteImageMetadataNoImageId(c *gc.C) {
+func (s *deleteImageSuite) TestDeleteImageMetadataNoImageId(c *tc.C) {
 	s.assertDeleteImageMetadataErr(c, "image ID must be supplied when deleting image metadata")
 }
 
-func (s *deleteImageSuite) TestDeleteImageMetadataManyImageIds(c *gc.C) {
+func (s *deleteImageSuite) TestDeleteImageMetadataManyImageIds(c *tc.C) {
 	s.assertDeleteImageMetadataErr(c, "only one image ID can be supplied as an argument to this command", deleteTestId, deleteTestId)
 }
 
-func (s *deleteImageSuite) TestDeleteImageMetadataFailed(c *gc.C) {
+func (s *deleteImageSuite) TestDeleteImageMetadataFailed(c *tc.C) {
 	msg := "failed"
 	s.mockAPI.delete = func(imageId string) error {
 		return errors.New(msg)
@@ -62,7 +61,7 @@ func (s *deleteImageSuite) TestDeleteImageMetadataFailed(c *gc.C) {
 	s.mockAPI.CheckCallNames(c, "Delete", "Close")
 }
 
-func (s *deleteImageSuite) runDeleteImageMetadata(c *gc.C, args ...string) error {
+func (s *deleteImageSuite) runDeleteImageMetadata(c *tc.C, args ...string) error {
 	tstDelete := &deleteImageMetadataCommand{}
 	tstDelete.SetClientStore(jujuclienttesting.MinimalStore())
 	tstDelete.newAPIFunc = func(ctx context.Context) (MetadataDeleteAPI, error) {
@@ -74,21 +73,21 @@ func (s *deleteImageSuite) runDeleteImageMetadata(c *gc.C, args ...string) error
 	return err
 }
 
-func (s *deleteImageSuite) assertDeleteImageMetadata(c *gc.C, id string) {
+func (s *deleteImageSuite) assertDeleteImageMetadata(c *tc.C, id string) {
 	err := s.runDeleteImageMetadata(c, id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.deletedIds, gc.DeepEquals, []string{id})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.deletedIds, tc.DeepEquals, []string{id})
 	s.mockAPI.CheckCallNames(c, "Delete", "Close")
 }
 
-func (s *deleteImageSuite) assertDeleteImageMetadataErr(c *gc.C, errorMsg string, args ...string) {
+func (s *deleteImageSuite) assertDeleteImageMetadataErr(c *tc.C, errorMsg string, args ...string) {
 	err := s.runDeleteImageMetadata(c, args...)
-	c.Assert(err, gc.ErrorMatches, errorMsg)
-	c.Assert(s.deletedIds, gc.DeepEquals, []string{})
+	c.Assert(err, tc.ErrorMatches, errorMsg)
+	c.Assert(s.deletedIds, tc.DeepEquals, []string{})
 }
 
 type mockDeleteAPI struct {
-	*jujutesting.Stub
+	*testhelpers.Stub
 
 	delete func(imageId string) error
 }

@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/juju/testing"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -67,7 +67,7 @@ var (
 )
 
 type mockRoundTripper struct {
-	testing.Stub
+	testhelpers.Stub
 
 	serverURL string
 	roundTrip func(ctx context.Context, req, res soap.HasFault) error
@@ -358,16 +358,16 @@ func (r *mockRoundTripper) updateContents(key string, content []types.ObjectCont
 	r.contents[key] = content
 }
 
-func retrievePropertiesStubCall(vals ...string) testing.StubCall {
+func retrievePropertiesStubCall(vals ...string) testhelpers.StubCall {
 	return makeStubCall("RetrieveProperties", vals...)
 }
 
-func makeStubCall(method string, vals ...string) testing.StubCall {
+func makeStubCall(method string, vals ...string) testhelpers.StubCall {
 	args := make([]interface{}, len(vals))
 	for i, vals := range vals {
 		args[i] = vals
 	}
-	return testing.StubCall{FuncName: method, Args: args}
+	return testhelpers.StubCall{FuncName: method, Args: args}
 }
 
 type collector struct {

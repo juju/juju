@@ -12,9 +12,8 @@ import (
 	"slices"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
@@ -24,10 +23,10 @@ type githubSuite struct {
 }
 
 var (
-	_ = gc.Suite(&githubSuite{})
+	_ = tc.Suite(&githubSuite{})
 )
 
-func (s *githubSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *githubSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = NewMockClient(ctrl)
 	return ctrl
@@ -35,13 +34,13 @@ func (s *githubSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 // TestSubjectNotFound is asserting that if the [GithubResolver] gets a 404
 // return it propagates a [importererrors.SubjectNotFound] error.
-func (g *githubSuite) TestSubjectNotFound(c *gc.C) {
+func (g *githubSuite) TestSubjectNotFound(c *tc.C) {
 	defer g.setupMocks(c).Finish()
 
 	g.client.EXPECT().Do(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
-			c.Check(req.URL.Path, gc.Equals, "/users/tlm/keys")
-			c.Check(req.Header.Get("Accept"), gc.Equals, "application/json; charset=utf-8")
+			c.Check(req.URL.Path, tc.Equals, "/users/tlm/keys")
+			c.Check(req.Header.Get("Accept"), tc.Equals, "application/json; charset=utf-8")
 			return &http.Response{
 				Body:       io.NopCloser(strings.NewReader("")),
 				StatusCode: http.StatusNotFound,
@@ -51,17 +50,17 @@ func (g *githubSuite) TestSubjectNotFound(c *gc.C) {
 
 	gh := GithubResolver{g.client}
 	_, err := gh.PublicKeysForSubject(context.Background(), "tlm")
-	c.Check(err, jc.ErrorIs, importererrors.SubjectNotFound)
+	c.Check(err, tc.ErrorIs, importererrors.SubjectNotFound)
 }
 
 // TestSubjectPublicKeys is asserting the happy path for the [GithubResolver].
-func (g *githubSuite) TestSubjectPublicKeys(c *gc.C) {
+func (g *githubSuite) TestSubjectPublicKeys(c *tc.C) {
 	defer g.setupMocks(c).Finish()
 
 	g.client.EXPECT().Do(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
-			c.Check(req.URL.Path, gc.Equals, "/users/tlm/keys")
-			c.Check(req.Header.Get("Accept"), gc.Equals, "application/json; charset=utf-8")
+			c.Check(req.URL.Path, tc.Equals, "/users/tlm/keys")
+			c.Check(req.Header.Get("Accept"), tc.Equals, "application/json; charset=utf-8")
 
 			res := []githubKeyResponse{
 				{
@@ -75,7 +74,7 @@ func (g *githubSuite) TestSubjectPublicKeys(c *gc.C) {
 			}
 
 			data, err := json.Marshal(res)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			return &http.Response{
 				Body: io.NopCloser(bytes.NewReader(data)),
@@ -89,7 +88,7 @@ func (g *githubSuite) TestSubjectPublicKeys(c *gc.C) {
 
 	gh := GithubResolver{g.client}
 	keys, err := gh.PublicKeysForSubject(context.Background(), "tlm")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	expected := []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
@@ -99,5 +98,5 @@ func (g *githubSuite) TestSubjectPublicKeys(c *gc.C) {
 	slices.Sort(keys)
 	slices.Sort(expected)
 
-	c.Check(keys, jc.DeepEquals, expected)
+	c.Check(keys, tc.DeepEquals, expected)
 }

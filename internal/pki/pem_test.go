@@ -10,8 +10,7 @@ import (
 	"encoding/pem"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/pki"
 )
@@ -20,69 +19,69 @@ type PEMSuite struct {
 	signer crypto.Signer
 }
 
-var _ = gc.Suite(&PEMSuite{})
+var _ = tc.Suite(&PEMSuite{})
 
-func (p *PEMSuite) SetUpTest(c *gc.C) {
+func (p *PEMSuite) SetUpTest(c *tc.C) {
 	signer, err := pki.DefaultKeyProfile()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	p.signer = signer
 }
 
-func (p *PEMSuite) TestCertificateToPemString(c *gc.C) {
+func (p *PEMSuite) TestCertificateToPemString(c *tc.C) {
 	ca, err := pki.NewCA("juju-test-ca", p.signer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	certString, err := pki.CertificateToPemString(map[string]string{
 		"test": "test-header",
 	}, ca)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(certString), jc.GreaterThan, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(certString), tc.GreaterThan, 0)
 	//TODO re-enable headers on certificate to pem when Juju upgrade
 	//CAAS mongo to something compiled with latest openssl. Currently
 	//not all our Openssl versions support pem headers.
-	//c.Assert(strings.Contains(certString, "test: test-header"), jc.IsTrue)
-	c.Assert(strings.Contains(certString, "BEGIN CERTIFICATE"), jc.IsTrue)
-	c.Assert(strings.Contains(certString, "END CERTIFICATE"), jc.IsTrue)
+	//c.Assert(strings.Contains(certString, "test: test-header"), tc.IsTrue)
+	c.Assert(strings.Contains(certString, "BEGIN CERTIFICATE"), tc.IsTrue)
+	c.Assert(strings.Contains(certString, "END CERTIFICATE"), tc.IsTrue)
 }
 
-func (p *PEMSuite) TestCertificateToPemWriter(c *gc.C) {
+func (p *PEMSuite) TestCertificateToPemWriter(c *tc.C) {
 	ca, err := pki.NewCA("juju-test-ca", p.signer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	builder := strings.Builder{}
 	err = pki.CertificateToPemWriter(&builder, map[string]string{
 		"test": "test-header",
 	}, ca)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	certString := builder.String()
-	c.Assert(len(certString), jc.GreaterThan, 0)
+	c.Assert(len(certString), tc.GreaterThan, 0)
 	//TODO re-enable headers on certificate to pem when Juju upgrade
 	//CAAS mongo to something compiled with latest openssl. Currently
 	//not all our Openssl versions support pem headers.
-	//c.Assert(strings.Contains(certString, "test: test-header"), jc.IsTrue)
-	c.Assert(strings.Contains(certString, "BEGIN CERTIFICATE"), jc.IsTrue)
-	c.Assert(strings.Contains(certString, "END CERTIFICATE"), jc.IsTrue)
+	//c.Assert(strings.Contains(certString, "test: test-header"), tc.IsTrue)
+	c.Assert(strings.Contains(certString, "BEGIN CERTIFICATE"), tc.IsTrue)
+	c.Assert(strings.Contains(certString, "END CERTIFICATE"), tc.IsTrue)
 }
 
-func (p *PEMSuite) TestSignerToPemString(c *gc.C) {
+func (p *PEMSuite) TestSignerToPemString(c *tc.C) {
 	pemKey, err := pki.SignerToPemString(p.signer)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(pemKey), jc.GreaterThan, 0)
-	c.Assert(strings.Contains(pemKey, "BEGIN PRIVATE KEY"), jc.IsTrue)
-	c.Assert(strings.Contains(pemKey, "END PRIVATE KEY"), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(pemKey), tc.GreaterThan, 0)
+	c.Assert(strings.Contains(pemKey, "BEGIN PRIVATE KEY"), tc.IsTrue)
+	c.Assert(strings.Contains(pemKey, "END PRIVATE KEY"), tc.IsTrue)
 }
 
-func (p *PEMSuite) TestSignerToPemWriter(c *gc.C) {
+func (p *PEMSuite) TestSignerToPemWriter(c *tc.C) {
 	builder := strings.Builder{}
 	err := pki.SignerToPemWriter(&builder, p.signer)
 	pemKey := builder.String()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(pemKey), jc.GreaterThan, 0)
-	c.Assert(strings.Contains(pemKey, "BEGIN PRIVATE KEY"), jc.IsTrue)
-	c.Assert(strings.Contains(pemKey, "END PRIVATE KEY"), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(pemKey), tc.GreaterThan, 0)
+	c.Assert(strings.Contains(pemKey, "BEGIN PRIVATE KEY"), tc.IsTrue)
+	c.Assert(strings.Contains(pemKey, "END PRIVATE KEY"), tc.IsTrue)
 }
 
-func (p *PEMSuite) TestSignerFromPKCS8Pem(c *gc.C) {
+func (p *PEMSuite) TestSignerFromPKCS8Pem(c *tc.C) {
 	tests := []struct {
 		Name     string
 		SignerFn func() (crypto.Signer, error)
@@ -111,25 +110,25 @@ func (p *PEMSuite) TestSignerFromPKCS8Pem(c *gc.C) {
 
 	for _, test := range tests {
 		signer, err := test.SignerFn()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		der, err := x509.MarshalPKCS8PrivateKey(signer)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		block := &pem.Block{
 			Type:  pki.PEMTypePKCS8,
 			Bytes: der,
 		}
 
 		signerPem, err := pki.UnmarshalSignerFromPemBlock(block)
-		c.Assert(err, jc.ErrorIsNil)
-		mc := jc.NewMultiChecker()
+		c.Assert(err, tc.ErrorIsNil)
+		mc := tc.NewMultiChecker()
 		// Ignore the computed speedups for RSA since comparing byte for byte
 		// of bignumbers may fail due to superfluous zeros (despite the numbers matching)
-		mc.AddExpr("_.Precomputed", jc.Ignore)
+		mc.AddExpr("_.Precomputed", tc.Ignore)
 		c.Assert(signerPem, mc, signer)
 	}
 }
 
-func (p *PEMSuite) TestSignerFromPKCS1Pem(c *gc.C) {
+func (p *PEMSuite) TestSignerFromPKCS1Pem(c *tc.C) {
 	tests := []struct {
 		Name     string
 		SignerFn func() (crypto.Signer, error)
@@ -146,9 +145,9 @@ func (p *PEMSuite) TestSignerFromPKCS1Pem(c *gc.C) {
 
 	for _, test := range tests {
 		signer, err := test.SignerFn()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		rsaKey, ok := signer.(*rsa.PrivateKey)
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, tc.Equals, true)
 
 		der := x509.MarshalPKCS1PrivateKey(rsaKey)
 		block := &pem.Block{
@@ -157,12 +156,12 @@ func (p *PEMSuite) TestSignerFromPKCS1Pem(c *gc.C) {
 		}
 
 		signerPem, err := pki.UnmarshalSignerFromPemBlock(block)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(signerPem.Public(), jc.DeepEquals, signer.Public())
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(signerPem.Public(), tc.DeepEquals, signer.Public())
 	}
 }
 
-func (p *PEMSuite) TestFingerprint(c *gc.C) {
+func (p *PEMSuite) TestFingerprint(c *tc.C) {
 	pemCertStr := `-----BEGIN CERTIFICATE-----
 MIICBjCCAa2gAwIBAgIVAPIfbVbfSiFAz9eOg1YNuQDakGxuMAoGCCqGSM49BAMC
 MCExDTALBgNVBAoTBEp1anUxEDAOBgNVBAMTB2p1anUtY2EwHhcNMjAwNDAxMDQz
@@ -178,12 +177,12 @@ kBzDYg/oNisCIAx2LGL0r19fcn1rrVEMUrSMI4Dy3tJ0UEVgSbYhBGBA
 -----END CERTIFICATE-----
 `
 	fingerPrint, remain, err := pki.Fingerprint([]byte(pemCertStr))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(remain), gc.Equals, 0)
-	c.Assert(fingerPrint, gc.Equals, "C7:23:B1:3B:CE:26:BA:55:FF:3B:A0:8F:9D:98:E1:06:9A:70:D1:33:AF:D2:AF:22:F3:28:C0:B4:3B:0E:44:5B")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(remain), tc.Equals, 0)
+	c.Assert(fingerPrint, tc.Equals, "C7:23:B1:3B:CE:26:BA:55:FF:3B:A0:8F:9D:98:E1:06:9A:70:D1:33:AF:D2:AF:22:F3:28:C0:B4:3B:0E:44:5B")
 }
 
-func (p *PEMSuite) TestIsCAPem(c *gc.C) {
+func (p *PEMSuite) TestIsCAPem(c *tc.C) {
 	tests := []struct {
 		pemStr string
 		result bool
@@ -221,7 +220,7 @@ kBzDYg/oNisCIAx2LGL0r19fcn1rrVEMUrSMI4Dy3tJ0UEVgSbYhBGBA
 
 	for _, test := range tests {
 		ok, err := pki.IsPemCA([]byte(test.pemStr))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ok, gc.Equals, test.result)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(ok, tc.Equals, test.result)
 	}
 }

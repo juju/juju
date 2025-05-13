@@ -7,8 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -23,9 +22,9 @@ type AvailabilityZoneSuite struct {
 	env mockZonedEnviron
 }
 
-var _ = gc.Suite(&AvailabilityZoneSuite{})
+var _ = tc.Suite(&AvailabilityZoneSuite{})
 
-func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
+func (s *AvailabilityZoneSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 
 	allInstances := make([]instances.Instance, 3)
@@ -48,10 +47,10 @@ func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 	}
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstances(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstances(c *tc.C) {
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.Context, ids []instance.Id) (map[instance.Id]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
+		c.Assert(ids, tc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		called++
 		return map[instance.Id]string{
 			"inst0": "az0",
@@ -60,11 +59,11 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstanc
 		}, nil
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, tc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
 	// az0 is unavailable, so az1 and az2 come out as equal best;
 	// az1 comes first due to lexicographical ordering on the name.
-	c.Assert(zoneInstances, gc.DeepEquals, []common.AvailabilityZoneInstances{{
+	c.Assert(zoneInstances, tc.DeepEquals, []common.AvailabilityZoneInstances{{
 		ZoneName:  "az1",
 		Instances: []instance.Id{"inst1"},
 	}, {
@@ -73,28 +72,28 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstanc
 	}})
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstancesErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstancesErrors(c *tc.C) {
 	resultErr := fmt.Errorf("oh noes")
 	s.PatchValue(&s.env.allInstances, func(context.Context) ([]instances.Instance, error) {
 		return nil, resultErr
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
-	c.Assert(err, gc.Equals, resultErr)
-	c.Assert(zoneInstances, gc.HasLen, 0)
+	c.Assert(err, tc.Equals, resultErr)
+	c.Assert(zoneInstances, tc.HasLen, 0)
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(c *tc.C) {
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.Context, ids []instance.Id) (map[instance.Id]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.Id{"nichts", "inst1", "null", "inst2"})
+		c.Assert(ids, tc.DeepEquals, []instance.Id{"nichts", "inst1", "null", "inst2"})
 		called++
 		return map[instance.Id]string{"inst1": "az1", "inst2": "az1"}, environs.ErrPartialInstances
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), []instance.Id{"nichts", "inst1", "null", "inst2"})
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, tc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
 	// az2 has fewer instances, so comes first.
-	c.Assert(zoneInstances, gc.DeepEquals, []common.AvailabilityZoneInstances{{
+	c.Assert(zoneInstances, tc.DeepEquals, []common.AvailabilityZoneInstances{{
 		ZoneName: "az2",
 	}, {
 		ZoneName:  "az1",
@@ -102,7 +101,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(
 	}})
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesErrors(c *tc.C) {
 	returnErr := fmt.Errorf("whatever")
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.Context, ids []instance.Id) (map[instance.Id]string, error) {
@@ -110,27 +109,27 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabil
 		return nil, returnErr
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, gc.Equals, returnErr)
-	c.Assert(zoneInstances, gc.HasLen, 0)
+	c.Assert(called, tc.Equals, 1)
+	c.Assert(err, tc.Equals, returnErr)
+	c.Assert(zoneInstances, tc.HasLen, 0)
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesNoInstances(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesNoInstances(c *tc.C) {
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.Context, ids []instance.Id) (map[instance.Id]string, error) {
 		called++
 		return nil, environs.ErrNoInstances
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zoneInstances, gc.HasLen, 2)
+	c.Assert(called, tc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(zoneInstances, tc.HasLen, 2)
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *tc.C) {
 	var calls []string
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.Context, ids []instance.Id) (map[instance.Id]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
+		c.Assert(ids, tc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		calls = append(calls, "InstanceAvailabilityZoneNames")
 		return make(map[instance.Id]string, 3), nil
 	})
@@ -139,15 +138,15 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) 
 		return network.AvailabilityZones{}, nil
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
-	c.Assert(calls, gc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zoneInstances, gc.HasLen, 0)
+	c.Assert(calls, tc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(zoneInstances, tc.HasLen, 0)
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *tc.C) {
 	var calls []string
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.Context, ids []instance.Id) (map[instance.Id]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
+		c.Assert(ids, tc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		calls = append(calls, "InstanceAvailabilityZoneNames")
 		return make(map[instance.Id]string, 3), nil
 	})
@@ -157,7 +156,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
 		return nil, resultErr
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
-	c.Assert(calls, gc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
-	c.Assert(err, gc.Equals, resultErr)
-	c.Assert(zoneInstances, gc.HasLen, 0)
+	c.Assert(calls, tc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
+	c.Assert(err, tc.Equals, resultErr)
+	c.Assert(zoneInstances, tc.HasLen, 0)
 }

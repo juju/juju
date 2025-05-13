@@ -9,28 +9,27 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/mongo/mongometrics"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type DialCollectorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	collector *mongometrics.DialCollector
 }
 
-var _ = gc.Suite(&DialCollectorSuite{})
+var _ = tc.Suite(&DialCollectorSuite{})
 
-func (s *DialCollectorSuite) SetUpTest(c *gc.C) {
+func (s *DialCollectorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.collector = mongometrics.NewDialCollector()
 }
 
-func (s *DialCollectorSuite) TestDescribe(c *gc.C) {
+func (s *DialCollectorSuite) TestDescribe(c *tc.C) {
 	ch := make(chan *prometheus.Desc)
 	go func() {
 		defer close(ch)
@@ -40,12 +39,12 @@ func (s *DialCollectorSuite) TestDescribe(c *gc.C) {
 	for desc := range ch {
 		descs = append(descs, desc)
 	}
-	c.Assert(descs, gc.HasLen, 2)
-	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_mongo_dials_total".*`)
-	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_mongo_dial_duration_seconds".*`)
+	c.Assert(descs, tc.HasLen, 2)
+	c.Assert(descs[0].String(), tc.Matches, `.*fqName: "juju_mongo_dials_total".*`)
+	c.Assert(descs[1].String(), tc.Matches, `.*fqName: "juju_mongo_dial_duration_seconds".*`)
 }
 
-func (s *DialCollectorSuite) TestCollect(c *gc.C) {
+func (s *DialCollectorSuite) TestCollect(c *tc.C) {
 	s.collector.PostDialServer("foo", time.Second, nil)
 	s.collector.PostDialServer("foo", 2*time.Second, nil)
 	s.collector.PostDialServer("foo", 3*time.Second, nil)
@@ -71,12 +70,12 @@ func (s *DialCollectorSuite) TestCollect(c *gc.C) {
 	for metric := range ch {
 		metrics = append(metrics, metric)
 	}
-	c.Assert(metrics, gc.HasLen, len(dtoMetrics))
+	c.Assert(metrics, tc.HasLen, len(dtoMetrics))
 
 	for i, metric := range metrics {
 		dtoMetrics[i] = &dto.Metric{}
 		err := metric.Write(dtoMetrics[i])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	float64ptr := func(v float64) *float64 {

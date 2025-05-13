@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
@@ -22,7 +21,7 @@ type ControllersFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&ControllersFileSuite{})
+var _ = tc.Suite(&ControllersFileSuite{})
 
 const testControllersYAML = `
 controllers:
@@ -53,75 +52,75 @@ current-controller: mallards
 has-controller-changed-on-previous-switch: false
 `
 
-func (s *ControllersFileSuite) TestWriteFile(c *gc.C) {
+func (s *ControllersFileSuite) TestWriteFile(c *tc.C) {
 	writeTestControllersFile(c)
 	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("controllers.yaml"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, testControllersYAML[1:])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, testControllersYAML[1:])
 }
 
-func (s *ControllersFileSuite) TestReadNoFile(c *gc.C) {
+func (s *ControllersFileSuite) TestReadNoFile(c *tc.C) {
 	controllers, err := jujuclient.ReadControllersFile("nohere.yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllers, gc.NotNil)
-	c.Assert(controllers.Controllers, gc.HasLen, 0)
-	c.Assert(controllers.CurrentController, gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controllers, tc.NotNil)
+	c.Assert(controllers.Controllers, tc.HasLen, 0)
+	c.Assert(controllers.CurrentController, tc.Equals, "")
 }
 
-func (s *ControllersFileSuite) TestReadPermissionsError(c *gc.C) {
+func (s *ControllersFileSuite) TestReadPermissionsError(c *tc.C) {
 	path := filepath.Join(os.TempDir(), fmt.Sprintf("file-%d", time.Now().UnixNano()))
 	err := os.WriteFile(path, []byte(""), 0377)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = jujuclient.ReadControllersFile(path)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "open .*: permission denied")
+	c.Assert(errors.Cause(err), tc.ErrorMatches, "open .*: permission denied")
 }
 
-func (s *ControllersFileSuite) TestReadEmptyFile(c *gc.C) {
+func (s *ControllersFileSuite) TestReadEmptyFile(c *tc.C) {
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("controllers.yaml"), []byte(""), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerStore := jujuclient.NewFileClientStore()
 	controllers, err := controllerStore.AllControllers()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllers, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controllers, tc.IsNil)
 }
 
-func parseControllers(c *gc.C) *jujuclient.Controllers {
+func parseControllers(c *tc.C) *jujuclient.Controllers {
 	controllers, err := jujuclient.ParseControllers([]byte(testControllersYAML))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// ensure that multiple server hostnames and eapi endpoints are parsed correctly
-	c.Assert(controllers.Controllers["mallards"].APIEndpoints, gc.HasLen, 2)
+	c.Assert(controllers.Controllers["mallards"].APIEndpoints, tc.HasLen, 2)
 	return controllers
 }
 
-func writeTestControllersFile(c *gc.C) *jujuclient.Controllers {
+func writeTestControllersFile(c *tc.C) *jujuclient.Controllers {
 	controllers := parseControllers(c)
 	err := jujuclient.WriteControllersFile(controllers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return controllers
 }
 
-func (s *ControllersFileSuite) TestParseControllerMetadata(c *gc.C) {
+func (s *ControllersFileSuite) TestParseControllerMetadata(c *tc.C) {
 	controllers := parseControllers(c)
 	var names []string
 	for name := range controllers.Controllers {
 		names = append(names, name)
 	}
-	c.Assert(names, jc.SameContents,
+	c.Assert(names, tc.SameContents,
 		[]string{"mark-test-prodstack", "mallards", "aws-test"},
 	)
-	c.Assert(controllers.CurrentController, gc.Equals, "mallards")
+	c.Assert(controllers.CurrentController, tc.Equals, "mallards")
 }
 
-func (s *ControllersFileSuite) TestParseControllerMetadataError(c *gc.C) {
+func (s *ControllersFileSuite) TestParseControllerMetadataError(c *tc.C) {
 	controllers, err := jujuclient.ParseControllers([]byte("fail me now"))
-	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.Controllers")
-	c.Assert(controllers, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.Controllers")
+	c.Assert(controllers, tc.IsNil)
 }
 
-func (s *ControllersFileSuite) TestControllerFileOldFormat(c *gc.C) {
+func (s *ControllersFileSuite) TestControllerFileOldFormat(c *tc.C) {
 	fileContent := `
 controllers:
     aws-test:
@@ -142,11 +141,11 @@ has-controller-changed-on-previous-switch: false
 
 	// Contains model-count.
 	err := os.WriteFile(osenv.JujuXDGDataHomePath(fileName), []byte(fmt.Sprintf(fileContent, modelCount)[1:]), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerStore := jujuclient.NewFileClientStore()
 	controllers, err := controllerStore.AllControllers()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedDetails := jujuclient.ControllerDetails{
 		ControllerUUID: "this-is-the-aws-test-uuid",
@@ -156,16 +155,16 @@ has-controller-changed-on-previous-switch: false
 		Cloud:          "aws",
 		CloudRegion:    "us-east-1",
 	}
-	c.Assert(controllers, gc.DeepEquals, map[string]jujuclient.ControllerDetails{
+	c.Assert(controllers, tc.DeepEquals, map[string]jujuclient.ControllerDetails{
 		"aws-test": expectedDetails,
 	})
 
 	err = controllerStore.UpdateController("aws-test", expectedDetails)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := os.ReadFile(osenv.JujuXDGDataHomePath(fileName))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Has no model-count reference.
-	c.Assert(string(data), gc.Equals, fmt.Sprintf(fileContent, "")[1:])
+	c.Assert(string(data), tc.Equals, fmt.Sprintf(fileContent, "")[1:])
 }

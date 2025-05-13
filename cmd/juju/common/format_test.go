@@ -6,18 +6,17 @@ package common_test
 import (
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type FormatTimeSuite struct{}
 
-var _ = gc.Suite(&FormatTimeSuite{})
+var _ = tc.Suite(&FormatTimeSuite{})
 
-func (s *FormatTimeSuite) TestFormatTime(c *gc.C) {
+func (s *FormatTimeSuite) TestFormatTime(c *tc.C) {
 	now := time.Now().Round(time.Second)
 	utcFormat := "2006-01-02 15:04:05Z"
 	localFormat := "02 Jan 2006 15:04:05Z07:00"
@@ -47,16 +46,16 @@ func (s *FormatTimeSuite) TestFormatTime(c *gc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		formatted := common.FormatTime(&test.input, test.isoTime)
 		parsed, err := time.Parse(test.outputFormat, formatted)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(parsed, jc.DeepEquals, test.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(parsed, tc.DeepEquals, test.input)
 	}
 }
 
 type FormatTimeAsTimestampSuite struct{}
 
-var _ = gc.Suite(&FormatTimeAsTimestampSuite{})
+var _ = tc.Suite(&FormatTimeAsTimestampSuite{})
 
-func (s *FormatTimeAsTimestampSuite) TestFormatTimeAsTimestamp(c *gc.C) {
+func (s *FormatTimeAsTimestampSuite) TestFormatTimeAsTimestamp(c *tc.C) {
 	now := time.Now().Round(time.Second)
 	utcFormat := "15:04:05"
 	localFormat := "15:04:05Z07:00"
@@ -86,21 +85,21 @@ func (s *FormatTimeAsTimestampSuite) TestFormatTimeAsTimestamp(c *gc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		formatted := common.FormatTimeAsTimestamp(&test.input, test.isoTime)
 		parsed, err := time.Parse(test.outputFormat, formatted)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		expected := test.input.Local()
 		if test.isoTime {
 			expected = test.input.UTC()
 		}
-		c.Assert(parsed.Format(test.outputFormat), jc.DeepEquals, expected.Format(test.outputFormat))
+		c.Assert(parsed.Format(test.outputFormat), tc.DeepEquals, expected.Format(test.outputFormat))
 	}
 }
 
 type ConformSuite struct{}
 
-var _ = gc.Suite(&ConformSuite{})
+var _ = tc.Suite(&ConformSuite{})
 
-func (s *ConformSuite) TestConformYAML(c *gc.C) {
+func (s *ConformSuite) TestConformYAML(c *tc.C) {
 	var goodInterfaceTests = []struct {
 		description       string
 		inputInterface    interface{}
@@ -191,23 +190,23 @@ func (s *ConformSuite) TestConformYAML(c *gc.C) {
 		input := test.inputInterface
 		cleansedInterfaceMap, err := common.ConformYAML(input)
 		if test.expectedError == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
+			if !c.Check(err, tc.ErrorIsNil) {
 				continue
 			}
-			c.Check(cleansedInterfaceMap, gc.DeepEquals, test.expectedInterface)
+			c.Check(cleansedInterfaceMap, tc.DeepEquals, test.expectedInterface)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.expectedError)
+			c.Check(err, tc.ErrorMatches, test.expectedError)
 		}
 	}
 }
 
 type HumaniseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&HumaniseSuite{})
+var _ = tc.Suite(&HumaniseSuite{})
 
-func (*HumaniseSuite) TestUserFriendlyDuration(c *gc.C) {
+func (*HumaniseSuite) TestUserFriendlyDuration(c *tc.C) {
 	// lp:1558657
 	now := time.Now()
 	for _, test := range []struct {
@@ -259,11 +258,11 @@ func (*HumaniseSuite) TestUserFriendlyDuration(c *gc.C) {
 		},
 	} {
 		obtained := common.UserFriendlyDuration(test.other, now)
-		c.Check(obtained, gc.Equals, test.expected)
+		c.Check(obtained, tc.Equals, test.expected)
 	}
 }
 
-func (*HumaniseSuite) TestHumaniseInterval(c *gc.C) {
+func (*HumaniseSuite) TestHumaniseInterval(c *tc.C) {
 	for _, test := range []struct {
 		interval time.Duration
 		expected string
@@ -286,6 +285,6 @@ func (*HumaniseSuite) TestHumaniseInterval(c *gc.C) {
 		},
 	} {
 		obtained := common.HumaniseInterval(test.interval)
-		c.Check(obtained, gc.Equals, test.expected)
+		c.Check(obtained, tc.Equals, test.expected)
 	}
 }

@@ -6,8 +6,7 @@ package machine_test
 import (
 	stdtesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -31,17 +30,17 @@ type commonSuite struct {
 	machine1 *state.Machine
 }
 
-func (s *commonSuite) SetUpTest(c *gc.C) {
+func (s *commonSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	st := s.ControllerModel(c).State()
 
 	var err error
 	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.

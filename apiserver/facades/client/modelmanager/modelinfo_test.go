@@ -9,8 +9,7 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
@@ -19,14 +18,15 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type modelInfoSuite struct{}
 
-var _ = gc.Suite(&modelInfoSuite{})
+var _ = tc.Suite(&modelInfoSuite{})
 
-func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfo(c *tc.C) {
 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -55,7 +55,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	// 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
 	// 	_true := true
 	// 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
-	// 	s.st.CheckCalls(c, []jujutesting.StubCall{
+	// 	s.st.CheckCalls(c, []testhelpers.StubCall{
 	// 		{FuncName: "ControllerTag", Args: nil},
 	// 		{FuncName: "GetBackend", Args: []interface{}{s.st.model.cfg.UUID()}},
 	// 		{FuncName: "Model", Args: nil},
@@ -67,9 +67,9 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	// 	})
 	// }
 
-	//	func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo) {
-	//		c.Assert(got, jc.DeepEquals, expected)
-	//		s.st.model.CheckCalls(c, []jujutesting.StubCall{
+	//	func (s *modelInfoSuite) assertModelInfo(c *tc.C, got, expected params.ModelInfo) {
+	//		c.Assert(got, tc.DeepEquals, expected)
+	//		s.st.model.CheckCalls(c, []testhelpers.StubCall{
 	//			{FuncName: "UUID", Args: nil},
 	//			{FuncName: "Name", Args: nil},
 	//			{FuncName: "Type", Args: nil},
@@ -85,7 +85,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	//		})
 }
 
-func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoWriteAccess(c *tc.C) {
 	c.Skip("TODO kelvin: Fix when refactoring the api into the domain services layer")
 
 	// 	mary := names.NewUserTag("mary@local")
@@ -128,12 +128,12 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	// 	s.mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 
 	// 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
-	// 	c.Assert(info.Users, gc.HasLen, 1)
-	// 	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
-	// 	c.Assert(info.Machines, gc.HasLen, 2)
+	// 	c.Assert(info.Users, tc.HasLen, 1)
+	// 	c.Assert(info.Users[0].UserName, tc.Equals, "mary")
+	// 	c.Assert(info.Machines, tc.HasLen, 2)
 	// }
 
-	// func (s *modelInfoSuite) TestModelInfoReadAccess(c *gc.C) {
+	// func (s *modelInfoSuite) TestModelInfoReadAccess(c *tc.C) {
 	// 	c.Skip("TODO kelvin: Fix when refactoring the api into the domain services layer")
 
 	// 	mary := names.NewUserTag("mary@local")
@@ -167,12 +167,12 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	// 	s.mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 
 	// 	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
-	// 	c.Assert(info.Users, gc.HasLen, 1)
-	// 	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
-	// 	c.Assert(info.Machines, gc.HasLen, 0)
+	// 	c.Assert(info.Users, tc.HasLen, 1)
+	// 	c.Assert(info.Users[0].UserName, tc.Equals, "mary")
+	// 	c.Assert(info.Machines, tc.HasLen, 0)
 	// }
 
-	// func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
+	// func (s *modelInfoSuite) TestModelInfoNonOwner(c *tc.C) {
 	// 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPIWithUser(c, names.NewUserTag("charlotte@local"))
@@ -208,12 +208,12 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	// s.mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 	// s.mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 	// info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
-	// c.Assert(info.Users, gc.HasLen, 1)
-	// c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
-	// c.Assert(info.Machines, gc.HasLen, 0)
+	// c.Assert(info.Users, tc.HasLen, 1)
+	// c.Assert(info.Users[0].UserName, tc.Equals, "charlotte")
+	// c.Assert(info.Machines, tc.HasLen, 0)
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorInvalidTag(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorInvalidTag(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// api, ctrl := s.getAPIWithoutModelInfo(c)
@@ -221,7 +221,7 @@ func (s *modelInfoSuite) TestModelInfoErrorInvalidTag(c *gc.C) {
 	// s.testModelInfoError(c, api, "user-bob", `"user-bob" is not a valid model tag`)
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorGetModelNotFound(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorGetModelNotFound(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// api, ctrl := s.getAPIWithoutModelInfo(c)
@@ -230,7 +230,7 @@ func (s *modelInfoSuite) TestModelInfoErrorGetModelNotFound(c *gc.C) {
 	// s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *tc.C) {
 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
 
 	// api, ctrl := s.getAPI(c)
@@ -239,7 +239,7 @@ func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *gc.C) {
 	// s.testModelInfoError(c, api, coretesting.ModelTag.String(), `no config for you`)
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// api, ctrl := s.getAPI(c)
@@ -248,7 +248,7 @@ func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
 	// s.testModelInfoError(c, api, coretesting.ModelTag.String(), `getting model user info: no users for you`)
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// api, ctrl := s.getAPI(c)
@@ -258,7 +258,7 @@ func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
 	// s.testModelInfoError(c, api, coretesting.ModelTag.String(), `getting model user info: user not found on model`)
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	noAccessUser := names.NewUserTag("nemo@local")
@@ -268,7 +268,7 @@ func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
 	// s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
 }
 
-func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
+func (s *modelInfoSuite) TestRunningMigration(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -291,14 +291,14 @@ func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
 	// 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	// 	})
 
-	// c.Assert(err, jc.ErrorIsNil)
+	// c.Assert(err, tc.ErrorIsNil)
 	// migrationResult := results.Results[0].Result.Migration
-	// c.Assert(migrationResult.Status, gc.Equals, "computing optimal bin packing")
-	// c.Assert(*migrationResult.Start, gc.Equals, start)
-	// c.Assert(migrationResult.End, gc.IsNil)
+	// c.Assert(migrationResult.Status, tc.Equals, "computing optimal bin packing")
+	// c.Assert(*migrationResult.Start, tc.Equals, start)
+	// c.Assert(migrationResult.End, tc.IsNil)
 }
 
-func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
+func (s *modelInfoSuite) TestFailedMigration(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 	// 	api, ctrl := s.getAPI(c)
 	// 	defer ctrl.Finish()
@@ -321,14 +321,14 @@ func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
 	// 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	// 	})
 
-	// c.Assert(err, jc.ErrorIsNil)
+	// c.Assert(err, tc.ErrorIsNil)
 	// migrationResult := results.Results[0].Result.Migration
-	// c.Assert(migrationResult.Status, gc.Equals, "couldn't realign alternate time frames")
-	// c.Assert(*migrationResult.Start, gc.Equals, start)
-	// c.Assert(*migrationResult.End, gc.Equals, end)
+	// c.Assert(migrationResult.Status, tc.Equals, "couldn't realign alternate time frames")
+	// c.Assert(*migrationResult.Start, tc.Equals, start)
+	// c.Assert(*migrationResult.End, tc.Equals, end)
 }
 
-func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
+func (s *modelInfoSuite) TestNoMigration(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -346,11 +346,11 @@ func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
 	//		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
 	//	})
 	//
-	// c.Assert(err, jc.ErrorIsNil)
-	// c.Assert(results.Results[0].Result.Migration, gc.IsNil)
+	// c.Assert(err, tc.ErrorIsNil)
+	// c.Assert(results.Results[0].Result.Migration, tc.IsNil)
 }
 
-func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *gc.C) {
+func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -366,7 +366,7 @@ func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *gc.C) {
 	// s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
-func (s *modelInfoSuite) TestAliveModelWithGetModelInfoFailure(c *gc.C) {
+func (s *modelInfoSuite) TestAliveModelWithGetModelInfoFailure(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPIWithoutModelInfo(c)
@@ -381,7 +381,7 @@ func (s *modelInfoSuite) TestAliveModelWithGetModelInfoFailure(c *gc.C) {
 	// s.testModelInfoError(c, api, s.st.model.tag.String(), "model info not found")
 }
 
-func (s *modelInfoSuite) TestAliveModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
+func (s *modelInfoSuite) TestAliveModelWithGetModelTargetAgentVersionFailure(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPIWithoutModelInfo(c)
@@ -399,7 +399,7 @@ func (s *modelInfoSuite) TestAliveModelWithGetModelTargetAgentVersionFailure(c *
 	// s.testModelInfoError(c, api, s.st.model.tag.String(), "model agent version not found")
 }
 
-func (s *modelInfoSuite) TestAliveModelWithStatusFailure(c *gc.C) {
+func (s *modelInfoSuite) TestAliveModelWithStatusFailure(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
@@ -410,7 +410,7 @@ func (s *modelInfoSuite) TestAliveModelWithStatusFailure(c *gc.C) {
 	// s.testModelInfoError(c, api, s.st.model.tag.String(), "status not found")
 }
 
-func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *gc.C) {
+func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// api, ctrl := s.getAPI(c)
@@ -420,7 +420,7 @@ func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *gc.C) {
 	// s.testModelInfoError(c, api, s.st.model.tag.String(), "getting model user info: model not found")
 }
 
-func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *gc.C) {
+func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -436,7 +436,7 @@ func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *gc.C) {
 	// s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
 
-func (s *modelInfoSuite) TestDeadModelWithGetModelInfoFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDeadModelWithGetModelInfoFailure(c *tc.C) {
 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPIWithoutModelInfo(c)
@@ -464,7 +464,7 @@ func (s *modelInfoSuite) TestDeadModelWithGetModelInfoFailure(c *gc.C) {
 	// s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
 
-func (s *modelInfoSuite) TestDeadModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDeadModelWithGetModelTargetAgentVersionFailure(c *tc.C) {
 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPIWithoutModelInfo(c)
@@ -492,7 +492,7 @@ func (s *modelInfoSuite) TestDeadModelWithGetModelTargetAgentVersionFailure(c *g
 	// s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
 
-func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -514,7 +514,7 @@ func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
 	// s.assertSuccessWithMissingData(c, api, testData)
 }
 
-func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -535,7 +535,7 @@ func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
 	// s.assertSuccessWithMissingData(c, api, testData)
 }
 
-func (s *modelInfoSuite) TestDyingModelWithGetModelInfoFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDyingModelWithGetModelInfoFailure(c *tc.C) {
 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPIWithoutModelInfo(c)
@@ -563,7 +563,7 @@ func (s *modelInfoSuite) TestDyingModelWithGetModelInfoFailure(c *gc.C) {
 	// s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dying, life.Dying)
 }
 
-func (s *modelInfoSuite) TestDyingModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDyingModelWithGetModelTargetAgentVersionFailure(c *tc.C) {
 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
 	// 	api, ctrl := s.getAPIWithoutModelInfo(c)
 	// 	defer ctrl.Finish()
@@ -590,7 +590,7 @@ func (s *modelInfoSuite) TestDyingModelWithGetModelTargetAgentVersionFailure(c *
 	// s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Dying, life.Dying)
 }
 
-func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -612,7 +612,7 @@ func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
 	// s.assertSuccessWithMissingData(c, api, testData)
 }
 
-func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -633,7 +633,7 @@ func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
 	// s.assertSuccessWithMissingData(c, api, testData)
 }
 
-func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
+func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -650,7 +650,7 @@ func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
 	// s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
-func (s *modelInfoSuite) TestImportingModelWithGetModelInfoFailure(c *gc.C) {
+func (s *modelInfoSuite) TestImportingModelWithGetModelInfoFailure(c *tc.C) {
 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
 	// 	api, ctrl := s.getAPIWithoutModelInfo(c)
 	// 	defer ctrl.Finish()
@@ -678,7 +678,7 @@ func (s *modelInfoSuite) TestImportingModelWithGetModelInfoFailure(c *gc.C) {
 	// s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
-func (s *modelInfoSuite) TestImportingModelWithGetModelTargetAgentVersionFailure(c *gc.C) {
+func (s *modelInfoSuite) TestImportingModelWithGetModelTargetAgentVersionFailure(c *tc.C) {
 	c.Skip("TODO tlm: Fix when refactoring the api into the domain services layer")
 	// 	api, ctrl := s.getAPIWithoutModelInfo(c)
 	// 	defer ctrl.Finish()
@@ -706,7 +706,7 @@ func (s *modelInfoSuite) TestImportingModelWithGetModelTargetAgentVersionFailure
 	// s.assertSuccess(c, api, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
-func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
+func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// api, ctrl := s.getAPI(c)
@@ -729,7 +729,7 @@ func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
 	// s.assertSuccessWithMissingData(c, api, testData)
 }
 
-func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
+func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *tc.C) {
 	c.Skip("TODO: Fix when refactoring the api into the domain services layer")
 
 	// 	api, ctrl := s.getAPI(c)
@@ -752,18 +752,18 @@ func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
 }
 
 // type incompleteModelInfoTest struct {
-// 	failModel    func(*gc.C)
+// 	failModel    func(*tc.C)
 // 	desiredLife  state.Life
 // 	expectedLife life.Value
 // }
 
-// func (s *modelInfoSuite) setModelStatusError(*gc.C) {
+// func (s *modelInfoSuite) setModelStatusError(*tc.C) {
 // 	s.st.model.SetErrors(
 // 		errors.NotFoundf("status"), // Status
 // 	)
 // }
 
-// func (s *modelInfoSuite) setModelUsersError(c *gc.C) {
+// func (s *modelInfoSuite) setModelUsersError(c *tc.C) {
 // 	s.mockModelService.EXPECT().GetModelUsers(
 // 		gomock.Any(),
 // 		gomock.Any(),
@@ -773,28 +773,28 @@ func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
 // 	)
 // }
 
-// func (s *modelInfoSuite) assertSuccessWithMissingData(c *gc.C, api *modelmanager.ModelManagerAPI, test incompleteModelInfoTest) {
+// func (s *modelInfoSuite) assertSuccessWithMissingData(c *tc.C, api *modelmanager.ModelManagerAPI, test incompleteModelInfoTest) {
 // 	test.failModel(c)
 // 	// We do not expect any errors to surface and still want to get basic model info.
 // 	s.assertSuccess(c, api, s.st.model.cfg.UUID(), test.desiredLife, test.expectedLife)
 // }
 
-// func (s *modelInfoSuite) assertSuccess(c *gc.C, api *modelmanager.ModelManagerAPI, modelUUID string, desiredLife state.Life, expectedLife life.Value) {
+// func (s *modelInfoSuite) assertSuccess(c *tc.C, api *modelmanager.ModelManagerAPI, modelUUID string, desiredLife state.Life, expectedLife life.Value) {
 // 	s.st.model.life = desiredLife
 // 	// should get no errors
 // 	info := s.getModelInfo(c, api, modelUUID)
-// 	c.Assert(info.UUID, gc.Equals, modelUUID)
-// 	c.Assert(info.Life, gc.Equals, expectedLife)
+// 	c.Assert(info.UUID, tc.Equals, modelUUID)
+// 	c.Assert(info.Life, tc.Equals, expectedLife)
 // }
 
-// func (s *modelInfoSuite) testModelInfoError(c *gc.C, api *modelmanager.ModelManagerAPI, modelTag, expectedErr string) {
+// func (s *modelInfoSuite) testModelInfoError(c *tc.C, api *modelmanager.ModelManagerAPI, modelTag, expectedErr string) {
 // 	results, err := api.ModelInfo(context.Background(), params.Entities{
 // 		Entities: []params.Entity{{modelTag}},
 // 	})
-// 	c.Assert(err, jc.ErrorIsNil)
-// 	c.Assert(results.Results, gc.HasLen, 1)
-// 	c.Assert(results.Results[0].Result, gc.IsNil)
-// 	c.Assert(results.Results[0].Error, gc.ErrorMatches, expectedErr)
+// 	c.Assert(err, tc.ErrorIsNil)
+// 	c.Assert(results.Results, tc.HasLen, 1)
+// 	c.Assert(results.Results[0].Result, tc.IsNil)
+// 	c.Assert(results.Results[0].Error, tc.ErrorMatches, expectedErr)
 // }
 
 type unitRetriever interface {
@@ -802,7 +802,7 @@ type unitRetriever interface {
 }
 
 type mockState struct {
-	jujutesting.Stub
+	testhelpers.Stub
 
 	environs.EnvironConfigGetter
 	common.APIHostPortsForAgentsGetter
@@ -1012,7 +1012,7 @@ func (st *mockState) MigrationMode() (state.MigrationMode, error) {
 // }
 
 type mockModel struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	owner  names.UserTag
 	life   state.Life
 	tag    names.ModelTag

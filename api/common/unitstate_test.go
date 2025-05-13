@@ -8,34 +8,33 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type unitStateSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	tag names.UnitTag
 }
 
-var _ = gc.Suite(&unitStateSuite{})
+var _ = tc.Suite(&unitStateSuite{})
 
-func (s *unitStateSuite) SetUpTest(c *gc.C) {
+func (s *unitStateSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewUnitTag("test-unit/0")
 }
 
-func (s *unitStateSuite) TestSetStateSingleResult(c *gc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+func (s *unitStateSuite) TestSetStateSingleResult(c *tc.C) {
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "SetState")
-		c.Assert(args.(params.SetUnitStateArgs).Args, gc.HasLen, 1)
-		c.Assert(args.(params.SetUnitStateArgs).Args[0].Tag, gc.Equals, s.tag.String())
-		c.Assert(*args.(params.SetUnitStateArgs).Args[0].CharmState, jc.DeepEquals, map[string]string{"one": "two"})
+		c.Assert(name, tc.Equals, "SetState")
+		c.Assert(args.(params.SetUnitStateArgs).Args, tc.HasLen, 1)
+		c.Assert(args.(params.SetUnitStateArgs).Args[0].Tag, tc.Equals, s.tag.String())
+		c.Assert(*args.(params.SetUnitStateArgs).Args[0].CharmState, tc.DeepEquals, map[string]string{"one": "two"})
 		*(response.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
 				Error: nil,
@@ -47,11 +46,11 @@ func (s *unitStateSuite) TestSetStateSingleResult(c *gc.C) {
 	err := api.SetState(context.Background(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *gc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *tc.C) {
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		result := response.(*params.ErrorResults)
 		result.Results = []params.ErrorResult{{
@@ -65,16 +64,16 @@ func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *gc.C) {
 	err := api.SetState(context.Background(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
-	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded, gc.Commentf("expected the client to reconstruct QuotaLimitExceeded error from server response"))
+	c.Assert(err, tc.ErrorIs, errors.QuotaLimitExceeded, tc.Commentf("expected the client to reconstruct QuotaLimitExceeded error from server response"))
 }
 
-func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *gc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *tc.C) {
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "SetState")
-		c.Assert(args.(params.SetUnitStateArgs).Args, gc.HasLen, 1)
-		c.Assert(args.(params.SetUnitStateArgs).Args[0].Tag, gc.Equals, s.tag.String())
-		c.Assert(*args.(params.SetUnitStateArgs).Args[0].CharmState, jc.DeepEquals, map[string]string{"one": "two"})
+		c.Assert(name, tc.Equals, "SetState")
+		c.Assert(args.(params.SetUnitStateArgs).Args, tc.HasLen, 1)
+		c.Assert(args.(params.SetUnitStateArgs).Args[0].Tag, tc.Equals, s.tag.String())
+		c.Assert(*args.(params.SetUnitStateArgs).Args[0].CharmState, tc.DeepEquals, map[string]string{"one": "two"})
 		*(response.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{
 				{Error: nil},
@@ -88,19 +87,19 @@ func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *gc.C) {
 	err := api.SetState(context.Background(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *unitStateSuite) TestStateSingleResult(c *gc.C) {
+func (s *unitStateSuite) TestStateSingleResult(c *tc.C) {
 	expectedCharmState := map[string]string{
 		"one":   "two",
 		"three": "four",
 	}
 	expectedUniterState := "testing"
 
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "State")
+		c.Assert(name, tc.Equals, "State")
 		*(response.(*params.UnitStateResults)) = params.UnitStateResults{
 			Results: []params.UnitStateResult{{
 				UniterState: expectedUniterState,
@@ -111,15 +110,15 @@ func (s *unitStateSuite) TestStateSingleResult(c *gc.C) {
 
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
 	obtainedUnitState, err := api.State(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(expectedCharmState, gc.DeepEquals, obtainedUnitState.CharmState)
-	c.Assert(expectedUniterState, gc.DeepEquals, obtainedUnitState.UniterState)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(expectedCharmState, tc.DeepEquals, obtainedUnitState.CharmState)
+	c.Assert(expectedUniterState, tc.DeepEquals, obtainedUnitState.UniterState)
 }
 
-func (s *unitStateSuite) TestStateMultipleReturnsError(c *gc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+func (s *unitStateSuite) TestStateMultipleReturnsError(c *tc.C) {
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "State")
+		c.Assert(name, tc.Equals, "State")
 		*(response.(*params.UnitStateResults)) = params.UnitStateResults{
 			Results: []params.UnitStateResult{
 				{Error: &params.Error{Code: params.CodeNotFound, Message: `testing`}},
@@ -130,5 +129,5 @@ func (s *unitStateSuite) TestStateMultipleReturnsError(c *gc.C) {
 
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
 	_, err := api.State(context.Background())
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }

@@ -4,36 +4,35 @@
 package charm_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type sourceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&sourceSuite{})
+var _ = tc.Suite(&sourceSuite{})
 
-func (s sourceSuite) TestMatches(c *gc.C) {
+func (s *sourceSuite) TestMatches(c *tc.C) {
 	ok := charm.Source("xxx").Matches("xxx")
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s sourceSuite) TestNotMatches(c *gc.C) {
+func (s *sourceSuite) TestNotMatches(c *tc.C) {
 	ok := charm.Source("xxx").Matches("yyy")
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 type platformSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&platformSuite{})
+var _ = tc.Suite(&platformSuite{})
 
-func (s platformSuite) TestParsePlatform(c *gc.C) {
+func (s *platformSuite) TestParsePlatform(c *tc.C) {
 	tests := []struct {
 		Name        string
 		Value       string
@@ -98,15 +97,15 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 		c.Logf("test %q at %d", test.Name, k)
 		ch, err := charm.ParsePlatformNormalize(test.Value)
 		if test.ExpectedErr != "" {
-			c.Check(err, gc.ErrorMatches, test.ExpectedErr)
+			c.Check(err, tc.ErrorMatches, test.ExpectedErr)
 		} else {
-			c.Check(ch, gc.DeepEquals, test.Expected)
-			c.Check(err, gc.IsNil)
+			c.Check(ch, tc.DeepEquals, test.Expected)
+			c.Check(err, tc.IsNil)
 		}
 	}
 }
 
-func (s platformSuite) TestString(c *gc.C) {
+func (s *platformSuite) TestString(c *tc.C) {
 	tests := []struct {
 		Name     string
 		Value    string
@@ -127,7 +126,7 @@ func (s platformSuite) TestString(c *gc.C) {
 	for k, test := range tests {
 		c.Logf("test %q at %d", test.Name, k)
 		platform, err := charm.ParsePlatformNormalize(test.Value)
-		c.Assert(err, gc.IsNil)
-		c.Assert(platform.String(), gc.DeepEquals, test.Expected)
+		c.Assert(err, tc.IsNil)
+		c.Assert(platform.String(), tc.DeepEquals, test.Expected)
 	}
 }

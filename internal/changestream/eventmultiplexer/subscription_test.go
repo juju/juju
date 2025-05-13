@@ -8,9 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	"github.com/juju/juju/internal/testing"
@@ -20,9 +19,9 @@ type subscriptionSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&subscriptionSuite{})
+var _ = tc.Suite(&subscriptionSuite{})
 
-func (s *subscriptionSuite) TestSubscriptionIsDone(c *gc.C) {
+func (s *subscriptionSuite) TestSubscriptionIsDone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sub := newSubscription(0, func() {})
@@ -37,7 +36,7 @@ func (s *subscriptionSuite) TestSubscriptionIsDone(c *gc.C) {
 	}
 }
 
-func (s *subscriptionSuite) TestSubscriptionUnsubscriptionIsCalled(c *gc.C) {
+func (s *subscriptionSuite) TestSubscriptionUnsubscriptionIsCalled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	var called bool
@@ -45,12 +44,12 @@ func (s *subscriptionSuite) TestSubscriptionUnsubscriptionIsCalled(c *gc.C) {
 	defer workertest.CleanKill(c, sub)
 
 	sub.Unsubscribe()
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 
 	workertest.CleanKill(c, sub)
 }
 
-func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *gc.C) {
+func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sub := newSubscription(0, func() {
@@ -66,7 +65,7 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *gc.C) {
 
 	go func() {
 		err := sub.dispatch(context.Background(), changes)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	var witnessed ChangeSet
@@ -76,13 +75,13 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *gc.C) {
 	case <-time.After(testing.ShortWait):
 	}
 
-	c.Assert(witnessed, gc.HasLen, len(changes))
-	c.Check(witnessed, jc.SameContents, changes)
+	c.Assert(witnessed, tc.HasLen, len(changes))
+	c.Check(witnessed, tc.SameContents, changes)
 
 	workertest.CleanKill(c, sub)
 }
 
-func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledContext(c *gc.C) {
+func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sub := newSubscription(0, func() {
@@ -104,7 +103,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledC
 		cancel()
 
 		err := sub.dispatch(ctx, changes)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	select {
@@ -122,7 +121,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledC
 	workertest.CleanKill(c, sub)
 }
 
-func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *gc.C) {
+func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	var witnessed int64
@@ -147,7 +146,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *gc
 		time.Sleep(time.Millisecond)
 
 		err := sub.dispatch(ctx, changes)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	select {
@@ -163,12 +162,12 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *gc
 	}
 
 	// We should have witnessed the unsubscribe
-	c.Check(atomic.LoadInt64(&witnessed), gc.Equals, int64(1))
+	c.Check(atomic.LoadInt64(&witnessed), tc.Equals, int64(1))
 
 	workertest.CleanKill(c, sub)
 }
 
-func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *gc.C) {
+func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sub := newSubscription(0, func() {
@@ -187,10 +186,10 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *gc
 		defer close(syncPoint)
 
 		err := sub.close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = sub.dispatch(context.Background(), changes)
-		c.Assert(err, gc.ErrorMatches, "tomb: dying")
+		c.Assert(err, tc.ErrorMatches, "tomb: dying")
 	}()
 
 	select {

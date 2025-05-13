@@ -4,72 +4,71 @@
 package engine_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ValueWorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ValueWorkerSuite{})
+var _ = tc.Suite(&ValueWorkerSuite{})
 
-func (s *ValueWorkerSuite) TestNewValueWorker_Success(c *gc.C) {
+func (s *ValueWorkerSuite) TestNewValueWorker_Success(c *tc.C) {
 	w, err := engine.NewValueWorker("cheese")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = worker.Stop(w)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *ValueWorkerSuite) TestNewValueWorker_NilValue(c *gc.C) {
+func (s *ValueWorkerSuite) TestNewValueWorker_NilValue(c *tc.C) {
 	w, err := engine.NewValueWorker(nil)
-	c.Check(err, gc.ErrorMatches, "NewValueWorker expects a value")
-	c.Check(w, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "NewValueWorker expects a value")
+	c.Check(w, tc.IsNil)
 }
 
-func (s *ValueWorkerSuite) TestValueWorkerOutput_Success(c *gc.C) {
+func (s *ValueWorkerSuite) TestValueWorkerOutput_Success(c *tc.C) {
 	value := &testType{}
 	w, err := engine.NewValueWorker(value)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var outVal testInterface
 	err = engine.ValueWorkerOutput(w, &outVal)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(outVal, gc.DeepEquals, value)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(outVal, tc.DeepEquals, value)
 }
 
-func (s *ValueWorkerSuite) TestValueWorkerOutput_BadInput(c *gc.C) {
+func (s *ValueWorkerSuite) TestValueWorkerOutput_BadInput(c *tc.C) {
 	var outVal testInterface
 	err := engine.ValueWorkerOutput(&testType{}, &outVal)
-	c.Check(err, gc.ErrorMatches, "in should be a \\*valueWorker; is .*")
-	c.Check(outVal, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "in should be a \\*valueWorker; is .*")
+	c.Check(outVal, tc.IsNil)
 }
 
-func (s *ValueWorkerSuite) TestValueWorkerOutput_BadOutputIndirection(c *gc.C) {
+func (s *ValueWorkerSuite) TestValueWorkerOutput_BadOutputIndirection(c *tc.C) {
 	value := &testType{}
 	w, err := engine.NewValueWorker(value)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var outVal string
 	err = engine.ValueWorkerOutput(w, outVal)
-	c.Check(err, gc.ErrorMatches, "out should be a pointer; is .*")
-	c.Check(outVal, gc.Equals, "")
+	c.Check(err, tc.ErrorMatches, "out should be a pointer; is .*")
+	c.Check(outVal, tc.Equals, "")
 }
 
-func (s *ValueWorkerSuite) TestValueWorkerOutput_BadOutputType(c *gc.C) {
+func (s *ValueWorkerSuite) TestValueWorkerOutput_BadOutputType(c *tc.C) {
 	value := &testType{}
 	w, err := engine.NewValueWorker(value)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var outVal string
 	err = engine.ValueWorkerOutput(w, &outVal)
-	c.Check(err, gc.ErrorMatches, "cannot output into \\*string")
-	c.Check(outVal, gc.Equals, "")
+	c.Check(err, tc.ErrorMatches, "cannot output into \\*string")
+	c.Check(outVal, tc.Equals, "")
 }
 
 type testInterface interface {

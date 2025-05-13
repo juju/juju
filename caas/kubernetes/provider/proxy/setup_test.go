@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -25,11 +24,11 @@ type setupSuite struct {
 }
 
 var (
-	_             = gc.Suite(&setupSuite{})
+	_             = tc.Suite(&setupSuite{})
 	testNamespace = "test"
 )
 
-func (s *setupSuite) SetUpTest(c *gc.C) {
+func (s *setupSuite) SetUpTest(c *tc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 	s.client = fake.NewSimpleClientset()
 	_, err := s.client.CoreV1().Namespaces().Create(context.Background(),
@@ -40,10 +39,10 @@ func (s *setupSuite) SetUpTest(c *gc.C) {
 		},
 		meta.CreateOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
+func (s *setupSuite) TestProxyObjCreation(c *tc.C) {
 	config := proxy.ControllerProxyConfig{
 		Name:          "controller-proxy",
 		Namespace:     testNamespace,
@@ -65,7 +64,7 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 			core.ServiceAccountTokenKey: []byte("token"),
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
 		context.Background(),
 		config,
@@ -77,58 +76,58 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 		s.client.CoreV1().ServiceAccounts(testNamespace),
 		s.client.CoreV1().Secrets(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	role, err := s.client.RbacV1().Roles(testNamespace).Get(
 		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(role.Name, gc.Equals, config.Name)
-	c.Assert(role.Rules[0].Resources, jc.DeepEquals, []string{"pods"})
-	c.Assert(role.Rules[0].Verbs, jc.DeepEquals, []string{"list", "get", "watch"})
-	c.Assert(role.Rules[1].Resources, jc.DeepEquals, []string{"services"})
-	c.Assert(role.Rules[1].Verbs, jc.DeepEquals, []string{"get"})
-	c.Assert(role.Rules[2].Resources, jc.DeepEquals, []string{"pods/portforward"})
-	c.Assert(role.Rules[2].Verbs, jc.DeepEquals, []string{"create", "get"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(role.Name, tc.Equals, config.Name)
+	c.Assert(role.Rules[0].Resources, tc.DeepEquals, []string{"pods"})
+	c.Assert(role.Rules[0].Verbs, tc.DeepEquals, []string{"list", "get", "watch"})
+	c.Assert(role.Rules[1].Resources, tc.DeepEquals, []string{"services"})
+	c.Assert(role.Rules[1].Verbs, tc.DeepEquals, []string{"get"})
+	c.Assert(role.Rules[2].Resources, tc.DeepEquals, []string{"pods/portforward"})
+	c.Assert(role.Rules[2].Verbs, tc.DeepEquals, []string{"create", "get"})
 
 	sa, err := s.client.CoreV1().ServiceAccounts(testNamespace).Get(
 		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sa.Name, gc.Equals, config.Name)
-	c.Assert(len(sa.Secrets), gc.Equals, 1)
-	c.Assert(sa.Secrets[0].Name, gc.Equals, config.Name)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sa.Name, tc.Equals, config.Name)
+	c.Assert(len(sa.Secrets), tc.Equals, 1)
+	c.Assert(sa.Secrets[0].Name, tc.Equals, config.Name)
 
 	secret, err := s.client.CoreV1().ServiceAccounts(testNamespace).Get(
 		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(secret.Name, gc.Equals, config.Name)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(secret.Name, tc.Equals, config.Name)
 
 	roleBinding, err := s.client.RbacV1().RoleBindings(testNamespace).Get(
 		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(roleBinding.Name, gc.Equals, config.Name)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(roleBinding.Name, tc.Equals, config.Name)
 
 	cm, err := s.client.CoreV1().ConfigMaps(testNamespace).Get(
 		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cm.Name, gc.Equals, config.Name)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cm.Name, tc.Equals, config.Name)
 }
 
-func (s *setupSuite) TestProxyConfigMap(c *gc.C) {
+func (s *setupSuite) TestProxyConfigMap(c *tc.C) {
 	config := proxy.ControllerProxyConfig{
 		Name:          "controller-proxy",
 		Namespace:     testNamespace,
@@ -150,7 +149,7 @@ func (s *setupSuite) TestProxyConfigMap(c *gc.C) {
 			core.ServiceAccountTokenKey: []byte("token"),
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
 		context.Background(),
 		config,
@@ -162,19 +161,19 @@ func (s *setupSuite) TestProxyConfigMap(c *gc.C) {
 		s.client.CoreV1().ServiceAccounts(testNamespace),
 		s.client.CoreV1().Secrets(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cm, err := s.client.CoreV1().ConfigMaps(testNamespace).Get(
 		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fetchedConfig := proxy.ControllerProxyConfig{}
 	configJson := cm.Data[proxy.ProxyConfigMapKey]
 	err = json.Unmarshal([]byte(configJson), &fetchedConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(fetchedConfig, jc.DeepEquals, config)
+	c.Assert(fetchedConfig, tc.DeepEquals, config)
 }

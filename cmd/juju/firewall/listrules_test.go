@@ -8,8 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/firewall"
 	"github.com/juju/juju/environs/config"
@@ -24,21 +23,21 @@ type ListSuite struct {
 	mockAPI *mockListAPI
 }
 
-var _ = gc.Suite(&ListSuite{})
+var _ = tc.Suite(&ListSuite{})
 
-func (s *ListSuite) SetUpTest(c *gc.C) {
+func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.mockAPI = &mockListAPI{
 		rules: "192.168.1.0/16,10.0.0.0/8",
 	}
 }
 
-func (s *ListSuite) TestListError(c *gc.C) {
+func (s *ListSuite) TestListError(c *tc.C) {
 	s.mockAPI.err = errors.New("fail")
 	_, err := s.runList(c, nil)
-	c.Assert(err, gc.ErrorMatches, ".*fail.*")
+	c.Assert(err, tc.ErrorMatches, ".*fail.*")
 }
 
-func (s *ListSuite) TestListTabular(c *gc.C) {
+func (s *ListSuite) TestListTabular(c *tc.C) {
 	s.assertValidList(
 		c,
 		[]string{"--format", "tabular"},
@@ -51,7 +50,7 @@ ssh                     192.168.1.0/16,10.0.0.0/8
 	)
 }
 
-func (s *ListSuite) TestListYAML(c *gc.C) {
+func (s *ListSuite) TestListYAML(c *tc.C) {
 	s.assertValidList(
 		c,
 		[]string{"--format", "yaml"},
@@ -68,7 +67,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	)
 }
 
-func (s *ListSuite) TestListEmpty(c *gc.C) {
+func (s *ListSuite) TestListEmpty(c *tc.C) {
 	s.mockAPI.rules = ""
 	s.assertValidList(
 		c,
@@ -83,19 +82,19 @@ ssh
 
 }
 
-func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
+func (s *ListSuite) runList(c *tc.C, args []string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, firewall.NewListRulesCommandForTest(s.mockAPI), args...)
 }
 
-func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expectedErr string) {
+func (s *ListSuite) assertValidList(c *tc.C, args []string, expectedValid, expectedErr string) {
 	context, err := s.runList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedErr := strings.Replace(cmdtesting.Stderr(context), "\n", "", -1)
-	c.Assert(obtainedErr, gc.Matches, expectedErr)
+	c.Assert(obtainedErr, tc.Matches, expectedErr)
 
 	obtainedValid := cmdtesting.Stdout(context)
-	c.Assert(obtainedValid, gc.Matches, expectedValid)
+	c.Assert(obtainedValid, tc.Matches, expectedValid)
 }
 
 type mockListAPI struct {

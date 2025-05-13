@@ -7,25 +7,24 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type importSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	importService *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) TestImportUnitPasswordHash(c *gc.C) {
+func (s *importSuite) TestImportUnitPasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.importService.EXPECT().SetUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), agentpassword.PasswordHash("hash")).Return(nil)
@@ -44,10 +43,10 @@ func (s *importSuite) TestImportUnitPasswordHash(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportUnitPasswordHashError(c *gc.C) {
+func (s *importSuite) TestImportUnitPasswordHashError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.importService.EXPECT().SetUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), agentpassword.PasswordHash("hash")).Return(errors.Errorf("boom"))
@@ -66,10 +65,10 @@ func (s *importSuite) TestImportUnitPasswordHashError(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, gc.ErrorMatches, ".*boom")
+	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
-func (s *importSuite) TestImportUnitPasswordHashMissingHash(c *gc.C) {
+func (s *importSuite) TestImportUnitPasswordHashMissingHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	op := importOperation{
@@ -85,10 +84,10 @@ func (s *importSuite) TestImportUnitPasswordHashMissingHash(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportUnitPasswordHashNoApplications(c *gc.C) {
+func (s *importSuite) TestImportUnitPasswordHashNoApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	op := importOperation{
@@ -98,10 +97,10 @@ func (s *importSuite) TestImportUnitPasswordHashNoApplications(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportUnitPasswordHashNoUnits(c *gc.C) {
+func (s *importSuite) TestImportUnitPasswordHashNoUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	op := importOperation{
@@ -114,10 +113,10 @@ func (s *importSuite) TestImportUnitPasswordHashNoUnits(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.importService = NewMockImportService(ctrl)

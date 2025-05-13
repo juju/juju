@@ -6,21 +6,20 @@ package lease_test
 import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lease"
 )
 
 type RevokeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&RevokeSuite{})
+var _ = tc.Suite(&RevokeSuite{})
 
-func (s *RevokeSuite) TestHolderSuccess(c *gc.C) {
+func (s *RevokeSuite) TestHolderSuccess(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "RevokeLease",
@@ -41,11 +40,11 @@ func (s *RevokeSuite) TestHolderSuccess(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getRevoker(c, manager).Revoke("redis", "redis/0")
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
-func (s *RevokeSuite) TestOtherHolderError(c *gc.C) {
+func (s *RevokeSuite) TestOtherHolderError(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -55,20 +54,20 @@ func (s *RevokeSuite) TestOtherHolderError(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getRevoker(c, manager).Revoke("redis", "redis/1")
-		c.Check(errors.Cause(err), gc.Equals, corelease.ErrNotHeld)
+		c.Check(errors.Cause(err), tc.Equals, corelease.ErrNotHeld)
 	})
 }
 
-func (s *RevokeSuite) TestMissing(c *gc.C) {
+func (s *RevokeSuite) TestMissing(c *tc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getRevoker(c, manager).Revoke("redis", "redis/0")
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
-func getRevoker(c *gc.C, manager *lease.Manager) corelease.Revoker {
+func getRevoker(c *tc.C, manager *lease.Manager) corelease.Revoker {
 	revoker, err := manager.Revoker("namespace", "modelUUID")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return revoker
 }

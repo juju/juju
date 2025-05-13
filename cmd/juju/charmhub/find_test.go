@@ -4,46 +4,45 @@
 package charmhub
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type findSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	charmHubAPI *mocks.MockCharmHubClient
 }
 
-var _ = gc.Suite(&findSuite{})
+var _ = tc.Suite(&findSuite{})
 
-func (s *findSuite) TestInitNoArgs(c *gc.C) {
+func (s *findSuite) TestInitNoArgs(c *tc.C) {
 	// You can query the find api with no arguments.
 	command := &findCommand{
 		charmHubCommand: s.newCharmHubCommand(),
 		columns:         "nbvps",
 	}
 	err := command.Init([]string{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *findSuite) TestInitSuccess(c *gc.C) {
+func (s *findSuite) TestInitSuccess(c *tc.C) {
 	command := &findCommand{
 		charmHubCommand: s.newCharmHubCommand(),
 		columns:         "nbvps",
 	}
 	err := command.Init([]string{"test"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *findSuite) TestRun(c *gc.C) {
+func (s *findSuite) TestRun(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectFind()
 
@@ -52,14 +51,14 @@ func (s *findSuite) TestRun(c *gc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *findSuite) TestRunJSON(c *gc.C) {
+func (s *findSuite) TestRunJSON(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectFind()
 
@@ -68,12 +67,12 @@ func (s *findSuite) TestRunJSON(c *gc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), tc.Equals, `
 [
   {
     "type": "object",
@@ -100,7 +99,7 @@ func (s *findSuite) TestRunJSON(c *gc.C) {
 `[1:])
 }
 
-func (s *findSuite) TestRunYAML(c *gc.C) {
+func (s *findSuite) TestRunYAML(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectFind()
 
@@ -109,12 +108,12 @@ func (s *findSuite) TestRunYAML(c *gc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "yaml"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 - type: object
   id: charmCHARMcharmCHARMcharmCHARM01
   name: wordpress
@@ -132,7 +131,7 @@ func (s *findSuite) TestRunYAML(c *gc.C) {
 `[1:])
 }
 
-func (s *findSuite) TestRunWithType(c *gc.C) {
+func (s *findSuite) TestRunWithType(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectFind()
 
@@ -141,14 +140,14 @@ func (s *findSuite) TestRunWithType(c *gc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--type", "bundle"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *findSuite) TestRunWithNoType(c *gc.C) {
+func (s *findSuite) TestRunWithNoType(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectFind()
 
@@ -157,11 +156,11 @@ func (s *findSuite) TestRunWithNoType(c *gc.C) {
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--type", ""})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *findSuite) newCharmHubCommand() *charmHubCommand {
@@ -173,7 +172,7 @@ func (s *findSuite) newCharmHubCommand() *charmHubCommand {
 	}
 }
 
-func (s *findSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *findSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charmHubAPI = mocks.NewMockCharmHubClient(ctrl)
 	return ctrl

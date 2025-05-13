@@ -11,11 +11,9 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -23,6 +21,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/pubsub/apiserver"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type WorkerSuite struct {
@@ -35,44 +34,44 @@ type WorkerSuite struct {
 	finished map[string]chan struct{}
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = tc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) TestWorkerConfig(c *gc.C) {
+func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
-	c.Assert(cfg.Validate(), jc.ErrorIsNil)
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.newConfig(c)
 	cfg.Origin = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Clock = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Logger = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Hub = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.APIInfo = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.APIOpener = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.NewRemote = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-func (s *WorkerSuite) TestWorker(c *gc.C) {
+func (s *WorkerSuite) TestWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
@@ -83,7 +82,7 @@ func (s *WorkerSuite) TestWorker(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServers(c *gc.C) {
+func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -95,13 +94,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServers(c *gc.C) {
 
 	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{})
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{})
-	c.Check(w.GetAPIRemotes(), gc.DeepEquals, []RemoteConnection{})
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{})
+	c.Check(w.GetAPIRemotes(), tc.DeepEquals, []RemoteConnection{})
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWorkerAPIServerChangesWhilstMatchingOrigin(c *gc.C) {
+func (s *WorkerSuite) TestWorkerAPIServerChangesWhilstMatchingOrigin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -123,13 +122,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWhilstMatchingOrigin(c *gc.C) {
 
 	// Machine-0 is the origin, so we should not have any workers.
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{})
-	c.Check(w.GetAPIRemotes(), gc.HasLen, 0)
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{})
+	c.Check(w.GetAPIRemotes(), tc.HasLen, 0)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
+func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -146,7 +145,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 			select {
 			case ch <- s.connection:
 			case <-ctx.Done():
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for connection")
 			}
 		}()
@@ -182,30 +181,30 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
 	s.ensureChanged(c)
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
 
 	remotes := w.GetAPIRemotes()
-	c.Assert(remotes, gc.HasLen, 1)
+	c.Assert(remotes, tc.HasLen, 1)
 
 	var conn api.Connection
 	err := remotes[0].Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
 		conn = c
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
-	c.Check(conn.Addr(), gc.DeepEquals, addr)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conn, tc.NotNil)
+	c.Check(conn.Addr(), tc.DeepEquals, addr)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWorkerAPIServerChangesNonInternalAddress(c *gc.C) {
+func (s *WorkerSuite) TestWorkerAPIServerChangesNonInternalAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -236,18 +235,18 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesNonInternalAddress(c *gc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
 	s.ensureChanged(c)
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *gc.C) {
+func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -289,11 +288,11 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *gc.C) {
 
 	select {
 	case <-done1:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
 
 	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
@@ -312,7 +311,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *gc.C) {
 
 	select {
 	case <-done2:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
@@ -325,14 +324,14 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *gc.C) {
 		// up before we can check the worker names. It would be better if
 		// runner exposed a way to emit changes to the internal state.
 		time.Sleep(100 * time.Millisecond)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
 	s.ensureChanged(c)
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"2"})
-	c.Check(s.called, jc.DeepEquals, map[string]int{
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"2"})
+	c.Check(s.called, tc.DeepEquals, map[string]int{
 		"1": 1,
 		"2": 1,
 	})
@@ -340,7 +339,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *gc.C) {
+func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -379,11 +378,11 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *gc.C) {
 
 	select {
 	case <-done1:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
 
 	s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
@@ -402,17 +401,17 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *gc.C) {
 
 	select {
 	case <-done2:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
-	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
-	c.Check(s.called, jc.DeepEquals, map[string]int{"1": 1})
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"1"})
+	c.Check(s.called, tc.DeepEquals, map[string]int{"1": 1})
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
@@ -429,14 +428,14 @@ func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *WorkerSuite) newWorker(c *gc.C) *remoteWorker {
+func (s *WorkerSuite) newWorker(c *tc.C) *remoteWorker {
 	w, err := newWorker(s.newConfig(c), s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return w
 }
 
-func (s *WorkerSuite) newConfig(c *gc.C) WorkerConfig {
+func (s *WorkerSuite) newConfig(c *tc.C) WorkerConfig {
 	return WorkerConfig{
 		Origin:    names.NewMachineTag("0"),
 		APIInfo:   &api.Info{},

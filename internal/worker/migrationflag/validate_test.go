@@ -4,36 +4,36 @@
 package migrationflag_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ValidateSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ValidateSuite{})
+var _ = tc.Suite(&ValidateSuite{})
 
-func (*ValidateSuite) TestValid(c *gc.C) {
+func (*ValidateSuite) TestValid(c *tc.C) {
 	config := validConfig()
 	err := config.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (*ValidateSuite) TestNilFacade(c *gc.C) {
+func (*ValidateSuite) TestNilFacade(c *tc.C) {
 	config := validConfig()
 	config.Facade = nil
 	checkNotValid(c, config, "nil Facade not valid")
 }
 
-func (*ValidateSuite) TestInvalidModel(c *gc.C) {
+func (*ValidateSuite) TestInvalidModel(c *tc.C) {
 	config := validConfig()
 	config.Model = "abcd-1234"
 	checkNotValid(c, config, `Model "abcd-1234" not valid`)
 }
 
-func (*ValidateSuite) TestNilCheck(c *gc.C) {
+func (*ValidateSuite) TestNilCheck(c *tc.C) {
 	config := validConfig()
 	config.Check = nil
 	checkNotValid(c, config, "nil Check not valid")

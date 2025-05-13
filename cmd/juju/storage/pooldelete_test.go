@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/internal/cmd"
@@ -21,43 +20,43 @@ type PoolRemoveSuite struct {
 	mockAPI *mockPoolRemoveAPI
 }
 
-var _ = gc.Suite(&PoolRemoveSuite{})
+var _ = tc.Suite(&PoolRemoveSuite{})
 
-func (s *PoolRemoveSuite) SetUpTest(c *gc.C) {
+func (s *PoolRemoveSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockPoolRemoveAPI{}
 }
 
-func (s *PoolRemoveSuite) runPoolRemove(c *gc.C, args []string) (*cmd.Context, error) {
+func (s *PoolRemoveSuite) runPoolRemove(c *tc.C, args []string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, storage.NewPoolRemoveCommandForTest(s.mockAPI, s.store), args...)
 }
 
-func (s *PoolRemoveSuite) TestPoolRemoveOneArg(c *gc.C) {
+func (s *PoolRemoveSuite) TestPoolRemoveOneArg(c *tc.C) {
 	_, err := s.runPoolRemove(c, []string{"sunshine"})
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(s.mockAPI.RemovedPools), gc.Equals, 1)
-	c.Assert(s.mockAPI.RemovedPools[0], gc.Equals, "sunshine")
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(s.mockAPI.RemovedPools), tc.Equals, 1)
+	c.Assert(s.mockAPI.RemovedPools[0], tc.Equals, "sunshine")
 }
 
-func (s *PoolRemoveSuite) TestPoolRemoveNoArgs(c *gc.C) {
+func (s *PoolRemoveSuite) TestPoolRemoveNoArgs(c *tc.C) {
 	_, err := s.runPoolRemove(c, []string{})
-	c.Check(err, gc.ErrorMatches, "pool removal requires storage pool name")
-	c.Assert(len(s.mockAPI.RemovedPools), gc.Equals, 0)
+	c.Check(err, tc.ErrorMatches, "pool removal requires storage pool name")
+	c.Assert(len(s.mockAPI.RemovedPools), tc.Equals, 0)
 }
 
-func (s *PoolRemoveSuite) TestPoolRemoveErrorsManyArgs(c *gc.C) {
+func (s *PoolRemoveSuite) TestPoolRemoveErrorsManyArgs(c *tc.C) {
 	_, err := s.runPoolRemove(c, []string{"sunshine", "lollypop"})
-	c.Check(err, gc.ErrorMatches, `unrecognized args: \["lollypop"\]`)
-	c.Assert(len(s.mockAPI.RemovedPools), gc.Equals, 0)
+	c.Check(err, tc.ErrorMatches, `unrecognized args: \["lollypop"\]`)
+	c.Assert(len(s.mockAPI.RemovedPools), tc.Equals, 0)
 }
 
-func (s *PoolRemoveSuite) TestPoolRemoveNotFound(c *gc.C) {
+func (s *PoolRemoveSuite) TestPoolRemoveNotFound(c *tc.C) {
 	s.mockAPI.err = params.Error{
 		Code: params.CodeNotFound,
 	}
 	_, err := s.runPoolRemove(c, []string{"sunshine"})
-	c.Assert(errors.Cause(err), gc.Equals, cmd.ErrSilent)
+	c.Assert(errors.Cause(err), tc.Equals, cmd.ErrSilent)
 }
 
 type mockPoolRemoveAPI struct {

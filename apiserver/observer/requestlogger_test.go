@@ -10,67 +10,66 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/observer"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type RequestLoggerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&RequestLoggerSuite{})
+var _ = tc.Suite(&RequestLoggerSuite{})
 
-func (s *RequestLoggerSuite) TestAgentLoginWritesLog(c *gc.C) {
+func (s *RequestLoggerSuite) TestAgentLoginWritesLog(c *tc.C) {
 	notifier, logger := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("42")
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(context.Background(), agent, model, "abc", false, "user data")
 
-	c.Assert(logger.entries, jc.SameContents, []string{
+	c.Assert(logger.entries, tc.SameContents, []string{
 		`INFO: connection agent login: machine-42 for fake-uuid`,
 	})
 }
 
-func (s *RequestLoggerSuite) TestUserConnectionsNoLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestUserConnectionsNoLogs(c *tc.C) {
 	notifier, logger := s.makeNotifier(c)
 
 	user := names.NewUserTag("bob")
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(context.Background(), user, model, "abc", false, "user data")
 
-	c.Assert(logger.entries, gc.HasLen, 0)
+	c.Assert(logger.entries, tc.HasLen, 0)
 }
 
-func (s *RequestLoggerSuite) TestControllerMachineAgentConnectionNoLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestControllerMachineAgentConnectionNoLogs(c *tc.C) {
 	s.assertControllerAgentConnectionNoLogs(c, names.NewMachineTag("2"))
 }
 
-func (s *RequestLoggerSuite) TestControllerUnitAgentConnectionNoLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestControllerUnitAgentConnectionNoLogs(c *tc.C) {
 	s.assertControllerAgentConnectionNoLogs(c, names.NewUnitTag("mariadb/0"))
 }
 
-func (s *RequestLoggerSuite) TestControllerApplicationAgentConnectionNoLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestControllerApplicationAgentConnectionNoLogs(c *tc.C) {
 	s.assertControllerAgentConnectionNoLogs(c, names.NewApplicationTag("gitlab"))
 }
 
-func (s *RequestLoggerSuite) TestMachineAgentConnectionLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestMachineAgentConnectionLogs(c *tc.C) {
 	s.assertAgentConnectionLogs(c, names.NewMachineTag("2"))
 }
 
-func (s *RequestLoggerSuite) TestUnitAgentConnectionLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestUnitAgentConnectionLogs(c *tc.C) {
 	s.assertAgentConnectionLogs(c, names.NewUnitTag("mariadb/0"))
 }
 
-func (s *RequestLoggerSuite) TestApplicationAgentConnectionLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestApplicationAgentConnectionLogs(c *tc.C) {
 	s.assertAgentConnectionLogs(c, names.NewApplicationTag("gitlab"))
 }
 
-func (s *RequestLoggerSuite) TestAgentDisconnectionLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestAgentDisconnectionLogs(c *tc.C) {
 	notifier, logger := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("42")
@@ -79,16 +78,16 @@ func (s *RequestLoggerSuite) TestAgentDisconnectionLogs(c *gc.C) {
 	notifier.Login(context.Background(), agent, model, "abc", false, "user data")
 	notifier.Leave(context.Background())
 
-	c.Assert(logger.entries, gc.HasLen, 3)
+	c.Assert(logger.entries, tc.HasLen, 3)
 
 	// Ignore the last log entry, which is about connection termination.
-	c.Check(logger.entries[:2], gc.DeepEquals, []string{
+	c.Check(logger.entries[:2], tc.DeepEquals, []string{
 		"INFO: connection agent login: machine-42 for fake-uuid",
 		"INFO: connection agent disconnected: machine-42 for fake-uuid",
 	})
 }
 
-func (s *RequestLoggerSuite) TestControllerAgentDisconnectionLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestControllerAgentDisconnectionLogs(c *tc.C) {
 	notifier, logger := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("42")
@@ -97,10 +96,10 @@ func (s *RequestLoggerSuite) TestControllerAgentDisconnectionLogs(c *gc.C) {
 	notifier.Login(context.Background(), agent, model, "abc", true, "user data")
 	notifier.Leave(context.Background())
 
-	c.Assert(logger.entries, gc.HasLen, 1)
+	c.Assert(logger.entries, tc.HasLen, 1)
 }
 
-func (s *RequestLoggerSuite) TestUserDisconnectionNoLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestUserDisconnectionNoLogs(c *tc.C) {
 	notifier, logger := s.makeNotifier(c)
 
 	agent := names.NewUserTag("bob")
@@ -109,29 +108,29 @@ func (s *RequestLoggerSuite) TestUserDisconnectionNoLogs(c *gc.C) {
 	notifier.Login(context.Background(), agent, model, "abc", true, "user data")
 	notifier.Leave(context.Background())
 
-	c.Assert(logger.entries, gc.HasLen, 1)
+	c.Assert(logger.entries, tc.HasLen, 1)
 }
 
-func (s *RequestLoggerSuite) assertControllerAgentConnectionNoLogs(c *gc.C, agent names.Tag) {
+func (s *RequestLoggerSuite) assertControllerAgentConnectionNoLogs(c *tc.C, agent names.Tag) {
 	notifier, logger := s.makeNotifier(c)
 
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(context.Background(), agent, model, "abc", true, "user data")
 
-	c.Assert(logger.entries, gc.HasLen, 0)
+	c.Assert(logger.entries, tc.HasLen, 0)
 }
 
-func (s *RequestLoggerSuite) assertAgentConnectionLogs(c *gc.C, agent names.Tag) {
+func (s *RequestLoggerSuite) assertAgentConnectionLogs(c *tc.C, agent names.Tag) {
 	notifier, logger := s.makeNotifier(c)
 
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(context.Background(), agent, model, "abc", false, "user data")
 
-	c.Assert(logger.entries, gc.HasLen, 1)
-	c.Check(logger.entries[0], gc.Matches, fmt.Sprintf(`INFO: connection agent login: %s for fake-uuid`, agent.String()))
+	c.Assert(logger.entries, tc.HasLen, 1)
+	c.Check(logger.entries[0], tc.Matches, fmt.Sprintf(`INFO: connection agent login: %s for fake-uuid`, agent.String()))
 }
 
-func (*RequestLoggerSuite) makeNotifier(c *gc.C) (*observer.RequestLogger, *testLogger) {
+func (*RequestLoggerSuite) makeNotifier(c *tc.C) (*observer.RequestLogger, *testLogger) {
 	testLogger := &testLogger{}
 	recorder := loggertesting.RecordLog(func(s string, a ...interface{}) {
 		if len(a) != 1 {

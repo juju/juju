@@ -6,8 +6,7 @@ package jujuclient_test
 import (
 	"os"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
@@ -18,47 +17,47 @@ type BootstrapConfigSuite struct {
 	store jujuclient.BootstrapConfigStore
 }
 
-var _ = gc.Suite(&BootstrapConfigSuite{})
+var _ = tc.Suite(&BootstrapConfigSuite{})
 
-func (s *BootstrapConfigSuite) SetUpTest(c *gc.C) {
+func (s *BootstrapConfigSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewFileClientStore()
 	writeTestBootstrapConfigFile(c)
 }
 
-func (s *BootstrapConfigSuite) TestBootstrapConfigForControllerNoFile(c *gc.C) {
+func (s *BootstrapConfigSuite) TestBootstrapConfigForControllerNoFile(c *tc.C) {
 	err := os.Remove(jujuclient.JujuBootstrapConfigPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	details, err := s.store.BootstrapConfigForController("not-found")
-	c.Assert(err, gc.ErrorMatches, "bootstrap config for controller not-found not found")
-	c.Assert(details, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "bootstrap config for controller not-found not found")
+	c.Assert(details, tc.IsNil)
 }
 
-func (s *BootstrapConfigSuite) TestBootstrapConfigForControllerNotFound(c *gc.C) {
+func (s *BootstrapConfigSuite) TestBootstrapConfigForControllerNotFound(c *tc.C) {
 	details, err := s.store.BootstrapConfigForController("not-found")
-	c.Assert(err, gc.ErrorMatches, "bootstrap config for controller not-found not found")
-	c.Assert(details, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "bootstrap config for controller not-found not found")
+	c.Assert(details, tc.IsNil)
 }
 
-func (s *BootstrapConfigSuite) TestBootstrapConfigForController(c *gc.C) {
+func (s *BootstrapConfigSuite) TestBootstrapConfigForController(c *tc.C) {
 	cfg, err := s.store.BootstrapConfigForController("aws-test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, gc.NotNil)
-	c.Assert(*cfg, jc.DeepEquals, testBootstrapConfig["aws-test"])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg, tc.NotNil)
+	c.Assert(*cfg, tc.DeepEquals, testBootstrapConfig["aws-test"])
 }
 
-func (s *BootstrapConfigSuite) TestUpdateBootstrapConfigNewController(c *gc.C) {
+func (s *BootstrapConfigSuite) TestUpdateBootstrapConfigNewController(c *tc.C) {
 	err := s.store.UpdateBootstrapConfig("new-controller", testBootstrapConfig["mallards"])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err := s.store.BootstrapConfigForController("new-controller")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*cfg, jc.DeepEquals, testBootstrapConfig["mallards"])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*cfg, tc.DeepEquals, testBootstrapConfig["mallards"])
 }
 
-func (s *BootstrapConfigSuite) TestUpdateBootstrapConfigOverwrites(c *gc.C) {
+func (s *BootstrapConfigSuite) TestUpdateBootstrapConfigOverwrites(c *tc.C) {
 	err := s.store.UpdateBootstrapConfig("aws-test", testBootstrapConfig["mallards"])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err := s.store.BootstrapConfigForController("aws-test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*cfg, jc.DeepEquals, testBootstrapConfig["mallards"])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*cfg, tc.DeepEquals, testBootstrapConfig["mallards"])
 }

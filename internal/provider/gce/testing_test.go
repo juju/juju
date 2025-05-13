@@ -10,10 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"
@@ -35,6 +33,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/gce/google"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -116,7 +115,7 @@ func (c credentialInvalidator) InvalidateCredentials(ctx context.Context, reason
 }
 
 type BaseSuiteUnpatched struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	ControllerUUID string
 	Config         *config.Config
@@ -144,7 +143,7 @@ var _ simplestreams.HasRegion = (*environ)(nil)
 
 var _ instances.Instance = (*environInstance)(nil)
 
-func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
+func (s *BaseSuiteUnpatched) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.ControllerUUID = testing.FakeControllerConfig().ControllerUUID()
@@ -158,7 +157,7 @@ func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *BaseSuiteUnpatched) TearDownTest(c *gc.C) {
+func (s *BaseSuiteUnpatched) TearDownTest(c *tc.C) {
 	s.IsolationSuite.TearDownTest(c)
 	s.InvalidatedCredentials = false
 }
@@ -167,7 +166,7 @@ func (s *BaseSuiteUnpatched) Prefix() string {
 	return s.Env.namespace.Prefix()
 }
 
-func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
+func (s *BaseSuiteUnpatched) initEnv(c *tc.C) {
 	s.Env = &environ{
 		CredentialInvalidator: common.NewCredentialInvalidator(s.credentialInvalidator, google.IsAuthorisationFailure),
 		name:                  "google",
@@ -177,7 +176,7 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
+func (s *BaseSuiteUnpatched) initInst(c *tc.C) {
 	tools := []*coretools.Tools{{
 		Version: semversion.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 		URL:     "https://example.org",
@@ -188,14 +187,14 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
 		jujuversion.DefaultSupportedLTSBase(), "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(tools)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, GCERenderer{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.UbuntuMetadata = map[string]string{
 		tags.JujuIsController: "true",
@@ -213,7 +212,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	s.Instance = s.NewInstance(c, "spam")
 	s.BaseInstance = s.Instance.base
 	s.InstName, err = s.Env.namespace.Hostname("42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
 		ControllerUUID: s.ControllerUUID,
@@ -249,42 +248,42 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 }
 
-func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
+func (s *BaseSuiteUnpatched) initNet(c *tc.C) {
 	s.Rules = firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	}
 }
 
-func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
+func (s *BaseSuiteUnpatched) setConfig(c *tc.C, cfg *config.Config) {
 	s.Config = cfg
 	ecfg, err := newConfig(context.Background(), cfg, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.EnvConfig = ecfg
 	uuid := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
 	namespace, err := instance.NewNamespace(uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Env.namespace = namespace
 }
 
-func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
+func (s *BaseSuiteUnpatched) NewConfig(c *tc.C, updates testing.Attrs) *config.Config {
 	var err error
 	cfg := testing.ModelConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err = cfg.Apply(updates)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
-func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
+func (s *BaseSuiteUnpatched) UpdateConfig(c *tc.C, attrs map[string]interface{}) {
 	cfg, err := s.Config.Apply(attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instance {
+func (s *BaseSuiteUnpatched) NewBaseInstance(c *tc.C, id string) *google.Instance {
 	diskSpec := google.DiskSpec{
 		OS:         "ubuntu",
 		SizeHintGB: 15,
@@ -319,7 +318,7 @@ func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instanc
 	return google.NewInstance(summary, &instanceSpec)
 }
 
-func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, id string) *environInstance {
+func (s *BaseSuiteUnpatched) NewInstance(c *tc.C, id string) *environInstance {
 	base := s.NewBaseInstance(c, id)
 	return newInstance(base, s.Env)
 }
@@ -336,7 +335,7 @@ type BaseSuite struct {
 	FakeEnviron *fakeEnviron
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
 	s.FakeConn = &fakeConn{}
@@ -357,8 +356,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
 }
 
-func (s *BaseSuite) CheckNoAPI(c *gc.C) {
-	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
+func (s *BaseSuite) CheckNoAPI(c *tc.C) {
+	c.Check(s.FakeConn.Calls, tc.HasLen, 0)
 }
 
 // TODO(ericsnow) Move fakeCallArgs, fakeCall, and fake to the testing repo?
@@ -391,8 +390,8 @@ func (f *fake) addCall(funcName string, args FakeCallArgs) {
 	})
 }
 
-func (f *fake) CheckCalls(c *gc.C, expected []FakeCall) {
-	c.Check(f.calls, jc.DeepEquals, expected)
+func (f *fake) CheckCalls(c *tc.C, expected []FakeCall) {
+	c.Check(f.calls, tc.DeepEquals, expected)
 }
 
 type fakeCommon struct {

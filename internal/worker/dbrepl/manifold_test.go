@@ -8,40 +8,39 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg.DBReplAccessorName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Stdout = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Stderr = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Stdin = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {

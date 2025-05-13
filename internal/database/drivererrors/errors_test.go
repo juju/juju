@@ -6,20 +6,20 @@ package drivererrors
 import (
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"github.com/mattn/go-sqlite3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/database/driver"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type errorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&errorSuite{})
+var _ = tc.Suite(&errorSuite{})
 
-func (s *errorSuite) TestIsErrRetryable(c *gc.C) {
+func (s *errorSuite) TestIsErrRetryable(c *tc.C) {
 	tests := []struct {
 		name     string
 		err      error
@@ -69,11 +69,11 @@ func (s *errorSuite) TestIsErrRetryable(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.name)
-		c.Check(IsErrRetryable(test.err), gc.Equals, test.expected)
+		c.Check(IsErrRetryable(test.err), tc.Equals, test.expected)
 	}
 }
 
-func (s *errorSuite) TestIsConstraintError(c *gc.C) {
+func (s *errorSuite) TestIsConstraintError(c *tc.C) {
 	tests := []struct {
 		name     string
 		err      error
@@ -150,13 +150,13 @@ func (s *errorSuite) TestIsConstraintError(c *gc.C) {
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.name)
-		c.Check(IsConstraintError(test.err), gc.Equals, test.expected)
+		c.Check(IsConstraintError(test.err), tc.Equals, test.expected)
 	}
 }
 
 // TestIsError checks that IsError is reporting true for dqlite
 // and sqlite based errors.
-func (s *errorSuite) TestIsError(c *gc.C) {
+func (s *errorSuite) TestIsError(c *tc.C) {
 	tests := []struct {
 		Name string
 		Err  error
@@ -207,13 +207,13 @@ func (s *errorSuite) TestIsError(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		c.Check(IsError(test.Err), gc.Equals, test.Rval, gc.Commentf(test.Name))
+		c.Check(IsError(test.Err), tc.Equals, test.Rval, tc.Commentf(test.Name))
 	}
 }
 
 // TestIsErrorTarget checks that IsErrorTarget is reporting true for dqlite
 // and sqlite based errors.
-func (s *errorSuite) TestIsErrorTarget(c *gc.C) {
+func (s *errorSuite) TestIsErrorTarget(c *tc.C) {
 	tests := []struct {
 		Name string
 		T    any
@@ -264,6 +264,6 @@ func (s *errorSuite) TestIsErrorTarget(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		c.Check(IsErrorTarget(test.T), gc.Equals, test.Rval, gc.Commentf(test.Name))
+		c.Check(IsErrorTarget(test.T), tc.Equals, test.Rval, tc.Commentf(test.Name))
 	}
 }

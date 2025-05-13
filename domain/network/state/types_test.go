@@ -4,27 +4,26 @@
 package state
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type typesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&typesSuite{})
+var _ = tc.Suite(&typesSuite{})
 
-func (s *typesSuite) TestNetInterfaceToDMLSuccess(c *gc.C) {
+func (s *typesSuite) TestNetInterfaceToDMLSuccess(c *tc.C) {
 	dev := getNetInterface()
 
 	dml, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(dml, gc.DeepEquals, linkLayerDeviceDML{
+	c.Check(dml, tc.DeepEquals, linkLayerDeviceDML{
 		UUID:              "some-device-uuid",
 		NetNodeUUID:       "some-node-uuid",
 		Name:              "eth0",
@@ -40,25 +39,25 @@ func (s *typesSuite) TestNetInterfaceToDMLSuccess(c *gc.C) {
 	})
 }
 
-func (s *typesSuite) TestNetInterfaceToDMLBadDeviceTypeError(c *gc.C) {
+func (s *typesSuite) TestNetInterfaceToDMLBadDeviceTypeError(c *tc.C) {
 	dev := getNetInterface()
 	dev.Type = "bad-type"
 
 	_, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{
 		"eth0": "some-device-uuid",
 	})
-	c.Assert(err, gc.ErrorMatches, "unsupported device type.*")
+	c.Assert(err, tc.ErrorMatches, "unsupported device type.*")
 }
 
-func (s *typesSuite) TestNetInterfaceToDMLBadVirtualPortTypeError(c *gc.C) {
+func (s *typesSuite) TestNetInterfaceToDMLBadVirtualPortTypeError(c *tc.C) {
 	dev := getNetInterface()
 	dev.VirtualPortType = "bad-type"
 
 	_, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"})
-	c.Assert(err, gc.ErrorMatches, "unsupported virtual port type.*")
+	c.Assert(err, tc.ErrorMatches, "unsupported virtual port type.*")
 }
 
-func (s *typesSuite) TestNetAddrToDMLSuccess(c *gc.C) {
+func (s *typesSuite) TestNetAddrToDMLSuccess(c *tc.C) {
 	addr := getNetAddr()
 
 	dml, err := netAddrToDML(
@@ -66,9 +65,9 @@ func (s *typesSuite) TestNetAddrToDMLSuccess(c *gc.C) {
 		map[string]string{"eth0": "some-device-uuid"},
 		map[string]string{"10.0.0.13/24": "some-addr-uuid"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(dml, gc.DeepEquals, ipAddressDML{
+	c.Check(dml, tc.DeepEquals, ipAddressDML{
 		UUID:         "some-addr-uuid",
 		DeviceUUID:   "some-device-uuid",
 		AddressValue: "10.0.0.13/24",
@@ -82,7 +81,7 @@ func (s *typesSuite) TestNetAddrToDMLSuccess(c *gc.C) {
 	})
 }
 
-func (s *typesSuite) TestNetAddrToDMLBadAddressTypeError(c *gc.C) {
+func (s *typesSuite) TestNetAddrToDMLBadAddressTypeError(c *tc.C) {
 	addr := getNetAddr()
 	addr.AddressType = "bad-type"
 
@@ -91,7 +90,7 @@ func (s *typesSuite) TestNetAddrToDMLBadAddressTypeError(c *gc.C) {
 		map[string]string{"eth0": "some-device-uuid"},
 		map[string]string{"10.0.0.13/24": "some-addr-uuid"},
 	)
-	c.Assert(err, gc.ErrorMatches, "unsupported address type.*")
+	c.Assert(err, tc.ErrorMatches, "unsupported address type.*")
 }
 
 func getNetInterface() network.NetInterface {

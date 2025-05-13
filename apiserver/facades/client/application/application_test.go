@@ -11,9 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -53,9 +52,9 @@ type applicationSuite struct {
 	charm       *MockCharm
 }
 
-var _ = gc.Suite(&applicationSuite{})
+var _ = tc.Suite(&applicationSuite{})
 
-func (s *applicationSuite) TestSetCharm(c *gc.C) {
+func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// The amount of requests to set a charm config is ridiculous.
@@ -70,7 +69,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	s.expectCharmFormatCheck(c, "foo")
 
 	var result state.SetCharmConfig
-	s.expectSetCharm(c, "foo", func(c *gc.C, config state.SetCharmConfig) {
+	s.expectSetCharm(c, "foo", func(c *tc.C, config state.SetCharmConfig) {
 		result = config
 	})
 	s.expectSetCharmWithTrust(c)
@@ -97,9 +96,9 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
 		ForceUnits:         true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result.CharmOrigin, gc.DeepEquals, &state.CharmOrigin{
+	c.Assert(result.CharmOrigin, tc.DeepEquals, &state.CharmOrigin{
 		Type:     "charm",
 		Source:   "local",
 		Revision: ptr(42),
@@ -115,7 +114,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestSetCharmInvalidCharmOrigin(c *gc.C) {
+func (s *applicationSuite) TestSetCharmInvalidCharmOrigin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -125,10 +124,10 @@ func (s *applicationSuite) TestSetCharmInvalidCharmOrigin(c *gc.C) {
 		CharmURL:        "local:foo-42",
 		CharmOrigin:     &params.CharmOrigin{},
 	})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
-func (s *applicationSuite) TestSetCharmApplicationNotFound(c *gc.C) {
+func (s *applicationSuite) TestSetCharmApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -150,10 +149,10 @@ func (s *applicationSuite) TestSetCharmApplicationNotFound(c *gc.C) {
 			Risk:         "stable",
 		},
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *applicationSuite) TestSetCharmEndpointBindings(c *gc.C) {
+func (s *applicationSuite) TestSetCharmEndpointBindings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -165,7 +164,7 @@ func (s *applicationSuite) TestSetCharmEndpointBindings(c *gc.C) {
 	s.expectCharmFormatCheck(c, "foo")
 
 	var result state.SetCharmConfig
-	s.expectSetCharm(c, "foo", func(c *gc.C, config state.SetCharmConfig) {
+	s.expectSetCharm(c, "foo", func(c *tc.C, config state.SetCharmConfig) {
 		result = config
 	})
 	s.expectSetCharmWithTrust(c)
@@ -195,8 +194,8 @@ func (s *applicationSuite) TestSetCharmEndpointBindings(c *gc.C) {
 		},
 		ForceUnits: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.CharmOrigin, gc.DeepEquals, &state.CharmOrigin{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.CharmOrigin, tc.DeepEquals, &state.CharmOrigin{
 		Type:     "charm",
 		Source:   "local",
 		Revision: ptr(42),
@@ -212,7 +211,7 @@ func (s *applicationSuite) TestSetCharmEndpointBindings(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestSetCharmEndpointBindingsNotFound(c *gc.C) {
+func (s *applicationSuite) TestSetCharmEndpointBindingsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -243,10 +242,10 @@ func (s *applicationSuite) TestSetCharmEndpointBindingsNotFound(c *gc.C) {
 			"baz": "bar",
 		},
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *applicationSuite) TestSetCharmGetCharmNotFound(c *gc.C) {
+func (s *applicationSuite) TestSetCharmGetCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -274,10 +273,10 @@ func (s *applicationSuite) TestSetCharmGetCharmNotFound(c *gc.C) {
 		},
 		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *applicationSuite) TestSetCharmInvalidConfig(c *gc.C) {
+func (s *applicationSuite) TestSetCharmInvalidConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -306,10 +305,10 @@ func (s *applicationSuite) TestSetCharmInvalidConfig(c *gc.C) {
 		},
 		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
 	})
-	c.Assert(err, gc.ErrorMatches, `parsing config settings: unknown option "blach!"`)
+	c.Assert(err, tc.ErrorMatches, `parsing config settings: unknown option "blach!"`)
 }
 
-func (s *applicationSuite) TestSetCharmWithoutTrust(c *gc.C) {
+func (s *applicationSuite) TestSetCharmWithoutTrust(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -320,7 +319,7 @@ func (s *applicationSuite) TestSetCharmWithoutTrust(c *gc.C) {
 	s.expectCharmFormatCheck(c, "foo")
 
 	var result state.SetCharmConfig
-	s.expectSetCharm(c, "foo", func(c *gc.C, config state.SetCharmConfig) {
+	s.expectSetCharm(c, "foo", func(c *tc.C, config state.SetCharmConfig) {
 		result = config
 	})
 
@@ -347,9 +346,9 @@ func (s *applicationSuite) TestSetCharmWithoutTrust(c *gc.C) {
 		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
 		ForceUnits:         true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result.CharmOrigin, gc.DeepEquals, &state.CharmOrigin{
+	c.Assert(result.CharmOrigin, tc.DeepEquals, &state.CharmOrigin{
 		Type:     "charm",
 		Source:   "local",
 		Revision: ptr(42),
@@ -365,7 +364,7 @@ func (s *applicationSuite) TestSetCharmWithoutTrust(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestSetCharmFormatDowngrade(c *gc.C) {
+func (s *applicationSuite) TestSetCharmFormatDowngrade(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -396,10 +395,10 @@ func (s *applicationSuite) TestSetCharmFormatDowngrade(c *gc.C) {
 		},
 		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot downgrade from v2 charm format to v1")
+	c.Assert(err, tc.ErrorMatches, "cannot downgrade from v2 charm format to v1")
 }
 
-func (s *applicationSuite) TestDeploy(c *gc.C) {
+func (s *applicationSuite) TestDeploy(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -429,9 +428,9 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errorResults.Results, gc.HasLen, 1)
-	c.Assert(errorResults.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errorResults.Results, tc.HasLen, 1)
+	c.Assert(errorResults.Results[0].Error, tc.IsNil)
 }
 
 // TestDeployWithResources test the scenario of deploying
@@ -439,7 +438,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 // Deploy rather than DeployFromRepository is called by the
 // clients. In this case PendingResources, uuids, must be
 // provided for all charm resources.
-func (s *applicationSuite) TestDeployWithPendingResources(c *gc.C) {
+func (s *applicationSuite) TestDeployWithPendingResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -475,12 +474,12 @@ func (s *applicationSuite) TestDeployWithPendingResources(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errorResults.Results, gc.HasLen, 1)
-	c.Assert(errorResults.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errorResults.Results, tc.HasLen, 1)
+	c.Assert(errorResults.Results[0].Error, tc.IsNil)
 }
 
-func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *gc.C) {
+func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -517,14 +516,14 @@ func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errorResults.Results, gc.HasLen, 1)
-	c.Assert(errorResults.Results[0].Error, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errorResults.Results, tc.HasLen, 1)
+	c.Assert(errorResults.Results[0].Error, tc.NotNil)
 }
 
 // TestDeployMismatchedResources validates Deploy fails if the charm resource
 // count and pending resource count do not match.
-func (s *applicationSuite) TestDeployMismatchedResources(c *gc.C) {
+func (s *applicationSuite) TestDeployMismatchedResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -561,12 +560,12 @@ func (s *applicationSuite) TestDeployMismatchedResources(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errorResults.Results, gc.HasLen, 1)
-	c.Assert(errorResults.Results[0].Error, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errorResults.Results, tc.HasLen, 1)
+	c.Assert(errorResults.Results[0].Error, tc.NotNil)
 }
 
-func (s *applicationSuite) TestDeployInvalidSource(c *gc.C) {
+func (s *applicationSuite) TestDeployInvalidSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -591,12 +590,12 @@ func (s *applicationSuite) TestDeployInvalidSource(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errorResults.Results, gc.HasLen, 1)
-	c.Assert(errorResults.Results[0].Error, gc.ErrorMatches, "\"bad\" not a valid charm origin source")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errorResults.Results, tc.HasLen, 1)
+	c.Assert(errorResults.Results[0].Error, tc.ErrorMatches, "\"bad\" not a valid charm origin source")
 }
 
-func (s *applicationSuite) TestGetCharmURLOriginAppNotFound(c *gc.C) {
+func (s *applicationSuite) TestGetCharmURLOriginAppNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -606,11 +605,11 @@ func (s *applicationSuite) TestGetCharmURLOriginAppNotFound(c *gc.C) {
 	res, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
 		ApplicationName: "foo",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *applicationSuite) TestGetCharmURLOrigin(c *gc.C) {
+func (s *applicationSuite) TestGetCharmURLOrigin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -638,9 +637,9 @@ func (s *applicationSuite) TestGetCharmURLOrigin(c *gc.C) {
 	res, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
 		ApplicationName: "foo",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.URL, gc.Equals, "ch:arm64/foo-42")
-	c.Check(res.Origin, gc.DeepEquals, params.CharmOrigin{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.URL, tc.Equals, "ch:arm64/foo-42")
+	c.Check(res.Origin, tc.DeepEquals, params.CharmOrigin{
 		Source:       "charm-hub",
 		Revision:     ptr(42),
 		Risk:         "stable",
@@ -654,7 +653,7 @@ func (s *applicationSuite) TestGetCharmURLOrigin(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestGetCharmURLOriginNoOptionals(c *gc.C) {
+func (s *applicationSuite) TestGetCharmURLOriginNoOptionals(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -678,9 +677,9 @@ func (s *applicationSuite) TestGetCharmURLOriginNoOptionals(c *gc.C) {
 	res, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
 		ApplicationName: "foo",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.URL, gc.Equals, fmt.Sprintf("local:%s/foo-42", arch))
-	c.Check(res.Origin, gc.DeepEquals, params.CharmOrigin{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.URL, tc.Equals, fmt.Sprintf("local:%s/foo-42", arch))
+	c.Check(res.Origin, tc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
 		Revision:     ptr(42),
 		Architecture: arch,
@@ -692,7 +691,7 @@ func (s *applicationSuite) TestGetCharmURLOriginNoOptionals(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestGetApplicationConstraintsAppNotFound(c *gc.C) {
+func (s *applicationSuite) TestGetApplicationConstraintsAppNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -702,11 +701,11 @@ func (s *applicationSuite) TestGetApplicationConstraintsAppNotFound(c *gc.C) {
 	res, err := s.api.GetConstraints(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "application-foo"}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.Results[0].Error, gc.ErrorMatches, "application foo not found")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results[0].Error, tc.ErrorMatches, "application foo not found")
 }
 
-func (s *applicationSuite) TestGetApplicationConstraintsError(c *gc.C) {
+func (s *applicationSuite) TestGetApplicationConstraintsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -717,11 +716,11 @@ func (s *applicationSuite) TestGetApplicationConstraintsError(c *gc.C) {
 	res, err := s.api.GetConstraints(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "application-foo"}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.Results[0].Error, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results[0].Error, tc.ErrorMatches, "boom")
 }
 
-func (s *applicationSuite) TestGetApplicationConstraints(c *gc.C) {
+func (s *applicationSuite) TestGetApplicationConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -732,11 +731,11 @@ func (s *applicationSuite) TestGetApplicationConstraints(c *gc.C) {
 	res, err := s.api.GetConstraints(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "application-foo"}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.Results[0].Constraints, gc.DeepEquals, constraints.Value{Mem: ptr(uint64(42))})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results[0].Constraints, tc.DeepEquals, constraints.Value{Mem: ptr(uint64(42))})
 }
 
-func (s *applicationSuite) TestSetApplicationConstraintsAppNotFound(c *gc.C) {
+func (s *applicationSuite) TestSetApplicationConstraintsAppNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -747,10 +746,10 @@ func (s *applicationSuite) TestSetApplicationConstraintsAppNotFound(c *gc.C) {
 		ApplicationName: "foo",
 		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
 	})
-	c.Assert(err, gc.ErrorMatches, "application foo not found")
+	c.Assert(err, tc.ErrorMatches, "application foo not found")
 }
 
-func (s *applicationSuite) TestSetApplicationConstraintsError(c *gc.C) {
+func (s *applicationSuite) TestSetApplicationConstraintsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -762,10 +761,10 @@ func (s *applicationSuite) TestSetApplicationConstraintsError(c *gc.C) {
 		ApplicationName: "foo",
 		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *applicationSuite) TestSetApplicationConstraints(c *gc.C) {
+func (s *applicationSuite) TestSetApplicationConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -781,10 +780,10 @@ func (s *applicationSuite) TestSetApplicationConstraints(c *gc.C) {
 		ApplicationName: "foo",
 		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestAddRelation(c *gc.C) {
+func (s *applicationSuite) TestAddRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -822,8 +821,8 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 	})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.AddRelationResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.AddRelationResults{
 		Endpoints: map[string]params.CharmRelation{
 			appName1: encodeRelation(ep1.Relation),
 			appName2: encodeRelation(ep2.Relation),
@@ -831,7 +830,7 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestAddRelationError(c *gc.C) {
+func (s *applicationSuite) TestAddRelationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -849,10 +848,10 @@ func (s *applicationSuite) TestAddRelationError(c *gc.C) {
 	})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, boom)
+	c.Assert(err, tc.ErrorIs, boom)
 }
 
-func (s *applicationSuite) TestAddRelationNoEndpointsError(c *gc.C) {
+func (s *applicationSuite) TestAddRelationNoEndpointsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -864,10 +863,10 @@ func (s *applicationSuite) TestAddRelationNoEndpointsError(c *gc.C) {
 	})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
-func (s *applicationSuite) TestAddRelationOneEndpoint(c *gc.C) {
+func (s *applicationSuite) TestAddRelationOneEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -879,10 +878,10 @@ func (s *applicationSuite) TestAddRelationOneEndpoint(c *gc.C) {
 	})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
-func (s *applicationSuite) TestAddRelationTooManyEndpointsError(c *gc.C) {
+func (s *applicationSuite) TestAddRelationTooManyEndpointsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -894,10 +893,10 @@ func (s *applicationSuite) TestAddRelationTooManyEndpointsError(c *gc.C) {
 	})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
-func (s *applicationSuite) TestCharmConfigApplicationNotFound(c *gc.C) {
+func (s *applicationSuite) TestCharmConfigApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -909,12 +908,12 @@ func (s *applicationSuite) TestCharmConfigApplicationNotFound(c *gc.C) {
 			ApplicationName: "foo",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *applicationSuite) TestCharmConfig(c *gc.C) {
+func (s *applicationSuite) TestCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -948,10 +947,10 @@ func (s *applicationSuite) TestCharmConfig(c *gc.C) {
 			ApplicationName: "foo",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[0].Config, gc.DeepEquals, map[string]interface{}{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
+	c.Assert(res.Results[0].Config, tc.DeepEquals, map[string]interface{}{
 		"foo": map[string]interface{}{
 			"description": "a foo",
 			"type":        "string",
@@ -968,7 +967,7 @@ func (s *applicationSuite) TestCharmConfig(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestSetConfigsYAMLNotImplemented(c *gc.C) {
+func (s *applicationSuite) TestSetConfigsYAMLNotImplemented(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -979,12 +978,12 @@ func (s *applicationSuite) TestSetConfigsYAMLNotImplemented(c *gc.C) {
 			ConfigYAML:      "foo: bar",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotImplemented)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotImplemented)
 }
 
-func (s *applicationSuite) TestSetConfigsApplicationNotFound(c *gc.C) {
+func (s *applicationSuite) TestSetConfigsApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -997,12 +996,12 @@ func (s *applicationSuite) TestSetConfigsApplicationNotFound(c *gc.C) {
 			Config:          map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *applicationSuite) TestSetConfigsNotValidApplicationName(c *gc.C) {
+func (s *applicationSuite) TestSetConfigsNotValidApplicationName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -1015,12 +1014,12 @@ func (s *applicationSuite) TestSetConfigsNotValidApplicationName(c *gc.C) {
 			Config:          map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotValid)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotValid)
 }
 
-func (s *applicationSuite) TestSetConfigsInvalidConfig(c *gc.C) {
+func (s *applicationSuite) TestSetConfigsInvalidConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -1035,12 +1034,12 @@ func (s *applicationSuite) TestSetConfigsInvalidConfig(c *gc.C) {
 			Config:          map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotValid)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotValid)
 }
 
-func (s *applicationSuite) TestSetConfigs(c *gc.C) {
+func (s *applicationSuite) TestSetConfigs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -1055,12 +1054,12 @@ func (s *applicationSuite) TestSetConfigs(c *gc.C) {
 			Config:          map[string]string{"foo": "bar"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
 }
 
-func (s *applicationSuite) TestResolveUnitErrorsAllAndEntitesMutuallyExclusive(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitErrorsAllAndEntitesMutuallyExclusive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -1071,10 +1070,10 @@ func (s *applicationSuite) TestResolveUnitErrorsAllAndEntitesMutuallyExclusive(c
 		},
 		All: true,
 	})
-	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
-func (s *applicationSuite) TestResolveUnitErrorsAllNoRetry(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitErrorsAllNoRetry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -1084,11 +1083,11 @@ func (s *applicationSuite) TestResolveUnitErrorsAllNoRetry(c *gc.C) {
 	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
 		All: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 0)
 }
 
-func (s *applicationSuite) TestResolveUnitErrorsAllRetryHooks(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitErrorsAllRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -1099,11 +1098,11 @@ func (s *applicationSuite) TestResolveUnitErrorsAllRetryHooks(c *gc.C) {
 		All:   true,
 		Retry: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 0)
 }
 
-func (s *applicationSuite) TestResolveUnitErrorsSpecificNoRetry(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitErrorsSpecificNoRetry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -1116,12 +1115,12 @@ func (s *applicationSuite) TestResolveUnitErrorsSpecificNoRetry(c *gc.C) {
 			Entities: []params.Entity{{Tag: names.NewUnitTag(unitName.String()).String()}},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
 }
 
-func (s *applicationSuite) TestResolveUnitErrorsSpecificRetryHooks(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitErrorsSpecificRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -1135,12 +1134,12 @@ func (s *applicationSuite) TestResolveUnitErrorsSpecificRetryHooks(c *gc.C) {
 		},
 		Retry: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
 }
 
-func (s *applicationSuite) TestResolveUnitErrorsUnitNotFound(c *gc.C) {
+func (s *applicationSuite) TestResolveUnitErrorsUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
@@ -1153,12 +1152,12 @@ func (s *applicationSuite) TestResolveUnitErrorsUnitNotFound(c *gc.C) {
 			Entities: []params.Entity{{Tag: names.NewUnitTag(unitName.String()).String()}},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *applicationSuite) TestDestroyRelationByEndpoints(c *gc.C) {
+func (s *applicationSuite) TestDestroyRelationByEndpoints(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -1177,10 +1176,10 @@ func (s *applicationSuite) TestDestroyRelationByEndpoints(c *gc.C) {
 	err := s.api.DestroyRelation(context.Background(), arg)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestDestroyRelationRelationNotFound(c *gc.C) {
+func (s *applicationSuite) TestDestroyRelationRelationNotFound(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -1197,10 +1196,10 @@ func (s *applicationSuite) TestDestroyRelationRelationNotFound(c *gc.C) {
 	err := s.api.DestroyRelation(context.Background(), arg)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *applicationSuite) TestDestroyRelationByID(c *gc.C) {
+func (s *applicationSuite) TestDestroyRelationByID(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -1220,10 +1219,10 @@ func (s *applicationSuite) TestDestroyRelationByID(c *gc.C) {
 	err := s.api.DestroyRelation(context.Background(), arg)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *gc.C) {
+func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -1245,10 +1244,10 @@ func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *gc.C) {
 	err := s.api.DestroyRelation(context.Background(), arg)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestSetRelationsSuspendedStub(c *gc.C) {
+func (s *applicationSuite) TestSetRelationsSuspendedStub(c *tc.C) {
 	c.Skip("Suspending relation requires CMR support, which is not yet implemented.\n" +
 		"Once it will be implemented, at minimum, the following tests should be added:\n" +
 		"- TestSetRelationsSuspended\n" +
@@ -1257,7 +1256,7 @@ func (s *applicationSuite) TestSetRelationsSuspendedStub(c *gc.C) {
 		"- TestSetRelationsSuspendedNoOffer")
 }
 
-func (s *applicationSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *applicationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.application = NewMockApplication(ctrl)
@@ -1266,7 +1265,7 @@ func (s *applicationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *applicationSuite) setupAPI(c *gc.C) {
+func (s *applicationSuite) setupAPI(c *tc.C) {
 	s.expectAuthClient()
 	s.expectAnyPermissions()
 	s.expectAnyChangeOrRemoval()
@@ -1274,11 +1273,11 @@ func (s *applicationSuite) setupAPI(c *gc.C) {
 	s.newIAASAPI(c)
 }
 
-func (s *applicationSuite) expectApplication(c *gc.C, name string) {
+func (s *applicationSuite) expectApplication(c *tc.C, name string) {
 	s.backend.EXPECT().Application(name).Return(s.application, nil)
 }
 
-func (s *applicationSuite) expectApplicationNotFound(c *gc.C, name string) {
+func (s *applicationSuite) expectApplicationNotFound(c *tc.C, name string) {
 	s.backend.EXPECT().Application(name).Return(nil, errors.NotFoundf("application %q", name))
 }
 
@@ -1302,17 +1301,17 @@ func (s *applicationSuite) expectDeletePendingResources(resSlice []resource.UUID
 	s.resourceService.EXPECT().DeleteResourcesAddedBeforeApplication(gomock.Any(), resSlice).Return(nil)
 }
 
-func (s *applicationSuite) expectSpaceName(c *gc.C, name string) {
+func (s *applicationSuite) expectSpaceName(c *tc.C, name string) {
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), name).Return(&network.SpaceInfo{
 		ID: "space-1",
 	}, nil)
 }
 
-func (s *applicationSuite) expectSpaceNameNotFound(c *gc.C, name string) {
+func (s *applicationSuite) expectSpaceNameNotFound(c *tc.C, name string) {
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), name).Return(nil, errors.NotFoundf("space %q", name))
 }
 
-func (s *applicationSuite) expectCharm(c *gc.C, name string) {
+func (s *applicationSuite) expectCharm(c *tc.C, name string) {
 	locator := applicationcharm.CharmLocator{
 		Name:     name,
 		Revision: 42,
@@ -1323,7 +1322,7 @@ func (s *applicationSuite) expectCharm(c *gc.C, name string) {
 	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(true, nil)
 }
 
-func (s *applicationSuite) expectCharmNotFound(c *gc.C, name string) {
+func (s *applicationSuite) expectCharmNotFound(c *tc.C, name string) {
 	locator := applicationcharm.CharmLocator{
 		Name:     name,
 		Revision: 42,
@@ -1332,7 +1331,7 @@ func (s *applicationSuite) expectCharmNotFound(c *gc.C, name string) {
 	s.applicationService.EXPECT().GetCharm(gomock.Any(), locator).Return(nil, applicationcharm.CharmLocator{}, false, applicationerrors.CharmNotFound)
 }
 
-func (s *applicationSuite) expectCharmConfig(c *gc.C, times int) {
+func (s *applicationSuite) expectCharmConfig(c *tc.C, times int) {
 	cfg, err := internalcharm.ReadConfig(strings.NewReader(`
 options:
     stringOption:
@@ -1340,7 +1339,7 @@ options:
         description: string option
         type: string
     `))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charm.EXPECT().Config().Return(cfg).Times(times)
 }
@@ -1352,7 +1351,7 @@ func (s *applicationSuite) expectCharmMeta(name string, resources map[string]cha
 	}).Times(times)
 }
 
-func (s *applicationSuite) expectCharmAssumes(c *gc.C) {
+func (s *applicationSuite) expectCharmAssumes(c *tc.C) {
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
 		Assumes: &assumes.ExpressionTree{
 			Expression: assumes.CompositeExpression{
@@ -1366,7 +1365,7 @@ func (s *applicationSuite) expectCharmAssumes(c *gc.C) {
 	s.applicationService.EXPECT().GetSupportedFeatures(gomock.Any()).Return(fs, nil)
 }
 
-func (s *applicationSuite) expectCharmFormatCheck(c *gc.C, name string) {
+func (s *applicationSuite) expectCharmFormatCheck(c *tc.C, name string) {
 	locator := applicationcharm.CharmLocator{
 		Name:     "ubuntu",
 		Revision: 42,
@@ -1387,7 +1386,7 @@ func (s *applicationSuite) expectCharmFormatCheck(c *gc.C, name string) {
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{}).Times(2)
 }
 
-func (s *applicationSuite) expectCharmFormatCheckDowngrade(c *gc.C, name string) {
+func (s *applicationSuite) expectCharmFormatCheckDowngrade(c *tc.C, name string) {
 	locator := applicationcharm.CharmLocator{
 		Name:     "ubuntu",
 		Revision: 42,
@@ -1409,7 +1408,7 @@ func (s *applicationSuite) expectCharmFormatCheckDowngrade(c *gc.C, name string)
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{}).Times(2)
 }
 
-func (s *applicationSuite) expectSetCharm(c *gc.C, name string, fn func(*gc.C, state.SetCharmConfig)) {
+func (s *applicationSuite) expectSetCharm(c *tc.C, name string, fn func(*tc.C, state.SetCharmConfig)) {
 	s.application.EXPECT().SetCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(config state.SetCharmConfig, _ objectstore.ObjectStore) error {
 		fn(c, config)
 		return nil
@@ -1417,7 +1416,7 @@ func (s *applicationSuite) expectSetCharm(c *gc.C, name string, fn func(*gc.C, s
 
 	// TODO (stickupkid): This isn't actually checking much here...
 	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), name, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, params domainapplication.UpdateCharmParams) error {
-		c.Assert(params.Charm, gc.DeepEquals, &domainCharm{
+		c.Assert(params.Charm, tc.DeepEquals, &domainCharm{
 			charm: s.charm,
 			locator: applicationcharm.CharmLocator{
 				Name:     "foo",
@@ -1426,21 +1425,21 @@ func (s *applicationSuite) expectSetCharm(c *gc.C, name string, fn func(*gc.C, s
 			},
 			available: true,
 		})
-		c.Assert(params.CharmUpgradeOnError, gc.Equals, true)
+		c.Assert(params.CharmUpgradeOnError, tc.Equals, true)
 		return nil
 	})
 }
 
-func (s *applicationSuite) expectSetCharmWithTrust(c *gc.C) {
+func (s *applicationSuite) expectSetCharmWithTrust(c *tc.C) {
 	appSchema, appDefaults, err := ConfigSchema()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.application.EXPECT().UpdateApplicationConfig(map[string]any{
 		"trust": true,
 	}, nil, appSchema, appDefaults).Return(nil)
 }
 
-func (s *applicationSuite) expectGetRelationUUIDForRemoval(c *gc.C, args relation.GetRelationUUIDForRemovalArgs, err error) corerelation.UUID {
+func (s *applicationSuite) expectGetRelationUUIDForRemoval(c *tc.C, args relation.GetRelationUUIDForRemovalArgs, err error) corerelation.UUID {
 	relUUID := relationtesting.GenRelationUUID(c)
 	s.relationService.EXPECT().GetRelationUUIDForRemoval(context.Background(), args).Return(relUUID, err)
 	return relUUID

@@ -8,8 +8,7 @@ import (
 	"encoding/json"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/storage"
@@ -19,7 +18,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func (s *ListSuite) TestFilesystemListEmpty(c *gc.C) {
+func (s *ListSuite) TestFilesystemListEmpty(c *tc.C) {
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
 		return nil, nil
 	}
@@ -30,20 +29,20 @@ func (s *ListSuite) TestFilesystemListEmpty(c *gc.C) {
 	)
 }
 
-func (s *ListSuite) TestFilesystemListError(c *gc.C) {
+func (s *ListSuite) TestFilesystemListError(c *tc.C) {
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
 		return nil, errors.New("just my luck")
 	}
 	context, err := s.runFilesystemList(c, "--format", "yaml")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "just my luck")
+	c.Assert(errors.Cause(err), tc.ErrorMatches, "just my luck")
 	s.assertUserFacingOutput(c, context, "", "")
 }
 
-func (s *ListSuite) TestFilesystemListArgs(c *gc.C) {
+func (s *ListSuite) TestFilesystemListArgs(c *tc.C) {
 	var called bool
 	expectedArgs := []string{"a", "b", "c"}
 	s.mockAPI.listFilesystems = func(arg []string) ([]params.FilesystemDetailsListResult, error) {
-		c.Assert(arg, jc.DeepEquals, expectedArgs)
+		c.Assert(arg, tc.DeepEquals, expectedArgs)
 		called = true
 		return nil, nil
 	}
@@ -52,10 +51,10 @@ func (s *ListSuite) TestFilesystemListArgs(c *gc.C) {
 		append([]string{"--format", "yaml"}, expectedArgs...),
 		"",
 	)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 }
 
-func (s *ListSuite) TestFilesystemListYaml(c *gc.C) {
+func (s *ListSuite) TestFilesystemListYaml(c *tc.C) {
 	s.assertUnmarshalledOutput(
 		c,
 		goyaml.Unmarshal,
@@ -63,7 +62,7 @@ func (s *ListSuite) TestFilesystemListYaml(c *gc.C) {
 		"--format", "yaml")
 }
 
-func (s *ListSuite) TestFilesystemListJSON(c *gc.C) {
+func (s *ListSuite) TestFilesystemListJSON(c *tc.C) {
 	s.assertUnmarshalledOutput(
 		c,
 		json.Unmarshal,
@@ -71,7 +70,7 @@ func (s *ListSuite) TestFilesystemListJSON(c *gc.C) {
 		"--format", "json")
 }
 
-func (s *ListSuite) TestFilesystemListWithErrorResults(c *gc.C) {
+func (s *ListSuite) TestFilesystemListWithErrorResults(c *tc.C) {
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
 		var emptyMockAPI mockListAPI
 		results, _ := emptyMockAPI.ListFilesystems(context.Background(), nil)
@@ -99,7 +98,7 @@ Machine  Unit         Storage ID   ID   Volume  Provider ID                     
 1                                  3                                                          42 MiB   pending    
 `[1:]
 
-func (s *ListSuite) TestFilesystemListTabular(c *gc.C) {
+func (s *ListSuite) TestFilesystemListTabular(c *tc.C) {
 	s.assertValidFilesystemList(c, []string{}, expectedFilesystemListTabular)
 
 	// Do it again, reversing the results returned by the API.
@@ -120,7 +119,7 @@ Unit     Storage ID   ID   Provider ID                       Mountpoint  Size   
 mysql/0  db-dir/1001  0/0  provider-supplied-filesystem-0-0  /mnt/fuji   512 MiB  attached  
 `[1:]
 
-func (s *ListSuite) TestCAASFilesystemListTabular(c *gc.C) {
+func (s *ListSuite) TestCAASFilesystemListTabular(c *tc.C) {
 	s.assertValidFilesystemList(c, []string{}, expectedFilesystemListTabular)
 
 	// Do it again, reversing the results returned by the API.
@@ -165,28 +164,28 @@ func (s *ListSuite) TestCAASFilesystemListTabular(c *gc.C) {
 	s.assertValidFilesystemList(c, []string{}, expectedCAASFilesystemListTabular)
 }
 
-func (s *ListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
+func (s *ListSuite) assertUnmarshalledOutput(c *tc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
 	context, err := s.runFilesystemList(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var result struct {
 		Filesystems map[string]storage.FilesystemInfo
 	}
 	err = unmarshal([]byte(cmdtesting.Stdout(context)), &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := s.expect(c, nil)
-	c.Assert(result.Filesystems, jc.DeepEquals, expected)
+	c.Assert(result.Filesystems, tc.DeepEquals, expected)
 
 	obtainedErr := cmdtesting.Stderr(context)
-	c.Assert(obtainedErr, gc.Equals, expectedErr)
+	c.Assert(obtainedErr, tc.Equals, expectedErr)
 }
 
 // expect returns the FilesystemInfo mapping we should expect to unmarshal
 // from rendered YAML or JSON.
-func (s *ListSuite) expect(c *gc.C, machines []string) map[string]storage.FilesystemInfo {
+func (s *ListSuite) expect(c *tc.C, machines []string) map[string]storage.FilesystemInfo {
 	all, err := s.mockAPI.ListFilesystems(context.Background(), machines)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var valid []params.FilesystemDetails
 	for _, result := range all {
@@ -195,27 +194,27 @@ func (s *ListSuite) expect(c *gc.C, machines []string) map[string]storage.Filesy
 		}
 	}
 	result, err := storage.ConvertToFilesystemInfo(valid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return result
 }
 
-func (s *ListSuite) assertValidFilesystemList(c *gc.C, args []string, expectedOut string) {
+func (s *ListSuite) assertValidFilesystemList(c *tc.C, args []string, expectedOut string) {
 	context, err := s.runFilesystemList(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUserFacingOutput(c, context, expectedOut, "")
 }
 
-func (s *ListSuite) runFilesystemList(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *ListSuite) runFilesystemList(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c,
 		storage.NewListCommandForTest(s.mockAPI, s.store), append(args, "--filesystem")...)
 }
 
-func (s *ListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
+func (s *ListSuite) assertUserFacingOutput(c *tc.C, context *cmd.Context, expectedOut, expectedErr string) {
 	obtainedOut := cmdtesting.Stdout(context)
-	c.Assert(obtainedOut, gc.Equals, expectedOut)
+	c.Assert(obtainedOut, tc.Equals, expectedOut)
 
 	obtainedErr := cmdtesting.Stderr(context)
-	c.Assert(obtainedErr, gc.Equals, expectedErr)
+	c.Assert(obtainedErr, tc.Equals, expectedErr)
 }
 
 func (s mockListAPI) ListFilesystems(ctx context.Context, machines []string) ([]params.FilesystemDetailsListResult, error) {

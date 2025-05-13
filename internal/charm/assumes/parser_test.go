@@ -8,8 +8,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/semversion"
@@ -17,9 +16,9 @@ import (
 
 type ParserSuite struct{}
 
-var _ = gc.Suite(&ParserSuite{})
+var _ = tc.Suite(&ParserSuite{})
 
-func (s *ParserSuite) TestNestedExpressionUnmarshalingFromYAML(c *gc.C) {
+func (s *ParserSuite) TestNestedExpressionUnmarshalingFromYAML(c *tc.C) {
 	payload := `
 assumes:
   - chips
@@ -38,7 +37,7 @@ assumes:
 		Assumes *ExpressionTree `yaml:"assumes,omitempty"`
 	}{}
 	err := yaml.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := CompositeExpression{
 		ExprType: AllOfExpression,
@@ -68,10 +67,10 @@ assumes:
 		},
 	}
 
-	c.Assert(dst.Assumes.Expression, gc.DeepEquals, exp)
+	c.Assert(dst.Assumes.Expression, tc.DeepEquals, exp)
 }
 
-func (s *ParserSuite) TestNestedExpressionUnmarshalingFromJSON(c *gc.C) {
+func (s *ParserSuite) TestNestedExpressionUnmarshalingFromJSON(c *tc.C) {
 	payload := `
 {
   "assumes": [
@@ -102,7 +101,7 @@ func (s *ParserSuite) TestNestedExpressionUnmarshalingFromJSON(c *gc.C) {
 		Assumes *ExpressionTree `json:"assumes,omitempty"`
 	}{}
 	err := json.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := CompositeExpression{
 		ExprType: AllOfExpression,
@@ -132,10 +131,10 @@ func (s *ParserSuite) TestNestedExpressionUnmarshalingFromJSON(c *gc.C) {
 		},
 	}
 
-	c.Assert(dst.Assumes.Expression, gc.DeepEquals, exp)
+	c.Assert(dst.Assumes.Expression, tc.DeepEquals, exp)
 }
 
-func (s *ParserSuite) TestVersionlessFeatureExprUnmarshalingFromYAML(c *gc.C) {
+func (s *ParserSuite) TestVersionlessFeatureExprUnmarshalingFromYAML(c *tc.C) {
 	payload := `
 assumes:
   - chips
@@ -145,7 +144,7 @@ assumes:
 		Assumes *ExpressionTree `yaml:"assumes,omitempty"`
 	}{}
 	err := yaml.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := CompositeExpression{
 		ExprType: AllOfExpression,
@@ -154,10 +153,10 @@ assumes:
 		},
 	}
 
-	c.Assert(dst.Assumes.Expression, gc.DeepEquals, exp)
+	c.Assert(dst.Assumes.Expression, tc.DeepEquals, exp)
 }
 
-func (s *ParserSuite) TestVersionedFeatureExprUnmarshaling(c *gc.C) {
+func (s *ParserSuite) TestVersionedFeatureExprUnmarshaling(c *tc.C) {
 	payload := `
 assumes: # test various combinations of whitespace and version formats
   - chips >=              2000.1.2
@@ -170,7 +169,7 @@ assumes: # test various combinations of whitespace and version formats
 		Assumes *ExpressionTree `yaml:"assumes,omitempty"`
 	}{}
 	err := yaml.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := CompositeExpression{
 		ExprType: AllOfExpression,
@@ -215,10 +214,10 @@ assumes: # test various combinations of whitespace and version formats
 		},
 	}
 
-	c.Assert(dst.Assumes.Expression, gc.DeepEquals, exp)
+	c.Assert(dst.Assumes.Expression, tc.DeepEquals, exp)
 }
 
-func (s *ParserSuite) TestMalformedCompositeExpression(c *gc.C) {
+func (s *ParserSuite) TestMalformedCompositeExpression(c *tc.C) {
 	payload := `
 assumes:
   - root:
@@ -229,10 +228,10 @@ assumes:
 		Assumes *ExpressionTree `yaml:"assumes,omitempty"`
 	}{}
 	err := yaml.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, gc.ErrorMatches, `.*expected an "any-of" or "all-of" block.*`)
+	c.Assert(err, tc.ErrorMatches, `.*expected an "any-of" or "all-of" block.*`)
 }
 
-func (s *ParserSuite) TestFeatureExprParser(c *gc.C) {
+func (s *ParserSuite) TestFeatureExprParser(c *tc.C) {
 	specs := []struct {
 		descr  string
 		in     string
@@ -284,14 +283,14 @@ func (s *ParserSuite) TestFeatureExprParser(c *gc.C) {
 		c.Logf("%d. %s", specIdx, spec.descr)
 		_, err := parseFeatureExpr(spec.in)
 		if spec.expErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
-			c.Assert(err, gc.ErrorMatches, spec.expErr)
+			c.Assert(err, tc.ErrorMatches, spec.expErr)
 		}
 	}
 }
 
-func (s *ParserSuite) TestMarshalToYAML(c *gc.C) {
+func (s *ParserSuite) TestMarshalToYAML(c *tc.C) {
 	payload := `
 assumes:
 - chips
@@ -310,15 +309,15 @@ assumes:
 		Assumes *ExpressionTree `yaml:"assumes,omitempty"`
 	}{}
 	err := yaml.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var buf bytes.Buffer
 	err = yaml.NewEncoder(&buf).Encode(dst)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(buf.String(), gc.Equals, payload, gc.Commentf("serialized assumes block not matching original input"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(buf.String(), tc.Equals, payload, tc.Commentf("serialized assumes block not matching original input"))
 }
 
-func (s *ParserSuite) TestMarshalToJSON(c *gc.C) {
+func (s *ParserSuite) TestMarshalToJSON(c *tc.C) {
 	payload := `
 {
   "assumes": [
@@ -349,12 +348,12 @@ func (s *ParserSuite) TestMarshalToJSON(c *gc.C) {
 		Assumes *ExpressionTree `json:"assumes,omitempty"`
 	}{}
 	err := json.NewDecoder(strings.NewReader(payload)).Decode(&dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetIndent("", "  ")
 	err = enc.Encode(dst)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(buf.String(), gc.Equals, payload, gc.Commentf("serialized assumes block not matching original input"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(buf.String(), tc.Equals, payload, tc.Commentf("serialized assumes block not matching original input"))
 }

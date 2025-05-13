@@ -6,9 +6,8 @@ package provisioner
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
@@ -28,16 +27,16 @@ type provisionerSuite struct {
 	keyUpdaterService       *MockKeyUpdaterService
 }
 
-var _ = gc.Suite(&provisionerSuite{})
+var _ = tc.Suite(&provisionerSuite{})
 
-func (s *provisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *provisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agentProvisionerService = NewMockAgentProvisionerService(ctrl)
 	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 	return ctrl
 }
 
-func (s *provisionerSuite) TestContainerManagerConfig(c *gc.C) {
+func (s *provisionerSuite) TestContainerManagerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := &ProvisionerAPI{
 		agentProvisionerService: s.agentProvisionerService,
@@ -58,8 +57,8 @@ func (s *provisionerSuite) TestContainerManagerConfig(c *gc.C) {
 	containerManagerConfig, err := api.ContainerManagerConfig(context.Background(),
 		params.ContainerManagerConfigParams{Type: instance.LXD},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(containerManagerConfig, jc.DeepEquals, params.ContainerManagerConfig{ManagerConfig: map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containerManagerConfig, tc.DeepEquals, params.ContainerManagerConfig{ManagerConfig: map[string]string{
 		"model-uuid":                                 modelID.String(),
 		"lxd-snap-channel":                           "5.0/stable",
 		"container-image-metadata-url":               "https://images.linuxcontainers.org/",
@@ -69,7 +68,7 @@ func (s *provisionerSuite) TestContainerManagerConfig(c *gc.C) {
 	}})
 }
 
-func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
+func (s *provisionerSuite) TestContainerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := &ProvisionerAPI{
 		agentProvisionerService: s.agentProvisionerService,
@@ -95,8 +94,8 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	}, nil)
 
 	containerManagerConfig, err := api.ContainerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(containerManagerConfig, jc.DeepEquals, params.ContainerConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containerManagerConfig, tc.DeepEquals, params.ContainerConfig{
 		UpdateBehavior: &params.UpdateBehavior{
 			EnableOSRefreshUpdate: true,
 			EnableOSUpgrade:       false,

@@ -4,15 +4,14 @@
 package specs_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas/specs"
 )
 
-func (s *typesSuite) TestServiceAccountSpecV2Validate(c *gc.C) {
+func (s *typesSuite) TestServiceAccountSpecV2Validate(c *tc.C) {
 	spec := specs.ServiceAccountSpecV2{}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `rules is required`)
+	c.Assert(spec.Validate(), tc.ErrorMatches, `rules is required`)
 
 	spec = specs.ServiceAccountSpecV2{
 		Global: true,
@@ -24,7 +23,7 @@ func (s *typesSuite) TestServiceAccountSpecV2Validate(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(spec.ToLatest(), gc.DeepEquals, &specs.PrimeServiceAccountSpecV3{
+	c.Assert(spec.ToLatest(), tc.DeepEquals, &specs.PrimeServiceAccountSpecV3{
 		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
 			Roles: []specs.Role{
 				{
@@ -42,9 +41,9 @@ func (s *typesSuite) TestServiceAccountSpecV2Validate(c *gc.C) {
 	})
 }
 
-func (s *typesSuite) TestServiceAccountSpecV3Validate(c *gc.C) {
+func (s *typesSuite) TestServiceAccountSpecV3Validate(c *tc.C) {
 	spec := specs.ServiceAccountSpecV3{}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `roles is required`)
+	c.Assert(spec.Validate(), tc.ErrorMatches, `roles is required`)
 
 	spec = specs.ServiceAccountSpecV3{
 		Roles: []specs.Role{
@@ -53,7 +52,7 @@ func (s *typesSuite) TestServiceAccountSpecV3Validate(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `rules is required`)
+	c.Assert(spec.Validate(), tc.ErrorMatches, `rules is required`)
 
 	spec.Roles[0].Rules = []specs.PolicyRule{
 		{
@@ -62,12 +61,12 @@ func (s *typesSuite) TestServiceAccountSpecV3Validate(c *gc.C) {
 			Verbs:     []string{"get", "watch", "list"},
 		},
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 }
 
-func (s *typesSuite) TestPrimeServiceAccountSpecV3Validate(c *gc.C) {
+func (s *typesSuite) TestPrimeServiceAccountSpecV3Validate(c *tc.C) {
 	spec := specs.PrimeServiceAccountSpecV3{}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `invalid primary service account: roles is required`)
+	c.Assert(spec.Validate(), tc.ErrorMatches, `invalid primary service account: roles is required`)
 
 	spec = specs.PrimeServiceAccountSpecV3{
 		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
@@ -96,5 +95,5 @@ func (s *typesSuite) TestPrimeServiceAccountSpecV3Validate(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `invalid primary service account: either all or none of the roles should have a name set`)
+	c.Assert(spec.Validate(), tc.ErrorMatches, `invalid primary service account: either all or none of the roles should have a name set`)
 }

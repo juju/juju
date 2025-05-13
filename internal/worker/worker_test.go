@@ -7,36 +7,35 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = tc.Suite(&WorkerSuite{})
 
-func (*WorkerSuite) TestStopReturnsNoError(c *gc.C) {
+func (*WorkerSuite) TestStopReturnsNoError(c *tc.C) {
 	w := workertest.NewDeadWorker(nil)
 
 	err := worker.Stop(w)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (*WorkerSuite) TestStopReturnsError(c *gc.C) {
+func (*WorkerSuite) TestStopReturnsError(c *tc.C) {
 	w := workertest.NewDeadWorker(errors.New("pow"))
 
 	err := worker.Stop(w)
-	c.Check(err, gc.ErrorMatches, "pow")
+	c.Check(err, tc.ErrorMatches, "pow")
 }
 
-func (*WorkerSuite) TestStopKills(c *gc.C) {
+func (*WorkerSuite) TestStopKills(c *tc.C) {
 	w := workertest.NewErrorWorker(nil)
 	defer workertest.CleanKill(c, w)
 
@@ -44,7 +43,7 @@ func (*WorkerSuite) TestStopKills(c *gc.C) {
 	workertest.CheckKilled(c, w)
 }
 
-func (*WorkerSuite) TestStopWaits(c *gc.C) {
+func (*WorkerSuite) TestStopWaits(c *tc.C) {
 	w := workertest.NewForeverWorker(nil)
 	defer workertest.CheckKilled(c, w)
 	defer w.ReallyKill()
@@ -70,18 +69,18 @@ func (*WorkerSuite) TestStopWaits(c *gc.C) {
 	}
 }
 
-func (*WorkerSuite) TestDeadAlready(c *gc.C) {
+func (*WorkerSuite) TestDeadAlready(c *tc.C) {
 	w := workertest.NewDeadWorker(nil)
 
 	select {
 	case _, ok := <-worker.Dead(w):
-		c.Check(ok, jc.IsFalse)
+		c.Check(ok, tc.IsFalse)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("Dead never sent")
 	}
 }
 
-func (*WorkerSuite) TestDeadWaits(c *gc.C) {
+func (*WorkerSuite) TestDeadWaits(c *tc.C) {
 	w := workertest.NewErrorWorker(nil)
 	defer workertest.CleanKill(c, w)
 
@@ -99,7 +98,7 @@ func (*WorkerSuite) TestDeadWaits(c *gc.C) {
 	w.Kill()
 	select {
 	case _, ok := <-dead:
-		c.Check(ok, jc.IsFalse)
+		c.Check(ok, tc.IsFalse)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("Dead never closed")
 	}

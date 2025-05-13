@@ -16,10 +16,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	api "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -29,11 +27,12 @@ import (
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type ResourcesHandlerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authErr  error
 	username string
@@ -52,9 +51,9 @@ type ResourcesHandlerSuite struct {
 	downloader            *MockDownloader
 }
 
-var _ = gc.Suite(&ResourcesHandlerSuite{})
+var _ = tc.Suite(&ResourcesHandlerSuite{})
 
-func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
+func (s *ResourcesHandlerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.authErr = nil
@@ -70,7 +69,7 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 
 	// Generating the fingerprint exhausts the reader so a new one is used.
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(s.resourceContent))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.resource = coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -89,7 +88,7 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	s.recorder = httptest.NewRecorder()
 }
 
-func (s *ResourcesHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ResourcesHandlerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.resourceService = NewMockResourceService(ctrl)
@@ -123,13 +122,13 @@ func (s *ResourcesHandlerSuite) authFunc(_ *http.Request, _ ...string) (
 	return tag, nil
 }
 
-func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange: Create auth function that checks the expected tags.
 	expectedTags := set.NewStrings(names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
 	authFunc := func(req *http.Request, tagKinds ...string) (names.Tag, error) {
-		c.Assert(tagKinds, jc.SameContents, expectedTags.Values())
+		c.Assert(tagKinds, tc.SameContents, expectedTags.Values())
 		tag := names.NewUserTag(s.username)
 		return tag, nil
 	}
@@ -162,7 +161,7 @@ func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
 	s.checkResp(c, http.StatusOK, "application/octet-stream", s.resourceContent)
 }
 
-func (s *ResourcesHandlerSuite) TestAuthFailure(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestAuthFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -178,12 +177,12 @@ func (s *ResourcesHandlerSuite) TestAuthFailure(c *gc.C) {
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
-func (s *ResourcesHandlerSuite) TestUnsupportedMethod(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestUnsupportedMethod(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
 	req, err := http.NewRequest("POST", s.requestURL(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:
 	s.serveHTTP(req)
@@ -193,7 +192,7 @@ func (s *ResourcesHandlerSuite) TestUnsupportedMethod(c *gc.C) {
 	s.checkResp(c, http.StatusMethodNotAllowed, "application/json", expected)
 }
 
-func (s *ResourcesHandlerSuite) TestGetSuccess(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestGetSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -217,7 +216,7 @@ func (s *ResourcesHandlerSuite) TestGetSuccess(c *gc.C) {
 	s.checkResp(c, http.StatusOK, "application/octet-stream", s.resourceContent)
 }
 
-func (s *ResourcesHandlerSuite) TestGetNotFoundError(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestGetNotFoundError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 	req := s.newDownloadRequest(c)
@@ -235,7 +234,7 @@ func (s *ResourcesHandlerSuite) TestGetNotFoundError(c *gc.C) {
 	s.checkErrResp(c, http.StatusNotFound, "application/json")
 }
 
-func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -285,7 +284,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
-func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: Construct change allowed func and put it in resource handler.
 	expectedError := apiservererrors.OperationBlockedError("test block")
@@ -310,7 +309,7 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
 	s.checkResp(c, http.StatusBadRequest, "application/json", string(expected))
 }
 
-func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 	req := s.newUploadRequest(c)
@@ -370,7 +369,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
 	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
-func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -393,7 +392,7 @@ func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
 
 // TestPutNotValidOrigin tests that we only upload blobs to resources with
 // type upload.
-func (s *ResourcesHandlerSuite) TestPutNotValidOrigin(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutNotValidOrigin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -418,7 +417,7 @@ func (s *ResourcesHandlerSuite) TestPutNotValidOrigin(c *gc.C) {
 // TestPutWithPending checks that clients can still upload resources marked as
 // pending, though this concept is deprecated and no longer used by the
 // controller.
-func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutWithPending(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 	req := s.newUploadRequest(c)
@@ -467,7 +466,7 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
 	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
-func (s *ResourcesHandlerSuite) TestPutNotFoundError(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutNotFoundError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 	req := s.newUploadRequest(c)
@@ -485,33 +484,33 @@ func (s *ResourcesHandlerSuite) TestPutNotFoundError(c *gc.C) {
 	s.checkErrResp(c, http.StatusNotFound, "application/json")
 }
 
-func (s *ResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body string) {
-	c.Assert(s.recorder.Code, gc.Equals, status)
+func (s *ResourcesHandlerSuite) checkResp(c *tc.C, status int, ctype, body string) {
+	c.Assert(s.recorder.Code, tc.Equals, status)
 	hdr := s.recorder.Header()
-	c.Check(hdr.Get("Content-Type"), gc.Equals, ctype)
-	c.Check(hdr.Get("Content-Length"), gc.Equals, strconv.Itoa(len(body)))
+	c.Check(hdr.Get("Content-Type"), tc.Equals, ctype)
+	c.Check(hdr.Get("Content-Length"), tc.Equals, strconv.Itoa(len(body)))
 
 	actualBody, err := io.ReadAll(s.recorder.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(actualBody), gc.Equals, body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(actualBody), tc.Equals, body)
 }
 
-func (s *ResourcesHandlerSuite) checkErrResp(c *gc.C, status int, ctype string) {
-	c.Assert(s.recorder.Code, gc.Equals, status)
+func (s *ResourcesHandlerSuite) checkErrResp(c *tc.C, status int, ctype string) {
+	c.Assert(s.recorder.Code, tc.Equals, status)
 	hdr := s.recorder.Header()
-	c.Check(hdr.Get("Content-Type"), gc.Equals, ctype)
+	c.Check(hdr.Get("Content-Type"), tc.Equals, ctype)
 }
 
-func (s *ResourcesHandlerSuite) newDownloadRequest(c *gc.C) *http.Request {
+func (s *ResourcesHandlerSuite) newDownloadRequest(c *tc.C) *http.Request {
 	req, err := http.NewRequest("GET", s.requestURL(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return req
 }
 
-func (s *ResourcesHandlerSuite) newUploadRequest(c *gc.C) *http.Request {
+func (s *ResourcesHandlerSuite) newUploadRequest(c *tc.C) *http.Request {
 	req, err := http.NewRequest("PUT", s.requestURL(), s.resourceReader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-Length", fmt.Sprint(s.resource.Size))

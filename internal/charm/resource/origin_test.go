@@ -5,20 +5,19 @@ package resource_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type OriginSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&OriginSuite{})
+var _ = tc.Suite(&OriginSuite{})
 
-func (OriginSuite) TestParseOriginKnown(c *gc.C) {
+func (s *OriginSuite) TestParseOriginKnown(c *tc.C) {
 	recognized := map[string]resource.Origin{
 		"upload": resource.OriginUpload,
 		"store":  resource.OriginStore,
@@ -26,18 +25,18 @@ func (OriginSuite) TestParseOriginKnown(c *gc.C) {
 	for value, expected := range recognized {
 		origin, err := resource.ParseOrigin(value)
 
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(origin, gc.Equals, expected)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(origin, tc.Equals, expected)
 	}
 }
 
-func (OriginSuite) TestParseOriginUnknown(c *gc.C) {
+func (s *OriginSuite) TestParseOriginUnknown(c *tc.C) {
 	_, err := resource.ParseOrigin("<invalid>")
 
-	c.Check(err, gc.ErrorMatches, `.*unknown origin "<invalid>".*`)
+	c.Check(err, tc.ErrorMatches, `.*unknown origin "<invalid>".*`)
 }
 
-func (OriginSuite) TestValidateKnown(c *gc.C) {
+func (s *OriginSuite) TestValidateKnown(c *tc.C) {
 	recognized := []resource.Origin{
 		resource.OriginUpload,
 		resource.OriginStore,
@@ -45,14 +44,14 @@ func (OriginSuite) TestValidateKnown(c *gc.C) {
 	for _, origin := range recognized {
 		err := origin.Validate()
 
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
-func (OriginSuite) TestValidateUnknown(c *gc.C) {
+func (s *OriginSuite) TestValidateUnknown(c *tc.C) {
 	var origin resource.Origin
 	err := origin.Validate()
 
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*unknown origin.*`)
+	c.Check(errors.Cause(err), tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `.*unknown origin.*`)
 }

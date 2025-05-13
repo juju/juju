@@ -7,9 +7,8 @@ import (
 	"context"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -19,7 +18,7 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
+func (s *serviceSuite) TestGetSecretsForExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -83,8 +82,8 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 	)
 
 	got, err := s.service.GetSecretsForExport(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &SecretExport{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &SecretExport{
 		Secrets: secrets,
 		Revisions: map[string][]*coresecrets.SecretRevisionMetadata{
 			uri.ID: revisions[0],
@@ -135,7 +134,7 @@ func (s *serviceSuite) TestGetSecretsForExport(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestImportSecrets(c *gc.C) {
+func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -194,7 +193,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 	})
 
 	appUUID, err := coreapplication.NewID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
 	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, secrets[0].Label).Return(false, nil)
@@ -334,5 +333,5 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		}},
 	}
 	err = s.service.ImportSecrets(context.Background(), toImport)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

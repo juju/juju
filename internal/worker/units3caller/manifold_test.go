@@ -7,11 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 	httprequest "gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/core/logger"
@@ -23,25 +22,25 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig()
 	cfg.APICallerName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewClient = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
@@ -63,36 +62,36 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 var expectedInputs = []string{"api-caller"}
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
+func (s *manifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(Manifold(s.getConfig()).Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.apiConn.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil)
 
 	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *manifoldSuite) TestOutput(c *gc.C) {
+func (s *manifoldSuite) TestOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.apiConn.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil)
 
 	manifold := Manifold(s.getConfig())
 	w, err := manifold.Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	var session objectstore.ReadSession
 	err = manifold.Output(w, &session)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(session, gc.Equals, s.session)
+	c.Check(session, tc.Equals, s.session)
 
 	workertest.CleanKill(c, w)
 }

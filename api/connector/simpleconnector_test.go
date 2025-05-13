@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/internal/testing"
@@ -19,9 +18,9 @@ type simpleConnectorSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&simpleConnectorSuite{})
+var _ = tc.Suite(&simpleConnectorSuite{})
 
-func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
+func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *tc.C) {
 	tests := []struct {
 		name                    string
 		opts                    SimpleConfig
@@ -90,27 +89,27 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 		connector, err := NewSimple(test.opts)
 
 		if test.expectedError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectedError)
-			c.Assert(connector, gc.IsNil)
+			c.Assert(err, tc.ErrorMatches, test.expectedError)
+			c.Assert(connector, tc.IsNil)
 		} else {
-			c.Assert(err, gc.IsNil)
-			c.Assert(connector.info, gc.DeepEquals, test.expectedAPIInfo)
+			c.Assert(err, tc.IsNil)
+			c.Assert(connector.info, tc.DeepEquals, test.expectedAPIInfo)
 
 			expectedDefaultDialOpts := api.DefaultDialOpts()
 			if test.expectedDefaultDialOpts != nil {
 				expectedDefaultDialOpts = test.expectedDefaultDialOpts()
 			}
-			c.Assert(connector.defaultDialOpts, gc.DeepEquals, expectedDefaultDialOpts)
+			c.Assert(connector.defaultDialOpts, tc.DeepEquals, expectedDefaultDialOpts)
 		}
 	}
 }
 
-func (s *simpleConnectorSuite) TestSimpleConnectorConnect(c *gc.C) {
+func (s *simpleConnectorSuite) TestSimpleConnectorConnect(c *tc.C) {
 	connector, err := NewSimple(SimpleConfig{
 		Username:            "alice@canonical.com",
 		ControllerAddresses: []string{"localhost:17080"},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	var called bool
 
@@ -118,10 +117,10 @@ func (s *simpleConnectorSuite) TestSimpleConnectorConnect(c *gc.C) {
 		called = true
 
 		// Zeros to false, ensure it is true after Connect dial opt.
-		c.Assert(do.InsecureSkipVerify, gc.Equals, true)
+		c.Assert(do.InsecureSkipVerify, tc.Equals, true)
 
 		// Defaults to 10 * time.Minute, ensure it is overwritten after Connect dial opt.
-		c.Assert(do.Timeout, gc.Equals, 5*time.Minute)
+		c.Assert(do.Timeout, tc.Equals, 5*time.Minute)
 		return nil, nil
 	})
 
@@ -130,7 +129,7 @@ func (s *simpleConnectorSuite) TestSimpleConnectorConnect(c *gc.C) {
 			do.InsecureSkipVerify = true
 			do.Timeout = 5 * time.Minute
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(called, gc.Equals, true)
+	c.Assert(called, tc.Equals, true)
 }

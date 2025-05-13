@@ -6,8 +6,7 @@ package ec2
 import (
 	"sort"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 )
@@ -15,20 +14,20 @@ import (
 type cloudSuite struct {
 }
 
-var _ = gc.Suite(&cloudSuite{})
+var _ = tc.Suite(&cloudSuite{})
 
-func (*cloudSuite) TestFinalizeCloudSetAuthTypes(c *gc.C) {
+func (*cloudSuite) TestFinalizeCloudSetAuthTypes(c *tc.C) {
 	environCloud := environProviderCloud{}
 	r, err := environCloud.FinalizeCloud(nil, cloud.Cloud{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sort.Sort(r.AuthTypes)
-	c.Assert(r.AuthTypes, jc.DeepEquals, cloud.AuthTypes{"instance-role"})
+	c.Assert(r.AuthTypes, tc.DeepEquals, cloud.AuthTypes{"instance-role"})
 }
 
-func (*cloudSuite) TestFinalizeCloudSetAuthTypesAddition(c *gc.C) {
+func (*cloudSuite) TestFinalizeCloudSetAuthTypesAddition(c *tc.C) {
 	environCloud := environProviderCloud{}
 	r, err := environCloud.FinalizeCloud(nil, cloud.Cloud{AuthTypes: cloud.AuthTypes{"test"}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sort.Sort(r.AuthTypes)
-	c.Assert(r.AuthTypes, jc.DeepEquals, cloud.AuthTypes{"instance-role", "test"})
+	c.Assert(r.AuthTypes, tc.DeepEquals, cloud.AuthTypes{"instance-role", "test"})
 }

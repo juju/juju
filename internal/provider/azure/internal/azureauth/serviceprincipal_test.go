@@ -16,8 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	abstractions "github.com/microsoft/kiota-abstractions-go"
 	"github.com/microsoft/kiota-abstractions-go/authentication"
 	"github.com/microsoft/kiota-abstractions-go/serialization"
@@ -25,10 +24,10 @@ import (
 	nethttplibrary "github.com/microsoft/kiota-http-go"
 	"github.com/microsoftgraph/msgraph-sdk-go/models"
 	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/provider/azure/internal/azureauth"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type requestResult struct {
@@ -74,12 +73,12 @@ func (m *MockRequestAdaptor) Send(ctx context.Context, requestInfo *abstractions
 }
 
 type InteractiveSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	clock   testclock.AdvanceableClock
 	newUUID func() (uuid.UUID, error)
 }
 
-var _ = gc.Suite(&InteractiveSuite{})
+var _ = tc.Suite(&InteractiveSuite{})
 
 const fakeTenantId = "11111111-1111-1111-1111-111111111111"
 
@@ -115,7 +114,7 @@ func roleAssignmentPrincipalNotExistSender() *azuretesting.MockSender {
 	return sender
 }
 
-func (s *InteractiveSuite) SetUpTest(c *gc.C) {
+func (s *InteractiveSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	uuids := []string{
 		"33333333-3333-3333-3333-333333333333", // password
@@ -133,9 +132,9 @@ func (s *InteractiveSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewDilatedWallClock(10 * time.Millisecond)
 }
 
-func (s *InteractiveSuite) TestInteractive(c *gc.C) {
+func (s *InteractiveSuite) TestInteractive(c *tc.C) {
 	ra, err := nethttplibrary.NewNetHttpRequestAdapter(&authentication.AnonymousAuthenticationProvider{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
 	sp.SetAppId(to.Ptr("app-id"))
@@ -184,19 +183,19 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 		TenantId:       fakeTenantId,
 		Credential:     &azuretesting.FakeCredential{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "app-id")
-	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
-	c.Assert(spObjectId, gc.Equals, "sp-object-id")
-	c.Assert(stderr.String(), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appId, tc.Equals, "app-id")
+	c.Assert(password, tc.Equals, "33333333-3333-3333-3333-333333333333")
+	c.Assert(spObjectId, tc.Equals, "sp-object-id")
+	c.Assert(stderr.String(), tc.Equals, `
 Initiating interactive authentication.
 
 `[1:])
 }
 
-func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
+func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *tc.C) {
 	ra, err := nethttplibrary.NewNetHttpRequestAdapter(&authentication.AnonymousAuthenticationProvider{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
 	sp.SetAppId(to.Ptr("app-id"))
@@ -244,11 +243,11 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 		TenantId:       fakeTenantId,
 		Credential:     &azuretesting.FakeCredential{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "app-id")
-	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
-	c.Assert(spObjectId, gc.Equals, "sp-object-id")
-	c.Assert(stderr.String(), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appId, tc.Equals, "app-id")
+	c.Assert(password, tc.Equals, "33333333-3333-3333-3333-333333333333")
+	c.Assert(spObjectId, tc.Equals, "sp-object-id")
+	c.Assert(stderr.String(), tc.Equals, `
 Initiating interactive authentication.
 
 `[1:])
@@ -264,9 +263,9 @@ func dataError(code string) error {
 	return result
 }
 
-func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *gc.C) {
+func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *tc.C) {
 	ra, err := nethttplibrary.NewNetHttpRequestAdapter(&authentication.AnonymousAuthenticationProvider{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
 	sp.SetAppId(to.Ptr("app-id"))
@@ -317,15 +316,15 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *gc.C) {
 		TenantId:       fakeTenantId,
 		Credential:     &azuretesting.FakeCredential{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "app-id")
-	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
-	c.Assert(spObjectId, gc.Equals, "sp-object-id")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appId, tc.Equals, "app-id")
+	c.Assert(password, tc.Equals, "33333333-3333-3333-3333-333333333333")
+	c.Assert(spObjectId, tc.Equals, "sp-object-id")
 }
 
-func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *gc.C) {
+func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *tc.C) {
 	ra, err := nethttplibrary.NewNetHttpRequestAdapter(&authentication.AnonymousAuthenticationProvider{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
 	sp.SetAppId(to.Ptr("app-id"))
@@ -378,15 +377,15 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *gc.C) 
 		SubscriptionId: subscriptionId,
 		TenantId:       fakeTenantId, Credential: &azuretesting.FakeCredential{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "app-id")
-	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
-	c.Assert(spObjectId, gc.Equals, "sp-object-id")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appId, tc.Equals, "app-id")
+	c.Assert(password, tc.Equals, "33333333-3333-3333-3333-333333333333")
+	c.Assert(spObjectId, tc.Equals, "sp-object-id")
 }
 
-func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
+func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *tc.C) {
 	ra, err := nethttplibrary.NewNetHttpRequestAdapter(&authentication.AnonymousAuthenticationProvider{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
 	sp.SetAppId(to.Ptr("app-id"))
@@ -433,8 +432,8 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 		SubscriptionId: subscriptionId,
 		TenantId:       fakeTenantId, Credential: &azuretesting.FakeCredential{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "app-id")
-	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
-	c.Assert(spObjectId, gc.Equals, "sp-object-id")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appId, tc.Equals, "app-id")
+	c.Assert(password, tc.Equals, "33333333-3333-3333-3333-333333333333")
+	c.Assert(spObjectId, tc.Equals, "sp-object-id")
 }

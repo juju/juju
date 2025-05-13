@@ -4,24 +4,25 @@
 package constraints
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type archSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&archSuite{})
+var _ = tc.Suite(&archSuite{})
 
-func (s archSuite) TestArchOrDefault(c *gc.C) {
+func (s *archSuite) TestArchOrDefault(c *tc.C) {
 	a := ArchOrDefault(MustParse("mem=4G"), nil)
-	c.Assert(a, gc.Equals, "amd64")
+	c.Assert(a, tc.Equals, "amd64")
 	a = ArchOrDefault(MustParse("arch=arm64"), nil)
-	c.Assert(a, gc.Equals, "arm64")
+	c.Assert(a, tc.Equals, "arm64")
 	defaultCons := MustParse("arch=arm64")
 	a = ArchOrDefault(MustParse("mem=4G"), &defaultCons)
-	c.Assert(a, gc.Equals, "arm64")
+	c.Assert(a, tc.Equals, "arm64")
 	a = ArchOrDefault(MustParse("arch=s390x"), &defaultCons)
-	c.Assert(a, gc.Equals, "s390x")
+	c.Assert(a, tc.Equals, "s390x")
 }

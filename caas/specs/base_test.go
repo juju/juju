@@ -4,8 +4,7 @@
 package specs_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/internal/testing"
@@ -15,7 +14,7 @@ type baseSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&baseSuite{})
+var _ = tc.Suite(&baseSuite{})
 
 type validator interface {
 	Validate() error
@@ -26,13 +25,13 @@ type validateTc struct {
 	errStr string
 }
 
-func (s *baseSuite) TestGetVersion(c *gc.C) {
+func (s *baseSuite) TestGetVersion(c *tc.C) {
 	type testcase struct {
 		strSpec string
 		version specs.Version
 	}
 
-	for i, tc := range []testcase{
+	for i, testCase := range []testcase{
 		{
 			strSpec: `
 `[1:],
@@ -57,28 +56,28 @@ version: 3
 			version: specs.Version(3),
 		},
 	} {
-		c.Logf("#%d: testing GetVersion: %d", i, tc.version)
-		v, err := specs.GetVersion(tc.strSpec)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(v, gc.DeepEquals, tc.version)
+		c.Logf("#%d: testing GetVersion: %d", i, testCase.version)
+		v, err := specs.GetVersion(testCase.strSpec)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(v, tc.DeepEquals, testCase.version)
 	}
 }
 
-func (s *baseSuite) TestValidateServiceSpec(c *gc.C) {
+func (s *baseSuite) TestValidateServiceSpec(c *tc.C) {
 	spec := specs.ServiceSpec{
 		ScalePolicy: "bar",
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `scale policy "bar" not supported`)
+	c.Assert(spec.Validate(), tc.ErrorMatches, `scale policy "bar" not supported`)
 
 	spec = specs.ServiceSpec{
 		ScalePolicy: "parallel",
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 
 	spec = specs.ServiceSpec{
 		ScalePolicy: "serial",
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 
 	spec = specs.ServiceSpec{
 		UpdateStrategy: &specs.UpdateStrategy{
@@ -89,7 +88,7 @@ func (s *baseSuite) TestValidateServiceSpec(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 
 	spec = specs.ServiceSpec{
 		UpdateStrategy: &specs.UpdateStrategy{
@@ -100,14 +99,14 @@ func (s *baseSuite) TestValidateServiceSpec(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `type is required`)
+	c.Assert(spec.Validate(), tc.ErrorMatches, `type is required`)
 
 	spec = specs.ServiceSpec{
 		UpdateStrategy: &specs.UpdateStrategy{
 			Type: "Recreate",
 		},
 	}
-	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	c.Assert(spec.Validate(), tc.ErrorIsNil)
 
 	var partition int32 = 3
 	spec = specs.ServiceSpec{
@@ -119,7 +118,7 @@ func (s *baseSuite) TestValidateServiceSpec(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `partion can not be defined with maxUnavailable or maxSurge together`)
+	c.Assert(spec.Validate(), tc.ErrorMatches, `partion can not be defined with maxUnavailable or maxSurge together`)
 
 	spec = specs.ServiceSpec{
 		UpdateStrategy: &specs.UpdateStrategy{
@@ -130,7 +129,7 @@ func (s *baseSuite) TestValidateServiceSpec(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `partion can not be defined with maxUnavailable or maxSurge together`)
+	c.Assert(spec.Validate(), tc.ErrorMatches, `partion can not be defined with maxUnavailable or maxSurge together`)
 
 	spec = specs.ServiceSpec{
 		UpdateStrategy: &specs.UpdateStrategy{
@@ -142,11 +141,11 @@ func (s *baseSuite) TestValidateServiceSpec(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `partion can not be defined with maxUnavailable or maxSurge together`)
+	c.Assert(spec.Validate(), tc.ErrorMatches, `partion can not be defined with maxUnavailable or maxSurge together`)
 }
 
-func (s *baseSuite) TestValidateContainerSpec(c *gc.C) {
-	for i, tc := range []validateTc{
+func (s *baseSuite) TestValidateContainerSpec(c *tc.C) {
+	for i, testCase := range []validateTc{
 		{
 			spec: &specs.ContainerSpec{
 				Name: "container1",
@@ -185,16 +184,16 @@ func (s *baseSuite) TestValidateContainerSpec(c *gc.C) {
 		},
 	} {
 		c.Logf("#%d: testing FileSet.Validate", i)
-		err := tc.spec.Validate()
-		if tc.errStr == "" {
-			c.Check(err, jc.ErrorIsNil)
+		err := testCase.spec.Validate()
+		if testCase.errStr == "" {
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, tc.errStr)
+			c.Check(err, tc.ErrorMatches, testCase.errStr)
 		}
 	}
 }
 
-func (s *baseSuite) TestValidatePodSpecBase(c *gc.C) {
+func (s *baseSuite) TestValidatePodSpecBase(c *tc.C) {
 	minSpecs := specs.PodSpecBase{}
 	minSpecs.Containers = []specs.ContainerSpec{
 		{
@@ -205,16 +204,16 @@ func (s *baseSuite) TestValidatePodSpecBase(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(minSpecs.Validate(specs.VersionLegacy), jc.ErrorIsNil)
+	c.Assert(minSpecs.Validate(specs.VersionLegacy), tc.ErrorIsNil)
 	minSpecs.Version = specs.VersionLegacy
-	c.Assert(minSpecs.Validate(specs.VersionLegacy), jc.ErrorIsNil)
+	c.Assert(minSpecs.Validate(specs.VersionLegacy), tc.ErrorIsNil)
 
-	c.Assert(minSpecs.Validate(specs.Version2), gc.ErrorMatches, `expected version 2, but found 0`)
+	c.Assert(minSpecs.Validate(specs.Version2), tc.ErrorMatches, `expected version 2, but found 0`)
 	minSpecs.Version = specs.Version2
-	c.Assert(minSpecs.Validate(specs.Version2), jc.ErrorIsNil)
+	c.Assert(minSpecs.Validate(specs.Version2), tc.ErrorIsNil)
 }
 
-func (s *baseSuite) TestValidateCaaSContainers(c *gc.C) {
+func (s *baseSuite) TestValidateCaaSContainers(c *tc.C) {
 	k8sSpec := specs.CaasContainers{}
 	fileSet1 := specs.FileSet{
 		Name:      "file1",
@@ -247,7 +246,7 @@ func (s *baseSuite) TestValidateCaaSContainers(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(k8sSpec.Validate(), jc.ErrorIsNil)
+	c.Assert(k8sSpec.Validate(), tc.ErrorIsNil)
 
 	k8sSpec = specs.CaasContainers{}
 	k8sSpec.Containers = []specs.ContainerSpec{
@@ -262,7 +261,7 @@ func (s *baseSuite) TestValidateCaaSContainers(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(k8sSpec.Validate(), gc.ErrorMatches, `duplicated file "file1" in container "gitlab-helper" not valid`)
+	c.Assert(k8sSpec.Validate(), tc.ErrorMatches, `duplicated file "file1" in container "gitlab-helper" not valid`)
 
 	k8sSpec = specs.CaasContainers{}
 	k8sSpec.Containers = []specs.ContainerSpec{
@@ -294,7 +293,7 @@ func (s *baseSuite) TestValidateCaaSContainers(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(k8sSpec.Validate(), gc.ErrorMatches, `duplicated mount path "/same-mount-path" in container "gitlab-helper" not valid`)
+	c.Assert(k8sSpec.Validate(), tc.ErrorMatches, `duplicated mount path "/same-mount-path" in container "gitlab-helper" not valid`)
 
 	k8sSpec = specs.CaasContainers{}
 	k8sSpec.Containers = []specs.ContainerSpec{
@@ -335,7 +334,7 @@ func (s *baseSuite) TestValidateCaaSContainers(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(k8sSpec.Validate(), gc.ErrorMatches, `duplicated file "file1" with different volume spec not valid`)
+	c.Assert(k8sSpec.Validate(), tc.ErrorMatches, `duplicated file "file1" with different volume spec not valid`)
 
 	k8sSpec = specs.CaasContainers{}
 	k8sSpec.Containers = []specs.ContainerSpec{
@@ -442,5 +441,5 @@ func (s *baseSuite) TestValidateCaaSContainers(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(k8sSpec.Validate(), jc.ErrorIsNil)
+	c.Assert(k8sSpec.Validate(), tc.ErrorIsNil)
 }

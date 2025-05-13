@@ -8,10 +8,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/commands/mocks"
@@ -32,9 +31,9 @@ type syncToolSuite struct {
 	store           *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&syncToolSuite{})
+var _ = tc.Suite(&syncToolSuite{})
 
-func (s *syncToolSuite) SetUpTest(c *gc.C) {
+func (s *syncToolSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
@@ -46,12 +45,12 @@ func (s *syncToolSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *syncToolSuite) Reset(c *gc.C) {
+func (s *syncToolSuite) Reset(c *tc.C) {
 	s.TearDownTest(c)
 	s.SetUpTest(c)
 }
 
-func (s *syncToolSuite) getSyncAgentBinariesCommand(c *gc.C, args ...string) (*gomock.Controller, func() (*cmd.Context, error)) {
+func (s *syncToolSuite) getSyncAgentBinariesCommand(c *tc.C, args ...string) (*gomock.Controller, func() (*cmd.Context, error)) {
 	ctrl := gomock.NewController(c)
 	s.fakeSyncToolAPI = mocks.NewMockSyncToolAPI(ctrl)
 
@@ -93,8 +92,8 @@ var syncToolCommandTests = []syncToolCommandTestCase{
 	},
 }
 
-func (s *syncToolSuite) TestSyncToolsCommand(c *gc.C) {
-	runTest := func(idx int, test syncToolCommandTestCase, c *gc.C) {
+func (s *syncToolSuite) TestSyncToolsCommand(c *tc.C) {
+	runTest := func(idx int, test syncToolCommandTestCase, c *tc.C) {
 		c.Logf("test %d: %s", idx, test.description)
 		ctrl, run := s.getSyncAgentBinariesCommand(c, test.args...)
 		defer ctrl.Finish()
@@ -103,23 +102,23 @@ func (s *syncToolSuite) TestSyncToolsCommand(c *gc.C) {
 
 		called := false
 		syncTools = func(_ context.Context, sctx *sync.SyncContext) error {
-			c.Assert(sctx.AllVersions, gc.Equals, false)
-			c.Assert(sctx.ChosenVersion, gc.Equals, semversion.MustParse("2.9.99"))
-			c.Assert(sctx.DryRun, gc.Equals, test.dryRun)
-			c.Assert(sctx.Stream, gc.Equals, test.stream)
-			c.Assert(sctx.Source, gc.Equals, test.source)
+			c.Assert(sctx.AllVersions, tc.Equals, false)
+			c.Assert(sctx.ChosenVersion, tc.Equals, semversion.MustParse("2.9.99"))
+			c.Assert(sctx.DryRun, tc.Equals, test.dryRun)
+			c.Assert(sctx.Stream, tc.Equals, test.stream)
+			c.Assert(sctx.Source, tc.Equals, test.source)
 
-			c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, syncToolAPIAdaptor{})
+			c.Assert(sctx.TargetToolsUploader, tc.FitsTypeOf, syncToolAPIAdaptor{})
 			uploader := sctx.TargetToolsUploader.(syncToolAPIAdaptor)
-			c.Assert(uploader.SyncToolAPI, gc.Equals, s.fakeSyncToolAPI)
+			c.Assert(uploader.SyncToolAPI, tc.Equals, s.fakeSyncToolAPI)
 
 			called = true
 			return nil
 		}
 		ctx, err := run()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ctx, gc.NotNil)
-		c.Assert(called, jc.IsTrue)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(ctx, tc.NotNil)
+		c.Assert(called, tc.IsTrue)
 		s.Reset(c)
 	}
 
@@ -128,7 +127,7 @@ func (s *syncToolSuite) TestSyncToolsCommand(c *gc.C) {
 	}
 }
 
-func (s *syncToolSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
+func (s *syncToolSuite) TestSyncToolsCommandTargetDirectory(c *tc.C) {
 	dir := c.MkDir()
 	ctrl, run := s.getSyncAgentBinariesCommand(
 		c, "--agent-version", "2.9.99", "-m", "test-target", "--local-dir", dir, "--stream", "proposed")
@@ -136,26 +135,26 @@ func (s *syncToolSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 
 	called := false
 	syncTools = func(_ context.Context, sctx *sync.SyncContext) error {
-		c.Assert(sctx.AllVersions, jc.IsFalse)
-		c.Assert(sctx.DryRun, jc.IsFalse)
-		c.Assert(sctx.Stream, gc.Equals, "proposed")
-		c.Assert(sctx.Source, gc.Equals, "")
-		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})
+		c.Assert(sctx.AllVersions, tc.IsFalse)
+		c.Assert(sctx.DryRun, tc.IsFalse)
+		c.Assert(sctx.Stream, tc.Equals, "proposed")
+		c.Assert(sctx.Source, tc.Equals, "")
+		c.Assert(sctx.TargetToolsUploader, tc.FitsTypeOf, sync.StorageToolsUploader{})
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
-		c.Assert(uploader.WriteMirrors, gc.Equals, envtools.DoNotWriteMirrors)
+		c.Assert(uploader.WriteMirrors, tc.Equals, envtools.DoNotWriteMirrors)
 		url, err := uploader.Storage.URL("")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(url, gc.Equals, utils.MakeFileURL(dir))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(url, tc.Equals, utils.MakeFileURL(dir))
 		called = true
 		return nil
 	}
 	ctx, err := run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(called, tc.IsTrue)
 }
 
-func (s *syncToolSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
+func (s *syncToolSuite) TestSyncToolsCommandTargetDirectoryPublic(c *tc.C) {
 	dir := c.MkDir()
 	ctrl, run := s.getSyncAgentBinariesCommand(
 		c, "--agent-version", "2.9.99", "-m", "test-target", "--local-dir", dir, "--public")
@@ -163,19 +162,19 @@ func (s *syncToolSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
 
 	called := false
 	syncTools = func(_ context.Context, sctx *sync.SyncContext) error {
-		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})
+		c.Assert(sctx.TargetToolsUploader, tc.FitsTypeOf, sync.StorageToolsUploader{})
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
-		c.Assert(uploader.WriteMirrors, gc.Equals, envtools.WriteMirrors)
+		c.Assert(uploader.WriteMirrors, tc.Equals, envtools.WriteMirrors)
 		called = true
 		return nil
 	}
 	ctx, err := run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(called, tc.IsTrue)
 }
 
-func (s *syncToolSuite) TestAPIAdaptorUploadTools(c *gc.C) {
+func (s *syncToolSuite) TestAPIAdaptorUploadTools(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	fakeAPI := mocks.NewMockSyncToolAPI(ctrl)
@@ -186,10 +185,10 @@ func (s *syncToolSuite) TestAPIAdaptorUploadTools(c *gc.C) {
 
 	a := syncToolAPIAdaptor{fakeAPI}
 	err := a.UploadTools(context.Background(), "released", "released", &coretools.Tools{Version: current}, []byte("abc"))
-	c.Assert(err, gc.Equals, uploadToolsErr)
+	c.Assert(err, tc.Equals, uploadToolsErr)
 }
 
-func (s *syncToolSuite) TestAPIAdaptorBlockUploadTools(c *gc.C) {
+func (s *syncToolSuite) TestAPIAdaptorBlockUploadTools(c *tc.C) {
 	ctrl, run := s.getSyncAgentBinariesCommand(
 		c, "-m", "test-target", "--agent-version", "2.9.99", "--local-dir", c.MkDir(), "--stream", "released")
 	defer ctrl.Finish()

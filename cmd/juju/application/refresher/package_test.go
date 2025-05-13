@@ -6,7 +6,7 @@ package refresher
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package refresher -destination refresher_mock_test.go github.com/juju/juju/cmd/juju/application/refresher RefresherFactory,Refresher,CharmResolver,CharmRepository
@@ -14,5 +14,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package refresher -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

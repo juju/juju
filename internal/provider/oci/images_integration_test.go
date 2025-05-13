@@ -7,10 +7,9 @@ import (
 	"context"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -27,9 +26,9 @@ type imagesSuite struct {
 	testCompartment string
 }
 
-var _ = gc.Suite(&imagesSuite{})
+var _ = tc.Suite(&imagesSuite{})
 
-func (s *imagesSuite) SetUpTest(c *gc.C) {
+func (s *imagesSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	oci.SetImageCache(&oci.ImageCache{})
 
@@ -37,47 +36,47 @@ func (s *imagesSuite) SetUpTest(c *gc.C) {
 	s.testCompartment = "ocid1.compartment.oc1..aaaaaaaaakr75vvb5yx4nkm7ag7ekvluap7afa2y4zprswuprcnehqecwqga"
 }
 
-func (s *imagesSuite) TestNewImageVersion(c *gc.C) {
+func (s *imagesSuite) TestNewImageVersion(c *tc.C) {
 	name := "Canonical-Ubuntu-22.04-2017.08.22-0"
 	img := ociCore.Image{
 		DisplayName: &name,
 	}
 	timeStamp, _ := time.Parse("2006.01.02", "2017.08.22")
 	version, err := oci.NewImageVersion(img)
-	c.Assert(err, gc.IsNil)
-	c.Assert(version.TimeStamp, gc.Equals, timeStamp)
-	c.Assert(version.Revision, gc.Equals, 0)
+	c.Assert(err, tc.IsNil)
+	c.Assert(version.TimeStamp, tc.Equals, timeStamp)
+	c.Assert(version.Revision, tc.Equals, 0)
 }
 
-func (s *imagesSuite) TestNewImageVersionInvalidDate(c *gc.C) {
+func (s *imagesSuite) TestNewImageVersionInvalidDate(c *tc.C) {
 	name := "Canonical-Ubuntu-22.04-NotARealDate-0"
 	img := ociCore.Image{
 		DisplayName: &name,
 	}
 	_, err := oci.NewImageVersion(img)
-	c.Assert(err, gc.ErrorMatches, "parsing time for.*")
+	c.Assert(err, tc.ErrorMatches, "parsing time for.*")
 }
 
-func (s *imagesSuite) TestNewImageVersionInvalidRevision(c *gc.C) {
+func (s *imagesSuite) TestNewImageVersionInvalidRevision(c *tc.C) {
 	name := "Canonical-Ubuntu-22.04-2017.08.22-IShouldBeNumeric"
 	img := ociCore.Image{
 		DisplayName: &name,
 	}
 	_, err := oci.NewImageVersion(img)
-	c.Assert(err, gc.ErrorMatches, "parsing revision for.*")
+	c.Assert(err, tc.ErrorMatches, "parsing revision for.*")
 }
 
-func (s *imagesSuite) TestNewImageVersionInvalidName(c *gc.C) {
+func (s *imagesSuite) TestNewImageVersionInvalidName(c *tc.C) {
 	name := "fakeInvalidName"
 	img := ociCore.Image{
 		DisplayName: &name,
 	}
 	_, err := oci.NewImageVersion(img)
-	c.Assert(err, gc.ErrorMatches, "invalid image display name.*")
+	c.Assert(err, tc.ErrorMatches, "invalid image display name.*")
 
 	img = ociCore.Image{}
 	_, err = oci.NewImageVersion(img)
-	c.Assert(err, gc.ErrorMatches, "image does not have a display name")
+	c.Assert(err, tc.ErrorMatches, "image does not have a display name")
 }
 
 func makeStringPointer(name string) *string {
@@ -99,7 +98,7 @@ func makeFloat32Pointer(name float32) *float32 {
 	return &name
 }
 
-func (s *imagesSuite) TestInstanceTypes(c *gc.C) {
+func (s *imagesSuite) TestInstanceTypes(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	compute := ocitesting.NewMockComputeClient(ctrl)
 	defer ctrl.Finish()
@@ -107,8 +106,8 @@ func (s *imagesSuite) TestInstanceTypes(c *gc.C) {
 	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &s.testImageID).Return(listShapesResponse(), nil)
 
 	types, err := oci.InstanceTypes(compute, &s.testCompartment, &s.testImageID)
-	c.Assert(err, gc.IsNil)
-	c.Check(types, gc.HasLen, 5)
+	c.Assert(err, tc.IsNil)
+	c.Check(types, tc.HasLen, 5)
 	expectedTypes := []instances.InstanceType{
 		{
 			Name:     "VM.Standard1.1",
@@ -146,15 +145,15 @@ func (s *imagesSuite) TestInstanceTypes(c *gc.C) {
 			VirtType:    makeStringPointer("vm"),
 		},
 	}
-	c.Assert(types, gc.DeepEquals, expectedTypes)
+	c.Assert(types, tc.DeepEquals, expectedTypes)
 }
 
-func (s *imagesSuite) TestInstanceTypesNilClient(c *gc.C) {
+func (s *imagesSuite) TestInstanceTypesNilClient(c *tc.C) {
 	_, err := oci.InstanceTypes(nil, &s.testCompartment, &s.testImageID)
-	c.Assert(err, gc.ErrorMatches, "cannot use nil client")
+	c.Assert(err, tc.ErrorMatches, "cannot use nil client")
 }
 
-func (s *imagesSuite) TestNewInstanceImageUbuntu(c *gc.C) {
+func (s *imagesSuite) TestNewInstanceImageUbuntu(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
@@ -164,18 +163,18 @@ func (s *imagesSuite) TestNewInstanceImageUbuntu(c *gc.C) {
 	}
 
 	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
-	c.Check(imgType.ImageType, gc.Equals, oci.ImageTypeGeneric)
-	c.Check(imgType.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
-	c.Check(imgType.CompartmentId, gc.NotNil)
-	c.Check(*imgType.CompartmentId, gc.Equals, s.testCompartment)
-	c.Check(imgType.Id, gc.Equals, s.testImageID)
-	c.Check(a, gc.Equals, arch.AMD64)
+	c.Assert(err, tc.IsNil)
+	c.Check(imgType.ImageType, tc.Equals, oci.ImageTypeGeneric)
+	c.Check(imgType.Base.DisplayString(), tc.Equals, "ubuntu@22.04")
+	c.Check(imgType.CompartmentId, tc.NotNil)
+	c.Check(*imgType.CompartmentId, tc.Equals, s.testCompartment)
+	c.Check(imgType.Id, tc.Equals, s.testImageID)
+	c.Check(a, tc.Equals, arch.AMD64)
 }
 
 // TestNewInstanceImageUbuntuMinimalNotSupported is testing that if an image
 // passed to the parser is of type minimal we result in a not supported error.
-func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalNotSupported(c *gc.C) {
+func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalNotSupported(c *tc.C) {
 	tests := []struct {
 		Name  string
 		Image ociCore.Image
@@ -224,12 +223,12 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalNotSupported(c *gc.C) {
 
 	for _, test := range tests {
 		img, _, err := oci.NewInstanceImage(test.Image, &s.testCompartment)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(img.IsMinimal, jc.IsTrue)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(img.IsMinimal, tc.IsTrue)
 	}
 }
 
-func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64(c *gc.C) {
+func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
@@ -239,16 +238,16 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64(c *gc.C) {
 	}
 
 	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
-	c.Check(imgType.ImageType, gc.Equals, oci.ImageTypeGeneric)
-	c.Check(imgType.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
-	c.Check(imgType.CompartmentId, gc.NotNil)
-	c.Check(*imgType.CompartmentId, gc.Equals, s.testCompartment)
-	c.Check(imgType.Id, gc.Equals, s.testImageID)
-	c.Check(a, gc.Equals, arch.ARM64)
+	c.Assert(err, tc.IsNil)
+	c.Check(imgType.ImageType, tc.Equals, oci.ImageTypeGeneric)
+	c.Check(imgType.Base.DisplayString(), tc.Equals, "ubuntu@22.04")
+	c.Check(imgType.CompartmentId, tc.NotNil)
+	c.Check(*imgType.CompartmentId, tc.Equals, s.testCompartment)
+	c.Check(imgType.Id, tc.Equals, s.testImageID)
+	c.Check(a, tc.Equals, arch.ARM64)
 }
 
-func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64OnDisplayName(c *gc.C) {
+func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64OnDisplayName(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
@@ -258,16 +257,16 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64OnDisplayName(c *gc.C) {
 	}
 
 	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
-	c.Check(imgType.ImageType, gc.Equals, oci.ImageTypeGeneric)
-	c.Check(imgType.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
-	c.Check(imgType.CompartmentId, gc.NotNil)
-	c.Check(*imgType.CompartmentId, gc.Equals, s.testCompartment)
-	c.Check(imgType.Id, gc.Equals, s.testImageID)
-	c.Check(a, gc.Equals, arch.ARM64)
+	c.Assert(err, tc.IsNil)
+	c.Check(imgType.ImageType, tc.Equals, oci.ImageTypeGeneric)
+	c.Check(imgType.Base.DisplayString(), tc.Equals, "ubuntu@22.04")
+	c.Check(imgType.CompartmentId, tc.NotNil)
+	c.Check(*imgType.CompartmentId, tc.Equals, s.testCompartment)
+	c.Check(imgType.Id, tc.Equals, s.testImageID)
+	c.Check(a, tc.Equals, arch.ARM64)
 }
 
-func (s *imagesSuite) TestNewInstanceImageUnknownOS(c *gc.C) {
+func (s *imagesSuite) TestNewInstanceImageUnknownOS(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
@@ -277,10 +276,10 @@ func (s *imagesSuite) TestNewInstanceImageUnknownOS(c *gc.C) {
 	}
 
 	_, _, err := oci.NewInstanceImage(image, &s.testCompartment)
-	c.Assert(err, gc.ErrorMatches, "os NotKnownToJuju not supported")
+	c.Assert(err, tc.ErrorMatches, "os NotKnownToJuju not supported")
 }
 
-func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
+func (s *imagesSuite) TestRefreshImageCache(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	compute := ocitesting.NewMockComputeClient(ctrl)
 	defer ctrl.Finish()
@@ -344,31 +343,31 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntu4).Return(listShapesResponse(), nil)
 
 	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
-	c.Assert(imgCache, gc.NotNil)
-	c.Check(imgCache.ImageMap(), gc.HasLen, 1)
+	c.Assert(err, tc.IsNil)
+	c.Assert(imgCache, tc.NotNil)
+	c.Check(imgCache.ImageMap(), tc.HasLen, 1)
 
 	imageMap := imgCache.ImageMap()
 	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
 	// Both archs AMD64 and ARM64 should be on the base jammy and minimal
 	// ubuntu should be ignored.
-	c.Check(imageMap[jammy], gc.HasLen, 2)
+	c.Check(imageMap[jammy], tc.HasLen, 2)
 	// Two images on each arch
-	c.Check(imageMap[jammy][arch.AMD64], gc.HasLen, 2)
-	c.Check(imageMap[jammy][arch.ARM64], gc.HasLen, 2)
+	c.Check(imageMap[jammy][arch.AMD64], tc.HasLen, 2)
+	c.Check(imageMap[jammy][arch.ARM64], tc.HasLen, 2)
 
 	timeStamp, _ := time.Parse("2006.01.02", "2018.01.12")
 
 	// Check that the first image in the array is the newest one
-	c.Assert(imageMap[jammy][arch.AMD64][0].Version.TimeStamp, gc.Equals, timeStamp)
-	c.Assert(imageMap[jammy][arch.ARM64][0].Version.TimeStamp, gc.Equals, timeStamp)
+	c.Assert(imageMap[jammy][arch.AMD64][0].Version.TimeStamp, tc.Equals, timeStamp)
+	c.Assert(imageMap[jammy][arch.ARM64][0].Version.TimeStamp, tc.Equals, timeStamp)
 
 	// Check that InstanceTypes are set
-	c.Assert(imageMap[jammy][arch.AMD64][0].InstanceTypes, gc.HasLen, 5)
-	c.Assert(imageMap[jammy][arch.ARM64][0].InstanceTypes, gc.HasLen, 5)
+	c.Assert(imageMap[jammy][arch.AMD64][0].InstanceTypes, tc.HasLen, 5)
+	c.Assert(imageMap[jammy][arch.ARM64][0].InstanceTypes, tc.HasLen, 5)
 }
 
-func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *gc.C) {
+func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	compute := ocitesting.NewMockComputeClient(ctrl)
 	defer ctrl.Finish()
@@ -376,15 +375,15 @@ func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *gc.C) {
 	compute.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return([]ociCore.Image{}, nil)
 
 	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
-	c.Assert(imgCache, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(imgCache, tc.NotNil)
 
 	fromCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
-	c.Check(imgCache, gc.DeepEquals, fromCache)
+	c.Assert(err, tc.IsNil)
+	c.Check(imgCache, tc.DeepEquals, fromCache)
 }
 
-func (s *imagesSuite) TestRefreshImageCacheStaleCache(c *gc.C) {
+func (s *imagesSuite) TestRefreshImageCacheStaleCache(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	compute := ocitesting.NewMockComputeClient(ctrl)
 	defer ctrl.Finish()
@@ -392,8 +391,8 @@ func (s *imagesSuite) TestRefreshImageCacheStaleCache(c *gc.C) {
 	compute.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return([]ociCore.Image{}, nil).Times(2)
 
 	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
-	c.Assert(imgCache, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(imgCache, tc.NotNil)
 
 	now := time.Now()
 
@@ -401,10 +400,10 @@ func (s *imagesSuite) TestRefreshImageCacheStaleCache(c *gc.C) {
 	// is not called twice
 	imgCache.SetLastRefresh(now.Add(-31 * time.Minute))
 	_, err = oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
+func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	compute := ocitesting.NewMockComputeClient(ctrl)
 	defer ctrl.Finish()
@@ -433,16 +432,16 @@ func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
 	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(listShapesResponse(), nil)
 
 	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
-	c.Assert(imgCache, gc.NotNil)
-	c.Check(imgCache.ImageMap(), gc.HasLen, 1)
+	c.Assert(err, tc.IsNil)
+	c.Assert(imgCache, tc.NotNil)
+	c.Check(imgCache.ImageMap(), tc.HasLen, 1)
 	imageMap := imgCache.ImageMap()
 
 	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
-	c.Check(imageMap[jammy][arch.AMD64][0].Id, gc.Equals, "fakeUbuntu1")
+	c.Check(imageMap[jammy][arch.AMD64][0].Id, tc.Equals, "fakeUbuntu1")
 }
 
-func (s *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
+func (s *imagesSuite) TestImageMetadataFromCache(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
@@ -452,7 +451,7 @@ func (s *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
 	}
 
 	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	instanceTypes := []instances.InstanceType{
 		{
 			Arch: "amd64",
@@ -471,17 +470,17 @@ func (s *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
 	}
 	cache.SetImages(images)
 	metadata := cache.ImageMetadata(jammy, a, "")
-	c.Assert(metadata, gc.HasLen, 1)
+	c.Assert(metadata, tc.HasLen, 1)
 	// generic images default to ImageTypeVM
-	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeVM))
+	c.Assert(metadata[0].VirtType, tc.Equals, string(oci.ImageTypeVM))
 
 	// explicitly set ImageTypeBM on generic images
 	metadata = cache.ImageMetadata(jammy, a, string(oci.ImageTypeBM))
-	c.Assert(metadata, gc.HasLen, 1)
-	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeBM))
+	c.Assert(metadata, tc.HasLen, 1)
+	c.Assert(metadata[0].VirtType, tc.Equals, string(oci.ImageTypeBM))
 }
 
-func (s *imagesSuite) TestImageMetadataSpecificImageType(c *gc.C) {
+func (s *imagesSuite) TestImageMetadataSpecificImageType(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
@@ -491,7 +490,7 @@ func (s *imagesSuite) TestImageMetadataSpecificImageType(c *gc.C) {
 	}
 
 	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	instanceTypes := []instances.InstanceType{
 		{
 			Arch: "amd64",
@@ -510,12 +509,12 @@ func (s *imagesSuite) TestImageMetadataSpecificImageType(c *gc.C) {
 	}
 	cache.SetImages(images)
 	metadata := cache.ImageMetadata(jammy, a, "")
-	c.Assert(metadata, gc.HasLen, 1)
+	c.Assert(metadata, tc.HasLen, 1)
 	// generic images default to ImageTypeVM
-	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeGPU))
+	c.Assert(metadata[0].VirtType, tc.Equals, string(oci.ImageTypeGPU))
 
 	// explicitly set ImageTypeBM on generic images
 	metadata = cache.ImageMetadata(jammy, a, string(oci.ImageTypeBM))
-	c.Assert(metadata, gc.HasLen, 1)
-	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeGPU))
+	c.Assert(metadata, tc.HasLen, 1)
+	c.Assert(metadata[0].VirtType, tc.Equals, string(oci.ImageTypeGPU))
 }

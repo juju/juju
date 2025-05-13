@@ -6,22 +6,21 @@ package iptables_test
 import (
 	"strings"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/internal/network/iptables"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type IptablesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&IptablesSuite{})
+var _ = tc.Suite(&IptablesSuite{})
 
-func (*IptablesSuite) TestDropCommand(c *gc.C) {
+func (*IptablesSuite) TestDropCommand(c *tc.C) {
 	assertRender(c,
 		iptables.DropCommand{},
 		"sudo iptables -I INPUT -m state --state NEW -j DROP -m comment --comment 'juju internal'",
@@ -36,7 +35,7 @@ func (*IptablesSuite) TestDropCommand(c *gc.C) {
 	)
 }
 
-func (*IptablesSuite) TestAcceptInternalPortCommand(c *gc.C) {
+func (*IptablesSuite) TestAcceptInternalPortCommand(c *tc.C) {
 	assertRender(c,
 		iptables.AcceptInternalCommand{},
 		"sudo iptables -I INPUT -j ACCEPT -m comment --comment 'juju internal'",
@@ -51,7 +50,7 @@ func (*IptablesSuite) TestAcceptInternalPortCommand(c *gc.C) {
 	)
 }
 
-func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
+func (*IptablesSuite) TestIngressRuleCommand(c *tc.C) {
 	assertRender(c,
 		iptables.IngressRuleCommand{
 			Rule: firewall.NewIngressRule(network.MustParsePortRange("icmp")),
@@ -101,11 +100,11 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	)
 }
 
-func (*IptablesSuite) TestParseIngressRulesEmpty(c *gc.C) {
+func (*IptablesSuite) TestParseIngressRulesEmpty(c *tc.C) {
 	assertParseIngressRules(c, ``, firewall.IngressRules{})
 }
 
-func (*IptablesSuite) TestParseIngressRulesGarbage(c *gc.C) {
+func (*IptablesSuite) TestParseIngressRulesGarbage(c *tc.C) {
 	assertParseIngressRules(c, `a
 b
 ACCEPT zing
@@ -114,7 +113,7 @@ blargh
 `, firewall.IngressRules{})
 }
 
-func (*IptablesSuite) TestParseIngressRulesChecksComment(c *gc.C) {
+func (*IptablesSuite) TestParseIngressRulesChecksComment(c *tc.C) {
 	assertParseIngressRules(c, `
 Chain INPUT (policy ACCEPT)
 target     prot opt source               destination         
@@ -127,7 +126,7 @@ ACCEPT     udp  --  0.0.0.0/0            0.0.0.0/0            udp dpt:67
 	})
 }
 
-func (*IptablesSuite) TestParseIngressRules(c *gc.C) {
+func (*IptablesSuite) TestParseIngressRules(c *tc.C) {
 	assertParseIngressRules(c, `
 Chain INPUT (policy ACCEPT)
 target     prot opt source               destination         
@@ -145,16 +144,16 @@ ACCEPT     icmp --  0.0.0.0/0            0.0.0.0/0    icmptype 8 /* juju ingress
 	)
 }
 
-func assertParseIngressRules(c *gc.C, in string, expect firewall.IngressRules) {
+func assertParseIngressRules(c *tc.C, in string, expect firewall.IngressRules) {
 	rules, err := iptables.ParseIngressRules(strings.NewReader(in))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, jc.DeepEquals, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.DeepEquals, expect)
 }
 
 type renderer interface {
 	Render() string
 }
 
-func assertRender(c *gc.C, r renderer, expect string) {
-	c.Assert(r.Render(), gc.Equals, expect)
+func assertRender(c *tc.C, r renderer, expect string) {
+	c.Assert(r.Render(), tc.Equals, expect)
 }

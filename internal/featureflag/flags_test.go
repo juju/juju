@@ -4,48 +4,48 @@
 package featureflag
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type flagSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&flagSuite{})
+var _ = tc.Suite(&flagSuite{})
 
-func (s *flagSuite) TestEmpty(c *gc.C) {
+func (s *flagSuite) TestEmpty(c *tc.C) {
 	s.PatchEnvironment("JUJU_TESTING_FEATURE", "")
 	SetFlagsFromEnvironment("JUJU_TESTING_FEATURE")
-	c.Assert(All(), gc.HasLen, 0)
-	c.Assert(AsEnvironmentValue(), gc.Equals, "")
-	c.Assert(String(), gc.Equals, "")
+	c.Assert(All(), tc.HasLen, 0)
+	c.Assert(AsEnvironmentValue(), tc.Equals, "")
+	c.Assert(String(), tc.Equals, "")
 }
 
-func (s *flagSuite) TestParsing(c *gc.C) {
+func (s *flagSuite) TestParsing(c *tc.C) {
 	s.PatchEnvironment("JUJU_TESTING_FEATURE", "MAGIC, test, space ")
 	s.PatchEnvironment("JUJU_TESTING_FEATURE2", "magic2")
 	SetFlagsFromEnvironment("JUJU_TESTING_FEATURE", "JUJU_TESTING_FEATURE2")
-	c.Assert(All(), jc.SameContents, []string{"magic", "space", "test", "magic2"})
-	c.Assert(AsEnvironmentValue(), gc.Equals, "magic,magic2,space,test")
-	c.Assert(String(), gc.Equals, `"magic", "magic2", "space", "test"`)
+	c.Assert(All(), tc.SameContents, []string{"magic", "space", "test", "magic2"})
+	c.Assert(AsEnvironmentValue(), tc.Equals, "magic,magic2,space,test")
+	c.Assert(String(), tc.Equals, `"magic", "magic2", "space", "test"`)
 }
 
-func (s *flagSuite) TestEnabled(c *gc.C) {
-	c.Assert(Enabled(""), jc.IsTrue)
-	c.Assert(Enabled(" "), jc.IsTrue)
-	c.Assert(Enabled("magic"), jc.IsFalse)
-	c.Assert(Enabled("magic2"), jc.IsFalse)
+func (s *flagSuite) TestEnabled(c *tc.C) {
+	c.Assert(Enabled(""), tc.IsTrue)
+	c.Assert(Enabled(" "), tc.IsTrue)
+	c.Assert(Enabled("magic"), tc.IsFalse)
+	c.Assert(Enabled("magic2"), tc.IsFalse)
 
 	s.PatchEnvironment("JUJU_TESTING_FEATURE", "MAGIC")
 	s.PatchEnvironment("JUJU_TESTING_FEATURE2", "MAGIC2")
 	SetFlagsFromEnvironment("JUJU_TESTING_FEATURE", "JUJU_TESTING_FEATURE2")
 
-	c.Assert(Enabled("magic"), jc.IsTrue)
-	c.Assert(Enabled("Magic"), jc.IsTrue)
-	c.Assert(Enabled(" MAGIC "), jc.IsTrue)
-	c.Assert(Enabled("magic2"), jc.IsTrue)
-	c.Assert(Enabled("Magic2"), jc.IsTrue)
-	c.Assert(Enabled(" MAGIC2 "), jc.IsTrue)
+	c.Assert(Enabled("magic"), tc.IsTrue)
+	c.Assert(Enabled("Magic"), tc.IsTrue)
+	c.Assert(Enabled(" MAGIC "), tc.IsTrue)
+	c.Assert(Enabled("magic2"), tc.IsTrue)
+	c.Assert(Enabled("Magic2"), tc.IsTrue)
+	c.Assert(Enabled(" MAGIC2 "), tc.IsTrue)
 }

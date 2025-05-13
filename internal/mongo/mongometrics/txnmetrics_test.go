@@ -9,28 +9,27 @@ import (
 
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/mongo/mongometrics"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type TxnCollectorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	collector *mongometrics.TxnCollector
 }
 
-var _ = gc.Suite(&TxnCollectorSuite{})
+var _ = tc.Suite(&TxnCollectorSuite{})
 
-func (s *TxnCollectorSuite) SetUpTest(c *gc.C) {
+func (s *TxnCollectorSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.collector = mongometrics.NewTxnCollector()
 }
 
-func (s *TxnCollectorSuite) TestDescribe(c *gc.C) {
+func (s *TxnCollectorSuite) TestDescribe(c *tc.C) {
 	ch := make(chan *prometheus.Desc)
 	go func() {
 		defer close(ch)
@@ -40,13 +39,13 @@ func (s *TxnCollectorSuite) TestDescribe(c *gc.C) {
 	for desc := range ch {
 		descs = append(descs, desc)
 	}
-	c.Assert(descs, gc.HasLen, 3)
-	c.Assert(descs[0].String(), gc.Matches, `.*fqName: "juju_mgo_txn_ops_total".*`)
-	c.Assert(descs[1].String(), gc.Matches, `.*fqName: "juju_mgo_txn_retries".*`)
-	c.Assert(descs[2].String(), gc.Matches, `.*fqName: "juju_mgo_txn_durations".*`)
+	c.Assert(descs, tc.HasLen, 3)
+	c.Assert(descs[0].String(), tc.Matches, `.*fqName: "juju_mgo_txn_ops_total".*`)
+	c.Assert(descs[1].String(), tc.Matches, `.*fqName: "juju_mgo_txn_retries".*`)
+	c.Assert(descs[2].String(), tc.Matches, `.*fqName: "juju_mgo_txn_durations".*`)
 }
 
-func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
+func (s *TxnCollectorSuite) TestCollect(c *tc.C) {
 	s.collector.AfterRunTransaction("dbname", "modeluuid", 1, time.Millisecond, []txn.Op{{
 		C:      "update-coll",
 		Update: bson.D{},
@@ -75,13 +74,13 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 	for metric := range ch {
 		metrics = append(metrics, metric)
 	}
-	c.Assert(metrics, gc.HasLen, 7)
+	c.Assert(metrics, tc.HasLen, 7)
 
 	var dtoMetrics [7]*dto.Metric
 	for i, metric := range metrics {
 		dtoMetrics[i] = &dto.Metric{}
 		err := metric.Write(dtoMetrics[i])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	float64ptr := func(v float64) *float64 {

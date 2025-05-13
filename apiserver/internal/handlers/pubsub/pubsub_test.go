@@ -15,8 +15,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/core/permission"
@@ -40,9 +39,9 @@ type pubsubSuite struct {
 	pubsubURL  string
 }
 
-var _ = gc.Suite(&pubsubSuite{})
+var _ = tc.Suite(&pubsubSuite{})
 
-func (s *pubsubSuite) SetUpTest(c *gc.C) {
+func (s *pubsubSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -60,11 +59,11 @@ func (s *pubsubSuite) SetUpTest(c *gc.C) {
 	s.pubsubURL = pubsubURL.String()
 }
 
-func (s *pubsubSuite) TestNoAuth(c *gc.C) {
+func (s *pubsubSuite) TestNoAuth(c *tc.C) {
 	s.checkAuthFails(c, nil, http.StatusUnauthorized, "authentication failed: no credentials provided")
 }
 
-func (s *pubsubSuite) TestRejectsUserLogins(c *gc.C) {
+func (s *pubsubSuite) TestRejectsUserLogins(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
 	userTag := names.NewUserTag("bobbrown")
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
@@ -80,13 +79,13 @@ func (s *pubsubSuite) TestRejectsUserLogins(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	header := jujuhttp.BasicAuthHeader(userTag.String(), "hunter2")
 	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: user .* is not a controller")
 }
 
-func (s *pubsubSuite) TestRejectsNonServerMachineLogins(c *gc.C) {
+func (s *pubsubSuite) TestRejectsNonServerMachineLogins(c *tc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	m, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -98,31 +97,31 @@ func (s *pubsubSuite) TestRejectsNonServerMachineLogins(c *gc.C) {
 	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: machine .* is not a controller")
 }
 
-func (s *pubsubSuite) TestRejectsBadPassword(c *gc.C) {
+func (s *pubsubSuite) TestRejectsBadPassword(c *tc.C) {
 	header := jujuhttp.BasicAuthHeader(s.machineTag.String(), "wrong")
 	header.Add(params.MachineNonceHeader, s.nonce)
 	s.checkAuthFails(c, header, http.StatusUnauthorized, "authentication failed: invalid entity name or password")
 }
 
-func (s *pubsubSuite) TestRejectsIncorrectNonce(c *gc.C) {
+func (s *pubsubSuite) TestRejectsIncorrectNonce(c *tc.C) {
 	header := jujuhttp.BasicAuthHeader(s.machineTag.String(), s.password)
 	header.Add(params.MachineNonceHeader, "wrong")
 	s.checkAuthFails(c, header, http.StatusUnauthorized, "authentication failed: machine 0 not provisioned")
 }
 
-func (s *pubsubSuite) checkAuthFails(c *gc.C, header http.Header, code int, message string) {
+func (s *pubsubSuite) checkAuthFails(c *tc.C, header http.Header, code int, message string) {
 	conn, resp, err := s.dialWebsocketInternal(c, header)
-	c.Assert(err, gc.Equals, websocket.ErrBadHandshake)
-	c.Assert(conn, gc.IsNil)
-	c.Assert(resp, gc.NotNil)
+	c.Assert(err, tc.Equals, websocket.ErrBadHandshake)
+	c.Assert(conn, tc.IsNil)
+	c.Assert(resp, tc.NotNil)
 	defer resp.Body.Close()
-	c.Check(resp.StatusCode, gc.Equals, code)
+	c.Check(resp.StatusCode, tc.Equals, code)
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Matches, message+"\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Matches, message+"\n")
 }
 
-func (s *pubsubSuite) TestMessage(c *gc.C) {
+func (s *pubsubSuite) TestMessage(c *tc.C) {
 	messages := []params.PubSubMessage{}
 	done := make(chan struct{})
 	loggo.GetLogger("pubsub").SetLogLevel(loggo.TRACE)
@@ -135,7 +134,7 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 		})
 		done <- struct{}{}
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	conn := s.dialWebsocket(c)
 	defer conn.Close()
@@ -150,7 +149,7 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 			"message": "first message",
 		}}
 	err = conn.WriteJSON(&message1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	message2 := params.PubSubMessage{
 		Topic: "second",
@@ -159,7 +158,7 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 			"value":  false,
 		}}
 	err = conn.WriteJSON(&message2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
@@ -175,18 +174,18 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 
 	// Close connection.
 	err = conn.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(messages, jc.DeepEquals, []params.PubSubMessage{message1, message2})
+	c.Assert(messages, tc.DeepEquals, []params.PubSubMessage{message1, message2})
 }
 
-func (s *pubsubSuite) dialWebsocket(c *gc.C) *websocket.Conn {
+func (s *pubsubSuite) dialWebsocket(c *tc.C) *websocket.Conn {
 	conn, _, err := s.dialWebsocketInternal(c, s.makeAuthHeader())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return conn
 }
 
-func (s *pubsubSuite) dialWebsocketInternal(c *gc.C, header http.Header) (*websocket.Conn, *http.Response, error) {
+func (s *pubsubSuite) dialWebsocketInternal(c *tc.C, header http.Header) (*websocket.Conn, *http.Response, error) {
 	return dialWebsocketFromURL(c, s.pubsubURL, header)
 }
 

@@ -5,79 +5,78 @@ package maas_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type credentialsSuite struct {
-	testing.FakeHomeSuite
+	testhelpers.FakeHomeSuite
 	provider environs.EnvironProvider
 }
 
-var _ = gc.Suite(&credentialsSuite{})
+var _ = tc.Suite(&credentialsSuite{})
 
-func (s *credentialsSuite) SetUpTest(c *gc.C) {
+func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 
 	var err error
 	s.provider, err = environs.Provider("maas")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
+func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
 	envtesting.AssertProviderAuthTypes(c, s.provider, "oauth1")
 }
 
-func (s *credentialsSuite) TestOAuth1CredentialsValid(c *gc.C) {
+func (s *credentialsSuite) TestOAuth1CredentialsValid(c *tc.C) {
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "oauth1", map[string]string{
 		"maas-oauth": "123:456:789",
 	})
 }
 
-func (s *credentialsSuite) TestOAuth1HiddenAttributes(c *gc.C) {
+func (s *credentialsSuite) TestOAuth1HiddenAttributes(c *tc.C) {
 	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "oauth1", "maas-oauth")
 }
 
-func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
-	s.Home.AddFiles(c, testing.TestFile{
+func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
+	s.Home.AddFiles(c, testhelpers.TestFile{
 		Name: ".maasrc",
 		Data: `{"Server": "http://10.0.0.1/MAAS", "OAuth": "key"}`,
 	})
 	creds, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(creds.DefaultRegion, gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(creds.DefaultRegion, tc.Equals, "")
 	expected := cloud.NewCredential(
 		cloud.OAuth1AuthType, map[string]string{
 			"maas-oauth": "key",
 		},
 	)
 	expected.Label = "MAAS credential for http://10.0.0.1/MAAS"
-	c.Assert(creds.AuthCredentials["default"], jc.DeepEquals, expected)
+	c.Assert(creds.AuthCredentials["default"], tc.DeepEquals, expected)
 }
 
-func (s *credentialsSuite) TestDetectCredentialsNoServer(c *gc.C) {
-	s.Home.AddFiles(c, testing.TestFile{
+func (s *credentialsSuite) TestDetectCredentialsNoServer(c *tc.C) {
+	s.Home.AddFiles(c, testhelpers.TestFile{
 		Name: ".maasrc",
 		Data: `{"OAuth": "key"}`,
 	})
 	creds, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(creds.DefaultRegion, gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(creds.DefaultRegion, tc.Equals, "")
 	expected := cloud.NewCredential(
 		cloud.OAuth1AuthType, map[string]string{
 			"maas-oauth": "key",
 		},
 	)
 	expected.Label = "MAAS credential for unspecified server"
-	c.Assert(creds.AuthCredentials["default"], jc.DeepEquals, expected)
+	c.Assert(creds.AuthCredentials["default"], tc.DeepEquals, expected)
 }
 
-func (s *credentialsSuite) TestDetectCredentialsNoFile(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsNoFile(c *tc.C) {
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

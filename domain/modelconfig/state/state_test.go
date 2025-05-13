@@ -7,8 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/modelconfig/state"
@@ -19,9 +18,9 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestModelConfigUpdate(c *gc.C) {
+func (s *stateSuite) TestModelConfigUpdate(c *tc.C) {
 	// tests are purposefully additive in this approach.
 	tests := []struct {
 		UpdateAttrs map[string]string
@@ -75,42 +74,42 @@ func (s *stateSuite) TestModelConfigUpdate(c *gc.C) {
 			test.UpdateAttrs,
 			test.RemoveAttrs,
 		)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		config, err := st.ModelConfig(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(config, jc.DeepEquals, test.Expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(config, tc.DeepEquals, test.Expected)
 	}
 }
 
-func (s *stateSuite) TestModelConfigHasAttributesNil(c *gc.C) {
+func (s *stateSuite) TestModelConfigHasAttributesNil(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	rval, err := st.ModelConfigHasAttributes(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(rval), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(rval), tc.Equals, 0)
 }
 
-func (s *stateSuite) TestModelConfigHasAttributesEmpty(c *gc.C) {
+func (s *stateSuite) TestModelConfigHasAttributesEmpty(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	rval, err := st.ModelConfigHasAttributes(context.Background(), []string{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(rval), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(rval), tc.Equals, 0)
 }
 
-func (s *stateSuite) TestModelConfigHasAttributes(c *gc.C) {
+func (s *stateSuite) TestModelConfigHasAttributes(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	err := st.UpdateModelConfig(context.Background(), map[string]string{
 		"wallyworld": "peachy",
 		"foo":        "bar",
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rval, err := st.ModelConfigHasAttributes(context.Background(), []string{"wallyworld", "doesnotexist"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rval, gc.DeepEquals, []string{"wallyworld"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rval, tc.DeepEquals, []string{"wallyworld"})
 }
 
-func (s *stateSuite) TestSetModelConfig(c *gc.C) {
+func (s *stateSuite) TestSetModelConfig(c *tc.C) {
 	tests := []struct {
 		Config map[string]string
 	}{
@@ -133,53 +132,53 @@ func (s *stateSuite) TestSetModelConfig(c *gc.C) {
 
 	for _, test := range tests {
 		err := st.SetModelConfig(context.Background(), test.Config)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		config, err := st.ModelConfig(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(config, jc.DeepEquals, test.Config)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(config, tc.DeepEquals, test.Config)
 	}
 }
 
 // TestGetModelAgentVersionAndStreamNotFound is testing that when we ask for the agent
 // version and stream of the current model and that data has not been set that a
 // [errors.NotFound] error is returned.
-func (s *stateSuite) TestGetModelAgentVersionAndStreamNotFound(c *gc.C) {
+func (s *stateSuite) TestGetModelAgentVersionAndStreamNotFound(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	version, stream, err := st.GetModelAgentVersionAndStream(context.Background())
-	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
-	c.Check(version, gc.Equals, "")
-	c.Check(stream, gc.Equals, "")
+	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Check(version, tc.Equals, "")
+	c.Check(stream, tc.Equals, "")
 }
 
 // TestGetModelAgentVersionAndStream is testing the happy path that when agent
 // version and stream is set it is reported back correctly with no errors.
-func (s *stateSuite) TestGetModelAgentVersionAndStream(c *gc.C) {
+func (s *stateSuite) TestGetModelAgentVersionAndStream(c *tc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO agent_version (stream_id, target_version) VALUES (0, '1.2.3')")
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := state.NewState(s.TxnRunnerFactory())
 	version, stream, err := st.GetModelAgentVersionAndStream(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(version, gc.Equals, "1.2.3")
-	c.Check(stream, gc.Equals, "released")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(version, tc.Equals, "1.2.3")
+	c.Check(stream, tc.Equals, "released")
 }
 
-func (s *stateSuite) TestCheckSpace(c *gc.C) {
+func (s *stateSuite) TestCheckSpace(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
 	_, err := db.Exec("INSERT INTO space (uuid, name) VALUES ('1', 'foo')")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exists, err := st.SpaceExists(context.Background(), "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
 
 	exists, err = st.SpaceExists(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
 }

@@ -10,8 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -26,7 +25,7 @@ type clientCredentialsLoginProviderProviderSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&clientCredentialsLoginProviderProviderSuite{})
+var _ = tc.Suite(&clientCredentialsLoginProviderProviderSuite{})
 
 func (s *clientCredentialsLoginProviderProviderSuite) APIInfo() *api.Info {
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
@@ -36,7 +35,7 @@ func (s *clientCredentialsLoginProviderProviderSuite) APIInfo() *api.Info {
 		}
 		return &testRootAPI{}, err
 	})
-	s.AddCleanup(func(_ *gc.C) { srv.Close() })
+	s.AddCleanup(func(_ *tc.C) { srv.Close() })
 	info := &api.Info{
 		Addrs:          srv.Addrs,
 		CACert:         testing.CACert,
@@ -46,7 +45,7 @@ func (s *clientCredentialsLoginProviderProviderSuite) APIInfo() *api.Info {
 	return info
 }
 
-func (s *clientCredentialsLoginProviderProviderSuite) TestClientCredentialsLogin(c *gc.C) {
+func (s *clientCredentialsLoginProviderProviderSuite) TestClientCredentialsLogin(c *tc.C) {
 	info := s.APIInfo()
 
 	clientID := "test-client-id"
@@ -97,9 +96,9 @@ func (s *clientCredentialsLoginProviderProviderSuite) TestClientCredentialsLogin
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // A separate suite for tests that don't need to communicate with a Juju controller.
@@ -107,14 +106,14 @@ type clientCredentialsLoginProviderBasicSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&clientCredentialsLoginProviderBasicSuite{})
+var _ = tc.Suite(&clientCredentialsLoginProviderBasicSuite{})
 
-func (s *clientCredentialsLoginProviderBasicSuite) TestClientCredentialsAuthHeader(c *gc.C) {
+func (s *clientCredentialsLoginProviderBasicSuite) TestClientCredentialsAuthHeader(c *tc.C) {
 	clientID := "test-client-id"
 	clientSecret := "test-client-secret"
 	lp := api.NewClientCredentialsLoginProvider(clientID, clientSecret)
 	expectedHeader := jujuhttp.BasicAuthHeader(clientID, clientSecret)
 	got, err := lp.AuthHeader()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, jc.DeepEquals, expectedHeader)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, expectedHeader)
 }

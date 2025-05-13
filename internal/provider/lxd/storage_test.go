@@ -9,14 +9,13 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type storageSuite struct {
@@ -25,33 +24,33 @@ type storageSuite struct {
 	provider storage.Provider
 }
 
-var _ = gc.Suite(&storageSuite{})
+var _ = tc.Suite(&storageSuite{})
 
-func (s *storageSuite) TestStorageProviderTypes(c *gc.C) {
+func (s *storageSuite) TestStorageProviderTypes(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Client.StorageIsSupported = false
 	types, err := s.Env.StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(types, tc.HasLen, 0)
 
 	s.Client.StorageIsSupported = true
 	types, err = s.Env.StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types, jc.DeepEquals, []storage.ProviderType{"lxd"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(types, tc.DeepEquals, []storage.ProviderType{"lxd"})
 }
 
-func (s *storageSuite) TestStorageDefaultPools(c *gc.C) {
+func (s *storageSuite) TestStorageDefaultPools(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	pools := s.provider.DefaultPools()
-	c.Assert(pools, gc.HasLen, 2)
-	c.Assert(pools[0].Name(), gc.Equals, "lxd-zfs")
-	c.Assert(pools[1].Name(), gc.Equals, "lxd-btrfs")
+	c.Assert(pools, tc.HasLen, 2)
+	c.Assert(pools[0].Name(), tc.Equals, "lxd-zfs")
+	c.Assert(pools[1].Name(), tc.Equals, "lxd-btrfs")
 	s.Stub.CheckCallNames(c, "CreatePool", "CreatePool")
 }
 
-func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
+func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Stub.SetErrors(
@@ -59,45 +58,45 @@ func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
 		errors.NotFoundf("zfs storage pool"),
 	)
 	pools := s.provider.DefaultPools()
-	c.Assert(pools, gc.HasLen, 1)
-	c.Assert(pools[0].Name(), gc.Equals, "lxd-btrfs")
+	c.Assert(pools, tc.HasLen, 1)
+	c.Assert(pools[0].Name(), tc.Equals, "lxd-btrfs")
 	s.Stub.CheckCallNames(c, "CreatePool", "GetStoragePool", "CreatePool")
 }
 
-func (s *storageSuite) TestVolumeSource(c *gc.C) {
+func (s *storageSuite) TestVolumeSource(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	_, err := s.provider.VolumeSource(nil)
-	c.Assert(err, gc.ErrorMatches, "volumes not supported")
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorMatches, "volumes not supported")
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *storageSuite) TestFilesystemSource(c *gc.C) {
+func (s *storageSuite) TestFilesystemSource(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.filesystemSource(c, "pool")
 }
 
-func (s *storageSuite) TestSupports(c *gc.C) {
+func (s *storageSuite) TestSupports(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
-	c.Assert(s.provider.Supports(storage.StorageKindBlock), jc.IsFalse)
-	c.Assert(s.provider.Supports(storage.StorageKindFilesystem), jc.IsTrue)
+	c.Assert(s.provider.Supports(storage.StorageKindBlock), tc.IsFalse)
+	c.Assert(s.provider.Supports(storage.StorageKindFilesystem), tc.IsTrue)
 }
 
-func (s *storageSuite) TestDynamic(c *gc.C) {
+func (s *storageSuite) TestDynamic(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
-	c.Assert(s.provider.Dynamic(), jc.IsTrue)
+	c.Assert(s.provider.Dynamic(), tc.IsTrue)
 }
 
-func (s *storageSuite) TestScope(c *gc.C) {
+func (s *storageSuite) TestScope(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
-	c.Assert(s.provider.Scope(), gc.Equals, storage.ScopeEnviron)
+	c.Assert(s.provider.Scope(), tc.Equals, storage.ScopeEnviron)
 }
 
-func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
+func (s *storageSuite) TestCreateFilesystems(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	source := s.filesystemSource(c, "source")
@@ -113,10 +112,10 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 			"driver":   "btrfs",
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0].Error, jc.ErrorIsNil)
-	c.Assert(results[0].Filesystem, jc.DeepEquals, &storage.Filesystem{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Assert(results[0].Error, tc.ErrorIsNil)
+	c.Assert(results[0].Filesystem, tc.DeepEquals, &storage.Filesystem{
 		Tag: names.NewFilesystemTag("0"),
 		FilesystemInfo: storage.FilesystemInfo{
 			FilesystemId: "radiance:juju-f75cba-filesystem-0",
@@ -132,7 +131,7 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
+func (s *storageSuite) TestCreateFilesystemsPoolExists(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Stub.SetErrors(errors.New("pool already exists"))
@@ -149,10 +148,10 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
 			"driver":   "dir",
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Check(results[0].Error, jc.ErrorIsNil)
-	c.Check(results[0].Filesystem, jc.DeepEquals, &storage.Filesystem{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0].Error, tc.ErrorIsNil)
+	c.Check(results[0].Filesystem, tc.DeepEquals, &storage.Filesystem{
 		Tag:    names.NewFilesystemTag("0"),
 		Volume: names.VolumeTag{},
 		FilesystemInfo: storage.FilesystemInfo{
@@ -169,7 +168,7 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestCreateFilesystemsInvalidCredentials(c *gc.C) {
+func (s *storageSuite) TestCreateFilesystemsInvalidCredentials(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
@@ -188,13 +187,13 @@ func (s *storageSuite) TestCreateFilesystemsInvalidCredentials(c *gc.C) {
 			"driver":   "btrfs",
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Check(results[0].Error, gc.ErrorMatches, ".*not authorized")
-	c.Check(results[0].Filesystem, jc.DeepEquals, (*storage.Filesystem)(nil))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0].Error, tc.ErrorMatches, ".*not authorized")
+	c.Check(results[0].Filesystem, tc.DeepEquals, (*storage.Filesystem)(nil))
 }
 
-func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
+func (s *storageSuite) TestDestroyFilesystems(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Stub.SetErrors(nil, errors.New("boom"))
@@ -204,19 +203,19 @@ func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
 		"pool0:filesystem-0",
 		"pool1:filesystem-1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 3)
-	c.Check(results[0], gc.ErrorMatches, `invalid filesystem ID "filesystem-0"; expected ID in format <lxd-pool>:<volume-name>`)
-	c.Check(results[1], jc.ErrorIsNil)
-	c.Check(results[2], gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 3)
+	c.Check(results[0], tc.ErrorMatches, `invalid filesystem ID "filesystem-0"; expected ID in format <lxd-pool>:<volume-name>`)
+	c.Check(results[1], tc.ErrorIsNil)
+	c.Check(results[2], tc.ErrorMatches, "boom")
 
-	s.Stub.CheckCalls(c, []testing.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"pool0", "custom", "filesystem-0"}},
 		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"pool1", "custom", "filesystem-1"}},
 	})
 }
 
-func (s *storageSuite) TestDestroyFilesystemsInvalidCredentials(c *gc.C) {
+func (s *storageSuite) TestDestroyFilesystemsInvalidCredentials(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
@@ -226,12 +225,12 @@ func (s *storageSuite) TestDestroyFilesystemsInvalidCredentials(c *gc.C) {
 	results, err := source.DestroyFilesystems(context.Background(), []string{
 		"pool0:filesystem-0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Check(results[0], gc.ErrorMatches, "not authorized")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0], tc.ErrorMatches, "not authorized")
 }
 
-func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
+func (s *storageSuite) TestReleaseFilesystems(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Stub.SetErrors(nil, nil, nil, errors.New("boom"))
@@ -257,11 +256,11 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 		"foo:filesystem-0",
 		"foo:filesystem-1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 3)
-	c.Assert(results[0], gc.ErrorMatches, `invalid filesystem ID "filesystem-0"; expected ID in format <lxd-pool>:<volume-name>`)
-	c.Assert(results[1], jc.ErrorIsNil)
-	c.Assert(results[2], gc.ErrorMatches, `removing tags from volume "filesystem-1" in pool "foo": boom`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 3)
+	c.Assert(results[0], tc.ErrorMatches, `invalid filesystem ID "filesystem-0"; expected ID in format <lxd-pool>:<volume-name>`)
+	c.Assert(results[1], tc.ErrorIsNil)
+	c.Assert(results[2], tc.ErrorMatches, `removing tags from volume "filesystem-1" in pool "foo": boom`)
 
 	update0 := api.StorageVolumePut{
 		Config: map[string]string{
@@ -272,7 +271,7 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 		Config: map[string]string{},
 	}
 
-	s.Stub.CheckCalls(c, []testing.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-0"}},
 		{FuncName: "UpdateStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-0", update0, "eTag"}},
 		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-1"}},
@@ -280,7 +279,7 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestReleaseFilesystemsInvalidCredentials(c *gc.C) {
+func (s *storageSuite) TestReleaseFilesystemsInvalidCredentials(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
@@ -291,16 +290,16 @@ func (s *storageSuite) TestReleaseFilesystemsInvalidCredentials(c *gc.C) {
 	results, err := source.ReleaseFilesystems(context.Background(), []string{
 		"foo:filesystem-0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Check(results[0], gc.ErrorMatches, "not authorized")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0], tc.ErrorMatches, "not authorized")
 
-	s.Stub.CheckCalls(c, []testing.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-0"}},
 	})
 }
 
-func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
+func (s *storageSuite) TestAttachFilesystems(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	container := s.NewContainer(c, "inst-0")
@@ -346,10 +345,10 @@ func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 		FilesystemId: "pool:filesystem-2",
 		Path:         "/mnt/psycho",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 3)
-	c.Assert(results[0].Error, jc.ErrorIsNil)
-	c.Assert(results[0].FilesystemAttachment, jc.DeepEquals, &storage.FilesystemAttachment{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 3)
+	c.Assert(results[0].Error, tc.ErrorIsNil)
+	c.Assert(results[0].FilesystemAttachment, tc.DeepEquals, &storage.FilesystemAttachment{
 		Filesystem: names.NewFilesystemTag("0"),
 		Machine:    names.NewMachineTag("123"),
 		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
@@ -359,15 +358,15 @@ func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 	})
 	c.Assert(
 		results[1].Error,
-		gc.ErrorMatches,
+		tc.ErrorMatches,
 		`attaching filesystem 1 to machine 123: container "inst-0" already has a device "filesystem-1"`)
 	c.Assert(
-		results[2].Error, gc.ErrorMatches, `attaching filesystem 2 to machine 42: instance "inst-42" not found`,
+		results[2].Error, tc.ErrorMatches, `attaching filesystem 2 to machine 42: instance "inst-42" not found`,
 	)
 
 	// TODO (manadart 2018-06-25) We need to check the device written to the
 	// container as config.
-	s.Stub.CheckCalls(c, []testing.StubCall{{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "AliveContainers",
 		Args:     []interface{}{"juju-f75cba-"},
 	}, {
@@ -376,7 +375,7 @@ func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 	}})
 }
 
-func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsInstanceError(c *gc.C) {
+func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsInstanceError(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil).MinTimes(1)
@@ -407,11 +406,11 @@ func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsInstanceError(c *g
 		FilesystemId: "pool:filesystem-0",
 		Path:         "/mnt/path",
 	}})
-	c.Assert(err, gc.ErrorMatches, "not authorized")
-	c.Assert(results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, "not authorized")
+	c.Assert(results, tc.HasLen, 0)
 }
 
-func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsAttachingFilesystems(c *gc.C) {
+func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsAttachingFilesystems(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
@@ -442,13 +441,13 @@ func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsAttachingFilesyste
 		FilesystemId: "pool:filesystem-0",
 		Path:         "/mnt/path",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Check(results[0].Error, gc.ErrorMatches, ".*not authorized")
-	c.Check(results[0].FilesystemAttachment, jc.DeepEquals, (*storage.FilesystemAttachment)(nil))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0].Error, tc.ErrorMatches, ".*not authorized")
+	c.Check(results[0].FilesystemAttachment, tc.DeepEquals, (*storage.FilesystemAttachment)(nil))
 }
 
-func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
+func (s *storageSuite) TestDetachFilesystems(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	container := s.NewContainer(c, "inst-0")
@@ -489,15 +488,15 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 		Filesystem:   names.NewFilesystemTag("2"),
 		FilesystemId: "pool:filesystem-2",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 3)
-	c.Assert(results[0], jc.ErrorIsNil)
-	c.Assert(results[1], jc.ErrorIsNil)
-	c.Assert(results[2], jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 3)
+	c.Assert(results[0], tc.ErrorIsNil)
+	c.Assert(results[1], tc.ErrorIsNil)
+	c.Assert(results[2], tc.ErrorIsNil)
 
 	// TODO (manadart 2018-06-25) We need to check the container config to
 	// ensure it represents the removed device.
-	s.Stub.CheckCalls(c, []testing.StubCall{{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "AliveContainers",
 		Args:     []interface{}{"juju-f75cba-"},
 	}, {
@@ -509,7 +508,7 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 	}})
 }
 
-func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsInstanceErrors(c *gc.C) {
+func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsInstanceErrors(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil).MinTimes(1)
@@ -526,11 +525,11 @@ func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsInstanceErrors(c *
 		Filesystem:   names.NewFilesystemTag("0"),
 		FilesystemId: "pool:filesystem-0",
 	}})
-	c.Assert(err, gc.ErrorMatches, "not authorized")
-	c.Assert(results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, "not authorized")
+	c.Assert(results, tc.HasLen, 0)
 }
 
-func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsDetachFilesystem(c *gc.C) {
+func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsDetachFilesystem(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
@@ -559,16 +558,16 @@ func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsDetachFilesystem(c
 		Filesystem:   names.NewFilesystemTag("0"),
 		FilesystemId: "pool:filesystem-0",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Check(results[0], gc.ErrorMatches, ".*not authorized")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0], tc.ErrorMatches, ".*not authorized")
 }
 
-func (s *storageSuite) TestImportFilesystem(c *gc.C) {
+func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	source := s.filesystemSource(c, "pool")
-	c.Assert(source, gc.Implements, new(storage.FilesystemImporter))
+	c.Assert(source, tc.Implements, new(storage.FilesystemImporter))
 	importer := source.(storage.FilesystemImporter)
 
 	s.Client.Volumes = map[string][]api.StorageVolume{
@@ -584,8 +583,8 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		"foo:bar", map[string]string{
 			"baz": "qux",
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, storage.FilesystemInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, storage.FilesystemInfo{
 		FilesystemId: "foo:bar",
 		Size:         10 * 1024,
 	})
@@ -596,13 +595,13 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 			"user.baz": "qux",
 		},
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "bar"}},
 		{FuncName: "UpdateStoragePoolVolume", Args: []interface{}{"foo", "custom", "bar", update, "eTag"}},
 	})
 }
 
-func (s *storageSuite) TestImportFilesystemInvalidCredentialsGetPool(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemInvalidCredentialsGetPool(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
@@ -610,18 +609,18 @@ func (s *storageSuite) TestImportFilesystemInvalidCredentialsGetPool(c *gc.C) {
 	s.Client.Stub.SetErrors(errTestUnAuth)
 	source := s.filesystemSource(c, "pool")
 
-	c.Assert(source, gc.Implements, new(storage.FilesystemImporter))
+	c.Assert(source, tc.Implements, new(storage.FilesystemImporter))
 	importer := source.(storage.FilesystemImporter)
 
 	info, err := importer.ImportFilesystem(context.Background(),
 		"foo:bar", map[string]string{
 			"baz": "qux",
 		})
-	c.Assert(err, gc.ErrorMatches, ".*not authorized")
-	c.Assert(info, jc.DeepEquals, storage.FilesystemInfo{})
+	c.Assert(err, tc.ErrorMatches, ".*not authorized")
+	c.Assert(info, tc.DeepEquals, storage.FilesystemInfo{})
 }
 
-func (s *storageSuite) TestImportFilesystemInvalidCredentialsUpdatePool(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemInvalidCredentialsUpdatePool(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
@@ -629,7 +628,7 @@ func (s *storageSuite) TestImportFilesystemInvalidCredentialsUpdatePool(c *gc.C)
 	s.Client.Stub.SetErrors(nil, errTestUnAuth)
 	source := s.filesystemSource(c, "pool")
 
-	c.Assert(source, gc.Implements, new(storage.FilesystemImporter))
+	c.Assert(source, tc.Implements, new(storage.FilesystemImporter))
 	importer := source.(storage.FilesystemImporter)
 
 	s.Client.Volumes = map[string][]api.StorageVolume{
@@ -645,24 +644,24 @@ func (s *storageSuite) TestImportFilesystemInvalidCredentialsUpdatePool(c *gc.C)
 		"foo:bar", map[string]string{
 			"baz": "qux",
 		})
-	c.Assert(err, gc.ErrorMatches, ".*not authorized")
-	c.Assert(info, jc.DeepEquals, storage.FilesystemInfo{})
+	c.Assert(err, tc.ErrorMatches, ".*not authorized")
+	c.Assert(info, tc.DeepEquals, storage.FilesystemInfo{})
 }
 
-func (s *storageSuite) SetupMocks(c *gc.C) *gomock.Controller {
+func (s *storageSuite) SetupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.BaseSuite.SetupMocks(c)
 
 	provider, err := s.Env.StorageProvider("lxd")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.provider = provider
 	s.Stub.ResetCalls()
 	return ctrl
 }
 
-func (s *storageSuite) filesystemSource(c *gc.C, pool string) storage.FilesystemSource {
+func (s *storageSuite) filesystemSource(c *tc.C, pool string) storage.FilesystemSource {
 	storageConfig, err := storage.NewConfig(pool, "lxd", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	filesystemSource, err := s.provider.FilesystemSource(storageConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return filesystemSource
 }

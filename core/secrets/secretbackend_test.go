@@ -6,31 +6,30 @@ package secrets_test
 import (
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/secrets"
 )
 
 type SecretBackendSuite struct{}
 
-var _ = gc.Suite(&SecretBackendSuite{})
+var _ = tc.Suite(&SecretBackendSuite{})
 
-func (s *SecretBackendSuite) TestNextBackendRotateTimeTooShort(c *gc.C) {
+func (s *SecretBackendSuite) TestNextBackendRotateTimeTooShort(c *tc.C) {
 	_, err := secrets.NextBackendRotateTime(time.Now(), time.Minute)
-	c.Assert(err, gc.ErrorMatches, `token rotate interval "1m0s" less than 1h not valid`)
+	c.Assert(err, tc.ErrorMatches, `token rotate interval "1m0s" less than 1h not valid`)
 }
 
-func (s *SecretBackendSuite) TestNextBackendRotateTime(c *gc.C) {
+func (s *SecretBackendSuite) TestNextBackendRotateTime(c *tc.C) {
 	now := time.Now()
 	next, err := secrets.NextBackendRotateTime(now, 200*time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next.Sub(now), gc.Equals, 150*time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(next.Sub(now), tc.Equals, 150*time.Minute)
 }
 
-func (s *SecretBackendSuite) TestNextBackendRotateTimeMax(c *gc.C) {
+func (s *SecretBackendSuite) TestNextBackendRotateTimeMax(c *tc.C) {
 	now := time.Now()
 	next, err := secrets.NextBackendRotateTime(now, 60*24*time.Hour)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next.Sub(now), gc.Equals, 24*time.Hour)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(next.Sub(now), tc.Equals, 24*time.Hour)
 }

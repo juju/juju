@@ -8,8 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -20,16 +19,16 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestGetMetadataNotFound(c *gc.C) {
+func (s *stateSuite) TestGetMetadataNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetMetadata(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
-func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
+func (s *stateSuite) TestGetMetadataFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
@@ -40,14 +39,14 @@ func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.GetMetadata(context.Background(), metadata.Path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, metadata)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, metadata)
 }
 
-func (s *stateSuite) TestGetMetadataBySHA256Found(c *gc.C) {
+func (s *stateSuite) TestGetMetadataBySHA256Found(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
@@ -65,28 +64,28 @@ func (s *stateSuite) TestGetMetadataBySHA256Found(c *gc.C) {
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.PutMetadata(context.Background(), metadata2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.GetMetadataBySHA256(context.Background(), "41af286dc0b172ed2f1ca934fd2278de4a1192302ffa07087cea2682e7d372e3")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, metadata1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, metadata1)
 
 	received, err = st.GetMetadataBySHA256(context.Background(), "b867951a18e694f3415cbef36be5a05de2d43f795f87c87756749e7bb6545b11")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, metadata2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, metadata2)
 }
 
-func (s *stateSuite) TestGetMetadataBySHA256NotFound(c *gc.C) {
+func (s *stateSuite) TestGetMetadataBySHA256NotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetMetadataBySHA256(context.Background(), "deadbeef")
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
-func (s *stateSuite) TestGetMetadataBySHA256PrefixFound(c *gc.C) {
+func (s *stateSuite) TestGetMetadataBySHA256PrefixFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
@@ -104,32 +103,32 @@ func (s *stateSuite) TestGetMetadataBySHA256PrefixFound(c *gc.C) {
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.PutMetadata(context.Background(), metadata2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.GetMetadataBySHA256Prefix(context.Background(), "41af286")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, metadata1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, metadata1)
 
 	received, err = st.GetMetadataBySHA256Prefix(context.Background(), "b867951")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, metadata2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, metadata2)
 
 	received, err = st.GetMetadataBySHA256Prefix(context.Background(), "b867951a18e")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, metadata2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, metadata2)
 }
 
-func (s *stateSuite) TestGetMetadataBySHA256PrefixNotFound(c *gc.C) {
+func (s *stateSuite) TestGetMetadataBySHA256PrefixNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetMetadataBySHA256Prefix(context.Background(), "deadbeef")
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
-func (s *stateSuite) TestListMetadataFound(c *gc.C) {
+func (s *stateSuite) TestListMetadataFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
@@ -140,14 +139,14 @@ func (s *stateSuite) TestListMetadataFound(c *gc.C) {
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.ListMetadata(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, []coreobjectstore.Metadata{metadata})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, []coreobjectstore.Metadata{metadata})
 }
 
-func (s *stateSuite) TestPutMetadata(c *gc.C) {
+func (s *stateSuite) TestPutMetadata(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
@@ -158,10 +157,10 @@ func (s *stateSuite) TestPutMetadata(c *gc.C) {
 	}
 
 	uuid, err := st.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	runner, err := s.TxnRunnerFactory()()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var received coreobjectstore.Metadata
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -169,11 +168,11 @@ func (s *stateSuite) TestPutMetadata(c *gc.C) {
 SELECT path, size, sha_256, sha_384 FROM v_object_store_metadata WHERE uuid = ?`, uuid)
 		return row.Scan(&received.Path, &received.Size, &received.SHA256, &received.SHA384)
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, metadata)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, metadata)
 }
 
-func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
+func (s *stateSuite) TestPutMetadataConflict(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
@@ -184,14 +183,14 @@ func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.PutMetadata(context.Background(), metadata)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Check(err, jc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
 }
 
-func (s *stateSuite) TestPutMetadataConflictDifferentHash(c *gc.C) {
+func (s *stateSuite) TestPutMetadataConflictDifferentHash(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
@@ -209,14 +208,14 @@ func (s *stateSuite) TestPutMetadataConflictDifferentHash(c *gc.C) {
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.PutMetadata(context.Background(), metadata2)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Check(err, jc.ErrorIs, objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
 }
 
-func (s *stateSuite) TestPutMetadataWithSameHashesAndSize(c *gc.C) {
+func (s *stateSuite) TestPutMetadataWithSameHashesAndSize(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
@@ -233,13 +232,13 @@ func (s *stateSuite) TestPutMetadataWithSameHashesAndSize(c *gc.C) {
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.PutMetadata(context.Background(), metadata2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *gc.C) {
+func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
@@ -256,15 +255,15 @@ func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *gc.C) {
 	}
 
 	uuid1, err := st.PutMetadata(context.Background(), metadata1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uuid2, err := st.PutMetadata(context.Background(), metadata2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(uuid1, gc.Equals, uuid2)
+	c.Check(uuid1, tc.Equals, uuid2)
 }
 
-func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *gc.C) {
+func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
@@ -281,15 +280,15 @@ func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *gc.C) {
 	}
 
 	uuid1, err := st.PutMetadata(context.Background(), metadata1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uuid2, err := st.PutMetadata(context.Background(), metadata2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(uuid1, gc.Equals, uuid2)
+	c.Check(uuid1, tc.Equals, uuid2)
 }
 
-func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *gc.C) {
+func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Test if the hash is the same but the size is different. The root
@@ -310,13 +309,13 @@ func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *gc.C) {
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.PutMetadata(context.Background(), metadata2)
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
 }
 
-func (s *stateSuite) TestPutMetadataMultipleTimes(c *gc.C) {
+func (s *stateSuite) TestPutMetadataMultipleTimes(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Ensure that we can add the same metadata multiple times.
@@ -331,24 +330,24 @@ func (s *stateSuite) TestPutMetadataMultipleTimes(c *gc.C) {
 		}
 
 		_, err := st.PutMetadata(context.Background(), metadatas[i])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	for i := 0; i < 10; i++ {
 		metadata, err := st.GetMetadata(context.Background(), fmt.Sprintf("blah-foo-%d", i))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(metadata, jc.DeepEquals, metadatas[i])
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(metadata, tc.DeepEquals, metadatas[i])
 	}
 }
 
-func (s *stateSuite) TestRemoveMetadataNotExists(c *gc.C) {
+func (s *stateSuite) TestRemoveMetadataNotExists(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.RemoveMetadata(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
-func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *gc.C) {
+func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
@@ -365,20 +364,20 @@ func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *gc.C
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.PutMetadata(context.Background(), metadata2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.RemoveMetadata(context.Background(), metadata2.Path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.GetMetadata(context.Background(), metadata1.Path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, metadata1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, metadata1)
 }
 
-func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
+func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata1 := coreobjectstore.Metadata{
@@ -396,21 +395,21 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 
 	// Add both metadata.
 	_, err := st.PutMetadata(context.Background(), metadata1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = st.PutMetadata(context.Background(), metadata2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Remove both metadata.
 	err = st.RemoveMetadata(context.Background(), metadata1.Path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.RemoveMetadata(context.Background(), metadata2.Path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that both metadata have been removed.
 	_, err = st.GetMetadata(context.Background(), metadata1.Path)
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 	_, err = st.GetMetadata(context.Background(), metadata2.Path)
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 
 	// Add a new metadata with the same hash and size.
 	metadata3 := coreobjectstore.Metadata{
@@ -420,17 +419,17 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 		Size:   666,
 	}
 	_, err = st.PutMetadata(context.Background(), metadata3)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We guarantee that the metadata has been added is unique, because
 	// the UUID would be UUID from metadata1 if the metadata has not been
 	// removed.
 	received, err := st.GetMetadata(context.Background(), metadata3.Path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, metadata3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, metadata3)
 }
 
-func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *gc.C) {
+func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
@@ -441,20 +440,20 @@ func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *gc.C) {
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.RemoveMetadata(context.Background(), metadata.Path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.GetMetadata(context.Background(), metadata.Path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, metadata)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(received, tc.DeepEquals, metadata)
 }
 
-func (s *stateSuite) TestListMetadata(c *gc.C) {
+func (s *stateSuite) TestListMetadata(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := coreobjectstore.Metadata{
@@ -465,19 +464,19 @@ func (s *stateSuite) TestListMetadata(c *gc.C) {
 	}
 
 	_, err := st.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadatas, err := st.ListMetadata(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadatas, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(metadatas, tc.HasLen, 1)
 
-	c.Check(metadatas[0], gc.DeepEquals, metadata)
+	c.Check(metadatas[0], tc.DeepEquals, metadata)
 }
 
-func (s *stateSuite) TestListMetadataNoRows(c *gc.C) {
+func (s *stateSuite) TestListMetadataNoRows(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadatas, err := st.ListMetadata(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadatas, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(metadatas, tc.HasLen, 0)
 }

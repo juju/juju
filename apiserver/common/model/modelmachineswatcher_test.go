@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/model"
@@ -22,7 +21,7 @@ type modelMachinesWatcherSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&modelMachinesWatcherSuite{})
+var _ = tc.Suite(&modelMachinesWatcherSuite{})
 
 func (f *fakeModelMachinesWatcher) WatchModelMachines() state.StringsWatcher {
 	changes := make(chan []string, 1)
@@ -31,39 +30,39 @@ func (f *fakeModelMachinesWatcher) WatchModelMachines() state.StringsWatcher {
 	return &fakeStringsWatcher{changes: changes}
 }
 
-func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *gc.C) {
+func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *tc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
 	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 	e := model.NewModelMachinesWatcher(
 		&fakeModelMachinesWatcher{initial: []string{"foo"}},
 		resources,
 		authorizer,
 	)
 	result, err := e.WatchModelMachines(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{StringsWatcherId: "1", Changes: []string{"foo"}, Error: nil})
-	c.Assert(resources.Count(), gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{StringsWatcherId: "1", Changes: []string{"foo"}, Error: nil})
+	c.Assert(resources.Count(), tc.Equals, 1)
 }
 
-func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
+func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *tc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
 	}
 	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 	e := model.NewModelMachinesWatcher(
 		&fakeModelMachinesWatcher{},
 		resources,
 		authorizer,
 	)
 	_, err := e.WatchModelMachines(context.Background())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(resources.Count(), gc.Equals, 0)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+	c.Assert(resources.Count(), tc.Equals, 0)
 }
 
 type fakeModelMachinesWatcher struct {

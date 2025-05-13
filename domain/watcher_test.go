@@ -8,10 +8,9 @@ import (
 	"database/sql"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -28,18 +27,18 @@ type watcherSuite struct {
 	events *MockEventSource
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (*watcherSuite) TestNewUUIDsWatcherFail(c *gc.C) {
+func (*watcherSuite) TestNewUUIDsWatcherFail(c *tc.C) {
 	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
 		return nil, errors.New("fail getting db instance")
 	}, nil)
 
 	_, err := factory.NewUUIDsWatcher("random_namespace", changestream.All)
-	c.Assert(err, gc.ErrorMatches, "creating base watcher: fail getting db instance")
+	c.Assert(err, tc.ErrorMatches, "creating base watcher: fail getting db instance")
 }
 
-func (s *watcherSuite) TestNewUUIDsWatcherSuccess(c *gc.C) {
+func (s *watcherSuite) TestNewUUIDsWatcherSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
 
@@ -51,7 +50,7 @@ func (s *watcherSuite) TestNewUUIDsWatcherSuccess(c *gc.C) {
 	}, nil)
 
 	w, err := factory.NewUUIDsWatcher("external_controller", changestream.All)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-w.Changes():
@@ -62,7 +61,7 @@ func (s *watcherSuite) TestNewUUIDsWatcherSuccess(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *gc.C) {
+func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
 
@@ -86,7 +85,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *gc.C) {
 		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
 		eventsource.NamespaceFilter("some_namespace", changestream.All),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-w.Changes():
@@ -97,7 +96,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *gc.C) {
+func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
 
@@ -124,7 +123,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *gc.C) {
 		},
 		eventsource.NamespaceFilter("some_namespace", changestream.All),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-w.Changes():
@@ -135,7 +134,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *watcherSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *watcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.sub = NewMockSubscription(ctrl)

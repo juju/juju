@@ -6,8 +6,7 @@ package jujuc_test
 import (
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -46,9 +45,9 @@ func (ctx *nonActionFailContext) SetActionFailed() error {
 	return fmt.Errorf("not running an action")
 }
 
-var _ = gc.Suite(&ActionFailSuite{})
+var _ = tc.Suite(&ActionFailSuite{})
 
-func (s *ActionFailSuite) TestActionFail(c *gc.C) {
+func (s *ActionFailSuite) TestActionFail(c *tc.C) {
 	var actionFailTests = []struct {
 		summary string
 		command []string
@@ -77,23 +76,23 @@ func (s *ActionFailSuite) TestActionFail(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := &actionFailContext{}
 		com, err := jujuc.NewCommand(hctx, "action-fail")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.command)
-		c.Check(code, gc.Equals, t.code)
-		c.Check(bufferString(ctx.Stderr), gc.Equals, t.errMsg)
-		c.Check(hctx.actionMessage, gc.Equals, t.message)
-		c.Check(hctx.actionFailed, gc.Equals, t.failed)
+		c.Check(code, tc.Equals, t.code)
+		c.Check(bufferString(ctx.Stderr), tc.Equals, t.errMsg)
+		c.Check(hctx.actionMessage, tc.Equals, t.message)
+		c.Check(hctx.actionFailed, tc.Equals, t.failed)
 	}
 }
 
-func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
+func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *tc.C) {
 	hctx := &nonActionFailContext{}
 	com, err := jujuc.NewCommand(hctx, "action-fail")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"oops"})
-	c.Check(code, gc.Equals, 1)
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR not running an action\n")
-	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
+	c.Check(code, tc.Equals, 1)
+	c.Check(bufferString(ctx.Stderr), tc.Equals, "ERROR not running an action\n")
+	c.Check(bufferString(ctx.Stdout), tc.Equals, "")
 }

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/tc"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/schema"
@@ -24,7 +24,7 @@ import (
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -37,7 +37,7 @@ type baseSuite struct {
 
 // SetUpTest is responsible for setting up a testing database suite initialised
 // with the controller schema.
-func (s *baseSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.DqliteSuite.SetUpTest(c)
 	s.DqliteSuite.ApplyDDL(c, &domaintesting.SchemaApplier{
 		Schema:  schema.ControllerDDL(),
@@ -47,14 +47,14 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 
 // ApplyDDLForRunner is responsible for applying the controller schema to the
 // given database.
-func (s *baseSuite) ApplyDDLForRunner(c *gc.C, runner coredatabase.TxnRunner) {
+func (s *baseSuite) ApplyDDLForRunner(c *tc.C, runner coredatabase.TxnRunner) {
 	s.DqliteSuite.ApplyDDLForRunner(c, &domaintesting.SchemaApplier{
 		Schema:  schema.ControllerDDL(),
 		Verbose: s.Verbose,
 	}, runner)
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.dbGetter = NewMockDBGetter(ctrl)

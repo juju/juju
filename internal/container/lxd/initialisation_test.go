@@ -11,10 +11,8 @@ import (
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/proxy"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/containermanager"
@@ -22,12 +20,12 @@ import (
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 	"github.com/juju/juju/internal/packaging/commands"
 	"github.com/juju/juju/internal/packaging/manager"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type initialiserTestSuite struct {
 	coretesting.BaseSuite
-	testing.PatchExecHelper
 }
 
 // patchDF100GB ensures that df always returns 100GB.
@@ -43,11 +41,11 @@ type InitialiserSuite struct {
 	calledCmds []string
 }
 
-var _ = gc.Suite(&InitialiserSuite{})
+var _ = tc.Suite(&InitialiserSuite{})
 
 const lxdSnapChannel = "latest/stable"
 
-func (s *InitialiserSuite) SetUpTest(c *gc.C) {
+func (s *InitialiserSuite) SetUpTest(c *tc.C) {
 	coretesting.SkipLXDNotSupported(c)
 	s.initialiserTestSuite.SetUpTest(c)
 	s.calledCmds = []string{}
@@ -61,8 +59,8 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	}
 	s.PatchValue(&randomizedOctetRange, nonRandomizedOctetRange)
 	// Fake the lxc executable for all the tests.
-	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
-	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "lxc")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "lxd")
 }
 
 // getMockRunCommandWithRetry is a helper function which returns a function
@@ -86,7 +84,7 @@ func (s *initialiserTestSuite) containerInitialiser(svr lxd.InstanceServer, lxdI
 	return result
 }
 
-func (s *InitialiserSuite) TestSnapInstalled(c *gc.C) {
+func (s *InitialiserSuite) TestSnapInstalled(c *tc.C) {
 	PatchLXDViaSnap(s, true)
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@22.04"))
 
@@ -98,12 +96,12 @@ func (s *InitialiserSuite) TestSnapInstalled(c *gc.C) {
 	PatchGetSnapManager(s, mgr)
 
 	err := s.containerInitialiser(nil, true, "local").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(s.calledCmds, gc.DeepEquals, []string{})
+	c.Assert(s.calledCmds, tc.DeepEquals, []string{})
 }
 
-func (s *InitialiserSuite) TestSnapChannelMismatch(c *gc.C) {
+func (s *InitialiserSuite) TestSnapChannelMismatch(c *tc.C) {
 	PatchLXDViaSnap(s, true)
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
@@ -118,10 +116,10 @@ func (s *InitialiserSuite) TestSnapChannelMismatch(c *gc.C) {
 	PatchGetSnapManager(s, mgr)
 
 	err := s.containerInitialiser(nil, true, "local").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *gc.C) {
+func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *tc.C) {
 	PatchLXDViaSnap(s, true)
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
@@ -139,10 +137,10 @@ func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *gc.C) {
 	PatchGetSnapManager(s, mgr)
 
 	err := s.containerInitialiser(nil, true, "local").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
+func (s *InitialiserSuite) TestInstallViaSnap(c *tc.C) {
 	PatchLXDViaSnap(s, false)
 
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
@@ -150,29 +148,29 @@ func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
 	paccmder := commands.NewSnapPackageCommander()
 
 	err := s.containerInitialiser(nil, true, "local").Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(s.calledCmds, gc.DeepEquals, []string{
+	c.Assert(s.calledCmds, tc.DeepEquals, []string{
 		paccmder.InstallCmd("--classic --channel latest/stable lxd"),
 	})
 }
 
-func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
+func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *tc.C) {
 	s.patchDF100GB()
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
 	ci := s.containerInitialiser(nil, true, "local")
-	ci.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
+	ci.getExecCommand = testhelpers.ExecCommand(testhelpers.PatchExecConfig{
 		Stderr:   `error: You have existing containers or images. lxd init requires an empty LXD.`,
 		ExitCode: 1,
 	})
 
 	// the above error should be ignored by the code that calls lxd init.
 	err := ci.Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
+func (s *InitialiserSuite) TestInitializeSetsProxies(c *tc.C) {
 	PatchHostBase(s, base.MustParseBaseFromString("ubuntu@20.04"))
 
 	ctrl := gomock.NewController(c)
@@ -204,16 +202,16 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 		return exec.Command(cmd, args...)
 	}
 	err := ci.Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We want update server to ve called last, after the lxd init command is run.
-	c.Assert(calls, jc.DeepEquals, []string{
+	c.Assert(calls, tc.DeepEquals, []string{
 		"exec command",
 		"update server",
 	})
 }
 
-func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
+func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
@@ -225,19 +223,18 @@ func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
 	// No expected calls.
 	ci := s.containerInitialiser(cSvr, false, "local")
 	err := ci.Initialise()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type ConfigureInitialiserSuite struct {
 	initialiserTestSuite
-	testing.PatchExecHelper
 }
 
-var _ = gc.Suite(&ConfigureInitialiserSuite{})
+var _ = tc.Suite(&ConfigureInitialiserSuite{})
 
-func (s *ConfigureInitialiserSuite) SetUpTest(c *gc.C) {
+func (s *ConfigureInitialiserSuite) SetUpTest(c *tc.C) {
 	s.initialiserTestSuite.SetUpTest(c)
 	// Fake the lxc executable for all the tests.
-	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
-	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "lxc")
+	testhelpers.PatchExecutableAsEchoArgs(c, s, "lxd")
 }

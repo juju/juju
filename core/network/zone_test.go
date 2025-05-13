@@ -4,22 +4,21 @@
 package network
 
 import (
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type zoneSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	zones AvailabilityZones
 }
 
-var _ = gc.Suite(&zoneSuite{})
+var _ = tc.Suite(&zoneSuite{})
 
-func (s *zoneSuite) SetUpTest(c *gc.C) {
+func (s *zoneSuite) SetUpTest(c *tc.C) {
 	s.zones = AvailabilityZones{
 		&az{name: "zone1", available: true},
 		&az{name: "zone2"},
@@ -28,10 +27,10 @@ func (s *zoneSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *zoneSuite) TestAvailabilityZones(c *gc.C) {
-	c.Assert(s.zones.Validate("zone1"), jc.ErrorIsNil)
-	c.Assert(s.zones.Validate("zone2"), gc.ErrorMatches, `zone "zone2" is unavailable`)
-	c.Assert(s.zones.Validate("zone3"), jc.ErrorIs, coreerrors.NotValid)
+func (s *zoneSuite) TestAvailabilityZones(c *tc.C) {
+	c.Assert(s.zones.Validate("zone1"), tc.ErrorIsNil)
+	c.Assert(s.zones.Validate("zone2"), tc.ErrorMatches, `zone "zone2" is unavailable`)
+	c.Assert(s.zones.Validate("zone3"), tc.ErrorIs, coreerrors.NotValid)
 }
 
 type az struct {

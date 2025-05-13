@@ -4,25 +4,25 @@
 package charmhub
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ConfigSuite{})
+var _ = tc.Suite(&ConfigSuite{})
 
-func (s *ConfigSuite) TestBasePath(c *gc.C) {
+func (s *ConfigSuite) TestBasePath(c *tc.C) {
 	path, err := basePath("http://api.foo.bar.com")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path.String(), gc.Equals, "http://api.foo.bar.com/v2/charms")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(path.String(), tc.Equals, "http://api.foo.bar.com/v2/charms")
 }
 
-func (s *ConfigSuite) TestBasePathWithTrailingSlash(c *gc.C) {
+func (s *ConfigSuite) TestBasePathWithTrailingSlash(c *tc.C) {
 	path, err := basePath("http://api.foo.bar.com/")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path.String(), gc.Equals, "http://api.foo.bar.com/v2/charms")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(path.String(), tc.Equals, "http://api.foo.bar.com/v2/charms")
 }

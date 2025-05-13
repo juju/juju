@@ -10,8 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/semversion"
@@ -22,15 +21,15 @@ import (
 type ToolsImportSuite struct {
 }
 
-var _ = gc.Suite(&ToolsImportSuite{})
+var _ = tc.Suite(&ToolsImportSuite{})
 
-func (t *ToolsImportSuite) TestPackageDependencies(c *gc.C) {
+func (t *ToolsImportSuite) TestPackageDependencies(c *tc.C) {
 	// This test is to ensure we don't bring in dependencies on state, environ
 	// or any of the other bigger packages that'll drag in yet more dependencies.
 	// Only imports that start with "github.com/juju/juju" are checked, and the
 	// resulting slice has that prefix removed to keep the output short.
 	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/juju/agent/tools"),
-		jc.SameContents,
+		tc.SameContents,
 		[]string{
 			"core/credential",
 			"core/errors",
@@ -55,9 +54,9 @@ type ToolsSuite struct {
 	dataDir string
 }
 
-var _ = gc.Suite(&ToolsSuite{})
+var _ = tc.Suite(&ToolsSuite{})
 
-func (t *ToolsSuite) SetUpTest(c *gc.C) {
+func (t *ToolsSuite) SetUpTest(c *tc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.dataDir = c.MkDir()
 }
@@ -97,7 +96,7 @@ var unpackToolsBadDataTests = []badDataTest{
 	{gzyesses, "8d900c68a1a847aae4e95edcb29fcecd142c9b88ca4fe63209c216edbed546e1", "archive/tar: invalid tar header"},
 }
 
-func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
+func (t *ToolsSuite) TestUnpackToolsBadData(c *tc.C) {
 	for i, test := range unpackToolsBadDataTests {
 		c.Logf("test %d", i)
 		testTools := &coretest.Tools{
@@ -107,12 +106,12 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 			SHA256:  test.checksum,
 		}
 		err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(test.data))
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Assert(err, tc.ErrorMatches, test.err)
 		assertDirNames(c, t.toolsDir(), []string{})
 	}
 }
 
-func (t *ToolsSuite) TestUnpackToolsBadChecksum(c *gc.C) {
+func (t *ToolsSuite) TestUnpackToolsBadChecksum(c *tc.C) {
 	data, _ := testing.TarGz(testing.NewTarFile("tools", agenttools.DirPerm, "some data"))
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
@@ -121,16 +120,16 @@ func (t *ToolsSuite) TestUnpackToolsBadChecksum(c *gc.C) {
 		SHA256:  "1234",
 	}
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
-	c.Assert(err, gc.ErrorMatches, "tarball sha256 mismatch, expected 1234, got .*")
+	c.Assert(err, tc.ErrorMatches, "tarball sha256 mismatch, expected 1234, got .*")
 	_, err = os.Stat(t.toolsDir())
-	c.Assert(err, gc.FitsTypeOf, &os.PathError{})
+	c.Assert(err, tc.FitsTypeOf, &os.PathError{})
 }
 
 func (t *ToolsSuite) toolsDir() string {
 	return filepath.Join(t.dataDir, "tools")
 }
 
-func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
+func (t *ToolsSuite) TestUnpackToolsContents(c *tc.C) {
 	files := []*testing.TarFile{
 		testing.NewTarFile("bar", agenttools.DirPerm, "bar contents"),
 		testing.NewTarFile("foo", agenttools.DirPerm, "foo contents"),
@@ -144,7 +143,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	}
 
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64"})
 	t.assertToolsContents(c, testTools, files)
 
@@ -162,30 +161,30 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 		SHA256:  checksum2,
 	}
 	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64"})
 	t.assertToolsContents(c, testTools, files)
 }
 
-func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
+func (t *ToolsSuite) TestReadToolsErrors(c *tc.C) {
 	vers := semversion.MustParseBinary("1.2.3-ubuntu-amd64")
 	testTools, err := agenttools.ReadTools(t.dataDir, vers)
-	c.Assert(testTools, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot read agent metadata in directory .*")
+	c.Assert(testTools, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "cannot read agent metadata in directory .*")
 
 	dir := agenttools.SharedToolsDir(t.dataDir, vers)
 	err = os.MkdirAll(dir, agenttools.DirPerm)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = os.WriteFile(filepath.Join(dir, agenttools.ToolsFile), []byte(" \t\n"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	testTools, err = agenttools.ReadTools(t.dataDir, vers)
-	c.Assert(testTools, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "invalid agent metadata in directory .*")
+	c.Assert(testTools, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "invalid agent metadata in directory .*")
 }
 
-func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
+func (t *ToolsSuite) TestChangeAgentTools(c *tc.C) {
 	files := []*testing.TarFile{
 		testing.NewTarFile("jujuc", agenttools.DirPerm, "juju executable"),
 		testing.NewTarFile("jujud", agenttools.DirPerm, "jujuc executable"),
@@ -198,11 +197,11 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		SHA256:  checksum,
 	}
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotTools, err := agenttools.ChangeAgentTools(t.dataDir, "testagent", testTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*gotTools, gc.Equals, *testTools)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*gotTools, tc.Equals, *testTools)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64", "testagent"})
 	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", agenttools.ToolsFile})
@@ -220,24 +219,24 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		SHA256:  checksum2,
 	}
 	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotTools, err = agenttools.ChangeAgentTools(t.dataDir, "testagent", tools2.Version)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*gotTools, gc.Equals, *tools2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*gotTools, tc.Equals, *tools2)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64", "1.2.4-ubuntu-amd64", "testagent"})
 	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"ubuntu", "amd64", agenttools.ToolsFile})
 }
 
-func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
+func (t *ToolsSuite) TestSharedToolsDir(c *tc.C) {
 	dir := agenttools.SharedToolsDir("/var/lib/juju", semversion.MustParseBinary("1.2.3-ubuntu-amd64"))
-	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-ubuntu-amd64")
+	c.Assert(dir, tc.Equals, "/var/lib/juju/tools/1.2.3-ubuntu-amd64")
 }
 
 // assertToolsContents asserts that the directory for the tools
 // has the given contents.
-func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *coretest.Tools, files []*testing.TarFile) {
+func (t *ToolsSuite) assertToolsContents(c *tc.C, testTools *coretest.Tools, files []*testing.TarFile) {
 	var wantNames []string
 	for _, f := range files {
 		wantNames = append(wantNames, f.Header.Name)
@@ -246,37 +245,37 @@ func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *coretest.Tools, fil
 	dir := agenttools.SharedToolsDir(t.dataDir, testTools.Version)
 	assertDirNames(c, dir, wantNames)
 	expectedURLFileContents, err := json.Marshal(testTools)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertFileContents(c, dir, agenttools.ToolsFile, string(expectedURLFileContents), 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}
 	gotTools, err := agenttools.ReadTools(t.dataDir, testTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*gotTools, gc.Equals, *testTools)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*gotTools, tc.Equals, *testTools)
 }
 
 // assertFileContents asserts that the given file in the
 // given directory has the given contents.
-func assertFileContents(c *gc.C, dir, file, contents string, mode os.FileMode) {
+func assertFileContents(c *tc.C, dir, file, contents string, mode os.FileMode) {
 	file = filepath.Join(dir, file)
 	info, err := os.Stat(file)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Mode()&(os.ModeType|mode), gc.Equals, mode)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info.Mode()&(os.ModeType|mode), tc.Equals, mode)
 	data, err := os.ReadFile(file)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, contents)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, contents)
 }
 
 // assertDirNames asserts that the given directory
 // holds the given file or directory names.
-func assertDirNames(c *gc.C, dir string, names []string) {
+func assertDirNames(c *tc.C, dir string, names []string) {
 	f, err := os.Open(dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer f.Close()
 	dnames, err := f.Readdirnames(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sort.Strings(dnames)
 	sort.Strings(names)
-	c.Assert(dnames, gc.DeepEquals, names)
+	c.Assert(dnames, tc.DeepEquals, names)
 }

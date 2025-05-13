@@ -6,28 +6,28 @@ package service
 import (
 	"testing"
 
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/removal/service State
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination clock_mock_test.go github.com/juju/clock Clock
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state *MockState
 	clock *MockClock
 }
 
-func (s *baseSuite) newService(c *gc.C) *Service {
+func (s *baseSuite) newService(c *tc.C) *Service {
 	return &Service{
 		st:     s.state,
 		clock:  s.clock,
@@ -35,7 +35,7 @@ func (s *baseSuite) newService(c *gc.C) *Service {
 	}
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)

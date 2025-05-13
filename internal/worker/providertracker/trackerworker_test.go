@@ -7,10 +7,9 @@ import (
 	"context"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -28,9 +27,9 @@ type trackerWorkerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&trackerWorkerSuite{})
+var _ = tc.Suite(&trackerWorkerSuite{})
 
-func (s *trackerWorkerSuite) TestWorkerStartup(c *gc.C) {
+func (s *trackerWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -47,14 +46,14 @@ func (s *trackerWorkerSuite) TestWorkerStartup(c *gc.C) {
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.environ)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensureStartup(c)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackerWorkerSuite) TestWorkerStartupWithCloudSpec(c *gc.C) {
+func (s *trackerWorkerSuite) TestWorkerStartupWithCloudSpec(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with the cloud spec setter and environ.
@@ -76,14 +75,14 @@ func (s *trackerWorkerSuite) TestWorkerStartupWithCloudSpec(c *gc.C) {
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.newCloudSpecEnviron())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensureStartup(c)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackerWorkerSuite) TestWorkerModelConfigUpdatesEnviron(c *gc.C) {
+func (s *trackerWorkerSuite) TestWorkerModelConfigUpdatesEnviron(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -101,7 +100,7 @@ func (s *trackerWorkerSuite) TestWorkerModelConfigUpdatesEnviron(c *gc.C) {
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.environ)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensureStartup(c)
 
@@ -116,7 +115,7 @@ func (s *trackerWorkerSuite) TestWorkerModelConfigUpdatesEnviron(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
+func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -141,7 +140,7 @@ func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.newCloudSpecEnviron())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensureStartup(c)
 
@@ -156,7 +155,7 @@ func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
+func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -181,7 +180,7 @@ func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
 	// Create the worker.
 
 	w, err := s.newWorker(c, s.newCloudSpecEnviron())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ensureStartup(c)
 
@@ -196,7 +195,7 @@ func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackerWorkerSuite) getConfig(c *gc.C, environ environs.Environ) TrackerConfig {
+func (s *trackerWorkerSuite) getConfig(c *tc.C, environ environs.Environ) TrackerConfig {
 	return TrackerConfig{
 		ModelService:      s.modelService,
 		CloudService:      s.cloudService,
@@ -204,7 +203,7 @@ func (s *trackerWorkerSuite) getConfig(c *gc.C, environ environs.Environ) Tracke
 		CredentialService: s.credentialService,
 		GetProviderForType: getProviderForType(
 			IAASGetProvider(func(_ context.Context, _ environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
-				c.Assert(invalidator, gc.Not(gc.IsNil))
+				c.Assert(invalidator, tc.Not(tc.IsNil))
 				err := invalidator.InvalidateCredentials(context.Background(), "bad")
 				if err != nil {
 					return nil, err
@@ -220,7 +219,7 @@ func (s *trackerWorkerSuite) getConfig(c *gc.C, environ environs.Environ) Tracke
 	}
 }
 
-func (s *trackerWorkerSuite) expectModel(c *gc.C) coremodel.UUID {
+func (s *trackerWorkerSuite) expectModel(c *tc.C) coremodel.UUID {
 	id := modeltesting.GenModelUUID(c)
 
 	s.modelService.EXPECT().Model(gomock.Any()).Return(coremodel.ModelInfo{
@@ -235,9 +234,9 @@ func (s *trackerWorkerSuite) expectModel(c *gc.C) coremodel.UUID {
 	return id
 }
 
-func (s *trackerWorkerSuite) newCloudSpec(c *gc.C) *config.Config {
+func (s *trackerWorkerSuite) newCloudSpec(c *tc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.configService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
@@ -250,7 +249,7 @@ func (s *trackerWorkerSuite) newCloudSpec(c *gc.C) *config.Config {
 	return cfg
 }
 
-func (s *trackerWorkerSuite) expectInvalidateCredential(c *gc.C) {
+func (s *trackerWorkerSuite) expectInvalidateCredential(c *tc.C) {
 	s.credentialService.EXPECT().InvalidateCredential(gomock.Any(), credential.Key{
 		Cloud: "cloud",
 		Owner: usertesting.GenNewName(c, "owner"),
@@ -258,16 +257,16 @@ func (s *trackerWorkerSuite) expectInvalidateCredential(c *gc.C) {
 	}, "bad")
 }
 
-func (s *trackerWorkerSuite) expectCloudSpec(c *gc.C, cfg *config.Config) {
+func (s *trackerWorkerSuite) expectCloudSpec(c *tc.C, cfg *config.Config) {
 	s.environ.EXPECT().Config().Return(cfg)
 }
 
-func (s *trackerWorkerSuite) expectEnvironSetConfig(c *gc.C, cfg *config.Config) {
+func (s *trackerWorkerSuite) expectEnvironSetConfig(c *tc.C, cfg *config.Config) {
 	s.configService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 	s.environ.EXPECT().SetConfig(gomock.Any(), cfg)
 }
 
-func (s *trackerWorkerSuite) expectEnvironSetSpecUpdate(c *gc.C) {
+func (s *trackerWorkerSuite) expectEnvironSetSpecUpdate(c *tc.C) {
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
 	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
 		Cloud: "cloud",
@@ -279,7 +278,7 @@ func (s *trackerWorkerSuite) expectEnvironSetSpecUpdate(c *gc.C) {
 	s.cloudSpecSetter.EXPECT().SetCloudSpec(gomock.Any(), gomock.Any()).Return(nil)
 }
 
-func (s *trackerWorkerSuite) expectConfigWatcher(c *gc.C) chan []string {
+func (s *trackerWorkerSuite) expectConfigWatcher(c *tc.C) chan []string {
 	ch := make(chan []string)
 	// Seed the initial event.
 	go func() {
@@ -297,7 +296,7 @@ func (s *trackerWorkerSuite) expectConfigWatcher(c *gc.C) chan []string {
 	return ch
 }
 
-func (s *trackerWorkerSuite) expectModelCloudCredentialWatcher(c *gc.C, uuid coremodel.UUID) chan struct{} {
+func (s *trackerWorkerSuite) expectModelCloudCredentialWatcher(c *tc.C, uuid coremodel.UUID) chan struct{} {
 	ch := make(chan struct{})
 	// Seed the initial event.
 	go func() {
@@ -315,7 +314,7 @@ func (s *trackerWorkerSuite) expectModelCloudCredentialWatcher(c *gc.C, uuid cor
 	return ch
 }
 
-func (s *trackerWorkerSuite) newWorker(c *gc.C, environ environs.Environ) (*trackerWorker, error) {
+func (s *trackerWorkerSuite) newWorker(c *tc.C, environ environs.Environ) (*trackerWorker, error) {
 	return newTrackerWorker(context.Background(), s.getConfig(c, environ), s.states)
 }
 

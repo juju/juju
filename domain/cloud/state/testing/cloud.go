@@ -8,8 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/database"
@@ -19,15 +18,15 @@ import (
 // CreateTestCloud is responsible for establishing a test cloud within the
 // DQlite database.
 func CreateTestCloud(
-	c *gc.C,
+	c *tc.C,
 	txnRunner database.TxnRunnerFactory,
 	cloud cloud.Cloud,
 ) uuid.UUID {
 	runner, err := txnRunner()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 
@@ -56,7 +55,7 @@ func CreateTestCloud(
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return cloudUUID
 }

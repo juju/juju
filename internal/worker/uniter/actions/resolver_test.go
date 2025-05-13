@@ -7,11 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/actions"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -21,24 +20,24 @@ import (
 )
 
 type actionsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&actionsSuite{})
+var _ = tc.Suite(&actionsSuite{})
 
-func (s *actionsSuite) newResolver(c *gc.C) resolver.Resolver {
+func (s *actionsSuite) newResolver(c *tc.C) resolver.Resolver {
 	return actions.NewResolver(loggertesting.WrapCheckLog(c))
 }
 
-func (s *actionsSuite) TestNoActions(c *gc.C) {
+func (s *actionsSuite) TestNoActions(c *tc.C) {
 	actionResolver := s.newResolver(c)
 	localState := resolver.LocalState{}
 	remoteState := remotestate.Snapshot{}
 	_, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
+	c.Assert(err, tc.DeepEquals, resolver.ErrNoOperation)
 }
 
-func (s *actionsSuite) TestActionStateKindContinue(c *gc.C) {
+func (s *actionsSuite) TestActionStateKindContinue(c *tc.C) {
 	actionResolver := s.newResolver(c)
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -49,11 +48,11 @@ func (s *actionsSuite) TestActionStateKindContinue(c *gc.C) {
 		ActionsPending: []string{"actionA", "actionB"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp("actionA"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockOp("actionA"))
 }
 
-func (s *actionsSuite) TestActionRunHook(c *gc.C) {
+func (s *actionsSuite) TestActionRunHook(c *tc.C) {
 	actionResolver := s.newResolver(c)
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -65,11 +64,11 @@ func (s *actionsSuite) TestActionRunHook(c *gc.C) {
 		ActionsPending: []string{"actionA", "actionB"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp("actionA"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockOp("actionA"))
 }
 
-func (s *actionsSuite) TestNextAction(c *gc.C) {
+func (s *actionsSuite) TestNextAction(c *tc.C) {
 	actionResolver := s.newResolver(c)
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -81,11 +80,11 @@ func (s *actionsSuite) TestNextAction(c *gc.C) {
 		ActionsPending: []string{"actionA", "actionB"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp("actionB"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockOp("actionB"))
 }
 
-func (s *actionsSuite) TestNextActionNotAvailable(c *gc.C) {
+func (s *actionsSuite) TestNextActionNotAvailable(c *tc.C) {
 	actionResolver := s.newResolver(c)
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -97,11 +96,11 @@ func (s *actionsSuite) TestNextActionNotAvailable(c *gc.C) {
 		ActionsPending: []string{"actionA", "actionB"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{err: charmrunner.ErrActionNotAvailable})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockFailAction("actionB"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockFailAction("actionB"))
 }
 
-func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {
+func (s *actionsSuite) TestActionStateKindRunAction(c *tc.C) {
 	actionResolver := s.newResolver(c)
 	actionA := "actionA"
 
@@ -116,11 +115,11 @@ func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {
 		ActionsPending: []string{},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp(actionA))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockOp(actionA))
 }
 
-func (s *actionsSuite) TestActionStateKindRunActionSkipHook(c *gc.C) {
+func (s *actionsSuite) TestActionStateKindRunActionSkipHook(c *tc.C) {
 	actionResolver := s.newResolver(c)
 	actionA := "actionA"
 
@@ -136,11 +135,11 @@ func (s *actionsSuite) TestActionStateKindRunActionSkipHook(c *gc.C) {
 		ActionsPending: []string{},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockSkipHook(*localState.Hook))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockSkipHook(*localState.Hook))
 }
 
-func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *gc.C) {
+func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *tc.C) {
 	actionResolver := s.newResolver(c)
 	actionA := "actionA"
 
@@ -155,11 +154,11 @@ func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *gc.C) {
 		ActionsPending: []string{actionA, "actionB"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockFailAction(actionA))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockFailAction(actionA))
 }
 
-func (s *actionsSuite) TestPendingActionNotAvailable(c *gc.C) {
+func (s *actionsSuite) TestPendingActionNotAvailable(c *tc.C) {
 	actionResolver := s.newResolver(c)
 	actionA := "666"
 
@@ -175,8 +174,8 @@ func (s *actionsSuite) TestPendingActionNotAvailable(c *gc.C) {
 		ActionsPending: []string{"666"},
 	}
 	op, err := actionResolver.NextOp(context.Background(), localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockFailAction(actionA))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.DeepEquals, mockFailAction(actionA))
 }
 
 type mockOperations struct {

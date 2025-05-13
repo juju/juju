@@ -9,9 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/common"
@@ -24,12 +22,13 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&ShowCommandSuite{})
+var _ = tc.Suite(&ShowCommandSuite{})
 
 type ShowCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
@@ -39,7 +38,7 @@ type ShowCommandSuite struct {
 	expectedDisplay string
 }
 
-func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
+func (s *ShowCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	lastConnection := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	statusSince := time.Date(2016, 4, 5, 0, 0, 0, 0, time.UTC)
@@ -126,43 +125,43 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		ModelUUID: testing.ModelTag.Id(),
 		ModelType: coremodel.IAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 }
 
-func (s *ShowCommandSuite) TestShow(c *gc.C) {
+func (s *ShowCommandSuite) TestShow(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newShowCommand())
-	c.Assert(err, jc.ErrorIsNil)
-	s.fake.CheckCalls(c, []jujutesting.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	s.fake.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
 		{"Close", nil},
 	})
 }
 
-func (s *ShowCommandSuite) TestShowWithPartModelUUID(c *gc.C) {
+func (s *ShowCommandSuite) TestShowWithPartModelUUID(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newShowCommand(), "deadbeef")
-	c.Assert(err, jc.ErrorIsNil)
-	s.fake.CheckCalls(c, []jujutesting.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	s.fake.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
 		{"Close", nil},
 	})
 }
 
-func (s *ShowCommandSuite) TestShowUnknownCallsRefresh(c *gc.C) {
+func (s *ShowCommandSuite) TestShowUnknownCallsRefresh(c *tc.C) {
 	called := false
 	refresh := func(context.Context, jujuclient.ClientStore, string) error {
 		called = true
 		return nil
 	}
 	_, err := cmdtesting.RunCommand(c, model.NewShowCommandForTest(&s.fake, refresh, s.store), "unknown")
-	c.Check(called, jc.IsTrue)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(called, tc.IsTrue)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *ShowCommandSuite) TestShowFormatYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowFormatYaml(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.YAMLEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) addCredentialToTestData(credentialValid *bool) {
@@ -178,31 +177,31 @@ func (s *ShowCommandSuite) addCredentialToTestData(credentialValid *bool) {
 	}
 }
 
-func (s *ShowCommandSuite) TestShowWithCredentialFormatYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowWithCredentialFormatYaml(c *tc.C) {
 	_true := true
 	s.addCredentialToTestData(&_true)
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.YAMLEquals, s.expectedOutput)
 }
 
-func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowFormatJson(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.JSONEquals, s.expectedOutput)
 }
 
-func (s *ShowCommandSuite) TestShowWithCredentialFormatJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowWithCredentialFormatJson(c *tc.C) {
 	_false := false
 	s.addCredentialToTestData(&_false)
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.JSONEquals, s.expectedOutput)
 }
 
-func (s *ShowCommandSuite) TestUnrecognizedArg(c *gc.C) {
+func (s *ShowCommandSuite) TestUnrecognizedArg(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newShowCommand(), "admin", "whoops")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *ShowCommandSuite) addSecretBackendTestData() {
@@ -224,21 +223,21 @@ func (s *ShowCommandSuite) addSecretBackendTestData() {
 		}}
 }
 
-func (s *ShowCommandSuite) TestShowWithSecretBackendFormatYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowWithSecretBackendFormatYaml(c *tc.C) {
 	s.addSecretBackendTestData()
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.YAMLEquals, s.expectedOutput)
 }
 
-func (s *ShowCommandSuite) TestShowWithSecretBackendFormatJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowWithSecretBackendFormatJson(c *tc.C) {
 	s.addSecretBackendTestData()
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.JSONEquals, s.expectedOutput)
 }
 
-func (s *ShowCommandSuite) TestShowBasicIncompleteModelsYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicIncompleteModelsYaml(c *tc.C) {
 	s.fake.infos = []params.ModelInfoResult{
 		{Result: createBasicModelInfo()},
 	}
@@ -259,7 +258,7 @@ basic-model:
 	s.assertShowOutput(c, "yaml")
 }
 
-func (s *ShowCommandSuite) TestShowBasicIncompleteModelsJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicIncompleteModelsJson(c *tc.C) {
 	s.fake.infos = []params.ModelInfoResult{
 		{Result: createBasicModelInfo()},
 	}
@@ -278,7 +277,7 @@ func (s *ShowCommandSuite) TestShowBasicIncompleteModelsJson(c *gc.C) {
 	s.assertShowOutput(c, "json")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsYaml(c *tc.C) {
 	s.fake.infos = []params.ModelInfoResult{
 		{Result: createBasicModelInfoWithStatus()},
 	}
@@ -301,7 +300,7 @@ basic-model:
 	s.assertShowOutput(c, "yaml")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsJson(c *tc.C) {
 	s.fake.infos = []params.ModelInfoResult{
 		{Result: createBasicModelInfoWithStatus()},
 	}
@@ -322,7 +321,7 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsJson(c *gc.C) 
 	s.assertShowOutput(c, "json")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsYaml(c *tc.C) {
 	basicAndMigrationStatusInfo := createBasicModelInfo()
 	addMigrationStatusStatus(basicAndMigrationStatusInfo)
 	s.fake.infos = []params.ModelInfoResult{
@@ -348,7 +347,7 @@ basic-model:
 	s.assertShowOutput(c, "yaml")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsJson(c *tc.C) {
 	basicAndMigrationStatusInfo := createBasicModelInfo()
 	addMigrationStatusStatus(basicAndMigrationStatusInfo)
 	s.fake.infos = []params.ModelInfoResult{
@@ -370,7 +369,7 @@ func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsJson(c *gc.
 	s.assertShowOutput(c, "json")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsYaml(c *tc.C) {
 	basicAndStatusAndMigrationInfo := createBasicModelInfoWithStatus()
 	addMigrationStatusStatus(basicAndStatusAndMigrationInfo)
 	s.fake.infos = []params.ModelInfoResult{
@@ -397,7 +396,7 @@ basic-model:
 	s.assertShowOutput(c, "yaml")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsJson(c *tc.C) {
 	basicAndStatusAndMigrationInfo := createBasicModelInfoWithStatus()
 	addMigrationStatusStatus(basicAndStatusAndMigrationInfo)
 	s.fake.infos = []params.ModelInfoResult{
@@ -420,7 +419,7 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsJs
 	s.assertShowOutput(c, "json")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsYaml(c *tc.C) {
 	basicAndProviderTypeInfo := createBasicModelInfo()
 	basicAndProviderTypeInfo.ProviderType = "aws"
 	s.fake.infos = []params.ModelInfoResult{
@@ -444,7 +443,7 @@ basic-model:
 	s.assertShowOutput(c, "yaml")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsJson(c *tc.C) {
 	basicAndProviderTypeInfo := createBasicModelInfo()
 	basicAndProviderTypeInfo.ProviderType = "aws"
 	s.fake.infos = []params.ModelInfoResult{
@@ -466,7 +465,7 @@ func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsJson(c *gc.C
 	s.assertShowOutput(c, "json")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsYaml(c *tc.C) {
 	basicAndUsersInfo := createBasicModelInfo()
 	basicAndUsersInfo.Users = []params.ModelUserInfo{{
 		UserName:    "admin",
@@ -498,7 +497,7 @@ basic-model:
 	s.assertShowOutput(c, "yaml")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsJson(c *tc.C) {
 	basicAndUsersInfo := createBasicModelInfo()
 	basicAndUsersInfo.Users = []params.ModelUserInfo{{
 		UserName:    "admin",
@@ -525,7 +524,7 @@ func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsJson(c *gc.C) {
 	s.assertShowOutput(c, "json")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsYaml(c *tc.C) {
 	basicAndMachinesInfo := createBasicModelInfo()
 	basicAndMachinesInfo.Machines = []params.ModelMachineInfo{
 		{Id: "2"}, {Id: "12"},
@@ -555,7 +554,7 @@ basic-model:
 	s.assertShowOutput(c, "yaml")
 }
 
-func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsJson(c *tc.C) {
 	basicAndMachinesInfo := createBasicModelInfo()
 	basicAndMachinesInfo.Machines = []params.ModelMachineInfo{
 		{Id: "2"}, {Id: "12"},
@@ -579,7 +578,7 @@ func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsJson(c *gc.C
 	s.assertShowOutput(c, "json")
 }
 
-func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *gc.C) {
+func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *tc.C) {
 	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
@@ -596,7 +595,7 @@ func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *gc.C) {
 	s.assertShowModelWithAgent(c, "json")
 }
 
-func (s *ShowCommandSuite) TestShowModelWithAgentVersionInYaml(c *gc.C) {
+func (s *ShowCommandSuite) TestShowModelWithAgentVersionInYaml(c *tc.C) {
 	s.expectedDisplay = `
 basic-model:
   name: owner/basic-model
@@ -615,11 +614,11 @@ basic-model:
 	s.assertShowModelWithAgent(c, "yaml")
 }
 
-func (s *ShowCommandSuite) assertShowModelWithAgent(c *gc.C, format string) {
+func (s *ShowCommandSuite) assertShowModelWithAgent(c *tc.C, format string) {
 	// Since most of the tests in this suite already test model infos without
 	// agent version, all we need to do here is to test one with it.
 	agentVersion, err := semversion.Parse("2.55.5")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	basicTestInfo := createBasicModelInfo()
 	basicTestInfo.AgentVersion = &agentVersion
 	s.fake.infos = []params.ModelInfoResult{
@@ -632,13 +631,13 @@ func (s *ShowCommandSuite) newShowCommand() cmd.Command {
 	return model.NewShowCommandForTest(&s.fake, noOpRefresh, s.store)
 }
 
-func (s *ShowCommandSuite) assertShowOutput(c *gc.C, format string) {
+func (s *ShowCommandSuite) assertShowOutput(c *tc.C, format string) {
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", format)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, s.expectedDisplay)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, s.expectedDisplay)
 }
 
-func (s *ShowCommandSuite) TestHandleRedirectError(c *gc.C) {
+func (s *ShowCommandSuite) TestHandleRedirectError(c *tc.C) {
 	nhp, _ := network.ParseMachineHostPort("1.2.3.4:5555")
 	caFingerprint, _, _ := pki.Fingerprint([]byte(testing.CACert))
 	s.fake.SetErrors(
@@ -649,8 +648,8 @@ func (s *ShowCommandSuite) TestHandleRedirectError(c *gc.C) {
 		},
 	)
 	_, err := cmdtesting.RunCommand(c, model.NewShowCommandForTest(&s.fake, nil, s.store))
-	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(err.Error(), gc.Equals, `Model "admin/mymodel" has been migrated to another controller.
+	c.Assert(err, tc.Not(tc.IsNil))
+	c.Assert(err.Error(), tc.Equals, `Model "admin/mymodel" has been migrated to another controller.
 To access it run one of the following commands (you can replace the -c argument with your own preferred controller name):
   'juju login 1.2.3.4:5555 -c target'
 
@@ -694,7 +693,7 @@ func noOpRefresh(_ context.Context, _ jujuclient.ClientStore, _ string) error {
 type attrs map[string]interface{}
 
 type fakeModelShowClient struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	info  params.ModelInfo
 	err   *params.Error
 	infos []params.ModelInfoResult

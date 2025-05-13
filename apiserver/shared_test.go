@@ -7,9 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -25,76 +24,76 @@ type sharedServerContextSuite struct {
 	controllerConfigService ControllerConfigService
 }
 
-var _ = gc.Suite(&sharedServerContextSuite{})
+var _ = tc.Suite(&sharedServerContextSuite{})
 
-func (s *sharedServerContextSuite) TestConfigNoStatePool(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoStatePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.newConfig(c)
 
 	config.statePool = nil
 	err := config.validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, "nil statePool not valid")
 }
 
-func (s *sharedServerContextSuite) TestConfigNoHub(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoHub(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.newConfig(c)
 
 	config.centralHub = nil
 	err := config.validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "nil centralHub not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, "nil centralHub not valid")
 }
 
-func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.newConfig(c)
 
 	config.leaseManager = nil
 	err := config.validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "nil leaseManager not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, "nil leaseManager not valid")
 }
 
-func (s *sharedServerContextSuite) TestConfigNoControllerConfig(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoControllerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.newConfig(c)
 
 	config.controllerConfig = nil
 	err := config.validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "nil controllerConfig not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, "nil controllerConfig not valid")
 }
 
-func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *gc.C) {
+func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.newConfig(c)
 
 	config.statePool = nil
 	ctx, err := newSharedServerContext(config)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
-	c.Check(ctx, gc.IsNil)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, "nil statePool not valid")
+	c.Check(ctx, tc.IsNil)
 }
 
-func (s *sharedServerContextSuite) TestValidConfig(c *gc.C) {
+func (s *sharedServerContextSuite) TestValidConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.newConfig(c)
 
 	ctx, err := newSharedServerContext(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Normally you wouldn't directly access features.
-	c.Assert(ctx.features, gc.HasLen, 0)
+	c.Assert(ctx.features, tc.HasLen, 0)
 }
 
-func (s *sharedServerContextSuite) newConfig(c *gc.C) sharedServerConfig {
+func (s *sharedServerContextSuite) newConfig(c *tc.C) sharedServerConfig {
 	s.hub = pubsub.NewStructuredHub(nil)
 
 	controllerConfig := testing.FakeControllerConfig()
@@ -119,7 +118,7 @@ func (s *sharedServerContextSuite) newConfig(c *gc.C) sharedServerConfig {
 	}
 }
 
-func (s *sharedServerContextSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *sharedServerContextSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	return ctrl

@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/gnuflag"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/application"
 	apicharm "github.com/juju/juju/api/common/charm"
@@ -24,24 +23,24 @@ import (
 
 type utilsSuite struct{}
 
-var _ = gc.Suite(&utilsSuite{})
+var _ = tc.Suite(&utilsSuite{})
 
-func (s *utilsSuite) TestParsePlacement(c *gc.C) {
+func (s *utilsSuite) TestParsePlacement(c *tc.C) {
 	obtained, err := utils.ParsePlacement("lxd:1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*obtained, jc.DeepEquals, instance.Placement{Scope: "lxd", Directive: "1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*obtained, tc.DeepEquals, instance.Placement{Scope: "lxd", Directive: "1"})
 
 }
 
-func (s *utilsSuite) TestGetFlags(c *gc.C) {
+func (s *utilsSuite) TestGetFlags(c *tc.C) {
 	flagSet := gnuflag.NewFlagSet("testing", gnuflag.ContinueOnError)
 	flagSet.Bool("debug", true, "debug")
 	flagSet.String("to", "", "to")
 	flagSet.String("m", "default", "model")
 	err := flagSet.Set("to", "lxd")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	obtained := utils.GetFlags(flagSet, []string{"to", "force"})
-	c.Assert(obtained, gc.DeepEquals, []string{"--to"})
+	c.Assert(obtained, tc.DeepEquals, []string{"--to"})
 }
 
 type utilsResourceSuite struct {
@@ -49,21 +48,21 @@ type utilsResourceSuite struct {
 	resourceFacade *mocks.MockResourceLister
 }
 
-var _ = gc.Suite(&utilsResourceSuite{})
+var _ = tc.Suite(&utilsResourceSuite{})
 
-func (s *utilsResourceSuite) TestGetMetaResources(c *gc.C) {
+func (s *utilsResourceSuite) TestGetMetaResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl := "local:trusty/multi-series-1"
 	s.expectCharmInfo(curl)
 
 	obtained, err := utils.GetMetaResources(context.Background(), curl, s.charmClient)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, map[string]charmresource.Meta{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.DeepEquals, map[string]charmresource.Meta{
 		"test": {Name: "Testme"}})
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// switching to charm and all resources provided will be uploaded.
@@ -73,7 +72,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
 		resourcesInController []resource.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
-		c.Assert(newCharmURL.Schema, gc.Equals, charm.Local.String())
+		c.Assert(newCharmURL.Schema, tc.Equals, charm.Local.String())
 		return map[string]charmresource.Meta{
 			"redis-image":    {Name: "redis-image", Type: charmresource.TypeContainerImage},
 			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
@@ -82,7 +81,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
 	})
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharm(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// switching to local charm and only upgrade resources provided.
@@ -92,7 +91,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharm(c *gc.C) {
 		resourcesInController []resource.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
-		c.Assert(newCharmURL.Schema, gc.Equals, charm.Local.String())
+		c.Assert(newCharmURL.Schema, tc.Equals, charm.Local.String())
 		delete(cliResources, "redis-image")
 		return map[string]charmresource.Meta{
 			"snappass-image": {Name: "snappass-image", Type: charmresource.TypeContainerImage},
@@ -101,7 +100,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharm(c *gc.C) {
 	})
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmNewResources(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmNewResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// switching to a local charm, new resources provided will be uploaded.
@@ -111,7 +110,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmNewResources(c *gc
 		resourcesInController []resource.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
-		c.Assert(newCharmURL.Schema, gc.Equals, charm.Local.String())
+		c.Assert(newCharmURL.Schema, tc.Equals, charm.Local.String())
 		resourcesInMetadata["test-file22"] = charmresource.Meta{Name: "test-file22", Type: charmresource.TypeFile, Path: "test22.txt"}
 		cliResources["test-file22"] = "./test-file22.txt"
 		return map[string]charmresource.Meta{
@@ -123,7 +122,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmNewResources(c *gc
 	})
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResourcesCHCharmNewEmptyRes(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResourcesCHCharmNewEmptyRes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.charmClient.EXPECT().ListCharmResources(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 
@@ -145,7 +144,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesCHCharmNewEmptyRes(c *gc.C) 
 	})
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmError(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// switching to local charm, new empty resources will be error out.
@@ -155,13 +154,13 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmError(c *gc.C) {
 		resourcesInController []resource.ApplicationResources,
 		resourcesInMetadata map[string]charmresource.Meta,
 	) (map[string]charmresource.Meta, string) {
-		c.Assert(newCharmURL.Schema, gc.Equals, charm.Local.String())
+		c.Assert(newCharmURL.Schema, tc.Equals, charm.Local.String())
 		resourcesInMetadata["test-file22"] = charmresource.Meta{Name: "test-file22", Type: charmresource.TypeFile, Path: "test22.txt"}
 		return nil, `new resource "test-file22" was missing, please provide it via --resource`
 	})
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResourcesNotOriginUpload(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResourcesNotOriginUpload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.charmClient.EXPECT().ListCharmResources(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 
@@ -187,7 +186,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesNotOriginUpload(c *gc.C) {
 	})
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResourcesOriginUpload(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResourcesOriginUpload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.charmClient.EXPECT().ListCharmResources(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 
@@ -213,7 +212,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesOriginUpload(c *gc.C) {
 }
 
 func (s *utilsResourceSuite) assertGetUpgradeResources(
-	c *gc.C,
+	c *tc.C,
 	getExpectedMeta func(
 		newCharmURL *charm.URL,
 		_ map[string]string,
@@ -258,11 +257,11 @@ func (s *utilsResourceSuite) assertGetUpgradeResources(
 		"snappass-test", cliResources, resourcesInMetadata,
 	)
 	if len(errString) == 0 {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
-		c.Assert(err, gc.ErrorMatches, errString)
+		c.Assert(err, tc.ErrorMatches, errString)
 	}
-	c.Assert(filtered, gc.DeepEquals, expected)
+	c.Assert(filtered, tc.DeepEquals, expected)
 }
 
 func schemaToOriginSource(schema string) apicharm.OriginSource {
@@ -273,7 +272,7 @@ func schemaToOriginSource(schema string) apicharm.OriginSource {
 	return apicharm.OriginCharmHub
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryNoChange(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryNoChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectListCharmResources(5, 3, 2)
 	s.expectListResources(5, 3, 2)
@@ -285,12 +284,12 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryNoChange(c *gc.C) 
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]charmresource.Meta{}
-	c.Assert(filtered, gc.DeepEquals, expected)
+	c.Assert(filtered, tc.DeepEquals, expected)
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryChange(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// No resources specified on the CLI - but the repository has new
@@ -305,12 +304,12 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryChange(c *gc.C) {
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]charmresource.Meta{"redis-image": {Name: "redis-image", Type: charmresource.TypeContainerImage}}
-	c.Assert(filtered, gc.DeepEquals, expected)
+	c.Assert(filtered, tc.DeepEquals, expected)
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevision(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// No change in the resource revisions in the repository, but a different
@@ -325,12 +324,12 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevision(c *gc.
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]charmresource.Meta{"test-file": {Name: "test-file", Type: charmresource.TypeFile, Path: "test.txt"}}
-	c.Assert(filtered, gc.DeepEquals, expected)
+	c.Assert(filtered, tc.DeepEquals, expected)
 }
 
-func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevisionAlreadyUsed(c *gc.C) {
+func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevisionAlreadyUsed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// No change in the resource revisions in the repository, but a different
@@ -345,9 +344,9 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevisionAlready
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := map[string]charmresource.Meta{}
-	c.Assert(filtered, gc.DeepEquals, expected)
+	c.Assert(filtered, tc.DeepEquals, expected)
 }
 
 func repoCharmID() application.CharmID {
@@ -406,7 +405,7 @@ func (s *utilsResourceSuite) expectListResources(redis, snappass, testfile int) 
 
 }
 
-func (s *utilsResourceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *utilsResourceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charmClient = mocks.NewMockCharmClient(ctrl)
 	s.resourceFacade = mocks.NewMockResourceLister(ctrl)

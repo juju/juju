@@ -8,9 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -20,9 +19,9 @@ type StorageSuite struct {
 	BaseHookContextSuite
 }
 
-var _ = gc.Suite(&StorageSuite{})
+var _ = tc.Suite(&StorageSuite{})
 
-func (s *StorageSuite) TestAddUnitStorage(c *gc.C) {
+func (s *StorageSuite) TestAddUnitStorage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -32,7 +31,7 @@ func (s *StorageSuite) TestAddUnitStorage(c *gc.C) {
 			"allecto": {Count: &count}})
 }
 
-func (s *StorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
+func (s *StorageSuite) TestAddUnitStorageAccumulated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -44,10 +43,10 @@ func (s *StorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
 			"multi1to10": {Count: &count}})
 }
 
-func (s *StorageSuite) assertUnitStorageAdded(c *gc.C, ctrl *gomock.Controller, cons ...map[string]params.StorageDirectives) {
+func (s *StorageSuite) assertUnitStorageAdded(c *tc.C, ctrl *gomock.Controller, cons ...map[string]params.StorageDirectives) {
 	// Get the context.
 	ctx := s.getHookContext(c, ctrl, coretesting.ModelTag.Id(), -1, "", names.StorageTag{})
-	c.Assert(ctx.UnitName(), gc.Equals, s.unit.Name())
+	c.Assert(ctx.UnitName(), tc.Equals, s.unit.Name())
 
 	arg := params.CommitHookChangesArg{
 		Tag: s.unit.Tag().String(),
@@ -61,7 +60,7 @@ func (s *StorageSuite) assertUnitStorageAdded(c *gc.C, ctrl *gomock.Controller, 
 			})
 		}
 		err := ctx.AddUnitStorage(one)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 
 	s.unit.EXPECT().CommitHookChanges(gomock.Any(), hookCommitMatcher{c: c, expected: params.CommitHookChangesArgs{
@@ -70,25 +69,25 @@ func (s *StorageSuite) assertUnitStorageAdded(c *gc.C, ctrl *gomock.Controller, 
 
 	// Flush the context with a success.
 	err := ctx.Flush(context.Background(), "success", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *StorageSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
+func (s *StorageSuite) TestRunHookAddStorageOnFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	ctx := s.getHookContext(c, ctrl, coretesting.ModelTag.Id(), -1, "", names.StorageTag{})
-	c.Assert(ctx.UnitName(), gc.Equals, s.unit.Name())
+	c.Assert(ctx.UnitName(), tc.Equals, s.unit.Name())
 
 	size := uint64(1)
 	err := ctx.AddUnitStorage(
 		map[string]params.StorageDirectives{
 			"allecto": {Size: &size},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Flush the context with an error.
 	msg := "test fail run hook"
 	err = ctx.Flush(context.Background(), "test fail run hook", errors.New(msg))
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
 }

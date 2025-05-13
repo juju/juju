@@ -6,8 +6,7 @@ package utils_test
 import (
 	"encoding/json"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/internal/testing"
@@ -17,9 +16,9 @@ type DockerConfigSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&DockerConfigSuite{})
+var _ = tc.Suite(&DockerConfigSuite{})
 
-func (s *DockerConfigSuite) TestExtractRegistryURL(c *gc.C) {
+func (s *DockerConfigSuite) TestExtractRegistryURL(c *tc.C) {
 	for _, registryTest := range []struct {
 		registryPath string
 		expectedURL  string
@@ -40,27 +39,27 @@ func (s *DockerConfigSuite) TestExtractRegistryURL(c *gc.C) {
 	}} {
 		result, err := utils.ExtractRegistryURL(registryTest.registryPath)
 		if registryTest.err != "" {
-			c.Assert(err, gc.ErrorMatches, registryTest.err)
+			c.Assert(err, tc.ErrorMatches, registryTest.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
-		c.Assert(result, gc.Equals, registryTest.expectedURL)
+		c.Assert(result, tc.Equals, registryTest.expectedURL)
 	}
 }
 
-func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *gc.C) {
+func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *tc.C) {
 	imagePath := "registry.staging.jujucharms.com/tester/caas-mysql/mysql-image:5.7"
 	username := "docker-registry"
 	password := "hunter2"
 
 	config, err := utils.CreateDockerConfigJSON(username, password, imagePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var result utils.DockerConfigJSON
 	err = json.Unmarshal(config, &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result, jc.DeepEquals, utils.DockerConfigJSON{
+	c.Assert(result, tc.DeepEquals, utils.DockerConfigJSON{
 		Auths: map[string]utils.DockerConfigEntry{
 			"registry.staging.jujucharms.com": {
 				Username: "docker-registry",

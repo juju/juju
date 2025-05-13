@@ -8,9 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -22,9 +21,9 @@ type exportSuite struct {
 	service     *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -39,7 +38,7 @@ func (s *exportSuite) newExportOperation() *exportOperation {
 	}
 }
 
-func (s *exportSuite) TestExport(c *gc.C) {
+func (s *exportSuite) TestExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
@@ -78,20 +77,20 @@ func (s *exportSuite) TestExport(c *gc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	users := dst.Users()
-	c.Assert(users, gc.HasLen, 2)
-	c.Check(users[0].Name(), gc.Equals, userAccesses[0].UserName.Name())
-	c.Check(users[0].Access(), gc.Equals, string(userAccesses[0].Access))
-	c.Check(users[0].CreatedBy(), gc.Equals, userAccesses[0].CreatedBy.Name())
-	c.Check(users[0].DateCreated(), gc.Equals, userAccesses[0].DateCreated)
-	c.Check(users[0].DisplayName(), gc.Equals, userAccesses[0].DisplayName)
-	c.Check(users[0].LastConnection(), gc.Equals, bazzaTime)
-	c.Check(users[1].Name(), gc.Equals, userAccesses[1].UserName.Name())
-	c.Check(users[1].Access(), gc.Equals, string(userAccesses[1].Access))
-	c.Check(users[1].CreatedBy(), gc.Equals, userAccesses[1].CreatedBy.Name())
-	c.Check(users[1].DateCreated(), gc.Equals, userAccesses[1].DateCreated)
-	c.Check(users[1].DisplayName(), gc.Equals, userAccesses[1].DisplayName)
-	c.Check(users[1].LastConnection(), gc.Equals, bobTime)
+	c.Assert(users, tc.HasLen, 2)
+	c.Check(users[0].Name(), tc.Equals, userAccesses[0].UserName.Name())
+	c.Check(users[0].Access(), tc.Equals, string(userAccesses[0].Access))
+	c.Check(users[0].CreatedBy(), tc.Equals, userAccesses[0].CreatedBy.Name())
+	c.Check(users[0].DateCreated(), tc.Equals, userAccesses[0].DateCreated)
+	c.Check(users[0].DisplayName(), tc.Equals, userAccesses[0].DisplayName)
+	c.Check(users[0].LastConnection(), tc.Equals, bazzaTime)
+	c.Check(users[1].Name(), tc.Equals, userAccesses[1].UserName.Name())
+	c.Check(users[1].Access(), tc.Equals, string(userAccesses[1].Access))
+	c.Check(users[1].CreatedBy(), tc.Equals, userAccesses[1].CreatedBy.Name())
+	c.Check(users[1].DateCreated(), tc.Equals, userAccesses[1].DateCreated)
+	c.Check(users[1].DisplayName(), tc.Equals, userAccesses[1].DisplayName)
+	c.Check(users[1].LastConnection(), tc.Equals, bobTime)
 }

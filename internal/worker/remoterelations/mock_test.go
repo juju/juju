@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 
@@ -20,13 +19,14 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type mockRelationsFacade struct {
 	mu                                 sync.Mutex
-	stub                               *testing.Stub
+	stub                               *testhelpers.Stub
 	remoteApplicationsWatcher          *mockStringsWatcher
 	remoteApplicationRelationsWatchers map[string]*mockStringsWatcher
 	remoteApplications                 map[string]*mockRemoteApplication
@@ -36,7 +36,7 @@ type mockRelationsFacade struct {
 	controllerInfo                     map[string]*api.Info
 }
 
-func newMockRelationsFacade(stub *testing.Stub) *mockRelationsFacade {
+func newMockRelationsFacade(stub *testhelpers.Stub) *mockRelationsFacade {
 	return &mockRelationsFacade{
 		stub:                               stub,
 		remoteApplications:                 make(map[string]*mockRemoteApplication),
@@ -257,14 +257,14 @@ func (m *mockRelationsFacade) UpdateControllerForModel(ctx context.Context, cont
 
 type mockRemoteRelationsFacade struct {
 	mu                      sync.Mutex
-	stub                    *testing.Stub
+	stub                    *testhelpers.Stub
 	remoteRelationWatchers  map[string]*mockRemoteRelationWatcher
 	relationsStatusWatchers map[string]*mockRelationStatusWatcher
 	offersStatusWatchers    map[string]*mockOfferStatusWatcher
 	secretsRevisionWatchers map[string]*mockSecretsRevisionWatcher
 }
 
-func newMockRemoteRelationsFacade(stub *testing.Stub) *mockRemoteRelationsFacade {
+func newMockRemoteRelationsFacade(stub *testhelpers.Stub) *mockRemoteRelationsFacade {
 	return &mockRemoteRelationsFacade{
 		stub:                    stub,
 		remoteRelationWatchers:  make(map[string]*mockRemoteRelationWatcher),
@@ -389,7 +389,7 @@ func (m *mockRemoteRelationsFacade) WatchConsumedSecretsChanges(_ context.Contex
 }
 
 type mockWatcher struct {
-	testing.Stub
+	testhelpers.Stub
 	tomb.Tomb
 	mu         sync.Mutex
 	terminated bool
@@ -459,7 +459,7 @@ func (w *mockSecretsRevisionWatcher) Changes() watcher.SecretRevisionChannel {
 }
 
 type mockRemoteApplication struct {
-	testing.Stub
+	testhelpers.Stub
 	name           string
 	offeruuid      string
 	url            string
@@ -561,7 +561,7 @@ func (r *mockRemoteApplication) Life() life.Value {
 }
 
 type mockRelation struct {
-	testing.Stub
+	testhelpers.Stub
 	sync.Mutex
 	id        int
 	life      life.Value

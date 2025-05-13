@@ -5,8 +5,7 @@ package apiserver_test
 
 import (
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -18,9 +17,9 @@ type facadeVersionSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&facadeVersionSuite{})
+var _ = tc.Suite(&facadeVersionSuite{})
 
-func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
+func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *tc.C) {
 	// The client side code doesn't want to directly import the server side
 	// code just to list out what versions are available. However, we do
 	// want to make sure that the two sides are kept in sync.
@@ -28,7 +27,7 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	for name, versions := range api.SupportedFacadeVersions() {
 		clientFacadeNames.Add(name)
 		// All versions should now be non-zero.
-		c.Check(set.NewInts(versions...).Contains(0), jc.IsFalse)
+		c.Check(set.NewInts(versions...).Contains(0), tc.IsFalse)
 	}
 	allServerFacades := apiserver.AllFacades().List()
 	serverFacadeNames := set.NewStrings()
@@ -38,8 +37,8 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 		serverFacadeBestVersions[facade.Name] = facade.Versions[len(facade.Versions)-1]
 	}
 	// First check that both sides know about all the same versions
-	c.Check(serverFacadeNames.Difference(clientFacadeNames).SortedValues(), gc.HasLen, 0)
-	c.Check(clientFacadeNames.Difference(serverFacadeNames).SortedValues(), gc.HasLen, 0)
+	c.Check(serverFacadeNames.Difference(clientFacadeNames).SortedValues(), tc.HasLen, 0)
+	c.Check(clientFacadeNames.Difference(serverFacadeNames).SortedValues(), tc.HasLen, 0)
 
 	// Next check that the latest version of each facade is the same
 	// on both sides.
@@ -50,13 +49,13 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 		sorted := set.NewInts(versions...).SortedValues()
 		apiFacadeVersions[name] = sorted[len(sorted)-1]
 	}
-	c.Check(apiFacadeVersions, jc.DeepEquals, serverFacadeBestVersions)
+	c.Check(apiFacadeVersions, tc.DeepEquals, serverFacadeBestVersions)
 }
 
 // TestClientSupport checks that the client facade supports the 3.x and 4.x
 // for certain tasks. You must be very careful when removing support for facades
 // as it can break model migrations, upgrades, and state reports.
-func (s *facadeVersionSuite) TestClientSupport(c *gc.C) {
+func (s *facadeVersionSuite) TestClientSupport(c *tc.C) {
 	tests := []struct {
 		facadeName       string
 		summary          string
@@ -74,18 +73,18 @@ func (s *facadeVersionSuite) TestClientSupport(c *gc.C) {
 		},
 	}
 	for _, test := range tests {
-		c.Logf(test.summary)
+		c.Logf("%s", test.summary)
 		c.Check(api.SupportedFacadeVersions()[test.facadeName], Contains, test.apiClientVersion)
 	}
 }
 
 type containsChecker struct {
-	*gc.CheckerInfo
+	*tc.CheckerInfo
 }
 
 // Contains checks that the obtained slice contains the expected value.
-var Contains gc.Checker = &containsChecker{
-	CheckerInfo: &gc.CheckerInfo{Name: "Contains", Params: []string{"obtained", "expected"}},
+var Contains tc.Checker = &containsChecker{
+	CheckerInfo: &tc.CheckerInfo{Name: "Contains", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *containsChecker) Check(params []interface{}, names []string) (result bool, err string) {

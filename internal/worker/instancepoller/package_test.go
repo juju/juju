@@ -6,7 +6,7 @@ package instancepoller
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mocks_watcher.go github.com/juju/juju/core/watcher StringsWatcher
@@ -14,5 +14,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mocks_instancepoller.go github.com/juju/juju/internal/worker/instancepoller Environ,Machine
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

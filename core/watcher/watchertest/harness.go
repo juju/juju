@@ -3,9 +3,7 @@
 
 package watchertest
 
-import (
-	gc "gopkg.in/check.v1"
-)
+import "github.com/juju/tc"
 
 // A TestReporter is something that can be used to report test failures.  It
 // is satisfied by the standard library's *testing.T.
@@ -23,7 +21,7 @@ type TestHelper interface {
 
 // Idler is an interface that ensures that the change stream is idle.
 type Idler interface {
-	AssertChangeStreamIdle(c *gc.C)
+	AssertChangeStreamIdle(c *tc.C)
 }
 
 // Harness is a test harness for testing watchers.
@@ -72,7 +70,7 @@ func NewHarness[T any](idler Idler, watcher WatcherC[T]) *Harness[T] {
 // This is split into two functions to allow for the checking of the
 // assert change stream idle call in between the setup and the assertion.
 // Run must be called after all the tests have been added.
-func (h *Harness[T]) AddTest(setup func(*gc.C), assert func(WatcherC[T])) {
+func (h *Harness[T]) AddTest(setup func(*tc.C), assert func(WatcherC[T])) {
 	h.tests = append(h.tests, harnessTest[T]{
 		setup:  setup,
 		assert: assert,
@@ -80,7 +78,7 @@ func (h *Harness[T]) AddTest(setup func(*gc.C), assert func(WatcherC[T])) {
 }
 
 // Run runs all the tests added to the harness.
-func (h *Harness[T]) Run(c *gc.C, initial ...T) {
+func (h *Harness[T]) Run(c *tc.C, initial ...T) {
 	if len(h.tests) == 0 {
 		c.Fatalf("no tests")
 	}
@@ -109,6 +107,6 @@ func (h *Harness[T]) Run(c *gc.C, initial ...T) {
 }
 
 type harnessTest[T any] struct {
-	setup  func(*gc.C)
+	setup  func(*tc.C)
 	assert func(WatcherC[T])
 }

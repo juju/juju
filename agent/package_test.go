@@ -6,9 +6,9 @@ package agent_test
 import (
 	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 func Test(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

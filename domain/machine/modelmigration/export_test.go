@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
@@ -22,9 +21,9 @@ type exportSuite struct {
 	service     *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -33,14 +32,14 @@ func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *exportSuite) newExportOperation(c *gc.C) *exportOperation {
+func (s *exportSuite) newExportOperation(c *tc.C) *exportOperation {
 	return &exportOperation{
 		service: s.service,
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 }
 
-func (s *exportSuite) TestFailGetInstanceIDForExport(c *gc.C) {
+func (s *exportSuite) TestFailGetInstanceIDForExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
@@ -57,10 +56,10 @@ func (s *exportSuite) TestFailGetInstanceIDForExport(c *gc.C) {
 
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, gc.ErrorMatches, "retrieving instance ID for machine \"deadbeef\": boom")
+	c.Assert(err, tc.ErrorMatches, "retrieving instance ID for machine \"deadbeef\": boom")
 }
 
-func (s *exportSuite) TestFailGetHardwareCharacteristicsForExport(c *gc.C) {
+func (s *exportSuite) TestFailGetHardwareCharacteristicsForExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
@@ -79,10 +78,10 @@ func (s *exportSuite) TestFailGetHardwareCharacteristicsForExport(c *gc.C) {
 
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, gc.ErrorMatches, "retrieving hardware characteristics for machine \"deadbeef\": boom")
+	c.Assert(err, tc.ErrorMatches, "retrieving hardware characteristics for machine \"deadbeef\": boom")
 }
 
-func (s *exportSuite) TestExport(c *gc.C) {
+func (s *exportSuite) TestExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
@@ -113,22 +112,22 @@ func (s *exportSuite) TestExport(c *gc.C) {
 
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	actualMachines := dst.Machines()
-	c.Check(len(actualMachines), gc.Equals, 1)
-	c.Check(actualMachines[0].Id(), gc.Equals, machineNames[0].String())
+	c.Check(len(actualMachines), tc.Equals, 1)
+	c.Check(actualMachines[0].Id(), tc.Equals, machineNames[0].String())
 
 	cloudInstance := actualMachines[0].Instance()
-	c.Check(cloudInstance.Architecture(), gc.Equals, "amd64")
-	c.Check(cloudInstance.Memory(), gc.Equals, uint64(1024))
-	c.Check(cloudInstance.RootDisk(), gc.Equals, uint64(2048))
-	c.Check(cloudInstance.RootDiskSource(), gc.Equals, "/")
-	c.Check(cloudInstance.CpuCores(), gc.Equals, uint64(4))
-	c.Check(cloudInstance.CpuPower(), gc.Equals, uint64(16))
-	c.Check(cloudInstance.Tags(), jc.SameContents, tags)
-	c.Check(cloudInstance.AvailabilityZone(), gc.Equals, "az-1")
-	c.Check(cloudInstance.VirtType(), gc.Equals, "vm")
+	c.Check(cloudInstance.Architecture(), tc.Equals, "amd64")
+	c.Check(cloudInstance.Memory(), tc.Equals, uint64(1024))
+	c.Check(cloudInstance.RootDisk(), tc.Equals, uint64(2048))
+	c.Check(cloudInstance.RootDiskSource(), tc.Equals, "/")
+	c.Check(cloudInstance.CpuCores(), tc.Equals, uint64(4))
+	c.Check(cloudInstance.CpuPower(), tc.Equals, uint64(16))
+	c.Check(cloudInstance.Tags(), tc.SameContents, tags)
+	c.Check(cloudInstance.AvailabilityZone(), tc.Equals, "az-1")
+	c.Check(cloudInstance.VirtType(), tc.Equals, "vm")
 }
 
 func ptr[T any](u T) *T {

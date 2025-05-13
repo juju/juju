@@ -4,27 +4,26 @@
 package credential
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type typeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&typeSuite{})
+var _ = tc.Suite(&typeSuite{})
 
-func (s *typeSuite) TestCredentialKeyIsZero(c *gc.C) {
-	c.Assert(Key{}.IsZero(), jc.IsTrue)
+func (s *typeSuite) TestCredentialKeyIsZero(c *tc.C) {
+	c.Assert(Key{}.IsZero(), tc.IsTrue)
 }
 
-func (s *typeSuite) TestCredentialKeyIsNotZero(c *gc.C) {
+func (s *typeSuite) TestCredentialKeyIsNotZero(c *tc.C) {
 	tests := []Key{
 		{
 			Owner: usertesting.GenNewName(c, "wallyworld"),
@@ -43,11 +42,11 @@ func (s *typeSuite) TestCredentialKeyIsNotZero(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		c.Assert(test.IsZero(), jc.IsFalse)
+		c.Assert(test.IsZero(), tc.IsFalse)
 	}
 }
 
-func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
+func (s *typeSuite) TestCredentialKeyValidate(c *tc.C) {
 	tests := []struct {
 		Key Key
 		Err error
@@ -89,14 +88,14 @@ func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 	for _, test := range tests {
 		err := test.Key.Validate()
 		if test.Err == nil {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
-			c.Assert(err, jc.ErrorIs, test.Err)
+			c.Assert(err, tc.ErrorIs, test.Err)
 		}
 	}
 }
 
-func (*typeSuite) TestUUIDValidate(c *gc.C) {
+func (*typeSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		id  string
 		err error
@@ -119,10 +118,10 @@ func (*typeSuite) TestUUIDValidate(c *gc.C) {
 		err := UUID(test.id).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }

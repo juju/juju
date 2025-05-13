@@ -8,8 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -19,11 +18,11 @@ type linkLayerSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&linkLayerSuite{})
+var _ = tc.Suite(&linkLayerSuite{})
 
-func (s *linkLayerSuite) TestMachineInterfaceViewFitsType(c *gc.C) {
+func (s *linkLayerSuite) TestMachineInterfaceViewFitsType(c *tc.C) {
 	db, err := s.TxnRunnerFactory()()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nodeUUID := "net-node-uuid"
 	machineUUID := "machine-uuid"
@@ -71,24 +70,24 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stmt, err := sqlair.Prepare("SELECT &machineInterfaceRow.* FROM v_machine_interface", machineInterfaceRow{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var rows []machineInterfaceRow
 	err = db.Txn(ctx, func(ctx context.Context, txn *sqlair.TX) error {
 		return txn.Query(ctx, stmt).GetAll(&rows)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(rows, gc.HasLen, 1)
+	c.Assert(rows, tc.HasLen, 1)
 
 	r := rows[0]
-	c.Check(r.MachineUUID, gc.Equals, machineUUID)
-	c.Check(r.MachineName, gc.Equals, machineName)
-	c.Check(r.DeviceUUID, gc.Equals, devUUID)
-	c.Check(r.DeviceName, gc.Equals, devName)
-	c.Check(r.AddressUUID.String, gc.Equals, addrUUID)
-	c.Check(r.SubnetUUID.String, gc.Equals, subUUID)
+	c.Check(r.MachineUUID, tc.Equals, machineUUID)
+	c.Check(r.MachineName, tc.Equals, machineName)
+	c.Check(r.DeviceUUID, tc.Equals, devUUID)
+	c.Check(r.DeviceName, tc.Equals, devName)
+	c.Check(r.AddressUUID.String, tc.Equals, addrUUID)
+	c.Check(r.SubnetUUID.String, tc.Equals, subUUID)
 }

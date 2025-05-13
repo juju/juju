@@ -6,7 +6,7 @@ package deployer_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/deploy_mock.go github.com/juju/juju/cmd/juju/application/deployer DeployerAPI,CharmReader,DeployConfigFlag
@@ -17,5 +17,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/charm_mock.go github.com/juju/juju/internal/charm Charm,Bundle
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

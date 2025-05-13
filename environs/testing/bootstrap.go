@@ -6,9 +6,8 @@ package testing
 import (
 	"context"
 
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var logger = internallogger.GetLogger("juju.environs.testing")
@@ -36,14 +36,14 @@ func DisableFinishBootstrap() func() {
 		logger.Infof(context.Background(), "provider/common.FinishBootstrap is disabled")
 		return nil
 	}
-	return testing.PatchValue(&common.FinishBootstrap, f)
+	return testhelpers.PatchValue(&common.FinishBootstrap, f)
 }
 
 // BootstrapContext creates a simple bootstrap execution context.
-func BootstrapContext(ctx context.Context, c *gc.C) environs.BootstrapContext {
+func BootstrapContext(ctx context.Context, c *tc.C) environs.BootstrapContext {
 	return environscmd.BootstrapContext(ctx, cmdtesting.Context(c))
 }
 
-func BootstrapTestContext(c *gc.C) environs.BootstrapContext {
+func BootstrapTestContext(c *tc.C) environs.BootstrapContext {
 	return BootstrapContext(context.Background(), c)
 }

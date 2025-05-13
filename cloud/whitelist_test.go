@@ -4,33 +4,32 @@
 package cloud_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 )
 
-func (s *cloudSuite) TestWhitelistString(c *gc.C) {
-	c.Assert((&cloud.WhiteList{}).String(), gc.Equals, "empty whitelist")
-	c.Assert(cloud.CurrentWhiteList().String(), gc.Equals, `
+func (s *cloudSuite) TestWhitelistString(c *tc.C) {
+	c.Assert((&cloud.WhiteList{}).String(), tc.Equals, "empty whitelist")
+	c.Assert(cloud.CurrentWhiteList().String(), tc.Equals, `
  - controller cloud type "kubernetes" supports [lxd maas openstack]
  - controller cloud type "lxd" supports [lxd maas openstack]
  - controller cloud type "maas" supports [maas openstack]
  - controller cloud type "openstack" supports [openstack]`[1:])
 }
 
-func (s *cloudSuite) TestCheckWhitelistSuccess(c *gc.C) {
-	c.Assert(cloud.CurrentWhiteList().Check("maas", "maas"), jc.ErrorIsNil)
+func (s *cloudSuite) TestCheckWhitelistSuccess(c *tc.C) {
+	c.Assert(cloud.CurrentWhiteList().Check("maas", "maas"), tc.ErrorIsNil)
 }
 
-func (s *cloudSuite) TestCheckWhitelistFail(c *gc.C) {
-	c.Assert(cloud.CurrentWhiteList().Check("ec2", "maas"), gc.ErrorMatches, `
+func (s *cloudSuite) TestCheckWhitelistFail(c *tc.C) {
+	c.Assert(cloud.CurrentWhiteList().Check("ec2", "maas"), tc.ErrorMatches, `
 controller cloud type "ec2" is not whitelisted, current whitelist: 
  - controller cloud type "kubernetes" supports \[lxd maas openstack\]
  - controller cloud type "lxd" supports \[lxd maas openstack\]
  - controller cloud type "maas" supports \[maas openstack\]
  - controller cloud type "openstack" supports \[openstack\]`[1:])
 
-	c.Assert(cloud.CurrentWhiteList().Check("openstack", "ec2"), gc.ErrorMatches,
+	c.Assert(cloud.CurrentWhiteList().Check("openstack", "ec2"), tc.ErrorMatches,
 		`cloud type "ec2" is not whitelisted for controller cloud type "openstack", current whitelist: \[openstack\]`)
 }

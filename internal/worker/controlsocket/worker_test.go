@@ -12,10 +12,8 @@ import (
 	"path"
 	"strings"
 
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -26,11 +24,13 @@ import (
 	"github.com/juju/juju/domain/access/service"
 	auth "github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujujujutesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/juju/sockets"
 )
 
 type workerSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger        logger.Logger
 	accessService *MockAccessService
@@ -39,9 +39,9 @@ type workerSuite struct {
 	metricsUserName   coreuser.Name
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.metricsUserName = usertesting.GenNewName(c, "juju-metrics-r0")
 	s.controllerModelID = permission.ID{
@@ -61,7 +61,7 @@ type handlerTest struct {
 	ignoreBody bool   // if true, test will not read the request body
 }
 
-func (s *workerSuite) runHandlerTest(c *gc.C, test handlerTest) {
+func (s *workerSuite) runHandlerTest(c *tc.C, test handlerTest) {
 	tmpDir := c.MkDir()
 	socket := path.Join(tmpDir, "test.socket")
 
@@ -72,7 +72,7 @@ func (s *workerSuite) runHandlerTest(c *gc.C, test handlerTest) {
 		NewSocketListener:   NewSocketListener,
 		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	serverURL := "http://localhost:8080"
 	req, err := http.NewRequest(
@@ -80,30 +80,30 @@ func (s *workerSuite) runHandlerTest(c *gc.C, test handlerTest) {
 		serverURL+test.endpoint,
 		strings.NewReader(test.body),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := client(socket).Do(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, test.statusCode)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, test.statusCode)
 
 	if test.ignoreBody {
 		return
 	}
 	data, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = resp.Body.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Response should be valid JSON
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/json")
+	c.Check(resp.Header.Get("Content-Type"), tc.Equals, "application/json")
 	err = json.Unmarshal(data, &struct{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if test.response != "" {
-		c.Check(string(data), gc.Matches, test.response)
+		c.Check(string(data), tc.Matches, test.response)
 	}
 }
 
-func (s *workerSuite) TestMetricsUsersAddInvalidMethod(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersAddInvalidMethod(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.runHandlerTest(c, handlerTest{
@@ -114,7 +114,7 @@ func (s *workerSuite) TestMetricsUsersAddInvalidMethod(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddMissingBody(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersAddMissingBody(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.runHandlerTest(c, handlerTest{
@@ -125,7 +125,7 @@ func (s *workerSuite) TestMetricsUsersAddMissingBody(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddInvalidBody(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersAddInvalidBody(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.runHandlerTest(c, handlerTest{
@@ -137,7 +137,7 @@ func (s *workerSuite) TestMetricsUsersAddInvalidBody(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddMissingUsername(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersAddMissingUsername(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.runHandlerTest(c, handlerTest{
@@ -149,7 +149,7 @@ func (s *workerSuite) TestMetricsUsersAddMissingUsername(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddUsernameMissingPrefix(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersAddUsernameMissingPrefix(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.runHandlerTest(c, handlerTest{
@@ -161,7 +161,7 @@ func (s *workerSuite) TestMetricsUsersAddUsernameMissingPrefix(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddSuccess(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersAddSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
@@ -187,7 +187,7 @@ func (s *workerSuite) TestMetricsUsersAddSuccess(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
@@ -216,7 +216,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButDisabled(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButDisabled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
@@ -246,7 +246,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButDisabled(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButWrongPermissions(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButWrongPermissions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
@@ -278,7 +278,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButWrongPermissions(c *gc.
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersAddIdempotent(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersAddIdempotent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
@@ -310,7 +310,7 @@ func (s *workerSuite) TestMetricsUsersAddIdempotent(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersRemoveInvalidMethod(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersRemoveInvalidMethod(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.runHandlerTest(c, handlerTest{
@@ -321,7 +321,7 @@ func (s *workerSuite) TestMetricsUsersRemoveInvalidMethod(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersRemoveUsernameMissingPrefix(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersRemoveUsernameMissingPrefix(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.runHandlerTest(c, handlerTest{
@@ -332,7 +332,7 @@ func (s *workerSuite) TestMetricsUsersRemoveUsernameMissingPrefix(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersRemoveSuccess(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersRemoveSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), s.metricsUserName).Return(coreuser.User{
@@ -349,7 +349,7 @@ func (s *workerSuite) TestMetricsUsersRemoveSuccess(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersRemoveForbidden(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersRemoveForbidden(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), s.metricsUserName).Return(coreuser.User{
@@ -366,7 +366,7 @@ func (s *workerSuite) TestMetricsUsersRemoveForbidden(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMetricsUsersRemoveNotFound(c *gc.C) {
+func (s *workerSuite) TestMetricsUsersRemoveNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), s.metricsUserName).Return(coreuser.User{
@@ -383,7 +383,7 @@ func (s *workerSuite) TestMetricsUsersRemoveNotFound(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.accessService = NewMockAccessService(ctrl)
 	return ctrl
@@ -395,7 +395,10 @@ func client(socketPath string) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (conn net.Conn, err error) {
-				return net.Dial("unix", socketPath)
+				return sockets.Dialer(sockets.Socket{
+					Network: "unix",
+					Address: socketPath,
+				})
 			},
 		},
 	}

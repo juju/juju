@@ -10,9 +10,8 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -31,18 +30,18 @@ type objectsHandlerSuite struct {
 	srv *httptest.Server
 }
 
-var _ = gc.Suite(&objectsHandlerSuite{})
+var _ = tc.Suite(&objectsHandlerSuite{})
 
-func (s *objectsHandlerSuite) SetUpTest(c *gc.C) {
+func (s *objectsHandlerSuite) SetUpTest(c *tc.C) {
 	s.mux = apiserverhttp.NewMux()
 	s.srv = httptest.NewServer(s.mux)
 }
 
-func (s *objectsHandlerSuite) TearDownTest(c *gc.C) {
+func (s *objectsHandlerSuite) TearDownTest(c *tc.C) {
 	s.srv.Close()
 }
 
-func (s *objectsHandlerSuite) TestServeMethodNotSupported(c *gc.C) {
+func (s *objectsHandlerSuite) TestServeMethodNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsHTTPHandler{
@@ -59,11 +58,11 @@ func (s *objectsHandlerSuite) TestServeMethodNotSupported(c *gc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Post(url, "application/octet-stream", strings.NewReader("charm-content"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(resp.StatusCode, gc.Equals, http.StatusNotImplemented)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resp.StatusCode, tc.Equals, http.StatusNotImplemented)
 }
 
-func (s *objectsHandlerSuite) TestServeGet(c *gc.C) {
+func (s *objectsHandlerSuite) TestServeGet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectObjectStore()
@@ -83,15 +82,15 @@ func (s *objectsHandlerSuite) TestServeGet(c *gc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Get(url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	body, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(body), gc.Equals, "charm-content")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(body), tc.Equals, "charm-content")
 }
 
-func (s *objectsHandlerSuite) TestServeGetInvalidSize(c *gc.C) {
+func (s *objectsHandlerSuite) TestServeGetInvalidSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectObjectStore()
@@ -111,14 +110,14 @@ func (s *objectsHandlerSuite) TestServeGetInvalidSize(c *gc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Get(url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	_, err = io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIs, io.ErrUnexpectedEOF)
+	c.Assert(err, tc.ErrorIs, io.ErrUnexpectedEOF)
 }
 
-func (s *objectsHandlerSuite) TestServeGetNotFound(c *gc.C) {
+func (s *objectsHandlerSuite) TestServeGetNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectObjectStore()
@@ -137,15 +136,15 @@ func (s *objectsHandlerSuite) TestServeGetNotFound(c *gc.C) {
 
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Get(url)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
 
 func (s *objectsHandlerSuite) expectObjectStore() {
 	s.objectStoreGetter.EXPECT().ObjectStore(gomock.Any()).Return(s.objectStore, nil)
 }
 
-func (s *objectsHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *objectsHandlerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.objectStoreGetter = NewMockObjectStoreServiceGetter(ctrl)

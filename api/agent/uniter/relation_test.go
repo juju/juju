@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -23,18 +22,18 @@ type relationSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&relationSuite{})
+var _ = tc.Suite(&relationSuite{})
 
-func (s *relationSuite) TestRelation(c *gc.C) {
+func (s *relationSuite) TestRelation(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "Relation")
-		c.Assert(arg, gc.DeepEquals, params.RelationUnits{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "Relation")
+		c.Assert(arg, tc.DeepEquals, params.RelationUnits{
 			RelationUnits: []params.RelationUnit{
 				{Relation: "relation-wordpress.db#mysql.server", Unit: "unit-mysql-0"},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.RelationResultsV2{})
+		c.Assert(result, tc.FitsTypeOf, &params.RelationResultsV2{})
 		*(result.(*params.RelationResultsV2)) = params.RelationResultsV2{
 			Results: []params.RelationResultV2{{
 				Life:      life.Alive,
@@ -62,16 +61,16 @@ func (s *relationSuite) TestRelation(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel, err := client.Relation(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rel.Id(), gc.Equals, 666)
-	c.Assert(rel.Tag(), gc.Equals, tag)
-	c.Assert(rel.Life(), gc.Equals, life.Alive)
-	c.Assert(rel.String(), gc.Equals, tag.Id())
-	c.Assert(rel.OtherApplication(), gc.Equals, "mysql")
-	c.Assert(rel.OtherModelUUID(), gc.Equals, testing.ModelTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rel.Id(), tc.Equals, 666)
+	c.Assert(rel.Tag(), tc.Equals, tag)
+	c.Assert(rel.Life(), tc.Equals, life.Alive)
+	c.Assert(rel.String(), tc.Equals, tag.Id())
+	c.Assert(rel.OtherApplication(), tc.Equals, "mysql")
+	c.Assert(rel.OtherModelUUID(), tc.Equals, testing.ModelTag.Id())
 	ep, err := rel.Endpoint(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ep, jc.DeepEquals, &uniter.Endpoint{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ep, tc.DeepEquals, &uniter.Endpoint{
 		charm.Relation{
 			Name:      "db",
 			Role:      "requirer",
@@ -83,16 +82,16 @@ func (s *relationSuite) TestRelation(c *gc.C) {
 	})
 }
 
-func (s *relationSuite) TestRefresh(c *gc.C) {
+func (s *relationSuite) TestRefresh(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "Relation")
-		c.Assert(arg, gc.DeepEquals, params.RelationUnits{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "Relation")
+		c.Assert(arg, tc.DeepEquals, params.RelationUnits{
 			RelationUnits: []params.RelationUnit{
 				{Relation: "relation-wordpress.db#mysql.server", Unit: "unit-mysql-0"},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.RelationResultsV2{})
+		c.Assert(result, tc.FitsTypeOf, &params.RelationResultsV2{})
 		*(result.(*params.RelationResultsV2)) = params.RelationResultsV2{
 			Results: []params.RelationResultV2{{
 				Life:      life.Dying,
@@ -106,36 +105,36 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
 	err := rel.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rel.Life(), gc.Equals, life.Dying)
-	c.Assert(rel.Suspended(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rel.Life(), tc.Equals, life.Dying)
+	c.Assert(rel.Suspended(), tc.IsTrue)
 }
 
-func (s *relationSuite) TestSuspended(c *gc.C) {
+func (s *relationSuite) TestSuspended(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
-	c.Assert(rel.Suspended(), jc.IsFalse)
+	c.Assert(rel.Suspended(), tc.IsFalse)
 	rel.UpdateSuspended(true)
-	c.Assert(rel.Suspended(), jc.IsTrue)
+	c.Assert(rel.Suspended(), tc.IsTrue)
 }
 
-func (s *relationSuite) TestSetStatus(c *gc.C) {
+func (s *relationSuite) TestSetStatus(c *tc.C) {
 	statusSet := false
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "SetRelationStatus")
-		c.Assert(arg, gc.DeepEquals, params.RelationStatusArgs{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "SetRelationStatus")
+		c.Assert(arg, tc.DeepEquals, params.RelationStatusArgs{
 			Args: []params.RelationStatusArg{{
 				UnitTag:    "unit-mysql-0",
 				RelationId: 666,
 				Status:     params.Suspended,
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -146,16 +145,16 @@ func (s *relationSuite) TestSetStatus(c *gc.C) {
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
 	err := rel.SetStatus(context.Background(), relation.Suspended)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusSet, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statusSet, tc.IsTrue)
 }
 
-func (s *relationSuite) TestRelationById(c *gc.C) {
+func (s *relationSuite) TestRelationById(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "RelationById")
-		c.Assert(arg, gc.DeepEquals, params.RelationIds{RelationIds: []int{666}})
-		c.Assert(result, gc.FitsTypeOf, &params.RelationResultsV2{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "RelationById")
+		c.Assert(arg, tc.DeepEquals, params.RelationIds{RelationIds: []int{666}})
+		c.Assert(result, tc.FitsTypeOf, &params.RelationResultsV2{})
 		*(result.(*params.RelationResultsV2)) = params.RelationResultsV2{
 			Results: []params.RelationResultV2{{
 				Id:        666,
@@ -169,11 +168,11 @@ func (s *relationSuite) TestRelationById(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	rel, err := client.RelationById(context.Background(), 666)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rel.Id(), gc.Equals, 666)
-	c.Assert(rel.Tag(), gc.Equals, names.NewRelationTag("wordpress:db mysql:server"))
-	c.Assert(rel.Life(), gc.Equals, life.Alive)
-	c.Assert(rel.Suspended(), jc.IsTrue)
-	c.Assert(rel.String(), gc.Equals, "wordpress:db mysql:server")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rel.Id(), tc.Equals, 666)
+	c.Assert(rel.Tag(), tc.Equals, names.NewRelationTag("wordpress:db mysql:server"))
+	c.Assert(rel.Life(), tc.Equals, life.Alive)
+	c.Assert(rel.Suspended(), tc.IsTrue)
+	c.Assert(rel.String(), tc.Equals, "wordpress:db mysql:server")
+	c.Assert(err, tc.ErrorIsNil)
 }

@@ -7,11 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	mgotesting "github.com/juju/mgo/v3/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/authentication/jwt"
@@ -29,24 +27,19 @@ type WorkerStateSuite struct {
 	statetesting.StateSuite
 }
 
-var _ = gc.Suite(&WorkerStateSuite{})
+var _ = tc.Suite(&WorkerStateSuite{})
 
-func (s *WorkerStateSuite) SetUpSuite(c *gc.C) {
+func (s *WorkerStateSuite) SetUpSuite(c *tc.C) {
 	s.workerFixture.SetUpSuite(c)
-	mgotesting.MgoServer.EnableReplicaSet = true
-	err := mgotesting.MgoServer.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.workerFixture.AddCleanup(func(*gc.C) { mgotesting.MgoServer.Destroy() })
-
 	s.StateSuite.SetUpSuite(c)
 }
 
-func (s *WorkerStateSuite) TearDownSuite(c *gc.C) {
+func (s *WorkerStateSuite) TearDownSuite(c *tc.C) {
 	s.StateSuite.TearDownSuite(c)
 	s.workerFixture.TearDownSuite(c)
 }
 
-func (s *WorkerStateSuite) SetUpTest(c *gc.C) {
+func (s *WorkerStateSuite) SetUpTest(c *tc.C) {
 	s.workerFixture.SetUpTest(c)
 	s.StateSuite.SetUpTest(c)
 	s.config.StatePool = s.StatePool
@@ -62,12 +55,12 @@ func (s *WorkerStateSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerStateSuite) TearDownTest(c *gc.C) {
+func (s *WorkerStateSuite) TearDownTest(c *tc.C) {
 	s.StateSuite.TearDownTest(c)
 	s.workerFixture.TearDownTest(c)
 }
 
-func (s *WorkerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *WorkerStateSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.modelService = NewMockModelService(ctrl)
@@ -78,7 +71,7 @@ func (s *WorkerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *WorkerStateSuite) TestStart(c *gc.C) {
+func (s *WorkerStateSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(
@@ -89,7 +82,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		UUID: s.controllerModelUUID,
 	}, nil)
 	w, err := apiserver.NewWorker(context.Background(), s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	// The server is started some time after the worker
@@ -104,20 +97,20 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		return
 	}
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, coreapiserver.ServerConfig{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, coreapiserver.ServerConfig{})
 	config := args[0].(coreapiserver.ServerConfig)
 
-	c.Assert(config.RegisterIntrospectionHandlers, gc.NotNil)
+	c.Assert(config.RegisterIntrospectionHandlers, tc.NotNil)
 	config.RegisterIntrospectionHandlers = nil
 
-	c.Assert(config.UpgradeComplete, gc.NotNil)
+	c.Assert(config.UpgradeComplete, tc.NotNil)
 	config.UpgradeComplete = nil
 
-	c.Assert(config.NewObserver, gc.NotNil)
+	c.Assert(config.NewObserver, tc.NotNil)
 	config.NewObserver = nil
 
-	c.Assert(config.GetAuditConfig, gc.NotNil)
+	c.Assert(config.GetAuditConfig, tc.NotNil)
 	// Set the audit config getter to Nil because we don't want to
 	// compare it.
 	config.GetAuditConfig = nil
@@ -126,7 +119,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 
 	jwtAuthenticator := jwt.NewAuthenticator(&jwtparser.Parser{})
 
-	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
+	c.Assert(config, tc.DeepEquals, coreapiserver.ServerConfig{
 		StatePool:                  s.StatePool,
 		LocalMacaroonAuthenticator: s.authenticator,
 		Mux:                        s.mux,

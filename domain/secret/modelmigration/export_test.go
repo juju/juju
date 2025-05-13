@@ -9,9 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/secrets"
@@ -25,9 +24,9 @@ type exportSuite struct {
 	service     *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -36,14 +35,14 @@ func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *exportSuite) newExportOperation(c *gc.C) *exportOperation {
+func (s *exportSuite) newExportOperation(c *tc.C) *exportOperation {
 	return &exportOperation{
 		service: s.service,
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 }
 
-func (s *exportSuite) TestRegisterExport(c *gc.C) {
+func (s *exportSuite) TestRegisterExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -305,7 +304,7 @@ func serialisedRemoteSecrets(uri *secrets.URI) string {
 	)
 }
 
-func (s *exportSuite) TestExport(c *gc.C) {
+func (s *exportSuite) TestExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
@@ -324,17 +323,17 @@ func (s *exportSuite) TestExport(c *gc.C) {
 
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	actualSecrets := dst.Secrets()
-	c.Assert(len(actualSecrets), gc.Equals, 3)
+	c.Assert(len(actualSecrets), tc.Equals, 3)
 	out, err := yaml.Marshal(actualSecrets)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, serialisedSecrets(uri, uri2, uri3, nextRotate, expire, timestamp))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, serialisedSecrets(uri, uri2, uri3, nextRotate, expire, timestamp))
 
 	actualRemoteSecrets := dst.RemoteSecrets()
-	c.Assert(len(actualRemoteSecrets), gc.Equals, 1)
+	c.Assert(len(actualRemoteSecrets), tc.Equals, 1)
 	out, err = yaml.Marshal(actualRemoteSecrets)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, serialisedRemoteSecrets(uri4))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, serialisedRemoteSecrets(uri4))
 }

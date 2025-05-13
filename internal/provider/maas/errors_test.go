@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/testing"
@@ -20,14 +20,14 @@ type ErrorSuite struct {
 	maasError error
 }
 
-var _ = gc.Suite(&ErrorSuite{})
+var _ = tc.Suite(&ErrorSuite{})
 
-func (s *ErrorSuite) SetUpTest(c *gc.C) {
+func (s *ErrorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.maasError = gomaasapi.NewPermissionError("denial")
 }
 
-func (s *ErrorSuite) TestHandleCredentialErrorPermissionError(c *gc.C) {
+func (s *ErrorSuite) TestHandleCredentialErrorPermissionError(c *tc.C) {
 	s.checkMaasPermissionHandling(c, true)
 
 	s.maasError = errors.Trace(s.maasError)
@@ -37,17 +37,17 @@ func (s *ErrorSuite) TestHandleCredentialErrorPermissionError(c *gc.C) {
 	s.checkMaasPermissionHandling(c, true)
 }
 
-func (s *ErrorSuite) TestHandleCredentialErrorAnotherError(c *gc.C) {
+func (s *ErrorSuite) TestHandleCredentialErrorAnotherError(c *tc.C) {
 	s.maasError = errors.New("fluffy")
 	s.checkMaasPermissionHandling(c, false)
 }
 
-func (s *ErrorSuite) TestNilError(c *gc.C) {
+func (s *ErrorSuite) TestNilError(c *tc.C) {
 	s.maasError = nil
 	s.checkMaasPermissionHandling(c, false)
 }
 
-func (s *ErrorSuite) TestGomaasError(c *gc.C) {
+func (s *ErrorSuite) TestGomaasError(c *tc.C) {
 	// check accepted status codes
 	s.maasError = gomaasapi.ServerError{StatusCode: http.StatusAccepted}
 	s.checkMaasPermissionHandling(c, false)
@@ -58,7 +58,7 @@ func (s *ErrorSuite) TestGomaasError(c *gc.C) {
 	}
 }
 
-func (s *ErrorSuite) checkMaasPermissionHandling(c *gc.C, handled bool) {
+func (s *ErrorSuite) checkMaasPermissionHandling(c *tc.C, handled bool) {
 	denied := IsAuthorisationFailure(s.maasError)
-	c.Assert(denied, gc.Equals, handled)
+	c.Assert(denied, tc.Equals, handled)
 }

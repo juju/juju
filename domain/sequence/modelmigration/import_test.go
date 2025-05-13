@@ -7,21 +7,21 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type importSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	importService *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) TestImportSequences(c *gc.C) {
+func (s *importSuite) TestImportSequences(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.importService.EXPECT().ImportSequences(gomock.Any(), map[string]uint64{
@@ -36,10 +36,10 @@ func (s *importSuite) TestImportSequences(c *gc.C) {
 	model.SetSequence("bar", 2)
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportSequencesEmpty(c *gc.C) {
+func (s *importSuite) TestImportSequencesEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	op := s.newImportOperation()
@@ -47,10 +47,10 @@ func (s *importSuite) TestImportSequencesEmpty(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.importService = NewMockImportService(ctrl)

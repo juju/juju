@@ -11,10 +11,8 @@ import (
 	"github.com/juju/collections/transform"
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -42,12 +40,13 @@ import (
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type uniterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	badTag names.Tag
 
@@ -59,15 +58,15 @@ type uniterSuite struct {
 	uniter *UniterAPI
 }
 
-var _ = gc.Suite(&uniterSuite{})
+var _ = tc.Suite(&uniterSuite{})
 
-func (s *uniterSuite) SetUpTest(c *gc.C) {
+func (s *uniterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.badTag = nil
 }
 
-func (s *uniterSuite) TestWatchUnitResolveModeUnauthorised(c *gc.C) {
+func (s *uniterSuite) TestWatchUnitResolveModeUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.badTag = names.NewUnitTag("foo/0")
@@ -75,11 +74,11 @@ func (s *uniterSuite) TestWatchUnitResolveModeUnauthorised(c *gc.C) {
 	res, err := s.uniter.WatchUnitResolveMode(context.Background(), params.Entity{
 		Tag: names.NewUnitTag("foo/0").String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *uniterSuite) TestWatchUnitResolveModeNotFound(c *gc.C) {
+func (s *uniterSuite) TestWatchUnitResolveModeNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -88,11 +87,11 @@ func (s *uniterSuite) TestWatchUnitResolveModeNotFound(c *gc.C) {
 	res, err := s.uniter.WatchUnitResolveMode(context.Background(), params.Entity{
 		Tag: names.NewUnitTag(unitName.String()).String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *uniterSuite) TestWatchUnitResolveMode(c *gc.C) {
+func (s *uniterSuite) TestWatchUnitResolveMode(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -102,12 +101,12 @@ func (s *uniterSuite) TestWatchUnitResolveMode(c *gc.C) {
 	res, err := s.uniter.WatchUnitResolveMode(context.Background(), params.Entity{
 		Tag: names.NewUnitTag(unitName.String()).String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.Error, gc.IsNil)
-	c.Check(res.NotifyWatcherId, gc.Equals, "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Error, tc.IsNil)
+	c.Check(res.NotifyWatcherId, tc.Equals, "1")
 }
 
-func (s *uniterSuite) TestResolvedUnauthorised(c *gc.C) {
+func (s *uniterSuite) TestResolvedUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.badTag = names.NewUnitTag("foo/0")
@@ -116,12 +115,12 @@ func (s *uniterSuite) TestResolvedUnauthorised(c *gc.C) {
 			Tag: names.NewUnitTag("foo/0").String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *uniterSuite) TestResolvedNotFound(c *gc.C) {
+func (s *uniterSuite) TestResolvedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -133,12 +132,12 @@ func (s *uniterSuite) TestResolvedNotFound(c *gc.C) {
 		}},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *uniterSuite) TestResolvedNotResolved(c *gc.C) {
+func (s *uniterSuite) TestResolvedNotResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -150,12 +149,12 @@ func (s *uniterSuite) TestResolvedNotResolved(c *gc.C) {
 		}},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Mode, gc.Equals, params.ResolvedNone)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Mode, tc.Equals, params.ResolvedNone)
 }
 
-func (s *uniterSuite) TestResolvedRetryHooks(c *gc.C) {
+func (s *uniterSuite) TestResolvedRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -167,12 +166,12 @@ func (s *uniterSuite) TestResolvedRetryHooks(c *gc.C) {
 		}},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Mode, gc.Equals, params.ResolvedRetryHooks)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Mode, tc.Equals, params.ResolvedRetryHooks)
 }
 
-func (s *uniterSuite) TestResolvedNoRetry(c *gc.C) {
+func (s *uniterSuite) TestResolvedNoRetry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -184,12 +183,12 @@ func (s *uniterSuite) TestResolvedNoRetry(c *gc.C) {
 		}},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Mode, gc.Equals, params.ResolvedNoHooks)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Mode, tc.Equals, params.ResolvedNoHooks)
 }
 
-func (s *uniterSuite) TestClearResolvedUnauthorised(c *gc.C) {
+func (s *uniterSuite) TestClearResolvedUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.badTag = names.NewUnitTag("foo/0")
@@ -198,12 +197,12 @@ func (s *uniterSuite) TestClearResolvedUnauthorised(c *gc.C) {
 			Tag: names.NewUnitTag("foo/0").String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *uniterSuite) TestClearResolvedNotFound(c *gc.C) {
+func (s *uniterSuite) TestClearResolvedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -214,12 +213,12 @@ func (s *uniterSuite) TestClearResolvedNotFound(c *gc.C) {
 			Tag: names.NewUnitTag(unitName.String()).String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *uniterSuite) TestClearResolved(c *gc.C) {
+func (s *uniterSuite) TestClearResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -230,12 +229,12 @@ func (s *uniterSuite) TestClearResolved(c *gc.C) {
 			Tag: names.NewUnitTag(unitName.String()).String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
 }
 
-func (s *uniterSuite) TestCharmArchiveSha256Local(c *gc.C) {
+func (s *uniterSuite) TestCharmArchiveSha256Local(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), domaincharm.CharmLocator{
@@ -249,15 +248,15 @@ func (s *uniterSuite) TestCharmArchiveSha256Local(c *gc.C) {
 			{URL: "local:foo-1"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{
 			Result: "sha256:foo",
 		}},
 	})
 }
 
-func (s *uniterSuite) TestCharmArchiveSha256Charmhub(c *gc.C) {
+func (s *uniterSuite) TestCharmArchiveSha256Charmhub(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), domaincharm.CharmLocator{
@@ -271,15 +270,15 @@ func (s *uniterSuite) TestCharmArchiveSha256Charmhub(c *gc.C) {
 			{URL: "foo-1"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{
 			Result: "sha256:foo",
 		}},
 	})
 }
 
-func (s *uniterSuite) TestCharmArchiveSha256Errors(c *gc.C) {
+func (s *uniterSuite) TestCharmArchiveSha256Errors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), domaincharm.CharmLocator{
@@ -305,8 +304,8 @@ func (s *uniterSuite) TestCharmArchiveSha256Errors(c *gc.C) {
 			{URL: "ch:foo-3"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Error: &params.Error{Message: `charm "foo-1" not found`, Code: params.CodeNotFound}},
 			{Error: &params.Error{Message: `charm "ch:foo-2" not found`, Code: params.CodeNotFound}},
@@ -315,7 +314,7 @@ func (s *uniterSuite) TestCharmArchiveSha256Errors(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestLeadershipSettings(c *gc.C) {
+func (s *uniterSuite) TestLeadershipSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.uniter.Merge(context.Background(), struct{}{}, struct{}{})
@@ -323,7 +322,7 @@ func (s *uniterSuite) TestLeadershipSettings(c *gc.C) {
 	s.uniter.WatchLeadershipSettings(context.Background(), struct{}{}, struct{}{})
 }
 
-func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
+func (s *uniterSuite) TestGetPrincipal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.badTag = names.NewUnitTag("mysql/0")
@@ -340,8 +339,8 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	s.expectGetUnitPrincipal("foo/42", "", false, boom)
 
 	result, err := s.uniter.GetPrincipal(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringBoolResults{
 		Results: []params.StringBoolResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: "", Ok: false, Error: nil},
@@ -351,7 +350,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
+func (s *uniterSuite) TestAvailabilityZone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -380,9 +379,9 @@ func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
 	result, err := s.uniter.AvailabilityZone(context.Background(), args)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(result, gc.DeepEquals, params.StringResults{
+	c.Check(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "a_zone"},
 			{Error: apiservererrors.ServerError(applicationerrors.UnitMachineNotAssigned)},
@@ -393,7 +392,7 @@ func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
+func (s *uniterSuite) TestAssignedMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -414,8 +413,8 @@ func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 	result, err := s.uniter.AssignedMachine(context.Background(), args)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "machine-0"},
 			{Error: &params.Error{
@@ -428,7 +427,7 @@ func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestWatchConfiSettingsHash(c *gc.C) {
+func (s *uniterSuite) TestWatchConfiSettingsHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -452,8 +451,8 @@ func (s *uniterSuite) TestWatchConfiSettingsHash(c *gc.C) {
 	s.applicationService.EXPECT().WatchApplicationConfigHash(gomock.Any(), "postgresql").Return(nil, applicationerrors.UnitNotFound)
 
 	result, err := s.uniter.WatchConfigSettingsHash(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{
 				StringsWatcherId: "1",
@@ -465,7 +464,7 @@ func (s *uniterSuite) TestWatchConfiSettingsHash(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestWatchTrustConfiSettingsHash(c *gc.C) {
+func (s *uniterSuite) TestWatchTrustConfiSettingsHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -489,8 +488,8 @@ func (s *uniterSuite) TestWatchTrustConfiSettingsHash(c *gc.C) {
 	s.applicationService.EXPECT().WatchApplicationConfigHash(gomock.Any(), "postgresql").Return(nil, applicationerrors.UnitNotFound)
 
 	result, err := s.uniter.WatchTrustConfigSettingsHash(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{
 				StringsWatcherId: "1",
@@ -502,7 +501,7 @@ func (s *uniterSuite) TestWatchTrustConfiSettingsHash(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
+func (s *uniterSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -526,8 +525,8 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 	s.applicationService.EXPECT().WatchUnitAddressesHash(gomock.Any(), coreunit.Name("postgresql/0")).Return(nil, applicationerrors.UnitNotFound)
 
 	result, err := s.uniter.WatchUnitAddressesHash(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{
 				StringsWatcherId: "1",
@@ -539,7 +538,7 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestConfigSettings(c *gc.C) {
+func (s *uniterSuite) TestConfigSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -562,8 +561,8 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	result, err := s.uniter.ConfigSettings(context.Background(), args)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, params.ConfigSettingsResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.ConfigSettingsResults{
 		Results: []params.ConfigSettingsResult{
 			{Settings: settings},
 			{Settings: nil},
@@ -573,7 +572,7 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
+func (s *uniterSuite) TestHasSubordinates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := params.Entities{Entities: []params.Entity{
@@ -590,8 +589,8 @@ func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
 	s.expectGetHasSubordinates(c, "foo/42", nil, boom)
 
 	result, err := s.uniter.HasSubordinates(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.BoolResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: true},
@@ -626,11 +625,11 @@ func (s *uniterSuite) expectedGetAvailabilityZone(machineUUID coremachine.UUID, 
 	s.machineService.EXPECT().AvailabilityZone(gomock.Any(), machineUUID).Return(az, err)
 }
 
-func (s *uniterSuite) expectGetHasSubordinates(c *gc.C, unitName coreunit.Name, subordinateNames []coreunit.Name, err error) {
+func (s *uniterSuite) expectGetHasSubordinates(c *tc.C, unitName coreunit.Name, subordinateNames []coreunit.Name, err error) {
 	s.applicationService.EXPECT().GetUnitSubordinates(gomock.Any(), unitName).Return(subordinateNames, err)
 }
 
-func (s *uniterSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
@@ -681,16 +680,16 @@ type leadershipSettings interface {
 }
 
 type leadershipUniterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	watcherRegistry *MockWatcherRegistry
 
 	uniter leadershipSettings
 
-	setupMocks func(c *gc.C) *gomock.Controller
+	setupMocks func(c *tc.C) *gomock.Controller
 }
 
-func (s *leadershipUniterSuite) TestLeadershipSettingsMerge(c *gc.C) {
+func (s *leadershipUniterSuite) TestLeadershipSettingsMerge(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	results, err := s.uniter.Merge(context.Background(), params.MergeLeadershipSettingsBulkParams{
@@ -703,13 +702,13 @@ func (s *leadershipUniterSuite) TestLeadershipSettingsMerge(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *leadershipUniterSuite) TestLeadershipSettingsRead(c *gc.C) {
+func (s *leadershipUniterSuite) TestLeadershipSettingsRead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	results, err := s.uniter.Read(context.Background(), params.Entities{
@@ -719,13 +718,13 @@ func (s *leadershipUniterSuite) TestLeadershipSettingsRead(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.GetLeadershipSettingsBulkResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.GetLeadershipSettingsBulkResults{
 		Results: []params.GetLeadershipSettingsResult{{}},
 	})
 }
 
-func (s *leadershipUniterSuite) TestLeadershipSettingsWatchLeadershipSettings(c *gc.C) {
+func (s *leadershipUniterSuite) TestLeadershipSettingsWatchLeadershipSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	results, err := s.uniter.WatchLeadershipSettings(context.Background(), params.Entities{
@@ -735,8 +734,8 @@ func (s *leadershipUniterSuite) TestLeadershipSettingsWatchLeadershipSettings(c 
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: "watcher1",
 		}},
@@ -747,10 +746,10 @@ type uniterv19Suite struct {
 	leadershipUniterSuite
 }
 
-var _ = gc.Suite(&uniterv19Suite{})
+var _ = tc.Suite(&uniterv19Suite{})
 
-func (s *uniterv19Suite) SetUpTest(c *gc.C) {
-	s.setupMocks = func(c *gc.C) *gomock.Controller {
+func (s *uniterv19Suite) SetUpTest(c *tc.C) {
+	s.setupMocks = func(c *tc.C) *gomock.Controller {
 		ctrl := gomock.NewController(c)
 
 		s.watcherRegistry = NewMockWatcherRegistry(ctrl)
@@ -772,10 +771,10 @@ type uniterv20Suite struct {
 	leadershipUniterSuite
 }
 
-var _ = gc.Suite(&uniterv20Suite{})
+var _ = tc.Suite(&uniterv20Suite{})
 
-func (s *uniterv20Suite) SetUpTest(c *gc.C) {
-	s.setupMocks = func(c *gc.C) *gomock.Controller {
+func (s *uniterv20Suite) SetUpTest(c *tc.C) {
+	s.setupMocks = func(c *tc.C) *gomock.Controller {
 		ctrl := gomock.NewController(c)
 
 		s.watcherRegistry = NewMockWatcherRegistry(ctrl)
@@ -794,7 +793,7 @@ func (s *uniterv20Suite) SetUpTest(c *gc.C) {
 }
 
 type uniterRelationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	wordpressAppTag  names.ApplicationTag
 	authTag          names.Tag
@@ -808,15 +807,16 @@ type uniterRelationSuite struct {
 	uniter *UniterAPI
 }
 
-var _ = gc.Suite(&uniterRelationSuite{})
+var _ = tc.Suite(&uniterRelationSuite{})
 
-func (s *uniterRelationSuite) SetUpSuite(_ *gc.C) {
+func (s *uniterRelationSuite) SetUpSuite(c *tc.C) {
+	s.IsolationSuite.SetUpSuite(c)
 	s.wordpressAppTag = names.NewApplicationTag("wordpress")
 	s.wordpressUnitTag = names.NewUnitTag("wordpress/0")
 	s.authTag = s.wordpressUnitTag
 }
 
-func (s *uniterRelationSuite) TestRelation(c *gc.C) {
+func (s *uniterRelationSuite) TestRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relKey := relationtesting.GenNewKey(c, relTag.Id())
@@ -831,8 +831,8 @@ func (s *uniterRelationSuite) TestRelation(c *gc.C) {
 		{Relation: relTag.String(), Unit: "unit-wordpress-0"},
 	}}
 	result, err := s.uniter.Relation(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, params.RelationResultsV2{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.RelationResultsV2{
 		Results: []params.RelationResultV2{
 			{
 				Id:   relID,
@@ -861,7 +861,7 @@ func (s *uniterRelationSuite) TestRelation(c *gc.C) {
 // TestRelationUnauthorized tests the different scenarios where
 // ErrUnauthorized will be returned. It also tests the bulk
 // functionality of the Relation facade method.
-func (s *uniterRelationSuite) TestRelationUnauthorized(c *gc.C) {
+func (s *uniterRelationSuite) TestRelationUnauthorized(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// arrange
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
@@ -885,8 +885,8 @@ func (s *uniterRelationSuite) TestRelationUnauthorized(c *gc.C) {
 	result, err := s.uniter.Relation(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, params.RelationResultsV2{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.RelationResultsV2{
 		Results: []params.RelationResultV2{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -896,7 +896,7 @@ func (s *uniterRelationSuite) TestRelationUnauthorized(c *gc.C) {
 	})
 }
 
-func (s *uniterRelationSuite) TestRelationById(c *gc.C) {
+func (s *uniterRelationSuite) TestRelationById(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
@@ -924,8 +924,8 @@ func (s *uniterRelationSuite) TestRelationById(c *gc.C) {
 		},
 	}
 	result, err := s.uniter.RelationById(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationResultsV2{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.RelationResultsV2{
 		Results: []params.RelationResultV2{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
@@ -953,7 +953,7 @@ func (s *uniterRelationSuite) TestRelationById(c *gc.C) {
 	})
 }
 
-func (s *uniterRelationSuite) TestReadSettingsApplication(c *gc.C) {
+func (s *uniterRelationSuite) TestReadSettingsApplication(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
@@ -972,8 +972,8 @@ func (s *uniterRelationSuite) TestReadSettingsApplication(c *gc.C) {
 	result, err := s.uniter.ReadSettings(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Settings: params.Settings{
 				"wanda": "firebaugh",
@@ -982,7 +982,7 @@ func (s *uniterRelationSuite) TestReadSettingsApplication(c *gc.C) {
 	})
 }
 
-func (s *uniterRelationSuite) TestReadSettingsUnit(c *gc.C) {
+func (s *uniterRelationSuite) TestReadSettingsUnit(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
@@ -1001,8 +1001,8 @@ func (s *uniterRelationSuite) TestReadSettingsUnit(c *gc.C) {
 	result, err := s.uniter.ReadSettings(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Settings: params.Settings{
 				"wanda": "firebaugh",
@@ -1011,7 +1011,7 @@ func (s *uniterRelationSuite) TestReadSettingsUnit(c *gc.C) {
 	})
 }
 
-func (s *uniterRelationSuite) TestReadSettingsErrUnauthorized(c *gc.C) {
+func (s *uniterRelationSuite) TestReadSettingsErrUnauthorized(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
@@ -1044,21 +1044,21 @@ func (s *uniterRelationSuite) TestReadSettingsErrUnauthorized(c *gc.C) {
 		},
 	}
 
-	for i, tc := range errAuthTests {
-		c.Logf("test %d: %s", i, tc.description)
-		tc.arrange()
-		args := params.RelationUnits{RelationUnits: []params.RelationUnit{tc.arg}}
+	for i, testCase := range errAuthTests {
+		c.Logf("test %d: %s", i, testCase.description)
+		testCase.arrange()
+		args := params.RelationUnits{RelationUnits: []params.RelationUnit{testCase.arg}}
 		result, err := s.uniter.ReadSettings(context.Background(), args)
-		if c.Check(err, jc.ErrorIsNil) {
-			if !c.Check(result.Results, gc.HasLen, 1) {
+		if c.Check(err, tc.ErrorIsNil) {
+			if !c.Check(result.Results, tc.HasLen, 1) {
 				continue
 			}
-			c.Check(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+			c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 		}
 	}
 }
 
-func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *gc.C) {
+func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("wordpress:mysql")
@@ -1077,8 +1077,8 @@ func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *gc.C) {
 	result, err := s.uniter.ReadSettings(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Settings: params.Settings{
 				"wanda": "firebaugh",
@@ -1087,7 +1087,7 @@ func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *gc.C) {
 	})
 }
 
-func (s *uniterRelationSuite) TestReadRemoteSettingsErrUnauthorized(c *gc.C) {
+func (s *uniterRelationSuite) TestReadRemoteSettingsErrUnauthorized(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
@@ -1122,16 +1122,16 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsErrUnauthorized(c *gc.C) {
 		},
 	}
 
-	for i, tc := range errAuthTests {
-		c.Logf("test %d: %s", i, tc.description)
-		tc.arrange()
-		args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{tc.arg}}
+	for i, testCase := range errAuthTests {
+		c.Logf("test %d: %s", i, testCase.description)
+		testCase.arrange()
+		args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{testCase.arg}}
 		result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
-		if c.Check(err, jc.ErrorIsNil) {
-			if !c.Check(result.Results, gc.HasLen, 1) {
+		if c.Check(err, tc.ErrorIsNil) {
+			if !c.Check(result.Results, tc.HasLen, 1) {
 				continue
 			}
-			c.Check(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+			c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 		}
 	}
 }
@@ -1140,7 +1140,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsErrUnauthorized(c *gc.C) {
 // unit settings from the unit at the other end of the relation.
 // local = wordpress
 // remote = mysql
-func (s *uniterRelationSuite) TestReadRemoteSettingsForUnit(c *gc.C) {
+func (s *uniterRelationSuite) TestReadRemoteSettingsForUnit(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
@@ -1160,8 +1160,8 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForUnit(c *gc.C) {
 	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Settings: params.Settings{
 				"wanda": "firebaugh",
@@ -1174,7 +1174,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForUnit(c *gc.C) {
 // application settings from the application at the other end of the relation.
 // local = wordpress
 // remote = mysql
-func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
+func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
@@ -1194,8 +1194,8 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Settings: params.Settings{
 				"wanda": "firebaugh",
@@ -1208,7 +1208,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 // ability to read the application settings of its own application via the
 // ReadRemoteSettings method .
 // local = wordpress
-func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplication(c *gc.C) {
+func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplication(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("wordpress:mysql")
@@ -1227,8 +1227,8 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Settings: params.Settings{
 				"wanda": "firebaugh",
@@ -1237,7 +1237,7 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 	})
 }
 
-func (s *uniterRelationSuite) TestRelationStatus(c *gc.C) {
+func (s *uniterRelationSuite) TestRelationStatus(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 
@@ -1263,8 +1263,8 @@ func (s *uniterRelationSuite) TestRelationStatus(c *gc.C) {
 	result, err := s.uniter.RelationsStatus(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationUnitStatusResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.RelationUnitStatusResults{
 		Results: []params.RelationUnitStatusResult{
 			{RelationResults: expectedRelationUnitStatus},
 		},
@@ -1273,31 +1273,31 @@ func (s *uniterRelationSuite) TestRelationStatus(c *gc.C) {
 
 // TestRelationsStatusUnitTagNotUnitNorApplication test that a valid tag not of
 // the type application nor unit fails with unauthorized.
-func (s *uniterRelationSuite) TestRelationsStatusUnitTagNotUnitNorApplication(c *gc.C) {
+func (s *uniterRelationSuite) TestRelationsStatusUnitTagNotUnitNorApplication(c *tc.C) {
 	// act
 	args := params.Entities{Entities: []params.Entity{{Tag: "machine-0"}}}
 	result, err := s.uniter.RelationsStatus(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
 // TestRelationsStatusUnitTagCannotAccess tests that a valid unit tag which is not
 // the authorized one will fail.
-func (s *uniterRelationSuite) TestRelationsStatusUnitTagCannotAccess(c *gc.C) {
+func (s *uniterRelationSuite) TestRelationsStatusUnitTagCannotAccess(c *tc.C) {
 	// act
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}}
 	result, err := s.uniter.RelationsStatus(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *uniterRelationSuite) TestSetRelationStatus(c *gc.C) {
+func (s *uniterRelationSuite) TestSetRelationStatus(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relID := 42
@@ -1318,23 +1318,23 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *gc.C) {
 	result, err := s.uniter.SetRelationStatus(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	c.Assert(result, gc.DeepEquals, emptyErrorResults)
+	c.Assert(result, tc.DeepEquals, emptyErrorResults)
 }
 
-func (s *uniterRelationSuite) TestSetRelationStatusUnitTagNotValid(c *gc.C) {
+func (s *uniterRelationSuite) TestSetRelationStatusUnitTagNotValid(c *tc.C) {
 	// act
 	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{UnitTag: "foo"}}}
 	result, err := s.uniter.SetRelationStatus(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.ErrorMatches, "\"foo\" is not a valid tag")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, "\"foo\" is not a valid tag")
 }
 
-func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
+func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relID := 42
@@ -1350,12 +1350,12 @@ func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 	result, err := s.uniter.SetRelationStatus(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Check(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
+func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *tc.C) {
 	c.Skip("Until unit PublicAddress() is implemented in its domain")
 	// arrange
 	defer s.setupMocks(c).Finish()
@@ -1375,8 +1375,8 @@ func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
 	result, err := s.uniter.EnterScope(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1385,7 +1385,7 @@ func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
 	})
 }
 
-func (s *uniterRelationSuite) TestEnterScope(c *gc.C) {
+func (s *uniterRelationSuite) TestEnterScope(c *tc.C) {
 	c.Skip("Until unit PublicAddress() is implemented in its domain")
 	// arrange
 	defer s.setupMocks(c).Finish()
@@ -1402,15 +1402,15 @@ func (s *uniterRelationSuite) TestEnterScope(c *gc.C) {
 	result, err := s.uniter.EnterScope(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	c.Assert(result, gc.DeepEquals, emptyErrorResults)
+	c.Assert(result, tc.DeepEquals, emptyErrorResults)
 }
 
 // TestEnterScopeReturnsPotentialRelationUnitNotValid tests that if EnterScope
 // returns PotentialRelationUnitNotValid the facade method still returns no
 // error.
-func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid(c *gc.C) {
+func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid(c *tc.C) {
 	c.Skip("Until unit PublicAddress() is implemented in its domain")
 	// arrange
 	defer s.setupMocks(c).Finish()
@@ -1428,14 +1428,14 @@ func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid
 	result, err := s.uniter.EnterScope(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	c.Assert(result, gc.DeepEquals, emptyErrorResults)
+	c.Assert(result, tc.DeepEquals, emptyErrorResults)
 }
 
 // TestLeaveScopeFails tests for unauthorized errors, unit tag
 // validation, and ensures the method works in bulk.
-func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
+func (s *uniterRelationSuite) TestLeaveScopeFails(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
@@ -1457,8 +1457,8 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
 	result, err := s.uniter.LeaveScope(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1468,7 +1468,7 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
 	})
 }
 
-func (s *uniterRelationSuite) TestWatchRelationUnits(c *gc.C) {
+func (s *uniterRelationSuite) TestWatchRelationUnits(c *tc.C) {
 	// arrange
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -1476,7 +1476,7 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *gc.C) {
 	relUUID := relationtesting.GenRelationUUID(c)
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relKey, err := corerelation.ParseKeyFromTagString(relTag.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	watcherID := "watch1"
 	unitUUIDs := []coreunit.UUID{
@@ -1521,13 +1521,13 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *gc.C) {
 	result, err := s.uniter.WatchRelationUnits(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedResult)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedResult)
 }
 
 // TestWatchRelationUnitsFails tests for unauthorized errors, unit tag
 // validation, and ensures the method works in bulk.
-func (s *uniterRelationSuite) TestWatchRelationUnitsFails(c *gc.C) {
+func (s *uniterRelationSuite) TestWatchRelationUnitsFails(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
@@ -1549,8 +1549,8 @@ func (s *uniterRelationSuite) TestWatchRelationUnitsFails(c *gc.C) {
 	result, err := s.uniter.WatchRelationUnits(context.Background(), args)
 
 	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.RelationUnitsWatchResults{
 		Results: []params.RelationUnitsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1560,7 +1560,7 @@ func (s *uniterRelationSuite) TestWatchRelationUnitsFails(c *gc.C) {
 	})
 }
 
-func (s *uniterRelationSuite) TestWatchUnitRelations(c *gc.C) {
+func (s *uniterRelationSuite) TestWatchUnitRelations(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -1582,8 +1582,8 @@ func (s *uniterRelationSuite) TestWatchUnitRelations(c *gc.C) {
 			}})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{
 				StringsWatcherId: watcherID,
@@ -1594,7 +1594,7 @@ func (s *uniterRelationSuite) TestWatchUnitRelations(c *gc.C) {
 	})
 }
 
-func (s *uniterRelationSuite) TestWatchUnitRelationsErrUnauthorized(c *gc.C) {
+func (s *uniterRelationSuite) TestWatchUnitRelationsErrUnauthorized(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	args := params.Entities{Entities: []params.Entity{
@@ -1608,8 +1608,8 @@ func (s *uniterRelationSuite) TestWatchUnitRelationsErrUnauthorized(c *gc.C) {
 	results, err := s.uniter.WatchUnitRelations(context.Background(), args)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1618,7 +1618,7 @@ func (s *uniterRelationSuite) TestWatchUnitRelationsErrUnauthorized(c *gc.C) {
 
 }
 
-func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *uniterRelationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
@@ -1665,7 +1665,7 @@ func (s *uniterRelationSuite) expectGetRelationUUIDByKey(key corerelation.Key, r
 	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), key).Return(relUUID, err)
 }
 
-func (s *uniterRelationSuite) expectGetRelationDetails(c *gc.C, relUUID corerelation.UUID, relID int, relTag names.RelationTag) {
+func (s *uniterRelationSuite) expectGetRelationDetails(c *tc.C, relUUID corerelation.UUID, relID int, relTag names.RelationTag) {
 	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
 		Life: life.Alive,
 		UUID: relUUID,
@@ -1698,7 +1698,7 @@ func (s *uniterRelationSuite) expectGetRelationDetailsNotFound(relUUID corerelat
 	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{}, relationerrors.RelationNotFound)
 }
 
-func (s *uniterRelationSuite) expectGetRelationDetailsUnexpectedAppName(c *gc.C, relUUID corerelation.UUID) {
+func (s *uniterRelationSuite) expectGetRelationDetailsUnexpectedAppName(c *tc.C, relUUID corerelation.UUID) {
 	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
 		Life: life.Alive,
 		UUID: relationtesting.GenRelationUUID(c),
@@ -1750,7 +1750,7 @@ func (s *uniterRelationSuite) expectGetUnitUUID(name string, unitUUID coreunit.U
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name(name)).Return(unitUUID, err)
 }
 
-func (s *uniterRelationSuite) expectedGetRelationsStatusForUnit(c *gc.C, uuid coreunit.UUID, input []params.RelationUnitStatus) {
+func (s *uniterRelationSuite) expectedGetRelationsStatusForUnit(c *tc.C, uuid coreunit.UUID, input []params.RelationUnitStatus) {
 	expectedStatuses := make([]relation.RelationUnitStatus, len(input))
 	for i, in := range input {
 		// The caller created the tag, programing error if this fails.
@@ -1804,7 +1804,7 @@ func (s *uniterRelationSuite) expectWatchRelatedUnitsChange(
 }
 
 type commitHookChangesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	applicationService *MockApplicationService
 	relationService    *MockRelationService
@@ -1812,9 +1812,9 @@ type commitHookChangesSuite struct {
 	uniter *UniterAPI
 }
 
-var _ = gc.Suite(&commitHookChangesSuite{})
+var _ = tc.Suite(&commitHookChangesSuite{})
 
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *gc.C) {
+func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	unitTag := names.NewUnitTag("wordpress/0")
@@ -1840,10 +1840,10 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *gc.C) {
 	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, canAccess)
 
 	// assert
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadUnitTag(c *gc.C) {
+func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadUnitTag(c *tc.C) {
 	// arrange
 	arg := params.RelationUnitSettings{
 		Unit: "machine-9",
@@ -1853,10 +1853,10 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadUnitTag(
 	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, nil)
 
 	// assert
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsFailCanAccess(c *gc.C) {
+func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsFailCanAccess(c *tc.C) {
 	// arrange
 	canAccess := func(tag names.Tag) bool {
 		return false
@@ -1869,10 +1869,10 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsFailCanAcce
 	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, canAccess)
 
 	// assert
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadRelationTag(c *gc.C) {
+func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadRelationTag(c *tc.C) {
 	// arrange
 	canAccess := func(tag names.Tag) bool {
 		return true
@@ -1886,10 +1886,10 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadRelation
 	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, canAccess)
 
 	// assert
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *commitHookChangesSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)

@@ -6,21 +6,20 @@ package context
 import (
 	"context"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type contextSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&contextSuite{})
+var _ = tc.Suite(&contextSuite{})
 
-func (s *contextSuite) TestSourceableErrorIsNilIfErrorIsNotContextError(c *gc.C) {
+func (s *contextSuite) TestSourceableErrorIsNilIfErrorIsNotContextError(c *tc.C) {
 	var tomb tomb.Tomb
 	tomb.Kill(errors.New("tomb error"))
 
@@ -30,10 +29,10 @@ func (s *contextSuite) TestSourceableErrorIsNilIfErrorIsNotContextError(c *gc.C)
 
 	ctx := WithSourceableError(context.Background(), &tomb)
 	err := ctx.Err()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *contextSuite) TestSourceableErrorIsIgnoredIfNotInErrorState(c *gc.C) {
+func (s *contextSuite) TestSourceableErrorIsIgnoredIfNotInErrorState(c *tc.C) {
 	var tomb tomb.Tomb
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -41,10 +40,10 @@ func (s *contextSuite) TestSourceableErrorIsIgnoredIfNotInErrorState(c *gc.C) {
 
 	ctx = WithSourceableError(ctx, &tomb)
 	err := ctx.Err()
-	c.Assert(err, jc.ErrorIs, context.Canceled)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
-func (s *contextSuite) TestSourceableErrorIsTombError(c *gc.C) {
+func (s *contextSuite) TestSourceableErrorIsTombError(c *tc.C) {
 	var tomb tomb.Tomb
 	tomb.Kill(errors.New("boom"))
 
@@ -53,10 +52,10 @@ func (s *contextSuite) TestSourceableErrorIsTombError(c *gc.C) {
 
 	ctx = WithSourceableError(ctx, &tomb)
 	err := ctx.Err()
-	c.Assert(err, gc.ErrorMatches, `boom`)
+	c.Assert(err, tc.ErrorMatches, `boom`)
 }
 
-func (s *contextSuite) TestSourceableErrorIsTiedToTheTomb(c *gc.C) {
+func (s *contextSuite) TestSourceableErrorIsTiedToTheTomb(c *tc.C) {
 	var tomb tomb.Tomb
 
 	ctx := tomb.Context(context.Background())
@@ -65,5 +64,5 @@ func (s *contextSuite) TestSourceableErrorIsTiedToTheTomb(c *gc.C) {
 
 	ctx = WithSourceableError(ctx, &tomb)
 	err := ctx.Err()
-	c.Assert(err, gc.ErrorMatches, `boom`)
+	c.Assert(err, tc.ErrorMatches, `boom`)
 }

@@ -6,8 +6,7 @@ package network_test
 import (
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
@@ -17,9 +16,9 @@ type nicSuite struct {
 	info network.InterfaceInfos
 }
 
-var _ = gc.Suite(&nicSuite{})
+var _ = tc.Suite(&nicSuite{})
 
-func (s *nicSuite) SetUpTest(_ *gc.C) {
+func (s *nicSuite) SetUpTest(_ *tc.C) {
 	s.info = network.InterfaceInfos{
 		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0", MACAddress: "00:16:3e:aa:bb:cc"},
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
@@ -37,64 +36,64 @@ func (s *nicSuite) SetUpTest(_ *gc.C) {
 	}
 }
 
-func (s *nicSuite) TestActualInterfaceName(c *gc.C) {
-	c.Check(s.info[0].ActualInterfaceName(), gc.Equals, "eth0.1")
-	c.Check(s.info[1].ActualInterfaceName(), gc.Equals, "eth1")
-	c.Check(s.info[2].ActualInterfaceName(), gc.Equals, "br2.42")
+func (s *nicSuite) TestActualInterfaceName(c *tc.C) {
+	c.Check(s.info[0].ActualInterfaceName(), tc.Equals, "eth0.1")
+	c.Check(s.info[1].ActualInterfaceName(), tc.Equals, "eth1")
+	c.Check(s.info[2].ActualInterfaceName(), tc.Equals, "br2.42")
 }
 
-func (s *nicSuite) TestIsVirtual(c *gc.C) {
-	c.Check(s.info[0].IsVirtual(), jc.IsTrue)
-	c.Check(s.info[1].IsVirtual(), jc.IsFalse)
-	c.Check(s.info[2].IsVirtual(), jc.IsTrue)
-	c.Check(s.info[8].IsVirtual(), jc.IsTrue, gc.Commentf("expected NIC with OVS virtual port type to be treated as virtual"))
+func (s *nicSuite) TestIsVirtual(c *tc.C) {
+	c.Check(s.info[0].IsVirtual(), tc.IsTrue)
+	c.Check(s.info[1].IsVirtual(), tc.IsFalse)
+	c.Check(s.info[2].IsVirtual(), tc.IsTrue)
+	c.Check(s.info[8].IsVirtual(), tc.IsTrue, tc.Commentf("expected NIC with OVS virtual port type to be treated as virtual"))
 }
 
-func (s *nicSuite) TestIsVLAN(c *gc.C) {
-	c.Check(s.info[0].IsVLAN(), jc.IsTrue)
-	c.Check(s.info[1].IsVLAN(), jc.IsFalse)
-	c.Check(s.info[2].IsVLAN(), jc.IsTrue)
+func (s *nicSuite) TestIsVLAN(c *tc.C) {
+	c.Check(s.info[0].IsVLAN(), tc.IsTrue)
+	c.Check(s.info[1].IsVLAN(), tc.IsFalse)
+	c.Check(s.info[2].IsVLAN(), tc.IsTrue)
 }
 
-func (s *nicSuite) TestAdditionalFields(c *gc.C) {
-	c.Check(s.info[3].ConfigType, gc.Equals, network.ConfigDHCP)
-	c.Check(s.info[3].NoAutoStart, jc.IsTrue)
-	c.Check(s.info[4].Addresses, jc.DeepEquals, network.ProviderAddresses{network.NewMachineAddress("0.1.2.3").AsProviderAddress()})
-	c.Check(s.info[5].DNSServers, jc.DeepEquals, []string{"1.1.1.1", "2.2.2.2"})
-	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewMachineAddress("4.3.2.1").AsProviderAddress())
-	c.Check(s.info[7].Routes, jc.DeepEquals, []network.Route{{
+func (s *nicSuite) TestAdditionalFields(c *tc.C) {
+	c.Check(s.info[3].ConfigType, tc.Equals, network.ConfigDHCP)
+	c.Check(s.info[3].NoAutoStart, tc.IsTrue)
+	c.Check(s.info[4].Addresses, tc.DeepEquals, network.ProviderAddresses{network.NewMachineAddress("0.1.2.3").AsProviderAddress()})
+	c.Check(s.info[5].DNSServers, tc.DeepEquals, []string{"1.1.1.1", "2.2.2.2"})
+	c.Check(s.info[6].GatewayAddress, tc.DeepEquals, network.NewMachineAddress("4.3.2.1").AsProviderAddress())
+	c.Check(s.info[7].Routes, tc.DeepEquals, []network.Route{{
 		DestinationCIDR: "0.1.2.3/24",
 		GatewayIP:       "0.1.2.1",
 		Metric:          0,
 	}})
 }
 
-func (*nicSuite) TestInterfaceInfoValidate(c *gc.C) {
+func (*nicSuite) TestInterfaceInfoValidate(c *tc.C) {
 	dev := network.InterfaceInfo{InterfaceName: ""}
-	c.Check(dev.Validate(), jc.ErrorIs, coreerrors.NotValid)
+	c.Check(dev.Validate(), tc.ErrorIs, coreerrors.NotValid)
 
 	dev = network.InterfaceInfo{MACAddress: "do you even MAC bro?"}
-	c.Check(dev.Validate(), jc.ErrorIs, coreerrors.NotValid)
+	c.Check(dev.Validate(), tc.ErrorIs, coreerrors.NotValid)
 
 	dev = network.InterfaceInfo{
 		InterfaceName: "eth0",
 		MACAddress:    network.GenerateVirtualMACAddress(),
 		InterfaceType: "invalid",
 	}
-	c.Check(dev.Validate(), jc.ErrorIs, coreerrors.NotValid)
+	c.Check(dev.Validate(), tc.ErrorIs, coreerrors.NotValid)
 
 	dev = network.InterfaceInfo{
 		InterfaceName: "not#valid",
 		InterfaceType: "bond",
 	}
-	c.Check(dev.Validate(), jc.ErrorIsNil)
+	c.Check(dev.Validate(), tc.ErrorIsNil)
 }
 
-func (*nicSuite) TestInterfaceInfosValidate(c *gc.C) {
-	c.Check(getInterFaceInfos().Validate(), jc.ErrorIsNil)
+func (*nicSuite) TestInterfaceInfosValidate(c *tc.C) {
+	c.Check(getInterFaceInfos().Validate(), tc.ErrorIsNil)
 }
 
-func (*nicSuite) TestInterfaceInfosFiltering(c *gc.C) {
+func (*nicSuite) TestInterfaceInfosFiltering(c *tc.C) {
 	filtered := getInterFaceInfos().Filter(func(iface network.InterfaceInfo) bool {
 		return strings.HasPrefix(iface.InterfaceName, "eth")
 	})
@@ -104,7 +103,7 @@ func (*nicSuite) TestInterfaceInfosFiltering(c *gc.C) {
 		devs = append(devs, iface.ParentInterfaceName+":"+iface.InterfaceName)
 	}
 
-	c.Check(devs, gc.DeepEquals, []string{
+	c.Check(devs, tc.DeepEquals, []string{
 		":eth2",
 		"bond0:eth0",
 		"bond0:eth1",
@@ -120,20 +119,20 @@ func (*nicSuite) TestInterfaceInfosFiltering(c *gc.C) {
 		devs = append(devs, iface.ParentInterfaceName+":"+iface.InterfaceName)
 	}
 
-	c.Check(devs, gc.DeepEquals, []string{
+	c.Check(devs, tc.DeepEquals, []string{
 		"bond0:eth1",
 	})
 }
 
-func (s *nicSuite) TestInterfaceInfosGetByName(c *gc.C) {
+func (s *nicSuite) TestInterfaceInfosGetByName(c *tc.C) {
 	devs := s.info.GetByName("wrong-name")
-	c.Assert(devs, gc.IsNil)
+	c.Assert(devs, tc.IsNil)
 
 	devs = s.info.GetByName("eth0")
-	c.Assert(devs, gc.HasLen, 1)
+	c.Assert(devs, tc.HasLen, 1)
 }
 
-func (s *nicSuite) TestNormalizeMACAddress(c *gc.C) {
+func (s *nicSuite) TestNormalizeMACAddress(c *tc.C) {
 	specs := []struct {
 		descr string
 		in    string
@@ -159,7 +158,7 @@ func (s *nicSuite) TestNormalizeMACAddress(c *gc.C) {
 	for i, spec := range specs {
 		c.Logf("%d. %s", i, spec.descr)
 		got := network.NormalizeMACAddress(spec.in)
-		c.Assert(got, gc.Equals, spec.exp)
+		c.Assert(got, tc.Equals, spec.exp)
 	}
 }
 

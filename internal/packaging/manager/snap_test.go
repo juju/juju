@@ -8,21 +8,20 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/packaging/commands"
 	"github.com/juju/juju/internal/packaging/manager"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&SnapSuite{})
+var _ = tc.Suite(&SnapSuite{})
 
 type SnapSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-func (s *SnapSuite) TestInstall(c *gc.C) {
+func (s *SnapSuite) TestInstall(c *tc.C) {
 	const expected = `juju 2.6.6 from Canonical✓ installed`
 
 	cmdChan := s.HookCommandOutput(&manager.CommandOutput, []byte(expected), nil)
@@ -30,19 +29,19 @@ func (s *SnapSuite) TestInstall(c *gc.C) {
 	paccmder := commands.NewSnapPackageCommander()
 	pacman := manager.NewSnapPackageManager()
 	err := pacman.Install("juju")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	cmd := <-cmdChan
-	c.Assert(cmd.Args, gc.DeepEquals, strings.Fields(paccmder.InstallCmd("juju")))
+	c.Assert(cmd.Args, tc.DeepEquals, strings.Fields(paccmder.InstallCmd("juju")))
 }
 
-func (s *SnapSuite) TestInstallWithMountFailure(c *gc.C) {
+func (s *SnapSuite) TestInstallWithMountFailure(c *tc.C) {
 	const minRetries = 3
 	var calls int
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
 		return mockExitStatuser(1) // retry each time.
 	})
@@ -57,17 +56,17 @@ cannot perform the following tasks:
 
 	pacman := manager.NewSnapPackageManager()
 	err := pacman.Install("juju")
-	c.Assert(err, gc.ErrorMatches, `packaging command failed: attempt count exceeded: .*`)
-	c.Assert(calls, gc.Equals, minRetries)
+	c.Assert(err, tc.ErrorMatches, `packaging command failed: attempt count exceeded: .*`)
+	c.Assert(calls, tc.Equals, minRetries)
 }
 
-func (s *SnapSuite) TestInstallWithUDevFailure(c *gc.C) {
+func (s *SnapSuite) TestInstallWithUDevFailure(c *tc.C) {
 	const minRetries = 3
 	var calls int
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
 		return mockExitStatuser(2) // retry each time.
 	})
@@ -83,17 +82,17 @@ udev output:
 
 	pacman := manager.NewSnapPackageManager()
 	err := pacman.Install("juju")
-	c.Assert(err, gc.ErrorMatches, `packaging command failed: attempt count exceeded: .*`)
-	c.Assert(calls, gc.Equals, minRetries)
+	c.Assert(err, tc.ErrorMatches, `packaging command failed: attempt count exceeded: .*`)
+	c.Assert(calls, tc.Equals, minRetries)
 }
 
-func (s *SnapSuite) TestInstallWithFailureAndNonMatchingOutput(c *gc.C) {
+func (s *SnapSuite) TestInstallWithFailureAndNonMatchingOutput(c *tc.C) {
 	const minRetries = 3
 	var calls int
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
 		return mockExitStatuser(1) // retry each time.
 	})
@@ -110,17 +109,17 @@ func (s *SnapSuite) TestInstallWithFailureAndNonMatchingOutput(c *gc.C) {
 
 	pacman := manager.NewSnapPackageManager()
 	err := pacman.Install("juju")
-	c.Assert(err, gc.ErrorMatches, `packaging command failed: exit status .*`)
-	c.Assert(calls, gc.Equals, 1)
+	c.Assert(err, tc.ErrorMatches, `packaging command failed: exit status .*`)
+	c.Assert(calls, tc.Equals, 1)
 }
 
-func (s *SnapSuite) TestInstallWithoutFailure(c *gc.C) {
+func (s *SnapSuite) TestInstallWithoutFailure(c *tc.C) {
 	const minRetries = 3
 	var calls int
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
 		return mockExitStatuser(0) // retry each time.
 	})
@@ -137,16 +136,16 @@ func (s *SnapSuite) TestInstallWithoutFailure(c *gc.C) {
 
 	pacman := manager.NewSnapPackageManager()
 	_ = pacman.Install("juju")
-	c.Assert(calls, gc.Equals, 1)
+	c.Assert(calls, tc.Equals, 1)
 }
 
-func (s *SnapSuite) TestInstallWithDNSFailure(c *gc.C) {
+func (s *SnapSuite) TestInstallWithDNSFailure(c *tc.C) {
 	const minRetries = 3
 	var calls int
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
 		return mockExitStatuser(100) // retry each time.
 	})
@@ -163,13 +162,13 @@ func (s *SnapSuite) TestInstallWithDNSFailure(c *gc.C) {
 
 	pacman := manager.NewSnapPackageManager()
 	_ = pacman.Install("juju")
-	c.Assert(calls, gc.Equals, 1)
+	c.Assert(calls, tc.Equals, 1)
 }
 
-func (s *SnapSuite) TestInstallForUnknownPackage(c *gc.C) {
+func (s *SnapSuite) TestInstallForUnknownPackage(c *tc.C) {
 	const minRetries = 3
 	s.PatchValue(&manager.SnapAttempts, minRetries)
-	s.PatchValue(&manager.SnapDelay, testing.ShortWait)
+	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
 
 	const expected = `error: snap "foo" not found`
 
@@ -178,13 +177,13 @@ func (s *SnapSuite) TestInstallForUnknownPackage(c *gc.C) {
 	paccmder := commands.NewSnapPackageCommander()
 	pacman := manager.NewSnapPackageManager()
 	err := pacman.Install("foo")
-	c.Assert(err, gc.ErrorMatches, ".*unable to locate package")
+	c.Assert(err, tc.ErrorMatches, ".*unable to locate package")
 
 	cmd := <-cmdChan
-	c.Assert(cmd.Args, gc.DeepEquals, strings.Fields(paccmder.InstallCmd("foo")))
+	c.Assert(cmd.Args, tc.DeepEquals, strings.Fields(paccmder.InstallCmd("foo")))
 }
 
-func (s *SnapSuite) TestInstalledChannel(c *gc.C) {
+func (s *SnapSuite) TestInstalledChannel(c *tc.C) {
 	const expected = `name:      juju
 summary:   juju client
 publisher: Canonical✓
@@ -217,13 +216,13 @@ installed:       2.6.6                                (8594) 68MB classic
 
 	pacman := manager.NewSnapPackageManager()
 	channel := pacman.InstalledChannel("juju")
-	c.Assert(channel, gc.Equals, "2.8/bleeding-edge")
+	c.Assert(channel, tc.Equals, "2.8/bleeding-edge")
 
 	setCmd := <-cmdChan
-	c.Assert(setCmd.Args, gc.DeepEquals, []string{"snap", "info", "juju"})
+	c.Assert(setCmd.Args, tc.DeepEquals, []string{"snap", "info", "juju"})
 }
 
-func (s *SnapSuite) TestInstalledChannelForNotInstalledSnap(c *gc.C) {
+func (s *SnapSuite) TestInstalledChannelForNotInstalledSnap(c *tc.C) {
 	const expected = `name:      juju
 summary:   juju client
 publisher: Canonical✓
@@ -255,34 +254,34 @@ installed:       2.6.6                                (8594) 68MB classic
 
 	pacman := manager.NewSnapPackageManager()
 	channel := pacman.InstalledChannel("juju")
-	c.Assert(channel, gc.Equals, "")
+	c.Assert(channel, tc.Equals, "")
 
 	setCmd := <-cmdChan
-	c.Assert(setCmd.Args, gc.DeepEquals, []string{"snap", "info", "juju"})
+	c.Assert(setCmd.Args, tc.DeepEquals, []string{"snap", "info", "juju"})
 }
 
-func (s *SnapSuite) TestChangeChannel(c *gc.C) {
+func (s *SnapSuite) TestChangeChannel(c *tc.C) {
 	const expected = `lxd (candidate) 4.0.0 from Canonical✓ refreshed`
 	cmdChan := s.HookCommandOutput(&manager.CommandOutput, []byte(expected), nil)
 
 	pacman := manager.NewSnapPackageManager()
 	err := pacman.ChangeChannel("lxd", "latest/candidate")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	setCmd := <-cmdChan
-	c.Assert(setCmd.Args, gc.DeepEquals, []string{"snap", "refresh", "--channel", "latest/candidate", "lxd"})
+	c.Assert(setCmd.Args, tc.DeepEquals, []string{"snap", "refresh", "--channel", "latest/candidate", "lxd"})
 }
 
-func (s *SnapSuite) TestChangeChannelForNotInstalledSnap(c *gc.C) {
+func (s *SnapSuite) TestChangeChannelForNotInstalledSnap(c *tc.C) {
 	const expected = `snap "lxd" is not installed`
 	cmdChan := s.HookCommandOutput(&manager.CommandOutput, []byte(expected), nil)
 
 	pacman := manager.NewSnapPackageManager()
 	err := pacman.ChangeChannel("lxd", "latest/candidate")
-	c.Assert(err, gc.ErrorMatches, "snap not installed")
+	c.Assert(err, tc.ErrorMatches, "snap not installed")
 
 	setCmd := <-cmdChan
-	c.Assert(setCmd.Args, gc.DeepEquals, []string{"snap", "refresh", "--channel", "latest/candidate", "lxd"})
+	c.Assert(setCmd.Args, tc.DeepEquals, []string{"snap", "refresh", "--channel", "latest/candidate", "lxd"})
 }
 
 func (s *SnapSuite) mockExitError(code int) error {

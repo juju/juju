@@ -6,7 +6,7 @@ package commands
 import (
 	"strings"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -15,16 +15,16 @@ type HelpActionCommandsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&HelpActionCommandsSuite{})
+var _ = tc.Suite(&HelpActionCommandsSuite{})
 
-func (suite *HelpActionCommandsSuite) SetUpTest(c *gc.C) {
+func (suite *HelpActionCommandsSuite) SetUpTest(c *tc.C) {
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	setFeatureFlags("")
 }
 
-func (suite *HelpActionCommandsSuite) TestHelpActionCommandsHelp(c *gc.C) {
+func (suite *HelpActionCommandsSuite) TestHelpActionCommandsHelp(c *tc.C) {
 	output := badrun(c, 0, "help", "help-action-commands")
-	c.Assert(output, gc.Equals, `Usage: juju help-action-commands [action]
+	c.Assert(output, tc.Equals, `Usage: juju help-action-commands [action]
 
 Summary:
 Show help on a Juju charm action command.
@@ -72,17 +72,17 @@ var expectedActionCommands = []string{
 	"action-set",
 }
 
-func (suite *HelpActionCommandsSuite) TestHelpActionCommands(c *gc.C) {
+func (suite *HelpActionCommandsSuite) TestHelpActionCommands(c *tc.C) {
 	output := badrun(c, 0, "help-action-commands")
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	for i, line := range lines {
 		command := strings.Fields(line)[0]
 		lines[i] = command
 	}
-	c.Assert(lines, gc.DeepEquals, expectedActionCommands)
+	c.Assert(lines, tc.DeepEquals, expectedActionCommands)
 }
 
-func (suite *HelpActionCommandsSuite) TestHelpActionCommandsName(c *gc.C) {
+func (suite *HelpActionCommandsSuite) TestHelpActionCommandsName(c *tc.C) {
 	output := badrun(c, 0, "help-action-commands", "action-fail")
 	expectedHelp := `Usage: action-fail ["<failure message>"]
 
@@ -98,5 +98,5 @@ Examples:
 
     action-fail 'unable to contact remote service'
 `
-	c.Assert(output, gc.DeepEquals, expectedHelp)
+	c.Assert(output, tc.DeepEquals, expectedHelp)
 }

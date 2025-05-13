@@ -4,38 +4,37 @@
 package storage_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type mountSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&mountSuite{})
+var _ = tc.Suite(&mountSuite{})
 
-func (s *mountSuite) TestMountPointSingleton(c *gc.C) {
+func (s *mountSuite) TestMountPointSingleton(c *tc.C) {
 	path, err := storage.FilesystemMountPoint("here", 1, "data/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, "here")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(path, tc.Equals, "here")
 }
 
-func (s *mountSuite) TestMountPointLocation(c *gc.C) {
+func (s *mountSuite) TestMountPointLocation(c *tc.C) {
 	path, err := storage.FilesystemMountPoint("/path/to/here", 2, "data/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, "/path/to/here/data/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(path, tc.Equals, "/path/to/here/data/0")
 }
 
-func (s *mountSuite) TestMountPointNoLocation(c *gc.C) {
+func (s *mountSuite) TestMountPointNoLocation(c *tc.C) {
 	path, err := storage.FilesystemMountPoint("", 2, "data/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, "/var/lib/juju/storage/data/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(path, tc.Equals, "/var/lib/juju/storage/data/0")
 }
 
-func (s *mountSuite) TestBadMountPoint(c *gc.C) {
+func (s *mountSuite) TestBadMountPoint(c *tc.C) {
 	_, err := storage.FilesystemMountPoint("/var/lib/juju/storage/here", 1, "data/0")
-	c.Assert(err, gc.ErrorMatches, "invalid location .*")
+	c.Assert(err, tc.ErrorMatches, "invalid location .*")
 }

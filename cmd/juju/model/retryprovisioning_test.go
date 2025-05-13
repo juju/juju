@@ -9,8 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/model"
@@ -24,7 +23,7 @@ type retryProvisioningSuite struct {
 	fake *fakeRetryProvisioningClient
 }
 
-var _ = gc.Suite(&retryProvisioningSuite{})
+var _ = tc.Suite(&retryProvisioningSuite{})
 
 // fakeRetryProvisioningClient contains some minimal information
 // about machines in the environment to mock out the behavior
@@ -78,7 +77,7 @@ func (f *fakeRetryProvisioningClient) RetryProvisioning(ctx context.Context, all
 	return results, nil
 }
 
-func (s *retryProvisioningSuite) SetUpTest(c *gc.C) {
+func (s *retryProvisioningSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	// For all tests, create machine 0 (broken) and
@@ -129,28 +128,28 @@ var resolvedMachineTests = []struct {
 	},
 }
 
-func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
+func (s *retryProvisioningSuite) TestRetryProvisioning(c *tc.C) {
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
 		command := model.NewRetryProvisioningCommandForTest(s.fake)
 		context, err := cmdtesting.RunCommand(c, command, t.args...)
 		if t.err != "" {
-			c.Check(err, gc.ErrorMatches, t.err)
+			c.Check(err, tc.ErrorMatches, t.err)
 			continue
 		}
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		output := cmdtesting.Stderr(context)
 		stripped := strings.Replace(output, "\n", "", -1)
-		c.Check(stripped, gc.Equals, t.stdErr)
+		c.Check(stripped, tc.Equals, t.stdErr)
 		if t.args[0] == "0" || t.args[0] == "all" {
 			m := s.fake.m["0"]
-			c.Check(m.info, gc.Equals, "broken")
-			c.Check(m.data["transient"], jc.IsTrue)
+			c.Check(m.info, tc.Equals, "broken")
+			c.Check(m.data["transient"], tc.IsTrue)
 		}
 	}
 }
 
-func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
+func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *tc.C) {
 	s.fake.err = apiservererrors.OperationBlockedError("TestBlockRetryProvisioning")
 
 	for i, t := range resolvedMachineTests {
@@ -158,7 +157,7 @@ func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
 		command := model.NewRetryProvisioningCommandForTest(s.fake)
 		_, err := cmdtesting.RunCommand(c, command, t.args...)
 		if t.err != "" {
-			c.Check(err, gc.ErrorMatches, t.err)
+			c.Check(err, tc.ErrorMatches, t.err)
 			continue
 		}
 		testing.AssertOperationWasBlocked(c, err, ".*TestBlockRetryProvisioning.*")

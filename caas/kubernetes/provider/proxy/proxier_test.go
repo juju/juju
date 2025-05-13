@@ -4,8 +4,7 @@
 package proxy_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/rest"
 
@@ -15,9 +14,9 @@ import (
 type proxySuite struct {
 }
 
-var _ = gc.Suite(&proxySuite{})
+var _ = tc.Suite(&proxySuite{})
 
-func (p *proxySuite) TestProxierMarshalling(c *gc.C) {
+func (p *proxySuite) TestProxierMarshalling(c *tc.C) {
 	config := proxy.ProxierConfig{
 		APIHost:             "https://localhost:1234",
 		CAData:              "cadata",
@@ -29,15 +28,15 @@ func (p *proxySuite) TestProxierMarshalling(c *gc.C) {
 
 	proxier := proxy.NewProxier(config)
 	yamlConf, err := yaml.Marshal(proxier)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unmarshalledConfig := proxy.ProxierConfig{}
-	c.Assert(yaml.Unmarshal(yamlConf, &unmarshalledConfig), jc.ErrorIsNil)
+	c.Assert(yaml.Unmarshal(yamlConf, &unmarshalledConfig), tc.ErrorIsNil)
 
-	c.Assert(unmarshalledConfig, jc.DeepEquals, config)
+	c.Assert(unmarshalledConfig, tc.DeepEquals, config)
 }
 
-func (p *proxySuite) TestSetAPIHost(c *gc.C) {
+func (p *proxySuite) TestSetAPIHost(c *tc.C) {
 	config := proxy.ProxierConfig{
 		APIHost: "https://localhost:1234",
 	}
@@ -45,16 +44,16 @@ func (p *proxySuite) TestSetAPIHost(c *gc.C) {
 	proxier := proxy.NewProxier(config)
 	proxier.SetAPIHost("https://localhost:666")
 	yamlConf, err := yaml.Marshal(proxier)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unmarshalledConfig := proxy.ProxierConfig{}
-	c.Assert(yaml.Unmarshal(yamlConf, &unmarshalledConfig), jc.ErrorIsNil)
+	c.Assert(yaml.Unmarshal(yamlConf, &unmarshalledConfig), tc.ErrorIsNil)
 
 	config.APIHost = "https://localhost:666"
-	c.Assert(unmarshalledConfig, jc.DeepEquals, config)
+	c.Assert(unmarshalledConfig, tc.DeepEquals, config)
 }
 
-func (p *proxySuite) TestNewProxier(c *gc.C) {
+func (p *proxySuite) TestNewProxier(c *tc.C) {
 	config := proxy.ProxierConfig{
 		APIHost:             "https://localhost:1234",
 		CAData:              "cadata",
@@ -64,7 +63,7 @@ func (p *proxySuite) TestNewProxier(c *gc.C) {
 		ServiceAccountToken: "token",
 	}
 	proxier := proxy.NewProxier(config)
-	c.Assert(proxier.RESTConfig(), gc.DeepEquals, rest.Config{
+	c.Assert(proxier.RESTConfig(), tc.DeepEquals, rest.Config{
 		BearerToken: "token",
 		Host:        "https://localhost:1234",
 		TLSClientConfig: rest.TLSClientConfig{
@@ -80,7 +79,7 @@ func (p *proxySuite) TestNewProxier(c *gc.C) {
 		ServiceAccountToken: "token",
 	}
 	proxier = proxy.NewProxier(config)
-	c.Assert(proxier.RESTConfig(), gc.DeepEquals, rest.Config{
+	c.Assert(proxier.RESTConfig(), tc.DeepEquals, rest.Config{
 		BearerToken: "token",
 		Host:        "https://localhost:1234",
 		TLSClientConfig: rest.TLSClientConfig{
@@ -89,7 +88,7 @@ func (p *proxySuite) TestNewProxier(c *gc.C) {
 	})
 }
 
-func (p *proxySuite) TestInsecure(c *gc.C) {
+func (p *proxySuite) TestInsecure(c *tc.C) {
 	config := proxy.ProxierConfig{
 		APIHost:             "https://localhost:1234",
 		CAData:              "cadata",
@@ -99,7 +98,7 @@ func (p *proxySuite) TestInsecure(c *gc.C) {
 		ServiceAccountToken: "token",
 	}
 	proxier := proxy.NewProxier(config)
-	c.Assert(proxier.RESTConfig(), gc.DeepEquals, rest.Config{
+	c.Assert(proxier.RESTConfig(), tc.DeepEquals, rest.Config{
 		BearerToken: "token",
 		Host:        "https://localhost:1234",
 		TLSClientConfig: rest.TLSClientConfig{
@@ -107,8 +106,8 @@ func (p *proxySuite) TestInsecure(c *gc.C) {
 		},
 	})
 	proxier.Insecure()
-	c.Assert(proxier.Config().CAData, gc.Equals, "")
-	c.Assert(proxier.RESTConfig(), gc.DeepEquals, rest.Config{
+	c.Assert(proxier.Config().CAData, tc.Equals, "")
+	c.Assert(proxier.RESTConfig(), tc.DeepEquals, rest.Config{
 		BearerToken: "token",
 		Host:        "https://localhost:1234",
 		TLSClientConfig: rest.TLSClientConfig{

@@ -6,14 +6,14 @@ package charm
 import (
 	"strings"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type VersionSuite struct{}
 
-var _ = gc.Suite(&VersionSuite{})
+var _ = tc.Suite(&VersionSuite{})
 
-func (s *VersionSuite) TestReadVersion(c *gc.C) {
+func (s *VersionSuite) TestReadVersion(c *tc.C) {
 	specs := []struct {
 		version string
 		expect  string
@@ -24,7 +24,7 @@ func (s *VersionSuite) TestReadVersion(c *gc.C) {
 	for i, t := range specs {
 		c.Logf("test %d", i)
 		v, err := readVersion(strings.NewReader(t.version))
-		c.Check(err, gc.IsNil)
-		c.Assert(v, gc.Equals, t.expect)
+		c.Check(err, tc.IsNil)
+		c.Assert(v, tc.Equals, t.expect)
 	}
 }

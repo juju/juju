@@ -4,18 +4,17 @@
 package service
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type lxdProfileSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&lxdProfileSuite{})
+var _ = tc.Suite(&lxdProfileSuite{})
 
 var lxdProfileTestCases = [...]struct {
 	name   string
@@ -56,23 +55,23 @@ var lxdProfileTestCases = [...]struct {
 	},
 }
 
-func (s *metadataSuite) TestConvertLXDProfile(c *gc.C) {
-	for _, tc := range lxdProfileTestCases {
-		c.Logf("Running test case %q", tc.name)
+func (s *metadataSuite) TestConvertLXDProfile(c *tc.C) {
+	for _, testCase := range lxdProfileTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeLXDProfile(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, tc.output)
+		result, err := decodeLXDProfile(testCase.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, testCase.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, err := encodeLXDProfile(&result)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(converted, jc.DeepEquals, tc.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(converted, tc.DeepEquals, testCase.input)
 	}
 }
 
-func (s *metadataSuite) TestConvertNilLXDProfile(c *gc.C) {
+func (s *metadataSuite) TestConvertNilLXDProfile(c *tc.C) {
 	converted, err := encodeLXDProfile(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(converted, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(converted, tc.IsNil)
 }

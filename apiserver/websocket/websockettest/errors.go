@@ -8,15 +8,14 @@ import (
 	"encoding/json"
 
 	"github.com/gorilla/websocket"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/rpc/params"
 )
 
 // AssertWebsocketClosed checks that the given websocket connection
 // is closed.
-func AssertWebsocketClosed(c *gc.C, ws *websocket.Conn) {
+func AssertWebsocketClosed(c *tc.C, ws *websocket.Conn) {
 	_, _, err := ws.NextReader()
 	goodClose := []int{
 		websocket.CloseNormalClosure,
@@ -24,34 +23,34 @@ func AssertWebsocketClosed(c *gc.C, ws *websocket.Conn) {
 		websocket.CloseNoStatusReceived,
 	}
 	c.Logf("%#v", err)
-	c.Assert(websocket.IsCloseError(err, goodClose...), jc.IsTrue)
+	c.Assert(websocket.IsCloseError(err, goodClose...), tc.IsTrue)
 }
 
 // AssertJSONError checks the JSON encoded error returned by the log
 // and logsink APIs matches the expected value.
-func AssertJSONError(c *gc.C, ws *websocket.Conn, expected string) {
+func AssertJSONError(c *tc.C, ws *websocket.Conn, expected string) {
 	errResult := ReadJSONErrorLine(c, ws)
-	c.Assert(errResult.Error, gc.NotNil)
-	c.Assert(errResult.Error.Message, gc.Matches, expected)
+	c.Assert(errResult.Error, tc.NotNil)
+	c.Assert(errResult.Error.Message, tc.Matches, expected)
 }
 
 // AssertJSONInitialErrorNil checks the JSON encoded error returned by the log
 // and logsink APIs are nil.
-func AssertJSONInitialErrorNil(c *gc.C, ws *websocket.Conn) {
+func AssertJSONInitialErrorNil(c *tc.C, ws *websocket.Conn) {
 	errResult := ReadJSONErrorLine(c, ws)
-	c.Assert(errResult.Error, gc.IsNil)
+	c.Assert(errResult.Error, tc.IsNil)
 }
 
 // ReadJSONErrorLine returns the error line returned by the log and
 // logsink APIS.
-func ReadJSONErrorLine(c *gc.C, ws *websocket.Conn) params.ErrorResult {
+func ReadJSONErrorLine(c *tc.C, ws *websocket.Conn) params.ErrorResult {
 	messageType, reader, err := ws.NextReader()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(messageType, gc.Equals, websocket.TextMessage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(messageType, tc.Equals, websocket.TextMessage)
 	line, err := bufio.NewReader(reader).ReadSlice('\n')
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var errResult params.ErrorResult
 	err = json.Unmarshal(line, &errResult)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return errResult
 }

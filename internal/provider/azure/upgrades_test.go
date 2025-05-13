@@ -12,8 +12,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/azure"
@@ -33,9 +32,9 @@ type environUpgradeSuite struct {
 	invalidatedCredential bool
 }
 
-var _ = gc.Suite(&environUpgradeSuite{})
+var _ = tc.Suite(&environUpgradeSuite{})
 
-func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
+func (s *environUpgradeSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.sender = nil
 	s.requests = nil
@@ -57,20 +56,20 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *gc.C) {
-	c.Assert(s.env, gc.Implements, new(environs.Upgrader))
+func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *tc.C) {
+	c.Assert(s.env, tc.Implements, new(environs.Upgrader))
 }
 
-func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
+func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *tc.C) {
 	upgrader := s.env.(environs.Upgrader)
 	ops := upgrader.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})
-	c.Assert(ops, gc.HasLen, 1)
-	c.Assert(ops[0].TargetVersion, gc.Equals, 1)
-	c.Assert(ops[0].Steps, gc.HasLen, 1)
-	c.Assert(ops[0].Steps[0].Description(), gc.Equals, "Create common resource deployment")
+	c.Assert(ops, tc.HasLen, 1)
+	c.Assert(ops[0].TargetVersion, tc.Equals, 1)
+	c.Assert(ops[0].Steps, tc.HasLen, 1)
+	c.Assert(ops[0].Steps[0].Description(), tc.Equals, "Create common resource deployment")
 }
 
-func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(c *gc.C) {
+func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(c *tc.C) {
 	upgrader := s.env.(environs.Upgrader)
 	op0 := upgrader.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})[0]
 
@@ -119,19 +118,19 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 	deploymentSender := azuretesting.NewSenderWithValue(&armresources.Deployment{})
 	deploymentSender.PathPattern = ".*/deployments/common"
 	s.sender = append(s.sender, vmListSender, nsgSender, deploymentSender)
-	c.Assert(op0.Steps[0].Run(context.Background()), jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(op0.Steps[0].Run(context.Background()), tc.ErrorIsNil)
+	c.Assert(s.requests, tc.HasLen, 3)
 
 	var actual armresources.Deployment
 	unmarshalRequestBody(c, s.requests[2], &actual)
-	c.Assert(actual.Properties, gc.NotNil)
-	c.Assert(actual.Properties.Template, gc.NotNil)
+	c.Assert(actual.Properties, tc.NotNil)
+	c.Assert(actual.Properties.Template, tc.NotNil)
 	resources, ok := actual.Properties.Template.(map[string]interface{})["resources"].([]interface{})
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(resources, gc.HasLen, 2)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(resources, tc.HasLen, 2)
 }
 
-func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentControllerModel(c *gc.C) {
+func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentControllerModel(c *tc.C) {
 	s.sender = nil
 	env := openEnviron(c, s.provider, s.credentialInvalidator, &s.sender, testing.Attrs{"name": "controller"})
 	s.requests = nil
@@ -152,10 +151,10 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 	s.sender = append(s.sender, vmListSender)
 
 	op0 := upgrader.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})[0]
-	c.Assert(op0.Steps[0].Run(context.Background()), jc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(context.Background()), tc.ErrorIsNil)
 }
 
-func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentControllerModelWithInvalidCredential(c *gc.C) {
+func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentControllerModelWithInvalidCredential(c *tc.C) {
 	s.sender = nil
 	s.requests = nil
 	env := openEnviron(c, s.provider, s.credentialInvalidator, &s.sender, testing.Attrs{"name": "controller"})
@@ -169,8 +168,8 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 	unauthSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
 	s.sender = append(s.sender, unauthSender, unauthSender, unauthSender)
 
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	op0 := upgrader.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})[0]
-	c.Assert(op0.Steps[0].Run(context.Background()), gc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(op0.Steps[0].Run(context.Background()), tc.NotNil)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 }

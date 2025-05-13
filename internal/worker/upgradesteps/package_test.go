@@ -8,13 +8,13 @@ import (
 	time "time"
 
 	names "github.com/juju/names/v6"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	agent "github.com/juju/juju/agent"
 	version "github.com/juju/juju/core/semversion"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 )
@@ -27,11 +27,11 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination status_mock_test.go github.com/juju/juju/internal/upgradesteps StatusSetter
 
 func TestAll(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	agent        *MockAgent
 	config       *MockConfig
@@ -42,7 +42,7 @@ type baseSuite struct {
 	apiCaller    *MockAPICaller
 }
 
-func (s *baseSuite) newBaseWorker(c *gc.C, from, to version.Number) *upgradesteps.BaseWorker {
+func (s *baseSuite) newBaseWorker(c *tc.C, from, to version.Number) *upgradesteps.BaseWorker {
 	return &upgradesteps.BaseWorker{
 		UpgradeCompleteLock: s.lock,
 		Agent:               s.agent,
@@ -62,7 +62,7 @@ func (s *baseSuite) newBaseWorker(c *gc.C, from, to version.Number) *upgradestep
 	}
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.agent = NewMockAgent(ctrl)
@@ -83,11 +83,11 @@ func (s *baseSuite) expectAnyClock(ch chan time.Time) {
 	}).AnyTimes()
 }
 
-func (s *baseSuite) dispatchChange(c *gc.C, ch chan struct{}) {
+func (s *baseSuite) dispatchChange(c *tc.C, ch chan struct{}) {
 	// Send initial event.
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting to enqueue change")
 	}
 }

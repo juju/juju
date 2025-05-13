@@ -6,8 +6,7 @@ package jujuc_test
 import (
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -15,7 +14,7 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/jujuctesting"
 )
 
-var _ = gc.Suite(&ActionSetSuite{})
+var _ = tc.Suite(&ActionSetSuite{})
 
 type ActionSetSuite struct {
 	jujuctesting.ContextSuite
@@ -43,19 +42,19 @@ func (a *nonActionSettingContext) UpdateActionResults(keys []string, value inter
 	return fmt.Errorf("not running an action")
 }
 
-func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *gc.C) {
+func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *tc.C) {
 	hctx := &nonActionSettingContext{}
 	com, err := jujuc.NewCommand(hctx, "action-set")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"oops=nope"})
-	c.Check(code, gc.Equals, 1)
-	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
+	c.Check(code, tc.Equals, 1)
+	c.Check(bufferString(ctx.Stdout), tc.Equals, "")
 	expect := fmt.Sprintf(`(\n)*ERROR %s\n`, "not running an action")
-	c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
+	c.Check(bufferString(ctx.Stderr), tc.Matches, expect)
 }
 
-func (s *ActionSetSuite) TestActionSet(c *gc.C) {
+func (s *ActionSetSuite) TestActionSet(c *tc.C) {
 	var actionSetTests = []struct {
 		summary  string
 		command  []string
@@ -132,12 +131,12 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := &actionSettingContext{}
 		com, err := jujuc.NewCommand(hctx, "action-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		c.Logf("  command list: %#v", t.command)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.command)
-		c.Check(code, gc.Equals, t.code)
-		c.Check(bufferString(ctx.Stderr), gc.Equals, t.errMsg)
-		c.Check(hctx.commands, jc.DeepEquals, t.expected)
+		c.Check(code, tc.Equals, t.code)
+		c.Check(bufferString(ctx.Stderr), tc.Equals, t.errMsg)
+		c.Check(hctx.commands, tc.DeepEquals, t.expected)
 	}
 }

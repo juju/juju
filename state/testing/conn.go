@@ -9,8 +9,7 @@ import (
 	"github.com/juju/clock"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	coremodel "github.com/juju/juju/core/model"
@@ -35,7 +34,7 @@ type InitializeArgs struct {
 // InitializeWithArgs initializes the state and returns it. If state was not
 // already initialized, and args.Config is nil, the minimal default model
 // configuration will be used.
-func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
+func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 	if args.InitialConfig == nil {
 		args.InitialConfig = testing.ModelConfig(c)
 	}
@@ -44,7 +43,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 	}
 
 	session, err := mgotesting.MgoServer.Dial()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer session.Close()
 
 	controllerCfg := testing.FakeControllerConfig()
@@ -76,7 +75,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 		NewPolicy:                 args.NewPolicy,
 		AdminPassword:             args.AdminPassword,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctlr
 }
 

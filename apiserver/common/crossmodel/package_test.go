@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/authentication"
 )
@@ -19,7 +19,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/crossmodel_mock.go github.com/juju/juju/apiserver/common/crossmodel OfferBakeryInterface,Backend,BakeryConfigService,AccessService,ApplicationService,RelationNetworks,StatusService
 
 func TestAll(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 func (o *OfferBakery) SetBakery(bakery authentication.ExpirableStorageBakery) {

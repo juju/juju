@@ -9,10 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
@@ -32,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/broker/mocks"
 	"github.com/juju/juju/internal/container/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -56,9 +55,9 @@ type lxdBrokerSuite struct {
 	manager     *fakeContainerManager
 }
 
-var _ = gc.Suite(&lxdBrokerSuite{})
+var _ = tc.Suite(&lxdBrokerSuite{})
 
-func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
+func (s *lxdBrokerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	// To isolate the tests from the host's architecture, we override it here.
@@ -78,26 +77,26 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 			Controller:        coretesting.ControllerTag,
 			Model:             coretesting.ModelTag,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	s.manager = &fakeContainerManager{}
 }
 
-func (s *lxdBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
+func (s *lxdBrokerSuite) startInstance(c *tc.C, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
 	return callStartInstance(c, s, broker, machineId)
 }
 
-func (s *lxdBrokerSuite) newLXDBroker(c *gc.C) (environs.InstanceBroker, error) {
+func (s *lxdBrokerSuite) newLXDBroker(c *tc.C) (environs.InstanceBroker, error) {
 	return broker.NewLXDBroker(s.api.PrepareHost, s.api, s.manager, s.agentConfig)
 }
 
-func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *gc.C) {
+func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *tc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 	machineId := "1/lxd/0"
 	containerTag := names.NewMachineTag("1-lxd-0")
 	s.startInstance(c, broker, machineId)
-	s.api.CheckCalls(c, []jujutesting.StubCall{{
+	s.api.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ContainerConfig",
 	}, {
 		FuncName: "PrepareHost",
@@ -111,17 +110,17 @@ func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *gc.C) {
 	}})
 	s.manager.CheckCallNames(c, "CreateContainer")
 	call := s.manager.Calls()[0]
-	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+	c.Assert(call.Args[0], tc.FitsTypeOf, &instancecfg.InstanceConfig{})
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
-	c.Assert(instanceConfig.ToolsList(), gc.HasLen, 1)
+	c.Assert(instanceConfig.ToolsList(), tc.HasLen, 1)
 	arch, err := instanceConfig.ToolsList().OneArch()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(arch, gc.Equals, "amd64")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(arch, tc.Equals, "amd64")
 }
 
-func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) {
+func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *tc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	patchResolvConf(s, c)
 
@@ -131,12 +130,12 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 		errors.NotSupportedf("container address allocation"),
 	)
 	_, err := s.startInstance(c, broker, "1/lxd/0")
-	c.Assert(err, gc.ErrorMatches, "container address allocation not supported")
+	c.Assert(err, tc.ErrorMatches, "container address allocation not supported")
 }
 
-func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
+func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *tc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	_, err := broker.StartInstance(context.Background(), environs.StartInstanceParams{
 		Tools: coretools.List{{
@@ -146,19 +145,19 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 		}},
 		InstanceConfig: makeInstanceConfig(c, s, "1/lxd/0"),
 	})
-	c.Assert(err, gc.ErrorMatches, `need agent binaries for arch amd64, only found arm64`)
+	c.Assert(err, tc.ErrorMatches, `need agent binaries for arch amd64, only found arm64`)
 }
 
-func (s *lxdBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
+func (s *lxdBrokerSuite) TestStartInstanceWithCloudInitUserData(c *tc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	_, err := s.startInstance(c, broker, "1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.manager.CheckCallNames(c, "CreateContainer")
 	call := s.manager.Calls()[0]
-	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+	c.Assert(call.Args[0], tc.FitsTypeOf, &instancecfg.InstanceConfig{})
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
 	assertCloudInitUserData(instanceConfig.CloudInitUserData, map[string]interface{}{
 		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
@@ -168,18 +167,18 @@ func (s *lxdBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
 	}, c)
 }
 
-func (s *lxdBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *gc.C) {
+func (s *lxdBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *tc.C) {
 	broker.PatchNewMachineInitReader(s, newFakeMachineInitReader)
 	s.api.fakeContainerConfig.ContainerInheritProperties = "ca-certs,apt-security"
 
 	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 	_, err := s.startInstance(c, broker, "1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.manager.CheckCallNames(c, "CreateContainer")
 	call := s.manager.Calls()[0]
-	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+	c.Assert(call.Args[0], tc.FitsTypeOf, &instancecfg.InstanceConfig{})
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
 	assertCloudInitUserData(instanceConfig.CloudInitUserData, map[string]interface{}{
 		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
@@ -202,7 +201,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *gc.C
 	}, c)
 }
 
-func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
+func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -246,12 +245,12 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 			return nil
 		},
 		mockApi, mockManager, s.agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.startInstance(c, broker, machineId)
 }
 
-func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
+func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -280,13 +279,13 @@ func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
 			return nil
 		},
 		mockApi, mockManager, s.agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.startInstance(c, broker, machineId)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot write charm profile: request to write LXD profile for machine %s with no profile name", machineId))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("cannot write charm profile: request to write LXD profile for machine %s with no profile name", machineId))
 }
 
-func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c *gc.C) {
+func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -303,12 +302,12 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c
 			return nil
 		},
 		mockApi, mockManager, s.agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nameRetriever := broker.(container.LXDProfileNameRetriever)
 	profileNames, err := nameRetriever.LXDProfileNames(containerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(profileNames, jc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(profileNames, tc.DeepEquals, []string{
 		lxdprofile.Name("foo", "bar", 1),
 	})
 }

@@ -11,8 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/internal/cmd"
@@ -26,7 +25,7 @@ type embeddedCliSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-func (s *embeddedCliSuite) SetUpTest(c *gc.C) {
+func (s *embeddedCliSuite) SetUpTest(c *tc.C) {
 	s.WithEmbeddedCLICommand = func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusArgs string) int {
 		allowed := set.NewStrings(whitelist...)
 		args := strings.Split(cmdPlusArgs, " ")
@@ -63,9 +62,9 @@ func (s *embeddedCliSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 }
 
-var _ = gc.Suite(&embeddedCliSuite{})
+var _ = tc.Suite(&embeddedCliSuite{})
 
-func (s *embeddedCliSuite) TestEmbeddedCommand(c *gc.C) {
+func (s *embeddedCliSuite) TestEmbeddedCommand(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		User:     "fred",
 		Commands: []string{"status --color"},
@@ -73,7 +72,7 @@ func (s *embeddedCliSuite) TestEmbeddedCommand(c *gc.C) {
 	s.assertEmbeddedCommand(c, cmdArgs, "fred@interactive:admin/controller -> status --color", nil)
 }
 
-func (s *embeddedCliSuite) TestEmbeddedCommandNotAllowed(c *gc.C) {
+func (s *embeddedCliSuite) TestEmbeddedCommandNotAllowed(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		User:     "fred",
 		Commands: []string{"bootstrap aws"},
@@ -81,14 +80,14 @@ func (s *embeddedCliSuite) TestEmbeddedCommandNotAllowed(c *gc.C) {
 	s.assertEmbeddedCommand(c, cmdArgs, `"bootstrap" not allowed`, nil)
 }
 
-func (s *embeddedCliSuite) TestEmbeddedCommandMissingUser(c *gc.C) {
+func (s *embeddedCliSuite) TestEmbeddedCommandMissingUser(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		Commands: []string{"status --color"},
 	}
 	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `CLI command for anonymous user not supported`, Code: "not supported"})
 }
 
-func (s *embeddedCliSuite) TestEmbeddedCommandInvalidUser(c *gc.C) {
+func (s *embeddedCliSuite) TestEmbeddedCommandInvalidUser(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		User:     "123@",
 		Commands: []string{"status --color"},
@@ -96,7 +95,7 @@ func (s *embeddedCliSuite) TestEmbeddedCommandInvalidUser(c *gc.C) {
 	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `user name "123@" not valid`, Code: params.CodeNotValid})
 }
 
-func (s *embeddedCliSuite) TestEmbeddedCommandInvalidMacaroon(c *gc.C) {
+func (s *embeddedCliSuite) TestEmbeddedCommandInvalidMacaroon(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		User:     "fred",
 		Commands: []string{"status macaroon error"},
@@ -106,11 +105,11 @@ func (s *embeddedCliSuite) TestEmbeddedCommandInvalidMacaroon(c *gc.C) {
 		Message: `macaroon discharge required: cannot get discharge from https://controller`})
 }
 
-func (s *embeddedCliSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLICommands, expected string, resultErr *params.Error) {
+func (s *embeddedCliSuite) assertEmbeddedCommand(c *tc.C, cmdArgs params.CLICommands, expected string, resultErr *params.Error) {
 	commandURL := s.URL(fmt.Sprintf("/model/%s/commands", s.ControllerModelUUID()), url.Values{})
 	commandURL.Scheme = "wss"
 	conn, _, err := dialWebsocketFromURL(c, commandURL.String(), http.Header{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer conn.Close()
 
 	// Read back the nil error, indicating that all is well.
@@ -122,7 +121,7 @@ func (s *embeddedCliSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComm
 		for {
 			var update params.CLICommandStatus
 			err := conn.ReadJSON(&update)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			result.Output = append(result.Output, update.Output...)
 			result.Done = update.Done
@@ -135,7 +134,7 @@ func (s *embeddedCliSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComm
 	}()
 
 	err = conn.WriteJSON(cmdArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
@@ -145,13 +144,13 @@ func (s *embeddedCliSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComm
 
 	// Close connection.
 	err = conn.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var expectedOutput []string
 	if expected != "" {
 		expectedOutput = []string{expected}
 	}
-	c.Assert(result, jc.DeepEquals, params.CLICommandStatus{
+	c.Assert(result, tc.DeepEquals, params.CLICommandStatus{
 		Output: expectedOutput,
 		Done:   true,
 		Error:  resultErr,

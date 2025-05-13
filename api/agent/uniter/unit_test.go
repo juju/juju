@@ -9,9 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -20,6 +18,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -28,14 +27,14 @@ type unitSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&unitSuite{})
+var _ = tc.Suite(&unitSuite{})
 
-func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
+func (s *unitSuite) TestUnitAndUnitTag(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "Refresh")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.UnitRefreshResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "Refresh")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.UnitRefreshResults{})
 		*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
 			Results: []params.UnitRefreshResult{{
 				Life: life.Alive,
@@ -46,34 +45,34 @@ func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	client := uniter.NewClient(apiCaller, tag)
 	unit, err := client.Unit(context.Background(), tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.Name(), gc.Equals, "mysql/0")
-	c.Assert(unit.Tag(), gc.Equals, tag)
-	c.Assert(unit.Life(), gc.Equals, life.Alive)
-	c.Assert(unit.ApplicationName(), gc.Equals, "mysql")
-	c.Assert(unit.ApplicationTag(), gc.Equals, names.NewApplicationTag("mysql"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(unit.Name(), tc.Equals, "mysql/0")
+	c.Assert(unit.Tag(), tc.Equals, tag)
+	c.Assert(unit.Life(), tc.Equals, life.Alive)
+	c.Assert(unit.ApplicationName(), tc.Equals, "mysql")
+	c.Assert(unit.ApplicationTag(), tc.Equals, names.NewApplicationTag("mysql"))
 }
 
-func (s *unitSuite) TestUnitAndUnitTagNotImplemented(c *gc.C) {
+func (s *unitSuite) TestUnitAndUnitTagNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
 	tag := names.NewUnitTag("mysql/0")
 	client := uniter.NewClient(apiCaller, tag)
 	_, err := client.Unit(context.Background(), tag)
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
+func (s *unitSuite) TestSetAgentStatus(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "SetAgentStatus")
-		c.Assert(arg, gc.DeepEquals, params.SetStatus{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "SetAgentStatus")
+		c.Assert(arg, tc.DeepEquals, params.SetStatus{
 			Entities: []params.EntityStatusArgs{
 				{Tag: "unit-mysql-0", Status: "idle", Info: "blah", Data: map[string]interface{}{"foo": "bar"}},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Message: "biff"}}},
 		}
@@ -83,10 +82,10 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetAgentStatus(context.Background(), status.Idle, "blah", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, gc.ErrorMatches, "biff")
+	c.Assert(err, tc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestSetAgentStatusNotImplemented(c *gc.C) {
+func (s *unitSuite) TestSetAgentStatusNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -95,19 +94,19 @@ func (s *unitSuite) TestSetAgentStatusNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetAgentStatus(context.Background(), status.Idle, "blah", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
+func (s *unitSuite) TestSetUnitStatus(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "SetUnitStatus")
-		c.Assert(arg, gc.DeepEquals, params.SetStatus{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "SetUnitStatus")
+		c.Assert(arg, tc.DeepEquals, params.SetStatus{
 			Entities: []params.EntityStatusArgs{
 				{Tag: "unit-mysql-0", Status: "idle", Info: "blah", Data: map[string]interface{}{"foo": "bar"}},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Message: "biff"}}},
 		}
@@ -117,10 +116,10 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetUnitStatus(context.Background(), status.Idle, "blah", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, gc.ErrorMatches, "biff")
+	c.Assert(err, tc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestSetUnitStatusNotImplemented(c *gc.C) {
+func (s *unitSuite) TestSetUnitStatusNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -129,16 +128,16 @@ func (s *unitSuite) TestSetUnitStatusNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetUnitStatus(context.Background(), status.Idle, "blah", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestUnitStatus(c *gc.C) {
+func (s *unitSuite) TestUnitStatus(c *tc.C) {
 	now := time.Now()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "UnitStatus")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StatusResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "UnitStatus")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StatusResults{})
 		*(result.(*params.StatusResults)) = params.StatusResults{
 			Results: []params.StatusResult{{
 				Id:     "mysql/0",
@@ -155,8 +154,8 @@ func (s *unitSuite) TestUnitStatus(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	statusInfo, err := unit.UnitStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo, gc.DeepEquals, params.StatusResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statusInfo, tc.DeepEquals, params.StatusResult{
 		Id:     "mysql/0",
 		Life:   life.Alive,
 		Status: status.Maintenance.String(),
@@ -166,7 +165,7 @@ func (s *unitSuite) TestUnitStatus(c *gc.C) {
 	})
 }
 
-func (s *unitSuite) TestUnitStatusNotImplemented(c *gc.C) {
+func (s *unitSuite) TestUnitStatusNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -175,15 +174,15 @@ func (s *unitSuite) TestUnitStatusNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.UnitStatus(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestEnsureDead(c *gc.C) {
+func (s *unitSuite) TestEnsureDead(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "EnsureDead")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "EnsureDead")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Message: "biff"}}},
 		}
@@ -193,10 +192,10 @@ func (s *unitSuite) TestEnsureDead(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.EnsureDead(context.Background())
-	c.Assert(err, gc.ErrorMatches, "biff")
+	c.Assert(err, tc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestEnsureDeadNotImplemented(c *gc.C) {
+func (s *unitSuite) TestEnsureDeadNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -205,15 +204,15 @@ func (s *unitSuite) TestEnsureDeadNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.EnsureDead(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestDestroy(c *gc.C) {
+func (s *unitSuite) TestDestroy(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "Destroy")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "Destroy")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Message: "biff"}}},
 		}
@@ -223,10 +222,10 @@ func (s *unitSuite) TestDestroy(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.Destroy(context.Background())
-	c.Assert(err, gc.ErrorMatches, "biff")
+	c.Assert(err, tc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestDestroyNotImplemented(c *gc.C) {
+func (s *unitSuite) TestDestroyNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -235,15 +234,15 @@ func (s *unitSuite) TestDestroyNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.Destroy(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
+func (s *unitSuite) TestDestroyAllSubordinates(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "DestroyAllSubordinates")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "DestroyAllSubordinates")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Message: "biff"}}},
 		}
@@ -253,10 +252,10 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.DestroyAllSubordinates(context.Background())
-	c.Assert(err, gc.ErrorMatches, "biff")
+	c.Assert(err, tc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestDestroyAllSubordinatesNotImplemented(c *gc.C) {
+func (s *unitSuite) TestDestroyAllSubordinatesNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -265,15 +264,15 @@ func (s *unitSuite) TestDestroyAllSubordinatesNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.DestroyAllSubordinates(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestRefresh(c *gc.C) {
+func (s *unitSuite) TestRefresh(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "Refresh")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.UnitRefreshResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "Refresh")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.UnitRefreshResults{})
 		*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
 			Results: []params.UnitRefreshResult{{
 				Life:       life.Dying,
@@ -287,12 +286,12 @@ func (s *unitSuite) TestRefresh(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(unit.Life(), gc.Equals, life.Dying)
-	c.Check(unit.ProviderID(), gc.Equals, "666")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unit.Life(), tc.Equals, life.Dying)
+	c.Check(unit.ProviderID(), tc.Equals, "666")
 }
 
-func (s *unitSuite) TestRefreshNotImplemented(c *gc.C) {
+func (s *unitSuite) TestRefreshNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -301,15 +300,15 @@ func (s *unitSuite) TestRefreshNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.Refresh(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestClearResolved(c *gc.C) {
+func (s *unitSuite) TestClearResolved(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "ClearResolved")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "ClearResolved")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Message: "biff"}}},
 		}
@@ -319,10 +318,10 @@ func (s *unitSuite) TestClearResolved(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.ClearResolved(context.Background())
-	c.Assert(err, gc.ErrorMatches, "biff")
+	c.Assert(err, tc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestClearResolvedNotImplemented(c *gc.C) {
+func (s *unitSuite) TestClearResolvedNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -331,10 +330,10 @@ func (s *unitSuite) TestClearResolvedNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.ClearResolved(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestWatch(c *gc.C) {
+func (s *unitSuite) TestWatch(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if objType == "NotifyWatcher" {
 			if request != "Next" && request != "Stop" {
@@ -342,10 +341,10 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 			}
 			return nil
 		}
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "WatchUnit")
-		c.Assert(arg, gc.DeepEquals, params.Entity{Tag: "unit-mysql-0"})
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "WatchUnit")
+		c.Assert(arg, tc.DeepEquals, params.Entity{Tag: "unit-mysql-0"})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResult{})
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			NotifyWatcherId: "1",
 		}
@@ -355,20 +354,20 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.Watch(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-	case <-time.After(testing.LongWait):
+		c.Assert(ok, tc.IsTrue)
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
 }
 
-func (s *unitSuite) TestWatchNotImplemented(c *gc.C) {
+func (s *unitSuite) TestWatchNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -377,10 +376,10 @@ func (s *unitSuite) TestWatchNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.Watch(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestWatchResolveMode(c *gc.C) {
+func (s *unitSuite) TestWatchResolveMode(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if objType == "NotifyWatcher" {
 			if request != "Next" && request != "Stop" {
@@ -388,10 +387,10 @@ func (s *unitSuite) TestWatchResolveMode(c *gc.C) {
 			}
 			return nil
 		}
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "WatchUnitResolveMode")
-		c.Assert(arg, gc.DeepEquals, params.Entity{Tag: "unit-mysql-0"})
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "WatchUnitResolveMode")
+		c.Assert(arg, tc.DeepEquals, params.Entity{Tag: "unit-mysql-0"})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResult{})
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			NotifyWatcherId: "1",
 		}
@@ -402,20 +401,20 @@ func (s *unitSuite) TestWatchResolveMode(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchResolveMode(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-	case <-time.After(testing.LongWait):
+		c.Assert(ok, tc.IsTrue)
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
 }
 
-func (s *unitSuite) TestWatchResolveModeNotImplemented(c *gc.C) {
+func (s *unitSuite) TestWatchResolveModeNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -424,10 +423,10 @@ func (s *unitSuite) TestWatchResolveModeNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.WatchResolveMode(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestWatchRelations(c *gc.C) {
+func (s *unitSuite) TestWatchRelations(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if objType == "StringsWatcher" {
 			if request != "Next" && request != "Stop" {
@@ -435,10 +434,10 @@ func (s *unitSuite) TestWatchRelations(c *gc.C) {
 			}
 			return nil
 		}
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "WatchUnitRelations")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "WatchUnitRelations")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{
 				StringsWatcherId: "1",
@@ -451,7 +450,7 @@ func (s *unitSuite) TestWatchRelations(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchRelations(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
@@ -459,7 +458,7 @@ func (s *unitSuite) TestWatchRelations(c *gc.C) {
 	wc.AssertChange("666")
 }
 
-func (s *unitSuite) TestWatchRelationsNotImplemented(c *gc.C) {
+func (s *unitSuite) TestWatchRelationsNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -468,15 +467,15 @@ func (s *unitSuite) TestWatchRelationsNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.WatchRelations(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestAssignedMachine(c *gc.C) {
+func (s *unitSuite) TestAssignedMachine(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "AssignedMachine")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "AssignedMachine")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
 				Result: "machine-666",
@@ -488,11 +487,11 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	tag, err := unit.AssignedMachine(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tag, gc.Equals, names.NewMachineTag("666"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(tag, tc.Equals, names.NewMachineTag("666"))
 }
 
-func (s *unitSuite) TestAssignedMachineNotImplemented(c *gc.C) {
+func (s *unitSuite) TestAssignedMachineNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -501,15 +500,15 @@ func (s *unitSuite) TestAssignedMachineNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.AssignedMachine(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestPrincipalName(c *gc.C) {
+func (s *unitSuite) TestPrincipalName(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "GetPrincipal")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringBoolResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "GetPrincipal")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringBoolResults{})
 		*(result.(*params.StringBoolResults)) = params.StringBoolResults{
 			Results: []params.StringBoolResult{{
 				Result: "unit-wordpress-0",
@@ -522,12 +521,12 @@ func (s *unitSuite) TestPrincipalName(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	name, ok, err := unit.PrincipalName(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "wordpress/0")
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(name, tc.Equals, "wordpress/0")
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s *unitSuite) TestPrincipalNameNotImplemented(c *gc.C) {
+func (s *unitSuite) TestPrincipalNameNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -536,15 +535,15 @@ func (s *unitSuite) TestPrincipalNameNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, _, err := unit.PrincipalName(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestHasSubordinates(c *gc.C) {
+func (s *unitSuite) TestHasSubordinates(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "HasSubordinates")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "HasSubordinates")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.BoolResults{})
 		*(result.(*params.BoolResults)) = params.BoolResults{
 			Results: []params.BoolResult{{
 				Result: true,
@@ -556,11 +555,11 @@ func (s *unitSuite) TestHasSubordinates(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	ok, err := unit.HasSubordinates(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s *unitSuite) TestHasSubordinatesNotImplemented(c *gc.C) {
+func (s *unitSuite) TestHasSubordinatesNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -569,15 +568,15 @@ func (s *unitSuite) TestHasSubordinatesNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.HasSubordinates(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestPublicAddress(c *gc.C) {
+func (s *unitSuite) TestPublicAddress(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "PublicAddress")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "PublicAddress")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
 				Result: "1.1.1.1",
@@ -589,11 +588,11 @@ func (s *unitSuite) TestPublicAddress(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	address, err := unit.PublicAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "1.1.1.1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.Equals, "1.1.1.1")
 }
 
-func (s *unitSuite) TestPublicAddressNotImplemented(c *gc.C) {
+func (s *unitSuite) TestPublicAddressNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -602,15 +601,15 @@ func (s *unitSuite) TestPublicAddressNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.PublicAddress(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestPrivateAddress(c *gc.C) {
+func (s *unitSuite) TestPrivateAddress(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "PrivateAddress")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "PrivateAddress")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
 				Result: "1.1.1.1",
@@ -622,11 +621,11 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	address, err := unit.PrivateAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "1.1.1.1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.Equals, "1.1.1.1")
 }
 
-func (s *unitSuite) TestPrivateAddressNotImplemented(c *gc.C) {
+func (s *unitSuite) TestPrivateAddressNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -635,15 +634,15 @@ func (s *unitSuite) TestPrivateAddressNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.PrivateAddress(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
+func (s *unitSuite) TestAvailabilityZone(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "AvailabilityZone")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "AvailabilityZone")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
 				Result: "a-zone",
@@ -655,11 +654,11 @@ func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	address, err := unit.AvailabilityZone(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "a-zone")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.Equals, "a-zone")
 }
 
-func (s *unitSuite) TestAvailabilityZoneNotImplemented(c *gc.C) {
+func (s *unitSuite) TestAvailabilityZoneNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -668,15 +667,15 @@ func (s *unitSuite) TestAvailabilityZoneNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.AvailabilityZone(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestCharmURL(c *gc.C) {
+func (s *unitSuite) TestCharmURL(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "CharmURL")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringBoolResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "CharmURL")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringBoolResults{})
 		*(result.(*params.StringBoolResults)) = params.StringBoolResults{
 			Results: []params.StringBoolResult{{
 				Result: "ch:mysql",
@@ -688,11 +687,11 @@ func (s *unitSuite) TestCharmURL(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	curl, err := unit.CharmURL(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.Equals, "ch:mysql")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(curl, tc.Equals, "ch:mysql")
 }
 
-func (s *unitSuite) TestCharmURLNotImplemented(c *gc.C) {
+func (s *unitSuite) TestCharmURLNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -701,19 +700,19 @@ func (s *unitSuite) TestCharmURLNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.CharmURL(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestSetCharmURL(c *gc.C) {
+func (s *unitSuite) TestSetCharmURL(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "SetCharmURL")
-		c.Assert(arg, gc.DeepEquals, params.EntitiesCharmURL{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "SetCharmURL")
+		c.Assert(arg, tc.DeepEquals, params.EntitiesCharmURL{
 			Entities: []params.EntityCharmURL{
 				{Tag: "unit-mysql-0", CharmURL: "ch:mysql"},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Message: "biff"}}},
 		}
@@ -723,10 +722,10 @@ func (s *unitSuite) TestSetCharmURL(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetCharmURL(context.Background(), "ch:mysql")
-	c.Assert(err, gc.ErrorMatches, "biff")
+	c.Assert(err, tc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestSetCharmURLNotImplemented(c *gc.C) {
+func (s *unitSuite) TestSetCharmURLNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -735,22 +734,22 @@ func (s *unitSuite) TestSetCharmURLNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetCharmURL(context.Background(), "ch:mysql")
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestNetworkInfo(c *gc.C) {
+func (s *unitSuite) TestNetworkInfo(c *tc.C) {
 	relId := 2
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "NetworkInfo")
-		c.Check(arg, gc.DeepEquals, params.NetworkInfoParams{
+		c.Check(objType, tc.Equals, "Uniter")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "NetworkInfo")
+		c.Check(arg, tc.DeepEquals, params.NetworkInfoParams{
 			Unit:       "unit-mysql-0",
 			Endpoints:  []string{"server"},
 			RelationId: &relId,
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.NetworkInfoResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.NetworkInfoResults{})
 		*(result.(*params.NetworkInfoResults)) = params.NetworkInfoResults{
 			Results: map[string]params.NetworkInfoResult{
 				"db": {
@@ -764,11 +763,11 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	result, err := unit.NetworkInfo(context.Background(), []string{"server"}, &relId)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result["db"].Error, gc.ErrorMatches, "FAIL")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result["db"].Error, tc.ErrorMatches, "FAIL")
 }
 
-func (s *unitSuite) TestNetworkInfoNotImplemented(c *gc.C) {
+func (s *unitSuite) TestNetworkInfoNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -779,15 +778,15 @@ func (s *unitSuite) TestNetworkInfoNotImplemented(c *gc.C) {
 
 	relId := 2
 	_, err := unit.NetworkInfo(context.Background(), []string{"server"}, &relId)
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestConfigSettings(c *gc.C) {
+func (s *unitSuite) TestConfigSettings(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "ConfigSettings")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.ConfigSettingsResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "ConfigSettings")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.ConfigSettingsResults{})
 		*(result.(*params.ConfigSettingsResults)) = params.ConfigSettingsResults{
 			Results: []params.ConfigSettingsResult{{
 				Settings: params.ConfigSettings{"foo": "bar"},
@@ -800,13 +799,13 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	settings, err := unit.ConfigSettings(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(settings, tc.DeepEquals, charm.Settings{
 		"foo": "bar",
 	})
 }
 
-func (s *unitSuite) TestConfigSettingsNotImplemented(c *gc.C) {
+func (s *unitSuite) TestConfigSettingsNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -816,10 +815,10 @@ func (s *unitSuite) TestConfigSettingsNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.ConfigSettings(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
+func (s *unitSuite) TestWatchConfigSettingsHash(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if objType == "StringsWatcher" {
 			if request != "Next" && request != "Stop" {
@@ -827,10 +826,10 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			}
 			return nil
 		}
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "WatchConfigSettingsHash")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "WatchConfigSettingsHash")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{
 				StringsWatcherId: "1",
@@ -843,7 +842,7 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchConfigSettingsHash(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
@@ -851,7 +850,7 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	wc.AssertChange("666")
 }
 
-func (s *unitSuite) TestWatchConfigSettingsHashNotImplemented(c *gc.C) {
+func (s *unitSuite) TestWatchConfigSettingsHashNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -861,10 +860,10 @@ func (s *unitSuite) TestWatchConfigSettingsHashNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.WatchConfigSettingsHash(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
+func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if objType == "StringsWatcher" {
 			if request != "Next" && request != "Stop" {
@@ -872,10 +871,10 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 			}
 			return nil
 		}
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "WatchTrustConfigSettingsHash")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "WatchTrustConfigSettingsHash")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{
 				StringsWatcherId: "1",
@@ -888,7 +887,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchTrustConfigSettingsHash(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
@@ -896,7 +895,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	wc.AssertChange("666")
 }
 
-func (s *unitSuite) TestWatchTrustConfigSettingsHashNotImplemented(c *gc.C) {
+func (s *unitSuite) TestWatchTrustConfigSettingsHashNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -906,10 +905,10 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHashNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.WatchTrustConfigSettingsHash(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
+func (s *unitSuite) TestWatchAddressesHash(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if objType == "StringsWatcher" {
 			if request != "Next" && request != "Stop" {
@@ -917,10 +916,10 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 			}
 			return nil
 		}
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "WatchUnitAddressesHash")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "WatchUnitAddressesHash")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{
 				StringsWatcherId: "1",
@@ -933,7 +932,7 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchAddressesHash(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
@@ -941,7 +940,7 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 	wc.AssertChange("666")
 }
 
-func (s *unitSuite) TestWatchAddressesHashNotImplemented(c *gc.C) {
+func (s *unitSuite) TestWatchAddressesHashNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -951,15 +950,15 @@ func (s *unitSuite) TestWatchAddressesHashNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.WatchAddressesHash(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestRelationStatus(c *gc.C) {
+func (s *unitSuite) TestRelationStatus(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "RelationsStatus")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.RelationUnitStatusResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "RelationsStatus")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.RelationUnitStatusResults{})
 		*(result.(*params.RelationUnitStatusResults)) = params.RelationUnitStatusResults{
 			Results: []params.RelationUnitStatusResult{{
 				RelationResults: []params.RelationUnitStatus{{
@@ -975,15 +974,15 @@ func (s *unitSuite) TestRelationStatus(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	relStatus, err := unit.RelationsStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relStatus, jc.DeepEquals, []uniter.RelationStatus{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(relStatus, tc.DeepEquals, []uniter.RelationStatus{{
 		Tag:       names.NewRelationTag("wordpress:server mysql:db"),
 		Suspended: true,
 		InScope:   true,
 	}})
 }
 
-func (s *unitSuite) TestRelationStatusNotImplemented(c *gc.C) {
+func (s *unitSuite) TestRelationStatusNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -993,10 +992,10 @@ func (s *unitSuite) TestRelationStatusNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.RelationsStatus(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestUnitState(c *gc.C) {
+func (s *unitSuite) TestUnitState(c *tc.C) {
 	unitState := params.UnitStateResult{
 		StorageState:  "storage",
 		SecretState:   "secret",
@@ -1005,10 +1004,10 @@ func (s *unitSuite) TestUnitState(c *gc.C) {
 		RelationState: map[int]string{666: "666"},
 	}
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "State")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.UnitStateResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "State")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.UnitStateResults{})
 		*(result.(*params.UnitStateResults)) = params.UnitStateResults{
 			Results: []params.UnitStateResult{unitState},
 		}
@@ -1018,11 +1017,11 @@ func (s *unitSuite) TestUnitState(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	result, err := unit.State(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, unitState)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, unitState)
 }
 
-func (s *unitSuite) TestUnitStateNotImplemented(c *gc.C) {
+func (s *unitSuite) TestUnitStateNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -1032,22 +1031,22 @@ func (s *unitSuite) TestUnitStateNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.State(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestSetState(c *gc.C) {
+func (s *unitSuite) TestSetState(c *tc.C) {
 	unitState := params.SetUnitStateArg{
 		Tag:           "unit-mysql-0",
 		CharmState:    &map[string]string{"foo": "bar"},
 		RelationState: &map[int]string{666: "666"},
 	}
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "SetState")
-		c.Assert(arg, gc.DeepEquals, params.SetUnitStateArgs{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "SetState")
+		c.Assert(arg, tc.DeepEquals, params.SetUnitStateArgs{
 			Args: []params.SetUnitStateArg{unitState},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Message: "biff"}}},
 		}
@@ -1057,10 +1056,10 @@ func (s *unitSuite) TestSetState(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetState(context.Background(), unitState)
-	c.Assert(err, gc.ErrorMatches, "biff")
+	c.Assert(err, tc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestSetStateNotImplemented(c *gc.C) {
+func (s *unitSuite) TestSetStateNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -1070,10 +1069,10 @@ func (s *unitSuite) TestSetStateNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	err := unit.SetState(context.Background(), params.SetUnitStateArg{})
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestWatchInstanceData(c *gc.C) {
+func (s *unitSuite) TestWatchInstanceData(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if objType == "NotifyWatcher" {
 			if request != "Next" && request != "Stop" {
@@ -1081,10 +1080,10 @@ func (s *unitSuite) TestWatchInstanceData(c *gc.C) {
 			}
 			return nil
 		}
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "WatchInstanceData")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "WatchInstanceData")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
 		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{{
 				NotifyWatcherId: "1",
@@ -1096,20 +1095,20 @@ func (s *unitSuite) TestWatchInstanceData(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchInstanceData(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-	case <-time.After(testing.LongWait):
+		c.Assert(ok, tc.IsTrue)
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
 }
 
-func (s *unitSuite) TestWatchInstanceDataNotImplemented(c *gc.C) {
+func (s *unitSuite) TestWatchInstanceDataNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -1119,15 +1118,15 @@ func (s *unitSuite) TestWatchInstanceDataNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.WatchInstanceData(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestLXDProfileName(c *gc.C) {
+func (s *unitSuite) TestLXDProfileName(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "LXDProfileName")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "LXDProfileName")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
 				Result: "juju-default-mysql-0",
@@ -1138,11 +1137,11 @@ func (s *unitSuite) TestLXDProfileName(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	profile, err := unit.LXDProfileName(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(profile, gc.Equals, "juju-default-mysql-0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(profile, tc.Equals, "juju-default-mysql-0")
 }
 
-func (s *unitSuite) TestLXDProfileNameNotImplemented(c *gc.C) {
+func (s *unitSuite) TestLXDProfileNameNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -1152,15 +1151,15 @@ func (s *unitSuite) TestLXDProfileNameNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.LXDProfileName(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestCanApplyLXDProfile(c *gc.C) {
+func (s *unitSuite) TestCanApplyLXDProfile(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "CanApplyLXDProfile")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "CanApplyLXDProfile")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.BoolResults{})
 		*(result.(*params.BoolResults)) = params.BoolResults{
 			Results: []params.BoolResult{{
 				Result: true,
@@ -1171,11 +1170,11 @@ func (s *unitSuite) TestCanApplyLXDProfile(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	canApply, err := unit.CanApplyLXDProfile(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(canApply, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(canApply, tc.IsTrue)
 }
 
-func (s *unitSuite) TestCanApplyLXDProfileNotImplemented(c *gc.C) {
+func (s *unitSuite) TestCanApplyLXDProfileNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -1185,5 +1184,5 @@ func (s *unitSuite) TestCanApplyLXDProfileNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.CanApplyLXDProfile(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }

@@ -4,14 +4,14 @@
 package permission_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/permission"
 )
 
 type userSuite struct{}
 
-var _ = gc.Suite(&userSuite{})
+var _ = tc.Suite(&userSuite{})
 
 var validateRevokeAccessTest = []struct {
 	spec     permission.AccessSpec
@@ -50,12 +50,12 @@ var validateRevokeAccessTest = []struct {
 	},
 }
 
-func (*userSuite) TestRevokeAccess(c *gc.C) {
+func (*userSuite) TestRevokeAccess(c *tc.C) {
 	size := len(validateRevokeAccessTest)
 	for i, test := range validateRevokeAccessTest {
 		c.Logf("Running test %d of %d", i, size)
 		obtained := test.spec.RevokeAccess()
-		c.Check(obtained, gc.Equals, test.expected,
-			gc.Commentf("revoke %q on %q, expect %q", test.spec.Access, test.spec.Target.ObjectType, test.expected))
+		c.Check(obtained, tc.Equals, test.expected,
+			tc.Commentf("revoke %q on %q, expect %q", test.spec.Access, test.spec.Target.ObjectType, test.expected))
 	}
 }

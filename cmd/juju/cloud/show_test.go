@@ -9,14 +9,13 @@ import (
 	"strings"
 
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -28,9 +27,9 @@ type showSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&showSuite{})
+var _ = tc.Suite(&showSuite{})
 
-func (s *showSuite) SetUpTest(c *gc.C) {
+func (s *showSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeShowCloudAPI{}
 	store := jujuclient.NewMemStore()
@@ -39,12 +38,12 @@ func (s *showSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *showSuite) TestShowBadArgs(c *gc.C) {
+func (s *showSuite) TestShowBadArgs(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand())
-	c.Assert(err, gc.ErrorMatches, "no cloud specified")
+	c.Assert(err, tc.ErrorMatches, "no cloud specified")
 }
 
-func (s *showSuite) assertShowLocal(c *gc.C, expectedOutput string) {
+func (s *showSuite) assertShowLocal(c *tc.C, expectedOutput string) {
 	command := cloud.NewShowCloudCommandForTest(
 		s.store,
 		func(ctx context.Context) (cloud.ShowCloudAPI, error) {
@@ -52,12 +51,12 @@ func (s *showSuite) assertShowLocal(c *gc.C, expectedOutput string) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "aws-china", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, expectedOutput)
+	c.Assert(out, tc.Equals, expectedOutput)
 }
 
-func (s *showSuite) TestShowLocal(c *gc.C) {
+func (s *showSuite) TestShowLocal(c *tc.C) {
 	s.assertShowLocal(c, `
 Client cloud "aws-china":
 
@@ -73,7 +72,7 @@ regions:
 `[1:])
 }
 
-func (s *showSuite) TestShowLocalWithDefaultCloud(c *gc.C) {
+func (s *showSuite) TestShowLocalWithDefaultCloud(c *tc.C) {
 	s.store.Credentials["aws-china"] = jujucloud.CloudCredential{DefaultRegion: "cn-north-1"}
 	s.assertShowLocal(c, `
 Client cloud "aws-china":
@@ -91,7 +90,7 @@ regions:
 `[1:])
 }
 
-func (s *showSuite) TestShowKubernetes(c *gc.C) {
+func (s *showSuite) TestShowKubernetes(c *tc.C) {
 	s.api.cloud = jujucloud.Cloud{
 		Name:        "beehive",
 		Type:        "kubernetes",
@@ -112,11 +111,11 @@ func (s *showSuite) TestShowKubernetes(c *gc.C) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "--controller", "mycontroller", "beehive")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "CloudInfo", "Close")
-	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `
+	c.Assert(out, tc.Equals, `
 Cloud "beehive" from controller "mycontroller":
 
 defined: public
@@ -151,7 +150,7 @@ func (s *showSuite) setupRemoteCloud(cloudName string) {
 	}
 }
 
-func (s *showSuite) TestShowControllerCloudNoLocal(c *gc.C) {
+func (s *showSuite) TestShowControllerCloudNoLocal(c *tc.C) {
 	s.setupRemoteCloud("beehive")
 	command := cloud.NewShowCloudCommandForTest(
 		s.store,
@@ -159,11 +158,11 @@ func (s *showSuite) TestShowControllerCloudNoLocal(c *gc.C) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "beehive", "-c", "mycontroller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "CloudInfo", "Close")
-	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `
+	c.Assert(out, tc.Equals, `
 Cloud "beehive" from controller "mycontroller":
 
 defined: public
@@ -181,7 +180,7 @@ users:
 `[1:])
 }
 
-func (s *showSuite) TestShowControllerAndLocalCloud(c *gc.C) {
+func (s *showSuite) TestShowControllerAndLocalCloud(c *tc.C) {
 	s.setupRemoteCloud("aws-china")
 	command := cloud.NewShowCloudCommandForTest(
 		s.store,
@@ -189,11 +188,11 @@ func (s *showSuite) TestShowControllerAndLocalCloud(c *gc.C) {
 			return s.api, nil
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "aws-china")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "CloudInfo", "Close")
-	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `
+	c.Assert(out, tc.Equals, `
 Cloud "aws-china" from controller "mycontroller":
 
 defined: public
@@ -224,7 +223,7 @@ regions:
 `[1:])
 }
 
-func (s *showSuite) TestShowWithConfig(c *gc.C) {
+func (s *showSuite) TestShowWithConfig(c *tc.C) {
 	data := `
 clouds:
   homestack:
@@ -240,11 +239,11 @@ clouds:
       use-default-secgroup: true
 `[1:]
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `
+	c.Assert(out, tc.Equals, `
 Client cloud "homestack":
 
 defined: local
@@ -283,7 +282,7 @@ use-openstack-gbp:
   description: Whether to use Neutrons Group-Based Policy
 `
 
-func (s *showSuite) TestShowWithRegionConfigAndFlags(c *gc.C) {
+func (s *showSuite) TestShowWithRegionConfigAndFlags(c *tc.C) {
 	data := `
 clouds:
   homestack:
@@ -302,11 +301,11 @@ clouds:
         bootstrap-timeout: 1800
 `[1:]
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--include-config", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, strings.Join([]string{`
+	c.Assert(out, tc.Equals, strings.Join([]string{`
 Client cloud "homestack":
 
 defined: local
@@ -389,17 +388,17 @@ ca-credentials:
   -----END CERTIFICATE-----
 `[1:]
 
-func (s *showSuite) TestShowWithCACertificate(c *gc.C) {
+func (s *showSuite) TestShowWithCACertificate(c *tc.C) {
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(yamlWithCert), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--client")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, resultWithCert)
+	c.Assert(out, tc.Equals, resultWithCert)
 }
 
 type fakeShowCloudAPI struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	cloud jujucloud.Cloud
 }
 

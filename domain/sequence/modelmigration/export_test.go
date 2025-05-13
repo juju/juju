@@ -7,20 +7,21 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type exportSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	exportService *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) TestExportSequences(c *gc.C) {
+func (s *exportSuite) TestExportSequences(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
@@ -29,14 +30,14 @@ func (s *exportSuite) TestExportSequences(c *gc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	sequences := dst.Sequences()
-	c.Assert(sequences, gc.HasLen, 2)
-	c.Check(sequences, gc.DeepEquals, map[string]int{"seq1": 12, "seq2": 66})
+	c.Assert(sequences, tc.HasLen, 2)
+	c.Check(sequences, tc.DeepEquals, map[string]int{"seq1": 12, "seq2": 66})
 }
 
-func (s *exportSuite) TestExportSequencesEmpty(c *gc.C) {
+func (s *exportSuite) TestExportSequencesEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
@@ -45,13 +46,13 @@ func (s *exportSuite) TestExportSequencesEmpty(c *gc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	sequences := dst.Sequences()
-	c.Assert(sequences, gc.HasLen, 0)
+	c.Assert(sequences, tc.HasLen, 0)
 }
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.exportService = NewMockExportService(ctrl)

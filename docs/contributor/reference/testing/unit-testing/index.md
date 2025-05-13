@@ -10,8 +10,7 @@
 
 > See also: [How to write a unit test](/doc/dev/how-to/write-a-unit-test.md)
 
-Unit testing `juju` currently involves the [`gocheck` package]( https://labix.org/gocheck) and the `go test` CLI
-command.
+Unit testing `juju` uses the `go test` CLI and a test suite and check libary called [`tc`](https://github.com/juju/tc").
 
 A typical unit testing package is placed alongside the code package that you want to test (in the same directory) and
 consists of:
@@ -23,7 +22,7 @@ consists of:
   files. In this way, for the tests and only the tests, additional variables and functions can be defined for the
   package and used in the tests.
 
-<!--Even though it's part of the `magic` package rather than the `test` package, we call it `_test` because Juju ignores all files with `_test`. This file acts like a bridge between the two packages. 
+<!--Even though it's part of the `magic` package rather than the `test` package, we call it `_test` because Juju ignores all files with `_test`. This file acts like a bridge between the two packages.
 -->
 
 - Test files of the form `<code filename>_test.go`, which are collections of unit test suites.

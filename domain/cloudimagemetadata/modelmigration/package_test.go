@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/cloudimagemetadata/modelmigration Coordinator,ImportService,ExportService
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 // transformMetadataFromDescriptionToDomain is a helper function to transform a slice of CloudImageMetadata

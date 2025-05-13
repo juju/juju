@@ -7,8 +7,7 @@ import (
 	"context"
 	"os"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -44,14 +43,14 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 	return instanceConfig, nil
 }
 
-func CreateContainer(c *gc.C, manager container.Manager, machineId string) instances.Instance {
+func CreateContainer(c *tc.C, manager container.Manager, machineId string) instances.Instance {
 	instanceConfig, err := MockMachineConfig(machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return CreateContainerWithMachineConfig(c, manager, instanceConfig)
 }
 
 func CreateContainerWithMachineConfig(
-	c *gc.C,
+	c *tc.C,
 	manager container.Manager,
 	instanceConfig *instancecfg.InstanceConfig,
 ) instances.Instance {
@@ -62,7 +61,7 @@ func CreateContainerWithMachineConfig(
 }
 
 func CreateContainerWithMachineAndNetworkAndStorageConfig(
-	c *gc.C,
+	c *tc.C,
 	manager container.Manager,
 	instanceConfig *instancecfg.InstanceConfig,
 	networkConfig *container.NetworkConfig,
@@ -75,16 +74,16 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 		context.Background(),
 		instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "18.04"),
 		networkConfig, storageConfig, callback)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hardware, gc.NotNil)
-	c.Assert(hardware.String(), gc.Not(gc.Equals), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hardware, tc.NotNil)
+	c.Assert(hardware.String(), tc.Not(tc.Equals), "")
 	return inst
 }
 
-func AssertCloudInit(c *gc.C, filename string) []byte {
-	c.Assert(filename, jc.IsNonEmptyFile)
+func AssertCloudInit(c *tc.C, filename string) []byte {
+	c.Assert(filename, tc.IsNonEmptyFile)
 	data, err := os.ReadFile(filename)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.HasPrefix, "#cloud-config\n")
 	return data
 }

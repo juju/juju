@@ -7,10 +7,11 @@ import (
 	"testing"
 	time "time"
 
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiremotecaller -destination package_mocks_test.go github.com/juju/juju/internal/worker/apiremotecaller RemoteServer
@@ -20,11 +21,11 @@ import (
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	clock      *MockClock
 	remote     *MockRemoteServer
@@ -33,7 +34,7 @@ type baseSuite struct {
 	states chan string
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)
@@ -53,20 +54,20 @@ func (s *baseSuite) expectClock() {
 	}).AnyTimes()
 }
 
-func (s *baseSuite) ensureStartup(c *gc.C) {
+func (s *baseSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
-	case <-time.After(jujutesting.ShortWait * 10):
+		c.Assert(state, tc.Equals, stateStarted)
+	case <-time.After(testhelpers.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func (s *baseSuite) ensureChanged(c *gc.C) {
+func (s *baseSuite) ensureChanged(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateChanged)
-	case <-time.After(jujutesting.ShortWait * 10):
+		c.Assert(state, tc.Equals, stateChanged)
+	case <-time.After(testhelpers.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }

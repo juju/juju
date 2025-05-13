@@ -9,9 +9,8 @@ import (
 	"net/http"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/tags"
@@ -25,26 +24,26 @@ type storageVolumeSuite struct {
 	provider storage.Provider
 }
 
-var _ = gc.Suite(&storageVolumeSuite{})
+var _ = tc.Suite(&storageVolumeSuite{})
 
-func (s *storageVolumeSuite) SetUpTest(c *gc.C) {
+func (s *storageVolumeSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)
 
 	var err error
 	s.provider, err = s.env.StorageProvider(oci.OciStorageProviderType)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *storageVolumeSuite) newVolumeSource(c *gc.C) storage.VolumeSource {
+func (s *storageVolumeSuite) newVolumeSource(c *tc.C) storage.VolumeSource {
 	cfg, err := storage.NewConfig("iscsi", oci.OciStorageProviderType,
 		map[string]interface{}{
 			oci.OciVolumeType: oci.IscsiPool,
 		})
-	c.Assert(err, gc.IsNil)
-	c.Assert(cfg, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(cfg, tc.NotNil)
 
 	source, err := s.provider.VolumeSource(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return source
 }
 
@@ -94,7 +93,7 @@ func (s *storageVolumeSuite) setupCreateVolumesExpectations(tag names.VolumeTag,
 
 }
 
-func (s *storageVolumeSuite) TestCreateVolumes(c *gc.C) {
+func (s *storageVolumeSuite) TestCreateVolumes(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -115,12 +114,12 @@ func (s *storageVolumeSuite) TestCreateVolumes(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0].Error, jc.ErrorIsNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Assert(results[0].Error, tc.ErrorIsNil)
 }
 
-func (s *storageVolumeSuite) TestCreateVolumesInvalidSize(c *gc.C) {
+func (s *storageVolumeSuite) TestCreateVolumesInvalidSize(c *tc.C) {
 	source := s.newVolumeSource(c)
 	results, err := source.CreateVolumes(context.Background(), []storage.VolumeParams{
 		{
@@ -134,16 +133,16 @@ func (s *storageVolumeSuite) TestCreateVolumesInvalidSize(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Check(results[0].Error, gc.ErrorMatches, "invalid volume size 2. Valid range is.*")
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Check(results[0].Error, tc.ErrorMatches, "invalid volume size 2. Valid range is.*")
 }
 
-func (s *storageVolumeSuite) TestCreateVolumesNilParams(c *gc.C) {
+func (s *storageVolumeSuite) TestCreateVolumesNilParams(c *tc.C) {
 	source := s.newVolumeSource(c)
 	results, err := source.CreateVolumes(context.Background(), nil)
-	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.HasLen, 0)
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.HasLen, 0)
 }
 
 func (s *storageVolumeSuite) setupListVolumesExpectations(size int64) map[string]ociCore.Volume {
@@ -177,7 +176,7 @@ func (s *storageVolumeSuite) setupListVolumesExpectations(size int64) map[string
 	return asMap
 }
 
-func (s *storageVolumeSuite) TestListVolumes(c *gc.C) {
+func (s *storageVolumeSuite) TestListVolumes(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -186,12 +185,12 @@ func (s *storageVolumeSuite) TestListVolumes(c *gc.C) {
 	source := s.newVolumeSource(c)
 
 	volumes, err := source.ListVolumes(context.Background())
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(volumes), gc.Equals, 2)
-	c.Assert(volumes, jc.SameContents, []string{"fakeVolumeId", "fakeVolumeId2"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(volumes), tc.Equals, 2)
+	c.Assert(volumes, tc.SameContents, []string{"fakeVolumeId", "fakeVolumeId2"})
 }
 
-func (s *storageVolumeSuite) TestDescribeVolumes(c *gc.C) {
+func (s *storageVolumeSuite) TestDescribeVolumes(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -200,24 +199,24 @@ func (s *storageVolumeSuite) TestDescribeVolumes(c *gc.C) {
 	source := s.newVolumeSource(c)
 
 	results, err := source.DescribeVolumes(context.Background(), []string{"fakeVolumeId"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results), gc.Equals, 1)
-	c.Assert(results[0].VolumeInfo.VolumeId, gc.Equals, "fakeVolumeId")
-	c.Assert(results[0].VolumeInfo.Size, gc.Equals, uint64(60*1024))
-	c.Assert(results[0].VolumeInfo.Persistent, gc.Equals, true)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(results), tc.Equals, 1)
+	c.Assert(results[0].VolumeInfo.VolumeId, tc.Equals, "fakeVolumeId")
+	c.Assert(results[0].VolumeInfo.Size, tc.Equals, uint64(60*1024))
+	c.Assert(results[0].VolumeInfo.Persistent, tc.Equals, true)
 
 	results, err = source.DescribeVolumes(context.Background(), []string{"fakeVolumeId", "fakeVolumeId2"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results), gc.Equals, 2)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(results), tc.Equals, 2)
 
 	results, err = source.DescribeVolumes(context.Background(), []string{"IDontExist", "fakeVolumeId2"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results), gc.Equals, 2)
-	c.Assert(results[0].Error, gc.NotNil)
-	c.Assert(results[1].Error, gc.IsNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(results), tc.Equals, 2)
+	c.Assert(results[0].Error, tc.NotNil)
+	c.Assert(results[1].Error, tc.IsNil)
 }
 
-func (s *storageVolumeSuite) TestValidateVolumeParams(c *gc.C) {
+func (s *storageVolumeSuite) TestValidateVolumeParams(c *tc.C) {
 	source := s.newVolumeSource(c)
 	params := storage.VolumeParams{
 		Size:     uint64(2048),
@@ -231,11 +230,11 @@ func (s *storageVolumeSuite) TestValidateVolumeParams(c *gc.C) {
 	}
 
 	err := source.ValidateVolumeParams(params)
-	c.Assert(err, gc.ErrorMatches, "invalid volume size 2. Valid range is.*")
+	c.Assert(err, tc.ErrorMatches, "invalid volume size 2. Valid range is.*")
 
 	params.Size = 61440
 	err = source.ValidateVolumeParams(params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
 func (s *storageVolumeSuite) setupDeleteVolumesExpectations(size int64, id string) {
@@ -260,7 +259,7 @@ func (s *storageVolumeSuite) setupDeleteVolumesExpectations(size int64, id strin
 	s.storage.EXPECT().GetVolume(context.Background(), getVolumeRequest).Return(getVolumeResponse, nil).AnyTimes()
 }
 
-func (s *storageVolumeSuite) TestDestroyVolumes(c *gc.C) {
+func (s *storageVolumeSuite) TestDestroyVolumes(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -269,14 +268,14 @@ func (s *storageVolumeSuite) TestDestroyVolumes(c *gc.C) {
 	source := s.newVolumeSource(c)
 
 	results, err := source.DestroyVolumes(context.Background(), []string{"fakeVolumeId"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results), gc.Equals, 1)
-	c.Assert(results[0], gc.IsNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(results), tc.Equals, 1)
+	c.Assert(results[0], tc.IsNil)
 
 	results, err = source.DestroyVolumes(context.Background(), []string{"bogusId"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results), gc.Equals, 1)
-	c.Assert(results[0], gc.ErrorMatches, "no such volume.*")
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(results), tc.Equals, 1)
+	c.Assert(results[0], tc.ErrorMatches, "no such volume.*")
 }
 
 func (s *storageVolumeSuite) setupUpdateVolumesExpectations(id string) {
@@ -296,7 +295,7 @@ func (s *storageVolumeSuite) setupUpdateVolumesExpectations(id string) {
 	s.storage.EXPECT().UpdateVolume(context.Background(), request).Return(ociCore.UpdateVolumeResponse{}, nil).AnyTimes()
 }
 
-func (s *storageVolumeSuite) TestReleaseVolumes(c *gc.C) {
+func (s *storageVolumeSuite) TestReleaseVolumes(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -304,14 +303,14 @@ func (s *storageVolumeSuite) TestReleaseVolumes(c *gc.C) {
 	source := s.newVolumeSource(c)
 
 	results, err := source.ReleaseVolumes(context.Background(), []string{"fakeVolumeId"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results), gc.Equals, 1)
-	c.Assert(results[0], gc.IsNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(results), tc.Equals, 1)
+	c.Assert(results[0], tc.IsNil)
 
 	results, err = source.ReleaseVolumes(context.Background(), []string{"IAmNotHereWhatIsHereIsntHereJustThereButWithoutTheT"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results), gc.Equals, 1)
-	c.Assert(results[0], gc.ErrorMatches, "no such volume.*")
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(results), tc.Equals, 1)
+	c.Assert(results[0], tc.ErrorMatches, "no such volume.*")
 }
 
 func (s *storageVolumeSuite) setupGetInstanceExpectations(instance string, state ociCore.InstanceLifecycleStateEnum) {
@@ -363,7 +362,7 @@ func (s *storageVolumeSuite) makeListVolumeAttachmentExpectations(instance strin
 	}
 }
 
-func (s *storageVolumeSuite) TestAttachVolumeWithExistingAttachment(c *gc.C) {
+func (s *storageVolumeSuite) TestAttachVolumeWithExistingAttachment(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -386,19 +385,19 @@ func (s *storageVolumeSuite) TestAttachVolumeWithExistingAttachment(c *gc.C) {
 			Volume:   names.NewVolumeTag("1"),
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result), gc.Equals, 1)
-	c.Assert(result[0].Error, gc.IsNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(result), tc.Equals, 1)
+	c.Assert(result[0].Error, tc.IsNil)
 	planInfo := result[0].VolumeAttachment.VolumeAttachmentInfo.PlanInfo
-	c.Assert(planInfo.DeviceAttributes["iqn"], gc.Equals, "bogus")
-	c.Assert(planInfo.DeviceAttributes["address"], gc.Equals, "192.168.1.1")
-	c.Assert(planInfo.DeviceAttributes["port"], gc.Equals, "3260")
-	c.Assert(planInfo.DeviceAttributes["chap-user"], gc.Equals, "JohnDoe")
-	c.Assert(planInfo.DeviceAttributes["chap-secret"], gc.Equals, "superSecretPassword")
+	c.Assert(planInfo.DeviceAttributes["iqn"], tc.Equals, "bogus")
+	c.Assert(planInfo.DeviceAttributes["address"], tc.Equals, "192.168.1.1")
+	c.Assert(planInfo.DeviceAttributes["port"], tc.Equals, "3260")
+	c.Assert(planInfo.DeviceAttributes["chap-user"], tc.Equals, "JohnDoe")
+	c.Assert(planInfo.DeviceAttributes["chap-secret"], tc.Equals, "superSecretPassword")
 
 }
 
-func (s *storageVolumeSuite) TestAttachVolumeWithInvalidInstanceState(c *gc.C) {
+func (s *storageVolumeSuite) TestAttachVolumeWithInvalidInstanceState(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -419,9 +418,9 @@ func (s *storageVolumeSuite) TestAttachVolumeWithInvalidInstanceState(c *gc.C) {
 			Volume:   names.NewVolumeTag("1"),
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result), gc.Equals, 1)
-	c.Assert(result[0].Error, gc.ErrorMatches, "invalid instance state for volume attachment:.*")
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(result), tc.Equals, 1)
+	c.Assert(result[0].Error, tc.ErrorMatches, "invalid instance state for volume attachment:.*")
 }
 
 func (s *storageVolumeSuite) setupAttachNewVolumeExpectations(instance, volumeId, attachmentId string) {
@@ -480,7 +479,7 @@ func (s *storageVolumeSuite) setupGetVolumeAttachmentExpectations(
 	s.compute.EXPECT().GetVolumeAttachment(context.Background(), request).Return(response, nil).AnyTimes()
 }
 
-func (s *storageVolumeSuite) TestAttachVolume(c *gc.C) {
+func (s *storageVolumeSuite) TestAttachVolume(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -508,9 +507,9 @@ func (s *storageVolumeSuite) TestAttachVolume(c *gc.C) {
 			Volume:   names.NewVolumeTag("1"),
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result), gc.Equals, 1)
-	c.Assert(result[0].Error, gc.IsNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(result), tc.Equals, 1)
+	c.Assert(result[0].Error, tc.IsNil)
 }
 
 func (s *storageVolumeSuite) setupDetachVolumesExpectations(attachmentId string) {
@@ -525,7 +524,7 @@ func (s *storageVolumeSuite) setupDetachVolumesExpectations(attachmentId string)
 	s.compute.EXPECT().DetachVolume(context.Background(), request).Return(response, nil).AnyTimes()
 }
 
-func (s *storageVolumeSuite) TestDetachVolume(c *gc.C) {
+func (s *storageVolumeSuite) TestDetachVolume(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -553,6 +552,6 @@ func (s *storageVolumeSuite) TestDetachVolume(c *gc.C) {
 		},
 	})
 
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result), gc.Equals, 1)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(result), tc.Equals, 1)
 }

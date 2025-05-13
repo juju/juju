@@ -5,7 +5,6 @@ package relation
 
 import (
 	stdcontext "context"
-	"os"
 	"strconv"
 	"time"
 
@@ -281,7 +280,7 @@ func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote 
 			if charmMeta == nil {
 				charmMeta, err = charm.ReadCharmDirMetadata(r.charmDir)
 				if err != nil {
-					if !os.IsNotExist(errors.Cause(err)) {
+					if !errors.Is(err, charm.FileNotFound) {
 						return errors.Trace(err)
 					}
 					r.logger.Warningf(ctx, "charm deleted, skipping relation endpoint check for %q", rel)

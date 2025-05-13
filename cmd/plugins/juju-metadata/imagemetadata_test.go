@@ -10,8 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/version"
@@ -30,14 +29,14 @@ type ImageMetadataSuite struct {
 	store   *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&ImageMetadataSuite{})
+var _ = tc.Suite(&ImageMetadataSuite{})
 
-func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
+func (s *ImageMetadataSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.environ = os.Environ()
 }
 
-func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
+func (s *ImageMetadataSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 
@@ -48,7 +47,7 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 }
 
-func runImageMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
+func runImageMetadata(c *tc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
 	cmd := &imageMetadataCommand{}
 	cmd.SetClientStore(store)
 	return cmdtesting.RunCommand(c, modelcmd.WrapController(cmd), args...)
@@ -63,7 +62,7 @@ type expectedMetadata struct {
 	storage  string
 }
 
-func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetadata, errOut, indexFileName, imageFileName string) {
+func (s *ImageMetadataSuite) assertCommandOutput(c *tc.C, expected expectedMetadata, errOut, indexFileName, imageFileName string) {
 	if expected.region == "" {
 		expected.region = "region"
 	}
@@ -71,36 +70,36 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 		expected.endpoint = "endpoint"
 	}
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `Image metadata files have been written to.*`)
+	c.Check(strippedOut, tc.Matches, `Image metadata files have been written to.*`)
 	indexpath := filepath.Join(s.dir, "images", "streams", "v1", indexFileName)
 	data, err := os.ReadFile(indexpath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	content := string(data)
 	var indices interface{}
 	err = json.Unmarshal(data, &indices)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(indices.(map[string]interface{})["format"], gc.Equals, "index:1.0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(indices.(map[string]interface{})["format"], tc.Equals, "index:1.0")
 	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", expected.version, expected.arch)
-	c.Assert(content, jc.Contains, prodId)
-	c.Assert(content, jc.Contains, fmt.Sprintf(`"region": %q`, expected.region))
-	c.Assert(content, jc.Contains, fmt.Sprintf(`"endpoint": %q`, expected.endpoint))
-	c.Assert(content, jc.Contains, fmt.Sprintf(`"path": "streams/v1/%s"`, imageFileName))
+	c.Assert(content, tc.Contains, prodId)
+	c.Assert(content, tc.Contains, fmt.Sprintf(`"region": %q`, expected.region))
+	c.Assert(content, tc.Contains, fmt.Sprintf(`"endpoint": %q`, expected.endpoint))
+	c.Assert(content, tc.Contains, fmt.Sprintf(`"path": "streams/v1/%s"`, imageFileName))
 
 	imagepath := filepath.Join(s.dir, "images", "streams", "v1", imageFileName)
 	data, err = os.ReadFile(imagepath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	content = string(data)
 	var images interface{}
 	err = json.Unmarshal(data, &images)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(images.(map[string]interface{})["format"], gc.Equals, "products:1.0")
-	c.Assert(content, jc.Contains, prodId)
-	c.Assert(content, jc.Contains, `"id": "1234"`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(images.(map[string]interface{})["format"], tc.Equals, "products:1.0")
+	c.Assert(content, tc.Contains, prodId)
+	c.Assert(content, tc.Contains, `"id": "1234"`)
 	if expected.virtType != "" {
-		c.Assert(content, jc.Contains, fmt.Sprintf(`"virt": %q`, expected.virtType))
+		c.Assert(content, tc.Contains, fmt.Sprintf(`"virt": %q`, expected.virtType))
 	}
 	if expected.storage != "" {
-		c.Assert(content, jc.Contains, fmt.Sprintf(`"root_store": %q`, expected.storage))
+		c.Assert(content, tc.Contains, fmt.Sprintf(`"root_store": %q`, expected.storage))
 	}
 }
 
@@ -109,12 +108,12 @@ const (
 	defaultImageFileName = "com.ubuntu.cloud-released-imagemetadata.json"
 )
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
+func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *tc.C) {
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint",
 		"--base", "ubuntu@13.04", "--virt-type=pv", "--storage=root",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version:  "13.04",
@@ -125,11 +124,11 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
+func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *tc.C) {
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-i", "1234", "-r", "region", "-u", "endpoint", "--base", "ubuntu@13.04",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version: "13.04",
@@ -138,7 +137,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *gc.C) {
+func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *tc.C) {
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "ec2-latest-lts",
 		"type":            "ec2",
@@ -146,7 +145,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *gc.C) {
 		"controller-uuid": testing.ControllerTag.Id(),
 		"region":          "us-east-1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.store.BootstrapConfig["ec2-controller"] = jujuclient.BootstrapConfig{
 		ControllerConfig: testing.FakeControllerConfig(),
 		Cloud:            "ec2",
@@ -158,7 +157,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *gc.C) {
 		"-c", "ec2-controller",
 		"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version: version.DefaultSupportedLTSBase().Channel.Track,
@@ -167,11 +166,11 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *gc.C) {
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
+func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *tc.C) {
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-c", "ec2-controller", "-i", "1234", "--virt-type=pv", "--storage=root",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version:  "22.04",
@@ -184,11 +183,11 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithoutUsingBase(c *gc.C) {
+func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithoutUsingBase(c *tc.C) {
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-c", "ec2-controller", "-i", "1234", "--virt-type=pv", "--storage=root", "--base=ubuntu@20.04",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version:  "20.04",
@@ -201,11 +200,11 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithoutUsingBase(c *g
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c *gc.C) {
+func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c *tc.C) {
 	ctx, err := runImageMetadata(c, s.store,
 		"-d", s.dir, "-c", "ec2-controller", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
 		version:  "22.04",
@@ -235,10 +234,10 @@ var errTests = []errTestParams{
 	},
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
+func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *tc.C) {
 	for i, t := range errTests {
 		c.Logf("test: %d", i)
 		_, err := runImageMetadata(c, s.store, t.args...)
-		c.Check(err, gc.NotNil, gc.Commentf("test %d: %s", i, t.args))
+		c.Check(err, tc.NotNil, tc.Commentf("test %d: %s", i, t.args))
 	}
 }

@@ -7,9 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
@@ -20,9 +19,9 @@ type poolUpdateSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&poolUpdateSuite{})
+var _ = tc.Suite(&poolUpdateSuite{})
 
-func (s *poolUpdateSuite) TestUpdatePool(c *gc.C) {
+func (s *poolUpdateSuite) TestUpdatePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
@@ -39,12 +38,12 @@ func (s *poolUpdateSuite) TestUpdatePool(c *gc.C) {
 		}},
 	}
 	results, err := s.api.UpdatePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *poolUpdateSuite) TestUpdatePoolError(c *gc.C) {
+func (s *poolUpdateSuite) TestUpdatePoolError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
@@ -56,7 +55,7 @@ func (s *poolUpdateSuite) TestUpdatePoolError(c *gc.C) {
 	s.storageService.EXPECT().ReplaceStoragePool(gomock.Any(), poolName, internalstorage.ProviderType(""), nil).Return(storageerrors.PoolNotFoundError)
 
 	results, err := s.api.UpdatePool(context.Background(), args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "storage pool is not found")
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, "storage pool is not found")
 }

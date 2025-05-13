@@ -4,43 +4,42 @@
 package charmhub
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type unicodeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&unicodeSuite{})
+var _ = tc.Suite(&unicodeSuite{})
 
-func (s *unicodeSuite) TestCanUnicode(c *gc.C) {
+func (s *unicodeSuite) TestCanUnicode(c *tc.C) {
 	result := canUnicode("always", nil)
-	c.Assert(result, jc.IsTrue)
+	c.Assert(result, tc.IsTrue)
 
 	result = canUnicode("never", nil)
-	c.Assert(result, jc.IsFalse)
+	c.Assert(result, tc.IsFalse)
 }
 
-func (s *unicodeSuite) TestCanUnicodeWithOSEnviron(c *gc.C) {
+func (s *unicodeSuite) TestCanUnicodeWithOSEnviron(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockOSEnviron := mocks.NewMockOSEnviron(ctrl)
 
 	result := canUnicode("always", mockOSEnviron)
-	c.Assert(result, jc.IsTrue)
+	c.Assert(result, tc.IsTrue)
 
 	result = canUnicode("never", mockOSEnviron)
-	c.Assert(result, jc.IsFalse)
+	c.Assert(result, tc.IsFalse)
 
 	mockOSEnviron.EXPECT().IsTerminal().Return(true)
 	mockOSEnviron.EXPECT().Getenv("LC_MESSAGES").Return("UTF-8")
 
 	result = canUnicode("auto", mockOSEnviron)
-	c.Assert(result, jc.IsTrue)
+	c.Assert(result, tc.IsTrue)
 }

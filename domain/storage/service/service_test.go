@@ -6,17 +6,16 @@ package service
 import (
 	"context"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/errors"
 	logtesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type serviceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	service *Service
 
@@ -25,28 +24,28 @@ type serviceSuite struct {
 	storageRegistry       *MockProviderRegistry
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestGetStorageRegistry(c *gc.C) {
+func (s *serviceSuite) TestGetStorageRegistry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageRegistryGetter.EXPECT().GetStorageRegistry(context.Background()).Return(s.storageRegistry, nil)
 
 	reg, err := s.service.GetStorageRegistry(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(reg, gc.Equals, s.storageRegistry)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(reg, tc.Equals, s.storageRegistry)
 }
 
-func (s *serviceSuite) TestStorageRegistryError(c *gc.C) {
+func (s *serviceSuite) TestStorageRegistryError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageRegistryGetter.EXPECT().GetStorageRegistry(context.Background()).Return(nil, errors.Errorf("boom"))
 
 	_, err := s.service.GetStorageRegistry(context.Background())
-	c.Assert(err, gc.ErrorMatches, "getting storage registry: boom")
+	c.Assert(err, tc.ErrorMatches, "getting storage registry: boom")
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)

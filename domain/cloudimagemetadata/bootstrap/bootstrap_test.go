@@ -8,8 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/juju/clock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -22,9 +21,9 @@ type bootstrapSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+var _ = tc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) TestAddCustomImageMetadata(c *gc.C) {
+func (s *bootstrapSuite) TestAddCustomImageMetadata(c *tc.C) {
 
 	defaultStream := "defaulted"
 	metadata := []*imagemetadata.ImageMetadata{
@@ -63,11 +62,11 @@ func (s *bootstrapSuite) TestAddCustomImageMetadata(c *gc.C) {
 		},
 	}
 	err := AddCustomImageMetadata(clock.WallClock, defaultStream, metadata)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	insertedMetadata, err := s.retrieveMetadataFromDB()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insertedMetadata, jc.SameContents,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(insertedMetadata, tc.SameContents,
 		[]cloudimagemetadata.Metadata{
 			{
 				MetadataAttributes: cloudimagemetadata.MetadataAttributes{
@@ -112,13 +111,13 @@ func (s *bootstrapSuite) TestAddCustomImageMetadata(c *gc.C) {
 	)
 }
 
-func (s *bootstrapSuite) TestInitCustomImageMetadataWithNil(c *gc.C) {
+func (s *bootstrapSuite) TestInitCustomImageMetadataWithNil(c *tc.C) {
 	err := AddCustomImageMetadata(clock.WallClock, "useless", []*imagemetadata.ImageMetadata{nil, nil, nil})(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	insertedMetadata, err := s.retrieveMetadataFromDB()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(insertedMetadata, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(insertedMetadata, tc.HasLen, 0)
 }
 
 // retrieveMetadataFromDB retrieves all metadata from the cloud_image_metadata database table.

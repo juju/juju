@@ -7,34 +7,33 @@ import (
 	"context"
 	"errors"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&CloudSpecSuite{})
+var _ = tc.Suite(&CloudSpecSuite{})
 
 type CloudSpecSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-func (s *CloudSpecSuite) TestNewCloudSpecAPI(c *gc.C) {
+func (s *CloudSpecSuite) TestNewCloudSpecAPI(c *tc.C) {
 	api := cloudspec.NewCloudSpecAPI(nil, coretesting.ModelTag)
-	c.Check(api, gc.NotNil)
+	c.Check(api, tc.NotNil)
 }
 
-func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+func (s *CloudSpecSuite) TestCloudSpec(c *tc.C) {
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "CloudSpec")
-		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
+		c.Assert(name, tc.Equals, "CloudSpec")
+		c.Assert(args, tc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: coretesting.ModelTag.String()},
 		}})
 		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{
@@ -59,13 +58,13 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
 	cloudSpec, err := api.CloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credential := cloud.NewCredential(
 		"auth-type",
 		map[string]string{"k": "v"},
 	)
-	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
+	c.Assert(cloudSpec, tc.DeepEquals, environscloudspec.CloudSpec{
 		Type:             "type",
 		Name:             "name",
 		Region:           "region",
@@ -78,29 +77,29 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 	})
 }
 
-func (s *CloudSpecSuite) TestCloudSpecOverallError(c *gc.C) {
+func (s *CloudSpecSuite) TestCloudSpecOverallError(c *tc.C) {
 	expect := errors.New("bewm")
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		return expect
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
 	_, err := api.CloudSpec(context.Background())
-	c.Assert(err, gc.Equals, expect)
+	c.Assert(err, tc.Equals, expect)
 }
 
-func (s *CloudSpecSuite) TestCloudSpecResultCountMismatch(c *gc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+func (s *CloudSpecSuite) TestCloudSpecResultCountMismatch(c *tc.C) {
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		return nil
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
 	_, err := api.CloudSpec(context.Background())
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 0")
 }
 
-func (s *CloudSpecSuite) TestCloudSpecResultError(c *gc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+func (s *CloudSpecSuite) TestCloudSpecResultError(c *tc.C) {
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{
 			Results: []params.CloudSpecResult{{
@@ -114,12 +113,12 @@ func (s *CloudSpecSuite) TestCloudSpecResultError(c *gc.C) {
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
 	_, err := api.CloudSpec(context.Background())
-	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(err, gc.ErrorMatches, "API request failed: dang")
+	c.Assert(err, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.ErrorMatches, "API request failed: dang")
 }
 
-func (s *CloudSpecSuite) TestCloudSpecInvalidCloudSpec(c *gc.C) {
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+func (s *CloudSpecSuite) TestCloudSpecInvalidCloudSpec(c *tc.C) {
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{Results: []params.CloudSpecResult{{
 			Result: &params.CloudSpec{
@@ -130,5 +129,5 @@ func (s *CloudSpecSuite) TestCloudSpecInvalidCloudSpec(c *gc.C) {
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
 	_, err := api.CloudSpec(context.Background())
-	c.Assert(err, gc.ErrorMatches, "validating CloudSpec: empty Type not valid")
+	c.Assert(err, tc.ErrorMatches, "validating CloudSpec: empty Type not valid")
 }

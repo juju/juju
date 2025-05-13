@@ -4,9 +4,12 @@
 package commands_test
 
 import (
+	"os"
 	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package commands -destination mockenvirons_test.go github.com/juju/juju/environs Environ,PrecheckJujuUpgradeStep
@@ -16,5 +19,10 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/jujuclient_mock.go github.com/juju/juju/jujuclient ClientStore,CookieJar
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
+}
+
+func TestMain(m *stdtesting.M) {
+	testhelpers.ExecHelperProcess()
+	os.Exit(m.Run())
 }

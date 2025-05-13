@@ -9,13 +9,12 @@ import (
 	"go/token"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type returnSuite struct{}
 
-var _ = gc.Suite(&returnSuite{})
+var _ = tc.Suite(&returnSuite{})
 
 var tests = []struct {
 	Name     string
@@ -434,20 +433,20 @@ func Test() (string, bool, error) {
 	},
 }
 
-func (s *returnSuite) TestProcessFile(c *gc.C) {
+func (s *returnSuite) TestProcessFile(c *tc.C) {
 	fset := token.NewFileSet()
 	for i, test := range tests {
 		c.Logf("Running test %d: %s", i, test.Name)
 		testFile, err := parser.ParseFile(
 			fset, "test", test.Input, parser.ParseComments,
 		)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		processFile(testFile)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 
 		outputBuf := strings.Builder{}
 		printer.Fprint(&outputBuf, fset, testFile)
 
-		c.Check(outputBuf.String(), gc.Equals, test.Expected, gc.Commentf(outputBuf.String()))
+		c.Check(outputBuf.String(), tc.Equals, test.Expected, tc.Commentf(outputBuf.String()))
 	}
 }

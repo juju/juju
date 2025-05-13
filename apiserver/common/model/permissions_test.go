@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/model"
@@ -22,7 +21,7 @@ type PermissionSuite struct {
 	testing.BaseSuite
 }
 
-func (r *PermissionSuite) TestHasModelAdminSuperUser(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminSuperUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -30,11 +29,11 @@ func (r *PermissionSuite) TestHasModelAdminSuperUser(c *gc.C) {
 	auth.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil)
 
 	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsTrue)
 }
 
-func (r *PermissionSuite) TestHasModelAdminYes(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminYes(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -43,11 +42,11 @@ func (r *PermissionSuite) TestHasModelAdminYes(c *gc.C) {
 	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(nil)
 
 	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsTrue)
 }
 
-func (r *PermissionSuite) TestHasModelAdminNo(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminNo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -56,11 +55,11 @@ func (r *PermissionSuite) TestHasModelAdminNo(c *gc.C) {
 	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(authentication.ErrorEntityMissingPermission)
 
 	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsFalse)
 }
 
-func (r *PermissionSuite) TestHasModelAdminError(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -70,6 +69,6 @@ func (r *PermissionSuite) TestHasModelAdminError(c *gc.C) {
 	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(someError)
 
 	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIs, someError)
-	c.Assert(has, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, someError)
+	c.Assert(has, tc.IsFalse)
 }

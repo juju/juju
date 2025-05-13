@@ -7,13 +7,13 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination providertracker_mock_test.go github.com/juju/juju/internal/worker/providertracker DomainServicesGetter,DomainServices,ModelService,CloudService,ConfigService,CredentialService
@@ -24,11 +24,11 @@ import (
 func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	states chan string
 
@@ -48,7 +48,7 @@ type baseSuite struct {
 	logger logger.Logger
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)
@@ -73,11 +73,11 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *baseSuite) ensureStartup(c *gc.C) {
+func (s *baseSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
-	case <-time.After(testing.ShortWait * 10):
+		c.Assert(state, tc.Equals, stateStarted)
+	case <-time.After(testhelpers.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }

@@ -9,15 +9,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type fetchInstanceClientFunc func(context.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
 
 type instanceSuite struct{}
 
-var _ = gc.Suite(&instanceSuite{})
+var _ = tc.Suite(&instanceSuite{})
 
 func (f fetchInstanceClientFunc) DescribeInstanceTypes(
 	c context.Context,
@@ -27,7 +26,7 @@ func (f fetchInstanceClientFunc) DescribeInstanceTypes(
 	return f(c, i, o...)
 }
 
-func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *gc.C) {
+func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *tc.C) {
 	callCount := 0
 	client := func(
 		_ context.Context,
@@ -35,9 +34,9 @@ func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *gc.C) {
 		o ...func(*ec2.Options),
 	) (*ec2.DescribeInstanceTypesOutput, error) {
 		if callCount != 0 {
-			c.Assert(*i.NextToken, gc.Equals, "next")
+			c.Assert(*i.NextToken, tc.Equals, "next")
 		}
-		c.Assert(*i.MaxResults, gc.Equals, int32(100))
+		c.Assert(*i.MaxResults, tc.Equals, int32(100))
 
 		callCount++
 		nextToken := aws.String("next")
@@ -56,6 +55,6 @@ func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *gc.C) {
 		context.Background(),
 		fetchInstanceClientFunc(client),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(res), gc.Equals, 600)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(res), tc.Equals, 600)
 }

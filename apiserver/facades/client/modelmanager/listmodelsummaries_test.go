@@ -4,7 +4,7 @@
 package modelmanager_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	_ "github.com/juju/juju/internal/provider/azure"
 	_ "github.com/juju/juju/internal/provider/ec2"
@@ -14,9 +14,9 @@ import (
 
 type ListModelsWithInfoSuite struct{}
 
-var _ = gc.Suite(&ListModelsWithInfoSuite{})
+var _ = tc.Suite(&ListModelsWithInfoSuite{})
 
-func (s *ListModelsWithInfoSuite) TestStub(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestStub(c *tc.C) {
 	c.Skip(`skipping test (tlm): Missing tests for the following cases.
 	- Happy path list test for a user.
 	- Happy path list test for all models.

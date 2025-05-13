@@ -8,26 +8,25 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/migrationminion"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type ClientSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ClientSuite{})
+var _ = tc.Suite(&ClientSuite{})
 
-func (s *ClientSuite) TestWatch(c *gc.C) {
-	var stub jujutesting.Stub
+func (s *ClientSuite) TestWatch(c *tc.C) {
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		switch request {
@@ -45,7 +44,7 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 
 	client := migrationminion.NewClient(apiCaller)
 	w, err := client.Watch(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(w)
 
 	errC := make(chan error)
@@ -55,8 +54,8 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 
 	select {
 	case err := <-errC:
-		c.Assert(err, gc.ErrorMatches, "boom")
-		expectedCalls := []jujutesting.StubCall{
+		c.Assert(err, tc.ErrorMatches, "boom")
+		expectedCalls := []testhelpers.StubCall{
 			{FuncName: "Migrationminion.Watch", Args: []interface{}{"", nil}},
 			{FuncName: "MigrationStatusWatcher.Next", Args: []interface{}{"abc", nil}},
 			{FuncName: "MigrationStatusWatcher.Stop", Args: []interface{}{"abc", nil}},
@@ -75,17 +74,17 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 	}
 }
 
-func (s *ClientSuite) TestWatchErr(c *gc.C) {
+func (s *ClientSuite) TestWatchErr(c *tc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("boom")
 	})
 	client := migrationminion.NewClient(apiCaller)
 	_, err := client.Watch(context.Background())
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *ClientSuite) TestReport(c *gc.C) {
-	var stub jujutesting.Stub
+func (s *ClientSuite) TestReport(c *tc.C) {
+	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, arg)
 		return nil
@@ -93,9 +92,9 @@ func (s *ClientSuite) TestReport(c *gc.C) {
 
 	client := migrationminion.NewClient(apiCaller)
 	err := client.Report(context.Background(), "id", migration.IMPORT, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	stub.CheckCalls(c, []jujutesting.StubCall{
+	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMinion.Report", Args: []interface{}{params.MinionReport{
 			MigrationId: "id",
 			Phase:       "IMPORT",
@@ -104,12 +103,12 @@ func (s *ClientSuite) TestReport(c *gc.C) {
 	})
 }
 
-func (s *ClientSuite) TestReportError(c *gc.C) {
+func (s *ClientSuite) TestReportError(c *tc.C) {
 	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
 		return errors.New("boom")
 	})
 
 	client := migrationminion.NewClient(apiCaller)
 	err := client.Report(context.Background(), "id", migration.IMPORT, true)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

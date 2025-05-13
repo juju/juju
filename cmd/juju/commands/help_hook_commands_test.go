@@ -6,7 +6,7 @@ package commands
 import (
 	"strings"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -15,16 +15,16 @@ type HelpHookCommandsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&HelpHookCommandsSuite{})
+var _ = tc.Suite(&HelpHookCommandsSuite{})
 
-func (suite *HelpHookCommandsSuite) SetUpTest(c *gc.C) {
+func (suite *HelpHookCommandsSuite) SetUpTest(c *tc.C) {
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	setFeatureFlags("")
 }
 
-func (suite *HelpHookCommandsSuite) TestHelpHookCommandsHelp(c *gc.C) {
+func (suite *HelpHookCommandsSuite) TestHelpHookCommandsHelp(c *tc.C) {
 	output := badrun(c, 0, "help", "help-hook-commands")
-	c.Assert(output, gc.Equals, `Usage: juju help-hook-commands [hook]
+	c.Assert(output, tc.Equals, `Usage: juju help-hook-commands [hook]
 
 Summary:
 Show help on a Juju charm hook command.
@@ -132,17 +132,17 @@ var expectedCommands = []string{
 	"unit-get",
 }
 
-func (suite *HelpHookCommandsSuite) TestHelpHookCommands(c *gc.C) {
+func (suite *HelpHookCommandsSuite) TestHelpHookCommands(c *tc.C) {
 	output := badrun(c, 0, "help-hook-commands")
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	for i, line := range lines {
 		command := strings.Fields(line)[0]
 		lines[i] = command
 	}
-	c.Assert(lines, gc.DeepEquals, expectedCommands)
+	c.Assert(lines, tc.DeepEquals, expectedCommands)
 }
 
-func (suite *HelpHookCommandsSuite) TestHelpHookCommandsName(c *gc.C) {
+func (suite *HelpHookCommandsSuite) TestHelpHookCommandsName(c *tc.C) {
 	output := badrun(c, 0, "help-hook-commands", "relation-get")
 	expectedHelp := `Usage: relation-get \[options\] <key> <unit id>
 
@@ -154,5 +154,5 @@ Options:
 
 Details:
 relation-get prints the value(.|\n)*`
-	c.Assert(output, gc.Matches, expectedHelp)
+	c.Assert(output, tc.Matches, expectedHelp)
 }

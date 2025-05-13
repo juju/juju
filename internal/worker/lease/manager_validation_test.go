@@ -10,26 +10,25 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/trace"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lease"
 )
 
 type ValidationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config lease.ManagerConfig
 }
 
-var _ = gc.Suite(&ValidationSuite{})
+var _ = tc.Suite(&ValidationSuite{})
 
-func (s *ValidationSuite) SetUpTest(c *gc.C) {
+func (s *ValidationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = lease.ManagerConfig{
 		Store: struct{ corelease.Store }{},
@@ -44,126 +43,126 @@ func (s *ValidationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ValidationSuite) TestConfigValid(c *gc.C) {
+func (s *ValidationSuite) TestConfigValid(c *tc.C) {
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ValidationSuite) TestMissingStore(c *gc.C) {
+func (s *ValidationSuite) TestMissingStore(c *tc.C) {
 	s.config.Store = nil
 	manager, err := lease.NewManager(s.config)
-	c.Check(err, gc.ErrorMatches, "nil Store not valid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(manager, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "nil Store not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(manager, tc.IsNil)
 }
 
-func (s *ValidationSuite) TestMissingClock(c *gc.C) {
+func (s *ValidationSuite) TestMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	manager, err := lease.NewManager(s.config)
-	c.Check(err, gc.ErrorMatches, "nil Clock not valid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(manager, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "nil Clock not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(manager, tc.IsNil)
 }
 
-func (s *ValidationSuite) TestMissingTracer(c *gc.C) {
+func (s *ValidationSuite) TestMissingTracer(c *tc.C) {
 	s.config.Tracer = nil
 	manager, err := lease.NewManager(s.config)
-	c.Check(err, gc.ErrorMatches, "nil Tracer not valid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(manager, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "nil Tracer not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(manager, tc.IsNil)
 }
 
-func (s *ValidationSuite) TestMissingLogger(c *gc.C) {
+func (s *ValidationSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	manager, err := lease.NewManager(s.config)
-	c.Check(err, gc.ErrorMatches, "nil Logger not valid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(manager, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "nil Logger not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(manager, tc.IsNil)
 }
 
-func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
+func (s *ValidationSuite) TestMissingSecretary(c *tc.C) {
 	s.config.SecretaryFinder = nil
 	manager, err := lease.NewManager(s.config)
-	c.Check(err, gc.ErrorMatches, "nil SecretaryFinder not valid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(manager, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "nil SecretaryFinder not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(manager, tc.IsNil)
 }
 
-func (s *ValidationSuite) TestMissingPrometheusRegisterer(c *gc.C) {
+func (s *ValidationSuite) TestMissingPrometheusRegisterer(c *tc.C) {
 	s.config.PrometheusRegisterer = nil
 	err := s.config.Validate()
 	// Fine to miss this out for now.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {
+func (s *ValidationSuite) TestMissingMaxSleep(c *tc.C) {
 	s.config.MaxSleep = 0
 	manager, err := lease.NewManager(s.config)
-	c.Check(err, gc.ErrorMatches, "non-positive MaxSleep not valid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(manager, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "non-positive MaxSleep not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(manager, tc.IsNil)
 }
 
-func (s *ValidationSuite) TestNegativeMaxSleep(c *gc.C) {
+func (s *ValidationSuite) TestNegativeMaxSleep(c *tc.C) {
 	s.config.MaxSleep = -time.Nanosecond
 	manager, err := lease.NewManager(s.config)
-	c.Check(err, gc.ErrorMatches, "non-positive MaxSleep not valid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(manager, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "non-positive MaxSleep not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(manager, tc.IsNil)
 }
 
-func (s *ValidationSuite) TestClaim_LeaseName(c *gc.C) {
+func (s *ValidationSuite) TestClaim_LeaseName(c *tc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("INVALID", "bar/0", time.Minute)
-		c.Check(err, gc.ErrorMatches, `cannot claim lease "INVALID": name not valid`)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorMatches, `cannot claim lease "INVALID": name not valid`)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	})
 }
 
-func (s *ValidationSuite) TestClaim_HolderName(c *gc.C) {
+func (s *ValidationSuite) TestClaim_HolderName(c *tc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("foo", "INVALID", time.Minute)
-		c.Check(err, gc.ErrorMatches, `cannot claim lease for holder "INVALID": name not valid`)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorMatches, `cannot claim lease for holder "INVALID": name not valid`)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	})
 }
 
-func (s *ValidationSuite) TestClaim_Duration(c *gc.C) {
+func (s *ValidationSuite) TestClaim_Duration(c *tc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("foo", "bar/0", time.Second)
-		c.Check(err, gc.ErrorMatches, `cannot claim lease for 1s: time not valid`)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorMatches, `cannot claim lease for 1s: time not valid`)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	})
 }
 
-func (s *ValidationSuite) TestToken_LeaseName(c *gc.C) {
+func (s *ValidationSuite) TestToken_LeaseName(c *tc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("INVALID", "bar/0")
 		err := token.Check()
-		c.Check(err, gc.ErrorMatches, `cannot check lease "INVALID": name not valid`)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorMatches, `cannot check lease "INVALID": name not valid`)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	})
 }
 
-func (s *ValidationSuite) TestToken_HolderName(c *gc.C) {
+func (s *ValidationSuite) TestToken_HolderName(c *tc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("foo", "INVALID")
 		err := token.Check()
-		c.Check(err, gc.ErrorMatches, `cannot check holder "INVALID": name not valid`)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorMatches, `cannot check holder "INVALID": name not valid`)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	})
 }
 
-func (s *ValidationSuite) TestWaitUntilExpired_LeaseName(c *gc.C) {
+func (s *ValidationSuite) TestWaitUntilExpired_LeaseName(c *tc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).WaitUntilExpired(context.Background(), "INVALID", nil)
-		c.Check(err, gc.ErrorMatches, `cannot wait for lease "INVALID" expiry: name not valid`)
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorMatches, `cannot wait for lease "INVALID" expiry: name not valid`)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
 	})
 }

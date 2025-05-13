@@ -9,8 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -25,19 +24,19 @@ type ListSuite struct {
 	mockAPI *mockListAPI
 }
 
-var _ = gc.Suite(&ListSuite{})
+var _ = tc.Suite(&ListSuite{})
 
-func (s *ListSuite) SetUpTest(c *gc.C) {
+func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockListAPI{}
 }
 
-func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
+func (s *ListSuite) runList(c *tc.C, args []string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, storage.NewListCommandForTest(s.mockAPI, s.store), args...)
 }
 
-func (s *ListSuite) TestList(c *gc.C) {
+func (s *ListSuite) TestList(c *tc.C) {
 	s.assertValidList(
 		c,
 		nil,
@@ -52,7 +51,7 @@ transcode/1   shared-fs/0   filesystem  radiance  1.0 GiB  attached
 `[1:])
 }
 
-func (s *ListSuite) TestListNoPool(c *gc.C) {
+func (s *ListSuite) TestListNoPool(c *tc.C) {
 	s.mockAPI.omitPool = true
 	s.assertValidList(
 		c,
@@ -68,7 +67,7 @@ transcode/1   shared-fs/0   filesystem  1.0 GiB  attached
 `[1:])
 }
 
-func (s *ListSuite) TestListYAML(c *gc.C) {
+func (s *ListSuite) TestListYAML(c *tc.C) {
 	now := time.Now()
 	s.mockAPI.time = now
 	since := common.FormatTime(&now, false)
@@ -288,35 +287,35 @@ volumes:
 `[1:], repeat(since, 15)...))
 }
 
-func (s *ListSuite) TestListInitErrors(c *gc.C) {
+func (s *ListSuite) TestListInitErrors(c *tc.C) {
 	s.testListInitError(c, []string{"--filesystem", "--volume"}, "--filesystem and --volume can not be used together")
 	s.testListInitError(c, []string{"storage-id"}, "specifying IDs only supported with --filesystem and --volume options")
 }
 
-func (s *ListSuite) testListInitError(c *gc.C, args []string, expectedErr string) {
+func (s *ListSuite) testListInitError(c *tc.C, args []string, expectedErr string) {
 	_, err := s.runList(c, args)
-	c.Assert(err, gc.ErrorMatches, expectedErr)
+	c.Assert(err, tc.ErrorMatches, expectedErr)
 }
 
-func (s *ListSuite) TestListError(c *gc.C) {
+func (s *ListSuite) TestListError(c *tc.C) {
 	s.mockAPI.listErrors = true
 	context, err := s.runList(c, nil)
-	c.Assert(err, gc.ErrorMatches, "list fails")
+	c.Assert(err, tc.ErrorMatches, "list fails")
 	stderr := cmdtesting.Stderr(context)
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stderr, tc.Equals, "")
 	stdout := cmdtesting.Stdout(context)
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stdout, tc.Equals, "")
 }
 
-func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid string) {
+func (s *ListSuite) assertValidList(c *tc.C, args []string, expectedValid string) {
 	context, err := s.runList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedErr := cmdtesting.Stderr(context)
-	c.Assert(obtainedErr, gc.Equals, "")
+	c.Assert(obtainedErr, tc.Equals, "")
 
 	obtainedValid := cmdtesting.Stdout(context)
-	c.Assert(obtainedValid, gc.Equals, expectedValid)
+	c.Assert(obtainedValid, tc.Equals, expectedValid)
 }
 
 type mockListAPI struct {

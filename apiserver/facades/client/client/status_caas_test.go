@@ -4,17 +4,18 @@
 package client_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type CAASStatusSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&CAASStatusSuite{})
+var _ = tc.Suite(&CAASStatusSuite{})
 
-func (s *CAASStatusSuite) TestStub(c *gc.C) {
+func (s *CAASStatusSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Waiting status with "installing agent" info is returned when operator is not ready.
 - Status with blocked info is returned when cloud container is set to blocked status.

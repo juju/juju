@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
@@ -24,9 +23,9 @@ type controllerconfigSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&controllerconfigSuite{})
+var _ = tc.Suite(&controllerconfigSuite{})
 
-func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *gc.C) {
+func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *tc.C) {
 	st := domainstate.NewState(s.TxnRunnerFactory())
 	srv := service.NewService(st)
 
@@ -46,33 +45,33 @@ func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *gc.C) {
 		jujutesting.CACert,
 		cfgMap,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerModelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
 
 	err = bootstrap.InsertInitialControllerConfig(cfgIn, controllerModelUUID)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfgOut, err := srv.ControllerConfig(ctx.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	selected := filterConfig(cfgOut)
 
 	err = srv.UpdateControllerConfig(ctx.Background(), selected, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfgOut, err = srv.ControllerConfig(ctx.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfgOut.AuditingEnabled(), jc.IsTrue)
-	c.Assert(cfgOut.AuditLogCaptureArgs(), jc.IsFalse)
-	c.Assert(cfgOut.AuditLogMaxBackups(), gc.Equals, 10)
-	c.Assert(cfgOut.PublicDNSAddress(), gc.Equals, "controller.test.com:1234")
-	c.Assert(cfgOut.APIPortOpenDelay(), gc.Equals, 100*time.Millisecond)
-	c.Assert(cfgOut.MigrationMinionWaitMax(), gc.Equals, 101*time.Millisecond)
-	c.Assert(cfgOut.PruneTxnSleepTime(), gc.Equals, 102*time.Millisecond)
-	c.Assert(cfgOut.QueryTracingThreshold(), gc.Equals, 103*time.Millisecond)
-	c.Assert(cfgOut.MaxDebugLogDuration(), gc.Equals, 104*time.Millisecond)
+	c.Assert(cfgOut.AuditingEnabled(), tc.IsTrue)
+	c.Assert(cfgOut.AuditLogCaptureArgs(), tc.IsFalse)
+	c.Assert(cfgOut.AuditLogMaxBackups(), tc.Equals, 10)
+	c.Assert(cfgOut.PublicDNSAddress(), tc.Equals, "controller.test.com:1234")
+	c.Assert(cfgOut.APIPortOpenDelay(), tc.Equals, 100*time.Millisecond)
+	c.Assert(cfgOut.MigrationMinionWaitMax(), tc.Equals, 101*time.Millisecond)
+	c.Assert(cfgOut.PruneTxnSleepTime(), tc.Equals, 102*time.Millisecond)
+	c.Assert(cfgOut.QueryTracingThreshold(), tc.Equals, 103*time.Millisecond)
+	c.Assert(cfgOut.MaxDebugLogDuration(), tc.Equals, 104*time.Millisecond)
 }
 
 func keys(m map[string]any) set.Strings {

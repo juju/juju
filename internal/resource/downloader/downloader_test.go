@@ -10,25 +10,24 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	intcharmhub "github.com/juju/juju/internal/charmhub"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/resource/downloader"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type CharmHubSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	client *MockDownloadClient
 }
 
-var _ = gc.Suite(&CharmHubSuite{})
+var _ = tc.Suite(&CharmHubSuite{})
 
-func (s *CharmHubSuite) TestGetResource(c *gc.C) {
+func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 	// Arrange:
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -39,7 +38,7 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 
 	rawURL := "https://api.staging.charmhub.io/api/v1/resource/download/res.name"
 	resourceURL, err := url.Parse(rawURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resourceContent := []byte("resource blob content")
 
@@ -56,11 +55,11 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 			path = p
 			// Check that the temporary file has been created.
 			_, err = os.Stat(path)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			// Write the resourceContent to the file, as the Downloader would.
 			err := os.WriteFile(path, resourceContent, os.ModeAppend)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			return nil, nil
 		})
@@ -71,20 +70,20 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 	result, err := d.Download(context.Background(), resourceURL, hash, size)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(buf.Bytes(), gc.DeepEquals, resourceContent)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(buf.Bytes(), tc.DeepEquals, resourceContent)
 
-	c.Assert(result.Close(), jc.ErrorIsNil)
+	c.Assert(result.Close(), tc.ErrorIsNil)
 
 	// Check that the file has been deleted on Close.
 	_, err = os.Stat(path)
-	c.Check(err, jc.ErrorIs, os.ErrNotExist)
+	c.Check(err, tc.ErrorIs, os.ErrNotExist)
 }
 
-func (s *CharmHubSuite) TestGetResourceUnexpectedSize(c *gc.C) {
+func (s *CharmHubSuite) TestGetResourceUnexpectedSize(c *tc.C) {
 	// Arrange:
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -95,7 +94,7 @@ func (s *CharmHubSuite) TestGetResourceUnexpectedSize(c *gc.C) {
 
 	rawURL := "https://api.staging.charmhub.io/api/v1/resource/download/res.name"
 	url, err := url.Parse(rawURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.client.EXPECT().Download(gomock.Any(), url, gomock.Any()).Return(
 		&intcharmhub.Digest{
@@ -110,10 +109,10 @@ func (s *CharmHubSuite) TestGetResourceUnexpectedSize(c *gc.C) {
 	// Act:
 	_, err = d.Download(context.Background(), url, hash, size)
 	// Assert:
-	c.Assert(err, jc.ErrorIs, downloader.ErrUnexpectedSize)
+	c.Assert(err, tc.ErrorIs, downloader.ErrUnexpectedSize)
 }
 
-func (s *CharmHubSuite) TestGetResourceUnexpectedHash(c *gc.C) {
+func (s *CharmHubSuite) TestGetResourceUnexpectedHash(c *tc.C) {
 	// Arrange:
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -124,7 +123,7 @@ func (s *CharmHubSuite) TestGetResourceUnexpectedHash(c *gc.C) {
 
 	rawURL := "https://api.staging.charmhub.io/api/v1/resource/download/res.name"
 	url, err := url.Parse(rawURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.client.EXPECT().Download(gomock.Any(), url, gomock.Any()).Return(
 		&intcharmhub.Digest{
@@ -139,5 +138,5 @@ func (s *CharmHubSuite) TestGetResourceUnexpectedHash(c *gc.C) {
 	// Act:
 	_, err = d.Download(context.Background(), url, hash, size)
 	// Assert:
-	c.Assert(err, jc.ErrorIs, downloader.ErrUnexpectedHash)
+	c.Assert(err, tc.ErrorIs, downloader.ErrUnexpectedHash)
 }

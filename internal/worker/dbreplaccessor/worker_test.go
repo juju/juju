@@ -4,11 +4,10 @@
 package dbreplaccessor
 
 import (
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
 )
@@ -20,9 +19,9 @@ type workerSuite struct {
 	driver    *MockDriver
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
+func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -40,10 +39,10 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
 	w.Kill()
 
 	_, err := dbw.GetDB("anything")
-	c.Assert(err, jc.ErrorIs, database.ErrDBReplAccessorDying)
+	c.Assert(err, tc.ErrorIs, database.ErrDBReplAccessorDying)
 }
 
-func (s *workerSuite) TestGetDB(c *gc.C) {
+func (s *workerSuite) TestGetDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -66,11 +65,11 @@ func (s *workerSuite) TestGetDB(c *gc.C) {
 	ensureStartup(c, dbw)
 
 	runner, err := dbw.GetDB("anything")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(runner, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(runner, tc.NotNil)
 }
 
-func (s *workerSuite) TestGetDBNotFound(c *gc.C) {
+func (s *workerSuite) TestGetDBNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.newDBReplWorker = func() (TrackedDB, error) {
@@ -93,10 +92,10 @@ func (s *workerSuite) TestGetDBNotFound(c *gc.C) {
 
 	// The error isn't passed through, although we really should expose this
 	// in the runner.
-	c.Assert(err, jc.ErrorIs, worker.ErrDead)
+	c.Assert(err, tc.ErrorIs, worker.ErrDead)
 }
 
-func (s *workerSuite) TestGetDBFound(c *gc.C) {
+func (s *workerSuite) TestGetDBFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -119,21 +118,21 @@ func (s *workerSuite) TestGetDBFound(c *gc.C) {
 	ensureStartup(c, dbw)
 
 	runner, err := dbw.GetDB("anything")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(runner, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(runner, tc.NotNil)
 
 	// Notice that no additional changes are expected.
 
 	runner, err = dbw.GetDB("anything")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(runner, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(runner, tc.NotNil)
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	return s.newWorkerWithDB(c, s.trackedDB)
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.trackedDB = NewMockTrackedDB(ctrl)

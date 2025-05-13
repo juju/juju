@@ -5,9 +5,8 @@ package caasupgrader_test
 
 import (
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
@@ -32,9 +31,9 @@ type UpgraderSuite struct {
 	initialCheckComplete gate.Lock
 }
 
-var _ = gc.Suite(&UpgraderSuite{})
+var _ = tc.Suite(&UpgraderSuite{})
 
-func (s *UpgraderSuite) SetUpTest(c *gc.C) {
+func (s *UpgraderSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.upgradeStepsComplete = gate.NewLock()
@@ -52,7 +51,7 @@ func (s *UpgraderSuite) patchVersion(v semversion.Binary) {
 	s.PatchValue(&jujuversion.Current, v.Number)
 }
 
-func (s *UpgraderSuite) makeUpgrader(c *gc.C, agent names.Tag) *caasupgrader.Upgrader {
+func (s *UpgraderSuite) makeUpgrader(c *tc.C, agent names.Tag) *caasupgrader.Upgrader {
 	w, err := caasupgrader.NewUpgrader(caasupgrader.Config{
 		UpgraderClient:              s.upgraderClient,
 		CAASOperatorUpgrader:        s.operatorUpgrader,
@@ -61,13 +60,13 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C, agent names.Tag) *caasupgrader.Upg
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	s.ch <- struct{}{}
 	return w
 }
 
-func (s *UpgraderSuite) TestUpgraderSetsVersion(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderSetsVersion(c *tc.C) {
 	vers := semversion.MustParse("6.6.6")
 	s.PatchValue(&jujuversion.Current, vers)
 	s.upgraderClient.desired = vers
@@ -76,10 +75,10 @@ func (s *UpgraderSuite) TestUpgraderSetsVersion(c *gc.C) {
 	workertest.CleanKill(c, u)
 
 	s.expectInitialUpgradeCheckDone(c)
-	c.Assert(s.upgraderClient.actual.Number, gc.DeepEquals, vers)
+	c.Assert(s.upgraderClient.actual.Number, tc.DeepEquals, vers)
 }
 
-func (s *UpgraderSuite) TestUpgraderController(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderController(c *tc.C) {
 	vers := semversion.MustParseBinary("6.6.6-ubuntu-amd64")
 	s.patchVersion(vers)
 	s.upgraderClient.desired = semversion.MustParse("6.6.7")
@@ -88,14 +87,14 @@ func (s *UpgraderSuite) TestUpgraderController(c *gc.C) {
 	workertest.CleanKill(c, u)
 
 	s.expectInitialUpgradeCheckNotDone(c)
-	c.Assert(s.upgraderClient.actual.Number, gc.DeepEquals, vers.Number)
+	c.Assert(s.upgraderClient.actual.Number, tc.DeepEquals, vers.Number)
 	s.upgraderClient.CheckCallNames(c, "SetVersion", "DesiredVersion")
 	s.upgraderClient.CheckCall(c, 0, "SetVersion", "machine-0", vers)
 	s.operatorUpgrader.CheckCallNames(c, "Upgrade")
 	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "machine-0", s.upgraderClient.desired)
 }
 
-func (s *UpgraderSuite) TestUpgraderApplication(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderApplication(c *tc.C) {
 	vers := semversion.MustParseBinary("6.6.6-ubuntu-amd64")
 	s.patchVersion(vers)
 	s.upgraderClient.desired = semversion.MustParse("6.6.7")
@@ -109,7 +108,7 @@ func (s *UpgraderSuite) TestUpgraderApplication(c *gc.C) {
 	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "application-app", s.upgraderClient.desired)
 }
 
-func (s *UpgraderSuite) TestUpgraderSidecarUnit(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderSidecarUnit(c *tc.C) {
 	vers := semversion.MustParseBinary("6.6.6-ubuntu-amd64")
 	s.patchVersion(vers)
 	s.upgraderClient.desired = semversion.MustParse("6.6.7")
@@ -124,7 +123,7 @@ func (s *UpgraderSuite) TestUpgraderSidecarUnit(c *gc.C) {
 	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "unit-cockroachdb-0", s.upgraderClient.desired)
 }
 
-func (s *UpgraderSuite) TestUpgraderDowngradePatch(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderDowngradePatch(c *tc.C) {
 	vers := semversion.MustParse("6.6.7")
 	s.PatchValue(&jujuversion.Current, vers)
 	s.upgraderClient.desired = semversion.MustParse("6.6.6")
@@ -133,13 +132,13 @@ func (s *UpgraderSuite) TestUpgraderDowngradePatch(c *gc.C) {
 	workertest.CleanKill(c, u)
 
 	s.expectInitialUpgradeCheckNotDone(c)
-	c.Assert(s.upgraderClient.actual.Number, gc.DeepEquals, vers)
+	c.Assert(s.upgraderClient.actual.Number, tc.DeepEquals, vers)
 	s.upgraderClient.CheckCallNames(c, "SetVersion", "DesiredVersion")
 	s.operatorUpgrader.CheckCallNames(c, "Upgrade")
 	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "machine-0", s.upgraderClient.desired)
 }
 
-func (s *UpgraderSuite) TestUpgraderDowngradeMinor(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderDowngradeMinor(c *tc.C) {
 	// We'll allow this for the case of restoring a backup from a
 	// previous juju version.
 	vers := semversion.MustParse("6.6.7")
@@ -150,16 +149,16 @@ func (s *UpgraderSuite) TestUpgraderDowngradeMinor(c *gc.C) {
 	workertest.CleanKill(c, u)
 
 	s.expectInitialUpgradeCheckNotDone(c)
-	c.Assert(s.upgraderClient.actual.Number, gc.DeepEquals, vers)
+	c.Assert(s.upgraderClient.actual.Number, tc.DeepEquals, vers)
 	s.upgraderClient.CheckCallNames(c, "SetVersion", "DesiredVersion")
 	s.operatorUpgrader.CheckCallNames(c, "Upgrade")
 	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "machine-0", s.upgraderClient.desired)
 }
 
-func (s *UpgraderSuite) expectInitialUpgradeCheckDone(c *gc.C) {
-	c.Assert(s.initialCheckComplete.IsUnlocked(), jc.IsTrue)
+func (s *UpgraderSuite) expectInitialUpgradeCheckDone(c *tc.C) {
+	c.Assert(s.initialCheckComplete.IsUnlocked(), tc.IsTrue)
 }
 
-func (s *UpgraderSuite) expectInitialUpgradeCheckNotDone(c *gc.C) {
-	c.Assert(s.initialCheckComplete.IsUnlocked(), jc.IsFalse)
+func (s *UpgraderSuite) expectInitialUpgradeCheckNotDone(c *tc.C) {
+	c.Assert(s.initialCheckComplete.IsUnlocked(), tc.IsFalse)
 }

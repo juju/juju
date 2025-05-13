@@ -6,16 +6,16 @@ package caasunitprovisioner_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type mockState struct {
-	testing.Stub
+	testhelpers.Stub
 	application mockApplication
 }
 
@@ -28,7 +28,7 @@ func (st *mockState) Application(name string) (caasunitprovisioner.Application, 
 }
 
 type mockApplication struct {
-	testing.Stub
+	testhelpers.Stub
 	life            state.Life
 	settingsWatcher *watchertest.MockStringsWatcher
 

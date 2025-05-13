@@ -13,9 +13,8 @@ import (
 	"strings"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -26,13 +25,13 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func (s *execSuite) TestFileResourceValidate(c *gc.C) {
+func (s *execSuite) TestFileResourceValidate(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
-	c.Assert((&exec.FileResource{}).Validate(), gc.ErrorMatches, `path was missing`)
+	c.Assert((&exec.FileResource{}).Validate(), tc.ErrorMatches, `path was missing`)
 }
 
-func (s *execSuite) TestCopyParamsValidate(c *gc.C) {
+func (s *execSuite) TestCopyParamsValidate(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -42,7 +41,7 @@ func (s *execSuite) TestCopyParamsValidate(c *gc.C) {
 		Params exec.CopyParams
 		Err    string
 	}
-	for _, tc := range []testcase{
+	for _, testCase := range []testcase{
 		{
 			Params: exec.CopyParams{},
 			Err:    "path was missing",
@@ -83,7 +82,7 @@ func (s *execSuite) TestCopyParamsValidate(c *gc.C) {
 			Err: "copy either from pod to host or from host to pod",
 		},
 	} {
-		c.Check(tc.Params.Validate(), gc.ErrorMatches, tc.Err)
+		c.Check(testCase.Params.Validate(), tc.ErrorMatches, testCase.Err)
 	}
 
 	// failed: can not copy from a pod to another pod.
@@ -97,17 +96,17 @@ func (s *execSuite) TestCopyParamsValidate(c *gc.C) {
 			PodName: "mariadb-k8s-0",
 		},
 	}
-	c.Assert(params.Validate(), gc.ErrorMatches, "cross pods copy is not supported")
+	c.Assert(params.Validate(), tc.ErrorMatches, "cross pods copy is not supported")
 }
 
-func (s *execSuite) TestCopyToPod(c *gc.C) {
+func (s *execSuite) TestCopyToPod(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
 	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	srcPath, err := os.CreateTemp(c.MkDir(), "testfile")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer srcPath.Close()
 	defer os.Remove(srcPath.Name())
 
@@ -202,23 +201,23 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 	}()
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for Copy return")
 	}
 }
 
-func (s *execSuite) TestCopyFromPod(c *gc.C) {
+func (s *execSuite) TestCopyFromPod(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
 	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	srcPath, err := os.CreateTemp(c.MkDir(), "testfile")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	fileContent := `test data`
 	_, err = srcPath.WriteString(fileContent)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer srcPath.Close()
 	defer os.Remove(srcPath.Name())
 
@@ -285,11 +284,11 @@ func (s *execSuite) TestCopyFromPod(c *gc.C) {
 					Mode: 0600,
 					Size: int64(len(fileContent)),
 				})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				_, err = tarWriter.Write([]byte(fileContent))
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				err = tarWriter.Close()
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return nil
 			},
 		),
@@ -302,10 +301,10 @@ func (s *execSuite) TestCopyFromPod(c *gc.C) {
 	}()
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		data, err := os.ReadFile(destPath)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(data), gc.DeepEquals, fileContent)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(string(data), tc.DeepEquals, fileContent)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for Copy return")
 	}

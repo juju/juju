@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/controller"
@@ -16,7 +15,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func (s *Suite) TestIdentityProviderURLCallError(c *gc.C) {
+func (s *Suite) TestIdentityProviderURLCallError(c *tc.C) {
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 7,
 		APICallerFunc: func(string, int, string, string, interface{}, interface{}) error {
@@ -25,19 +24,19 @@ func (s *Suite) TestIdentityProviderURLCallError(c *gc.C) {
 	}
 	client := controller.NewClient(apiCaller)
 	result, err := client.IdentityProviderURL(context.Background())
-	c.Check(result, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, "boom")
+	c.Check(result, tc.Equals, "")
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
-func (s *Suite) TestIdentityProviderURL(c *gc.C) {
+func (s *Suite) TestIdentityProviderURL(c *tc.C) {
 	expURL := "https://api.jujucharms.com/identity"
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 7,
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
-			c.Check(objType, gc.Equals, "Controller")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "IdentityProviderURL")
-			c.Check(result, gc.FitsTypeOf, &params.StringResult{})
+			c.Check(objType, tc.Equals, "Controller")
+			c.Check(id, tc.Equals, "")
+			c.Check(request, tc.Equals, "IdentityProviderURL")
+			c.Check(result, tc.FitsTypeOf, &params.StringResult{})
 
 			out := result.(*params.StringResult)
 			out.Result = expURL
@@ -47,18 +46,18 @@ func (s *Suite) TestIdentityProviderURL(c *gc.C) {
 
 	client := controller.NewClient(apiCaller)
 	result, err := client.IdentityProviderURL(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, expURL)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, expURL)
 }
 
-func (s *Suite) TestIdentityProviderURLWithErrorResult(c *gc.C) {
+func (s *Suite) TestIdentityProviderURLWithErrorResult(c *tc.C) {
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 7,
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
-			c.Check(objType, gc.Equals, "Controller")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "IdentityProviderURL")
-			c.Check(result, gc.FitsTypeOf, &params.StringResult{})
+			c.Check(objType, tc.Equals, "Controller")
+			c.Check(id, tc.Equals, "")
+			c.Check(request, tc.Equals, "IdentityProviderURL")
+			c.Check(result, tc.FitsTypeOf, &params.StringResult{})
 
 			out := result.(*params.StringResult)
 			out.Result = "garbage"
@@ -69,5 +68,5 @@ func (s *Suite) TestIdentityProviderURLWithErrorResult(c *gc.C) {
 
 	client := controller.NewClient(apiCaller)
 	_, err := client.IdentityProviderURL(context.Background())
-	c.Assert(err, gc.ErrorMatches, "version error")
+	c.Assert(err, tc.ErrorMatches, "version error")
 }

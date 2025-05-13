@@ -13,22 +13,21 @@ import (
 	"time"
 
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/s3client"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/apiremotecaller"
 )
 
 type retrieverSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	remoteCallers    *MockAPIRemoteCallers
 	remoteConnection *MockRemoteConnection
@@ -37,9 +36,9 @@ type retrieverSuite struct {
 	clock            *MockClock
 }
 
-var _ = gc.Suite(&retrieverSuite{})
+var _ = tc.Suite(&retrieverSuite{})
 
-func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return(nil)
@@ -48,12 +47,12 @@ func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *gc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, NoRemoteConnections)
+	c.Assert(err, tc.ErrorIs, NoRemoteConnections)
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverAlreadyKilled(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverAlreadyKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ret := s.newRetriever(c)
@@ -61,11 +60,11 @@ func (s *retrieverSuite) TestRetrieverAlreadyKilled(c *gc.C) {
 	workertest.CleanKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	workertest.CheckKilled(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ret := s.newRetriever(c)
@@ -75,12 +74,12 @@ func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *gc.C) {
 	cancel()
 
 	_, _, err := ret.Retrieve(ctx, "foo")
-	c.Assert(err, jc.ErrorIs, context.Canceled)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	client := &httprequest.Client{
@@ -101,21 +100,21 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *gc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	readerCloser, size, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that the reader is closed, otherwise the retriever will leak.
 	// You can test this, by commenting out this line!
 	defer readerCloser.Close()
 
 	result, err := io.ReadAll(readerCloser)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, []byte("hello world"))
-	c.Check(size, gc.Equals, int64(11))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []byte("hello world"))
+	c.Check(size, tc.Equals, int64(11))
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	client := &httprequest.Client{
@@ -133,19 +132,19 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *gc.C) {
 		func(ctx context.Context, s1, s2 string) (io.ReadCloser, int64, error) {
 			select {
 			case <-started:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for started")
 			}
 
 			select {
 			case <-done:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for done")
 			}
 
 			select {
 			case <-ctx.Done():
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for context to be done")
 			}
 			return nil, 0, ctx.Err()
@@ -155,7 +154,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *gc.C) {
 
 			select {
 			case <-started:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for started")
 			}
 
@@ -196,21 +195,21 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *gc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	readerCloser, size, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that the reader is closed, otherwise the retriever will leak.
 	// You can test this, by commenting out this line!
 	defer readerCloser.Close()
 
 	result, err := io.ReadAll(readerCloser)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, []byte("hello world"))
-	c.Check(size, gc.Equals, int64(11))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []byte("hello world"))
+	c.Check(size, tc.Equals, int64(11))
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	client := &httprequest.Client{
@@ -224,7 +223,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *gc.C) {
 	notFound := func(ctx context.Context, s1, s2 string) (io.ReadCloser, int64, error) {
 		select {
 		case <-started:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for started")
 		}
 		return nil, 0, jujuerrors.NotFound
@@ -236,7 +235,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *gc.C) {
 		func(ctx context.Context, s1, s2 string) (io.ReadCloser, int64, error) {
 			select {
 			case <-started:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for started")
 			}
 			return b, int64(11), nil
@@ -278,23 +277,23 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *gc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	readerCloser, size, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that the reader is closed, otherwise the retriever will leak.
 	// You can test this, by commenting out this line!
 	defer readerCloser.Close()
 
 	result, err := io.ReadAll(readerCloser)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, []byte("hello world"))
-	c.Check(size, gc.Equals, int64(11))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []byte("hello world"))
+	c.Check(size, tc.Equals, int64(11))
 
-	c.Assert(atomic.LoadInt64(&attempts), gc.Equals, int64(3))
+	c.Assert(atomic.LoadInt64(&attempts), tc.Equals, int64(3))
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	client := &httprequest.Client{
@@ -321,12 +320,12 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *gc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, BlobNotFound)
+	c.Assert(err, tc.ErrorIs, BlobNotFound)
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	client := &httprequest.Client{
@@ -338,7 +337,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *gc.C) {
 	fail := func(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
 		select {
 		case <-started:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for started")
 		}
 		return nil, 0, fmt.Errorf("boom")
@@ -348,7 +347,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *gc.C) {
 		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").DoAndReturn(func(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
 			select {
 			case <-started:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for started")
 			}
 			return nil, 0, BlobNotFound
@@ -379,12 +378,12 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *gc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, ".*boom")
+	c.Assert(err, tc.ErrorMatches, ".*boom")
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *gc.C) {
+func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -396,7 +395,7 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *gc.C) {
 
 		select {
 		case <-ctx.Done():
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for context to be done")
 		}
 		return nil
@@ -410,7 +409,7 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *gc.C) {
 	go func() {
 		select {
 		case <-requested:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for connection to be requested")
 		}
 
@@ -418,20 +417,20 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *gc.C) {
 	}()
 
 	_, _, err := ret.Retrieve(ctx, "foo")
-	c.Assert(err, jc.ErrorIs, context.Canceled)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) newRetriever(c *gc.C) *BlobRetriever {
+func (s *retrieverSuite) newRetriever(c *tc.C) *BlobRetriever {
 	ret, err := NewBlobRetriever(s.remoteCallers, "namespace", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 		return s.client, nil
 	}, s.clock, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ret
 }
 
-func (s *retrieverSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *retrieverSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.remoteCallers = NewMockAPIRemoteCallers(ctrl)

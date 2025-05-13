@@ -8,10 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -19,18 +17,19 @@ import (
 	"github.com/juju/juju/core/unit"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type passwordSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	agentPasswordService *mocks.MockAgentPasswordService
 }
 
-var _ = gc.Suite(&passwordSuite{})
+var _ = tc.Suite(&passwordSuite{})
 
-func (s *passwordSuite) TestSetPasswordsForUnit(c *gc.C) {
+func (s *passwordSuite) TestSetPasswordsForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentPasswordService.EXPECT().
@@ -44,15 +43,15 @@ func (s *passwordSuite) TestSetPasswordsForUnit(c *gc.C) {
 			Password: "password",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: nil,
 		}},
 	})
 }
 
-func (s *passwordSuite) TestSetPasswordsForUnitError(c *gc.C) {
+func (s *passwordSuite) TestSetPasswordsForUnitError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentPasswordService.EXPECT().
@@ -66,15 +65,15 @@ func (s *passwordSuite) TestSetPasswordsForUnitError(c *gc.C) {
 			Password: "password",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: apiservererrors.ServerError(internalerrors.Errorf(`setting password for "unit-foo-1": boom`)),
 		}},
 	})
 }
 
-func (s *passwordSuite) TestSetPasswordsForUnitNotFoundError(c *gc.C) {
+func (s *passwordSuite) TestSetPasswordsForUnitNotFoundError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentPasswordService.EXPECT().
@@ -88,15 +87,15 @@ func (s *passwordSuite) TestSetPasswordsForUnitNotFoundError(c *gc.C) {
 			Password: "password",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: apiservererrors.ServerError(errors.NotFoundf(`unit "foo/1"`)),
 		}},
 	})
 }
 
-func (s *passwordSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *passwordSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.agentPasswordService = mocks.NewMockAgentPasswordService(ctrl)

@@ -7,26 +7,25 @@ import (
 	"sort"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/deployer"
 )
 
 type ManifoldsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config deployer.UnitManifoldsConfig
 }
 
-var _ = gc.Suite(&ManifoldsSuite{})
+var _ = tc.Suite(&ManifoldsSuite{})
 
-func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = deployer.UnitManifoldsConfig{
 		Agent:         struct{ agent.Agent }{},
@@ -34,15 +33,15 @@ func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
+func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 	manifolds := deployer.UnitManifolds(s.config)
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
-		c.Check(manifold.Start, gc.NotNil)
+		c.Check(manifold.Start, tc.NotNil)
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	manifolds := deployer.UnitManifolds(s.config)
 	expectedKeys := []string{
 		"agent",
@@ -68,10 +67,10 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	c.Assert(keys, jc.SameContents, expectedKeys)
+	c.Assert(keys, tc.SameContents, expectedKeys)
 }
 
-func (s *ManifoldsSuite) TestMigrationGuards(c *gc.C) {
+func (s *ManifoldsSuite) TestMigrationGuards(c *tc.C) {
 	exempt := set.NewStrings(
 		"agent",
 		"machine-lock",
@@ -95,14 +94,14 @@ func (s *ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		deployer.UnitManifolds(s.config),
 		expectedUnitManifoldsWithDependencies,
 	)
 }
 
-func checkContains(c *gc.C, names []string, seek string) {
+func checkContains(c *tc.C, names []string, seek string) {
 	for _, name := range names {
 		if name == seek {
 			return

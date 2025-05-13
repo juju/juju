@@ -6,7 +6,7 @@ package common_test
 import (
 	"fmt"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/provider/oci/common"
 	ocitesting "github.com/juju/juju/internal/provider/oci/testing"
@@ -19,13 +19,13 @@ type clientSuite struct {
 	config *common.JujuConfigProvider
 }
 
-var _ = gc.Suite(&clientSuite{})
+var _ = tc.Suite(&clientSuite{})
 
-func (s *clientSuite) SetUpSuite(c *gc.C) {
+func (s *clientSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *clientSuite) SetUpTest(c *gc.C) {
+func (s *clientSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.config = &common.JujuConfigProvider{
@@ -37,95 +37,95 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestValidateKeyUnencrypted(c *gc.C) {
+func (s *clientSuite) TestValidateKeyUnencrypted(c *tc.C) {
 	err := common.ValidateKey([]byte(ocitesting.PrivateKeyUnencrypted), "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	err = common.ValidateKey([]byte(ocitesting.PrivateKeyUnencrypted), "so secret")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	err = common.ValidateKey([]byte("bogus"), "")
-	c.Check(err, gc.ErrorMatches, "invalid private key")
+	c.Check(err, tc.ErrorMatches, "invalid private key")
 }
 
-func (s *clientSuite) TestValidateKeyEncrypted(c *gc.C) {
+func (s *clientSuite) TestValidateKeyEncrypted(c *tc.C) {
 	err := common.ValidateKey([]byte(ocitesting.PrivateKeyEncrypted), ocitesting.PrivateKeyPassphrase)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	err = common.ValidateKey([]byte(ocitesting.PrivateKeyEncrypted), "wrong passphrase")
-	c.Assert(err, gc.ErrorMatches, "decrypting private key: x509: decryption password incorrect")
+	c.Assert(err, tc.ErrorMatches, "decrypting private key: x509: decryption password incorrect")
 
 	// empty passphrase
 	err = common.ValidateKey([]byte(ocitesting.PrivateKeyEncrypted), "")
-	c.Assert(err, gc.ErrorMatches, "decrypting private key: x509: decryption password incorrect")
+	c.Assert(err, tc.ErrorMatches, "decrypting private key: x509: decryption password incorrect")
 }
 
-func (s *clientSuite) TestTenancyOCID(c *gc.C) {
+func (s *clientSuite) TestTenancyOCID(c *tc.C) {
 	ocid, err := s.config.TenancyOCID()
-	c.Assert(err, gc.IsNil)
-	c.Check(ocid, gc.Equals, "fake")
+	c.Assert(err, tc.IsNil)
+	c.Check(ocid, tc.Equals, "fake")
 
 	s.config.Tenancy = ""
 	ocid, err = s.config.TenancyOCID()
-	c.Assert(err, gc.ErrorMatches, "tenancyOCID is not set")
-	c.Check(ocid, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "tenancyOCID is not set")
+	c.Check(ocid, tc.Equals, "")
 }
 
-func (s *clientSuite) TestUserOCID(c *gc.C) {
+func (s *clientSuite) TestUserOCID(c *tc.C) {
 	ocid, err := s.config.UserOCID()
-	c.Assert(err, gc.IsNil)
-	c.Check(ocid, gc.Equals, "fake")
+	c.Assert(err, tc.IsNil)
+	c.Check(ocid, tc.Equals, "fake")
 
 	s.config.User = ""
 	ocid, err = s.config.UserOCID()
-	c.Assert(err, gc.ErrorMatches, "userOCID is not set")
-	c.Check(ocid, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "userOCID is not set")
+	c.Check(ocid, tc.Equals, "")
 }
 
-func (s *clientSuite) TestKeyFingerprint(c *gc.C) {
+func (s *clientSuite) TestKeyFingerprint(c *tc.C) {
 	fp, err := s.config.KeyFingerprint()
-	c.Assert(err, gc.IsNil)
-	c.Check(fp, gc.Equals, ocitesting.PrivateKeyUnencryptedFingerprint)
+	c.Assert(err, tc.IsNil)
+	c.Check(fp, tc.Equals, ocitesting.PrivateKeyUnencryptedFingerprint)
 
 	s.config.Fingerprint = ""
 	fp, err = s.config.KeyFingerprint()
-	c.Assert(err, gc.ErrorMatches, "Fingerprint is not set")
-	c.Check(fp, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "Fingerprint is not set")
+	c.Check(fp, tc.Equals, "")
 }
 
-func (s *clientSuite) TestRegion(c *gc.C) {
+func (s *clientSuite) TestRegion(c *tc.C) {
 	region, err := s.config.Region()
-	c.Assert(err, gc.IsNil)
-	c.Check(region, gc.Equals, "us-phoenix-1")
+	c.Assert(err, tc.IsNil)
+	c.Check(region, tc.Equals, "us-phoenix-1")
 
 	s.config.OCIRegion = ""
 	region, err = s.config.Region()
-	c.Assert(err, gc.ErrorMatches, "Region is not set")
-	c.Check(region, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "Region is not set")
+	c.Check(region, tc.Equals, "")
 }
 
-func (s *clientSuite) TestPrivateRSAKey(c *gc.C) {
+func (s *clientSuite) TestPrivateRSAKey(c *tc.C) {
 	pkey, err := s.config.PrivateRSAKey()
-	c.Assert(err, gc.IsNil)
-	c.Assert(pkey, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(pkey, tc.NotNil)
 
 	s.config.Key = []byte(ocitesting.PrivateKeyEncrypted)
 	pkey, err = s.config.PrivateRSAKey()
-	c.Assert(err, gc.ErrorMatches, "x509: decryption password incorrect")
-	c.Assert(pkey, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "x509: decryption password incorrect")
+	c.Assert(pkey, tc.IsNil)
 
 	s.config.Passphrase = ocitesting.PrivateKeyPassphrase
 	_, err = s.config.PrivateRSAKey()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *clientSuite) TestKeyID(c *gc.C) {
+func (s *clientSuite) TestKeyID(c *tc.C) {
 	id := fmt.Sprintf("%s/%s/%s", s.config.Tenancy, s.config.User, s.config.Fingerprint)
 	keyID, err := s.config.KeyID()
-	c.Assert(err, gc.IsNil)
-	c.Check(keyID, gc.Equals, id)
+	c.Assert(err, tc.IsNil)
+	c.Check(keyID, tc.Equals, id)
 
 	s.config.Tenancy = ""
 	_, err = s.config.KeyID()
-	c.Assert(err, gc.ErrorMatches, "config provider is not properly initialized")
+	c.Assert(err, tc.ErrorMatches, "config provider is not properly initialized")
 }

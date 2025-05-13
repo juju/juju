@@ -9,32 +9,31 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/internal"
 	"github.com/juju/juju/internal/docker/registry/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockRoundTripper *mocks.MockRoundTripper
 	imageRepoDetails docker.ImageRepoDetails
 	isPrivate        bool
 }
 
-var _ = gc.Suite(&baseSuite{})
+var _ = tc.Suite(&baseSuite{})
 
 func (s *baseSuite) getAuthToken(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 }
 
-func (s *baseSuite) getRegistry(c *gc.C) (*internal.BaseClient, *gomock.Controller) {
+func (s *baseSuite) getRegistry(c *tc.C) (*internal.BaseClient, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	s.imageRepoDetails = docker.ImageRepoDetails{
@@ -53,9 +52,9 @@ func (s *baseSuite) getRegistry(c *gc.C) (*internal.BaseClient, *gomock.Controll
 		// registry.Ping() 1st try failed - bearer token was missing.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://example.com/v2`)
+				c.Assert(req.Header, tc.DeepEquals, http.Header{})
+				c.Assert(req.Method, tc.Equals, `GET`)
+				c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
@@ -72,10 +71,10 @@ func (s *baseSuite) getRegistry(c *gc.C) (*internal.BaseClient, *gomock.Controll
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				if s.isPrivate {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + authToken}})
+					c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + authToken}})
 				}
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
+				c.Assert(req.Method, tc.Equals, `GET`)
+				c.Assert(req.URL.String(), tc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -85,9 +84,9 @@ func (s *baseSuite) getRegistry(c *gc.C) (*internal.BaseClient, *gomock.Controll
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://example.com/v2`)
+				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
+				c.Assert(req.Method, tc.Equals, `GET`)
+				c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2`)
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
@@ -95,27 +94,27 @@ func (s *baseSuite) getRegistry(c *gc.C) (*internal.BaseClient, *gomock.Controll
 	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
 	reg, err := registry.New(s.imageRepoDetails)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	client, ok := reg.(*internal.BaseClient)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	err = reg.Ping()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return client, ctrl
 }
 
-func (s *baseSuite) TestPingPublicRepository(c *gc.C) {
+func (s *baseSuite) TestPingPublicRepository(c *tc.C) {
 	s.isPrivate = false
 	_, ctrl := s.getRegistry(c)
 	ctrl.Finish()
 }
 
-func (s *baseSuite) TestPingPrivateRepository(c *gc.C) {
+func (s *baseSuite) TestPingPrivateRepository(c *tc.C) {
 	s.isPrivate = true
 	_, ctrl := s.getRegistry(c)
 	ctrl.Finish()
 }
 
-func (s *baseSuite) TestInvalidAuth(c *gc.C) {
+func (s *baseSuite) TestInvalidAuth(c *tc.C) {
 	s.imageRepoDetails = docker.ImageRepoDetails{
 		Repository:    "example.com/jujuqa",
 		ServerAddress: "example.com",
@@ -125,5 +124,5 @@ func (s *baseSuite) TestInvalidAuth(c *gc.C) {
 	}
 
 	_, err := registry.New(s.imageRepoDetails)
-	c.Assert(err, gc.ErrorMatches, `only {"username", "password"} or {"auth"} authorization is supported for registry "example.com"`)
+	c.Assert(err, tc.ErrorMatches, `only {"username", "password"} or {"auth"} authorization is supported for registry "example.com"`)
 }

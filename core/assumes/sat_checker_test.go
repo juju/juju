@@ -6,22 +6,21 @@ package assumes
 import (
 	"strings"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/core/semversion"
 	chassumes "github.com/juju/juju/internal/charm/assumes"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type SatCheckerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&SatCheckerSuite{})
+var _ = tc.Suite(&SatCheckerSuite{})
 
-func (s *SatCheckerSuite) TestErrorReportingForSimpleExpression(c *gc.C) {
+func (s *SatCheckerSuite) TestErrorReportingForSimpleExpression(c *tc.C) {
 	fs := genFeatureSet(c)
 
 	exprTree := mustParseAssumesExpr(c, `
@@ -36,11 +35,11 @@ Charm cannot be deployed because:
 `[1:]
 
 	err := fs.Satisfies(exprTree)
-	c.Assert(err, jc.Satisfies, IsRequirementsNotSatisfiedError, gc.Commentf("expected to get a RequirementsNotSatisfied error"))
-	c.Assert(err.Error(), gc.Equals, expErr)
+	c.Assert(err, tc.Satisfies, IsRequirementsNotSatisfiedError, tc.Commentf("expected to get a RequirementsNotSatisfied error"))
+	c.Assert(err.Error(), tc.Equals, expErr)
 }
 
-func (s *SatCheckerSuite) TestErrorReportingForCompositeExpressions(c *gc.C) {
+func (s *SatCheckerSuite) TestErrorReportingForCompositeExpressions(c *tc.C) {
 	fs := genFeatureSet(c)
 
 	exprTree := mustParseAssumesExpr(c, `
@@ -64,11 +63,11 @@ Charm cannot be deployed because:
 `[1:]
 
 	err := fs.Satisfies(exprTree)
-	c.Assert(err, jc.Satisfies, IsRequirementsNotSatisfiedError, gc.Commentf("expected to get a RequirementsNotSatisfied error"))
-	c.Assert(err.Error(), gc.Equals, expErr)
+	c.Assert(err, tc.Satisfies, IsRequirementsNotSatisfiedError, tc.Commentf("expected to get a RequirementsNotSatisfied error"))
+	c.Assert(err.Error(), tc.Equals, expErr)
 }
 
-func (s *SatCheckerSuite) TestErrorReportingForMultiLevelExpressionTree(c *gc.C) {
+func (s *SatCheckerSuite) TestErrorReportingForMultiLevelExpressionTree(c *tc.C) {
 	fs := genFeatureSet(c)
 
 	exprTree := mustParseAssumesExpr(c, `
@@ -103,11 +102,11 @@ Charm cannot be deployed because:
 `[1:]
 
 	err := fs.Satisfies(exprTree)
-	c.Assert(err, jc.Satisfies, IsRequirementsNotSatisfiedError, gc.Commentf("expected to get a RequirementsNotSatisfied error"))
-	c.Assert(err.Error(), gc.Equals, expErr)
+	c.Assert(err, tc.Satisfies, IsRequirementsNotSatisfiedError, tc.Commentf("expected to get a RequirementsNotSatisfied error"))
+	c.Assert(err.Error(), tc.Equals, expErr)
 }
 
-func (s *SatCheckerSuite) TestAssumesExpressionSatisfied(c *gc.C) {
+func (s *SatCheckerSuite) TestAssumesExpressionSatisfied(c *tc.C) {
 	fs := genFeatureSet(c)
 
 	exprTree := mustParseAssumesExpr(c, `
@@ -124,10 +123,10 @@ assumes:
 `)
 
 	err := fs.Satisfies(exprTree)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected assumes expression tree to be satisfied"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("expected assumes expression tree to be satisfied"))
 }
 
-func genFeatureSet(c *gc.C) FeatureSet {
+func genFeatureSet(c *tc.C) FeatureSet {
 	var fs FeatureSet
 	fs.Add(
 		Feature{
@@ -154,19 +153,19 @@ func genFeatureSet(c *gc.C) FeatureSet {
 	return fs
 }
 
-func mustParseVersion(c *gc.C, verStr string) *semversion.Number {
+func mustParseVersion(c *tc.C, verStr string) *semversion.Number {
 	ver, err := semversion.ParseNonStrict(verStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &ver
 }
 
-func mustParseAssumesExpr(c *gc.C, exprYAML string) *chassumes.ExpressionTree {
+func mustParseAssumesExpr(c *tc.C, exprYAML string) *chassumes.ExpressionTree {
 	var payload = struct {
 		ExprTree chassumes.ExpressionTree `yaml:"assumes"`
 	}{}
 
 	err := yaml.NewDecoder(strings.NewReader(exprYAML)).Decode(&payload)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return &payload.ExprTree
 }

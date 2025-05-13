@@ -10,10 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -22,17 +20,18 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/oci"
 	ocitesting "github.com/juju/juju/internal/provider/oci/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type credentialsSuite struct {
-	testing.FakeHomeSuite
+	testhelpers.FakeHomeSuite
 
 	provider environs.EnvironProvider
 	spec     environscloudspec.CloudSpec
 }
 
-var _ = gc.Suite(&credentialsSuite{})
+var _ = tc.Suite(&credentialsSuite{})
 
 var singleSectionTemplate = `[%s]
 user=fake
@@ -43,10 +42,10 @@ region=%s
 pass_phrase=%s
 `
 
-func newConfig(c *gc.C, attrs jujutesting.Attrs) *config.Config {
+func newConfig(c *tc.C, attrs jujutesting.Attrs) *config.Config {
 	attrs = jujutesting.FakeConfig().Merge(attrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return cfg
 }
 
@@ -71,20 +70,20 @@ func fakeCredential() cloud.Credential {
 	})
 }
 
-func (s *credentialsSuite) SetUpTest(c *gc.C) {
+func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 
 	s.provider = &oci.EnvironProvider{}
 	s.spec = fakeCloudSpec()
 }
 
-func (s *credentialsSuite) writeOCIConfig(c *gc.C, sections map[string]map[string]string) {
+func (s *credentialsSuite) writeOCIConfig(c *tc.C, sections map[string]map[string]string) {
 	home := utils.Home()
 	sectionList := []string{}
 	for k, v := range sections {
 		pem_name := fmt.Sprintf(".oci/oci_api_key_%s.pem", k)
 		pem := filepath.Join(home, pem_name)
-		s.Home.AddFiles(c, testing.TestFile{
+		s.Home.AddFiles(c, testhelpers.TestFile{
 			Name: pem_name,
 			Data: v["key"],
 		})
@@ -93,16 +92,16 @@ func (s *credentialsSuite) writeOCIConfig(c *gc.C, sections map[string]map[strin
 			pem, v["region"], v["pass-phrase"])
 		sectionList = append(sectionList, cfg)
 	}
-	s.Home.AddFiles(c, testing.TestFile{
+	s.Home.AddFiles(c, testhelpers.TestFile{
 		Name: ".oci/config",
 		Data: strings.Join(sectionList, "\n")})
 }
 
-func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
+func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
 	envtesting.AssertProviderAuthTypes(c, s.provider, "httpsig")
 }
 
-func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
+func (s *credentialsSuite) TestUserPassCredentialsValid(c *tc.C) {
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "httpsig", map[string]string{
 		"user":        "fake",
 		"tenancy":     "fake",
@@ -113,21 +112,21 @@ func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestPassphraseHiddenAttributes(c *gc.C) {
+func (s *credentialsSuite) TestPassphraseHiddenAttributes(c *tc.C) {
 	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "httpsig", "pass-phrase")
 }
 
-func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsNotFound(c *tc.C) {
 	result := cloud.CloudCredential{
 		AuthCredentials: make(map[string]cloud.Credential),
 	}
 	creds, err := s.provider.DetectCredentials("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(creds, gc.NotNil)
-	c.Assert(*creds, jc.DeepEquals, result)
+	c.Assert(err, tc.IsNil)
+	c.Assert(creds, tc.NotNil)
+	c.Assert(*creds, tc.DeepEquals, result)
 }
 
-func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentials(c *tc.C) {
 	cfg := map[string]map[string]string{
 		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
@@ -137,11 +136,11 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 	}
 	s.writeOCIConfig(c, cfg)
 	creds, err := s.provider.DetectCredentials("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(creds.AuthCredentials), gc.Equals, 1)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(creds.AuthCredentials), tc.Equals, 1)
 }
 
-func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *tc.C) {
 	cfg := map[string]map[string]string{
 		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
@@ -151,10 +150,10 @@ func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *gc.C) {
 	}
 	s.writeOCIConfig(c, cfg)
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *credentialsSuite) TestDetectCredentialsMultiSection(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsMultiSection(c *tc.C) {
 	cfg := map[string]map[string]string{
 		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
@@ -169,11 +168,11 @@ func (s *credentialsSuite) TestDetectCredentialsMultiSection(c *gc.C) {
 	}
 	s.writeOCIConfig(c, cfg)
 	creds, err := s.provider.DetectCredentials("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(creds.AuthCredentials), gc.Equals, 2)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(creds.AuthCredentials), tc.Equals, 2)
 }
 
-func (s *credentialsSuite) TestDetectCredentialsMultiSectionInvalidConfig(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsMultiSectionInvalidConfig(c *tc.C) {
 	cfg := map[string]map[string]string{
 		// The default section is invalid, due to incorrect password
 		// This section should be skipped by DetectCredentials()
@@ -190,23 +189,23 @@ func (s *credentialsSuite) TestDetectCredentialsMultiSectionInvalidConfig(c *gc.
 	}
 	s.writeOCIConfig(c, cfg)
 	creds, err := s.provider.DetectCredentials("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(creds.AuthCredentials), gc.Equals, 1)
-	c.Assert(creds.DefaultRegion, gc.Equals, "")
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(creds.AuthCredentials), tc.Equals, 1)
+	c.Assert(creds.DefaultRegion, tc.Equals, "")
 }
 
-func (s *credentialsSuite) TestOpen(c *gc.C) {
+func (s *credentialsSuite) TestOpen(c *tc.C) {
 	env, err := environs.Open(stdcontext.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: newConfig(c, jujutesting.Attrs{"compartment-id": "fake"}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 
 	env, err = environs.Open(stdcontext.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: newConfig(c, nil),
 	}, environs.NoopCredentialInvalidator())
-	c.Check(err, gc.ErrorMatches, "compartment-id may not be empty")
-	c.Assert(env, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "compartment-id may not be empty")
+	c.Assert(env, tc.IsNil)
 }

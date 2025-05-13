@@ -12,35 +12,34 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/deployer/mocks"
 )
 
 type deployerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&deployerSuite{})
+var _ = tc.Suite(&deployerSuite{})
 
-func (s *deployerSuite) SetUpTest(c *gc.C) {
+func (s *deployerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	loggo.GetLogger("test.deployer").SetLogLevel(loggo.TRACE)
 }
 
-func (s *deployerSuite) sendUnitChange(c *gc.C, ch chan []string, units ...string) {
+func (s *deployerSuite) sendUnitChange(c *tc.C, ch chan []string, units ...string) {
 	select {
 	case ch <- units:
 	case <-time.After(coretesting.LongWait):
@@ -48,7 +47,7 @@ func (s *deployerSuite) sendUnitChange(c *gc.C, ch chan []string, units ...strin
 	}
 }
 
-func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
+func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -66,7 +65,7 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
 	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer stop(c, dep)
 
 	u0 := mocks.NewMockUnit(ctrl)
@@ -112,7 +111,7 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	s.waitFor(c, isDeployed(ctx))
 }
 
-func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
+func (s *deployerSuite) TestInitialStatusMessages(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -130,7 +129,7 @@ func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
 	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
 	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer stop(c, dep)
 
 	u0 := mocks.NewMockUnit(ctrl)
@@ -144,7 +143,7 @@ func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
 	s.waitFor(c, isDeployed(ctx, u0.Name()))
 }
 
-func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
+func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -177,7 +176,7 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 	// When the deployer is started, in each case (1) no unit agent is deployed
 	// and (2) the non-Alive unit is been removed from state.
 	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer stop(c, dep)
 
 	s.sendUnitChange(c, ch, "mysql/0", "mysql/1")
@@ -199,7 +198,7 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 	s.waitFor(c, isDeployed(ctx, u2.Name()))
 }
 
-func (s *deployerSuite) waitFor(c *gc.C, t func(c *gc.C) bool) {
+func (s *deployerSuite) waitFor(c *tc.C, t func(c *tc.C) bool) {
 	if t(c) {
 		return
 	}
@@ -216,26 +215,26 @@ func (s *deployerSuite) waitFor(c *gc.C, t func(c *gc.C) bool) {
 	}
 }
 
-func isDeployed(ctx deployer.Context, expected ...string) func(*gc.C) bool {
-	return func(c *gc.C) bool {
+func isDeployed(ctx deployer.Context, expected ...string) func(*tc.C) bool {
+	return func(c *tc.C) bool {
 		sort.Strings(expected)
 		current, err := ctx.DeployedUnits()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		sort.Strings(current)
 		return strings.Join(expected, ":") == strings.Join(current, ":")
 	}
 }
 
-func isNotDeployed(ctx deployer.Context, expected ...string) func(*gc.C) bool {
-	return func(c *gc.C) bool {
+func isNotDeployed(ctx deployer.Context, expected ...string) func(*tc.C) bool {
+	return func(c *tc.C) bool {
 		current, err := ctx.DeployedUnits()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return set.NewStrings(current...).Intersection(set.NewStrings(expected...)).IsEmpty()
 	}
 }
 
-func stop(c *gc.C, w worker.Worker) {
-	c.Assert(workertest.CheckKill(c, w), gc.IsNil)
+func stop(c *tc.C, w worker.Worker) {
+	c.Assert(workertest.CheckKill(c, w), tc.IsNil)
 }
 
 type fakeContext struct {

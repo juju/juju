@@ -9,28 +9,27 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/network/netplan"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type ActivateSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ActivateSuite{})
+var _ = tc.Suite(&ActivateSuite{})
 
-func (s *ActivateSuite) TestNoDevices(c *gc.C) {
+func (s *ActivateSuite) TestNoDevices(c *tc.C) {
 	params := netplan.ActivationParams{}
 	result, err := netplan.BridgeAndActivate(params)
-	c.Check(result, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "no devices specified")
+	c.Check(result, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "no devices specified")
 }
 
-func (s *ActivateSuite) TestNoDirectory(c *gc.C) {
+func (s *ActivateSuite) TestNoDirectory(c *tc.C) {
 	params := netplan.ActivationParams{
 		Devices: []netplan.DeviceToBridge{
 			{},
@@ -38,11 +37,11 @@ func (s *ActivateSuite) TestNoDirectory(c *gc.C) {
 		Directory: "/quite/for/sure/this/doesnotexists",
 	}
 	result, err := netplan.BridgeAndActivate(params)
-	c.Check(result, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "open /quite/for/sure/this/doesnotexists.*")
+	c.Check(result, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "open /quite/for/sure/this/doesnotexists.*")
 }
 
-func (s *ActivateSuite) TestActivateSuccess(c *gc.C) {
+func (s *ActivateSuite) TestActivateSuccess(c *tc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	params := netplan.ActivationParams{
@@ -66,16 +65,16 @@ func (s *ActivateSuite) TestActivateSuccess(c *gc.C) {
 	for i, file := range files {
 		var err error
 		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
-	c.Check(result, gc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, tc.IsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *gc.C) {
+func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *tc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	params := netplan.ActivationParams{
@@ -99,16 +98,16 @@ func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *gc.C) {
 	for i, file := range files {
 		var err error
 		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
-	c.Check(result, gc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, tc.IsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
+func (s *ActivateSuite) TestActivateFailure(c *tc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	params := netplan.ActivationParams{
@@ -132,26 +131,26 @@ func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 	for i, file := range files {
 		var err error
 		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
-	c.Assert(result, gc.NotNil)
-	c.Check(result.Stdout, gc.DeepEquals, "This is stdout")
-	c.Check(result.Stderr, gc.DeepEquals, "This is stderr")
-	c.Check(result.Code, gc.Equals, 1)
-	c.Check(err, gc.ErrorMatches, "bridge activation error code 1")
+	c.Assert(result, tc.NotNil)
+	c.Check(result.Stdout, tc.DeepEquals, "This is stdout")
+	c.Check(result.Stderr, tc.DeepEquals, "This is stderr")
+	c.Check(result.Code, tc.Equals, 1)
+	c.Check(err, tc.ErrorMatches, "bridge activation error code 1")
 
 	// old files are in place and unchanged
 	for i, file := range files {
 		content, err := os.ReadFile(path.Join(tempDir, file))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(string(content), gc.Equals, string(contents[i]))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(string(content), tc.Equals, string(contents[i]))
 	}
 	// there are no other YAML files in this directory
 	dirEntries, err := os.ReadDir(tempDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	yamlCount := 0
 	for _, entry := range dirEntries {
@@ -159,10 +158,10 @@ func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 			yamlCount++
 		}
 	}
-	c.Check(yamlCount, gc.Equals, len(files))
+	c.Check(yamlCount, tc.Equals, len(files))
 }
 
-func (s *ActivateSuite) TestActivateTimeout(c *gc.C) {
+func (s *ActivateSuite) TestActivateTimeout(c *tc.C) {
 	//	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	params := netplan.ActivationParams{
@@ -188,11 +187,11 @@ func (s *ActivateSuite) TestActivateTimeout(c *gc.C) {
 	for i, file := range files {
 		var err error
 		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
-	c.Check(result, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "bridge activation error: command cancelled")
+	c.Check(result, tc.NotNil)
+	c.Check(err, tc.ErrorMatches, "bridge activation error: command cancelled")
 }

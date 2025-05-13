@@ -4,20 +4,19 @@
 package objectstore
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type LeaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&LeaseSuite{})
+var _ = tc.Suite(&LeaseSuite{})
 
-func (s *LeaseSuite) TestParseLeaseHolderName(c *gc.C) {
+func (s *LeaseSuite) TestParseLeaseHolderName(c *tc.C) {
 	tests := []struct {
 		name     string
 		expected error
@@ -31,6 +30,6 @@ func (s *LeaseSuite) TestParseLeaseHolderName(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.name)
-		c.Assert(ParseLeaseHolderName(test.name), jc.ErrorIs, test.expected)
+		c.Assert(ParseLeaseHolderName(test.name), tc.ErrorIs, test.expected)
 	}
 }

@@ -8,25 +8,24 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/mocks"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type deleteBackendSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&deleteBackendSuite{})
+var _ = tc.Suite(&deleteBackendSuite{})
 
-func (s *deleteBackendSuite) TestGetContent(c *gc.C) {
+func (s *deleteBackendSuite) TestGetContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -39,10 +38,10 @@ func (s *deleteBackendSuite) TestGetContent(c *gc.C) {
 	uri := coresecrets.NewURI()
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
 	_, err := client.GetContent(context.Background(), uri, "", false, false)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *deleteBackendSuite) TestSaveContent(c *gc.C) {
+func (s *deleteBackendSuite) TestSaveContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -55,10 +54,10 @@ func (s *deleteBackendSuite) TestSaveContent(c *gc.C) {
 	uri := coresecrets.NewURI()
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
 	_, err := client.SaveContent(context.Background(), uri, 666, coresecrets.NewSecretValue(nil))
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *deleteBackendSuite) TestDeleteExternalContent(c *gc.C) {
+func (s *deleteBackendSuite) TestDeleteExternalContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -70,10 +69,10 @@ func (s *deleteBackendSuite) TestDeleteExternalContent(c *gc.C) {
 
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
 	err := client.DeleteExternalContent(context.Background(), coresecrets.ValueRef{})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *deleteBackendSuite) TestGetBackend(c *gc.C) {
+func (s *deleteBackendSuite) TestGetBackend(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -85,10 +84,10 @@ func (s *deleteBackendSuite) TestGetBackend(c *gc.C) {
 
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
 	_, _, err := client.GetBackend(context.Background(), ptr("someid"), false)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *deleteBackendSuite) TestGetRevisionContent(c *gc.C) {
+func (s *deleteBackendSuite) TestGetRevisionContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -101,10 +100,10 @@ func (s *deleteBackendSuite) TestGetRevisionContent(c *gc.C) {
 	uri := coresecrets.NewURI()
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
 	_, err := client.GetRevisionContent(context.Background(), uri, 666)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *deleteBackendSuite) TestDeleteContent(c *gc.C) {
+func (s *deleteBackendSuite) TestDeleteContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -113,7 +112,7 @@ func (s *deleteBackendSuite) TestDeleteContent(c *gc.C) {
 
 	backends := set.NewStrings("somebackend1", "somebackend2")
 	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		c.Assert(backends.Contains(cfg.BackendType), jc.IsTrue)
+		c.Assert(backends.Contains(cfg.BackendType), tc.IsTrue)
 		return backend, nil
 	})
 
@@ -141,10 +140,10 @@ func (s *deleteBackendSuite) TestDeleteContent(c *gc.C) {
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 
 	err := client.DeleteContent(context.Background(), uri, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *deleteBackendSuite) TestDeleteContentDraining(c *gc.C) {
+func (s *deleteBackendSuite) TestDeleteContentDraining(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -153,7 +152,7 @@ func (s *deleteBackendSuite) TestDeleteContentDraining(c *gc.C) {
 
 	backends := set.NewStrings("somebackend1", "somebackend2")
 	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		c.Assert(backends.Contains(cfg.BackendType), jc.IsTrue)
+		c.Assert(backends.Contains(cfg.BackendType), tc.IsTrue)
 		return backend, nil
 	})
 
@@ -188,10 +187,10 @@ func (s *deleteBackendSuite) TestDeleteContentDraining(c *gc.C) {
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 
 	err := client.DeleteContent(context.Background(), uri, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *deleteBackendSuite) TestDeleteInternalContentNoop(c *gc.C) {
+func (s *deleteBackendSuite) TestDeleteInternalContentNoop(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -208,5 +207,5 @@ func (s *deleteBackendSuite) TestDeleteInternalContentNoop(c *gc.C) {
 	state.EXPECT().GetSecretValue(uri, 666).Return(coresecrets.NewSecretValue(nil), nil, nil)
 
 	err := client.DeleteContent(context.Background(), uri, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

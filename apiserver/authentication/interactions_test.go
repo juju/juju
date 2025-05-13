@@ -8,86 +8,85 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type InteractionsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	interactions *authentication.Interactions
 }
 
-var _ = gc.Suite(&InteractionsSuite{})
+var _ = tc.Suite(&InteractionsSuite{})
 
-func (s *InteractionsSuite) SetUpTest(c *gc.C) {
+func (s *InteractionsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.interactions = authentication.NewInteractions()
 }
 
-func (s *InteractionsSuite) TestStart(c *gc.C) {
+func (s *InteractionsSuite) TestStart(c *tc.C) {
 	waitId, err := s.interactions.Start([]byte("caveat-id"), time.Time{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(waitId, gc.Not(gc.Equals), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(waitId, tc.Not(tc.Equals), "")
 }
 
-func (s *InteractionsSuite) TestDone(c *gc.C) {
+func (s *InteractionsSuite) TestDone(c *tc.C) {
 	waitId := s.start(c, "caveat-id")
 	err := s.interactions.Done(waitId, names.NewUserTag("admin@local"), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *InteractionsSuite) TestDoneNotFound(c *gc.C) {
+func (s *InteractionsSuite) TestDoneNotFound(c *tc.C) {
 	err := s.interactions.Done("not-found", names.NewUserTag("admin@local"), nil)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Assert(err, gc.ErrorMatches, `interaction "not-found" not found`)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorMatches, `interaction "not-found" not found`)
 }
 
-func (s *InteractionsSuite) TestDoneTwice(c *gc.C) {
+func (s *InteractionsSuite) TestDoneTwice(c *tc.C) {
 	waitId := s.start(c, "caveat-id")
 	err := s.interactions.Done(waitId, names.NewUserTag("admin@local"), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.interactions.Done(waitId, names.NewUserTag("admin@local"), nil)
-	c.Assert(err, gc.ErrorMatches, `interaction ".*" already done`)
+	c.Assert(err, tc.ErrorMatches, `interaction ".*" already done`)
 }
 
-func (s *InteractionsSuite) TestWait(c *gc.C) {
+func (s *InteractionsSuite) TestWait(c *tc.C) {
 	waitId := s.start(c, "caveat-id")
 	loginUser := names.NewUserTag("admin@local")
 	loginError := errors.New("login failed")
 	s.done(c, waitId, loginUser, loginError)
 	interaction, err := s.interactions.Wait(waitId, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(interaction, gc.NotNil)
-	c.Assert(interaction, jc.DeepEquals, &authentication.Interaction{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(interaction, tc.NotNil)
+	c.Assert(interaction, tc.DeepEquals, &authentication.Interaction{
 		CaveatId:   []byte("caveat-id"),
 		LoginUser:  loginUser,
 		LoginError: loginError,
 	})
 }
 
-func (s *InteractionsSuite) TestWaitNotFound(c *gc.C) {
+func (s *InteractionsSuite) TestWaitNotFound(c *tc.C) {
 	interaction, err := s.interactions.Wait("not-found", nil)
-	c.Assert(err, gc.ErrorMatches, `interaction "not-found" not found`)
-	c.Assert(interaction, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `interaction "not-found" not found`)
+	c.Assert(interaction, tc.IsNil)
 }
 
-func (s *InteractionsSuite) TestWaitTwice(c *gc.C) {
+func (s *InteractionsSuite) TestWaitTwice(c *tc.C) {
 	waitId := s.start(c, "caveat-id")
 	s.done(c, waitId, names.NewUserTag("admin@local"), nil)
 
 	_, err := s.interactions.Wait(waitId, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The Wait call above should have removed the item.
 	_, err = s.interactions.Wait(waitId, nil)
-	c.Assert(err, gc.ErrorMatches, `interaction ".*" not found`)
+	c.Assert(err, tc.ErrorMatches, `interaction ".*" not found`)
 }
 
-func (s *InteractionsSuite) TestWaitCancellation(c *gc.C) {
+func (s *InteractionsSuite) TestWaitCancellation(c *tc.C) {
 	waitId := s.start(c, "caveat-id")
 
 	cancel := make(chan struct{})
@@ -107,19 +106,19 @@ func (s *InteractionsSuite) TestWaitCancellation(c *gc.C) {
 	cancel <- struct{}{}
 	select {
 	case err := <-waitResult:
-		c.Assert(err, gc.Equals, authentication.ErrWaitCanceled)
+		c.Assert(err, tc.Equals, authentication.ErrWaitCanceled)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for Wait to return")
 	}
 }
 
-func (s *InteractionsSuite) TestWaitExpired(c *gc.C) {
+func (s *InteractionsSuite) TestWaitExpired(c *tc.C) {
 	t0 := time.Now()
 	t1 := t0.Add(time.Second)
 	t2 := t1.Add(time.Second)
 
 	waitId, err := s.interactions.Start([]byte("caveat-id"), t2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	type waitResult struct {
 		interaction *authentication.Interaction
@@ -145,20 +144,20 @@ func (s *InteractionsSuite) TestWaitExpired(c *gc.C) {
 	s.interactions.Expire(t2)
 	select {
 	case result := <-waitResultC:
-		c.Assert(result.err, gc.Equals, authentication.ErrExpired)
-		c.Assert(result.interaction, gc.IsNil)
+		c.Assert(result.err, tc.Equals, authentication.ErrExpired)
+		c.Assert(result.interaction, tc.IsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for Wait to return")
 	}
 }
 
-func (s *InteractionsSuite) start(c *gc.C, caveatId string) string {
+func (s *InteractionsSuite) start(c *tc.C, caveatId string) string {
 	waitId, err := s.interactions.Start([]byte(caveatId), time.Time{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return waitId
 }
 
-func (s *InteractionsSuite) done(c *gc.C, waitId string, loginUser names.UserTag, loginError error) {
+func (s *InteractionsSuite) done(c *tc.C, waitId string, loginUser names.UserTag, loginError error) {
 	err := s.interactions.Done(waitId, loginUser, loginError)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

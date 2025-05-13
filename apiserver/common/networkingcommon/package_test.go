@@ -6,22 +6,22 @@ package networkingcommon
 import (
 	"testing"
 
-	jujutesting "github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/networkingcommon LinkLayerDevice,LinkLayerAddress,LinkLayerMachine,LinkLayerState,LinkLayerAndSubnetsState,NetworkService
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type BaseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *BaseSuite) NewUpdateMachineLinkLayerOp(

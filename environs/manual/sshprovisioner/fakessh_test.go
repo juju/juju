@@ -10,13 +10,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/internal/service"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // sshscript should only print the result on the first execution,
@@ -58,7 +57,7 @@ fi`
 //   - nil (no output)
 //   - a string (stdout)
 //   - a slice of strings, of length two (stdout, stderr)
-func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer {
+func installFakeSSH(c *tc.C, input, output interface{}, rc int) testhelpers.Restorer {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")
 	switch input := input.(type) {
@@ -66,7 +65,7 @@ func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer
 	case string:
 		sshexpectedinput := ssh + ".expected-input"
 		err := os.WriteFile(sshexpectedinput, []byte(input), 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	default:
 		c.Errorf("input has invalid type: %T", input)
 	}
@@ -76,20 +75,20 @@ func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer
 	case string:
 		stdout = fmt.Sprintf("cat<<EOF\n%s\nEOF", output)
 	case []string:
-		c.Assert(output, gc.HasLen, 2)
+		c.Assert(output, tc.HasLen, 2)
 		stdout = fmt.Sprintf("cat<<EOF\n%s\nEOF", output[0])
 		stderr = fmt.Sprintf("cat>&2<<EOF\n%s\nEOF", output[1])
 	}
 	script := fmt.Sprintf(sshscript, stdout, stderr, rc)
 	err := os.WriteFile(ssh, []byte(script), 0777)
-	c.Assert(err, jc.ErrorIsNil)
-	return testing.PatchEnvPathPrepend(fakebin)
+	c.Assert(err, tc.ErrorIsNil)
+	return testhelpers.PatchEnvPathPrepend(fakebin)
 }
 
 // installDetectionFakeSSH installs a fake SSH command, which will respond
 // to the base/hardware detection script with the specified
 // base/arch.
-func installDetectionFakeSSH(c *gc.C, base corebase.Base, arch string) testing.Restorer {
+func installDetectionFakeSSH(c *tc.C, base corebase.Base, arch string) testhelpers.Restorer {
 	if arch == "" {
 		arch = "amd64"
 	}
@@ -136,8 +135,8 @@ type fakeSSH struct {
 // install installs fake SSH commands, which will respond to
 // manual provisioning/bootstrapping commands with the specified
 // output and exit codes.
-func (r fakeSSH) install(c *gc.C) testing.Restorer {
-	var restore testing.Restorer
+func (r fakeSSH) install(c *tc.C) testhelpers.Restorer {
+	var restore testhelpers.Restorer
 	add := func(input, output interface{}, rc int) {
 		restore = restore.Add(installFakeSSH(c, input, output, rc))
 	}

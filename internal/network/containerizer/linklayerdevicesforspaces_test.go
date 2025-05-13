@@ -6,19 +6,18 @@ package containerizer
 import (
 	"strings"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type linkLayerDevForSpacesSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&linkLayerDevForSpacesSuite{})
+var _ = tc.Suite(&linkLayerDevForSpacesSuite{})
 
 func (s *linkLayerDevForSpacesSuite) policy() *BridgePolicy {
 	return &BridgePolicy{
@@ -30,7 +29,7 @@ func (s *linkLayerDevForSpacesSuite) policy() *BridgePolicy {
 // Add tests for UseLocal = True, but we have named spaces
 // Add tests for UseLocal = True, but the host device is bridged
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpaces(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpaces(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -38,17 +37,17 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpaces(c *gc.C) {
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.HasLen, 1)
 
 	devices, ok := res["1"]
-	c.Assert(ok, jc.IsTrue)
-	c.Check(devices, gc.HasLen, 1)
-	c.Check(devices[0].Name(), gc.Equals, "br-eth0")
-	c.Check(devices[0].Type(), gc.Equals, network.BridgeDevice)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(devices, tc.HasLen, 1)
+	c.Check(devices[0].Name(), tc.Equals, "br-eth0")
+	c.Check(devices[0].Type(), tc.Equals, network.BridgeDevice)
 }
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoSuchSpace(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoSuchSpace(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -56,11 +55,11 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoSuchSpace(c 
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "2"}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoBridge(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoBridge(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -68,17 +67,17 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoBridge(c *gc
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.HasLen, 1)
 
 	devices, ok := res["1"]
-	c.Assert(ok, jc.IsTrue)
-	c.Check(devices, gc.HasLen, 1)
-	c.Check(devices[0].Name(), gc.Equals, "eth0")
-	c.Check(devices[0].Type(), gc.Equals, network.EthernetDevice)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(devices, tc.HasLen, 1)
+	c.Check(devices[0].Name(), tc.Equals, "eth0")
+	c.Check(devices[0].Type(), tc.Equals, network.EthernetDevice)
 }
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesMultipleSpaces(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesMultipleSpaces(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -89,20 +88,20 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesMultipleSpaces
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}, {ID: "2"}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.HasLen, 2)
 
 	somespaceDevices, ok := res["1"]
-	c.Check(ok, jc.IsTrue)
-	c.Check(somespaceDevices, gc.HasLen, 1)
-	c.Check(somespaceDevices[0].Name(), gc.Equals, "br-eth0")
+	c.Check(ok, tc.IsTrue)
+	c.Check(somespaceDevices, tc.HasLen, 1)
+	c.Check(somespaceDevices[0].Name(), tc.Equals, "br-eth0")
 	dmzDevices, ok := res["2"]
-	c.Check(ok, jc.IsTrue)
-	c.Check(dmzDevices, gc.HasLen, 1)
-	c.Check(dmzDevices[0].Name(), gc.Equals, "eth1")
+	c.Check(ok, tc.IsTrue)
+	c.Check(dmzDevices, tc.HasLen, 1)
+	c.Check(dmzDevices[0].Name(), tc.Equals, "eth1")
 }
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithExtraAddresses(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithExtraAddresses(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -116,16 +115,16 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithExtraAddre
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.HasLen, 1)
 
 	defaultDevices, ok := res["1"]
-	c.Check(ok, jc.IsTrue)
-	c.Check(defaultDevices, gc.HasLen, 1)
-	c.Check(defaultDevices[0].Name(), gc.Equals, "br-eth0")
+	c.Check(ok, tc.IsTrue)
+	c.Check(defaultDevices, tc.HasLen, 1)
+	c.Check(defaultDevices[0].Name(), tc.Equals, "br-eth0")
 }
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesInDefaultSpace(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesInDefaultSpace(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -134,19 +133,19 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesInDefaultSpace
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.HasLen, 1)
 
 	devices, ok := res[network.AlphaSpaceId]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(devices, gc.HasLen, 2)
-	c.Check(devices[0].Name(), gc.Equals, "ens4")
-	c.Check(devices[0].Type(), gc.Equals, network.EthernetDevice)
-	c.Check(devices[1].Name(), gc.Equals, "ens5")
-	c.Check(devices[1].Type(), gc.Equals, network.EthernetDevice)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(devices, tc.HasLen, 2)
+	c.Check(devices[0].Name(), tc.Equals, "ens4")
+	c.Check(devices[0].Type(), tc.Equals, network.EthernetDevice)
+	c.Check(devices[1].Name(), tc.Equals, "ens5")
+	c.Check(devices[1].Type(), tc.Equals, network.EthernetDevice)
 }
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithUnknown(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithUnknown(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -157,23 +156,23 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithUnknown(c 
 
 	spaces := network.SpaceInfos{{ID: network.AlphaSpaceId}, {ID: "1"}}
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, spaces)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.HasLen, 2)
 
 	devices, ok := res[network.AlphaSpaceId]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(devices, gc.HasLen, 1)
-	c.Check(devices[0].Name(), gc.Equals, "ens5")
-	c.Check(devices[0].Type(), gc.Equals, network.EthernetDevice)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(devices, tc.HasLen, 1)
+	c.Check(devices[0].Name(), tc.Equals, "ens5")
+	c.Check(devices[0].Type(), tc.Equals, network.EthernetDevice)
 
 	devices, ok = res["1"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(devices, gc.HasLen, 1)
-	c.Check(devices[0].Name(), gc.Equals, "br-ens4")
-	c.Check(devices[0].Type(), gc.Equals, network.BridgeDevice)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(devices, tc.HasLen, 1)
+	c.Check(devices[0].Name(), tc.Equals, "br-ens4")
+	c.Check(devices[0].Type(), tc.Equals, network.BridgeDevice)
 }
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithNoAddress(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithNoAddress(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -185,20 +184,20 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithNoAddress(
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.HasLen, 1)
 
 	devices, ok := res[network.AlphaSpaceId]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(devices, gc.HasLen, 1)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(devices, tc.HasLen, 1)
 	names := make([]string, len(devices))
 	for i, dev := range devices {
 		names[i] = dev.Name()
 	}
-	c.Check(names, gc.DeepEquals, []string{"ens5"})
+	c.Check(names, tc.DeepEquals, []string{"ens5"})
 }
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesUnknownIgnoresLoopAndExcludesKnownBridges(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesUnknownIgnoresLoopAndExcludesKnownBridges(c *tc.C) {
 	// TODO(jam): 2016-12-28 arguably we should also be aware of Docker
 	// devices, possibly the better plan is to look at whether there are
 	// routes from the given bridge out into the rest of the world.
@@ -214,18 +213,18 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesUnknownIgnores
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.HasLen, 1)
 	devices, ok := res[network.AlphaSpaceId]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	names := make([]string, len(devices))
 	for i, dev := range devices {
 		names[i] = dev.Name()
 	}
-	c.Check(names, gc.DeepEquals, []string{"br-ens4", "ens3"})
+	c.Check(names, tc.DeepEquals, []string{"br-ens4", "ens3"})
 }
 
-func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesSortOrder(c *gc.C) {
+func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesSortOrder(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -234,15 +233,15 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesSortOrder(c *g
 	s.expectMachineAddressesDevices()
 
 	res, err := s.policy().linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.HasLen, 1)
 	defaultDevices, ok := res[network.AlphaSpaceId]
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 	names := make([]string, 0, len(defaultDevices))
 	for _, dev := range defaultDevices {
 		names = append(names, dev.Name())
 	}
-	c.Check(names, gc.DeepEquals, []string{
+	c.Check(names, tc.DeepEquals, []string{
 		"br-eth0", "br-eth1", "br-eth1.1", "br-eth1:1", "br-eth10", "br-eth10.2",
 	})
 }
@@ -291,7 +290,7 @@ func (s *linkLayerDevForSpacesSuite) setupForNaturalSort(ctrl *gomock.Controller
 }
 
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	machine *MockContainer
 
@@ -300,7 +299,7 @@ type baseSuite struct {
 	allSubnets network.SubnetInfos
 }
 
-func (s *baseSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.devices = make([]LinkLayerDevice, 0)
@@ -308,7 +307,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.allSubnets = make(network.SubnetInfos, 0)
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.machine = NewMockContainer(ctrl)
 	s.machine.EXPECT().Id().Return("host-id").AnyTimes()
@@ -322,7 +321,7 @@ func (s *baseSuite) expectMachineAddressesDevices() {
 	mExp.AllDeviceAddresses().Return(s.addresses, nil).AnyTimes()
 }
 
-func (s *baseSuite) expectNICAndBridgeWithIP(c *gc.C, ctrl *gomock.Controller, dev, parent, spaceID string, cidr string) {
+func (s *baseSuite) expectNICAndBridgeWithIP(c *tc.C, ctrl *gomock.Controller, dev, parent, spaceID string, cidr string) {
 	s.expectDevice(ctrl, dev, parent, network.EthernetDevice, network.NonVirtualPort)
 	s.expectBridgeDevice(ctrl, parent)
 
@@ -340,11 +339,11 @@ func (s *baseSuite) expectNICAndBridgeWithIP(c *gc.C, ctrl *gomock.Controller, d
 	s.addresses = append(s.addresses, address)
 }
 
-func (s *baseSuite) expectNICWithIP(c *gc.C, ctrl *gomock.Controller, dev, spaceID, cidr string) *MockLinkLayerDevice {
+func (s *baseSuite) expectNICWithIP(c *tc.C, ctrl *gomock.Controller, dev, spaceID, cidr string) *MockLinkLayerDevice {
 	return s.expectNICWithIPAndPortType(c, ctrl, dev, spaceID, network.NonVirtualPort, cidr)
 }
 
-func (s *baseSuite) expectNICWithIPAndPortType(c *gc.C, ctrl *gomock.Controller, devName, spaceID string, portType network.VirtualPortType, cidr string) *MockLinkLayerDevice {
+func (s *baseSuite) expectNICWithIPAndPortType(c *tc.C, ctrl *gomock.Controller, devName, spaceID string, portType network.VirtualPortType, cidr string) *MockLinkLayerDevice {
 	dev := s.expectDevice(ctrl, devName, "", network.EthernetDevice, portType)
 
 	address := NewMockAddress(ctrl)
@@ -376,15 +375,15 @@ func (s *baseSuite) expectBridgeDevice(ctrl *gomock.Controller, dev string) {
 	s.expectDevice(ctrl, dev, "", network.BridgeDevice, network.NonVirtualPort)
 }
 
-func (s *baseSuite) expectBridgeDeviceWithIP(c *gc.C, ctrl *gomock.Controller, dev, spaceID, cidr string) {
+func (s *baseSuite) expectBridgeDeviceWithIP(c *tc.C, ctrl *gomock.Controller, dev, spaceID, cidr string) {
 	s.expectDeviceWithIP(c, ctrl, dev, spaceID, network.BridgeDevice, cidr)
 }
 
-func (s *baseSuite) expectDeviceWithIP(c *gc.C, ctrl *gomock.Controller, dev, spaceID string, devType network.LinkLayerDeviceType, cidr string) *MockLinkLayerDevice {
+func (s *baseSuite) expectDeviceWithIP(c *tc.C, ctrl *gomock.Controller, dev, spaceID string, devType network.LinkLayerDeviceType, cidr string) *MockLinkLayerDevice {
 	return s.expectDeviceWithParentWithIP(c, ctrl, dev, "", spaceID, devType, cidr)
 }
 
-func (s *baseSuite) expectDeviceWithParentWithIP(c *gc.C, ctrl *gomock.Controller, dev, parent, spaceID string, devType network.LinkLayerDeviceType, cidr string) *MockLinkLayerDevice {
+func (s *baseSuite) expectDeviceWithParentWithIP(c *tc.C, ctrl *gomock.Controller, dev, parent, spaceID string, devType network.LinkLayerDeviceType, cidr string) *MockLinkLayerDevice {
 	d := s.expectDevice(ctrl, dev, parent, devType, network.NonVirtualPort)
 
 	address := NewMockAddress(ctrl)

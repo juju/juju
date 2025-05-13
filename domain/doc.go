@@ -80,8 +80,8 @@
 //	    err := tx.QueryRowContext(ctx, `SELECT foo FROM table`).Scan(&gotFoo)
 //	    return err
 //	})
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(gotFoo, gc.Equals, "bar")
+//	c.Assert(err, tc.ErrorIsNil)
+//	c.Assert(gotFoo, tc.Equals, "bar")
 //
 // Tests are implemented by invoking business methods being tested
 // on a state instance created from the base suite txn runner factory.

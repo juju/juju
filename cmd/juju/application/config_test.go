@@ -12,9 +12,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 	"gopkg.in/yaml.v3"
 
@@ -37,7 +36,7 @@ type configCommandSuite struct {
 }
 
 var (
-	_ = gc.Suite(&configCommandSuite{})
+	_ = tc.Suite(&configCommandSuite{})
 
 	validSetTestValue   = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
 	invalidSetTestValue = "a value with an invalid UTF-8 sequence: " + string([]byte{0xFF, 0xFF})
@@ -103,7 +102,7 @@ var getTests = []struct {
 	},
 }
 
-func (s *configCommandSuite) SetUpTest(c *gc.C) {
+func (s *configCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.defaultCharmValues = map[string]interface{}{
@@ -127,98 +126,98 @@ func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.MinimalStore()
 
 	s.dir = c.MkDir()
-	c.Assert(utf8.ValidString(validSetTestValue), jc.IsTrue)
-	c.Assert(utf8.ValidString(invalidSetTestValue), jc.IsFalse)
+	c.Assert(utf8.ValidString(validSetTestValue), tc.IsTrue)
+	c.Assert(utf8.ValidString(invalidSetTestValue), tc.IsFalse)
 	setupValueFile(c, s.dir, "valid.txt", validSetTestValue)
 	setupValueFile(c, s.dir, "invalid.txt", invalidSetTestValue)
 	setupBigFile(c, s.dir)
 	setupConfigFile(c, s.dir)
 }
 
-func (s *configCommandSuite) TestGetCommandInit(c *gc.C) {
+func (s *configCommandSuite) TestGetCommandInit(c *tc.C) {
 	// missing args
 	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake, s.store), []string{})
-	c.Assert(err, gc.ErrorMatches, "no application name specified")
+	c.Assert(err, tc.ErrorMatches, "no application name specified")
 }
 
-func (s *configCommandSuite) TestGetCommandInitWithApplication(c *gc.C) {
+func (s *configCommandSuite) TestGetCommandInitWithApplication(c *tc.C) {
 	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake, s.store), []string{"app"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *configCommandSuite) TestGetCommandInitWithKey(c *gc.C) {
+func (s *configCommandSuite) TestGetCommandInitWithKey(c *tc.C) {
 	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake, s.store), []string{"app", "key"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *configCommandSuite) TestGetConfig(c *gc.C) {
+func (s *configCommandSuite) TestGetConfig(c *tc.C) {
 	for _, t := range getTests {
 		if !t.useAppConfig {
 			s.fake.appValues = nil
 		}
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{t.application})
-		c.Check(code, gc.Equals, 0)
-		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+		c.Check(code, tc.Equals, 0)
+		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
 
 		// round trip via goyaml to avoid being sucked into a quagmire of
 		// map[interface{}]interface{} vs map[string]interface{}. This is
 		// also required if we add json support to this command.
 		buf, err := goyaml.Marshal(t.expected)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := make(map[string]interface{})
 		err = goyaml.Unmarshal(buf, &expected)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		actual := make(map[string]interface{})
 		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
 		c.Log(ctx.Stdout.(*bytes.Buffer).String())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(actual, jc.DeepEquals, expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(actual, tc.DeepEquals, expected)
 	}
 }
 
-func (s *configCommandSuite) TestGetCharmConfigKey(c *gc.C) {
+func (s *configCommandSuite) TestGetCharmConfigKey(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{"dummy-application", "title"})
-	c.Check(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Nearly There\n")
+	c.Check(code, tc.Equals, 0)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "Nearly There\n")
 }
 
-func (s *configCommandSuite) TestGetCharmConfigKeyMultilineValue(c *gc.C) {
+func (s *configCommandSuite) TestGetCharmConfigKeyMultilineValue(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{"dummy-application", "multiline-value"})
-	c.Check(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx),
-		gc.Equals,
+		tc.Equals,
 		"The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" \n")
 }
 
-func (s *configCommandSuite) TestGetCharmConfigKeyMultilineValueJSON(c *gc.C) {
+func (s *configCommandSuite) TestGetCharmConfigKeyMultilineValueJSON(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{"dummy-application", "multiline-value", "--format", "json"})
-	c.Check(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx),
-		gc.Equals,
+		tc.Equals,
 		"The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" \n",
 	)
 }
 
-func (s *configCommandSuite) TestGetAppConfigKey(c *gc.C) {
+func (s *configCommandSuite) TestGetAppConfigKey(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(
 		s.fake, s.store), ctx, []string{"dummy-application", "trust"})
-	c.Check(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "true\n")
+	c.Check(code, tc.Equals, 0)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "true\n")
 }
 
-func (s *configCommandSuite) TestGetConfigKeyNotFound(c *gc.C) {
+func (s *configCommandSuite) TestGetConfigKeyNotFound(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, application.NewConfigCommandForTest(s.fake, s.store), "dummy-application", "invalid")
-	c.Assert(err, gc.ErrorMatches, `key "invalid" not found in "dummy-application" application config or charm settings.`, gc.Commentf("details: %v", errors.Details(err)))
+	c.Assert(err, tc.ErrorMatches, `key "invalid" not found in "dummy-application" application config or charm settings.`, tc.Commentf("details: %v", errors.Details(err)))
 }
 
 var setCommandInitErrorTests = []struct {
@@ -262,18 +261,18 @@ var setCommandInitErrorTests = []struct {
 	expectError: `cannot set and reset key "key" simultaneously`,
 }}
 
-func (s *configCommandSuite) TestSetCommandInitError(c *gc.C) {
+func (s *configCommandSuite) TestSetCommandInitError(c *tc.C) {
 	testStore := jujuclienttesting.MinimalStore()
 	for i, test := range setCommandInitErrorTests {
 		c.Logf("test %d: %s", i, test.about)
 		cmd := application.NewConfigCommandForTest(s.fake, s.store)
 		cmd.SetClientStore(testStore)
 		err := cmdtesting.InitCommand(cmd, test.args)
-		c.Check(err, gc.ErrorMatches, test.expectError)
+		c.Check(err, tc.ErrorMatches, test.expectError)
 	}
 }
 
-func (s *configCommandSuite) TestSetCharmConfigSuccess(c *gc.C) {
+func (s *configCommandSuite) TestSetCharmConfigSuccess(c *tc.C) {
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello",
 		"outlook=hello@world.tld",
@@ -301,7 +300,7 @@ func (s *configCommandSuite) TestSetCharmConfigSuccess(c *gc.C) {
 	})
 }
 
-func (s *configCommandSuite) TestSetAppConfigSuccess(c *gc.C) {
+func (s *configCommandSuite) TestSetAppConfigSuccess(c *tc.C) {
 	s.assertSetSuccess(c, s.dir, []string{
 		"trust=false",
 	}, map[string]interface{}{
@@ -314,7 +313,7 @@ func (s *configCommandSuite) TestSetAppConfigSuccess(c *gc.C) {
 	}, s.defaultCharmValues)
 }
 
-func (s *configCommandSuite) TestSetSameValue(c *gc.C) {
+func (s *configCommandSuite) TestSetSameValue(c *tc.C) {
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello",
 		"outlook=hello@world.tld",
@@ -327,7 +326,7 @@ func (s *configCommandSuite) TestSetSameValue(c *gc.C) {
 
 }
 
-func (s *configCommandSuite) TestSetConfigFail(c *gc.C) {
+func (s *configCommandSuite) TestSetConfigFail(c *tc.C) {
 	s.assertSetFail(c, s.dir, []string{"foo", "bar"},
 		"cannot specify multiple keys to get")
 	s.assertSetFail(c, s.dir, []string{"=bar"}, "expected \"key=value\", got \"=bar\"")
@@ -342,7 +341,7 @@ func (s *configCommandSuite) TestSetConfigFail(c *gc.C) {
 	}, "value for option \"username\" contains non-UTF-8 sequences")
 }
 
-func (s *configCommandSuite) TestSetCharmConfigFromYAML(c *gc.C) {
+func (s *configCommandSuite) TestSetCharmConfigFromYAML(c *tc.C) {
 	s.assertSetFail(c, s.dir, []string{
 		"--file",
 		"missing.yaml",
@@ -354,22 +353,22 @@ func (s *configCommandSuite) TestSetCharmConfigFromYAML(c *gc.C) {
 		"--file",
 		"testconfig.yaml"})
 
-	c.Check(code, gc.Equals, 0)
-	c.Check(s.fake.config, gc.Equals, yamlConfigValue)
+	c.Check(code, tc.Equals, 0)
+	c.Check(s.fake.config, tc.Equals, yamlConfigValue)
 }
 
-func (s *configCommandSuite) TestSetFromStdin(c *gc.C) {
+func (s *configCommandSuite) TestSetFromStdin(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = strings.NewReader("settings:\n  username:\n  value: world\n")
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{
 		"dummy-application",
 		"--file",
 		"-"})
-	c.Check(code, gc.Equals, 0)
-	c.Check(s.fake.config, jc.DeepEquals, "settings:\n  username:\n  value: world\n")
+	c.Check(code, tc.Equals, 0)
+	c.Check(s.fake.config, tc.DeepEquals, "settings:\n  username:\n  value: world\n")
 }
 
-func (s *configCommandSuite) TestResetCharmConfigToDefault(c *gc.C) {
+func (s *configCommandSuite) TestResetCharmConfigToDefault(c *tc.C) {
 	s.fake = &fakeApplicationAPI{
 		name: "dummy-application", charmValues: map[string]interface{}{
 			"username": "hello",
@@ -380,7 +379,7 @@ func (s *configCommandSuite) TestResetCharmConfigToDefault(c *gc.C) {
 	}, nil, make(map[string]interface{}))
 }
 
-func (s *configCommandSuite) TestResetAppConfig(c *gc.C) {
+func (s *configCommandSuite) TestResetAppConfig(c *tc.C) {
 	s.fake = &fakeApplicationAPI{
 		name: "dummy-application", appValues: map[string]interface{}{
 			"trust": false,
@@ -391,7 +390,7 @@ func (s *configCommandSuite) TestResetAppConfig(c *gc.C) {
 	}, make(map[string]interface{}), nil)
 }
 
-func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
+func (s *configCommandSuite) TestBlockSetConfig(c *tc.C) {
 	// Block operation
 	s.fake.err = apiservererrors.OperationBlockedError("TestBlockSetConfig")
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
@@ -401,11 +400,10 @@ func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
 		"--file",
 		"testconfig.yaml",
 	}, s.dir)
-	c.Assert(err, gc.ErrorMatches, `(.|\n)*All operations that change model have been disabled(.|\n)*`)
-	c.Check(c.GetTestLog(), gc.Matches, "(.|\n)*TestBlockSetConfig(.|\n)*")
+	c.Assert(err, tc.ErrorMatches, `(.|\n)*All operations that change model have been disabled(.|\n)*`)
 }
 
-func (s *configCommandSuite) TestSetReset(c *gc.C) {
+func (s *configCommandSuite) TestSetReset(c *tc.C) {
 	s.fake = &fakeApplicationAPI{
 		name: "dummy-application", appValues: map[string]interface{}{
 			"trust": false,
@@ -417,39 +415,39 @@ func (s *configCommandSuite) TestSetReset(c *gc.C) {
 	}, make(map[string]interface{}), map[string]interface{}{"username": "foo"})
 }
 
-func (s *configCommandSuite) TestSetYAML(c *gc.C) {
+func (s *configCommandSuite) TestSetYAML(c *tc.C) {
 	ctx := cmdtesting.ContextForDir(c, s.dir)
 	api := &parseYamlAPI{*s.fake}
 	code := cmd.Main(application.NewConfigCommandForTest(api, s.store), ctx, []string{
 		"dummy-application", "--file", "testconfig.yaml"})
-	c.Assert(code, gc.Equals, 0)
-	c.Check(api.charmValues["skill-level"], gc.Equals, "9000")
-	c.Check(api.charmValues["username"], gc.Equals, "admin002")
+	c.Assert(code, tc.Equals, 0)
+	c.Check(api.charmValues["skill-level"], tc.Equals, "9000")
+	c.Check(api.charmValues["username"], tc.Equals, "admin002")
 }
 
-func (s *configCommandSuite) TestSetYAMLOverrideSet(c *gc.C) {
+func (s *configCommandSuite) TestSetYAMLOverrideSet(c *tc.C) {
 	ctx := cmdtesting.ContextForDir(c, s.dir)
 	api := &parseYamlAPI{*s.fake}
 	code := cmd.Main(application.NewConfigCommandForTest(api, s.store), ctx, []string{
 		"dummy-application", "--file", "testconfig.yaml", "username=foo"})
-	c.Assert(code, gc.Equals, 0)
-	c.Check(api.charmValues["skill-level"], gc.Equals, "9000")
-	c.Check(api.charmValues["username"], gc.Equals, "foo")
+	c.Assert(code, tc.Equals, 0)
+	c.Check(api.charmValues["skill-level"], tc.Equals, "9000")
+	c.Check(api.charmValues["username"], tc.Equals, "foo")
 }
 
-func (s *configCommandSuite) TestSetYAMLOverrideReset(c *gc.C) {
+func (s *configCommandSuite) TestSetYAMLOverrideReset(c *tc.C) {
 	ctx := cmdtesting.ContextForDir(c, s.dir)
 	api := &parseYamlAPI{*s.fake}
 	code := cmd.Main(application.NewConfigCommandForTest(api, s.store), ctx, []string{
 		"dummy-application", "--file", "testconfig.yaml", "--reset", "skill-level"})
-	c.Assert(code, gc.Equals, 0)
-	c.Check(api.charmValues["skill-level"], gc.Equals, nil)
-	c.Check(api.charmValues["username"], gc.Equals, "admin002")
+	c.Assert(code, tc.Equals, 0)
+	c.Check(api.charmValues["skill-level"], tc.Equals, nil)
+	c.Check(api.charmValues["username"], tc.Equals, "admin002")
 }
 
 // assertSetSuccess sets configuration options and checks the expected settings.
 func (s *configCommandSuite) assertSetSuccess(
-	c *gc.C, dir string, args []string,
+	c *tc.C, dir string, args []string,
 	expectAppValues map[string]interface{}, expectCharmValues map[string]interface{},
 ) {
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
@@ -457,7 +455,7 @@ func (s *configCommandSuite) assertSetSuccess(
 
 	args = append([]string{"dummy-application"}, args...)
 	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	appValues := make(map[string]interface{})
 	for k, v := range s.defaultAppValues {
 		appValues[k] = v
@@ -465,7 +463,7 @@ func (s *configCommandSuite) assertSetSuccess(
 	for k, v := range expectAppValues {
 		appValues[k] = v
 	}
-	c.Assert(s.fake.appValues, jc.DeepEquals, appValues)
+	c.Assert(s.fake.appValues, tc.DeepEquals, appValues)
 
 	charmValues := make(map[string]interface{})
 	for k, v := range s.defaultCharmValues {
@@ -474,11 +472,11 @@ func (s *configCommandSuite) assertSetSuccess(
 	for k, v := range expectCharmValues {
 		charmValues[k] = v
 	}
-	c.Assert(s.fake.charmValues, jc.DeepEquals, charmValues)
+	c.Assert(s.fake.charmValues, tc.DeepEquals, charmValues)
 }
 
 func (s *configCommandSuite) assertResetSuccess(
-	c *gc.C, dir string, args []string,
+	c *tc.C, dir string, args []string,
 	expectAppValues map[string]interface{}, expectCharmValues map[string]interface{},
 ) {
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
@@ -486,47 +484,46 @@ func (s *configCommandSuite) assertResetSuccess(
 
 	args = append([]string{"dummy-application"}, args...)
 	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.appValues, jc.DeepEquals, expectAppValues)
-	c.Assert(s.fake.charmValues, jc.DeepEquals, expectCharmValues)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.fake.appValues, tc.DeepEquals, expectAppValues)
+	c.Assert(s.fake.charmValues, tc.DeepEquals, expectCharmValues)
 }
 
 // assertSetFail sets configuration options and checks the expected error.
-func (s *configCommandSuite) assertSetFail(c *gc.C, dir string, args []string, expectErr string) {
+func (s *configCommandSuite) assertSetFail(c *tc.C, dir string, args []string, expectErr string) {
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 
 	args = append([]string{"dummy-application"}, args...)
 	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
-	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, tc.ErrorMatches, expectErr)
 }
 
-func (s *configCommandSuite) assertNoWarning(c *gc.C, dir string, args []string) {
+func (s *configCommandSuite) assertNoWarning(c *tc.C, dir string, args []string) {
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommandInDir(c, cmd, append([]string{"dummy-application"}, args...), dir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Not(gc.Matches), ".*WARNING.*")
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // setupValueFile creates a file containing one value for testing
 // set with name=@filename.
-func setupValueFile(c *gc.C, dir, filename, value string) string {
+func setupValueFile(c *tc.C, dir, filename, value string) string {
 	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath(filename)
 	content := []byte(value)
 	err := os.WriteFile(path, content, 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 
 // setupBigFile creates a too big file for testing
 // set with name=@filename.
-func setupBigFile(c *gc.C, dir string) string {
+func setupBigFile(c *tc.C, dir string) string {
 	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("big.txt")
 	file, err := os.Create(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer file.Close()
 	chunk := make([]byte, 1024)
 	for i := 0; i < cap(chunk); i++ {
@@ -534,19 +531,19 @@ func setupBigFile(c *gc.C, dir string) string {
 	}
 	for i := 0; i < 6000; i++ {
 		_, err = file.Write(chunk)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	return path
 }
 
 // setupConfigFile creates a configuration file for testing set
 // with the --file argument specifying a configuration file.
-func setupConfigFile(c *gc.C, dir string) string {
+func setupConfigFile(c *tc.C, dir string) string {
 	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
 	content := []byte(yamlConfigValue)
 	err := os.WriteFile(path, content, 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 

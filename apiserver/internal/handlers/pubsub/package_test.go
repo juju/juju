@@ -9,8 +9,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	jujuhttp "github.com/juju/juju/internal/http"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -24,14 +23,14 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocket.Conn, *http.Response, error) {
+func dialWebsocketFromURL(c *tc.C, server string, header http.Header) (*websocket.Conn, *http.Response, error) {
 	// TODO(rogpeppe) merge this with the very similar dialWebsocket function.
 	if header == nil {
 		header = http.Header{}
 	}
 	header.Set("Origin", "http://localhost/")
 	caCerts := x509.NewCertPool()
-	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), tc.IsTrue)
 	tlsConfig := jujuhttp.SecureTLSConfig()
 	tlsConfig.RootCAs = caCerts
 	tlsConfig.ServerName = "juju-apiserver"

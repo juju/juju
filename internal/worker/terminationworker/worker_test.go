@@ -7,35 +7,34 @@ import (
 	"os"
 	"testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/terminationworker"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
-var _ = gc.Suite(&TerminationWorkerSuite{})
+var _ = tc.Suite(&TerminationWorkerSuite{})
 
 type TerminationWorkerSuite struct{}
 
-func (s *TerminationWorkerSuite) TestStartStop(c *gc.C) {
+func (s *TerminationWorkerSuite) TestStartStop(c *tc.C) {
 	w := terminationworker.NewWorker()
 	w.Kill()
 	err := w.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *TerminationWorkerSuite) TestSignal(c *gc.C) {
+func (s *TerminationWorkerSuite) TestSignal(c *tc.C) {
 	w := terminationworker.NewWorker()
 	proc, err := os.FindProcess(os.Getpid())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer proc.Release()
 	err = proc.Signal(terminationworker.TerminationSignal)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = w.Wait()
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
+	c.Assert(err, tc.Equals, worker.ErrTerminateAgent)
 }

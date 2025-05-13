@@ -7,8 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 // NotifyAsserterC gives helper functions for making assertions about how a
@@ -16,7 +15,7 @@ import (
 // closed, etc.)
 type NotifyAsserterC struct {
 	// C is a gocheck C structure for doing assertions
-	C *gc.C
+	C *tc.C
 	// Chan is the channel we want to receive on
 	Chan <-chan struct{}
 	// Precond will be called before waiting on the channel, can be nil
@@ -31,7 +30,7 @@ func (a *NotifyAsserterC) AssertReceive() {
 	}
 	select {
 	case _, ok := <-a.Chan:
-		a.C.Assert(ok, jc.IsTrue)
+		a.C.Assert(ok, tc.IsTrue)
 	case <-time.After(LongWait):
 		a.C.Fatalf("timed out waiting for channel message")
 	}
@@ -50,7 +49,7 @@ func (a *NotifyAsserterC) AssertClosed() {
 	}
 	select {
 	case _, ok := <-a.Chan:
-		a.C.Assert(ok, jc.IsFalse)
+		a.C.Assert(ok, tc.IsFalse)
 	case <-time.After(LongWait):
 		a.C.Fatalf("timed out waiting for channel to close")
 	}
@@ -70,7 +69,7 @@ func (a *NotifyAsserterC) AssertNoReceive() {
 // callers need to put that into and out of an 'interface{}'
 type ContentAsserterC struct {
 	// C is a gocheck C structure for doing assertions
-	C *gc.C
+	C *tc.C
 	// Chan is the channel we want to receive on
 	Chan interface{}
 	// Precond will be called before waiting on the channel, can be nil
@@ -94,7 +93,7 @@ func (a *ContentAsserterC) recv(timeout time.Duration) (val interface{}, ok, tim
 	}})
 	switch which {
 	case 0:
-		a.C.Assert(ok, jc.IsTrue)
+		a.C.Assert(ok, tc.IsTrue)
 		return v.Interface(), ok, false
 	case 1:
 		return nil, false, true
@@ -109,7 +108,7 @@ func (a *ContentAsserterC) AssertReceive() interface{} {
 	if timedOut {
 		a.C.Fatalf("timed out waiting for channel message")
 	}
-	a.C.Assert(ok, jc.IsTrue)
+	a.C.Assert(ok, tc.IsTrue)
 	return v
 }
 
@@ -124,7 +123,7 @@ func (a *ContentAsserterC) AssertOneReceive() interface{} {
 // It also returns the value in case further inspection is desired.
 func (a *ContentAsserterC) AssertOneValue(val interface{}) interface{} {
 	res := a.AssertReceive()
-	a.C.Assert(val, gc.DeepEquals, res)
+	a.C.Assert(val, tc.DeepEquals, res)
 	a.AssertNoReceive()
 	return res
 }
@@ -135,7 +134,7 @@ func (a *ContentAsserterC) AssertClosed() {
 	if timedOut {
 		a.C.Fatalf("timed out waiting for channel to close")
 	}
-	a.C.Assert(ok, jc.IsFalse)
+	a.C.Assert(ok, tc.IsFalse)
 }
 
 // Assert that we fail to receive on the channel after a short wait.

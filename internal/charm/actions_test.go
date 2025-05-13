@@ -7,20 +7,19 @@ import (
 	"bytes"
 	"encoding/json"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type ActionsSuite struct{}
 
-var _ = gc.Suite(&ActionsSuite{})
+var _ = tc.Suite(&ActionsSuite{})
 
-func (s *ActionsSuite) TestNewActions(c *gc.C) {
+func (s *ActionsSuite) TestNewActions(c *tc.C) {
 	emptyAction := NewActions()
-	c.Assert(emptyAction, jc.DeepEquals, &Actions{})
+	c.Assert(emptyAction, tc.DeepEquals, &Actions{})
 }
 
-func (s *ActionsSuite) TestValidateOk(c *gc.C) {
+func (s *ActionsSuite) TestValidateOk(c *tc.C) {
 	for i, test := range []struct {
 		description      string
 		actionSpec       *ActionSpec
@@ -122,11 +121,11 @@ func (s *ActionsSuite) TestValidateOk(c *gc.C) {
 	}} {
 		c.Logf("test %d: %s", i, test.description)
 		err := test.actionSpec.ValidateParams(test.objectToValidate)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *ActionsSuite) TestValidateFail(c *gc.C) {
+func (s *ActionsSuite) TestValidateFail(c *tc.C) {
 	var validActionTests = []struct {
 		description   string
 		actionSpec    *ActionSpec
@@ -230,13 +229,13 @@ func (s *ActionsSuite) TestValidateFail(c *gc.C) {
 		var params map[string]interface{}
 		jsonBytes := []byte(test.badActionJson)
 		err := json.Unmarshal(jsonBytes, &params)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		err = test.actionSpec.ValidateParams(params)
-		c.Assert(err.Error(), gc.Equals, test.expectedError)
+		c.Assert(err.Error(), tc.Equals, test.expectedError)
 	}
 }
 
-func (s *ActionsSuite) TestCleanseOk(c *gc.C) {
+func (s *ActionsSuite) TestCleanseOk(c *tc.C) {
 
 	var goodInterfaceTests = []struct {
 		description         string
@@ -305,12 +304,12 @@ func (s *ActionsSuite) TestCleanseOk(c *gc.C) {
 	for i, test := range goodInterfaceTests {
 		c.Logf("test %d: %s", i, test.description)
 		cleansedInterfaceMap, err := cleanse(test.acceptableInterface)
-		c.Assert(err, gc.IsNil)
-		c.Assert(cleansedInterfaceMap, jc.DeepEquals, test.expectedInterface)
+		c.Assert(err, tc.IsNil)
+		c.Assert(cleansedInterfaceMap, tc.DeepEquals, test.expectedInterface)
 	}
 }
 
-func (s *ActionsSuite) TestCleanseFail(c *gc.C) {
+func (s *ActionsSuite) TestCleanseFail(c *tc.C) {
 
 	var badInterfaceTests = []struct {
 		description   string
@@ -341,12 +340,12 @@ func (s *ActionsSuite) TestCleanseFail(c *gc.C) {
 	for i, test := range badInterfaceTests {
 		c.Logf("test %d: %s", i, test.description)
 		_, err := cleanse(test.failInterface)
-		c.Assert(err, gc.NotNil)
-		c.Assert(err.Error(), gc.Equals, test.expectedError)
+		c.Assert(err, tc.NotNil)
+		c.Assert(err.Error(), tc.Equals, test.expectedError)
 	}
 }
 
-func (s *ActionsSuite) TestGetActionNameRule(c *gc.C) {
+func (s *ActionsSuite) TestGetActionNameRule(c *tc.C) {
 
 	var regExCheck = []struct {
 		description string
@@ -359,11 +358,11 @@ func (s *ActionsSuite) TestGetActionNameRule(c *gc.C) {
 	for i, t := range regExCheck {
 		c.Logf("test %d: %v: %#v\n", i, t.description, t.regExString)
 		obtained := GetActionNameRule()
-		c.Assert(obtained.String(), gc.Equals, t.regExString)
+		c.Assert(obtained.String(), tc.Equals, t.regExString)
 	}
 }
 
-func (s *ActionsSuite) TestReadGoodActionsYaml(c *gc.C) {
+func (s *ActionsSuite) TestReadGoodActionsYaml(c *tc.C) {
 	var goodActionsYamlTests = []struct {
 		description     string
 		yaml            string
@@ -668,12 +667,12 @@ snapshot:
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
 		loadedAction, err := ReadActionsYaml("somecharm", reader)
-		c.Assert(err, gc.IsNil)
-		c.Check(loadedAction, jc.DeepEquals, test.expectedActions)
+		c.Assert(err, tc.IsNil)
+		c.Check(loadedAction, tc.DeepEquals, test.expectedActions)
 	}
 }
 
-func (s *ActionsSuite) TestJujuCharmActionsYaml(c *gc.C) {
+func (s *ActionsSuite) TestJujuCharmActionsYaml(c *tc.C) {
 	actionsYaml := `
 juju-snapshot:
    description: Take a snapshot of the database.
@@ -699,11 +698,11 @@ juju-snapshot:
 
 	reader := bytes.NewReader([]byte(actionsYaml))
 	loadedAction, err := ReadActionsYaml("juju-charm", reader)
-	c.Assert(err, gc.IsNil)
-	c.Check(loadedAction, jc.DeepEquals, expectedActions)
+	c.Assert(err, tc.IsNil)
+	c.Check(loadedAction, tc.DeepEquals, expectedActions)
 }
 
-func (s *ActionsSuite) TestReadBadActionsYaml(c *gc.C) {
+func (s *ActionsSuite) TestReadBadActionsYaml(c *tc.C) {
 
 	var badActionsYamlTests = []struct {
 		description   string
@@ -882,11 +881,11 @@ snapshot:
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
 		_, err := ReadActionsYaml("somecharm", reader)
-		c.Check(err, gc.ErrorMatches, test.expectedError)
+		c.Check(err, tc.ErrorMatches, test.expectedError)
 	}
 }
 
-func (s *ActionsSuite) TestRecurseMapOnKeys(c *gc.C) {
+func (s *ActionsSuite) TestRecurseMapOnKeys(c *tc.C) {
 	tests := []struct {
 		should     string
 		givenKeys  []string
@@ -950,14 +949,14 @@ func (s *ActionsSuite) TestRecurseMapOnKeys(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("test %d: should %s\n  map: %#v\n  keys: %#v", i, t.should, t.givenMap, t.givenKeys)
 		obtained, failed := recurseMapOnKeys(t.givenKeys, t.givenMap)
-		c.Assert(!failed, gc.Equals, t.shouldFail)
+		c.Assert(!failed, tc.Equals, t.shouldFail)
 		if !t.shouldFail {
-			c.Check(obtained, jc.DeepEquals, t.expected)
+			c.Check(obtained, tc.DeepEquals, t.expected)
 		}
 	}
 }
 
-func (s *ActionsSuite) TestInsertDefaultValues(c *gc.C) {
+func (s *ActionsSuite) TestInsertDefaultValues(c *tc.C) {
 	schemas := map[string]string{
 		"simple": `
 act:
@@ -1079,19 +1078,19 @@ act:
 		// Testing this method
 		result, err := schema.InsertDefaults(t.withParams)
 		if t.expectedError != "" {
-			c.Check(err, gc.ErrorMatches, t.expectedError)
+			c.Check(err, tc.ErrorMatches, t.expectedError)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, jc.DeepEquals, t.expectedResult)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, t.expectedResult)
 	}
 }
 
-func getSchemaForAction(c *gc.C, wholeSchema string) ActionSpec {
+func getSchemaForAction(c *tc.C, wholeSchema string) ActionSpec {
 	// Load up the YAML schema definition.
 	reader := bytes.NewReader([]byte(wholeSchema))
 	loadedActions, err := ReadActionsYaml("somecharm", reader)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	// Same action name for all tests, "act".
 	return loadedActions.ActionSpecs["act"]
 }

@@ -7,8 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -18,18 +17,18 @@ type migrationSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&migrationSuite{})
+var _ = tc.Suite(&migrationSuite{})
 
-func (s *migrationSuite) TestGetApplicationLeadershipForModelNoLeaders(c *gc.C) {
+func (s *migrationSuite) TestGetApplicationLeadershipForModelNoLeaders(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(leases, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(leases, tc.HasLen, 0)
 }
 
-func (s *migrationSuite) TestGetApplicationLeadershipForModel(c *gc.C) {
+func (s *migrationSuite) TestGetApplicationLeadershipForModel(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	state := NewMigrationState(s.TxnRunnerFactory())
@@ -43,13 +42,13 @@ VALUES ('1', 1, ?, 'foo', 'unit', date('now'), date('now', '+1 day'))
 	})
 
 	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(leases, gc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(leases, tc.DeepEquals, map[string]string{
 		"foo": "unit",
 	})
 }
 
-func (s *migrationSuite) TestGetApplicationLeadershipForModelSingularControllerType(c *gc.C) {
+func (s *migrationSuite) TestGetApplicationLeadershipForModelSingularControllerType(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	state := NewMigrationState(s.TxnRunnerFactory())
@@ -70,13 +69,13 @@ VALUES ('2', 0, ?, 'controller', 'abc', date('now'), date('now', '+1 day'))
 	})
 
 	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(leases, gc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(leases, tc.DeepEquals, map[string]string{
 		"foo": "unit",
 	})
 }
 
-func (s *migrationSuite) TestGetApplicationLeadershipForModelExpired(c *gc.C) {
+func (s *migrationSuite) TestGetApplicationLeadershipForModelExpired(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	state := NewMigrationState(s.TxnRunnerFactory())
@@ -90,6 +89,6 @@ VALUES ('1', 1, ?, 'foo', 'unit', date('now', '-2 day'), date('now', '-1 day'))
 	})
 
 	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(leases, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(leases, tc.HasLen, 0)
 }

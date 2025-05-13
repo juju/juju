@@ -10,12 +10,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	names "github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
@@ -40,21 +39,21 @@ type workerSuite struct {
 	upgradeUUID domainupgrade.UUID
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestLockAlreadyUnlocked(c *gc.C) {
+func (s *workerSuite) TestLockAlreadyUnlocked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.lock.EXPECT().IsUnlocked().Return(true)
 
 	w, err := NewUpgradeDatabaseWorker(s.getConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
+	c.Check(err, tc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestLockIsUnlockedIfMatchingVersions(c *gc.C) {
+func (s *workerSuite) TestLockIsUnlockedIfMatchingVersions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.lock.EXPECT().IsUnlocked().Return(false)
@@ -65,13 +64,13 @@ func (s *workerSuite) TestLockIsUnlockedIfMatchingVersions(c *gc.C) {
 	cfg.ToVersion = jujuversion.Current
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
+	c.Check(err, tc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompleted(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -112,7 +111,7 @@ func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
 	})
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Dispatch the initial event.
 	s.dispatchChange(c, chCompleted)
@@ -127,10 +126,10 @@ func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
+	c.Check(err, tc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReady(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReady(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -170,7 +169,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReady(c *gc.C) 
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Dispatch the initial event.
 	s.dispatchChange(c, chCompleted)
@@ -183,10 +182,10 @@ func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReady(c *gc.C) 
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
+	c.Check(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -226,7 +225,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *g
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
@@ -240,10 +239,10 @@ func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *g
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, nil)
+	c.Check(err, tc.ErrorIs, nil)
 }
 
-func (s *workerSuite) TestWatchUpgradeCompletedNotFound(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompletedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -268,7 +267,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedNotFound(c *gc.C) {
 	})
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -278,10 +277,10 @@ func (s *workerSuite) TestWatchUpgradeCompletedNotFound(c *gc.C) {
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
+	c.Check(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestWatchUpgradeCompletedInErrorState(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompletedInErrorState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -306,7 +305,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedInErrorState(c *gc.C) {
 	})
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -316,10 +315,10 @@ func (s *workerSuite) TestWatchUpgradeCompletedInErrorState(c *gc.C) {
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, nil)
+	c.Check(err, tc.ErrorIs, nil)
 }
 
-func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -359,7 +358,7 @@ func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 	})
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
@@ -378,10 +377,10 @@ func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 	<-time.After(time.Second)
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
+	c.Check(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestWatchUpgradeError(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -403,14 +402,14 @@ func (s *workerSuite) TestWatchUpgradeError(c *gc.C) {
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, upgradeerrors.NotFound)
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
+	c.Check(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestUpgradeController(c *gc.C) {
+func (s *workerSuite) TestUpgradeController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -445,7 +444,7 @@ func (s *workerSuite) TestUpgradeController(c *gc.C) {
 	done := s.expectUnlock()
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
@@ -459,10 +458,10 @@ func (s *workerSuite) TestUpgradeController(c *gc.C) {
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
+	c.Check(err, tc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
+func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -493,7 +492,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
 
 	schema := schema.ControllerDDL()
 	_, err := schema.Ensure(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectControllerDBUpgrade()
 
@@ -504,7 +503,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
 	done := s.expectUnlock()
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
@@ -518,10 +517,10 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
+	c.Check(err, tc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestUpgradeModels(c *gc.C) {
+func (s *workerSuite) TestUpgradeModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -559,7 +558,7 @@ func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 	done := s.expectUnlock()
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
@@ -573,10 +572,10 @@ func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
+	c.Check(err, tc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
+func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -614,13 +613,13 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
 	// in the worker.
 	schema := schema.ModelDDL()
 	_, err := schema.Ensure(context.Background(), txnRunner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectDBCompleted()
 	done := s.expectUnlock()
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
@@ -634,10 +633,10 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
+	c.Check(err, tc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestUpgradeFailsWhenKilled(c *gc.C) {
+func (s *workerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -676,7 +675,7 @@ func (s *workerSuite) TestUpgradeFailsWhenKilled(c *gc.C) {
 	srv.SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).Return(nil)
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
@@ -695,7 +694,7 @@ func (s *workerSuite) TestUpgradeFailsWhenKilled(c *gc.C) {
 	}
 
 	err = workertest.CheckKill(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) getConfig() Config {
@@ -713,7 +712,7 @@ func (s *workerSuite) getConfig() Config {
 	}
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.upgradeUUID = domainupgrade.UUID(uuid.MustNewUUID().String())
@@ -743,7 +742,7 @@ func (s *workerSuite) expectListModelIDs(models []coremodel.UUID) {
 
 }
 
-func (s *workerSuite) expectModelDBUpgrade(c *gc.C, modelUUID coremodel.UUID) coredatabase.TxnRunner {
+func (s *workerSuite) expectModelDBUpgrade(c *tc.C, modelUUID coremodel.UUID) coredatabase.TxnRunner {
 	txnRunner, _ := s.OpenDB(c)
 	s.dbGetter.EXPECT().GetDB(modelUUID.String()).Return(txnRunner, nil)
 	return txnRunner
@@ -757,7 +756,7 @@ func (s *workerSuite) expectUnlock() chan struct{} {
 	return done
 }
 
-func (s *workerSuite) dispatchChange(c *gc.C, ch chan struct{}) {
+func (s *workerSuite) dispatchChange(c *tc.C, ch chan struct{}) {
 	// Send initial event.
 	select {
 	case ch <- struct{}{}:

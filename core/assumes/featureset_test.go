@@ -4,18 +4,18 @@
 package assumes
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type FeatureSetSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&FeatureSetSuite{})
+var _ = tc.Suite(&FeatureSetSuite{})
 
-func (s *FeatureSetSuite) TestAsList(c *gc.C) {
+func (s *FeatureSetSuite) TestAsList(c *tc.C) {
 	var fs FeatureSet
 	fs.Add(
 		Feature{Name: "zzz"},
@@ -29,10 +29,10 @@ func (s *FeatureSetSuite) TestAsList(c *gc.C) {
 		{Name: "zzz"},
 	}
 
-	c.Assert(fs.AsList(), gc.DeepEquals, exp, gc.Commentf("expected AsList() to return the feature list sorted by name"))
+	c.Assert(fs.AsList(), tc.DeepEquals, exp, tc.Commentf("expected AsList() to return the feature list sorted by name"))
 }
 
-func (s *SatCheckerSuite) TestMerge(c *gc.C) {
+func (s *SatCheckerSuite) TestMerge(c *tc.C) {
 	var fs1 FeatureSet
 	fs1.Add(
 		Feature{Name: "zzz"},
@@ -53,18 +53,18 @@ func (s *SatCheckerSuite) TestMerge(c *gc.C) {
 
 	fs1.Merge(fs2)
 
-	c.Assert(fs1.AsList(), gc.DeepEquals, exp, gc.Commentf("expected AsList() to return the union of the two sets with duplicates removed"))
+	c.Assert(fs1.AsList(), tc.DeepEquals, exp, tc.Commentf("expected AsList() to return the union of the two sets with duplicates removed"))
 }
 
-func (s *SatCheckerSuite) TestGet(c *gc.C) {
+func (s *SatCheckerSuite) TestGet(c *tc.C) {
 	var fs FeatureSet
 	fs.Add(
 		Feature{Name: "zzz"},
 	)
 
 	_, found := fs.Get("zzz")
-	c.Assert(found, jc.IsTrue)
+	c.Assert(found, tc.IsTrue)
 
 	_, found = fs.Get("bogus!")
-	c.Assert(found, jc.IsFalse)
+	c.Assert(found, tc.IsFalse)
 }

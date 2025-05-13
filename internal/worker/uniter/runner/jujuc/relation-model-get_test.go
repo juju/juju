@@ -4,8 +4,7 @@
 package jujuc_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -16,7 +15,7 @@ type RelationModelGetSuite struct {
 	relationSuite
 }
 
-var _ = gc.Suite(&RelationModelGetSuite{})
+var _ = tc.Suite(&RelationModelGetSuite{})
 
 type relationModelGetInitTest struct {
 	ctxrelid int
@@ -77,46 +76,46 @@ var relationModelGetInitTests = []relationModelGetInitTest{
 	},
 }
 
-func (s *RelationModelGetSuite) TestInit(c *gc.C) {
+func (s *RelationModelGetSuite) TestInit(c *tc.C) {
 	for i, t := range relationModelGetInitTests {
 		c.Logf("test %d", i)
 		hctx, _ := s.newHookContext(t.ctxrelid, "", "")
 		com, err := jujuc.NewCommand(hctx, "relation-model-get")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = cmdtesting.InitCommand(com, t.args)
 		if t.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
+			if !c.Check(err, tc.ErrorIsNil) {
 				return
 			}
 			rset := com.(*jujuc.RelationModelGetCommand)
-			c.Check(rset.RelationId, gc.Equals, t.relid)
+			c.Check(rset.RelationId, tc.Equals, t.relid)
 		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
+			c.Check(err, tc.ErrorMatches, t.err)
 		}
 	}
 }
 
-func (s *RelationModelGetSuite) TestRun(c *gc.C) {
+func (s *RelationModelGetSuite) TestRun(c *tc.C) {
 	hctx, _ := s.newHookContext(0, "", "")
 	com, err := jujuc.NewCommand(hctx, "relation-model-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)
-	c.Check(code, gc.Equals, 0)
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Check(bufferString(ctx.Stderr), tc.Equals, "")
 	expect := "uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d\n"
-	c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
+	c.Check(bufferString(ctx.Stdout), tc.Equals, expect)
 }
 
-func (s *RelationModelGetSuite) TestRunFormatJSON(c *gc.C) {
+func (s *RelationModelGetSuite) TestRunFormatJSON(c *tc.C) {
 	hctx, _ := s.newHookContext(0, "", "")
 	com, err := jujuc.NewCommand(hctx, "relation-model-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json"})
-	c.Check(code, gc.Equals, 0)
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Check(bufferString(ctx.Stderr), tc.Equals, "")
 	expect := `{"uuid":"deadbeef-0bad-400d-8000-4b1d0d06f00d"}` + "\n"
-	c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
+	c.Check(bufferString(ctx.Stdout), tc.Equals, expect)
 }

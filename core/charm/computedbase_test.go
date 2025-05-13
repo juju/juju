@@ -4,23 +4,22 @@
 package charm
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type computedBaseSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
-var _ = gc.Suite(&computedBaseSuite{})
+var _ = tc.Suite(&computedBaseSuite{})
 
-func (s *computedBaseSuite) TestComputedBase(c *gc.C) {
+func (s *computedBaseSuite) TestComputedBase(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -40,14 +39,14 @@ func (s *computedBaseSuite) TestComputedBase(c *gc.C) {
 		}},
 	}).AnyTimes()
 	bases, err := ComputedBases(cm)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bases, jc.DeepEquals, []base.Base{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bases, tc.DeepEquals, []base.Base{
 		base.MustParseBaseFromString("ubuntu@18.04"),
 		base.MustParseBaseFromString("ubuntu@20.04"),
 	})
 }
 
-func (s *computedBaseSuite) TestComputedBaseNilManifest(c *gc.C) {
+func (s *computedBaseSuite) TestComputedBaseNilManifest(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -58,10 +57,10 @@ func (s *computedBaseSuite) TestComputedBaseNilManifest(c *gc.C) {
 	}).AnyTimes()
 	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 	_, err := ComputedBases(cm)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *computedBaseSuite) TestComputedBaseError(c *gc.C) {
+func (s *computedBaseSuite) TestComputedBaseError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -82,10 +81,10 @@ func (s *computedBaseSuite) TestComputedBaseError(c *gc.C) {
 		Description: "c",
 	}).AnyTimes()
 	_, err := ComputedBases(cm)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
+func (s *computedBaseSuite) TestBaseToUse(c *tc.C) {
 	trusty := base.MustParseBaseFromString("ubuntu@16.04")
 	jammy := base.MustParseBaseFromString("ubuntu@22.04")
 	focal := base.MustParseBaseFromString("ubuntu@20.04")
@@ -112,15 +111,15 @@ func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
 	for _, test := range tests {
 		base, err := BaseForCharm(test.series, test.supportedBases)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 			continue
 		}
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(base.IsCompatible(test.baseToUse), jc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(base.IsCompatible(test.baseToUse), tc.IsTrue)
 	}
 }
 
-func (s *computedBaseSuite) TestBaseIsCompatibleWithCharm(c *gc.C) {
+func (s *computedBaseSuite) TestBaseIsCompatibleWithCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -146,11 +145,11 @@ func (s *computedBaseSuite) TestBaseIsCompatibleWithCharm(c *gc.C) {
 	focal := base.MustParseBaseFromString("ubuntu@20.04")
 	jammy := base.MustParseBaseFromString("ubuntu@22.04")
 
-	c.Assert(BaseIsCompatibleWithCharm(focal, cm), jc.ErrorIsNil)
-	c.Assert(BaseIsCompatibleWithCharm(jammy, cm), jc.Satisfies, IsUnsupportedBaseError)
+	c.Assert(BaseIsCompatibleWithCharm(focal, cm), tc.ErrorIsNil)
+	c.Assert(BaseIsCompatibleWithCharm(jammy, cm), tc.Satisfies, IsUnsupportedBaseError)
 }
 
-func (s *computedBaseSuite) TestOSIsCompatibleWithCharm(c *gc.C) {
+func (s *computedBaseSuite) TestOSIsCompatibleWithCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -173,6 +172,6 @@ func (s *computedBaseSuite) TestOSIsCompatibleWithCharm(c *gc.C) {
 		Name: "my-charm",
 	}).AnyTimes()
 
-	c.Assert(OSIsCompatibleWithCharm("ubuntu", cm), jc.ErrorIsNil)
-	c.Assert(OSIsCompatibleWithCharm("centos", cm), jc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(OSIsCompatibleWithCharm("ubuntu", cm), tc.ErrorIsNil)
+	c.Assert(OSIsCompatibleWithCharm("centos", cm), tc.ErrorIs, coreerrors.NotSupported)
 }

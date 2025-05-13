@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -35,13 +34,13 @@ type CredentialValidatorSuite struct {
 	api *CredentialValidatorAPI
 }
 
-var _ = gc.Suite(&CredentialValidatorSuite{})
+var _ = tc.Suite(&CredentialValidatorSuite{})
 
-func (s *CredentialValidatorSuite) SetupTest(c *gc.C) {
+func (s *CredentialValidatorSuite) SetupTest(c *tc.C) {
 	s.modelUUID = modeltesting.GenModelUUID(c)
 }
 
-func (s *CredentialValidatorSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *CredentialValidatorSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.credentialService = NewMockModelCredentialService(ctrl)
@@ -57,7 +56,7 @@ func (s *CredentialValidatorSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
+func (s *CredentialValidatorSuite) TestModelCredential(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	modelCredentialKey := credential.Key{
 		Cloud: "cloud",
@@ -70,8 +69,8 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
 	credTag := names.NewCloudCredentialTag("cloud/user/credential")
 
 	result, err := s.api.ModelCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ModelCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ModelCredential{
 		Model:           names.NewModelTag(s.modelUUID.String()).String(),
 		Exists:          true,
 		CloudCredential: credTag.String(),
@@ -81,22 +80,22 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
 
 // TestModelCredentialNotSet is testing that when no credential has been set for
 // the model we get back a valid results with exists set to false.
-func (s *CredentialValidatorSuite) TestModelCredentialNotSet(c *gc.C) {
+func (s *CredentialValidatorSuite) TestModelCredentialNotSet(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.credentialService.EXPECT().GetModelCredentialStatus(gomock.Any()).Return(
 		credential.Key{}, false, credentialerrors.ModelCredentialNotSet,
 	)
 
 	result, err := s.api.ModelCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ModelCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ModelCredential{
 		Model:  names.NewModelTag(s.modelUUID.String()).String(),
 		Exists: false,
 		Valid:  true,
 	})
 }
 
-func (s *CredentialValidatorSuite) TestWatchModelCredential(c *gc.C) {
+func (s *CredentialValidatorSuite) TestWatchModelCredential(c *tc.C) {
 	s.modelCredentialWatcherGetter = func(ctx context.Context) (watcher.NotifyWatcher, error) {
 		return s.modelCredentialWatcher, nil
 	}
@@ -108,15 +107,15 @@ func (s *CredentialValidatorSuite) TestWatchModelCredential(c *gc.C) {
 	s.modelCredentialWatcher.EXPECT().Changes().Return(ch)
 
 	result, err := s.api.WatchModelCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{"1", nil})
 }
 
-func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *gc.C) {
+func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *tc.C) {
 	s.modelCredentialWatcherGetter = func(ctx context.Context) (watcher.NotifyWatcher, error) {
 		return nil, coreerrors.NotValid
 	}
 	defer s.setUpMocks(c).Finish()
 	_, err := s.api.WatchModelCredential(context.Background())
-	c.Assert(err, gc.DeepEquals, apiservererrors.ServerError(coreerrors.NotValid))
+	c.Assert(err, tc.DeepEquals, apiservererrors.ServerError(coreerrors.NotValid))
 }

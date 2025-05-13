@@ -6,10 +6,8 @@ package service
 import (
 	"context"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/errors"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -19,11 +17,12 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type storageSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state              *MockState
 	registry           storage.ProviderRegistry
@@ -34,7 +33,7 @@ type storageSuite struct {
 	filesystemImporter *MockFilesystemImporter
 }
 
-var _ = gc.Suite(&storageSuite{})
+var _ = tc.Suite(&storageSuite{})
 
 type volumeImporter struct {
 	*MockVolumeSource
@@ -46,7 +45,7 @@ type filesystemImporter struct {
 	*MockFilesystemImporter
 }
 
-func (s *storageSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *storageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
@@ -65,13 +64,13 @@ func (s *storageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *storageSuite) service(c *gc.C) *Service {
+func (s *storageSuite) service(c *tc.C) *Service {
 	return NewService(s.state, loggertesting.WrapCheckLog(c), modelStorageRegistryGetter(func() storage.ProviderRegistry {
 		return s.registry
 	}))
 }
 
-func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
@@ -80,7 +79,7 @@ func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "0",
 	})
-	c.Check(err, jc.ErrorIs, corestorage.InvalidStorageName)
+	c.Check(err, tc.ErrorIs, corestorage.InvalidStorageName)
 
 	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
@@ -88,7 +87,7 @@ func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "pgdata",
 	})
-	c.Check(err, jc.ErrorIs, storageerrors.InvalidPoolNameError)
+	c.Check(err, tc.ErrorIs, storageerrors.InvalidPoolNameError)
 
 	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindBlock,
@@ -96,15 +95,15 @@ func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "pgdata",
 	})
-	c.Check(err, jc.ErrorIs, errors.NotSupported)
+	c.Check(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *storageSuite) TestImportFilesystem(c *gc.C) {
+func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(true)
 	cfg, err := storage.NewConfig("elastic", "elastic", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.provider.EXPECT().FilesystemSource(cfg).Return(filesystemImporter{
 		MockFilesystemSource:   s.filesystemSource,
 		MockFilesystemImporter: s.filesystemImporter,
@@ -139,16 +138,16 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "pgdata",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, corestorage.ID("pgdata/0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, corestorage.ID("pgdata/0"))
 }
 
-func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(true)
 	cfg, err := storage.NewConfig("fast-elastic", "elastic", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.provider.EXPECT().FilesystemSource(cfg).Return(filesystemImporter{
 		MockFilesystemSource:   s.filesystemSource,
 		MockFilesystemImporter: s.filesystemImporter,
@@ -186,16 +185,16 @@ func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "pgdata",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, corestorage.ID("pgdata/0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, corestorage.ID("pgdata/0"))
 }
 
-func (s *storageSuite) TestImportFilesystemNotSupported(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(true)
 	cfg, err := storage.NewConfig("elastic", "elastic", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.provider.EXPECT().FilesystemSource(cfg).Return(s.filesystemSource, nil)
 
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "elastic").Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError)
@@ -209,15 +208,15 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "pgdata",
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(false)
 	cfg, err := storage.NewConfig("ebs", "ebs", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.provider.EXPECT().VolumeSource(cfg).Return(volumeImporter{
 		MockVolumeSource:   s.volumeSource,
 		MockVolumeImporter: s.volumeImporter,
@@ -261,16 +260,16 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "pgdata",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, corestorage.ID("pgdata/0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, corestorage.ID("pgdata/0"))
 }
 
-func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
+func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(false)
 	cfg, err := storage.NewConfig("ebs", "ebs", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.provider.EXPECT().VolumeSource(cfg).Return(s.volumeSource, nil)
 
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "ebs").Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError)
@@ -284,5 +283,5 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "pgdata",
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }

@@ -8,19 +8,19 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/gnuflag"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ArgsSuite struct {
-	testing.LoggingSuite
+	testhelpers.LoggingSuite
 }
 
-var _ = gc.Suite(&ArgsSuite{})
+var _ = tc.Suite(&ArgsSuite{})
 
-func (*ArgsSuite) TestFlagsUsage(c *gc.C) {
+func (*ArgsSuite) TestFlagsUsage(c *tc.C) {
 	for i, test := range []struct {
 		message       string
 		defaultValue  []string
@@ -48,12 +48,12 @@ func (*ArgsSuite) TestFlagsUsage(c *gc.C) {
 		var value []string
 		f.Var(cmd.NewStringsValue(test.defaultValue, &value), "value", "help")
 		err := f.Parse(false, test.args)
-		c.Check(err, gc.IsNil)
-		c.Check(value, gc.DeepEquals, test.expectedValue)
+		c.Check(err, tc.IsNil)
+		c.Check(value, tc.DeepEquals, test.expectedValue)
 	}
 }
 
-func (*ArgsSuite) TestNewStringsValue(c *gc.C) {
+func (*ArgsSuite) TestNewStringsValue(c *tc.C) {
 	for i, test := range []struct {
 		message      string
 		defaultValue []string
@@ -72,11 +72,11 @@ func (*ArgsSuite) TestNewStringsValue(c *gc.C) {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		var underlyingValue []string
 		_ = cmd.NewStringsValue(test.defaultValue, &underlyingValue)
-		c.Assert(underlyingValue, gc.DeepEquals, test.defaultValue)
+		c.Assert(underlyingValue, tc.DeepEquals, test.defaultValue)
 	}
 }
 
-func (*ArgsSuite) TestSet(c *gc.C) {
+func (*ArgsSuite) TestSet(c *tc.C) {
 	for i, test := range []struct {
 		message  string
 		arg      string
@@ -117,12 +117,12 @@ func (*ArgsSuite) TestSet(c *gc.C) {
 		var result []string
 		value := cmd.NewStringsValue(nil, &result)
 		error := value.Set(test.arg)
-		c.Check(error, gc.IsNil)
-		c.Check(result, gc.DeepEquals, test.expected)
+		c.Check(error, tc.IsNil)
+		c.Check(result, tc.DeepEquals, test.expected)
 	}
 }
 
-func (*ArgsSuite) TestString(c *gc.C) {
+func (*ArgsSuite) TestString(c *tc.C) {
 	for i, test := range []struct {
 		message  string
 		target   []string
@@ -146,11 +146,11 @@ func (*ArgsSuite) TestString(c *gc.C) {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		var temp []string
 		value := cmd.NewStringsValue(test.target, &temp)
-		c.Assert(value.String(), gc.Equals, test.expected)
+		c.Assert(value.String(), tc.Equals, test.expected)
 	}
 }
 
-func (*ArgsSuite) TestAppendStringsUsage(c *gc.C) {
+func (*ArgsSuite) TestAppendStringsUsage(c *tc.C) {
 	for i, test := range []struct {
 		message       string
 		args          []string
@@ -168,7 +168,7 @@ func (*ArgsSuite) TestAppendStringsUsage(c *gc.C) {
 		var value []string
 		f.Var(cmd.NewAppendStringsValue(&value), "value", "help")
 		err := f.Parse(false, test.args)
-		c.Check(err, gc.IsNil)
-		c.Check(value, gc.DeepEquals, test.expectedValue)
+		c.Check(err, tc.IsNil)
+		c.Check(value, tc.DeepEquals, test.expectedValue)
 	}
 }

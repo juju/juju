@@ -12,8 +12,7 @@ import (
 	"net/http"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/simplestreams"
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -548,11 +547,11 @@ var TestRoundTripper = &testing.ProxyRoundTripper{}
 
 type TestDataSuite struct{}
 
-func (s *TestDataSuite) SetUpSuite(c *gc.C) {
+func (s *TestDataSuite) SetUpSuite(c *tc.C) {
 	TestRoundTripper.Sub = testing.NewCannedRoundTripper(imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
 }
 
-func (s *TestDataSuite) TearDownSuite(c *gc.C) {
+func (s *TestDataSuite) TearDownSuite(c *tc.C) {
 	TestRoundTripper.Sub = nil
 }
 
@@ -565,16 +564,16 @@ func SetRoundTripperFiles(files map[string]string, errorFiles map[string]int) {
 	TestRoundTripper.Sub = testing.NewCannedRoundTripper(files, errorFiles)
 }
 
-func AddSignedFiles(c *gc.C, files map[string]string) map[string]string {
+func AddSignedFiles(c *tc.C, files map[string]string) map[string]string {
 	all := make(map[string]string)
 	for name, content := range files {
 		all[name] = content
 		// Sign file content
 		r := strings.NewReader(content)
 		bytes, err := io.ReadAll(r)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		signedName, signedContent, err := SignMetadata(name, bytes)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		all[signedName] = string(signedContent)
 	}
 	return all
@@ -602,7 +601,7 @@ type SourceDetails struct {
 	RequireSigned bool
 }
 
-func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, dsDetails []SourceDetails) {
+func AssertExpectedSources(c *tc.C, obtained []simplestreams.DataSource, dsDetails []SourceDetails) {
 	// Some data sources do not require to contain signed data.
 	// However, they may still contain it.
 	// Since we will always try to read signed data first,
@@ -611,13 +610,13 @@ func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, dsDetai
 	// Bugs #1542127, #1542131
 	for i, source := range obtained {
 		url, err := source.URL("")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := dsDetails[i]
-		c.Assert(url, gc.DeepEquals, expected.URL)
-		c.Assert(source.PublicSigningKey(), gc.DeepEquals, expected.Key)
-		c.Assert(source.RequireSigned(), gc.Equals, expected.RequireSigned)
+		c.Assert(url, tc.DeepEquals, expected.URL)
+		c.Assert(source.PublicSigningKey(), tc.DeepEquals, expected.Key)
+		c.Assert(source.RequireSigned(), tc.Equals, expected.RequireSigned)
 	}
-	c.Assert(obtained, gc.HasLen, len(dsDetails))
+	c.Assert(obtained, tc.HasLen, len(dsDetails))
 }
 
 type LocalLiveSimplestreamsSuite struct {
@@ -718,12 +717,12 @@ func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 	return fmt.Sprintf("streams/%s/index.json", s.StreamsVersion)
 }
 
-func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {
+func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *tc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(indexRef.Format, gc.Equals, Index_v1)
-	c.Assert(indexRef.Source, gc.Equals, s.Source)
-	c.Assert(len(indexRef.Indexes) > 0, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(indexRef.Format, tc.Equals, Index_v1)
+	c.Assert(indexRef.Source, tc.Equals, s.Source)
+	c.Assert(len(indexRef.Indexes) > 0, tc.IsTrue)
 }
 
 func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams.IndexReference, error) {
@@ -743,33 +742,33 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 	)
 }
 
-func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {
+func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *tc.C) {
 	_, err := s.GetIndexRef("bad")
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathExists(c *gc.C) {
+func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathExists(c *tc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	path, err := indexRef.GetProductsPath(s.ValidConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Not(gc.Equals), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(path, tc.Not(tc.Equals), "")
 }
 
-func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *gc.C) {
+func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *tc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{Region: "bad", Endpoint: "spec"},
 		Releases:  []string{"12.04"},
 	})
 	_, err = indexRef.GetProductsPath(ic)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *gc.C) {
+func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *tc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: s.ValidConstraint.Params().CloudSpec,
 		Releases:  []string{"12.04"},
@@ -777,24 +776,24 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *g
 		Stream:    "spec",
 	})
 	_, err = indexRef.GetProductsPath(ic)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *LocalLiveSimplestreamsSuite) AssertGetMetadata(c *gc.C) *simplestreams.CloudMetadata {
+func (s *LocalLiveSimplestreamsSuite) AssertGetMetadata(c *tc.C) *simplestreams.CloudMetadata {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	metadata, err := indexRef.GetCloudMetadataWithFormat(context.Background(), s.ValidConstraint, Product_v1, s.RequireSigned)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata.Format, gc.Equals, Product_v1)
-	c.Assert(len(metadata.Products) > 0, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(metadata.Format, tc.Equals, Product_v1)
+	c.Assert(len(metadata.Products) > 0, tc.IsTrue)
 	return metadata
 }
 
-func (s *LocalLiveSimplestreamsSuite) TestGetCloudMetadataWithFormat(c *gc.C) {
+func (s *LocalLiveSimplestreamsSuite) TestGetCloudMetadataWithFormat(c *tc.C) {
 	s.AssertGetMetadata(c)
 }
 
-func (s *LocalLiveSimplestreamsSuite) AssertGetItemCollections(c *gc.C, version string) *simplestreams.ItemCollection {
+func (s *LocalLiveSimplestreamsSuite) AssertGetItemCollections(c *tc.C, version string) *simplestreams.ItemCollection {
 	metadata := s.AssertGetMetadata(c)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	ic := metadataCatalog.Items[version]

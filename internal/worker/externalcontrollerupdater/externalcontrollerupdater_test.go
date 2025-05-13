@@ -10,10 +10,9 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/crosscontroller"
@@ -24,7 +23,7 @@ import (
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
 )
 
-var _ = gc.Suite(&ExternalControllerUpdaterSuite{})
+var _ = tc.Suite(&ExternalControllerUpdaterSuite{})
 
 type ExternalControllerUpdaterSuite struct {
 	coretesting.BaseSuite
@@ -34,7 +33,7 @@ type ExternalControllerUpdaterSuite struct {
 	client  *MockExternalControllerUpdaterClient
 }
 
-func (s *ExternalControllerUpdaterSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ExternalControllerUpdaterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.watcher = NewMockExternalControllerWatcherClientCloser(ctrl)
@@ -45,7 +44,7 @@ func (s *ExternalControllerUpdaterSuite) setupMocks(c *gc.C) *gomock.Controller 
 	return ctrl
 }
 
-func (s *ExternalControllerUpdaterSuite) TestStartStop(c *gc.C) {
+func (s *ExternalControllerUpdaterSuite) TestStartStop(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -56,11 +55,11 @@ func (s *ExternalControllerUpdaterSuite) TestStartStop(c *gc.C) {
 	w, err := externalcontrollerupdater.New(s.client, func(context.Context, *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
-func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersStartStop(c *gc.C) {
+func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersStartStop(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []string, 1)
@@ -86,14 +85,14 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersStartStop(c
 
 	w, err := externalcontrollerupdater.New(s.client, func(_ context.Context, gotInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
 		defer close(started)
-		c.Assert(gotInfo, jc.DeepEquals, &api.Info{
+		c.Assert(gotInfo, tc.DeepEquals, &api.Info{
 			Addrs:  info.Addrs,
 			Tag:    names.NewUserTag("jujuanonymous"),
 			CACert: info.CACert,
 		})
 		return s.watcher, nil
 	}, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -105,7 +104,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersStartStop(c
 	workertest.CleanKill(c, w)
 }
 
-func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersError(c *gc.C) {
+func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []string, 1)
@@ -128,7 +127,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersError(c *gc
 	w, err := externalcontrollerupdater.New(s.client, func(context.Context, *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -140,7 +139,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersError(c *gc
 	workertest.CleanKill(c, w)
 }
 
-func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorRestarts(c *gc.C) {
+func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorRestarts(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []string, 1)
@@ -160,7 +159,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorRestar
 	w, err := externalcontrollerupdater.New(s.client, func(context.Context, *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.clock.Advance(time.Minute)
@@ -182,7 +181,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorRestar
 	workertest.CleanKill(c, w)
 }
 
-func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *gc.C) {
+func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []string, 1)
@@ -209,7 +208,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *g
 	w, err := externalcontrollerupdater.New(s.client, func(_ context.Context, gotInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	newInfo := &crosscontroller.ControllerInfo{

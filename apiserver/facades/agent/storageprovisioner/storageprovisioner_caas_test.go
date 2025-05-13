@@ -9,20 +9,19 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type caasProvisionerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	api *StorageProvisionerAPIv4
 
@@ -35,9 +34,9 @@ type caasProvisionerSuite struct {
 	resources            *MockResources
 }
 
-var _ = gc.Suite(&caasProvisionerSuite{})
+var _ = tc.Suite(&caasProvisionerSuite{})
 
-func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
+func (s *caasProvisionerSuite) TestWatchApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -48,7 +47,7 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 		go func() {
 			select {
 			case ch <- []string{"application-mariadb"}:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting to send")
 			}
 		}()
@@ -57,12 +56,12 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 	s.resources.EXPECT().Register(watcher).Return("1")
 
 	result, err := s.api.WatchApplications(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.StringsWatcherId, gc.Equals, "1")
-	c.Check(result.Changes, jc.DeepEquals, []string{"application-mariadb"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.StringsWatcherId, tc.Equals, "1")
+	c.Check(result.Changes, tc.DeepEquals, []string{"application-mariadb"})
 }
 
-func (s *caasProvisionerSuite) TestWatchApplicationsClosed(c *gc.C) {
+func (s *caasProvisionerSuite) TestWatchApplicationsClosed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -72,10 +71,10 @@ func (s *caasProvisionerSuite) TestWatchApplicationsClosed(c *gc.C) {
 	s.backend.EXPECT().WatchApplications().Return(watcher)
 
 	_, err := s.api.WatchApplications(context.Background())
-	c.Assert(err, gc.ErrorMatches, `.*tomb: still alive`)
+	c.Assert(err, tc.ErrorMatches, `.*tomb: still alive`)
 }
 
-func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *gc.C) {
+func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// It is expected that the detachment of mariadb has been remove prior.
@@ -100,8 +99,8 @@ func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *gc.C) {
 			AttachmentTag: "volume-42",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "removing attachment of volume 0 from unit mariadb/0: volume attachment is not dying"}},
 			{Error: nil},
@@ -111,7 +110,7 @@ func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
+func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// It is expected that the detachment of mariadb has been remove prior.
@@ -136,8 +135,8 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
 			AttachmentTag: "filesystem-42",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "removing attachment of filesystem 0 from unit mariadb/0: filesystem attachment is not dying"}},
 			{Error: nil},
@@ -147,7 +146,7 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
+func (s *caasProvisionerSuite) TestFilesystemLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.entityFinder.EXPECT().FindEntity(names.NewFilesystemTag("0")).Return(entity{
@@ -166,8 +165,8 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{{Tag: "filesystem-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-42"}}}
 	result, err := s.api.Life(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},
@@ -179,7 +178,7 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestVolumeLife(c *gc.C) {
+func (s *caasProvisionerSuite) TestVolumeLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.entityFinder.EXPECT().FindEntity(names.NewVolumeTag("0")).Return(entity{
@@ -198,8 +197,8 @@ func (s *caasProvisionerSuite) TestVolumeLife(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{{Tag: "volume-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}}}
 	result, err := s.api.Life(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},
@@ -211,7 +210,7 @@ func (s *caasProvisionerSuite) TestVolumeLife(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *gc.C) {
+func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageBackend.EXPECT().FilesystemAttachment(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("0")).Return(s.filesystemAttachment, nil)
@@ -234,8 +233,8 @@ func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *gc.C) {
 			AttachmentTag: "filesystem-42",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},
@@ -244,7 +243,7 @@ func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestVolumeAttachmentLife(c *gc.C) {
+func (s *caasProvisionerSuite) TestVolumeAttachmentLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageBackend.EXPECT().VolumeAttachment(names.NewUnitTag("mariadb/0"), names.NewVolumeTag("0")).Return(s.volumeAttachment, nil)
@@ -267,8 +266,8 @@ func (s *caasProvisionerSuite) TestVolumeAttachmentLife(c *gc.C) {
 			AttachmentTag: "volume-42",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},
@@ -277,7 +276,7 @@ func (s *caasProvisionerSuite) TestVolumeAttachmentLife(c *gc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *caasProvisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.storageBackend = NewMockStorageBackend(ctrl)

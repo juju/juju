@@ -11,23 +11,22 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"golang.org/x/crypto/openpgp"
 	openpgperrors "golang.org/x/crypto/openpgp/errors"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	streamstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type Suite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&Suite{})
+var _ = tc.Suite(&Suite{})
 
 func newTestDataSource(factory simplestreams.DataSourceFactory, s string) simplestreams.DataSource {
 	return imagedownloads.NewDataSource(factory, s+"/"+imagemetadata.ReleasedImagesPath)
@@ -40,7 +39,7 @@ func newTestDataSourceFunc(s string) func() simplestreams.DataSource {
 	}
 }
 
-func (s *Suite) SetUpTest(c *gc.C) {
+func (s *Suite) SetUpTest(c *tc.C) {
 	imagemetadata.SimplestreamsImagesPublicKey = streamstesting.SignedMetadataPublicKey
 
 	// The index.sjson file used by these tests have been regenerated using
@@ -49,23 +48,23 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// implementation and suppress the ErrUnkownIssuer error.
 	s.PatchValue(&simplestreams.PGPSignatureCheckFn, func(keyring openpgp.KeyRing, signed, signature io.Reader) (*openpgp.Entity, error) {
 		ent, err := openpgp.CheckDetachedSignature(keyring, signed, signature)
-		c.Assert(err, gc.Equals, openpgperrors.ErrUnknownIssuer, gc.Commentf("expected the signature verification to return ErrUnknownIssuer when the index file is signed with the test pgp key"))
+		c.Assert(err, tc.Equals, openpgperrors.ErrUnknownIssuer, tc.Commentf("expected the signature verification to return ErrUnknownIssuer when the index file is signed with the test pgp key"))
 		return ent, nil
 	})
 }
 
-func (*Suite) TestNewSignedImagesSource(c *gc.C) {
+func (*Suite) TestNewSignedImagesSource(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	got := imagedownloads.DefaultSource(ss)()
-	c.Check(got.Description(), jc.DeepEquals, "ubuntu cloud images")
-	c.Check(got.PublicSigningKey(), jc.DeepEquals, imagemetadata.SimplestreamsImagesPublicKey)
-	c.Check(got.RequireSigned(), jc.IsTrue)
+	c.Check(got.Description(), tc.DeepEquals, "ubuntu cloud images")
+	c.Check(got.PublicSigningKey(), tc.DeepEquals, imagemetadata.SimplestreamsImagesPublicKey)
+	c.Check(got.RequireSigned(), tc.IsTrue)
 	gotURL, err := got.URL("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotURL, jc.DeepEquals, "http://cloud-images.ubuntu.com/releases/")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotURL, tc.DeepEquals, "http://cloud-images.ubuntu.com/releases/")
 }
 
-func (*Suite) TestFetchManyDefaultFilter(c *gc.C) {
+func (*Suite) TestFetchManyDefaultFilter(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -78,21 +77,21 @@ func (*Suite) TestFetchManyDefaultFilter(c *gc.C) {
 			Stream:   "released",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
-	c.Check(resolveInfo.Signed, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 27)
+	c.Check(resolveInfo.Signed, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(got), tc.DeepEquals, 27)
 	for _, v := range got {
 		gotURL, err := v.DownloadURL(ts.URL)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(strings.HasSuffix(gotURL.String(), v.FType), jc.IsTrue)
-		c.Check(strings.Contains(gotURL.String(), v.Release), jc.IsTrue)
-		c.Check(strings.Contains(gotURL.String(), v.Version), jc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(strings.HasSuffix(gotURL.String(), v.FType), tc.IsTrue)
+		c.Check(strings.Contains(gotURL.String(), v.Release), tc.IsTrue)
+		c.Check(strings.Contains(gotURL.String(), v.Version), tc.IsTrue)
 	}
 }
 
-func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
+func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -105,24 +104,24 @@ func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
 			Stream:   "released",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
-	c.Check(resolveInfo.Signed, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 27)
+	c.Check(resolveInfo.Signed, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(got), tc.DeepEquals, 27)
 	for _, v := range got {
 		// Note: instead of the index URL, we are pulling the actual
 		// images from a different operator-provided URL.
 		gotURL, err := v.DownloadURL("https://tasty-cloud-images.ubuntu.com")
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(strings.HasPrefix(gotURL.String(), "https://tasty-cloud-images.ubuntu.com"), jc.IsTrue, gc.Commentf("expected image download URL to use the operator-provided URL"))
-		c.Check(strings.HasSuffix(gotURL.String(), v.FType), jc.IsTrue)
-		c.Check(strings.Contains(gotURL.String(), v.Release), jc.IsTrue)
-		c.Check(strings.Contains(gotURL.String(), v.Version), jc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(strings.HasPrefix(gotURL.String(), "https://tasty-cloud-images.ubuntu.com"), tc.IsTrue, tc.Commentf("expected image download URL to use the operator-provided URL"))
+		c.Check(strings.HasSuffix(gotURL.String(), v.FType), tc.IsTrue)
+		c.Check(strings.Contains(gotURL.String(), v.Release), tc.IsTrue)
+		c.Check(strings.Contains(gotURL.String(), v.Version), tc.IsTrue)
 	}
 }
 
-func (*Suite) TestFetchSingleDefaultFilter(c *gc.C) {
+func (*Suite) TestFetchSingleDefaultFilter(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -134,18 +133,18 @@ func (*Suite) TestFetchSingleDefaultFilter(c *gc.C) {
 			Releases: []string{"16.04"},
 		}}
 	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
-	c.Check(resolveInfo.Signed, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 8)
-	c.Check(got[0].Arch, jc.DeepEquals, "ppc64el")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(resolveInfo.Signed, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(got), tc.DeepEquals, 8)
+	c.Check(got[0].Arch, tc.DeepEquals, "ppc64el")
+	c.Check(err, tc.ErrorIsNil)
 	for _, v := range got {
 		_, err := v.DownloadURL(ts.URL)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
-func (*Suite) TestFetchOneWithFilter(c *gc.C) {
+func (*Suite) TestFetchOneWithFilter(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -157,22 +156,22 @@ func (*Suite) TestFetchOneWithFilter(c *gc.C) {
 			Releases: []string{"16.04"},
 		}}
 	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, imagedownloads.Filter("disk1.img"))
-	c.Check(resolveInfo.Signed, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 1)
-	c.Check(got[0].Arch, jc.DeepEquals, "ppc64el")
+	c.Check(resolveInfo.Signed, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(got), tc.DeepEquals, 1)
+	c.Check(got[0].Arch, tc.DeepEquals, "ppc64el")
 	// Assuming that the operator has not overridden the image download URL
 	// parameter we pass the default empty value which should fall back to
 	// the default cloud-images.ubuntu.com URL.
 	gotURL, err := got[0].DownloadURL("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		gotURL.String(),
-		jc.DeepEquals,
+		tc.DeepEquals,
 		"http://cloud-images.ubuntu.com/server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-ppc64el-disk1.img")
 }
 
-func (*Suite) TestFetchManyWithFilter(c *gc.C) {
+func (*Suite) TestFetchManyWithFilter(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
@@ -184,30 +183,30 @@ func (*Suite) TestFetchManyWithFilter(c *gc.C) {
 			Releases: []string{"16.04"},
 		}}
 	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, imagedownloads.Filter("disk1.img"))
-	c.Check(resolveInfo.Signed, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(len(got), jc.DeepEquals, 3)
-	c.Check(got[0].Arch, jc.DeepEquals, "amd64")
-	c.Check(got[1].Arch, jc.DeepEquals, "arm64")
-	c.Check(got[2].Arch, jc.DeepEquals, "ppc64el")
+	c.Check(resolveInfo.Signed, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(len(got), tc.DeepEquals, 3)
+	c.Check(got[0].Arch, tc.DeepEquals, "amd64")
+	c.Check(got[1].Arch, tc.DeepEquals, "arm64")
+	c.Check(got[2].Arch, tc.DeepEquals, "ppc64el")
 	for i, arch := range []string{"amd64", "arm64", "ppc64el"} {
 		wantURL := fmt.Sprintf("http://cloud-images.ubuntu.com/server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-%s-disk1.img", arch)
 		// Assuming that the operator has not overridden the image
 		// download URL parameter we pass the default empty value which
 		// should fall back to the default cloud-images.ubuntu.com URL.
 		gotURL, err := got[i].DownloadURL("")
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(gotURL.String(), jc.DeepEquals, wantURL)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(gotURL.String(), tc.DeepEquals, wantURL)
 	}
 }
 
-func (*Suite) TestOneAmd64XenialTarGz(c *gc.C) {
+func (*Suite) TestOneAmd64XenialTarGz(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	got, err := imagedownloads.One(context.Background(), ss, "amd64", "22.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &imagedownloads.Metadata{
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "amd64",
 		Release: "jammy",
 		Version: "22.04",
@@ -218,13 +217,13 @@ func (*Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 	})
 }
 
-func (*Suite) TestOneArm64JammyImg(c *gc.C) {
+func (*Suite) TestOneArm64JammyImg(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	got, err := imagedownloads.One(context.Background(), ss, "arm64", "22.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &imagedownloads.Metadata{
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "arm64",
 		Release: "jammy",
 		Version: "22.04",
@@ -235,13 +234,13 @@ func (*Suite) TestOneArm64JammyImg(c *gc.C) {
 	})
 }
 
-func (*Suite) TestOneArm64FocalImg(c *gc.C) {
+func (*Suite) TestOneArm64FocalImg(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	got, err := imagedownloads.One(context.Background(), ss, "arm64", "20.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &imagedownloads.Metadata{
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "arm64",
 		Release: "focal",
 		Version: "20.04",
@@ -252,7 +251,7 @@ func (*Suite) TestOneArm64FocalImg(c *gc.C) {
 	})
 }
 
-func (*Suite) TestOneErrors(c *gc.C) {
+func (*Suite) TestOneErrors(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	table := []struct {
 		description, arch, version, stream, ftype, errorMatch string
@@ -271,7 +270,7 @@ func (*Suite) TestOneErrors(c *gc.C) {
 	for i, test := range table {
 		c.Logf("test % 1d: %s\n", i+1, test.description)
 		_, err := imagedownloads.One(context.Background(), ss, test.arch, test.version, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
-		c.Check(err, gc.ErrorMatches, test.errorMatch)
+		c.Check(err, tc.ErrorMatches, test.errorMatch)
 	}
 }
 

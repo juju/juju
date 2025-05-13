@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
-	gc "gopkg.in/check.v1"
 
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/gce/google"
@@ -19,9 +18,9 @@ type connSuite struct {
 	google.BaseSuite
 }
 
-var _ = gc.Suite(&connSuite{})
+var _ = tc.Suite(&connSuite{})
 
-func (s *connSuite) TestConnect(c *gc.C) {
+func (s *connSuite) TestConnect(c *tc.C) {
 	google.SetRawConn(s.Conn, nil)
 	service := &compute.Service{}
 	s.PatchValue(google.NewService, func(ctx context.Context, creds *google.Credentials, httpClient *jujuhttp.Client) (*compute.Service, error) {
@@ -29,63 +28,63 @@ func (s *connSuite) TestConnect(c *gc.C) {
 	})
 
 	conn, err := google.Connect(context.Background(), s.ConnCfg, s.Credentials)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(google.ExposeRawService(conn), gc.Equals, service)
+	c.Check(google.ExposeRawService(conn), tc.Equals, service)
 }
 
-func (s *connSuite) TestConnectionVerifyCredentials(c *gc.C) {
+func (s *connSuite) TestConnectionVerifyCredentials(c *tc.C) {
 	s.FakeConn.Project = &compute.Project{}
 	err := s.Conn.VerifyCredentials()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *connSuite) TestConnectionVerifyCredentialsAPI(c *gc.C) {
+func (s *connSuite) TestConnectionVerifyCredentialsAPI(c *tc.C) {
 	s.FakeConn.Project = &compute.Project{}
 	err := s.Conn.VerifyCredentials()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetProject")
-	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
+	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "GetProject")
+	c.Check(s.FakeConn.Calls[0].ProjectID, tc.Equals, "spam")
 }
 
-func (s *connSuite) TestConnectionVerifyCredentialsInvalid(c *gc.C) {
+func (s *connSuite) TestConnectionVerifyCredentialsInvalid(c *tc.C) {
 	s.FakeConn.Err = errors.New("retrieving auth token for user@mail.com: Invalid Key")
 	err := s.Conn.VerifyCredentials()
 
-	c.Check(err, gc.ErrorMatches, `retrieving auth token for user@mail.com: Invalid Key`)
+	c.Check(err, tc.ErrorMatches, `retrieving auth token for user@mail.com: Invalid Key`)
 }
 
-func (s *connSuite) TestConnectionAvailabilityZones(c *gc.C) {
+func (s *connSuite) TestConnectionAvailabilityZones(c *tc.C) {
 	s.FakeConn.Zones = []*compute.Zone{{
 		Name:   "a-zone",
 		Status: google.StatusUp,
 	}}
 
 	azs, err := s.Conn.AvailabilityZones("a")
-	c.Check(err, gc.IsNil)
+	c.Check(err, tc.IsNil)
 
-	c.Check(len(azs), gc.Equals, 1)
-	c.Check(azs[0].Name(), gc.Equals, "a-zone")
-	c.Check(azs[0].Status(), gc.Equals, google.StatusUp)
+	c.Check(len(azs), tc.Equals, 1)
+	c.Check(azs[0].Name(), tc.Equals, "a-zone")
+	c.Check(azs[0].Status(), tc.Equals, google.StatusUp)
 }
 
-func (s *connSuite) TestConnectionAvailabilityZonesAPI(c *gc.C) {
+func (s *connSuite) TestConnectionAvailabilityZonesAPI(c *tc.C) {
 	_, err := s.Conn.AvailabilityZones("a")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListAvailabilityZones")
-	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
-	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "a")
+	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "ListAvailabilityZones")
+	c.Check(s.FakeConn.Calls[0].ProjectID, tc.Equals, "spam")
+	c.Check(s.FakeConn.Calls[0].Region, tc.Equals, "a")
 }
 
-func (s *connSuite) TestConnectionAvailabilityZonesErr(c *gc.C) {
+func (s *connSuite) TestConnectionAvailabilityZonesErr(c *tc.C) {
 	s.FakeConn.Err = errors.New("<unknown>")
 
 	_, err := s.Conn.AvailabilityZones("a")
 
-	c.Check(err, gc.ErrorMatches, "<unknown>")
+	c.Check(err, tc.ErrorMatches, "<unknown>")
 }

@@ -7,15 +7,15 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-func newMockFacade(stub *testing.Stub, lifeResults ...life.Value) *mockFacade {
+func newMockFacade(stub *testhelpers.Stub, lifeResults ...life.Value) *mockFacade {
 	return &mockFacade{
 		stub:        stub,
 		lifeResults: lifeResults,
@@ -23,7 +23,7 @@ func newMockFacade(stub *testing.Stub, lifeResults ...life.Value) *mockFacade {
 }
 
 type mockFacade struct {
-	stub        *testing.Stub
+	stub        *testhelpers.Stub
 	lifeResults []life.Value
 }
 

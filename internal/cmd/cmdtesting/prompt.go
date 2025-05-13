@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -52,12 +52,12 @@ var logger = internallogger.GetLogger("juju.cmd.testing")
 //	fmt.Fprintf(checker, "And your age: ")
 //	n, _ = checker.Read(buf)
 //	age, err := strconv.Atoi(strings.TrimSpace(string(buf[0:n])))
-//	c.Assert(err, gc.IsNil)
+//	c.Assert(err, tc.IsNil)
 //	if age > 90 {
 //		fmt.Fprintf(checker, "You're very old, %s!\n", name)
 //	}
 //	checker.CheckDone()
-func NewSeqPrompter(c *gc.C, userInputMarker, text string) *SeqPrompter {
+func NewSeqPrompter(c *tc.C, userInputMarker, text string) *SeqPrompter {
 	p := &SeqPrompter{
 		c: c,
 	}
@@ -95,7 +95,7 @@ func NewSeqPrompter(c *gc.C, userInputMarker, text string) *SeqPrompter {
 
 type SeqPrompter struct {
 	*Prompter
-	c         *gc.C
+	c         *tc.C
 	ios       []ioInteraction
 	finalText string
 	failed    bool
@@ -114,7 +114,7 @@ func (p *SeqPrompter) prompt(text string) (string, error) {
 		p.c.Errorf("unexpected prompt %q; expected none", text)
 		return "", errors.New("unexpected prompt")
 	}
-	if !p.c.Check(text, gc.Matches, p.ios[0].prompt) {
+	if !p.c.Check(text, tc.Matches, p.ios[0].prompt) {
 		p.failed = true
 		return "", errors.Errorf("unexpected prompt %q; expected %q", text, p.ios[0].prompt)
 	}
@@ -135,9 +135,9 @@ func (p *SeqPrompter) CheckDone() bool {
 		p.c.Errorf("prompter has failed")
 		return false
 	}
-	r := p.c.Check(p.ios, gc.HasLen, 0, gc.Commentf("unused prompts"))
-	r = p.c.Check(p.HasUnread(), gc.Equals, false, gc.Commentf("some input was not read")) && r
-	r = p.c.Check(p.Tail(), gc.Matches, p.finalText, gc.Commentf("final text mismatch")) && r
+	r := p.c.Check(p.ios, tc.HasLen, 0, tc.Commentf("unused prompts"))
+	r = p.c.Check(p.HasUnread(), tc.Equals, false, tc.Commentf("some input was not read")) && r
+	r = p.c.Check(p.Tail(), tc.Matches, p.finalText, tc.Commentf("final text mismatch")) && r
 	return r
 }
 

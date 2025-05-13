@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
@@ -42,9 +41,9 @@ type watcherSuite struct {
 	testing.ModelSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) SetUpTest(c *gc.C) {
+func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -54,10 +53,10 @@ VALUES (?, ?, "test", "iaas", "fluffy", "ec2")
 		`, s.ModelUUID(), coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
+func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
@@ -88,36 +87,36 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 			ID:   "mediawiki/0",
 		},
 	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmApplicationSecret(ctx, st, 1, uri3, "mediawiki", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmUnitSecret(ctx, st, 1, uri4, "mediawiki/0", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 		createNewRevision(c, st, uri3)
@@ -134,7 +133,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 	})
 
 	//  We create a new revision 3, then the old revision 2 of each secret should become obsolete.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 		createNewRevision(c, st, uri3)
@@ -151,7 +150,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
+func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	ctx := context.Background()
@@ -166,29 +165,29 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 			ID:   "mysql",
 		},
 	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
 	// We watch for the application owned secrets, so the unit owned secret uri2 should not be included.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -201,7 +200,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 
 	// We create a new revision 3, then the old revision 2 of each secret should become obsolete.
 	// We watch for the application owned secrets, so the unit owned secret uri2 should not be included.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -214,7 +213,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
+func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	ctx := context.Background()
@@ -229,29 +228,29 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 			ID:   "mysql/0",
 		},
 	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
 	// We watch for the unit owned secrets, so the application owned secret uri1 should not be included.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -264,7 +263,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 
 	// We create a new revision 3, then the old revision 2 of each secret should become obsolete.
 	// We watch for the unit owned secrets, so the application owned secret uri1 should not be included.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -277,7 +276,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchObsoleteForAppOwnedSecretDeletion(c *gc.C) {
+func (s *watcherSuite) TestWatchObsoleteForAppOwnedSecretDeletion(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
@@ -293,27 +292,27 @@ func (s *watcherSuite) TestWatchObsoleteForAppOwnedSecretDeletion(c *gc.C) {
 			ID:   "mysql",
 		},
 	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Delete the application owned secret.
 		removeSecret(c, ctx, st, uri1)
 		// Delete the unit owned secret.
@@ -329,7 +328,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppOwnedSecretDeletion(c *gc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchObsoleteForUnitsOwnedSecretDeletion(c *gc.C) {
+func (s *watcherSuite) TestWatchObsoleteForUnitsOwnedSecretDeletion(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
@@ -345,27 +344,27 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwnedSecretDeletion(c *gc.C) {
 			ID:   "mysql/0",
 		},
 	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Delete the application owned secret.
 		removeSecret(c, ctx, st, uri1)
 		// Delete the unit owned secret.
@@ -382,7 +381,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwnedSecretDeletion(c *gc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
+func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 	ctx := context.Background()
 	svc, st := s.setupServiceAndState(c)
 
@@ -392,30 +391,30 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
 
 	w, err := svc.WatchObsoleteUserSecretsToPrune(ctx)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := createUserSecret(ctx, st, 1, uri1, secret.UpsertSecretParams{
 			Data:       data,
 			RevisionID: ptr(uuid.MustNewUUID().String()),
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = createUserSecret(ctx, st, 1, uri2, secret.UpsertSecretParams{
 			Data:       data,
 			AutoPrune:  ptr(true),
 			RevisionID: ptr(uuid.MustNewUUID().String()),
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	// We create a new revision 2, then the old revision 1 of uri1 should become obsolete.
 	// There is no event has been fired because the auto prune is not turned on for uri1.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
@@ -423,19 +422,19 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 
 	// We create a new revision 2, then the old revision 1 of uri2 should become obsolete.
 	// An event is fired because the auto prune is turned on for uri2.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNChanges(2)
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 			return st.UpdateSecret(ctx, uri1, secret.UpsertSecretParams{
 				AutoPrune: ptr(true),
 			})
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -444,19 +443,19 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 
 	// Pretend that the agent restarted and the watcher is re-created.
 	w1, err := svc.WatchObsoleteUserSecretsToPrune(ctx)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w1, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w1, tc.NotNil)
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	harness1.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
@@ -469,30 +468,30 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		}
 		unitName := unittesting.GenNewName(c, consumerID)
 		err := st.SaveSecretConsumer(ctx, uri, unitName, consumer)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 
 	w, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmApplicationSecret(ctx, st, 1, uri2, "mysql", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// The consumed revision 1 is the initial revision - will be ignored.
 		saveConsumer(uri1, 1, "mediawiki/0")
@@ -504,7 +503,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
 	// A consumed secret change event of uri1 should be fired.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// create revision 2.
 		createNewRevision(c, st, uri1)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -518,12 +517,12 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 
 	// Pretend that the agent restarted and the watcher is re-created.
 	w1, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(w1, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w1, tc.NotNil)
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
 				uri1.String(),
@@ -531,7 +530,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		)
 	})
 
-	harness1.AddTest(func(c *gc.C) {
+	harness1.AddTest(func(c *tc.C) {
 		// The consumed revision 2 is the updated current_revision.
 		saveConsumer(uri1, 2, "mediawiki/0")
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -543,18 +542,18 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	// Pretend that the agent restarted and the watcher is re-created again.
 	// Since we comsume the latest revision already, so there should be no change.
 	w2, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(w2, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w2, tc.NotNil)
 	defer watchertest.CleanKill(c, w2)
 	harness2 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w2))
-	harness2.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness2.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 	harness2.Run(c, []string(nil))
 
 }
 
-func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
+func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	s.setupUnits(c, "mediawiki")
 
 	ctx := context.Background()
@@ -566,7 +565,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 		}
 		unitName := unittesting.GenNewName(c, consumerID)
 		err := st.SaveSecretConsumer(ctx, uri, unitName, consumer)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	sourceModelUUID := uuid.MustNewUUID()
@@ -577,11 +576,11 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 	uri2.SourceUUID = sourceModelUUID.String()
 
 	w, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// The consumed revision 1 is the initial revision - will be ignored.
 		saveConsumer(uri1, 1, "mediawiki/0")
 		// The consumed revision 1 is the initial revision - will be ignored.
@@ -592,9 +591,9 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 
 	// We update the remote secret revision to 2.
 	// A remote consumed secret change event of uri1 should be fired.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -607,11 +606,11 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 
 	// Pretend that the agent restarted and the watcher is re-created.
 	w1, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
 				uri1.String(),
@@ -619,7 +618,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 		)
 	})
 
-	harness1.AddTest(func(c *gc.C) {
+	harness1.AddTest(func(c *tc.C) {
 		// The consumed revision 2 is the updated current_revision.
 		saveConsumer(uri1, 2, "mediawiki/0")
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -632,17 +631,17 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 	// Since we consume the latest revision already, so there should be no
 	// change.
 	w2, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer watchertest.CleanKill(c, w2)
 
 	harness2 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w2))
-	harness2.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness2.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 	harness2.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
+func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	ctx := context.Background()
@@ -654,7 +653,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		}
 		unitName := unittesting.GenNewName(c, consumerID)
 		err := st.SaveSecretRemoteConsumer(ctx, uri, unitName, consumer)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	uri1 := coresecrets.NewURI()
@@ -663,23 +662,23 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	uri2.SourceUUID = s.ModelUUID()
 
 	w, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
-	c.Assert(err, gc.IsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmApplicationSecret(ctx, st, 1, uri2, "mysql", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// The consumed revision 1 is the initial revision - will be ignored.
 		saveRemoteConsumer(uri1, 1, "mediawiki/0")
@@ -692,10 +691,10 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 
 	// We create a new revision 2 and update the remote secret revision to 2.
 	// A remote consumed secret change event of uri1 should be fired.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -708,12 +707,12 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 
 	// Pretend that the agent restarted and the watcher is re-created.
 	w1, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
-	c.Assert(err, gc.IsNil)
-	c.Assert(w1, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w1, tc.NotNil)
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
 				uri1.String(),
@@ -721,7 +720,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		)
 	})
 
-	harness1.AddTest(func(c *gc.C) {
+	harness1.AddTest(func(c *tc.C) {
 		// The consumed revision 2 is the updated current_revision.
 		saveRemoteConsumer(uri1, 2, "mediawiki/0")
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -732,19 +731,19 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	// Pretend that the agent restarted and the watcher is re-created again.
 	// Since we comsume the latest revision already, so there should be no change.
 	w2, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
-	c.Assert(err, gc.IsNil)
-	c.Assert(w2, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w2, tc.NotNil)
 	defer watchertest.CleanKill(c, w2)
 
 	harness2 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w2))
-	harness2.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness2.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	harness2.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
+func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
@@ -764,34 +763,34 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 			ID:   "mediawiki/0",
 		},
 	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		sp.RevisionID = ptr(uuid.MustNewUUID().String())
 		err = createCharmUnitSecret(ctx, st, 1, uri2, "mediawiki/0", sp)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.AssertNoChange()
 	})
 
 	now := time.Now()
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = st.SecretRotated(ctx, uri1, now.Add(1*time.Hour))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = st.SecretRotated(ctx, uri2, now.Add(2*time.Hour))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.Check(
 			watchertest.SecretTriggerSliceAssert(
@@ -822,13 +821,13 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 			ID:   "mediawiki/0",
 		},
 	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w1, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w1, tc.NotNil)
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
 
-	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
+	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.Check(
 			watchertest.SecretTriggerSliceAssert(
 				corewatcher.SecretTriggerChange{
@@ -852,7 +851,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
+func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
@@ -873,29 +872,29 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 			ID:   "mediawiki/0",
 		},
 	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w, tc.NotNil)
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := createCharmUnitSecret(ctx, st, 1, uri2, "mediawiki/0", secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 			RevisionID: ptr(uuid.MustNewUUID().String()),
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.AssertNoChange()
 	})
 
 	now := time.Now()
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 			ExpireTime: ptr(now.Add(1 * time.Hour)),
 			RevisionID: ptr(uuid.MustNewUUID().String()),
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 			return st.UpdateSecret(ctx, uri2, secret.UpsertSecretParams{
@@ -904,7 +903,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 				RevisionID: ptr(uuid.MustNewUUID().String()),
 			})
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.Check(
 			watchertest.SecretTriggerSliceAssert(
@@ -935,12 +934,12 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 			ID:   "mediawiki/0",
 		},
 	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(w1, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(w1, tc.NotNil)
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
+	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.Check(
 			watchertest.SecretTriggerSliceAssert(
 				corewatcher.SecretTriggerChange{
@@ -960,7 +959,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	harness1.Run(c, []corewatcher.SecretTriggerChange(nil))
 }
 
-func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
+func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 	logger := loggertesting.WrapCheckLog(c)
 	st := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger)
 	svc := applicationservice.NewProviderService(
@@ -1008,10 +1007,10 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 		},
 		applicationservice.AddUnitArg{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *watcherSuite) setupServiceAndState(c *gc.C) (*service.WatchableService, *state.State) {
+func (s *watcherSuite) setupServiceAndState(c *tc.C) (*service.WatchableService, *state.State) {
 	logger := loggertesting.WrapCheckLog(c)
 	st := state.NewState(s.TxnRunnerFactory(), logger)
 	factory := domain.NewWatcherFactory(
@@ -1025,7 +1024,7 @@ func revID(uri *coresecrets.URI, rev int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, rev)
 }
 
-func createNewRevision(c *gc.C, st *state.State, uri *coresecrets.URI) {
+func createNewRevision(c *tc.C, st *state.State, uri *coresecrets.URI) {
 	sp := secret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 		RevisionID: ptr(uuid.MustNewUUID().String()),
@@ -1033,7 +1032,7 @@ func createNewRevision(c *gc.C, st *state.State, uri *coresecrets.URI) {
 	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		return st.UpdateSecret(ctx, uri, sp)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func createUserSecret(ctx context.Context, st *state.State, version int, uri *coresecrets.URI, secret secret.UpsertSecretParams) error {
@@ -1062,11 +1061,11 @@ func createCharmUnitSecret(ctx context.Context, st *state.State, version int, ur
 	})
 }
 
-func removeSecret(c *gc.C, ctx context.Context, st *state.State, uri *coresecrets.URI) {
+func removeSecret(c *tc.C, ctx context.Context, st *state.State, uri *coresecrets.URI) {
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		return st.DeleteSecret(ctx, uri, nil)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type stubCharm struct{}

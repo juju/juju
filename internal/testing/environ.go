@@ -5,10 +5,8 @@ package testing
 
 import (
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -19,6 +17,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -109,7 +108,7 @@ func FakeCloudSpec() environscloudspec.CloudSpec {
 
 // ModelConfig returns a default environment configuration suitable for
 // setting in the state.
-func ModelConfig(c *gc.C) *config.Config {
+func ModelConfig(c *tc.C) *config.Config {
 	uuid := mustUUID()
 	return CustomModelConfig(c, Attrs{"uuid": uuid})
 }
@@ -125,13 +124,13 @@ func mustUUID() string {
 
 // CustomModelConfig returns an environment configuration with
 // additional specified keys added.
-func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
+func CustomModelConfig(c *tc.C, extra Attrs) *config.Config {
 	attrs := FakeConfig().Merge(Attrs{
 		"agent-version": "2.0.0",
 		"charmhub-url":  charmhub.DefaultServerURL,
 	}).Merge(extra).Delete("admin-secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
@@ -141,21 +140,21 @@ const DefaultMongoPassword = "conn-from-name-secret"
 // sets up a Juju home with a sample environment and certificate.
 type FakeJujuXDGDataHomeSuite struct {
 	JujuOSEnvSuite
-	testing.FakeHomeSuite
+	testhelpers.FakeHomeSuite
 }
 
-func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *gc.C) {
+func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *tc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.FakeHomeSuite.SetUpTest(c)
 }
 
-func (s *FakeJujuXDGDataHomeSuite) TearDownTest(c *gc.C) {
+func (s *FakeJujuXDGDataHomeSuite) TearDownTest(c *tc.C) {
 	s.FakeHomeSuite.TearDownTest(c)
 	s.JujuOSEnvSuite.TearDownTest(c)
 }
 
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered.
-func (s *FakeJujuXDGDataHomeSuite) AssertConfigParameterUpdated(c *gc.C, key, value string) {
+func (s *FakeJujuXDGDataHomeSuite) AssertConfigParameterUpdated(c *tc.C, key, value string) {
 	s.PatchEnvironment(key, value)
 }

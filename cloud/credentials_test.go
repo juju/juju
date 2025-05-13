@@ -10,9 +10,8 @@ import (
 	"regexp"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/internal/testing"
@@ -22,9 +21,9 @@ type credentialsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&credentialsSuite{})
+var _ = tc.Suite(&credentialsSuite{})
 
-func (s *credentialsSuite) TestMarshalAccessKey(c *gc.C) {
+func (s *credentialsSuite) TestMarshalAccessKey(c *tc.C) {
 	creds := map[string]cloud.CloudCredential{
 		"aws": {
 			DefaultCredential: "default-cred",
@@ -43,8 +42,8 @@ func (s *credentialsSuite) TestMarshalAccessKey(c *gc.C) {
 		},
 	}
 	out, err := cloud.MarshalCredentials(creds)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, `
 credentials:
   aws:
     default-credential: default-cred
@@ -56,7 +55,7 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshalOpenstackAccessKey(c *gc.C) {
+func (s *credentialsSuite) TestMarshalOpenstackAccessKey(c *tc.C) {
 	creds := map[string]cloud.CloudCredential{
 		"openstack": {
 			DefaultCredential: "default-cred",
@@ -71,8 +70,8 @@ func (s *credentialsSuite) TestMarshalOpenstackAccessKey(c *gc.C) {
 		},
 	}
 	out, err := cloud.MarshalCredentials(creds)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, `
 credentials:
   openstack:
     default-credential: default-cred
@@ -85,7 +84,7 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshalOpenstackUserPass(c *gc.C) {
+func (s *credentialsSuite) TestMarshalOpenstackUserPass(c *tc.C) {
 	creds := map[string]cloud.CloudCredential{
 		"openstack": {
 			DefaultCredential: "default-cred",
@@ -100,8 +99,8 @@ func (s *credentialsSuite) TestMarshalOpenstackUserPass(c *gc.C) {
 		},
 	}
 	out, err := cloud.MarshalCredentials(creds)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, `
 credentials:
   openstack:
     default-credential: default-cred
@@ -114,7 +113,7 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshalAzureCredntials(c *gc.C) {
+func (s *credentialsSuite) TestMarshalAzureCredntials(c *tc.C) {
 	creds := map[string]cloud.CloudCredential{
 		"azure": {
 			DefaultCredential: "default-cred",
@@ -130,8 +129,8 @@ func (s *credentialsSuite) TestMarshalAzureCredntials(c *gc.C) {
 		},
 	}
 	out, err := cloud.MarshalCredentials(creds)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, `
 credentials:
   azure:
     default-credential: default-cred
@@ -145,7 +144,7 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshalOAuth1(c *gc.C) {
+func (s *credentialsSuite) TestMarshalOAuth1(c *tc.C) {
 	creds := map[string]cloud.CloudCredential{
 		"maas": {
 			DefaultCredential: "default-cred",
@@ -161,8 +160,8 @@ func (s *credentialsSuite) TestMarshalOAuth1(c *gc.C) {
 		},
 	}
 	out, err := cloud.MarshalCredentials(creds)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, `
 credentials:
   maas:
     default-credential: default-cred
@@ -176,7 +175,7 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshalOAuth2(c *gc.C) {
+func (s *credentialsSuite) TestMarshalOAuth2(c *tc.C) {
 	creds := map[string]cloud.CloudCredential{
 		"google": {
 			DefaultCredential: "default-cred",
@@ -191,8 +190,8 @@ func (s *credentialsSuite) TestMarshalOAuth2(c *gc.C) {
 		},
 	}
 	out, err := cloud.MarshalCredentials(creds)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, `
 credentials:
   google:
     default-credential: default-cred
@@ -205,7 +204,7 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestParseCredentials(c *gc.C) {
+func (s *credentialsSuite) TestParseCredentials(c *tc.C) {
 	s.testParseCredentials(c, []byte(`
 credentials:
   aws:
@@ -267,7 +266,7 @@ credentials:
 	})
 }
 
-func (s *credentialsSuite) TestParseCredentialsUnknownAuthType(c *gc.C) {
+func (s *credentialsSuite) TestParseCredentialsUnknownAuthType(c *tc.C) {
 	// Unknown auth-type is not validated by ParseCredentials.
 	// Validation is deferred to FinalizeCredential.
 	s.testParseCredentials(c, []byte(`
@@ -284,13 +283,13 @@ credentials:
 	})
 }
 
-func (s *credentialsSuite) testParseCredentials(c *gc.C, input []byte, expect map[string]cloud.CloudCredential) {
+func (s *credentialsSuite) testParseCredentials(c *tc.C, input []byte, expect map[string]cloud.CloudCredential) {
 	output, err := cloud.ParseCredentials(input)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, jc.DeepEquals, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(output, tc.DeepEquals, expect)
 }
 
-func (s *credentialsSuite) TestParseCredentialsMissingAuthType(c *gc.C) {
+func (s *credentialsSuite) TestParseCredentialsMissingAuthType(c *tc.C) {
 	s.testParseCredentialsError(c, []byte(`
 credentials:
   cloud-name:
@@ -299,7 +298,7 @@ credentials:
 `[1:]), "credentials.cloud-name.credential-name: missing auth-type")
 }
 
-func (s *credentialsSuite) TestParseCredentialsNonStringValue(c *gc.C) {
+func (s *credentialsSuite) TestParseCredentialsNonStringValue(c *tc.C) {
 	s.testParseCredentialsError(c, []byte(`
 credentials:
   cloud-name:
@@ -308,12 +307,12 @@ credentials:
 `[1:]), `credentials\.cloud-name\.credential-name\.non-string-value: expected string, got int\(123\)`)
 }
 
-func (s *credentialsSuite) testParseCredentialsError(c *gc.C, input []byte, expect string) {
+func (s *credentialsSuite) testParseCredentialsError(c *tc.C, input []byte, expect string) {
 	_, err := cloud.ParseCredentials(input)
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }
 
-func (s *credentialsSuite) TestFinalizeCredential(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredential(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -330,10 +329,10 @@ func (s *credentialsSuite) TestFinalizeCredential(c *gc.C) {
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, readFileNotSupported)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialFileAttr(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialFileAttr(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -352,20 +351,20 @@ func (s *credentialsSuite) TestFinalizeCredentialFileAttr(c *gc.C) {
 		"quay", cloud.CredentialAttr{FileAttr: "quay-file"},
 	}}
 	readFile := func(s string) ([]byte, error) {
-		c.Assert(s, gc.Equals, "path")
+		c.Assert(s, tc.Equals, "path")
 		return []byte("file-value"), nil
 	}
 	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, readFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newCred.Attributes(), tc.DeepEquals, map[string]string{
 		"key":  "file-value",
 		"quay": "value",
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialFileEmpty(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialFileEmpty(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -386,10 +385,10 @@ func (s *credentialsSuite) TestFinalizeCredentialFileEmpty(c *gc.C) {
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, readFile)
-	c.Assert(err, gc.ErrorMatches, `empty file for "key" not valid`)
+	c.Assert(err, tc.ErrorMatches, `empty file for "key" not valid`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialFileAttrNeither(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialFileAttrNeither(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{},
@@ -405,10 +404,10 @@ func (s *credentialsSuite) TestFinalizeCredentialFileAttrNeither(c *gc.C) {
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, readFileNotSupported)
-	c.Assert(err, gc.ErrorMatches, `either "key" or "key-file" must be specified`)
+	c.Assert(err, tc.ErrorMatches, `either "key" or "key-file" must be specified`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialFileAttrBoth(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialFileAttrBoth(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -427,10 +426,10 @@ func (s *credentialsSuite) TestFinalizeCredentialFileAttrBoth(c *gc.C) {
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, readFileNotSupported)
-	c.Assert(err, gc.ErrorMatches, `specifying both "key" and "key-file" not valid`)
+	c.Assert(err, tc.ErrorMatches, `specifying both "key" and "key-file" not valid`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialInvalid(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialInvalid(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{},
@@ -445,10 +444,10 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalid(c *gc.C) {
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, readFileNotSupported)
-	c.Assert(err, gc.ErrorMatches, "key: expected string, got nothing")
+	c.Assert(err, tc.ErrorMatches, "key: expected string, got nothing")
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialNotSupported(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialNotSupported(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.OAuth2AuthType,
 		map[string]string{},
@@ -456,15 +455,15 @@ func (s *credentialsSuite) TestFinalizeCredentialNotSupported(c *gc.C) {
 	_, err := cloud.FinalizeCredential(
 		cred, map[cloud.AuthType]cloud.CredentialSchema{}, readFileNotSupported,
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
-	c.Assert(err, gc.ErrorMatches, `auth-type "oauth2" not supported`)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorMatches, `auth-type "oauth2" not supported`)
 }
 
 func readFileNotSupported(f string) ([]byte, error) {
 	return nil, errors.NotSupportedf("reading file %q", f)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialMandatoryFieldMissing(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialMandatoryFieldMissing(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -480,10 +479,10 @@ func (s *credentialsSuite) TestFinalizeCredentialMandatoryFieldMissing(c *gc.C) 
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, nil)
-	c.Assert(err, gc.ErrorMatches, "username: expected string, got nothing")
+	c.Assert(err, tc.ErrorMatches, "username: expected string, got nothing")
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialMandatoryFieldFromFile(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialMandatoryFieldFromFile(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -499,19 +498,19 @@ func (s *credentialsSuite) TestFinalizeCredentialMandatoryFieldFromFile(c *gc.C)
 		},
 	}}
 	readFile := func(s string) ([]byte, error) {
-		c.Assert(s, gc.Equals, "path")
+		c.Assert(s, tc.Equals, "path")
 		return []byte("file-value"), nil
 	}
 	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, readFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newCred.Attributes(), tc.DeepEquals, map[string]string{
 		"key": "file-value",
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialExtraField(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialExtraField(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -529,10 +528,10 @@ func (s *credentialsSuite) TestFinalizeCredentialExtraField(c *gc.C) {
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, nil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`unknown key "access-key" (value "access-key")`))
+	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta(`unknown key "access-key" (value "access-key")`))
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialInvalidChoice(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialInvalidChoice(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -549,14 +548,14 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalidChoice(c *gc.C) {
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, nil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`algorithm: expected one of [bar foobar], got "foo"`))
+	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta(`algorithm: expected one of [bar foobar], got "foo"`))
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialFilePath(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialFilePath(c *tc.C) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "filename")
 	err := os.WriteFile(filename, []byte{}, 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cred := cloud.NewCredential(
 		cloud.JSONFileAuthType,
@@ -569,23 +568,23 @@ func (s *credentialsSuite) TestFinalizeCredentialFilePath(c *gc.C) {
 	}}
 
 	readFile := func(path string) ([]byte, error) {
-		c.Assert(path, gc.Equals, filename)
+		c.Assert(path, tc.Equals, filename)
 		return []byte("file-contents"), nil
 	}
 
 	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.JSONFileAuthType: schema,
 	}, readFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newCred.Attributes(), tc.DeepEquals, map[string]string{
 		"file": "file-contents",
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialRelativeFilePath(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialRelativeFilePath(c *tc.C) {
 	absFilename := filepath.Join(utils.Home(), "filename")
 	err := os.WriteFile(absFilename, []byte{}, 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cred := cloud.NewCredential(
 		cloud.JSONFileAuthType,
@@ -597,19 +596,19 @@ func (s *credentialsSuite) TestFinalizeCredentialRelativeFilePath(c *gc.C) {
 		"file", cloud.CredentialAttr{FilePath: true},
 	}}
 	readFile := func(path string) ([]byte, error) {
-		c.Assert(path, gc.Equals, absFilename)
+		c.Assert(path, tc.Equals, absFilename)
 		return []byte("file-contents"), nil
 	}
 	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.JSONFileAuthType: schema,
 	}, readFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newCred.Attributes(), tc.DeepEquals, map[string]string{
 		"file": "file-contents",
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialInvalidFilePath(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialInvalidFilePath(c *tc.C) {
 	fp := filepath.Join(c.MkDir(), "somefile")
 	cred := cloud.NewCredential(
 		cloud.JSONFileAuthType,
@@ -623,10 +622,10 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalidFilePath(c *gc.C) {
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.JSONFileAuthType: schema,
 	}, nil)
-	c.Assert(err, gc.ErrorMatches, "invalid file path: .*")
+	c.Assert(err, tc.ErrorMatches, "invalid file path: .*")
 }
 
-func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {
+func (s *credentialsSuite) TestRemoveSecrets(c *tc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -634,7 +633,7 @@ func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {
 			"password": "secret",
 		},
 	)
-	c.Assert(cred.Revoked, jc.IsFalse)
+	c.Assert(cred.Revoked, tc.IsFalse)
 	schema := cloud.CredentialSchema{{
 		"username", cloud.CredentialAttr{},
 	}, {
@@ -643,36 +642,36 @@ func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {
 	sanitisedCred, err := cloud.RemoveSecrets(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sanitisedCred.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sanitisedCred.Attributes(), tc.DeepEquals, map[string]string{
 		"username": "user",
 	})
 }
 
-func (s *credentialsSuite) TestValidateFileAttrValue(c *gc.C) {
+func (s *credentialsSuite) TestValidateFileAttrValue(c *tc.C) {
 	_, err := cloud.ValidateFileAttrValue("/xyz/nothing.blah")
-	c.Assert(err, gc.ErrorMatches, "invalid file path: stat /xyz/nothing.blah: no such file or directory")
+	c.Assert(err, tc.ErrorMatches, "invalid file path: stat /xyz/nothing.blah: no such file or directory")
 
 	absPathNewFile := filepath.Join(utils.Home(), "new-creds.json")
 	err = os.WriteFile(absPathNewFile, []byte("abc"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	absPath, err := cloud.ValidateFileAttrValue("~/new-creds.json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(absPath, gc.Equals, absPathNewFile)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(absPath, tc.Equals, absPathNewFile)
 
 	_, err = cloud.ValidateFileAttrValue(utils.Home())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("file path %q must be a file", utils.Home()))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("file path %q must be a file", utils.Home()))
 }
 
-func (s *credentialsSuite) TestExpandFilePathsOfCredential(c *gc.C) {
+func (s *credentialsSuite) TestExpandFilePathsOfCredential(c *tc.C) {
 	tempFile, err := os.CreateTemp("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = tempFile.WriteString("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(tempFile.Close(), jc.ErrorIsNil)
+	c.Assert(tempFile.Close(), tc.ErrorIsNil)
 
 	cred := cloud.NewNamedCredential("test",
 		cloud.AuthType("test"),
@@ -707,14 +706,14 @@ func (s *credentialsSuite) TestExpandFilePathsOfCredential(c *gc.C) {
 			cloud.AuthType("test"): credSchema,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cred.Attributes()["test-key"], gc.Equals, "test")
-	c.Assert(cred.Attributes()["test-key1"], gc.Equals, "test-value")
+	c.Assert(cred.Attributes()["test-key"], tc.Equals, "test")
+	c.Assert(cred.Attributes()["test-key1"], tc.Equals, "test-value")
 }
 
 // Regression test for lp1976620
-func (s *credentialsSuite) TestExpandFilePathsOfPem(c *gc.C) {
+func (s *credentialsSuite) TestExpandFilePathsOfPem(c *tc.C) {
 	testPemCert := `
 -----BEGIN CERTIFICATE-----
 MIIB5DCCAWugAwIBAgIRAI0U9NoAVVolPG4O85Zr3dgwCgYIKoZIzj0EAwMwOjEc
@@ -755,6 +754,6 @@ QD0jIrgXpik=
 			cloud.AuthType("test"): credSchema,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cred.Attributes()["test-key"], gc.Equals, testPemCert)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cred.Attributes()["test-key"], tc.Equals, testPemCert)
 }

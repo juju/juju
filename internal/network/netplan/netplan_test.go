@@ -13,43 +13,42 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/kr/pretty"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/network/netplan"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type NetplanSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&NetplanSuite{})
+var _ = tc.Suite(&NetplanSuite{})
 
-func MustNetplanFromYaml(c *gc.C, input string) *netplan.Netplan {
+func MustNetplanFromYaml(c *tc.C, input string) *netplan.Netplan {
 	var np netplan.Netplan
 	if strings.HasPrefix(input, "\n") {
 		input = input[1:]
 	}
 	err := yaml.UnmarshalStrict([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &np
 }
 
-func checkNetplanRoundTrips(c *gc.C, input string) {
+func checkNetplanRoundTrips(c *tc.C, input string) {
 	if strings.HasPrefix(input, "\n") {
 		input = input[1:]
 	}
 	np := MustNetplanFromYaml(c, input)
 	out, err := netplan.Marshal(np)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, input)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(out), tc.Equals, input)
 }
 
-func (s *NetplanSuite) TestStructures(c *gc.C) {
+func (s *NetplanSuite) TestStructures(c *tc.C) {
 	checkNetplanRoundTrips(c, `
 network:
   version: 2
@@ -123,7 +122,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestStructuresWithOptionalOVSBlock(c *gc.C) {
+func (s *NetplanSuite) TestStructuresWithOptionalOVSBlock(c *tc.C) {
 	checkNetplanRoundTrips(c, `
 network:
   version: 2
@@ -140,7 +139,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestDecodeBondsWithOVS(c *gc.C) {
+func (s *NetplanSuite) TestDecodeBondsWithOVS(c *tc.C) {
 	_ = MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -313,7 +312,7 @@ network:
   `)
 }
 
-func (s *NetplanSuite) TestSerializationOfEthernetDevicesWithLinkLocalFields(c *gc.C) {
+func (s *NetplanSuite) TestSerializationOfEthernetDevicesWithLinkLocalFields(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -341,11 +340,11 @@ network:
 `[1:]
 
 	npYAML, err := netplan.Marshal(np)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(npYAML), gc.Equals, exp)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(npYAML), tc.Equals, exp)
 }
 
-func (s *NetplanSuite) TestBasicBond(c *gc.C) {
+func (s *NetplanSuite) TestBasicBond(c *tc.C) {
 	checkNetplanRoundTrips(c, `
 network:
   version: 2
@@ -376,7 +375,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestParseBridgedBond(c *gc.C) {
+func (s *NetplanSuite) TestParseBridgedBond(c *tc.C) {
 	checkNetplanRoundTrips(c, `
 network:
   version: 2
@@ -407,7 +406,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestBondsIntParameters(c *gc.C) {
+func (s *NetplanSuite) TestBondsIntParameters(c *tc.C) {
 	// several parameters can be specified as an integer or a string
 	// such as 'mode: 0' is the same as 'balance-rr'
 	checkNetplanRoundTrips(c, `
@@ -464,7 +463,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestBondWithVLAN(c *gc.C) {
+func (s *NetplanSuite) TestBondWithVLAN(c *tc.C) {
 	checkNetplanRoundTrips(c, `
 network:
   version: 2
@@ -499,7 +498,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestBondsAllParameters(c *gc.C) {
+func (s *NetplanSuite) TestBondsAllParameters(c *tc.C) {
 	// All parameters don't inherently make sense at the same time, but we should be able to parse all of them.
 	// nolint: misspell
 	checkNetplanRoundTrips(c, `
@@ -550,7 +549,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestBridgesAllParameters(c *gc.C) {
+func (s *NetplanSuite) TestBridgesAllParameters(c *tc.C) {
 	// All parameters don't inherently make sense at the same time, but we should be able to parse all of them.
 	checkNetplanRoundTrips(c, `
 network:
@@ -617,7 +616,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestAllRoutesParams(c *gc.C) {
+func (s *NetplanSuite) TestAllRoutesParams(c *tc.C) {
 	checkNetplanRoundTrips(c, `
 network:
   version: 2
@@ -659,7 +658,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestAllVLANParams(c *gc.C) {
+func (s *NetplanSuite) TestAllVLANParams(c *tc.C) {
 	checkNetplanRoundTrips(c, `
 network:
   version: 2
@@ -703,7 +702,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestSimpleBridger(c *gc.C) {
+func (s *NetplanSuite) TestSimpleBridger(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -750,14 +749,14 @@ network:
         metric: 5
 `[1:]
 	err := np.BridgeEthernetById("id0", "juju-bridge")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := netplan.Marshal(np)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(out), tc.Equals, expected)
 }
 
-func (s *NetplanSuite) TestBridgerIdempotent(c *gc.C) {
+func (s *NetplanSuite) TestBridgerIdempotent(c *tc.C) {
 	input := `
 network:
   version: 2
@@ -783,13 +782,13 @@ network:
         metric: 5
 `[1:]
 	np := MustNetplanFromYaml(c, input)
-	c.Assert(np.BridgeEthernetById("id0", "juju-bridge"), jc.ErrorIsNil)
+	c.Assert(np.BridgeEthernetById("id0", "juju-bridge"), tc.ErrorIsNil)
 	out, err := netplan.Marshal(np)
-	c.Check(string(out), gc.Equals, input)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(out), tc.Equals, input)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *NetplanSuite) TestBridgerBridgeExists(c *gc.C) {
+func (s *NetplanSuite) TestBridgerBridgeExists(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -822,10 +821,10 @@ network:
         addresses: [8.8.8.8]
 `)
 	err := np.BridgeEthernetById("id0", "juju-bridge")
-	c.Check(err, gc.ErrorMatches, `cannot create bridge "juju-bridge" with device "id0" - bridge "juju-bridge" w/ interfaces "id1" already exists`)
+	c.Check(err, tc.ErrorMatches, `cannot create bridge "juju-bridge" with device "id0" - bridge "juju-bridge" w/ interfaces "id1" already exists`)
 }
 
-func (s *NetplanSuite) TestBridgerDeviceBridged(c *gc.C) {
+func (s *NetplanSuite) TestBridgerDeviceBridged(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -855,10 +854,10 @@ network:
         addresses: [8.8.8.8]
 `)
 	err := np.BridgeEthernetById("id0", "juju-bridge")
-	c.Check(err, gc.ErrorMatches, `cannot create bridge "juju-bridge", device "id0" in bridge "not-juju-bridge" already exists`)
+	c.Check(err, tc.ErrorMatches, `cannot create bridge "juju-bridge", device "id0" in bridge "not-juju-bridge" already exists`)
 }
 
-func (s *NetplanSuite) TestBridgerEthernetMissing(c *gc.C) {
+func (s *NetplanSuite) TestBridgerEthernetMissing(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -880,11 +879,11 @@ network:
         addresses: [8.8.8.8]
 `)
 	err := np.BridgeEthernetById("id7", "juju-bridge")
-	c.Check(err, gc.ErrorMatches, `ethernet device with id "id7" for bridge "juju-bridge" not found`)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, `ethernet device with id "id7" for bridge "juju-bridge" not found`)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *NetplanSuite) TestBridgeVLAN(c *gc.C) {
+func (s *NetplanSuite) TestBridgeVLAN(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -941,14 +940,14 @@ network:
       link: id0
 `[1:]
 	err := np.BridgeVLANById("id0.1234", "br-id0.1234")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := netplan.Marshal(np)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(out), tc.Equals, expected)
 }
 
-func (s *NetplanSuite) TestBridgerVLANMissing(c *gc.C) {
+func (s *NetplanSuite) TestBridgerVLANMissing(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -974,11 +973,11 @@ network:
         addresses: [8.8.8.8]
 `)
 	err := np.BridgeVLANById("id0.1235", "br-id0.1235")
-	c.Check(err, gc.ErrorMatches, `VLAN device with id "id0.1235" for bridge "br-id0.1235" not found`)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, `VLAN device with id "id0.1235" for bridge "br-id0.1235" not found`)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *NetplanSuite) TestBridgeVLANAndLinkedDevice(c *gc.C) {
+func (s *NetplanSuite) TestBridgeVLANAndLinkedDevice(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -1043,16 +1042,16 @@ network:
       link: id0
 `[1:]
 	err := np.BridgeEthernetById("id0", "br-id0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = np.BridgeVLANById("id0.1234", "br-id0.1234")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := netplan.Marshal(np)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(out), tc.Equals, expected)
 }
 
-func (s *NetplanSuite) TestBridgeBond(c *gc.C) {
+func (s *NetplanSuite) TestBridgeBond(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -1115,14 +1114,14 @@ network:
         lacp-rate: fast
 `[1:]
 	err := np.BridgeBondById("bond0", "br-bond0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := netplan.Marshal(np)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(out), tc.Equals, expected)
 }
 
-func (s *NetplanSuite) TestBridgerBondMissing(c *gc.C) {
+func (s *NetplanSuite) TestBridgerBondMissing(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -1154,11 +1153,11 @@ network:
         addresses: [8.8.8.8]
 `)
 	err := np.BridgeBondById("bond1", "br-bond1")
-	c.Check(err, gc.ErrorMatches, `bond device with id "bond1" for bridge "br-bond1" not found`)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, `bond device with id "bond1" for bridge "br-bond1" not found`)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *NetplanSuite) TestFindEthernetByName(c *gc.C) {
+func (s *NetplanSuite) TestFindEthernetByName(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -1193,23 +1192,23 @@ network:
       - 3.4.5.6/24
 `)
 	device, err := np.FindEthernetByName("eno1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(device, gc.Equals, "id0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(device, tc.Equals, "id0")
 
 	device, err = np.FindEthernetByName("eno3")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(device, gc.Equals, "id1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(device, tc.Equals, "id1")
 
 	device, err = np.FindEthernetByName("eno7")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(device, gc.Equals, "eno7")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(device, tc.Equals, "eno7")
 
 	_, err = np.FindEthernetByName("eno5")
-	c.Check(err, gc.ErrorMatches, "Ethernet device with name \"eno5\" not found")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, "Ethernet device with name \"eno5\" not found")
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *NetplanSuite) TestFindEthernetByMAC(c *gc.C) {
+func (s *NetplanSuite) TestFindEthernetByMAC(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -1244,19 +1243,19 @@ network:
       macaddress: 00:11:22:33:44:77
 `)
 	device, err := np.FindEthernetByMAC("00:11:22:33:44:66")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(device, gc.Equals, "id1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(device, tc.Equals, "id1")
 
 	_, err = np.FindEthernetByMAC("00:11:22:33:44:88")
-	c.Check(err, gc.ErrorMatches, "Ethernet device with MAC \"00:11:22:33:44:88\" not found")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, "Ethernet device with MAC \"00:11:22:33:44:88\" not found")
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 
 	device, err = np.FindEthernetByMAC("00:11:22:33:44:77")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(device, gc.Equals, "id2")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(device, tc.Equals, "id2")
 }
 
-func (s *NetplanSuite) TestFindVLANByName(c *gc.C) {
+func (s *NetplanSuite) TestFindVLANByName(c *tc.C) {
 	input := `
 network:
   version: 2
@@ -1283,15 +1282,15 @@ network:
 	np := MustNetplanFromYaml(c, input)
 
 	device, err := np.FindVLANByName("id0.123")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(device, gc.Equals, "id0.123")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(device, tc.Equals, "id0.123")
 
 	_, err = np.FindVLANByName("id0")
-	c.Check(err, gc.ErrorMatches, "VLAN device with name \"id0\" not found")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, "VLAN device with name \"id0\" not found")
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *NetplanSuite) TestFindVLANByMAC(c *gc.C) {
+func (s *NetplanSuite) TestFindVLANByMAC(c *tc.C) {
 	input := `
 network:
   version: 2
@@ -1320,16 +1319,16 @@ network:
 	np := MustNetplanFromYaml(c, input)
 
 	device, err := np.FindVLANByMAC("00:11:22:33:44:77")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(device, gc.Equals, "id0.123")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(device, tc.Equals, "id0.123")
 
 	// This is an Ethernet, not a VLAN
 	_, err = np.FindVLANByMAC("00:11:22:33:44:55")
-	c.Check(err, gc.ErrorMatches, `VLAN device with MAC "00:11:22:33:44:55" not found`)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, `VLAN device with MAC "00:11:22:33:44:55" not found`)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *NetplanSuite) TestFindBondByName(c *gc.C) {
+func (s *NetplanSuite) TestFindBondByName(c *tc.C) {
 	input := `
 network:
   version: 2
@@ -1363,24 +1362,24 @@ network:
 	np := MustNetplanFromYaml(c, input)
 
 	device, err := np.FindBondByName("bond0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(device, gc.Equals, "bond0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(device, tc.Equals, "bond0")
 
 	device, err = np.FindBondByName("bond1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(device, gc.Equals, "bond1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(device, tc.Equals, "bond1")
 
 	_, err = np.FindBondByName("bond3")
-	c.Check(err, gc.ErrorMatches, "bond device with name \"bond3\" not found")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, "bond device with name \"bond3\" not found")
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 
 	// eno4 is an Ethernet, not a Bond
 	_, err = np.FindBondByName("eno4")
-	c.Check(err, gc.ErrorMatches, "bond device with name \"eno4\" not found")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, "bond device with name \"eno4\" not found")
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *NetplanSuite) TestFindBondByMAC(c *gc.C) {
+func (s *NetplanSuite) TestFindBondByMAC(c *tc.C) {
 	input := `
 network:
   version: 2
@@ -1415,32 +1414,32 @@ network:
 	np := MustNetplanFromYaml(c, input)
 
 	device, err := np.FindBondByMAC("00:11:22:33:44:77")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(device, gc.Equals, "bond1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(device, tc.Equals, "bond1")
 
 	_, err = np.FindBondByMAC("00:11:22:33:44:99")
-	c.Check(err, gc.ErrorMatches, `bond device with MAC "00:11:22:33:44:99" not found`)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, `bond device with MAC "00:11:22:33:44:99" not found`)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 
 	// This is an Ethernet, not a Bond
 	_, err = np.FindBondByMAC("00:11:22:33:44:55")
-	c.Check(err, gc.ErrorMatches, `bond device with MAC "00:11:22:33:44:55" not found`)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, `bond device with MAC "00:11:22:33:44:55" not found`)
+	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
 
-func checkFindDevice(c *gc.C, np *netplan.Netplan, name, mac, device string, dtype netplan.DeviceType, expErr string) {
+func checkFindDevice(c *tc.C, np *netplan.Netplan, name, mac, device string, dtype netplan.DeviceType, expErr string) {
 	foundDev, foundType, foundErr := np.FindDeviceByNameOrMAC(name, mac)
 	if expErr != "" {
-		c.Check(foundErr, gc.ErrorMatches, expErr)
-		c.Check(foundErr, jc.ErrorIs, errors.NotFound)
+		c.Check(foundErr, tc.ErrorMatches, expErr)
+		c.Check(foundErr, tc.ErrorIs, errors.NotFound)
 	} else {
-		c.Assert(foundErr, jc.ErrorIsNil)
-		c.Check(foundDev, gc.Equals, device)
-		c.Check(foundType, gc.Equals, dtype)
+		c.Assert(foundErr, tc.ErrorIsNil)
+		c.Check(foundDev, tc.Equals, device)
+		c.Check(foundType, tc.Equals, dtype)
 	}
 }
 
-func (s *NetplanSuite) TestFindDeviceByNameOrMAC(c *gc.C) {
+func (s *NetplanSuite) TestFindDeviceByNameOrMAC(c *tc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -1495,7 +1494,7 @@ network:
 	checkFindDevice(c, np, "", "de:ad:be:ef:01:03", "eno3.123", netplan.TypeVLAN, "")
 }
 
-func (s *NetplanSuite) TestReadDirectory(c *gc.C) {
+func (s *NetplanSuite) TestReadDirectory(c *tc.C) {
 	expected := `
 network:
   version: 2
@@ -1535,14 +1534,14 @@ network:
       - 1.5.6.7/24
 `[1:]
 	np, err := netplan.ReadDirectory("testdata/TestReadDirectory")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := netplan.Marshal(&np)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(out), tc.Equals, expected)
 }
 
-func (s *NetplanSuite) TestReadWriteBackupRollback(c *gc.C) {
+func (s *NetplanSuite) TestReadWriteBackupRollback(c *tc.C) {
 	expected := `
 network:
   version: 2
@@ -1593,130 +1592,130 @@ network:
 	for i, file := range files {
 		var err error
 		contents[i], err = os.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	np, err := netplan.ReadDirectory(tempDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = np.BridgeEthernetById("eno1", "juju-bridge")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	generatedFile, err := np.Write("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = np.Write("")
-	c.Check(err, gc.ErrorMatches, "Cannot write the same netplan twice")
+	c.Check(err, tc.ErrorMatches, "Cannot write the same netplan twice")
 
 	err = np.MoveYamlsToBak()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = np.MoveYamlsToBak()
-	c.Check(err, gc.ErrorMatches, "Cannot backup netplan yamls twice")
+	c.Check(err, tc.ErrorMatches, "Cannot backup netplan yamls twice")
 
 	dirEntries, err := os.ReadDir(tempDir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(dirEntries, gc.HasLen, len(files)+1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(dirEntries, tc.HasLen, len(files)+1)
 	for _, entry := range dirEntries {
 		for i, fileName := range files {
 			// original file is moved to backup
-			c.Check(entry.Name(), gc.Not(gc.Equals), fileName)
+			c.Check(entry.Name(), tc.Not(tc.Equals), fileName)
 			// backup file has the proper content
 			if strings.HasPrefix(entry.Name(), fmt.Sprintf("%s.bak.", fileName)) {
 				data, err := os.ReadFile(path.Join(tempDir, entry.Name()))
-				c.Assert(err, jc.ErrorIsNil)
-				c.Check(data, gc.DeepEquals, contents[i])
+				c.Assert(err, tc.ErrorIsNil)
+				c.Check(data, tc.DeepEquals, contents[i])
 			}
 		}
 	}
 
 	data, err := os.ReadFile(generatedFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(data), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(data), tc.Equals, expected)
 
 	err = np.Rollback()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dirEntries, err = os.ReadDir(tempDir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(dirEntries, gc.HasLen, len(files))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(dirEntries, tc.HasLen, len(files))
 	foundFiles := 0
 	for _, entry := range dirEntries {
 		for i, fileName := range files {
 			if entry.Name() == fileName {
 				data, err := os.ReadFile(path.Join(tempDir, entry.Name()))
-				c.Assert(err, jc.ErrorIsNil)
-				c.Check(data, gc.DeepEquals, contents[i])
+				c.Assert(err, tc.ErrorIsNil)
+				c.Check(data, tc.DeepEquals, contents[i])
 				foundFiles++
 			}
 		}
 	}
-	c.Check(foundFiles, gc.Equals, len(files))
+	c.Check(foundFiles, tc.Equals, len(files))
 
 	// After rollback we should be able to write and move yamls to backup again
 	// We also check if writing to an explicit file works
 	myPath := path.Join(tempDir, "my-own-path.yaml")
 	outPath, err := np.Write(myPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(outPath, gc.Equals, myPath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(outPath, tc.Equals, myPath)
 	data, err = os.ReadFile(outPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(data), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(data), tc.Equals, expected)
 
 	err = np.MoveYamlsToBak()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *NetplanSuite) TestReadDirectoryMissing(c *gc.C) {
+func (s *NetplanSuite) TestReadDirectoryMissing(c *tc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	// On Windows the error is something like: "The system cannot find the file specified"
 	tempDir := c.MkDir()
 	os.RemoveAll(tempDir)
 	_, err := netplan.ReadDirectory(tempDir)
-	c.Check(err, gc.ErrorMatches, ".*open .* no such file or directory")
+	c.Check(err, tc.ErrorMatches, ".*open .* no such file or directory")
 }
 
-func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *gc.C) {
+func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *tc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	err := os.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("network:\n"), 00000)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = netplan.ReadDirectory(tempDir)
-	c.Check(err, gc.ErrorMatches, ".*open .*/00-file.yaml: permission denied")
+	c.Check(err, tc.ErrorMatches, ".*open .*/00-file.yaml: permission denied")
 }
 
-func (s *NetplanSuite) TestReadDirectoryBrokenYaml(c *gc.C) {
+func (s *NetplanSuite) TestReadDirectoryBrokenYaml(c *tc.C) {
 	tempDir := c.MkDir()
 	err := os.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("I am not a yaml file!\nreally!\n"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = netplan.ReadDirectory(tempDir)
-	c.Check(err, gc.ErrorMatches, ".*yaml: unmarshal errors:\n.*")
+	c.Check(err, tc.ErrorMatches, ".*yaml: unmarshal errors:\n.*")
 }
 
-func (s *NetplanSuite) TestWritePermissionDenied(c *gc.C) {
+func (s *NetplanSuite) TestWritePermissionDenied(c *tc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	np, err := netplan.ReadDirectory(tempDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	os.Chmod(tempDir, 00000)
 	_, err = np.Write(path.Join(tempDir, "99-juju-netplan.yaml"))
-	c.Check(err, gc.ErrorMatches, ".*open .* permission denied")
+	c.Check(err, tc.ErrorMatches, ".*open .* permission denied")
 }
 
-func (s *NetplanSuite) TestWriteCantGenerateName(c *gc.C) {
+func (s *NetplanSuite) TestWriteCantGenerateName(c *tc.C) {
 	tempDir := c.MkDir()
 	for i := 0; i < 100; i++ {
 		filePath := path.Join(tempDir, fmt.Sprintf("%0.2d-juju.yaml", i))
 		os.WriteFile(filePath, []byte{}, 0644)
 	}
 	np, err := netplan.ReadDirectory(tempDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = np.Write("")
-	c.Check(err, gc.ErrorMatches, "Can't generate a filename for netplan YAML")
+	c.Check(err, tc.ErrorMatches, "Can't generate a filename for netplan YAML")
 }
 
-func (s *NetplanSuite) TestProperReadingOrder(c *gc.C) {
+func (s *NetplanSuite) TestProperReadingOrder(c *tc.C) {
 	var header = `
 network:
   version: 2
@@ -1738,19 +1737,19 @@ network:
 	}
 
 	np, err := netplan.ReadDirectory(tempDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fileName, err := np.Write("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	writtenContent, err := os.ReadFile(fileName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	content := header
 	for n := 0; n < 100; n++ {
 		content += fmt.Sprintf(template, n, n, 100-n-1)
 	}
-	c.Check(string(writtenContent), gc.Equals, content)
+	c.Check(string(writtenContent), tc.Equals, content)
 }
 
 type Example struct {
@@ -1758,9 +1757,9 @@ type Example struct {
 	content  string
 }
 
-func readExampleStrings(c *gc.C) []Example {
+func readExampleStrings(c *tc.C) []Example {
 	dirEntries, err := os.ReadDir("testdata/examples")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var examples []Example
 	for _, entry := range dirEntries {
 		if entry.IsDir() {
@@ -1768,10 +1767,10 @@ func readExampleStrings(c *gc.C) []Example {
 		}
 		if strings.HasSuffix(entry.Name(), ".yaml") {
 			f, err := os.Open("testdata/examples/" + entry.Name())
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			content, err := io.ReadAll(f)
 			f.Close()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			examples = append(examples, Example{
 				filename: entry.Name(),
 				content:  string(content),
@@ -1780,27 +1779,27 @@ func readExampleStrings(c *gc.C) []Example {
 	}
 	// Make sure we find all the example files, if we change the count, update this number, but we don't allow the test
 	// suite to find the wrong number of files.
-	c.Assert(len(examples), gc.Equals, 12)
+	c.Assert(len(examples), tc.Equals, 12)
 	return examples
 }
 
-func (s *NetplanSuite) TestNetplanExamples(c *gc.C) {
+func (s *NetplanSuite) TestNetplanExamples(c *tc.C) {
 	// these are the examples shipped by netplan, we should be able to read all of them
 	examples := readExampleStrings(c)
 	for _, example := range examples {
 		c.Logf("example: %s", example.filename)
 		var orig map[interface{}]interface{}
 		err := yaml.UnmarshalStrict([]byte(example.content), &orig)
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf("failed to unmarshal as map %s", example.filename))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("failed to unmarshal as map %s", example.filename))
 		np := MustNetplanFromYaml(c, example.content)
 		// We don't assert that we exactly match the serialized form (we may output fields in a different order),
 		// but we do check that if we Marshal and then Unmarshal again, we get the same map contents.
 		// (We might also change boolean 'no' to 'false', etc.
 		out, err := netplan.Marshal(np)
-		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed to marshal %s", example.filename))
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("failed to marshal %s", example.filename))
 		var roundtripped map[interface{}]interface{}
 		err = yaml.UnmarshalStrict(out, &roundtripped)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		if !reflect.DeepEqual(orig, roundtripped) {
 			pretty.Ldiff(c, orig, roundtripped)
 			c.Errorf("marshalling and unmarshalling %s did not contain the same content", example.filename)

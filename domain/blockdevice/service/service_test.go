@@ -6,26 +6,25 @@ package service
 import (
 	"context"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type serviceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state          *MockState
 	watcherFactory *MockWatcherFactory
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
@@ -34,11 +33,11 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) service(c *gc.C) *WatchableService {
+func (s *serviceSuite) service(c *tc.C) *WatchableService {
 	return NewWatchableService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 }
 
-func (s *serviceSuite) TestBlockDevices(c *gc.C) {
+func (s *serviceSuite) TestBlockDevices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	bd := []blockdevice.BlockDevice{{
@@ -58,11 +57,11 @@ func (s *serviceSuite) TestBlockDevices(c *gc.C) {
 	s.state.EXPECT().BlockDevices(gomock.Any(), "666").Return(bd, nil)
 
 	result, err := s.service(c).BlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, bd)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, bd)
 }
 
-func (s *serviceSuite) TestAllBlockDevices(c *gc.C) {
+func (s *serviceSuite) TestAllBlockDevices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mbd := []blockdevice.MachineBlockDevice{{
@@ -90,14 +89,14 @@ func (s *serviceSuite) TestAllBlockDevices(c *gc.C) {
 	s.state.EXPECT().MachineBlockDevices(gomock.Any()).Return(mbd, nil)
 
 	result, err := s.service(c).AllBlockDevices(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, map[string]blockdevice.BlockDevice{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, map[string]blockdevice.BlockDevice{
 		"666": mbd[0].BlockDevice,
 		"667": mbd[1].BlockDevice,
 	})
 }
 
-func (s *serviceSuite) TestUpdateDevices(c *gc.C) {
+func (s *serviceSuite) TestUpdateDevices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	bd := []blockdevice.BlockDevice{{
@@ -117,10 +116,10 @@ func (s *serviceSuite) TestUpdateDevices(c *gc.C) {
 	s.state.EXPECT().SetMachineBlockDevices(gomock.Any(), "666", bd)
 
 	err := s.service(c).UpdateBlockDevices(context.Background(), "666", bd...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateDevicesNoFilesystemType(c *gc.C) {
+func (s *serviceSuite) TestUpdateDevicesNoFilesystemType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	bd := []blockdevice.BlockDevice{{
@@ -142,10 +141,10 @@ func (s *serviceSuite) TestUpdateDevicesNoFilesystemType(c *gc.C) {
 	in := bd[0]
 	in.FilesystemType = ""
 	err := s.service(c).UpdateBlockDevices(context.Background(), "666", in)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestWatchBlockDevice(c *gc.C) {
+func (s *serviceSuite) TestWatchBlockDevice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	nw := watchertest.NewMockNotifyWatcher(nil)
@@ -153,6 +152,6 @@ func (s *serviceSuite) TestWatchBlockDevice(c *gc.C) {
 	s.state.EXPECT().WatchBlockDevices(gomock.Any(), gomock.Any(), "666").Return(nw, nil)
 
 	w, err := s.service(c).WatchBlockDevices(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
 }

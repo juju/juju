@@ -9,9 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cloud"
@@ -20,15 +18,16 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/ec2" // needed when getting valid local credentials
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&ModelCredentialCommandSuite{})
+var _ = tc.Suite(&ModelCredentialCommandSuite{})
 
 type ModelCredentialCommandSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	store *jujuclient.MemStore
 
@@ -37,7 +36,7 @@ type ModelCredentialCommandSuite struct {
 	rootFunc    func(ctx context.Context) (base.APICallCloser, error)
 }
 
-func (s *ModelCredentialCommandSuite) SetUpTest(c *gc.C) {
+func (s *ModelCredentialCommandSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.store = jujuclient.NewMemStore()
@@ -50,7 +49,7 @@ func (s *ModelCredentialCommandSuite) SetUpTest(c *gc.C) {
 		ModelUUID: testing.ModelTag.Id(),
 		ModelType: coremodel.IAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 
 	s.rootFunc = func(ctx context.Context) (base.APICallCloser, error) { return &fakeRoot{}, nil }
@@ -58,7 +57,7 @@ func (s *ModelCredentialCommandSuite) SetUpTest(c *gc.C) {
 	s.cloudClient = fakeCloudClient{}
 }
 
-func (s *ModelCredentialCommandSuite) TestBadArguments(c *gc.C) {
+func (s *ModelCredentialCommandSuite) TestBadArguments(c *tc.C) {
 	badArgs := []struct {
 		about  string
 		args   []string
@@ -94,38 +93,38 @@ func (s *ModelCredentialCommandSuite) TestBadArguments(c *gc.C) {
 	for i, bad := range badArgs {
 		c.Logf("%d: %v", i, bad.about)
 		ctx, err := cmdtesting.RunCommand(c, s.newSetCredentialCommand(), bad.args...)
-		c.Assert(err, gc.ErrorMatches, bad.err)
+		c.Assert(err, tc.ErrorMatches, bad.err)
 
-		c.Assert(cmdtesting.Stderr(ctx), gc.Equals, bad.stderr)
-		c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+		c.Assert(cmdtesting.Stderr(ctx), tc.Equals, bad.stderr)
+		c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 		s.modelClient.CheckNoCalls(c)
 		s.cloudClient.CheckNoCalls(c)
 	}
 }
 
-func (s *ModelCredentialCommandSuite) TestRootAPIError(c *gc.C) {
+func (s *ModelCredentialCommandSuite) TestRootAPIError(c *tc.C) {
 	s.rootFunc = func(ctx context.Context) (base.APICallCloser, error) {
 		return nil, errors.New("kaboom")
 	}
 	ctx, err := cmdtesting.RunCommand(c, s.newSetCredentialCommand(), "cloud", "credential")
-	c.Assert(err, gc.ErrorMatches, "opening API connection: kaboom")
+	c.Assert(err, tc.ErrorMatches, "opening API connection: kaboom")
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Failed to change model credential: opening API connection: kaboom\n")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "Failed to change model credential: opening API connection: kaboom\n")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 	s.modelClient.CheckNoCalls(c)
 	s.cloudClient.CheckNoCalls(c)
 }
 
-func (s *ModelCredentialCommandSuite) TestSetCredentialNotFoundAnywhere(c *gc.C) {
+func (s *ModelCredentialCommandSuite) TestSetCredentialNotFoundAnywhere(c *tc.C) {
 	s.assertCredentialNotFound(c, `
 Did not find credential remotely. Looking locally...
 Failed to change model credential: loading credentials: credentials for cloud aws not found
 `[1:])
 }
 
-func (s *ModelCredentialCommandSuite) TestSetCredentialRemoteSearchErred(c *gc.C) {
+func (s *ModelCredentialCommandSuite) TestSetCredentialRemoteSearchErred(c *tc.C) {
 	s.cloudClient.SetErrors(errors.New("boom"))
 	s.assertCredentialNotFound(c, `
 Could not determine if there are remote credentials for the user: boom
@@ -134,15 +133,15 @@ Failed to change model credential: loading credentials: credentials for cloud aw
 `[1:])
 }
 
-func (s *ModelCredentialCommandSuite) assertCredentialNotFound(c *gc.C, expectedStderr string) {
+func (s *ModelCredentialCommandSuite) assertCredentialNotFound(c *tc.C, expectedStderr string) {
 	ctx, err := cmdtesting.RunCommand(c, s.newSetCredentialCommand(), "aws", "credential")
-	c.Assert(err, gc.ErrorMatches, "loading credentials: credentials for cloud aws not found")
+	c.Assert(err, tc.ErrorMatches, "loading credentials: credentials for cloud aws not found")
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedStderr)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expectedStderr)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 	s.modelClient.CheckNoCalls(c)
-	s.cloudClient.CheckCalls(c, []jujutesting.StubCall{
+	s.cloudClient.CheckCalls(c, []testhelpers.StubCall{
 		{"UserCredentials", []interface{}{
 			names.NewUserTag("admin"),
 			names.NewCloudTag("aws"),
@@ -151,47 +150,47 @@ func (s *ModelCredentialCommandSuite) assertCredentialNotFound(c *gc.C, expected
 	})
 }
 
-func (s *ModelCredentialCommandSuite) TestSetCredentialFoundRemote(c *gc.C) {
+func (s *ModelCredentialCommandSuite) TestSetCredentialFoundRemote(c *tc.C) {
 	err := s.assertRemoteCredentialFound(c, `
 Found credential remotely, on the controller. Not looking locally...
 Changed cloud credential on model "admin/mymodel" to "credential".
 `[1:])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ModelCredentialCommandSuite) TestSetCredentialErred(c *gc.C) {
+func (s *ModelCredentialCommandSuite) TestSetCredentialErred(c *tc.C) {
 	s.modelClient.SetErrors(errors.New("kaboom"))
 	err := s.assertRemoteCredentialFound(c, `
 Found credential remotely, on the controller. Not looking locally...
 `[1:])
-	c.Assert(err, gc.ErrorMatches, "could not set model credential: kaboom")
+	c.Assert(err, tc.ErrorMatches, "could not set model credential: kaboom")
 }
 
-func (s *ModelCredentialCommandSuite) TestSetCredentialBlocked(c *gc.C) {
+func (s *ModelCredentialCommandSuite) TestSetCredentialBlocked(c *tc.C) {
 	s.modelClient.SetErrors(&params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
 	err := s.assertRemoteCredentialFound(c, `
 Found credential remotely, on the controller. Not looking locally...
 `[1:])
-	c.Assert(err.Error(), jc.Contains, `could not set model credential: nope`)
-	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
+	c.Assert(err.Error(), tc.Contains, `could not set model credential: nope`)
+	c.Assert(err.Error(), tc.Contains, `All operations that change model have been disabled for the current model.`)
 }
 
-func (s *ModelCredentialCommandSuite) assertRemoteCredentialFound(c *gc.C, expectedStderr string) error {
+func (s *ModelCredentialCommandSuite) assertRemoteCredentialFound(c *tc.C, expectedStderr string) error {
 	credentialTag := names.NewCloudCredentialTag("aws/admin/credential")
 	s.cloudClient.userCredentials = []names.CloudCredentialTag{credentialTag}
 	ctx, err := cmdtesting.RunCommand(c, s.newSetCredentialCommand(), "aws", "credential")
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedStderr)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expectedStderr)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 
-	s.modelClient.CheckCalls(c, []jujutesting.StubCall{
+	s.modelClient.CheckCalls(c, []testhelpers.StubCall{
 		{"ChangeModelCredential", []interface{}{
 			testing.ModelTag,
 			credentialTag,
 		}},
 		{"Close", nil},
 	})
-	s.cloudClient.CheckCalls(c, []jujutesting.StubCall{
+	s.cloudClient.CheckCalls(c, []testhelpers.StubCall{
 		{"UserCredentials", []interface{}{
 			names.NewUserTag("admin"),
 			names.NewCloudTag("aws"),
@@ -203,15 +202,15 @@ func (s *ModelCredentialCommandSuite) assertRemoteCredentialFound(c *gc.C, expec
 	return err
 }
 
-func (s *ModelCredentialCommandSuite) TestSetCredentialLocal(c *gc.C) {
+func (s *ModelCredentialCommandSuite) TestSetCredentialLocal(c *tc.C) {
 	err := s.assertLocalCredentialUsed(c, `
 Did not find credential remotely. Looking locally...
 Uploading local credential to the controller.
 Changed cloud credential on model "admin/mymodel" to "credential".
 `[1:])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	s.modelClient.CheckCalls(c, []jujutesting.StubCall{
+	s.modelClient.CheckCalls(c, []testhelpers.StubCall{
 		{"ChangeModelCredential", []interface{}{
 			testing.ModelTag,
 			names.NewCloudCredentialTag("aws/admin/credential"),
@@ -220,18 +219,18 @@ Changed cloud credential on model "admin/mymodel" to "credential".
 	})
 }
 
-func (s *ModelCredentialCommandSuite) TestSetCredentialLocalUploadFailed(c *gc.C) {
+func (s *ModelCredentialCommandSuite) TestSetCredentialLocalUploadFailed(c *tc.C) {
 	s.cloudClient.SetErrors(nil, errors.New("upload failed"))
 	err := s.assertLocalCredentialUsed(c, `
 Did not find credential remotely. Looking locally...
 Uploading local credential to the controller.
 Failed to change model credential: upload failed
 `[1:])
-	c.Assert(err, gc.ErrorMatches, "upload failed")
+	c.Assert(err, tc.ErrorMatches, "upload failed")
 	s.modelClient.CheckNoCalls(c)
 }
 
-func (s *ModelCredentialCommandSuite) assertLocalCredentialUsed(c *gc.C, expectedStderr string) error {
+func (s *ModelCredentialCommandSuite) assertLocalCredentialUsed(c *tc.C, expectedStderr string) error {
 	credential := cloud.NewCredential(cloud.AccessKeyAuthType,
 		map[string]string{
 			"access-key": "v",
@@ -246,10 +245,10 @@ func (s *ModelCredentialCommandSuite) assertLocalCredentialUsed(c *gc.C, expecte
 	s.store.Credentials["aws"] = *cloudCredential
 	ctx, err := cmdtesting.RunCommand(c, s.newSetCredentialCommand(), "aws", "credential")
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedStderr)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expectedStderr)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 
-	s.cloudClient.CheckCalls(c, []jujutesting.StubCall{
+	s.cloudClient.CheckCalls(c, []testhelpers.StubCall{
 		{"UserCredentials", []interface{}{
 			names.NewUserTag("admin"),
 			names.NewCloudTag("aws"),
@@ -268,7 +267,7 @@ func (s *ModelCredentialCommandSuite) newSetCredentialCommand() cmd.Command {
 }
 
 type fakeModelClient struct {
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (f *fakeModelClient) Close() error {
@@ -282,7 +281,7 @@ func (f *fakeModelClient) ChangeModelCredential(ctx context.Context, model names
 }
 
 type fakeCloudClient struct {
-	jujutesting.Stub
+	testhelpers.Stub
 
 	userCredentials []names.CloudCredentialTag
 }
@@ -304,7 +303,7 @@ func (f *fakeCloudClient) AddCredential(ctx context.Context, tag string, credent
 
 type fakeRoot struct {
 	base.APICaller
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (f *fakeRoot) Close() error {

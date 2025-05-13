@@ -9,30 +9,29 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/leadership"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 	manifold dependency.Manifold
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.Stub = testing.Stub{}
+	s.Stub = testhelpers.Stub{}
 	s.manifold = leadership.Manifold(leadership.ManifoldConfig{
 		AgentName:           "agent-name",
 		APICallerName:       "api-caller-name",
@@ -41,42 +40,42 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name", "api-caller-name"})
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Check(s.manifold.Inputs, tc.DeepEquals, []string{"agent-name", "api-caller-name"})
 }
 
-func (s *ManifoldSuite) TestStartClockMissing(c *gc.C) {
+func (s *ManifoldSuite) TestStartClockMissing(c *tc.C) {
 	manifold := leadership.Manifold(leadership.ManifoldConfig{})
 	getter := dt.StubGetter(nil)
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "missing Clock not valid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(worker, tc.IsNil)
+	c.Check(err.Error(), tc.Equals, "missing Clock not valid")
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *ManifoldSuite) TestStartAgentMissing(c *gc.C) {
+func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      dependency.ErrMissing,
 		"api-caller-name": &dummyAPICaller{},
 	})
 
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestStartAPICallerMissing(c *gc.C) {
+func (s *ManifoldSuite) TestStartAPICallerMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
 	})
 
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestStartError(c *gc.C) {
+func (s *ManifoldSuite) TestStartError(c *tc.C) {
 	dummyAgent := &dummyAgent{}
 	dummyAPICaller := &dummyAPICaller{}
 	getter := dt.StubGetter(map[string]interface{}{
@@ -89,15 +88,15 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	})
 
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "blammo")
-	s.CheckCalls(c, []testing.StubCall{{
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "blammo")
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newManifoldWorker",
 		Args:     []interface{}{dummyAgent, dummyAPICaller, clock.WallClock, 123456 * time.Millisecond},
 	}})
 }
 
-func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
+func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	dummyAgent := &dummyAgent{}
 	dummyAPICaller := &dummyAPICaller{}
 	getter := dt.StubGetter(map[string]interface{}{
@@ -111,34 +110,34 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	})
 
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker, gc.Equals, dummyWorker)
-	s.CheckCalls(c, []testing.StubCall{{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker, tc.Equals, dummyWorker)
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newManifoldWorker",
 		Args:     []interface{}{dummyAgent, dummyAPICaller, clock.WallClock, 123456 * time.Millisecond},
 	}})
 }
 
-func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
+func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	var target interface{}
 	err := s.manifold.Output(&leadership.Tracker{}, &target)
-	c.Check(target, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "expected *leadership.[Change]Tracker output; got *interface {}")
+	c.Check(target, tc.IsNil)
+	c.Check(err.Error(), tc.Equals, "expected *leadership.[Change]Tracker output; got *interface {}")
 }
 
-func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
+func (s *ManifoldSuite) TestOutputBadWorker(c *tc.C) {
 	var target coreleadership.TrackerWorker
 	err := s.manifold.Output(&dummyWorker{}, &target)
-	c.Check(target, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "expected *Tracker input; got *leadership_test.dummyWorker")
+	c.Check(target, tc.IsNil)
+	c.Check(err.Error(), tc.Equals, "expected *Tracker input; got *leadership_test.dummyWorker")
 }
 
-func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
+func (s *ManifoldSuite) TestOutputSuccess(c *tc.C) {
 	source := &leadership.Tracker{}
 	var target coreleadership.Tracker
 	err := s.manifold.Output(source, &target)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(target, gc.Equals, source)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(target, tc.Equals, source)
 }
 
 type dummyAgent struct {

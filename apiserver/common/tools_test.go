@@ -10,10 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/os/v2"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -26,6 +24,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -38,9 +37,9 @@ type getToolsSuite struct {
 	store             *mocks.MockObjectStore
 }
 
-var _ = gc.Suite(&getToolsSuite{})
+var _ = tc.Suite(&getToolsSuite{})
 
-func (s *getToolsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *getToolsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelAgentService = mocks.NewMockModelAgentService(ctrl)
@@ -50,7 +49,7 @@ func (s *getToolsSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *getToolsSuite) TestTools(c *gc.C) {
+func (s *getToolsSuite) TestTools(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
@@ -62,7 +61,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 		s.modelAgentService, nil,
 		nil, s.toolsFinder, getCanRead,
 	)
-	c.Assert(tg, gc.NotNil)
+	c.Assert(tg, tc.NotNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -92,18 +91,18 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 
 	result, err := tg.Tools(context.Background(), args)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].ToolsList, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 3)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].ToolsList, tc.HasLen, 1)
 	tools := result.Results[0].ToolsList[0]
-	c.Assert(tools.Version, gc.DeepEquals, current)
-	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
-	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError(`"machine 42"`))
+	c.Assert(tools.Version, tc.DeepEquals, current)
+	c.Assert(tools.URL, tc.Equals, "tools:"+current.String())
+	c.Assert(result.Results[1].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(result.Results[2].Error, tc.DeepEquals, apiservertesting.NotFoundError(`"machine 42"`))
 }
 
-func (s *getToolsSuite) TestToolsError(c *gc.C) {
+func (s *getToolsSuite) TestToolsError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
@@ -113,18 +112,18 @@ func (s *getToolsSuite) TestToolsError(c *gc.C) {
 		s.modelAgentService, nil,
 		nil, s.toolsFinder, getCanRead,
 	)
-	c.Assert(tg, gc.NotNil)
+	c.Assert(tg, tc.NotNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-42"}},
 	}
 	result, err := tg.Tools(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "splat")
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorMatches, "splat")
+	c.Assert(result.Results, tc.HasLen, 1)
 }
 
 type findToolsSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	toolsStorageGetter *mocks.MockToolsStorageGetter
 	urlGetter          *mocks.MockToolsURLGetter
@@ -134,13 +133,13 @@ type findToolsSuite struct {
 	mockAgentBinaryService *mocks.MockAgentBinaryService
 }
 
-var _ = gc.Suite(&findToolsSuite{})
+var _ = tc.Suite(&findToolsSuite{})
 
-func (s *findToolsSuite) SetUpTest(c *gc.C) {
+func (s *findToolsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *findToolsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *findToolsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.toolsStorageGetter = mocks.NewMockToolsStorageGetter(ctrl)
@@ -161,7 +160,7 @@ func (s *findToolsSuite) expectMatchingStorageTools(storageMetadata []binarystor
 	s.storage.EXPECT().Close().Return(nil)
 }
 
-func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsMatchMajor(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	envtoolsList := coretools.List{
@@ -177,10 +176,10 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 
 	s.mockAgentBinaryService.EXPECT().GetEnvironAgentBinariesFinder().Return(
 		func(_ context.Context, major, minor int, version semversion.Number, _ string, filter coretools.Filter) (coretools.List, error) {
-			c.Assert(major, gc.Equals, 123)
-			c.Assert(minor, gc.Equals, 456)
-			c.Assert(filter.OSType, gc.Equals, "windows")
-			c.Assert(filter.Arch, gc.Equals, "alpha")
+			c.Assert(major, tc.Equals, 123)
+			c.Assert(minor, tc.Equals, 456)
+			c.Assert(filter.OSType, tc.Equals, "windows")
+			c.Assert(filter.Arch, tc.Equals, "alpha")
 			return envtoolsList, nil
 		},
 	)
@@ -204,8 +203,8 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 		Arch:         "alpha",
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, coretools.List{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, coretools.List{
 		&coretools.Tools{
 			Version: semversion.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
@@ -219,7 +218,7 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 	})
 }
 
-func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	envtoolsList := coretools.List{
@@ -235,11 +234,11 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 
 	s.mockAgentBinaryService.EXPECT().GetEnvironAgentBinariesFinder().Return(
 		func(_ context.Context, major, minor int, version semversion.Number, requestedStream string, filter coretools.Filter) (coretools.List, error) {
-			c.Assert(major, gc.Equals, 123)
-			c.Assert(minor, gc.Equals, 456)
-			c.Assert(requestedStream, gc.Equals, "pretend")
-			c.Assert(filter.OSType, gc.Equals, "windows")
-			c.Assert(filter.Arch, gc.Equals, "alpha")
+			c.Assert(major, tc.Equals, 123)
+			c.Assert(minor, tc.Equals, 456)
+			c.Assert(requestedStream, tc.Equals, "pretend")
+			c.Assert(filter.OSType, tc.Equals, "windows")
+			c.Assert(filter.Arch, tc.Equals, "alpha")
 			return envtoolsList, nil
 		},
 	)
@@ -259,8 +258,8 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 		Arch:         "alpha",
 		AgentStream:  "pretend",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, coretools.List{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, coretools.List{
 		&coretools.Tools{
 			Version: semversion.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
@@ -274,7 +273,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 	})
 }
 
-func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsNotFound(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.mockAgentBinaryService.EXPECT().GetEnvironAgentBinariesFinder().Return(
@@ -287,10 +286,10 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 
 	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, nil, s.store, s.mockAgentBinaryService)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *findToolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsToolsStorageError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectMatchingStorageTools(nil, errors.New("AllMetadata failed"))
@@ -300,45 +299,45 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 	// ToolsStorage errors always cause FindAgents to bail. Only
 	// if AllMetadata succeeds but returns nothing that matches
 	// do we continue on to searching simplestreams.
-	c.Assert(err, gc.ErrorMatches, "AllMetadata failed")
+	c.Assert(err, tc.ErrorMatches, "AllMetadata failed")
 }
 
-var _ = gc.Suite(&getUrlSuite{})
+var _ = tc.Suite(&getUrlSuite{})
 
 type getUrlSuite struct {
 	apiHostPortsGetter *mocks.MockAPIHostPortsForAgentsGetter
 }
 
-var _ = gc.Suite(&getUrlSuite{})
+var _ = tc.Suite(&getUrlSuite{})
 
-func (s *getUrlSuite) setup(c *gc.C) *gomock.Controller {
+func (s *getUrlSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.apiHostPortsGetter = mocks.NewMockAPIHostPortsForAgentsGetter(ctrl)
 	return ctrl
 }
 
-func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
+func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, nil)
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	_, err := g.ToolsURLs(context.Background(), coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
-	c.Assert(err, gc.ErrorMatches, "no suitable API server address to pick from")
+	c.Assert(err, tc.ErrorMatches, "no suitable API server address to pick from")
 }
 
-func (s *getUrlSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
+func (s *getUrlSuite) TestToolsURLGetterAPIHostPortsError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, errors.New("oh noes"))
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	_, err := g.ToolsURLs(context.Background(), coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
-	c.Assert(err, gc.ErrorMatches, "oh noes")
+	c.Assert(err, tc.ErrorMatches, "oh noes")
 }
 
-func (s *getUrlSuite) TestToolsURLGetter(c *gc.C) {
+func (s *getUrlSuite) TestToolsURLGetter(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{
@@ -348,8 +347,8 @@ func (s *getUrlSuite) TestToolsURLGetter(c *gc.C) {
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	current := coretesting.CurrentVersion()
 	urls, err := g.ToolsURLs(context.Background(), coretesting.FakeControllerConfig(), current)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(urls, jc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(urls, tc.DeepEquals, []string{
 		"https://0.1.2.3:1234/model/my-uuid/tools/" + current.String(),
 	})
 }

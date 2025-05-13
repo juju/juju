@@ -4,8 +4,7 @@
 package secretbackend
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -17,14 +16,14 @@ type backendtypeSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&backendtypeSuite{})
+var _ = tc.Suite(&backendtypeSuite{})
 
 // TestBackendTypeDBValues ensures there's no skew between what's in the
 // database table for role and the typed consts used in the secretbackend package.
-func (s *backendtypeSuite) TestBackendTypeDBValues(c *gc.C) {
+func (s *backendtypeSuite) TestBackendTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, type FROM secret_backend_type")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[BackendType]string)
@@ -34,10 +33,10 @@ func (s *backendtypeSuite) TestBackendTypeDBValues(c *gc.C) {
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[BackendType(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[BackendType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[BackendType]string{
 		BackendTypeController: juju.BackendType,
 		BackendTypeKubernetes: kubernetes.BackendType,
 		BackendTypeVault:      vault.BackendType,

@@ -5,8 +5,7 @@ package migration_test
 
 import (
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -19,9 +18,9 @@ type TargetInfoSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(new(TargetInfoSuite))
+var _ = tc.Suite(new(TargetInfoSuite))
 
-func (s *TargetInfoSuite) TestValidation(c *gc.C) {
+func (s *TargetInfoSuite) TestValidation(c *tc.C) {
 	tests := []struct {
 		label        string
 		tweakInfo    func(*migration.TargetInfo)
@@ -100,17 +99,17 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		test.tweakInfo(&info)
 		err := info.Validate()
 		if test.errorPattern == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, jc.ErrorIs, coreerrors.NotValid)
-			c.Check(err, gc.ErrorMatches, test.errorPattern)
+			c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+			c.Check(err, tc.ErrorMatches, test.errorPattern)
 		}
 	}
 }
 
-func makeValidTargetInfo(c *gc.C) migration.TargetInfo {
+func makeValidTargetInfo(c *tc.C) migration.TargetInfo {
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return migration.TargetInfo{
 		ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
 		Addrs:         []string{"1.2.3.4:5555"},

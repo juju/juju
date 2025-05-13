@@ -12,9 +12,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
@@ -60,9 +59,9 @@ type Suite struct {
 	facadeContext facadetest.ModelContext
 }
 
-var _ = gc.Suite(&Suite{})
+var _ = tc.Suite(&Suite{})
 
-func (s *Suite) SetUpSuite(c *gc.C) {
+func (s *Suite) SetUpSuite(c *tc.C) {
 	c.Skip(`
 Skip added by tlm. The reason we are skipping these tests is currently they are
 introducing a mock for model import call but then the mock proceeds to actually
@@ -75,9 +74,10 @@ properly into unit tests and not integration tests.
 
 We will get this done as part of dqlite transition.
 `)
+	s.StateSuite.SetUpSuite(c)
 }
 
-func (s *Suite) SetUpTest(c *gc.C) {
+func (s *Suite) SetUpTest(c *tc.C) {
 	// Set up InitialConfig with a dummy provider configuration. This
 	// is required to allow model import test to work.
 	s.InitialConfig = jujutesting.CustomModelConfig(c, jujutesting.FakeConfig())
@@ -87,11 +87,11 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 }
 
-func (s *Suite) TestFacadeRegistered(c *gc.C) {
+func (s *Suite) TestFacadeRegistered(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 3)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api, err := aFactory(context.Background(), &facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
@@ -99,27 +99,27 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 			Auth_:  s.authorizer,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(api, tc.FitsTypeOf, new(migrationtarget.API))
 }
 
-func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
+func (s *Suite) importModel(c *tc.C, api *migrationtarget.API) names.ModelTag {
 	uuid, bytes := s.makeExportedModel(c)
 	err := api.Import(context.Background(), params.SerializedModel{Bytes: bytes})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return names.NewModelTag(uuid)
 }
 
-func (s *Suite) TestCACert(c *gc.C) {
+func (s *Suite) TestCACert(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	api := s.mustNewAPI(c, c.MkDir())
 	r, err := api.CACert(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(r.Result), tc.Equals, jujutesting.CACert)
 }
 
-func (s *Suite) TestPrechecks(c *gc.C) {
+func (s *Suite) TestPrechecks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, nil)
@@ -133,10 +133,10 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 		ControllerAgentVersion: s.controllerVersion(c),
 	}
 	err := api.Prechecks(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *Suite) TestPrechecksIsUpgrading(c *gc.C) {
+func (s *Suite) TestPrechecksIsUpgrading(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(true, nil)
@@ -150,10 +150,10 @@ func (s *Suite) TestPrechecksIsUpgrading(c *gc.C) {
 		ControllerAgentVersion: s.controllerVersion(c),
 	}
 	err := api.Prechecks(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `upgrade in progress`)
+	c.Assert(err, tc.ErrorMatches, `upgrade in progress`)
 }
 
-func (s *Suite) TestPrechecksFail(c *gc.C) {
+func (s *Suite) TestPrechecksFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	controllerVersion := s.controllerVersion(c)
@@ -167,10 +167,10 @@ func (s *Suite) TestPrechecksFail(c *gc.C) {
 		AgentVersion: modelVersion,
 	}
 	err := api.Prechecks(context.Background(), args)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *Suite) TestPrechecksFacadeVersionsFail(c *gc.C) {
+func (s *Suite) TestPrechecksFacadeVersionsFail(c *tc.C) {
 	controllerVersion := s.controllerVersion(c)
 
 	api := s.mustNewAPIWithFacadeVersions(c, facades.FacadeVersions{
@@ -181,7 +181,7 @@ func (s *Suite) TestPrechecksFacadeVersionsFail(c *gc.C) {
 		ControllerAgentVersion: controllerVersion,
 	}
 	err := api.Prechecks(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `
+	c.Assert(err, tc.ErrorMatches, `
 Source controller does not support required facades for performing migration.
 Upgrade the controller to a newer version of .* or migrate to a controller
 with an earlier version of the target controller and try again.
@@ -189,7 +189,7 @@ with an earlier version of the target controller and try again.
 `[1:])
 }
 
-func (s *Suite) TestPrechecksFacadeVersionsWithPatchFail(c *gc.C) {
+func (s *Suite) TestPrechecksFacadeVersionsWithPatchFail(c *tc.C) {
 	controllerVersion := s.controllerVersion(c)
 	controllerVersion.Patch++
 
@@ -201,7 +201,7 @@ func (s *Suite) TestPrechecksFacadeVersionsWithPatchFail(c *gc.C) {
 		ControllerAgentVersion: controllerVersion,
 	}
 	err := api.Prechecks(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `
+	c.Assert(err, tc.ErrorMatches, `
 Source controller does not support required facades for performing migration.
 Upgrade the controller to a newer version of .* or migrate to a controller
 with an earlier version of the target controller and try again.
@@ -209,7 +209,7 @@ with an earlier version of the target controller and try again.
 `[1:])
 }
 
-func (s *Suite) TestImport(c *gc.C) {
+func (s *Suite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectImportModel(c)
@@ -218,15 +218,15 @@ func (s *Suite) TestImport(c *gc.C) {
 	tag := s.importModel(c, api)
 	// Check the model was imported.
 	model, ph, err := s.StatePool.GetModel(tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ph.Release()
-	c.Assert(model.Name(), gc.Equals, "some-model")
+	c.Assert(model.Name(), tc.Equals, "some-model")
 	mode, err := model.State().MigrationMode()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mode, gc.Equals, state.MigrationModeImporting)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mode, tc.Equals, state.MigrationModeImporting)
 }
 
-func (s *Suite) TestAbort(c *gc.C) {
+func (s *Suite) TestAbort(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectImportModel(c)
@@ -235,45 +235,45 @@ func (s *Suite) TestAbort(c *gc.C) {
 	tag := s.importModel(c, api)
 
 	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: tag.String()})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The model should no longer exist.
 	exists, err := s.State.ModelExists(tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
 }
 
-func (s *Suite) TestAbortNotATag(c *gc.C) {
+func (s *Suite) TestAbortNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	api := s.mustNewAPI(c, c.MkDir())
 	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: "not-a-tag"})
-	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
-func (s *Suite) TestAbortMissingModel(c *gc.C) {
+func (s *Suite) TestAbortMissingModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	api := s.mustNewAPI(c, c.MkDir())
 	newUUID := uuid.MustNewUUID().String()
 	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
-	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
+	c.Assert(err, tc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
-func (s *Suite) TestAbortNotImportingModel(c *gc.C) {
+func (s *Suite) TestAbortNotImportingModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c, c.MkDir())
 	err = api.Abort(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
+	c.Assert(err, tc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
-func (s *Suite) TestActivate(c *gc.C) {
+func (s *Suite) TestActivate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectImportModel(c)
@@ -282,7 +282,7 @@ func (s *Suite) TestActivate(c *gc.C) {
 	_, err := commoncrossmodel.GetBackend(s.State).AddRemoteApplication(commoncrossmodel.AddRemoteApplicationParams{
 		Name: "foo", SourceModel: names.NewModelTag(sourceModel),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	api := s.mustNewAPI(c, c.MkDir())
 	tag := s.importModel(c, api)
 
@@ -310,126 +310,126 @@ func (s *Suite) TestActivate(c *gc.C) {
 		SourceCACert:    jujutesting.CACert,
 		CrossModelUUIDs: []string{sourceModel},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mode, err := s.State.MigrationMode()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mode, gc.Equals, state.MigrationModeNone)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mode, tc.Equals, state.MigrationModeNone)
 
 	model, ph, err := s.StatePool.GetModel(tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ph.Release()
 	app, err := commoncrossmodel.GetBackend(model.State()).RemoteApplication("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.SourceController(), gc.Equals, jujutesting.ControllerTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(app.SourceController(), tc.Equals, jujutesting.ControllerTag.Id())
 }
 
-func (s *Suite) TestActivateNotATag(c *gc.C) {
+func (s *Suite) TestActivateNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	api := s.mustNewAPI(c, c.MkDir())
 	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: "not-a-tag"})
-	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
-func (s *Suite) TestActivateMissingModel(c *gc.C) {
+func (s *Suite) TestActivateMissingModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	api := s.mustNewAPI(c, c.MkDir())
 	newUUID := uuid.MustNewUUID().String()
 	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
-	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
+	c.Assert(err, tc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
-func (s *Suite) TestActivateNotImportingModel(c *gc.C) {
+func (s *Suite) TestActivateNotImportingModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c, c.MkDir())
 	err = api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
+	c.Assert(err, tc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
-func (s *Suite) TestLatestLogTime(c *gc.C) {
+func (s *Suite) TestLatestLogTime(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	logDir := c.MkDir()
 	t := time.Date(2024, 02, 18, 06, 23, 24, 0, time.UTC)
 	logFile := filepath.Join(logDir, "logsink.log")
 	err = os.MkdirAll(filepath.Dir(logFile), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// {"timestamp":"2024-02-20T06:01:19.101184262Z","model-uuid":"05756e0f-e5b8-47d3-8093-bf7d53d92589","entity":"machine-0","level":2,"module":"juju.worker.dependency","location":"engine.go:598","message":"\"charmhub-http-client\" manifold worker started at 2024-02-20 06:01:19.10118362 +0000 UTC","labels":null}
 	err = os.WriteFile(logFile, []byte("machine-0 2024-02-18 05:00:00 INFO juju.worker worker.go:200 test first\nmachine-0 2024-02-18 06:23:24 INFO juju.worker worker.go:518 test\n bad line"), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c, logDir)
 	latest, err := api.LatestLogTime(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(latest, gc.Equals, t)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(latest, tc.Equals, t)
 }
 
-func (s *Suite) TestLatestLogTimeNeverSet(c *gc.C) {
+func (s *Suite) TestLatestLogTimeNeverSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c, c.MkDir())
 	latest, err := api.LatestLogTime(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(latest, gc.Equals, time.Time{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(latest, tc.Equals, time.Time{})
 }
 
-func (s *Suite) TestAdoptIAASResources(c *gc.C) {
+func (s *Suite) TestAdoptIAASResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	api, err := s.newAPI(facades.FacadeVersions{}, c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.AdoptResources(context.Background(), params.AdoptResourcesArgs{
 		ModelTag:                m.ModelTag().String(),
 		SourceControllerVersion: semversion.MustParse("3.2.1"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *Suite) TestAdoptCAASResources(c *gc.C) {
+func (s *Suite) TestAdoptCAASResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 
 	api, err := s.newAPI(facades.FacadeVersions{}, c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.AdoptResources(context.Background(), params.AdoptResourcesArgs{
 		ModelTag:                m.ModelTag().String(),
 		SourceControllerVersion: semversion.MustParse("3.2.1"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *Suite) TestStub(c *gc.C) {
+func (s *Suite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - CheckMachines where machines have instance IDs.
 - CheckMachines where some are container-in-machine.
@@ -437,7 +437,7 @@ func (s *Suite) TestStub(c *gc.C) {
 - CheckMachines on a manual cloud.`,
 	)
 }
-func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
@@ -496,9 +496,9 @@ func (s *Suite) newAPI(versions facades.FacadeVersions, logDir string) (*migrati
 	)
 }
 
-func (s *Suite) mustNewAPI(c *gc.C, logDir string) *migrationtarget.API {
+func (s *Suite) mustNewAPI(c *tc.C, logDir string) *migrationtarget.API {
 	api, err := s.newAPI(facades.FacadeVersions{}, logDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 
@@ -507,15 +507,15 @@ func (s *Suite) newAPIWithFacadeVersions(versions facades.FacadeVersions, logDir
 	return api, err
 }
 
-func (s *Suite) mustNewAPIWithFacadeVersions(c *gc.C, versions facades.FacadeVersions) *migrationtarget.API {
+func (s *Suite) mustNewAPIWithFacadeVersions(c *tc.C, versions facades.FacadeVersions) *migrationtarget.API {
 	api, err := s.newAPIWithFacadeVersions(versions, c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 
-func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
+func (s *Suite) makeExportedModel(c *tc.C) (string, []byte) {
 	model, err := s.State.Export(jujujujutesting.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newUUID := uuid.MustNewUUID().String()
 	model.UpdateConfig(map[string]interface{}{
@@ -524,15 +524,15 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 	})
 
 	bytes, err := description.Serialize(model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return newUUID, bytes
 }
 
-func (s *Suite) controllerVersion(*gc.C) semversion.Number {
+func (s *Suite) controllerVersion(*tc.C) semversion.Number {
 	return semversion.Number{}
 }
 
-func (s *Suite) expectImportModel(c *gc.C) {
+func (s *Suite) expectImportModel(c *tc.C) {
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), gomock.Any()).Return(s.domainServices, nil)
 	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
 		scope := func(model.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }

@@ -9,32 +9,31 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 )
 
 type ModelCommandSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	store *jujuclient.MemStore
 }
 
-func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
+func (s *ModelCommandSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.PatchEnvironment("JUJU_CLI_VERSION", "")
 
 	s.store = jujuclient.NewMemStore()
 }
 
-var _ = gc.Suite(&ModelCommandSuite{})
+var _ = tc.Suite(&ModelCommandSuite{})
 
 var modelCommandModelTests = []struct {
 	about            string
@@ -116,7 +115,7 @@ var modelCommandModelTests = []struct {
 	expectModel:      "noncurrentfoo",
 }}
 
-func (s *ModelCommandSuite) TestModelIdentifier(c *gc.C) {
+func (s *ModelCommandSuite) TestModelIdentifier(c *tc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.Controllers["bar"] = jujuclient.ControllerDetails{}
 	s.store.CurrentControllerName = "foo"
@@ -129,37 +128,37 @@ func (s *ModelCommandSuite) TestModelIdentifier(c *gc.C) {
 
 	err := s.store.UpdateModel("foo", "adminfoo/currentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.UpdateModel("foo", "adminfoo/noncurrentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo2", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.UpdateModel("foo", "bar/explicit",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo3", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.UpdateModel("foo", "bar/noncurrentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo4", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.UpdateModel("bar", "adminbar/currentbar",
 		jujuclient.ModelDetails{ModelUUID: "uuidbar1", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.UpdateModel("bar", "adminbar/noncurrentbar",
 		jujuclient.ModelDetails{ModelUUID: "uuidbar2", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.UpdateModel("bar", "baz/noncurrentbar",
 		jujuclient.ModelDetails{ModelUUID: "uuidbar3", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.SetCurrentModel("foo", "adminfoo/currentfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.SetCurrentModel("bar", "adminbar/currentbar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for i, test := range modelCommandModelTests {
 		c.Logf("test %d: %v", i, test.about)
@@ -168,7 +167,7 @@ func (s *ModelCommandSuite) TestModelIdentifier(c *gc.C) {
 	}
 }
 
-func (s *ModelCommandSuite) TestModelType(c *gc.C) {
+func (s *ModelCommandSuite) TestModelType(c *tc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.CurrentControllerName = "foo"
 	s.store.Accounts["foo"] = jujuclient.AccountDetails{
@@ -176,18 +175,18 @@ func (s *ModelCommandSuite) TestModelType(c *gc.C) {
 	}
 	err := s.store.UpdateModel("foo", "adminfoo/currentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.store.SetCurrentModel("foo", "adminfoo/currentfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cmd, err := runTestCommand(c, s.store)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelType, err := cmd.ModelType(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelType, gc.Equals, model.IAAS)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelType, tc.Equals, model.IAAS)
 }
 
-func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
+func (s *ModelCommandSuite) TestWrapWithoutFlags(c *tc.C) {
 	cmd := new(testCommand)
 	wrapped := modelcmd.Wrap(cmd,
 		modelcmd.WrapSkipModelFlags,
@@ -197,20 +196,20 @@ func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	err := cmdtesting.InitCommand(wrapped, args)
 	// 1st position is always the flag
 	msg := fmt.Sprintf("option provided but not defined: %v", args[0])
-	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorMatches, msg)
 }
 
-func (s *ModelCommandSuite) TestWrapWithFlagsAndWithoutModelInit(c *gc.C) {
+func (s *ModelCommandSuite) TestWrapWithFlagsAndWithoutModelInit(c *tc.C) {
 	cmd := new(testCommand)
 	wrapped := modelcmd.Wrap(cmd,
 		modelcmd.WrapSkipModelInit,
 	)
 	args := []string{"-m", "testmodel"}
 	err := cmdtesting.InitCommand(wrapped, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestWrapWithModelInit(c *gc.C) {
+func (s *ModelCommandSuite) TestWrapWithModelInit(c *tc.C) {
 	modelCmd := new(testCommand)
 	wrapped := modelcmd.Wrap(modelCmd,
 		modelcmd.WrapSkipModelInit,
@@ -218,20 +217,20 @@ func (s *ModelCommandSuite) TestWrapWithModelInit(c *gc.C) {
 	args := []string{}
 
 	_, err := cmdtesting.RunCommand(c, wrapped, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestInnerCommand(c *gc.C) {
+func (s *ModelCommandSuite) TestInnerCommand(c *tc.C) {
 	cmd := new(testCommand)
 	wrapped := modelcmd.Wrap(cmd)
-	c.Assert(modelcmd.InnerCommand(wrapped), gc.Equals, cmd)
+	c.Assert(modelcmd.InnerCommand(wrapped), tc.Equals, cmd)
 }
 
-func (*ModelCommandSuite) TestSplitModelName(c *gc.C) {
+func (*ModelCommandSuite) TestSplitModelName(c *tc.C) {
 	assert := func(in, controller, model string) {
 		outController, outModel := modelcmd.SplitModelName(in)
-		c.Assert(outController, gc.Equals, controller)
-		c.Assert(outModel, gc.Equals, model)
+		c.Assert(outController, tc.Equals, controller)
+		c.Assert(outModel, tc.Equals, model)
 	}
 	assert("model", "", "model")
 	assert("ctrl:model", "ctrl", "model")
@@ -239,10 +238,10 @@ func (*ModelCommandSuite) TestSplitModelName(c *gc.C) {
 	assert(":model", "", "model")
 }
 
-func (*ModelCommandSuite) TestJoinModelName(c *gc.C) {
+func (*ModelCommandSuite) TestJoinModelName(c *tc.C) {
 	assert := func(controller, model, expect string) {
 		out := modelcmd.JoinModelName(controller, model)
-		c.Assert(out, gc.Equals, expect)
+		c.Assert(out, tc.Equals, expect)
 	}
 	assert("ctrl", "", "ctrl:")
 	assert("", "model", ":model")
@@ -251,31 +250,31 @@ func (*ModelCommandSuite) TestJoinModelName(c *gc.C) {
 
 // assertRunHasModel asserts that a command, when run with the given arguments,
 // ends up with the given controller and model names.
-func (s *ModelCommandSuite) assertRunHasModel(c *gc.C, expectControllerName, expectModelName string, args ...string) {
+func (s *ModelCommandSuite) assertRunHasModel(c *tc.C, expectControllerName, expectModelName string, args ...string) {
 	cmd, err := runTestCommand(c, s.store, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerName, err := cmd.ControllerName()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerName, gc.Equals, expectControllerName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controllerName, tc.Equals, expectControllerName)
 
 	modelName, err := cmd.ModelIdentifier()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelName, gc.Equals, expectModelName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelName, tc.Equals, expectModelName)
 }
 
-func (s *ModelCommandSuite) TestIAASOnlyCommandIAASModel(c *gc.C) {
+func (s *ModelCommandSuite) TestIAASOnlyCommandIAASModel(c *tc.C) {
 	s.setupIAASModel(c)
 
 	cmd, err := runTestCommand(c, s.store)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelType, err := cmd.ModelType(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelType, gc.Equals, model.IAAS)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelType, tc.Equals, model.IAAS)
 }
 
-func (s *ModelCommandSuite) TestIAASOnlyCommandCAASModel(c *gc.C) {
+func (s *ModelCommandSuite) TestIAASOnlyCommandCAASModel(c *tc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.CurrentControllerName = "foo"
 	s.store.Accounts["foo"] = jujuclient.AccountDetails{
@@ -283,22 +282,22 @@ func (s *ModelCommandSuite) TestIAASOnlyCommandCAASModel(c *gc.C) {
 	}
 	err := s.store.UpdateModel("foo", "bar/currentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.CAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = runTestCommand(c, s.store)
-	c.Assert(err, gc.ErrorMatches, `Juju command "test-command" not supported on container models`)
+	c.Assert(err, tc.ErrorMatches, `Juju command "test-command" not supported on container models`)
 }
 
-func (s *ModelCommandSuite) TestCAASOnlyCommandIAASModel(c *gc.C) {
+func (s *ModelCommandSuite) TestCAASOnlyCommandIAASModel(c *tc.C) {
 	s.setupIAASModel(c)
 
 	_, err := runCaasCommand(c, s.store)
-	c.Assert(err, gc.ErrorMatches, `Juju command "caas-command" only supported on k8s container models`)
+	c.Assert(err, tc.ErrorMatches, `Juju command "caas-command" only supported on k8s container models`)
 }
 
-func (s *ModelCommandSuite) TestAllowedCommandCAASModel(c *gc.C) {
+func (s *ModelCommandSuite) TestAllowedCommandCAASModel(c *tc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.CurrentControllerName = "foo"
 	s.store.Accounts["foo"] = jujuclient.AccountDetails{
@@ -306,36 +305,36 @@ func (s *ModelCommandSuite) TestAllowedCommandCAASModel(c *gc.C) {
 	}
 	err := s.store.UpdateModel("foo", "bar/currentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.CAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cmd, err := runAllowedCAASCommand(c, s.store)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelType, err := cmd.ModelType(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelType, gc.Equals, model.CAAS)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelType, tc.Equals, model.CAAS)
 }
 
-func (s *ModelCommandSuite) TestPartialModelUUIDSuccess(c *gc.C) {
+func (s *ModelCommandSuite) TestPartialModelUUIDSuccess(c *tc.C) {
 	s.setupIAASModel(c)
 
 	cmd, err := runTestCommand(c, s.store, "-m", "uuidfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelType, err := cmd.ModelType(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelType, gc.Equals, model.IAAS)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelType, tc.Equals, model.IAAS)
 }
 
-func (s *ModelCommandSuite) TestPartialModelUUIDTooShortError(c *gc.C) {
+func (s *ModelCommandSuite) TestPartialModelUUIDTooShortError(c *tc.C) {
 	s.setupIAASModel(c)
 
 	_, err := runTestCommand(c, s.store, "-m", "uuidf")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *ModelCommandSuite) setupIAASModel(c *gc.C) {
+func (s *ModelCommandSuite) setupIAASModel(c *tc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.CurrentControllerName = "foo"
 	s.store.Accounts["foo"] = jujuclient.AccountDetails{
@@ -343,17 +342,17 @@ func (s *ModelCommandSuite) setupIAASModel(c *gc.C) {
 	}
 	err := s.store.UpdateModel("foo", "bar/currentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func noOpRefresh(_ context.Context, _ jujuclient.ClientStore, _ string) error {
 	return nil
 }
 
-func runTestCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
+func runTestCommand(c *tc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
 	modelCmd := new(testCommand)
 	modelcmd.SetModelRefresh(noOpRefresh, modelCmd)
 	cmd := modelcmd.Wrap(modelCmd)
@@ -377,7 +376,7 @@ func (c *testCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func runCaasCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
+func runCaasCommand(c *tc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
 	modelCmd := new(caasCommand)
 	modelcmd.SetModelRefresh(noOpRefresh, modelCmd)
 	cmd := modelcmd.Wrap(modelCmd)
@@ -401,7 +400,7 @@ func (c *caasCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func runAllowedCAASCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
+func runAllowedCAASCommand(c *tc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
 	modelCmd := new(allowedCAASCommand)
 	modelcmd.SetModelRefresh(noOpRefresh, modelCmd)
 	cmd := modelcmd.Wrap(modelCmd)

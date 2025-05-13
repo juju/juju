@@ -4,32 +4,31 @@
 package model
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type ModelSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ModelSuite{})
+var _ = tc.Suite(&ModelSuite{})
 
-func (*ModelSuite) TestValidModelTypes(c *gc.C) {
+func (*ModelSuite) TestValidModelTypes(c *tc.C) {
 	validTypes := []ModelType{
 		CAAS,
 		IAAS,
 	}
 
 	for _, vt := range validTypes {
-		c.Assert(vt.IsValid(), jc.IsTrue)
+		c.Assert(vt.IsValid(), tc.IsTrue)
 	}
 }
 
-func (*ModelSuite) TestParseModelTypes(c *gc.C) {
+func (*ModelSuite) TestParseModelTypes(c *tc.C) {
 	validTypes := []string{
 		"caas",
 		"iaas",
@@ -37,17 +36,17 @@ func (*ModelSuite) TestParseModelTypes(c *gc.C) {
 
 	for _, vt := range validTypes {
 		mt, err := ParseModelType(vt)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mt.IsValid(), jc.IsTrue)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(mt.IsValid(), tc.IsTrue)
 	}
 }
 
-func (*ModelSuite) TestParseModelTypesInvalid(c *gc.C) {
+func (*ModelSuite) TestParseModelTypesInvalid(c *tc.C) {
 	_, err := ParseModelType("foo")
-	c.Assert(err, gc.ErrorMatches, `unknown model type "foo"`)
+	c.Assert(err, tc.ErrorMatches, `unknown model type "foo"`)
 }
 
-func (*ModelSuite) TestUUIDValidate(c *gc.C) {
+func (*ModelSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -70,10 +69,10 @@ func (*ModelSuite) TestUUIDValidate(c *gc.C) {
 		err := UUID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }

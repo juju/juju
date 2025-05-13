@@ -8,7 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -19,7 +19,7 @@ import (
 
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
-func UseTestImageData(c *gc.C, files map[string]string) {
+func UseTestImageData(c *tc.C, files map[string]string) {
 	if files != nil {
 		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 	} else {

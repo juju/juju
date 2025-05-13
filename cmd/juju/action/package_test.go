@@ -14,10 +14,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
-	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -25,6 +23,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -42,7 +41,7 @@ const (
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type BaseActionSuite struct {
@@ -53,7 +52,7 @@ type BaseActionSuite struct {
 	clock      testclock.AdvanceableClock
 }
 
-func (s *BaseActionSuite) SetUpTest(c *gc.C) {
+func (s *BaseActionSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.modelFlags = []string{"-m", "--model"}
@@ -71,7 +70,7 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
-	return jujutesting.PatchValue(action.NewActionAPIClient,
+	return testhelpers.PatchValue(action.NewActionAPIClient,
 		func(ctx context.Context, c *action.ActionCommandBase) (action.APIClient, error) {
 			return client, nil
 		},
@@ -129,12 +128,12 @@ var someCharmActions = map[string]actionapi.ActionSpec{
 
 // setupValueFile creates a file containing one value for testing.
 // cf. cmd/juju/set_test.go
-func setupValueFile(c *gc.C, dir, filename, value string) string {
+func setupValueFile(c *tc.C, dir, filename, value string) string {
 	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath(filename)
 	content := []byte(value)
 	err := os.WriteFile(path, content, 0666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }
 

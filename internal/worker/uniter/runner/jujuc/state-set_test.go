@@ -6,8 +6,7 @@ package jujuc_test
 import (
 	"bytes"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -18,7 +17,7 @@ type stateSetSuite struct {
 	stateSuite
 }
 
-var _ = gc.Suite(&stateSetSuite{})
+var _ = tc.Suite(&stateSetSuite{})
 
 type runStateSetCmd struct {
 	description string
@@ -29,7 +28,7 @@ type runStateSetCmd struct {
 	expect      func()
 }
 
-func (s *stateSetSuite) TestStateSet(c *gc.C) {
+func (s *stateSetSuite) TestStateSet(c *tc.C) {
 	runStateSetCmdTests := []runStateSetCmd{
 		{
 			description: "no input",
@@ -78,33 +77,33 @@ func (s *stateSetSuite) TestStateSet(c *gc.C) {
 		}
 
 		toolCmd, err := jujuc.NewCommand(s.mockContext, "state-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		ctx := cmdtesting.Context(c)
 		if test.content != "" {
 			ctx.Stdin = bytes.NewBufferString(test.content)
 		}
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(toolCmd), ctx, test.args)
-		c.Check(code, gc.Equals, test.code)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, test.err)
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+		c.Check(code, tc.Equals, test.code)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, test.err)
+		c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 	}
 }
 
-func (s *stateSetSuite) TestStateSetExistingEmpty(c *gc.C) {
+func (s *stateSetSuite) TestStateSetExistingEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateSetOne()
 	s.expectStateSetOneEmpty()
 
 	toolCmd, err := jujuc.NewCommand(s.mockContext, "state-set")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 
 	for _, arg := range []string{"one=two", "one="} {
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(toolCmd), ctx, []string{arg})
-		c.Check(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+		c.Check(code, tc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
+		c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 	}
 }

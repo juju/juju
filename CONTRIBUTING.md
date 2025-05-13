@@ -203,7 +203,7 @@ each package so the standard `go test` command is used to run `gocheck` tests.
 For example:
 
 ```
-go test -v github.com/juju/juju/core/config -check.v
+go test -v github.com/juju/juju/core/config
 ```
 
 By default `gocheck` will run all tests

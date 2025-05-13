@@ -6,8 +6,7 @@ package service
 import (
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -18,13 +17,13 @@ type statusSuite struct {
 	now time.Time
 }
 
-var _ = gc.Suite(&statusSuite{})
+var _ = tc.Suite(&statusSuite{})
 
-func (s *statusSuite) SetUpTest(c *gc.C) {
+func (s *statusSuite) SetUpTest(c *tc.C) {
 	s.now = time.Now()
 }
 
-func (s *statusSuite) TestEncodeK8sPodStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeK8sPodStatus(c *tc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
 		output status.StatusInfo[status.K8sPodStatusType]
@@ -72,15 +71,15 @@ func (s *statusSuite) TestEncodeK8sPodStatus(c *gc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d: %v", i, test.input)
 		output, err := encodeK8sPodStatus(test.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(output, jc.DeepEquals, test.output)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(output, tc.DeepEquals, test.output)
 		result, err := decodeK8sPodStatus(output)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, jc.DeepEquals, test.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(result, tc.DeepEquals, test.input)
 	}
 }
 
-func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeUnitAgentStatus(c *tc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
 		output status.StatusInfo[status.UnitAgentStatusType]
@@ -138,26 +137,26 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d: %v", i, test.input)
 		output, err := encodeUnitAgentStatus(test.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(output, jc.DeepEquals, test.output)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(output, tc.DeepEquals, test.output)
 		result, err := decodeUnitAgentStatus(output, true)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, jc.DeepEquals, test.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, test.input)
 	}
 }
 
-func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
+func (s *statusSuite) TestEncodingUnitAgentStatusError(c *tc.C) {
 	output, err := encodeUnitAgentStatus(corestatus.StatusInfo{
 		Status: corestatus.Error,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(output, jc.DeepEquals, status.StatusInfo[status.UnitAgentStatusType]{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(output, tc.DeepEquals, status.StatusInfo[status.UnitAgentStatusType]{
 		Status: status.UnitAgentStatusError,
 	})
 
 }
 
-func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *gc.C) {
+func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *tc.C) {
 	agent, workload, err := decodeUnitDisplayAndAgentStatus(status.FullUnitStatus{
 		AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 			Status:  status.UnitAgentStatusError,
@@ -180,12 +179,12 @@ func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *gc.C) {
 	// take precedence and we'll set the unit agent domain to idle.
 	// This follows the same patter that already exists.
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(agent, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(agent, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Idle,
 		Since:  &s.now,
 	})
-	c.Assert(workload, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(workload, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Error,
 		Since:   &s.now,
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -193,7 +192,7 @@ func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *gc.C) {
 	})
 }
 
-func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeWorkloadStatus(c *tc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
 		output status.StatusInfo[status.WorkloadStatusType]
@@ -273,15 +272,15 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d: %v", i, test.input)
 		output, err := encodeWorkloadStatus(test.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(output, jc.DeepEquals, test.output)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(output, tc.DeepEquals, test.output)
 		result, err := decodeUnitWorkloadStatus(output, true)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, jc.DeepEquals, test.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, test.input)
 	}
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusWorkloadTerminatedBlockedMaintenanceDominates(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusWorkloadTerminatedBlockedMaintenanceDominates(c *tc.C) {
 	containerStatus := status.StatusInfo[status.K8sPodStatusType]{
 		Status: status.K8sPodStatusBlocked,
 	}
@@ -301,23 +300,23 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusWorkloadTerminatedBlockedM
 	}
 
 	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, expected)
 
 	workloadStatus.Status = status.WorkloadStatusBlocked
 	expected.Status = corestatus.Blocked
 	info, err = selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, expected)
 
 	workloadStatus.Status = status.WorkloadStatusMaintenance
 	expected.Status = corestatus.Maintenance
 	info, err = selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, expected)
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(c *tc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusWaiting,
 	}
@@ -330,8 +329,8 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(
 	}
 
 	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Blocked,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
@@ -339,7 +338,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(
 	})
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesActiveWorkload(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesActiveWorkload(c *tc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusActive,
 	}
@@ -352,8 +351,8 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesA
 	}
 
 	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Waiting,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
@@ -361,7 +360,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesA
 	})
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesWaitingWorkload(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesWaitingWorkload(c *tc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusWaiting,
 	}
@@ -374,8 +373,8 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesW
 	}
 
 	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Running,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
@@ -383,7 +382,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesW
 	})
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusDefaultsToWorkload(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusDefaultsToWorkload(c *tc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "I'm an active workload",
@@ -395,8 +394,8 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusDefaultsToWorkload(c *gc.C
 	}
 
 	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "I'm an active workload",
 	})
@@ -408,7 +407,7 @@ const (
 	unitName3 = coreunit.Name("unit-3")
 )
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *tc.C) {
 	fullStatuses := status.FullUnitStatuses{
 		unitName1: {
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -431,29 +430,29 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *gc.C)
 	}
 
 	info, err := applicationDisplayStatusFromUnits(fullStatuses)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Active,
 	})
 }
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *tc.C) {
 	info, err := applicationDisplayStatusFromUnits(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Unknown,
 	})
 
 	info, err = applicationDisplayStatusFromUnits(
 		status.FullUnitStatuses{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Unknown,
 	})
 }
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceContainer(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceContainer(c *tc.C) {
 	fullStatuses := status.FullUnitStatuses{
 		unitName1: {
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -482,13 +481,13 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 	}
 
 	info, err := applicationDisplayStatusFromUnits(fullStatuses)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Blocked,
 	})
 }
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceWorkload(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceWorkload(c *tc.C) {
 	fullStatuses := status.FullUnitStatuses{
 		unitName1: {
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -517,13 +516,13 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 	}
 
 	info, err := applicationDisplayStatusFromUnits(fullStatuses)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Maintenance,
 	})
 }
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGreatestStatusPrecedence(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGreatestStatusPrecedence(c *tc.C) {
 	fullStatuses := status.FullUnitStatuses{
 		unitName1: {
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -552,13 +551,13 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGr
 	}
 
 	info, err := applicationDisplayStatusFromUnits(fullStatuses)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Blocked,
 	})
 }
 
-func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *gc.C) {
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *tc.C) {
 	fullStatuses := status.FullUnitStatuses{
 		unitName1: {
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
@@ -577,8 +576,8 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *gc.C) {
 	}
 
 	info, err := applicationDisplayStatusFromUnits(fullStatuses)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Error,
 		Data: map[string]interface{}{
 			"foo": "baz",

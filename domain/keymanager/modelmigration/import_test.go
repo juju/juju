@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -24,9 +23,9 @@ type importSuite struct {
 	userService *MockUserService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.coordinator = NewMockCoordinator(ctrl)
 	s.service = NewMockImportService(ctrl)
@@ -34,7 +33,7 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) TestRegisterImport(c *gc.C) {
+func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -53,7 +52,7 @@ func (s *importSuite) newImportOperation() *importOperation {
 
 // TestImportFromModelConfig is asserting that if model config contains
 // authorized-keys that the import code correctly finds and handles them.
-func (s *importSuite) TestImportFromModelConfig(c *gc.C) {
+func (s *importSuite) TestImportFromModelConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -76,13 +75,13 @@ func (s *importSuite) TestImportFromModelConfig(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestImportFromModelDescription is responsible for asserting that we can
 // import authorized keys for a model directly from the description and not
 // model config.
-func (s *importSuite) TestImportFromModelDescription(c *gc.C) {
+func (s *importSuite) TestImportFromModelDescription(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -127,5 +126,5 @@ func (s *importSuite) TestImportFromModelDescription(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }

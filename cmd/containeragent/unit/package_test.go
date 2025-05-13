@@ -7,21 +7,20 @@ import (
 	"testing"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type importSuite struct{}
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (*importSuite) TestImports(c *gc.C) {
+func (*importSuite) TestImports(c *tc.C) {
 	// TODO(sidecar) - improve test performance
 	c.Skip("test times out on Jenkins")
 	found := set.NewStrings(
@@ -210,9 +209,9 @@ func (*importSuite) TestImports(c *gc.C) {
 	// TODO: review if there are any un-expected imports!
 	// Show the values rather than just checking the length so a failing
 	// test shows them.
-	c.Check(unexpected.SortedValues(), jc.DeepEquals, []string{})
+	c.Check(unexpected.SortedValues(), tc.DeepEquals, []string{})
 	// If unneeded show any values this is good as we've reduced
 	// dependencies, and they should be removed from expected above.
 	unneeded := expected.Difference(found)
-	c.Check(unneeded.SortedValues(), jc.DeepEquals, []string{})
+	c.Check(unneeded.SortedValues(), tc.DeepEquals, []string{})
 }

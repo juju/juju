@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/charm"
@@ -19,7 +18,7 @@ type manifestSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&manifestSuite{})
+var _ = tc.Suite(&manifestSuite{})
 
 var decodeManifestTestCases = [...]struct {
 	name   string
@@ -204,23 +203,23 @@ var encodeManifestTestCases = [...]struct {
 	},
 }
 
-func (s *manifestSuite) TestDecodeManifest(c *gc.C) {
-	for _, tc := range decodeManifestTestCases {
-		c.Logf("Running test case %q", tc.name)
+func (s *manifestSuite) TestDecodeManifest(c *tc.C) {
+	for _, testCase := range decodeManifestTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		decoded, err := decodeManifest(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(decoded, gc.DeepEquals, tc.output)
+		decoded, err := decodeManifest(testCase.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(decoded, tc.DeepEquals, testCase.output)
 	}
 }
 
-func (s *manifestSuite) TestEncodeManifest(c *gc.C) {
-	for _, tc := range encodeManifestTestCases {
-		c.Logf("Running test case %q", tc.name)
+func (s *manifestSuite) TestEncodeManifest(c *tc.C) {
+	for _, testCase := range encodeManifestTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		encoded, err := encodeManifest(tc.id, tc.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(encoded, gc.DeepEquals, tc.output)
+		encoded, err := encodeManifest(testCase.id, testCase.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(encoded, tc.DeepEquals, testCase.output)
 	}
 }
 
@@ -228,9 +227,9 @@ type manifestStateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&manifestStateSuite{})
+var _ = tc.Suite(&manifestStateSuite{})
 
-func (s *manifestStateSuite) TestManifestOS(c *gc.C) {
+func (s *manifestStateSuite) TestManifestOS(c *tc.C) {
 	type osType struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
@@ -244,8 +243,8 @@ SELECT os.* AS &osType.* FROM os ORDER BY id;
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
 
 	m := []string{
 		"ubuntu",
@@ -254,12 +253,12 @@ SELECT os.* AS &osType.* FROM os ORDER BY id;
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeManifestOS(value)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }
 
-func (s *manifestStateSuite) TestManifestArchitecture(c *gc.C) {
+func (s *manifestStateSuite) TestManifestArchitecture(c *tc.C) {
 	type archType struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
@@ -273,8 +272,8 @@ SELECT architecture.* AS &archType.* FROM architecture ORDER BY id;
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 5)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 5)
 
 	m := []string{
 		"amd64",
@@ -287,7 +286,7 @@ SELECT architecture.* AS &archType.* FROM architecture ORDER BY id;
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeManifestArchitecture(value)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }

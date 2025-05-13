@@ -9,8 +9,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/diskmanager"
 	"github.com/juju/juju/api/base/testing"
@@ -19,13 +18,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&DiskManagerSuite{})
+var _ = tc.Suite(&DiskManagerSuite{})
 
 type DiskManagerSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
+func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 	devices := []blockdevice.BlockDevice{{
 		DeviceName: "sda",
 		SizeMiB:    123,
@@ -36,11 +35,11 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "DiskManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "SetMachineBlockDevices")
-		c.Check(arg, gc.DeepEquals, params.SetMachineBlockDevices{
+		c.Check(objType, tc.Equals, "DiskManager")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "SetMachineBlockDevices")
+		c.Check(arg, tc.DeepEquals, params.SetMachineBlockDevices{
 			MachineBlockDevices: []params.MachineBlockDevices{{
 				Machine: "machine-123",
 				BlockDevices: []params.BlockDevice{{
@@ -52,7 +51,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 				}},
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
 				Error: nil,
@@ -64,19 +63,19 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
 	err := st.SetMachineBlockDevices(context.Background(), devices)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(callCount, gc.Equals, 1)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(callCount, tc.Equals, 1)
 }
 
-func (s *DiskManagerSuite) TestSetMachineBlockDevicesNil(c *gc.C) {
+func (s *DiskManagerSuite) TestSetMachineBlockDevicesNil(c *tc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(arg, gc.DeepEquals, params.SetMachineBlockDevices{
+		c.Check(arg, tc.DeepEquals, params.SetMachineBlockDevices{
 			MachineBlockDevices: []params.MachineBlockDevices{{
 				Machine: "machine-123",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
 				Error: nil,
@@ -87,20 +86,20 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesNil(c *gc.C) {
 	})
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
 	err := st.SetMachineBlockDevices(context.Background(), nil)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(callCount, gc.Equals, 1)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(callCount, tc.Equals, 1)
 }
 
-func (s *DiskManagerSuite) TestSetMachineBlockDevicesClientError(c *gc.C) {
+func (s *DiskManagerSuite) TestSetMachineBlockDevicesClientError(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("blargh")
 	})
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
 	err := st.SetMachineBlockDevices(context.Background(), nil)
-	c.Check(err, gc.ErrorMatches, "blargh")
+	c.Check(err, tc.ErrorMatches, "blargh")
 }
 
-func (s *DiskManagerSuite) TestSetMachineBlockDevicesServerError(c *gc.C) {
+func (s *DiskManagerSuite) TestSetMachineBlockDevicesServerError(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
@@ -111,10 +110,10 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesServerError(c *gc.C) {
 	})
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
 	err := st.SetMachineBlockDevices(context.Background(), nil)
-	c.Check(err, gc.ErrorMatches, "MSG")
+	c.Check(err, tc.ErrorMatches, "MSG")
 }
 
-func (s *DiskManagerSuite) TestSetMachineBlockDevicesResultCountInvalid(c *gc.C) {
+func (s *DiskManagerSuite) TestSetMachineBlockDevicesResultCountInvalid(c *tc.C) {
 	for _, n := range []int{0, 2} {
 		apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 			var results []params.ErrorResult
@@ -128,6 +127,6 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesResultCountInvalid(c *gc.C)
 		})
 		st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
 		err := st.SetMachineBlockDevices(context.Background(), nil)
-		c.Check(err, gc.ErrorMatches, fmt.Sprintf("expected 1 result, got %d", n))
+		c.Check(err, tc.ErrorMatches, fmt.Sprintf("expected 1 result, got %d", n))
 	}
 }

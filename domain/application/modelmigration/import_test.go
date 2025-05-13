@@ -9,10 +9,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/config"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -28,11 +26,12 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type importSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	importService *MockImportService
 
@@ -56,9 +55,9 @@ type importSuite struct {
 	charmAction  *MockCharmAction
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) TestRollback(c *gc.C) {
+func (s *importSuite) TestRollback(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -76,10 +75,10 @@ func (s *importSuite) TestRollback(c *gc.C) {
 	s.importService.EXPECT().RemoveImportedApplication(gomock.Any(), "prometheus").Return(nil)
 
 	err := importOp.Rollback(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestRollbackForMultipleApplicationsRollbacksAll(c *gc.C) {
+func (s *importSuite) TestRollbackForMultipleApplicationsRollbacksAll(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -106,10 +105,10 @@ func (s *importSuite) TestRollbackForMultipleApplicationsRollbacksAll(c *gc.C) {
 	)
 
 	err := importOp.Rollback(context.Background(), model)
-	c.Assert(err, gc.ErrorMatches, "rollback failed: boom")
+	c.Assert(err, tc.ErrorMatches, "rollback failed: boom")
 }
 
-func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *gc.C) {
+func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -171,10 +170,10 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *gc.C) {
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
-	c.Check(importArgs.Units, gc.DeepEquals, []service.ImportUnitArg{{
+	c.Check(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
+	c.Check(importArgs.Units, tc.DeepEquals, []service.ImportUnitArg{{
 		UnitName:     "prometheus/0",
 		PasswordHash: ptr("passwordhash"),
 		CloudContainer: ptr(application.CloudContainerParams{
@@ -193,7 +192,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *gc.C) {
 	}})
 }
 
-func (s *importSuite) TestApplicationImportWithMinimalCharmForIAAS(c *gc.C) {
+func (s *importSuite) TestApplicationImportWithMinimalCharmForIAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -245,17 +244,17 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForIAAS(c *gc.C) {
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
-	c.Check(importArgs.Units, gc.DeepEquals, []service.ImportUnitArg{{
+	c.Check(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
+	c.Check(importArgs.Units, tc.DeepEquals, []service.ImportUnitArg{{
 		UnitName:     "prometheus/0",
 		PasswordHash: ptr("passwordhash"),
 		Machine:      machine.Name("0"),
 	}})
 }
 
-func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *gc.C) {
+func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -313,18 +312,18 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *g
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
-	c.Check(importArgs.ApplicationConfig, jc.DeepEquals, config.ConfigAttributes{
+	c.Assert(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
+	c.Check(importArgs.ApplicationConfig, tc.DeepEquals, config.ConfigAttributes{
 		"foo": "bar",
 	})
-	c.Check(importArgs.ApplicationSettings, jc.DeepEquals, application.ApplicationSettings{
+	c.Check(importArgs.ApplicationSettings, tc.DeepEquals, application.ApplicationSettings{
 		Trust: true,
 	})
 }
 
-func (s *importSuite) TestApplicationImportWithConstraints(c *gc.C) {
+func (s *importSuite) TestApplicationImportWithConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -377,21 +376,21 @@ func (s *importSuite) TestApplicationImportWithConstraints(c *gc.C) {
 		"prometheus",
 		gomock.Any(),
 	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
-		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
-		c.Check(args.ApplicationConstraints.AllocatePublicIP, gc.DeepEquals, ptr(true))
-		c.Check(args.ApplicationConstraints.Arch, gc.DeepEquals, ptr("amd64"))
-		c.Check(args.ApplicationConstraints.Container, gc.DeepEquals, ptr(instance.ContainerType("lxd")))
-		c.Check(args.ApplicationConstraints.CpuCores, gc.DeepEquals, ptr(uint64(2)))
-		c.Check(args.ApplicationConstraints.CpuPower, gc.DeepEquals, ptr(uint64(1000)))
-		c.Check(args.ApplicationConstraints.ImageID, gc.DeepEquals, ptr("foo"))
-		c.Check(args.ApplicationConstraints.InstanceType, gc.DeepEquals, ptr("baz"))
-		c.Check(args.ApplicationConstraints.VirtType, gc.DeepEquals, ptr("vm"))
-		c.Check(args.ApplicationConstraints.Mem, gc.DeepEquals, ptr(uint64(1024)))
-		c.Check(args.ApplicationConstraints.RootDisk, gc.DeepEquals, ptr(uint64(1024)))
-		c.Check(args.ApplicationConstraints.RootDiskSource, gc.DeepEquals, ptr("qux"))
-		c.Check(args.ApplicationConstraints.Spaces, gc.DeepEquals, ptr([]string{"space0", "space1"}))
-		c.Check(args.ApplicationConstraints.Tags, gc.DeepEquals, ptr([]string{"tag0", "tag1"}))
-		c.Check(args.ApplicationConstraints.Zones, gc.DeepEquals, ptr([]string{"zone0", "zone1"}))
+		c.Assert(args.Charm.Meta().Name, tc.Equals, "prometheus")
+		c.Check(args.ApplicationConstraints.AllocatePublicIP, tc.DeepEquals, ptr(true))
+		c.Check(args.ApplicationConstraints.Arch, tc.DeepEquals, ptr("amd64"))
+		c.Check(args.ApplicationConstraints.Container, tc.DeepEquals, ptr(instance.ContainerType("lxd")))
+		c.Check(args.ApplicationConstraints.CpuCores, tc.DeepEquals, ptr(uint64(2)))
+		c.Check(args.ApplicationConstraints.CpuPower, tc.DeepEquals, ptr(uint64(1000)))
+		c.Check(args.ApplicationConstraints.ImageID, tc.DeepEquals, ptr("foo"))
+		c.Check(args.ApplicationConstraints.InstanceType, tc.DeepEquals, ptr("baz"))
+		c.Check(args.ApplicationConstraints.VirtType, tc.DeepEquals, ptr("vm"))
+		c.Check(args.ApplicationConstraints.Mem, tc.DeepEquals, ptr(uint64(1024)))
+		c.Check(args.ApplicationConstraints.RootDisk, tc.DeepEquals, ptr(uint64(1024)))
+		c.Check(args.ApplicationConstraints.RootDiskSource, tc.DeepEquals, ptr("qux"))
+		c.Check(args.ApplicationConstraints.Spaces, tc.DeepEquals, ptr([]string{"space0", "space1"}))
+		c.Check(args.ApplicationConstraints.Tags, tc.DeepEquals, ptr([]string{"tag0", "tag1"}))
+		c.Check(args.ApplicationConstraints.Zones, tc.DeepEquals, ptr([]string{"zone0", "zone1"}))
 		return nil
 	})
 
@@ -401,10 +400,10 @@ func (s *importSuite) TestApplicationImportWithConstraints(c *gc.C) {
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportCharmMetadataEmpty(c *gc.C) {
+func (s *importSuite) TestImportCharmMetadataEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	importOp := importOperation{
@@ -412,10 +411,10 @@ func (s *importSuite) TestImportCharmMetadataEmpty(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(nil)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportCharmMetadataInvalidUser(c *gc.C) {
+func (s *importSuite) TestImportCharmMetadataInvalidUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	metaExp := s.charmMetadata.EXPECT()
@@ -426,10 +425,10 @@ func (s *importSuite) TestImportCharmMetadataInvalidUser(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportCharmMetadataInvalidAssumes(c *gc.C) {
+func (s *importSuite) TestImportCharmMetadataInvalidAssumes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	metaExp := s.charmMetadata.EXPECT()
@@ -441,10 +440,10 @@ func (s *importSuite) TestImportCharmMetadataInvalidAssumes(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportCharmMetadataInvalidMinJujuVersion(c *gc.C) {
+func (s *importSuite) TestImportCharmMetadataInvalidMinJujuVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	metaExp := s.charmMetadata.EXPECT()
@@ -457,10 +456,10 @@ func (s *importSuite) TestImportCharmMetadataInvalidMinJujuVersion(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportCharmMetadataInvalidRelationRole(c *gc.C) {
+func (s *importSuite) TestImportCharmMetadataInvalidRelationRole(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exp := s.charmProvides.EXPECT()
@@ -480,10 +479,10 @@ func (s *importSuite) TestImportCharmMetadataInvalidRelationRole(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportCharmMetadataInvalidRelationScope(c *gc.C) {
+func (s *importSuite) TestImportCharmMetadataInvalidRelationScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exp := s.charmProvides.EXPECT()
@@ -504,10 +503,10 @@ func (s *importSuite) TestImportCharmMetadataInvalidRelationScope(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportCharmMetadataInvalidStorage(c *gc.C) {
+func (s *importSuite) TestImportCharmMetadataInvalidStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectRequiresRelation()
@@ -540,10 +539,10 @@ func (s *importSuite) TestImportCharmMetadataInvalidStorage(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportCharmMetadataInvalidResource(c *gc.C) {
+func (s *importSuite) TestImportCharmMetadataInvalidResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectRequiresRelation()
@@ -588,10 +587,10 @@ func (s *importSuite) TestImportCharmMetadataInvalidResource(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
+func (s *importSuite) TestImportCharmMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectRequiresRelation()
@@ -643,8 +642,8 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 	}
 
 	meta, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(meta, gc.DeepEquals, &internalcharm.Meta{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(meta, tc.DeepEquals, &internalcharm.Meta{
 		Name:           "foo",
 		Summary:        "bar",
 		Description:    "baz",
@@ -742,7 +741,7 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 	})
 }
 
-func (s *importSuite) TestImportEmptyCharmManifest(c *gc.C) {
+func (s *importSuite) TestImportEmptyCharmManifest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectEmptyManifestBases()
@@ -752,10 +751,10 @@ func (s *importSuite) TestImportEmptyCharmManifest(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmManifest(s.charmManifest)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *importSuite) TestImportCharmManifest(c *gc.C) {
+func (s *importSuite) TestImportCharmManifest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectManifestBases()
@@ -765,8 +764,8 @@ func (s *importSuite) TestImportCharmManifest(c *gc.C) {
 	}
 
 	meta, err := importOp.importCharmManifest(s.charmManifest)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(meta, gc.DeepEquals, &internalcharm.Manifest{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(meta, tc.DeepEquals, &internalcharm.Manifest{
 		Bases: []internalcharm.Base{
 			{
 				Name: "ubuntu",
@@ -780,7 +779,7 @@ func (s *importSuite) TestImportCharmManifest(c *gc.C) {
 	})
 }
 
-func (s *importSuite) TestImportCharmManifestWithInvalidBase(c *gc.C) {
+func (s *importSuite) TestImportCharmManifestWithInvalidBase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Notice that we do allow centos here for now. We probably want to
@@ -800,10 +799,10 @@ func (s *importSuite) TestImportCharmManifestWithInvalidBase(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmManifest(s.charmManifest)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportEmptyCharmLXDProfile(c *gc.C) {
+func (s *importSuite) TestImportEmptyCharmLXDProfile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectEmptyLXDProfile()
@@ -813,11 +812,11 @@ func (s *importSuite) TestImportEmptyCharmLXDProfile(c *gc.C) {
 	}
 
 	meta, err := importOp.importCharmLXDProfile(s.charmMetadata)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(meta, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(meta, tc.IsNil)
 }
 
-func (s *importSuite) TestImportCharmLXDProfile(c *gc.C) {
+func (s *importSuite) TestImportCharmLXDProfile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectLXDProfile()
@@ -827,15 +826,15 @@ func (s *importSuite) TestImportCharmLXDProfile(c *gc.C) {
 	}
 
 	meta, err := importOp.importCharmLXDProfile(s.charmMetadata)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(meta, gc.DeepEquals, &internalcharm.LXDProfile{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(meta, tc.DeepEquals, &internalcharm.LXDProfile{
 		Config: map[string]string{
 			"foo": "bar",
 		},
 	})
 }
 
-func (s *importSuite) TestImportEmptyCharmConfig(c *gc.C) {
+func (s *importSuite) TestImportEmptyCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectEmptyCharmConfigs()
@@ -845,12 +844,12 @@ func (s *importSuite) TestImportEmptyCharmConfig(c *gc.C) {
 	}
 
 	meta, err := importOp.importCharmConfig(s.charmConfigs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(meta, gc.NotNil)
-	c.Check(meta.Options, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(meta, tc.NotNil)
+	c.Check(meta.Options, tc.HasLen, 0)
 }
 
-func (s *importSuite) TestImportCharmConfig(c *gc.C) {
+func (s *importSuite) TestImportCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectCharmConfigs()
@@ -860,9 +859,9 @@ func (s *importSuite) TestImportCharmConfig(c *gc.C) {
 	}
 
 	meta, err := importOp.importCharmConfig(s.charmConfigs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(meta, gc.NotNil)
-	c.Check(meta.Options, gc.DeepEquals, map[string]internalcharm.Option{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(meta, tc.NotNil)
+	c.Check(meta.Options, tc.DeepEquals, map[string]internalcharm.Option{
 		"foo": {
 			Type:        "string",
 			Default:     "bar",
@@ -871,7 +870,7 @@ func (s *importSuite) TestImportCharmConfig(c *gc.C) {
 	})
 }
 
-func (s *importSuite) TestImportEmptyCharmActions(c *gc.C) {
+func (s *importSuite) TestImportEmptyCharmActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectEmptyCharmActions()
@@ -881,12 +880,12 @@ func (s *importSuite) TestImportEmptyCharmActions(c *gc.C) {
 	}
 
 	meta, err := importOp.importCharmActions(s.charmActions)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(meta, gc.NotNil)
-	c.Check(meta.ActionSpecs, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(meta, tc.NotNil)
+	c.Check(meta.ActionSpecs, tc.HasLen, 0)
 }
 
-func (s *importSuite) TestImportCharmActions(c *gc.C) {
+func (s *importSuite) TestImportCharmActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectCharmActions()
@@ -896,9 +895,9 @@ func (s *importSuite) TestImportCharmActions(c *gc.C) {
 	}
 
 	meta, err := importOp.importCharmActions(s.charmActions)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(meta, gc.NotNil)
-	c.Check(meta.ActionSpecs, gc.DeepEquals, map[string]internalcharm.ActionSpec{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(meta, tc.NotNil)
+	c.Check(meta.ActionSpecs, tc.DeepEquals, map[string]internalcharm.ActionSpec{
 		"foo": {
 			Description:    "baz",
 			Parallel:       true,
@@ -910,7 +909,7 @@ func (s *importSuite) TestImportCharmActions(c *gc.C) {
 	})
 }
 
-func (s *importSuite) TestImportCharmActionsNestedMaps(c *gc.C) {
+func (s *importSuite) TestImportCharmActionsNestedMaps(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectCharmActionsNested()
@@ -920,9 +919,9 @@ func (s *importSuite) TestImportCharmActionsNestedMaps(c *gc.C) {
 	}
 
 	meta, err := importOp.importCharmActions(s.charmActions)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(meta, gc.NotNil)
-	c.Check(meta.ActionSpecs, gc.DeepEquals, map[string]internalcharm.ActionSpec{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(meta, tc.NotNil)
+	c.Check(meta.ActionSpecs, tc.DeepEquals, map[string]internalcharm.ActionSpec{
 		"foo": {
 			Description:    "baz",
 			Parallel:       true,
@@ -944,7 +943,7 @@ func (s *importSuite) TestImportCharmActionsNestedMaps(c *gc.C) {
 
 // TestImportEndpointBindings36 checks that the endpoint bindings are correctly
 // imported with integer spaces Ids, as found in 3.6.
-func (s *importSuite) TestImportEndpointBindings36(c *gc.C) {
+func (s *importSuite) TestImportEndpointBindings36(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -1016,19 +1015,19 @@ func (s *importSuite) TestImportEndpointBindings36(c *gc.C) {
 	err := importOp.Execute(context.Background(), model)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: Check that the endpoints are mapped to the correct space names
-	c.Assert(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
-	c.Assert(importArgs.EndpointBindings, gc.HasLen, 3)
-	c.Check(importArgs.EndpointBindings["endpoint0"], gc.DeepEquals, network.SpaceName(network.AlphaSpaceName))
-	c.Check(importArgs.EndpointBindings["endpoint1"], gc.DeepEquals, network.SpaceName("beta"))
-	c.Check(importArgs.EndpointBindings[""], gc.DeepEquals, network.SpaceName("gamma"))
+	c.Assert(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
+	c.Assert(importArgs.EndpointBindings, tc.HasLen, 3)
+	c.Check(importArgs.EndpointBindings["endpoint0"], tc.DeepEquals, network.SpaceName(network.AlphaSpaceName))
+	c.Check(importArgs.EndpointBindings["endpoint1"], tc.DeepEquals, network.SpaceName("beta"))
+	c.Check(importArgs.EndpointBindings[""], tc.DeepEquals, network.SpaceName("gamma"))
 }
 
 // TestImportEndpointBindings40 checks that the endpoint bindings are correctly
 // imported with UUIDs as spaces Ids, as found in 4.0.
-func (s *importSuite) TestImportEndpointBindings40(c *gc.C) {
+func (s *importSuite) TestImportEndpointBindings40(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -1102,19 +1101,19 @@ func (s *importSuite) TestImportEndpointBindings40(c *gc.C) {
 	err := importOp.Execute(context.Background(), model)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: Check that the endpoints are mapped to the correct space names
-	c.Assert(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
-	c.Assert(importArgs.EndpointBindings, gc.HasLen, 3)
-	c.Check(importArgs.EndpointBindings["endpoint0"], gc.DeepEquals, network.SpaceName(network.AlphaSpaceName))
-	c.Check(importArgs.EndpointBindings["endpoint1"], gc.DeepEquals, network.SpaceName("beta"))
-	c.Check(importArgs.EndpointBindings[""], gc.DeepEquals, network.SpaceName("gamma"))
+	c.Assert(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
+	c.Assert(importArgs.EndpointBindings, tc.HasLen, 3)
+	c.Check(importArgs.EndpointBindings["endpoint0"], tc.DeepEquals, network.SpaceName(network.AlphaSpaceName))
+	c.Check(importArgs.EndpointBindings["endpoint1"], tc.DeepEquals, network.SpaceName("beta"))
+	c.Check(importArgs.EndpointBindings[""], tc.DeepEquals, network.SpaceName("gamma"))
 }
 
 // TestImportEndpointBindingsDefaultSpace checks that the endpoint bindings are
 // imported correctly when the application default is the alpha space.
-func (s *importSuite) TestImportEndpointBindingsDefaultSpace(c *gc.C) {
+func (s *importSuite) TestImportEndpointBindingsDefaultSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -1187,15 +1186,15 @@ func (s *importSuite) TestImportEndpointBindingsDefaultSpace(c *gc.C) {
 	err := importOp.Execute(context.Background(), model)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: Check that the endpoints are mapped to the correct space names
-	c.Assert(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
-	c.Assert(importArgs.EndpointBindings, gc.HasLen, 1)
-	c.Check(importArgs.EndpointBindings["endpoint1"], gc.DeepEquals, network.SpaceName("beta"))
+	c.Assert(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
+	c.Assert(importArgs.EndpointBindings, tc.HasLen, 1)
+	c.Check(importArgs.EndpointBindings["endpoint1"], tc.DeepEquals, network.SpaceName("beta"))
 }
 
-func (s *importSuite) TestImportExposedEndpointsFrom36(c *gc.C) {
+func (s *importSuite) TestImportExposedEndpointsFrom36(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -1251,11 +1250,11 @@ func (s *importSuite) TestImportExposedEndpointsFrom36(c *gc.C) {
 		"prometheus",
 		gomock.Any(),
 	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
-		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
-		c.Check(args.ExposedEndpoints, gc.HasLen, 2)
-		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, gc.DeepEquals, set.NewStrings(network.AlphaSpaceId))
-		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToCIDRs, gc.DeepEquals, set.NewStrings("10.0.0.0/24", "10.0.1.0/24"))
-		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToSpaceIDs, gc.DeepEquals, set.NewStrings("beta-space-uuid"))
+		c.Assert(args.Charm.Meta().Name, tc.Equals, "prometheus")
+		c.Check(args.ExposedEndpoints, tc.HasLen, 2)
+		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings(network.AlphaSpaceId))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToCIDRs, tc.DeepEquals, set.NewStrings("10.0.0.0/24", "10.0.1.0/24"))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings("beta-space-uuid"))
 		return nil
 	})
 
@@ -1265,10 +1264,10 @@ func (s *importSuite) TestImportExposedEndpointsFrom36(c *gc.C) {
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportExposedEndpointsFrom40(c *gc.C) {
+func (s *importSuite) TestImportExposedEndpointsFrom40(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -1323,11 +1322,11 @@ func (s *importSuite) TestImportExposedEndpointsFrom40(c *gc.C) {
 		"prometheus",
 		gomock.Any(),
 	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
-		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
-		c.Check(args.ExposedEndpoints, gc.HasLen, 2)
-		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, gc.DeepEquals, set.NewStrings(network.AlphaSpaceId))
-		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToCIDRs, gc.DeepEquals, set.NewStrings("10.0.0.0/24", "10.0.1.0/24"))
-		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToSpaceIDs, gc.DeepEquals, set.NewStrings(spaceUUID.String()))
+		c.Assert(args.Charm.Meta().Name, tc.Equals, "prometheus")
+		c.Check(args.ExposedEndpoints, tc.HasLen, 2)
+		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings(network.AlphaSpaceId))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToCIDRs, tc.DeepEquals, set.NewStrings("10.0.0.0/24", "10.0.1.0/24"))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToSpaceIDs, tc.DeepEquals, set.NewStrings(spaceUUID.String()))
 		return nil
 	})
 
@@ -1337,10 +1336,10 @@ func (s *importSuite) TestImportExposedEndpointsFrom40(c *gc.C) {
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestSpaceNameNotFoundFrom36(c *gc.C) {
+func (s *importSuite) TestSpaceNameNotFoundFrom36(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	importOp := importOperation{
@@ -1367,10 +1366,10 @@ func (s *importSuite) TestSpaceNameNotFoundFrom36(c *gc.C) {
 	})
 
 	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
-	c.Assert(err, gc.ErrorMatches, "endpoint exposed to space \"1\" does not exist")
+	c.Assert(err, tc.ErrorMatches, "endpoint exposed to space \"1\" does not exist")
 }
 
-func (s *importSuite) TestSpaceNameNotFoundFrom40(c *gc.C) {
+func (s *importSuite) TestSpaceNameNotFoundFrom40(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	importOp := importOperation{
@@ -1398,10 +1397,10 @@ func (s *importSuite) TestSpaceNameNotFoundFrom40(c *gc.C) {
 	})
 
 	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint exposed to space %q does not exist", spaceUUID.String()))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("endpoint exposed to space %q does not exist", spaceUUID.String()))
 }
 
-func (s *importSuite) TestSpaceNameNotFoundInDB(c *gc.C) {
+func (s *importSuite) TestSpaceNameNotFoundInDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	importOp := importOperation{
@@ -1431,10 +1430,10 @@ func (s *importSuite) TestSpaceNameNotFoundInDB(c *gc.C) {
 	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id(""), errors.Errorf("boom"))
 
 	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("getting space UUID by name %q: boom", spaceUUID.String()))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("getting space UUID by name %q: boom", spaceUUID.String()))
 }
 
-func (s *importSuite) TestMultipleSpaceLookupExposedEndpoints(c *gc.C) {
+func (s *importSuite) TestMultipleSpaceLookupExposedEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	importOp := importOperation{
@@ -1476,10 +1475,10 @@ func (s *importSuite) TestMultipleSpaceLookupExposedEndpoints(c *gc.C) {
 	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "delta").Return(network.Id(spaceUUID2.String()), nil)
 
 	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestApplicationImportSubordinate(c *gc.C) {
+func (s *importSuite) TestApplicationImportSubordinate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{
@@ -1533,10 +1532,10 @@ func (s *importSuite) TestApplicationImportSubordinate(c *gc.C) {
 	}
 
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
-	c.Check(importArgs.Units, gc.DeepEquals, []service.ImportUnitArg{{
+	c.Check(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
+	c.Check(importArgs.Units, tc.DeepEquals, []service.ImportUnitArg{{
 		UnitName:     "prometheus/0",
 		PasswordHash: ptr("passwordhash"),
 		Machine:      machine.Name("0"),
@@ -1544,7 +1543,7 @@ func (s *importSuite) TestApplicationImportSubordinate(c *gc.C) {
 	}})
 }
 
-func (s *importSuite) TestImportPeerRelations(c *gc.C) {
+func (s *importSuite) TestImportPeerRelations(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	rel1 := model.AddRelation(description.RelationArgs{
@@ -1592,10 +1591,10 @@ func (s *importSuite) TestImportPeerRelations(c *gc.C) {
 
 	op := &importOperation{}
 	obtained := op.importPeerRelations("prometheus", model.Relations())
-	c.Check(obtained, jc.DeepEquals, expected)
+	c.Check(obtained, tc.DeepEquals, expected)
 }
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.importService = NewMockImportService(ctrl)

@@ -12,12 +12,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -40,6 +38,7 @@ import (
 	environmocks "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/computeprovisioner"
@@ -47,7 +46,7 @@ import (
 )
 
 type CommonProvisionerSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	controllerAPI  *MockControllerAPI
 	machineService *MockMachineService
@@ -60,7 +59,7 @@ type CommonProvisionerSuite struct {
 	provisionerStarted chan bool
 }
 
-func (s *CommonProvisionerSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *CommonProvisionerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerAPI = NewMockControllerAPI(ctrl)
 	s.machinesAPI = NewMockMachinesAPI(ctrl)
@@ -71,7 +70,7 @@ func (s *CommonProvisionerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *CommonProvisionerSuite) expectStartup(c *gc.C) {
+func (s *CommonProvisionerSuite) expectStartup(c *tc.C) {
 	s.modelConfigCh = make(chan struct{})
 	watchCfg := watchertest.NewMockNotifyWatcher(s.modelConfigCh)
 	s.controllerAPI.EXPECT().WatchForModelConfigChanges(gomock.Any()).Return(watchCfg, nil)
@@ -93,7 +92,7 @@ func (s *CommonProvisionerSuite) expectAuth() {
 	s.controllerAPI.EXPECT().CACert(gomock.Any()).Return(coretesting.CACert, nil).AnyTimes()
 }
 
-func (s *CommonProvisionerSuite) sendModelConfigChange(c *gc.C) {
+func (s *CommonProvisionerSuite) sendModelConfigChange(c *tc.C) {
 	select {
 	case s.modelConfigCh <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
@@ -101,7 +100,7 @@ func (s *CommonProvisionerSuite) sendModelConfigChange(c *gc.C) {
 	}
 }
 
-func (s *CommonProvisionerSuite) waitForProvisioner(c *gc.C) {
+func (s *CommonProvisionerSuite) waitForProvisioner(c *tc.C) {
 	select {
 	case <-s.provisionerStarted:
 	case <-time.After(coretesting.LongWait):
@@ -109,7 +108,7 @@ func (s *CommonProvisionerSuite) waitForProvisioner(c *gc.C) {
 	}
 }
 
-func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *testMachine) {
+func (s *CommonProvisionerSuite) checkStartInstance(c *tc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		_, err := m.InstanceId(context.Background())
 		if err == nil {
@@ -119,7 +118,7 @@ func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *testMachine) {
 	c.Fatalf("machine %v not started", m.id)
 }
 
-func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p computeprovisioner.Provisioner, container bool) {
+func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *tc.C, p computeprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
 	computeprovisioner.SetObserver(p, cfgObserver)
@@ -127,7 +126,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	attrs := coretesting.FakeConfig()
 	attrs[config.ProvisionerHarvestModeKey] = config.HarvestDestroyed.String()
 	modelCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	if !container {
@@ -159,7 +158,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	}
 }
 
-func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *gc.C, p computeprovisioner.Provisioner, container bool) {
+func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *tc.C, p computeprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
 	computeprovisioner.SetObserver(p, cfgObserver)
@@ -173,7 +172,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 		attrs[config.NumProvisionWorkersKey] = 20
 	}
 	modelCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	if !container {
@@ -213,7 +212,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 }
 
 // waitForRemovalMark waits for the supplied machine to be marked for removal.
-func (s *CommonProvisionerSuite) waitForRemovalMark(c *gc.C, m *testMachine) {
+func (s *CommonProvisionerSuite) waitForRemovalMark(c *tc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		if m.GetMarkForRemoval() {
 			return
@@ -231,8 +230,8 @@ func (s *CommonProvisionerSuite) expectMachinesWatcher() {
 	s.machinesAPI.EXPECT().WatchMachineErrorRetry(gomock.Any()).Return(rw, nil)
 }
 
-func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) computeprovisioner.Provisioner {
-	c.Assert(s.machinesAPI, gc.NotNil)
+func (s *CommonProvisionerSuite) newEnvironProvisioner(c *tc.C) computeprovisioner.Provisioner {
+	c.Assert(s.machinesAPI, tc.NotNil)
 	s.expectMachinesWatcher()
 
 	machineTag := names.NewMachineTag("0")
@@ -250,7 +249,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) computeprovision
 			Controller:        coretesting.ControllerTag,
 			Model:             coretesting.ModelTag,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w, err := computeprovisioner.NewEnvironProvisioner(
 		s.controllerAPI, s.machineService, s.machinesAPI,
@@ -259,7 +258,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) computeprovision
 		agentConfig,
 		loggertesting.WrapCheckLog(c),
 		s.broker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.waitForProvisioner(c)
 	return w
@@ -313,9 +312,9 @@ type ProvisionerSuite struct {
 	CommonProvisionerSuite
 }
 
-var _ = gc.Suite(&ProvisionerSuite{})
+var _ = tc.Suite(&ProvisionerSuite{})
 
-func (s *ProvisionerSuite) sendModelMachinesChange(c *gc.C, ids ...string) {
+func (s *ProvisionerSuite) sendModelMachinesChange(c *tc.C, ids ...string) {
 	select {
 	case s.machinesCh <- ids:
 	case <-time.After(coretesting.LongWait):
@@ -323,7 +322,7 @@ func (s *ProvisionerSuite) sendModelMachinesChange(c *gc.C, ids ...string) {
 	}
 }
 
-func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
+func (s *ProvisionerSuite) TestProvisionerStartStop(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -331,7 +330,7 @@ func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	workertest.CleanKill(c, p)
 }
 
-func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *gc.C) {
+func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -374,8 +373,8 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *gc.C) {
 
 	// ...and removed, along with the machine, when the machine is Dead.
 	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ids ...instance.Id) error {
-		c.Assert(len(ids), gc.Equals, 1)
-		c.Assert(ids[0], gc.DeepEquals, instance.Id("inst-666"))
+		c.Assert(len(ids), tc.Equals, 1)
+		c.Assert(ids[0], tc.DeepEquals, instance.Id("inst-666"))
 		return nil
 	})
 
@@ -384,7 +383,7 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *gc.C) {
 	s.waitForRemovalMark(c, m666)
 }
 
-func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChanges(c *gc.C) {
+func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChanges(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -393,7 +392,7 @@ func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChanges(c *gc.C) 
 	s.assertProvisionerObservesConfigChanges(c, p, false)
 }
 
-func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChangesWorkerCount(c *gc.C) {
+func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChangesWorkerCount(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -437,7 +436,7 @@ func machineStartInstanceArg(id string) *environs.StartInstanceParams {
 	return &result
 }
 
-func newDefaultStartInstanceParamsMatcher(c *gc.C, want *environs.StartInstanceParams) *startInstanceParamsMatcher {
+func newDefaultStartInstanceParamsMatcher(c *tc.C, want *environs.StartInstanceParams) *startInstanceParamsMatcher {
 	match := func(p environs.StartInstanceParams) bool {
 		p.Abort = nil
 		p.StatusCallback = nil

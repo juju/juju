@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
@@ -25,22 +24,22 @@ type deployerCAASSuite struct {
 	cloudServiceGetter *MockCloudServiceGetter
 }
 
-var _ = gc.Suite(&deployerCAASSuite{})
+var _ = tc.Suite(&deployerCAASSuite{})
 
-func (s *deployerCAASSuite) TestValidate(c *gc.C) {
+func (s *deployerCAASSuite) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
 	err := cfg.Validate()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	cfg = s.newConfig(c)
 	cfg.CloudServiceGetter = nil
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *deployerCAASSuite) TestControllerAddress(c *gc.C) {
+func (s *deployerCAASSuite) TestControllerAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
@@ -50,11 +49,11 @@ func (s *deployerCAASSuite) TestControllerAddress(c *gc.C) {
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "10.0.0.1:0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.Equals, "10.0.0.1:0")
 }
 
-func (s *deployerCAASSuite) TestControllerAddressMultipleAddresses(c *gc.C) {
+func (s *deployerCAASSuite) TestControllerAddressMultipleAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the test picks the first address.
@@ -66,11 +65,11 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddresses(c *gc.C) {
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "10.0.0.1:0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.Equals, "10.0.0.1:0")
 }
 
-func (s *deployerCAASSuite) TestControllerAddressMultipleAddressesScopeNonLocal(c *gc.C) {
+func (s *deployerCAASSuite) TestControllerAddressMultipleAddressesScopeNonLocal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that we always pick local over non-local
@@ -82,11 +81,11 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddressesScopeNonLocal(
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "10.0.0.2:0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.Equals, "10.0.0.2:0")
 }
 
-func (s *deployerCAASSuite) TestControllerAddressScopeNonLocal(c *gc.C) {
+func (s *deployerCAASSuite) TestControllerAddressScopeNonLocal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that we return the non scoped local address if we don't have
@@ -99,11 +98,11 @@ func (s *deployerCAASSuite) TestControllerAddressScopeNonLocal(c *gc.C) {
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "2.201.120.241:0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.Equals, "2.201.120.241:0")
 }
 
-func (s *deployerCAASSuite) TestControllerAddressNoAddresses(c *gc.C) {
+func (s *deployerCAASSuite) TestControllerAddressNoAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
@@ -113,20 +112,20 @@ func (s *deployerCAASSuite) TestControllerAddressNoAddresses(c *gc.C) {
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.Equals, "")
 }
 
-func (s *deployerCAASSuite) TestControllerCharmBase(c *gc.C) {
+func (s *deployerCAASSuite) TestControllerCharmBase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	deployer := s.newDeployer(c)
 	base, err := deployer.ControllerCharmBase()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, gc.DeepEquals, version.DefaultSupportedLTSBase())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(base, tc.DeepEquals, version.DefaultSupportedLTSBase())
 }
 
-func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
+func (s *deployerCAASSuite) TestCompleteProcess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
@@ -140,20 +139,20 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	err := deployer.CompleteProcess(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *deployerCAASSuite) newDeployer(c *gc.C) *CAASDeployer {
+func (s *deployerCAASSuite) newDeployer(c *tc.C) *CAASDeployer {
 	return s.newDeployerWithConfig(c, s.newConfig(c))
 }
 
-func (s *deployerCAASSuite) newDeployerWithConfig(c *gc.C, cfg CAASDeployerConfig) *CAASDeployer {
+func (s *deployerCAASSuite) newDeployerWithConfig(c *tc.C, cfg CAASDeployerConfig) *CAASDeployer {
 	deployer, err := NewCAASDeployer(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return deployer
 }
 
-func (s *deployerCAASSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *deployerCAASSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.cloudService = NewMockCloudService(ctrl)
@@ -162,7 +161,7 @@ func (s *deployerCAASSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *deployerCAASSuite) newConfig(c *gc.C) CAASDeployerConfig {
+func (s *deployerCAASSuite) newConfig(c *tc.C) CAASDeployerConfig {
 	return CAASDeployerConfig{
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
 		CloudServiceGetter: s.cloudServiceGetter,

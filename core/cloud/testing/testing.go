@@ -4,16 +4,15 @@
 package testing
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corecloud "github.com/juju/juju/core/cloud"
 )
 
 // GenCloudUUID can be used in testing for generating a cloud uuid that is
 // checked for subsequent errors using the test suits go check instance.
-func GenCloudUUID(c *gc.C) corecloud.UUID {
+func GenCloudUUID(c *tc.C) corecloud.UUID {
 	uuid, err := corecloud.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

@@ -6,11 +6,11 @@ package cleaner_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package cleaner_test -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServices
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

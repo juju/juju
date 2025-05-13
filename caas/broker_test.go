@@ -5,8 +5,7 @@ package caas_test
 
 import (
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/internal/testing"
@@ -16,9 +15,9 @@ type brokerSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&brokerSuite{})
+var _ = tc.Suite(&brokerSuite{})
 
-func (s *brokerSuite) TestDeploymentTypeValidation(c *gc.C) {
+func (s *brokerSuite) TestDeploymentTypeValidation(c *tc.C) {
 
 	validTypes := []caas.DeploymentType{
 		caas.DeploymentStateful,
@@ -27,8 +26,8 @@ func (s *brokerSuite) TestDeploymentTypeValidation(c *gc.C) {
 		caas.DeploymentType(""), // TODO(caas): change deployment to mandatory.
 	}
 	for _, t := range validTypes {
-		c.Check(t.Validate(), jc.ErrorIsNil)
+		c.Check(t.Validate(), tc.ErrorIsNil)
 	}
 
-	c.Assert(caas.DeploymentType("bad type").Validate(), jc.ErrorIs, errors.NotSupported)
+	c.Assert(caas.DeploymentType("bad type").Validate(), tc.ErrorIs, errors.NotSupported)
 }

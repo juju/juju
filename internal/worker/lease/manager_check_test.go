@@ -8,21 +8,20 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lease"
 )
 
 type TokenSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&TokenSuite{})
+var _ = tc.Suite(&TokenSuite{})
 
-func (s *TokenSuite) TestSuccess(c *gc.C) {
+func (s *TokenSuite) TestSuccess(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -34,20 +33,20 @@ func (s *TokenSuite) TestSuccess(c *gc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("redis", "redis/0")
 		err := token.Check()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
-func (s *TokenSuite) TestFailureMissing(c *gc.C) {
+func (s *TokenSuite) TestFailureMissing(c *tc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("redis", "redis/0")
 		err := token.Check()
-		c.Check(errors.Cause(err), gc.Equals, corelease.ErrNotHeld)
+		c.Check(errors.Cause(err), tc.Equals, corelease.ErrNotHeld)
 	})
 }
 
-func (s *TokenSuite) TestFailureOtherHolder(c *gc.C) {
+func (s *TokenSuite) TestFailureOtherHolder(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -59,12 +58,12 @@ func (s *TokenSuite) TestFailureOtherHolder(c *gc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("redis", "redis/0")
 		err := token.Check()
-		c.Check(errors.Cause(err), gc.Equals, corelease.ErrNotHeld)
+		c.Check(errors.Cause(err), tc.Equals, corelease.ErrNotHeld)
 	})
 }
 
-func getChecker(c *gc.C, manager *lease.Manager) corelease.Checker {
+func getChecker(c *tc.C, manager *lease.Manager) corelease.Checker {
 	checker, err := manager.Checker("namespace", "modelUUID")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return checker
 }

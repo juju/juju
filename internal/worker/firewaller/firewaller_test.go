@@ -15,12 +15,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -38,6 +36,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/firewaller/mocks"
@@ -50,7 +49,7 @@ const allEndpoints = ""
 // firewallerBaseSuite implements common functionality for embedding
 // into each of the other per-mode suites.
 type firewallerBaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	firewaller           *mocks.MockFirewallerAPI
 	remoteRelations      *mocks.MockRemoteRelationsAPI
@@ -94,7 +93,7 @@ type firewallerBaseSuite struct {
 	unitPortRanges *unitPortRanges
 }
 
-func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
+func (s *firewallerBaseSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.withIpv6 = true
@@ -116,7 +115,7 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 
 var _ worker.Worker = (*firewaller.Firewaller)(nil)
 
-func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
+func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 	if s.firewaller != nil {
 		return
 	}
@@ -178,14 +177,13 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 
 // assertIngressRules retrieves the ingress rules from the provided instance
 // and compares them to the expected value.
-func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, machineId string,
+func (s *firewallerBaseSuite) assertIngressRules(c *tc.C, machineId string,
 	expected firewall.IngressRules) {
 	start := time.Now()
 	for {
 		s.mu.Lock()
 		got := s.instancePorts[machineId]
 		if expected.EqualTo(got) {
-			c.Succeed()
 			s.mu.Unlock()
 			return
 		}
@@ -199,13 +197,12 @@ func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, machineId string,
 
 // assertEnvironPorts retrieves the open ports of environment and compares them
 // to the expected.
-func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.IngressRules) {
+func (s *firewallerBaseSuite) assertEnvironPorts(c *tc.C, expected firewall.IngressRules) {
 	start := time.Now()
 	for {
 		s.mu.Lock()
 		got := s.envPorts
 		if got.EqualTo(expected) {
-			c.Succeed()
 			s.mu.Unlock()
 			return
 		}
@@ -219,13 +216,12 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 
 // assertModelIngressRules retrieves the ingress rules from the model firewall
 // and compares them to the expected value
-func (s *firewallerBaseSuite) assertModelIngressRules(c *gc.C, expected firewall.IngressRules) {
+func (s *firewallerBaseSuite) assertModelIngressRules(c *tc.C, expected firewall.IngressRules) {
 	start := time.Now()
 	for {
 		s.mu.Lock()
 		got := s.envModelPorts
 		if got.EqualTo(expected) {
-			c.Succeed()
 			s.mu.Unlock()
 			return
 		}
@@ -237,7 +233,7 @@ func (s *firewallerBaseSuite) assertModelIngressRules(c *gc.C, expected firewall
 	}
 }
 
-func (s *firewallerBaseSuite) waitForMachineFlush(c *gc.C) {
+func (s *firewallerBaseSuite) waitForMachineFlush(c *tc.C) {
 	select {
 	case <-s.machineFlushed:
 	case <-time.After(coretesting.LongWait):
@@ -245,7 +241,7 @@ func (s *firewallerBaseSuite) waitForMachineFlush(c *gc.C) {
 	}
 }
 
-func (s *firewallerBaseSuite) waitForModelFlush(c *gc.C) {
+func (s *firewallerBaseSuite) waitForModelFlush(c *tc.C) {
 	select {
 	case <-s.modelFlushed:
 	case <-time.After(coretesting.LongWait):
@@ -253,10 +249,10 @@ func (s *firewallerBaseSuite) waitForModelFlush(c *gc.C) {
 	}
 }
 
-func (s *firewallerBaseSuite) waitForMachine(c *gc.C, id string) {
+func (s *firewallerBaseSuite) waitForMachine(c *tc.C, id string) {
 	select {
 	case got := <-s.watchingMachine:
-		c.Assert(got, gc.Equals, names.NewMachineTag(id))
+		c.Assert(got, tc.Equals, names.NewMachineTag(id))
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting to watch machine %v", id)
 	}
@@ -311,11 +307,11 @@ func (s *firewallerBaseSuite) addApplication(ctrl *gomock.Controller, appName st
 	return app
 }
 
-func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *mocks.MockApplication) (*mocks.MockUnit, *mocks.MockMachine, chan []string) {
+func (s *firewallerBaseSuite) addUnit(c *tc.C, ctrl *gomock.Controller, app *mocks.MockApplication) (*mocks.MockUnit, *mocks.MockMachine, chan []string) {
 	unitId := s.nextUnitId[app.Name()]
 	s.nextUnitId[app.Name()] = unitId + 1
 	unitName, err := coreunit.NewNameFromParts(app.Name(), unitId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, unitsCh := s.addMachine(ctrl)
 	u := mocks.NewMockUnit(ctrl)
 	s.firewaller.EXPECT().Unit(gomock.Any(), names.NewUnitTag(unitName.String())).Return(u, nil).AnyTimes()
@@ -346,7 +342,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *moc
 	return u, m, unitsCh
 }
 
-func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) worker.Worker {
+func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) worker.Worker {
 	s.ensureMocks(c, ctrl)
 
 	s.modelFlushed = make(chan bool, 5)
@@ -431,7 +427,7 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 	}).AnyTimes()
 
 	fw, err := firewaller.NewFirewaller(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Log("firewaller worker started")
 
 	select {
@@ -483,7 +479,7 @@ func closePorts(existing, rules firewall.IngressRules) firewall.IngressRules {
 }
 
 // startInstance starts a new instance for the given machine.
-func (s *firewallerBaseSuite) startInstance(c *gc.C, ctrl *gomock.Controller, m *mocks.MockMachine) *mocks.MockEnvironInstance {
+func (s *firewallerBaseSuite) startInstance(c *tc.C, ctrl *gomock.Controller, m *mocks.MockMachine) *mocks.MockEnvironInstance {
 	instId := instance.Id("inst-" + m.Tag().Id())
 	m.EXPECT().InstanceId(gomock.Any()).Return(instId, nil).AnyTimes()
 	inst := mocks.NewMockEnvironInstance(ctrl)
@@ -524,14 +520,14 @@ type InstanceModeSuite struct {
 	firewallerBaseSuite
 }
 
-var _ = gc.Suite(&InstanceModeSuite{})
+var _ = tc.Suite(&InstanceModeSuite{})
 
-func (s *InstanceModeSuite) SetUpTest(c *gc.C) {
+func (s *InstanceModeSuite) SetUpTest(c *tc.C) {
 	s.mode = config.FwInstance
 	s.firewallerBaseSuite.SetUpTest(c)
 }
 
-func (s *InstanceModeSuite) TestStartStop(c *gc.C) {
+func (s *InstanceModeSuite) TestStartStop(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -543,7 +539,7 @@ func (s *InstanceModeSuite) TestStartStop(c *gc.C) {
 	s.waitForModelFlush(c)
 }
 
-func (s *InstanceModeSuite) TestStartStopWithoutModelFirewaller(c *gc.C) {
+func (s *InstanceModeSuite) TestStartStopWithoutModelFirewaller(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -554,7 +550,7 @@ func (s *InstanceModeSuite) TestStartStopWithoutModelFirewaller(c *gc.C) {
 	s.waitForMachine(c, "0")
 }
 
-func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
+func (s *InstanceModeSuite) TestNotExposedApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -566,7 +562,7 @@ func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
 	s.waitForMachineFlush(c)
 }
 
-func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *gc.C) {
+func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -579,7 +575,7 @@ func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *g
 	s.waitForMachineFlush(c)
 }
 
-func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
+func (s *InstanceModeSuite) TestExposedApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -609,7 +605,7 @@ func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 	})
 }
 
-func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
+func (s *InstanceModeSuite) TestMultipleExposedApplications(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -655,7 +651,7 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 	s.assertIngressRules(c, m2.Tag().Id(), nil)
 }
 
-func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
+func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -686,7 +682,7 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	})
 }
 
-func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
+func (s *InstanceModeSuite) TestMultipleUnits(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -724,7 +720,7 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 	s.assertIngressRules(c, m1.Tag().Id(), nil)
 }
 
-func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
+func (s *InstanceModeSuite) TestStartWithState(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -752,7 +748,7 @@ func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 	})
 }
 
-func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
+func (s *InstanceModeSuite) TestStartWithPartialState(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -778,7 +774,7 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 	})
 }
 
-func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
+func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -809,7 +805,7 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	})
 }
 
-func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
+func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -831,7 +827,7 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	s.waitForMachine(c, m.Tag().Id())
 }
 
-func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
+func (s *InstanceModeSuite) TestSetClearExposedApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -870,7 +866,7 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 }
 
-func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoveUnit(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -908,7 +904,7 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	})
 }
 
-func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoveApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -940,7 +936,7 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 }
 
-func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1000,7 +996,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	s.waitForMachineFlush(c)
 }
 
-func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
+func (s *InstanceModeSuite) TestDeadMachine(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1039,7 +1035,7 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 }
 
-func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoveMachine(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1070,10 +1066,10 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 	// a refactoring of the worker logic as per LP:1814277.
 	fw.Kill()
 	err := fw.Wait()
-	c.Assert(err == nil || params.IsCodeNotFound(err), jc.IsTrue)
+	c.Assert(err == nil || params.IsCodeNotFound(err), tc.IsTrue)
 }
 
-func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
+func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1112,7 +1108,7 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	go func() { errc <- fw.Wait() }()
 	select {
 	case err := <-errc:
-		c.Assert(err, gc.ErrorMatches, "open ports is broken")
+		c.Assert(err, tc.ErrorMatches, "open ports is broken")
 	case <-time.After(coretesting.LongWait):
 		fw.Kill()
 		fw.Wait()
@@ -1120,7 +1116,7 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) TestDefaultModelFirewall(c *gc.C) {
+func (s *InstanceModeSuite) TestDefaultModelFirewall(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1138,7 +1134,7 @@ func (s *InstanceModeSuite) TestDefaultModelFirewall(c *gc.C) {
 	s.assertModelIngressRules(c, s.modelIngressRules)
 }
 
-func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
+func (s *InstanceModeSuite) TestConfigureModelFirewall(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1166,9 +1162,9 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 	})
 }
 
-func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *gc.C) (chan []string, *macaroon.Macaroon) {
+func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *tc.C) (chan []string, *macaroon.Macaroon) {
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"wordpress:db remote-mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
 			Result: &params.RemoteRelation{
@@ -1219,7 +1215,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *gc.C
 	return localEgressCh, mac
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1271,7 +1267,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1319,7 +1315,7 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1331,7 +1327,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 	s.addUnit(c, ctrl, app)
 
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"remote-wordpress:db mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
 			Result: &params.RemoteRelation{
@@ -1396,7 +1392,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 	}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1408,7 +1404,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	s.addUnit(c, ctrl, app)
 
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"wordpress:db remote-mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
 			Result: &params.RemoteRelation{
@@ -1484,7 +1480,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ctrl *gomock.Controller, ingress []string, expected []string) {
+func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller, ingress []string, expected []string) {
 	// Create the firewaller facade on the offering model.
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -1500,7 +1496,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ctrl *gomock.Controller,
 
 	// Set up the offering model - create the remote app.
 	mac, err := jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	remoteRelParams := params.RemoteRelation{
 		Life:            "alive",
 		Suspended:       false,
@@ -1585,14 +1581,14 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ctrl *gomock.Controller,
 	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	s.assertIngressCidrs(c, ctrl, []string{"10.0.0.4/16"}, []string{"10.0.0.4/16"})
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1605,7 +1601,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C
 		"saas-ingress-allow": "192.168.1.0/16",
 	}
 	cfg, err := config.New(config.UseDefaults, attr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.firewaller.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	var ingress []string
 	for i := 1; i < 30; i++ {
@@ -1614,7 +1610,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C
 	s.assertIngressCidrs(c, ctrl, ingress, []string{"192.168.1.0/16"})
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *gc.C) {
+func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1652,7 +1648,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *gc.C) {
 	s.assertIngressCidrs(c, ctrl, ingress, expected)
 }
 
-func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) {
+func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1747,7 +1743,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) 
 	})
 }
 
-func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceTopologyChanges(c *gc.C) {
+func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceTopologyChanges(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1830,7 +1826,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 	})
 }
 
-func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceDeleted(c *gc.C) {
+func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceDeleted(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1901,7 +1897,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 }
 
-func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceHasNoSubnets(c *gc.C) {
+func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceHasNoSubnets(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1963,7 +1959,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 }
 
-func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
+func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1998,14 +1994,14 @@ type GlobalModeSuite struct {
 	firewallerBaseSuite
 }
 
-var _ = gc.Suite(&GlobalModeSuite{})
+var _ = tc.Suite(&GlobalModeSuite{})
 
-func (s *GlobalModeSuite) SetUpTest(c *gc.C) {
+func (s *GlobalModeSuite) SetUpTest(c *tc.C) {
 	s.mode = config.FwGlobal
 	s.firewallerBaseSuite.SetUpTest(c)
 }
 
-func (s *GlobalModeSuite) TestStartStop(c *gc.C) {
+func (s *GlobalModeSuite) TestStartStop(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -2017,7 +2013,7 @@ func (s *GlobalModeSuite) TestStartStop(c *gc.C) {
 	s.waitForModelFlush(c)
 }
 
-func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
+func (s *GlobalModeSuite) TestGlobalMode(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -2070,7 +2066,7 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 }
 
-func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
+func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -2101,7 +2097,7 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	})
 }
 
-func (s *GlobalModeSuite) TestRestart(c *gc.C) {
+func (s *GlobalModeSuite) TestRestart(c *tc.C) {
 	// Start firewaller and open ports.
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -2125,7 +2121,7 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 
 	// Stop firewaller and close one and open a different port.
 	err := worker.Stop(fw)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.firewallerStarted = false
 
 	s.mustClosePortRanges(c, u, allEndpoints, []network.PortRange{
@@ -2156,7 +2152,7 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 	})
 }
 
-func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
+func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *tc.C) {
 	// Start firewaller and open ports.
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -2180,7 +2176,7 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 
 	// Stop firewaller and clear exposed flag on application.
 	err := worker.Stop(fw)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.firewallerStarted = false
 
 	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(false, nil)
@@ -2199,7 +2195,7 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 }
 
-func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
+func (s *GlobalModeSuite) TestRestartPortCount(c *tc.C) {
 	// Start firewaller and open ports.
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -2223,7 +2219,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 
 	// Stop firewaller and add another application using the port.
 	err := worker.Stop(fw)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	app2 := s.addApplication(ctrl, "mysql", true)
 	u2, m2, unitsCh2 := s.addUnit(c, ctrl, app2)
@@ -2275,7 +2271,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 }
 
-func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
+func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -2310,9 +2306,9 @@ type NoneModeSuite struct {
 	firewallerBaseSuite
 }
 
-var _ = gc.Suite(&NoneModeSuite{})
+var _ = tc.Suite(&NoneModeSuite{})
 
-func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
+func (s *NoneModeSuite) TestStopImmediately(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -2336,10 +2332,10 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 
 	fw, err := firewaller.NewFirewaller(cfg)
 	defer workertest.CheckNilOrKill(c, fw)
-	c.Assert(err, gc.ErrorMatches, `invalid firewall-mode "none"`)
+	c.Assert(err, tc.ErrorMatches, `invalid firewall-mode "none"`)
 }
 
-func (s *firewallerBaseSuite) mustOpenPortRanges(c *gc.C, u *mocks.MockUnit, endpointName string, portRanges []network.PortRange) {
+func (s *firewallerBaseSuite) mustOpenPortRanges(c *tc.C, u *mocks.MockUnit, endpointName string, portRanges []network.PortRange) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -2348,20 +2344,20 @@ func (s *firewallerBaseSuite) mustOpenPortRanges(c *gc.C, u *mocks.MockUnit, end
 	}
 	op := newUnitPortRangesCommit(s.unitPortRanges, coreunit.Name(u.Name()))
 	modified, err := op.Commit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if !modified {
 		return
 	}
 
 	m, err := u.AssignedMachine(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	if s.firewallerStarted {
 		s.openedPortsCh <- []string{m.Id()}
 	}
 }
 
-func (s *firewallerBaseSuite) mustClosePortRanges(c *gc.C, u *mocks.MockUnit, endpointName string, portRanges []network.PortRange) {
+func (s *firewallerBaseSuite) mustClosePortRanges(c *tc.C, u *mocks.MockUnit, endpointName string, portRanges []network.PortRange) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -2370,13 +2366,13 @@ func (s *firewallerBaseSuite) mustClosePortRanges(c *gc.C, u *mocks.MockUnit, en
 	}
 	op := newUnitPortRangesCommit(s.unitPortRanges, coreunit.Name(u.Name()))
 	modified, err := op.Commit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if !modified {
 		return
 	}
 
 	m, err := u.AssignedMachine(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	if s.firewallerStarted {
 		s.openedPortsCh <- []string{m.Id()}

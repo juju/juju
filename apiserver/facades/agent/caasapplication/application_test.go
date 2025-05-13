@@ -7,10 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/common"
@@ -24,14 +22,15 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&CAASApplicationSuite{})
+var _ = tc.Suite(&CAASApplicationSuite{})
 
 type CAASApplicationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
@@ -45,18 +44,18 @@ type CAASApplicationSuite struct {
 	controllerState *caasapplication.MockControllerState
 }
 
-func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
+func (s *CAASApplicationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 }
 
-func (s *CAASApplicationSuite) setupMocks(c *gc.C, authTag string) *gomock.Controller {
+func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	tag, err := names.ParseTag(authTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: tag,
 	}
@@ -71,37 +70,37 @@ func (s *CAASApplicationSuite) setupMocks(c *gc.C, authTag string) *gomock.Contr
 	s.facade = caasapplication.NewFacade(s.resources, s.authorizer, s.controllerState,
 		coretesting.ControllerTag.Id(), s.modelUUID,
 		s.controllerConfigService, s.applicationService, s.modelAgentService, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
 
-func (s *CAASApplicationSuite) TestUnitIntroductionMissingName(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitIntroductionMissingName(c *tc.C) {
 	defer s.setupMocks(c, "application-gitlab").Finish()
 
 	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "not valid", Message: "pod-name not valid"},
 	})
 }
 
-func (s *CAASApplicationSuite) TestUnitIntroductionMissingUUID(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitIntroductionMissingUUID(c *tc.C) {
 	defer s.setupMocks(c, "application-gitlab").Finish()
 
 	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "not valid", Message: "pod-uuid not valid"},
 	})
 }
 
-func (s *CAASApplicationSuite) TestUnitIntroduction(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 	defer s.setupMocks(c, "application-gitlab").Finish()
 
 	controllerCfg := controller.Config{
@@ -141,16 +140,16 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *gc.C) {
 			UpgradedToVersion: vers,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	confBytes, err := expectedConf.Render()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Result: &params.CAASUnitIntroduction{
 			UnitName:  "gitlab/666",
 			AgentConf: confBytes,
@@ -158,17 +157,17 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *gc.C) {
 	})
 }
 
-func (s *CAASApplicationSuite) TestUnitIntroductionPermissionDenied(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitIntroductionPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c, "unit-gitlab-666").Finish()
 
 	_, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *CAASApplicationSuite) TestUnitIntroductionApplicationNotFound(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitIntroductionApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c, "application-gitlab").Finish()
 
 	s.applicationService.EXPECT().RegisterCAASUnit(gomock.Any(), application.RegisterCAASUnitParams{
@@ -179,13 +178,13 @@ func (s *CAASApplicationSuite) TestUnitIntroductionApplicationNotFound(c *gc.C) 
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "not found", Message: "application gitlab not found"},
 	})
 }
 
-func (s *CAASApplicationSuite) TestUnitIntroductionApplicationNotAlive(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitIntroductionApplicationNotAlive(c *tc.C) {
 	defer s.setupMocks(c, "application-gitlab").Finish()
 
 	s.applicationService.EXPECT().RegisterCAASUnit(gomock.Any(), application.RegisterCAASUnitParams{
@@ -196,13 +195,13 @@ func (s *CAASApplicationSuite) TestUnitIntroductionApplicationNotAlive(c *gc.C) 
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "not provisioned", Message: "application gitlab not provisioned"},
 	})
 }
 
-func (s *CAASApplicationSuite) TestUnitIntroductionUnitNotAssigned(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitIntroductionUnitNotAssigned(c *tc.C) {
 	defer s.setupMocks(c, "application-gitlab").Finish()
 
 	s.applicationService.EXPECT().RegisterCAASUnit(gomock.Any(), application.RegisterCAASUnitParams{
@@ -213,13 +212,13 @@ func (s *CAASApplicationSuite) TestUnitIntroductionUnitNotAssigned(c *gc.C) {
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "not assigned", Message: "unit for pod gitlab-666 not assigned"},
 	})
 }
 
-func (s *CAASApplicationSuite) TestUnitIntroductionUnitAlreadyExists(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitIntroductionUnitAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c, "application-gitlab").Finish()
 
 	s.applicationService.EXPECT().RegisterCAASUnit(gomock.Any(), application.RegisterCAASUnitParams{
@@ -230,13 +229,13 @@ func (s *CAASApplicationSuite) TestUnitIntroductionUnitAlreadyExists(c *gc.C) {
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitIntroductionResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitIntroductionResult{
 		Error: &params.Error{Code: "already exists", Message: "unit for pod gitlab-666 already exists"},
 	})
 }
 
-func (s *CAASApplicationSuite) TestUnitTerminating(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitTerminating(c *tc.C) {
 	defer s.setupMocks(c, "unit-gitlab-666").Finish()
 
 	s.applicationService.EXPECT().CAASUnitTerminating(gomock.Any(), "gitlab/666").Return(true, nil)
@@ -244,13 +243,13 @@ func (s *CAASApplicationSuite) TestUnitTerminating(c *gc.C) {
 	result, err := s.facade.UnitTerminating(context.Background(), params.Entity{
 		Tag: "unit-gitlab-666",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitTerminationResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitTerminationResult{
 		WillRestart: true,
 	})
 }
 
-func (s *CAASApplicationSuite) TestUnitTerminatingNotFound(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitTerminatingNotFound(c *tc.C) {
 	defer s.setupMocks(c, "unit-gitlab-666").Finish()
 
 	s.applicationService.EXPECT().CAASUnitTerminating(gomock.Any(), "gitlab/666").Return(false, applicationerrors.UnitNotFound)
@@ -258,8 +257,8 @@ func (s *CAASApplicationSuite) TestUnitTerminatingNotFound(c *gc.C) {
 	result, err := s.facade.UnitTerminating(context.Background(), params.Entity{
 		Tag: "unit-gitlab-666",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.CAASUnitTerminationResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.CAASUnitTerminationResult{
 		Error: &params.Error{
 			Code:    "not found",
 			Message: "unit gitlab/666 not found",
@@ -267,11 +266,11 @@ func (s *CAASApplicationSuite) TestUnitTerminatingNotFound(c *gc.C) {
 	})
 }
 
-func (s *CAASApplicationSuite) TestUnitTerminatingPermissionDenied(c *gc.C) {
+func (s *CAASApplicationSuite) TestUnitTerminatingPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c, "unit-gitlab-666").Finish()
 
 	_, err := s.facade.UnitTerminating(context.Background(), params.Entity{
 		Tag: "unit-mysql-666",
 	})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

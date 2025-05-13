@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
@@ -28,7 +28,7 @@ type mockState struct {
 	// TODO - implement when remaining firewaller tests become unit tests
 	state.ModelMachinesWatcher
 
-	testing.Stub
+	testhelpers.Stub
 	remoteEntities map[names.Tag]string
 	macaroons      map[names.Tag]*macaroon.Macaroon
 	applications   map[string]*mockApplication
@@ -148,7 +148,7 @@ func (st *mockState) GetModel(tag names.ModelTag) (*state.Model, error) {
 }
 
 type mockWatcher struct {
-	testing.Stub
+	testhelpers.Stub
 	tomb.Tomb
 }
 
@@ -212,7 +212,7 @@ func (w *mockNotifyWatcher) Changes() <-chan struct{} {
 }
 
 type mockApplication struct {
-	testing.Stub
+	testhelpers.Stub
 	name  string
 	units []*mockUnit
 }
@@ -250,7 +250,7 @@ func (c *mockControllerInfo) ControllerInfo() crossmodel.ControllerInfo {
 }
 
 type mockRelation struct {
-	testing.Stub
+	testhelpers.Stub
 	firewall.Relation
 	id        int
 	endpoints []relation.Endpoint
@@ -319,7 +319,7 @@ func (st *mockState) KeyRelation(key string) (firewall.Relation, error) {
 }
 
 type mockUnit struct {
-	testing.Stub
+	testhelpers.Stub
 	mu            sync.Mutex
 	name          string
 	assigned      bool
@@ -370,7 +370,7 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 type mockMachine struct {
 	firewall.Machine
 
-	testing.Stub
+	testhelpers.Stub
 	id      string
 	watcher *mockAddressWatcher
 }

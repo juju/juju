@@ -8,13 +8,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/caas"
@@ -28,49 +27,49 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig()
 	cfg.ProviderServiceFactoriesName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.GetIAASProvider = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.GetCAASProvider = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewWorker = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewTrackerWorker = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewEphemeralProvider = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.GetProviderServicesGetter = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Clock = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -108,19 +107,19 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 
 var expectedInputs = []string{"provider-services"}
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(MultiTrackerManifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
+func (s *manifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(MultiTrackerManifold(s.getConfig()).Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := MultiTrackerManifold(s.getConfig()).Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
-func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
+func (s *manifoldSuite) TestIAASManifoldOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectDomainServices("hunter2")
@@ -155,29 +154,29 @@ func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 		Logger: s.logger,
 		Clock:  clock.WallClock,
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.ensureStartup(c)
 
 	var environ environs.Environ
 	err = manifoldOutput(w, &environ)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	var destroyer environs.CloudDestroyer
 	err = manifoldOutput(w, &destroyer)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	var registry storage.ProviderRegistry
 	err = manifoldOutput(w, &registry)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	var bob string
 	err = manifoldOutput(w, &bob)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *manifoldSuite) TestCAASManifoldOutput(c *gc.C) {
+func (s *manifoldSuite) TestCAASManifoldOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectDomainServices("hunter2")
@@ -212,26 +211,26 @@ func (s *manifoldSuite) TestCAASManifoldOutput(c *gc.C) {
 		Logger: s.logger,
 		Clock:  clock.WallClock,
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.ensureStartup(c)
 
 	var broker caas.Broker
 	err = manifoldOutput(w, &broker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	var destroyer environs.CloudDestroyer
 	err = manifoldOutput(w, &destroyer)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	var registry storage.ProviderRegistry
 	err = manifoldOutput(w, &registry)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	var bob string
 	err = manifoldOutput(w, &bob)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 type stubWorker struct {

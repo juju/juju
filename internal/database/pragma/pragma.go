@@ -50,7 +50,7 @@ func SetPragma[T any](ctx context.Context, db *sql.DB, pragma Pragma, value T) e
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return fmt.Errorf("failed to set %q pragma %w", pragma, errors.Hide(err))
+		return fmt.Errorf("failed to set %q pragma: %w", pragma, err)
 	}
 	return nil
 }

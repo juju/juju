@@ -8,9 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/internal/errors"
@@ -23,9 +22,9 @@ type exportSuite struct {
 	clock       clock.Clock
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -35,7 +34,7 @@ func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *exportSuite) newExportOperation(c *gc.C) *exportOperation {
+func (s *exportSuite) newExportOperation(c *tc.C) *exportOperation {
 	return &exportOperation{
 		service: s.service,
 		logger:  loggertesting.WrapCheckLog(c),
@@ -44,7 +43,7 @@ func (s *exportSuite) newExportOperation(c *gc.C) *exportOperation {
 }
 
 // TestRegisterExport tests the registration of export operations with the coordinator.
-func (s *exportSuite) TestRegisterExport(c *gc.C) {
+func (s *exportSuite) TestRegisterExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -54,7 +53,7 @@ func (s *exportSuite) TestRegisterExport(c *gc.C) {
 
 // TestExport verifies the export of cloud image metadata to the model. It creates some metadata with different values
 // and check that all of them are added to the model.
-func (s *exportSuite) TestExport(c *gc.C) {
+func (s *exportSuite) TestExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -95,17 +94,17 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	// Act
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
 	actualCloudMetadata := dst.CloudImageMetadata()
 	obtained := transformMetadataFromDescriptionToDomain(actualCloudMetadata)
-	c.Assert(obtained, jc.DeepEquals, expected)
+	c.Assert(obtained, tc.DeepEquals, expected)
 }
 
 // TestExportFailGetAllImage verifies that the export operation handles failure when retrieving cloud image metadata,
 // returning the underlying failure.
-func (s *exportSuite) TestExportFailGetAllImage(c *gc.C) {
+func (s *exportSuite) TestExportFailGetAllImage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -118,7 +117,7 @@ func (s *exportSuite) TestExportFailGetAllImage(c *gc.C) {
 	err := op.Execute(context.Background(), dst)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, expected)
+	c.Assert(err, tc.ErrorIs, expected)
 }
 
 func ptr[T any](u T) *T {

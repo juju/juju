@@ -9,8 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/instance"
@@ -20,6 +19,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	providercommon "github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -29,7 +29,7 @@ type StubNetwork struct {
 
 var (
 	// SharedStub records all method calls to any of the stubs.
-	SharedStub = &testing.Stub{}
+	SharedStub = &testhelpers.Stub{}
 
 	BackingInstance                = &StubBacking{Stub: SharedStub}
 	ProviderInstance               = &StubProvider{Stub: SharedStub}
@@ -47,7 +47,7 @@ const (
 	StubZonedNetworkingEnvironName = "stub-zoned-networking-environ"
 )
 
-func (s StubNetwork) SetUpSuite(c *gc.C) {
+func (s StubNetwork) SetUpSuite(c *tc.C) {
 	providers := environs.RegisteredProviders()
 	for _, name := range providers {
 		if name == StubProviderType {
@@ -178,13 +178,13 @@ func ZonedNetworkingEnvironCall(name string, args ...interface{}) StubMethodCall
 
 // CheckMethodCalls works like testing.Stub.CheckCalls, but also
 // checks the receivers.
-func CheckMethodCalls(c *gc.C, stub *testing.Stub, calls ...StubMethodCall) {
+func CheckMethodCalls(c *tc.C, stub *testhelpers.Stub, calls ...StubMethodCall) {
 	receivers := make([]interface{}, len(calls))
 	for i, call := range calls {
 		receivers[i] = call.Receiver
 	}
 	stub.CheckReceivers(c, receivers...)
-	c.Check(stub.Calls(), gc.HasLen, len(calls))
+	c.Check(stub.Calls(), tc.HasLen, len(calls))
 	for i, call := range calls {
 		stub.CheckCall(c, i, call.FuncName, call.Args...)
 	}
@@ -212,14 +212,14 @@ func (f *FakeZone) GoString() string {
 }
 
 // ResetStub resets all recorded calls and errors of the given stub.
-func ResetStub(stub *testing.Stub) {
-	*stub = testing.Stub{}
+func ResetStub(stub *testhelpers.Stub) {
+	*stub = testhelpers.Stub{}
 }
 
 // StubBacking implements networkingcommon.NetworkBacking and records calls to its
 // methods.
 type StubBacking struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	EnvConfig *config.Config
 	Cloud     environscloudspec.CloudSpec
@@ -240,7 +240,7 @@ const (
 	WithoutSubnets SetUpFlag = false
 )
 
-func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, withSubnets SetUpFlag) {
+func (sb *StubBacking) SetUp(c *tc.C, envName string, withZones, withSpaces, withSubnets SetUpFlag) {
 	// This method must be called at the beginning of each test, which
 	// needs access to any of the mocks, to reset the recorded calls
 	// and errors, as well as to initialize the mocks as needed.
@@ -321,7 +321,7 @@ func (sb *StubBacking) GoString() string {
 // StubProvider implements a subset of environs.EnvironProvider
 // methods used in tests.
 type StubProvider struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	Zones   network.AvailabilityZones
 	Subnets []network.SubnetInfo
@@ -360,7 +360,7 @@ func (se *StubProvider) GoString() string {
 
 // StubEnviron is used in tests where environs.Environ is needed.
 type StubEnviron struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	environs.Environ // panic on any not implemented method call
 }
@@ -384,7 +384,7 @@ func (se *StubEnviron) GoString() string {
 // StubZonedEnviron is used in tests where providercommon.ZonedEnviron
 // is needed.
 type StubZonedEnviron struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	providercommon.ZonedEnviron // panic on any not implemented method call
 }
@@ -407,7 +407,7 @@ func (se *StubZonedEnviron) GoString() string {
 // StubNetworkingEnviron is used in tests where
 // environs.NetworkingEnviron is needed.
 type StubNetworkingEnviron struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	environs.NetworkingEnviron // panic on any not implemented method call
 }
@@ -441,7 +441,7 @@ func (se *StubNetworkingEnviron) GoString() string {
 // both environs.Networking and providercommon.ZonedEnviron are
 // needed.
 type StubZonedNetworkingEnviron struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	// panic on any not implemented method call
 	providercommon.ZonedEnviron

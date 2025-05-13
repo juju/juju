@@ -9,14 +9,14 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package trace -destination clock_mock_test.go github.com/juju/clock Clock,Timer
@@ -25,11 +25,11 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package trace -destination trace_mock_test.go go.opentelemetry.io/otel/trace Span
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger logger.Logger
 
@@ -42,7 +42,7 @@ type baseSuite struct {
 	span                 *MockSpan
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -20,7 +20,7 @@ import (
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secrets.go -source service.go
@@ -30,7 +30,7 @@ func TestPackage(t *testing.T) {
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
 
 func NewTestAPI(
-	c *gc.C,
+	c *tc.C,
 	authorizer facade.Authorizer,
 	watcherRegistry facade.WatcherRegistry,
 	leadership leadership.Checker,

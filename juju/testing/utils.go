@@ -6,8 +6,7 @@ package testing
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -20,12 +19,12 @@ import (
 
 // NewObjectStore creates a new object store for testing.
 // This uses the memory metadata service.
-func NewObjectStore(c *gc.C, modelUUID string) coreobjectstore.ObjectStore {
+func NewObjectStore(c *tc.C, modelUUID string) coreobjectstore.ObjectStore {
 	return NewObjectStoreWithMetadataService(c, modelUUID, objectstoretesting.MemoryMetadataService())
 }
 
 // NewObjectStoreWithMetadataService creates a new object store for testing.
-func NewObjectStoreWithMetadataService(c *gc.C, modelUUID string, metadataService objectstore.MetadataService) coreobjectstore.ObjectStore {
+func NewObjectStoreWithMetadataService(c *tc.C, modelUUID string, metadataService objectstore.MetadataService) coreobjectstore.ObjectStore {
 	store, err := objectstore.ObjectStoreFactory(
 		context.Background(),
 		objectstore.DefaultBackendType(),
@@ -38,7 +37,7 @@ func NewObjectStoreWithMetadataService(c *gc.C, modelUUID string, metadataServic
 		objectstore.WithMetadataService(metadataService),
 		objectstore.WithClaimer(objectstoretesting.MemoryClaimer()),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return store
 }
 
@@ -50,18 +49,18 @@ func NewObjectStoreWithMetadataService(c *gc.C, modelUUID string, metadataServic
 // and State.APIAddresses methods, which will not bear any relation to
 // the be the addresses used by the controllers.
 func AddControllerMachine(
-	c *gc.C,
+	c *tc.C,
 	st *state.State,
 	controllerConfig controller.Config,
 ) *state.Machine {
 	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("0.1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hostPorts := []network.SpaceHostPorts{network.NewSpaceHostPorts(1234, "0.1.2.3")}
 	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return machine
 }

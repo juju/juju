@@ -11,10 +11,8 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -29,13 +27,14 @@ import (
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type SecretsManagerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authorizer      *facademocks.MockAuthorizer
 	watcherRegistry *facademocks.MockWatcherRegistry
@@ -56,15 +55,15 @@ type SecretsManagerSuite struct {
 	facade *secretsmanager.SecretsManagerAPI
 }
 
-var _ = gc.Suite(&SecretsManagerSuite{})
+var _ = tc.Suite(&SecretsManagerSuite{})
 
-func (s *SecretsManagerSuite) SetUpTest(c *gc.C) {
+func (s *SecretsManagerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.authTag = names.NewUnitTag("mariadb/0")
 }
 
-func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *SecretsManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -94,7 +93,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.secretTriggers, s.secretBackendService, remoteClientGetter,
 		s.crossModelState, s.authTag, s.clock,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -108,24 +107,24 @@ func ptr[T any](v T) *T {
 }
 
 type backendConfigParamsMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected any
 }
 
 func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
 	if obtained, ok := x.(secretbackendservice.BackendConfigParams); ok {
-		m.c.Assert(obtained.GrantedSecretsGetter, gc.NotNil)
+		m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
 		obtained.GrantedSecretsGetter = nil
-		m.c.Assert(obtained, jc.DeepEquals, m.expected)
+		m.c.Assert(obtained, tc.DeepEquals, m.expected)
 		return true
 	}
 	obtained, ok := x.(secretbackendservice.DrainBackendConfigParams)
 	if !ok {
 		return false
 	}
-	m.c.Assert(obtained.GrantedSecretsGetter, gc.NotNil)
+	m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
 	obtained.GrantedSecretsGetter = nil
-	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	m.c.Assert(obtained, tc.DeepEquals, m.expected)
 	return true
 }
 
@@ -133,7 +132,7 @@ func (m backendConfigParamsMatcher) String() string {
 	return "Match the contents of BackendConfigParams"
 }
 
-func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
@@ -165,8 +164,8 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *gc.C) {
 	result, err := s.facade.GetSecretBackendConfigs(context.Background(), params.SecretBackendArgs{
 		BackendIDs: []string{"backend-id"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretBackendConfigResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SecretBackendConfigResults{
 		ActiveID: "backend-id",
 		Results: map[string]params.SecretBackendConfigResult{
 			"backend-id": {
@@ -183,7 +182,7 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
@@ -215,8 +214,8 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *gc.C) {
 		ForDrain:   true,
 		BackendIDs: []string{"backend-id"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretBackendConfigResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SecretBackendConfigResults{
 		ActiveID: "backend-id",
 		Results: map[string]params.SecretBackendConfigResult{
 			"backend-id": {
@@ -233,7 +232,7 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestCreateSecretURIs(c *gc.C) {
+func (s *SecretsManagerSuite) TestCreateSecretURIs(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri1 := coresecrets.NewURI()
@@ -243,15 +242,15 @@ func (s *SecretsManagerSuite) TestCreateSecretURIs(c *gc.C) {
 	results, err := s.facade.CreateSecretURIs(context.Background(), params.CreateSecretURIsArg{
 		Count: 2,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
 	for _, r := range results.Results {
 		_, err := coresecrets.ParseURI(r.Result)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingConsumerLabel(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingConsumerLabel(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -264,8 +263,8 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingConsumerLa
 		ConsumerTag: "unit-mariadb/0",
 		URIs:        []string{uri.String()},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretConsumerInfoResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretConsumerInfoResults{
 		Results: []params.SecretConsumerInfoResult{{
 			Label:    "label",
 			Revision: 666,
@@ -273,7 +272,7 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingConsumerLa
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingNoConsumerLabel(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingNoConsumerLabel(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -286,15 +285,15 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingNoConsumer
 		ConsumerTag: "unit-mariadb/0",
 		URIs:        []string{uri.String()},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretConsumerInfoResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretConsumerInfoResults{
 		Results: []params.SecretConsumerInfoResult{{
 			Revision: 666,
 		}},
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitsAccessingAppOwnedSecrets(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitsAccessingAppOwnedSecrets(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -308,8 +307,8 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitsAcce
 		ConsumerTag: "unit-mariadb/0",
 		URIs:        []string{uri.String()},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretConsumerInfoResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretConsumerInfoResults{
 		Results: []params.SecretConsumerInfoResult{{
 			Label:    "owner-label",
 			Revision: 666,
@@ -317,7 +316,7 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitsAcce
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretMetadata(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
@@ -367,8 +366,8 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 	}, nil)
 
 	results, err := s.facade.GetSecretMetadata(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
 			URI:                    uri.String(),
 			OwnerTag:               "application-mariadb",
@@ -395,17 +394,17 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentInvalidArg(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentInvalidArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `both uri and label are empty`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, `both uri and label are empty`)
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretURIArg(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretURIArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -429,15 +428,15 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretURIArg(c *gc.C) 
 			{URI: uri.String()},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretLabelArg(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretLabelArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -461,15 +460,15 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretLabelArg(c *gc.C
 			{Label: "foo"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabel(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabel(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -492,15 +491,15 @@ func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabel(c *gc.
 			{URI: uri.String(), Label: "foo"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentForUnitAccessApplicationOwnedSecret(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentForUnitAccessApplicationOwnedSecret(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -524,15 +523,15 @@ func (s *SecretsManagerSuite) TestGetSecretContentForUnitAccessApplicationOwnedS
 			{Label: "foo"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentConsumerUnitAgent(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentConsumerUnitAgent(c *tc.C) {
 	s.authTag = names.NewUnitTag("mariadb/0")
 
 	defer s.setup(c).Finish()
@@ -556,15 +555,15 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUnitAgent(c *gc.C) {
 			{URI: uri.String()},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentConsumerLabelOnly(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentConsumerLabelOnly(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -586,15 +585,15 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerLabelOnly(c *gc.C) {
 			{Label: "label"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -617,15 +616,15 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
 			{URI: uri.String(), Label: "label", Refresh: true},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentConsumerPeekArg(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentConsumerPeekArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -647,15 +646,15 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerPeekArg(c *gc.C) {
 			{URI: uri.String(), Peek: true},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRefresh(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRefresh(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -699,8 +698,8 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 			{URI: uri.String()},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{
@@ -722,7 +721,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRefreshUpdateLabel(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRefreshUpdateLabel(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -766,8 +765,8 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 			{URI: uri.String(), Label: "foo"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{
@@ -789,7 +788,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefresh(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefresh(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -837,8 +836,8 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 			{URI: uri.String(), Refresh: true},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{
@@ -860,15 +859,15 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *tc.C) {
 	s.assertGetSecretContentCrossModelNewConsumer(c, secreterrors.SecretConsumerNotFound)
 }
 
-func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumerAndSecret(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumerAndSecret(c *tc.C) {
 	s.assertGetSecretContentCrossModelNewConsumer(c, secreterrors.SecretNotFound)
 }
 
-func (s *SecretsManagerSuite) assertGetSecretContentCrossModelNewConsumer(c *gc.C, consumerErr error) {
+func (s *SecretsManagerSuite) assertGetSecretContentCrossModelNewConsumer(c *tc.C, consumerErr error) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -914,8 +913,8 @@ func (s *SecretsManagerSuite) assertGetSecretContentCrossModelNewConsumer(c *gc.
 			{URI: uri.String(), Refresh: true},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{
@@ -937,7 +936,7 @@ func (s *SecretsManagerSuite) assertGetSecretContentCrossModelNewConsumer(c *gc.
 	})
 }
 
-func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.secretsConsumer.EXPECT().WatchConsumedSecretsChanges(gomock.Any(), unittesting.GenNewName(c, "mariadb/0")).Return(
@@ -957,8 +956,8 @@ func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 			Tag: "unit-foo-0",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{{
 			StringsWatcherId: "1",
 			Changes:          []string{uri.String()},
@@ -968,7 +967,7 @@ func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1011,8 +1010,8 @@ func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *gc.C) {
 		URI:       uri.String(),
 		Revisions: []int{666},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{
@@ -1034,7 +1033,7 @@ func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
+func (s *SecretsManagerSuite) TestWatchObsolete(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
@@ -1062,14 +1061,14 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
 			Tag: "application-mariadb",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{uri.String()},
 	})
 }
 
-func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
+func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
@@ -1102,8 +1101,8 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 			Tag: "application-mariadb",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretTriggerWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SecretTriggerWatchResult{
 		WatcherId: "1",
 		Changes: []params.SecretTriggerChange{{
 			URI:             uri.ID,
@@ -1112,7 +1111,7 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
+func (s *SecretsManagerSuite) TestSecretsRotated(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1133,8 +1132,8 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 			URI: "bad",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: &params.Error{Code: "", Message: `boom`},
@@ -1146,7 +1145,7 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
+func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1165,8 +1164,8 @@ func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
 			OriginalRevision: 666,
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: &params.Error{Code: "", Message: `boom`},
@@ -1175,7 +1174,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestSecretsRotatedForce(c *gc.C) {
+func (s *SecretsManagerSuite) TestSecretsRotatedForce(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1194,8 +1193,8 @@ func (s *SecretsManagerSuite) TestSecretsRotatedForce(c *gc.C) {
 			OriginalRevision: 666,
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: &params.Error{Code: "", Message: `boom`},
@@ -1204,7 +1203,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedForce(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
+func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
@@ -1238,8 +1237,8 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 			Tag: "application-mariadb",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretTriggerWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SecretTriggerWatchResult{
 		WatcherId: "1",
 		Changes: []params.SecretTriggerChange{{
 			URI:             uri.ID,

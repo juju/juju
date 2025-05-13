@@ -7,56 +7,55 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type manifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config ManifoldConfig
 }
 
-var _ = gc.Suite(&manifoldConfigSuite{})
+var _ = tc.Suite(&manifoldConfigSuite{})
 
-func (s *manifoldConfigSuite) SetUpTest(c *gc.C) {
+func (s *manifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.config = validConfig(c)
 }
 
-func (s *manifoldConfigSuite) TestMissingDomainServicesName(c *gc.C) {
+func (s *manifoldConfigSuite) TestMissingDomainServicesName(c *tc.C) {
 	s.config.DomainServicesName = ""
 	s.checkNotValid(c, "empty DomainServicesName not valid")
 }
 
-func (s *manifoldConfigSuite) TestMissingGetRemovalService(c *gc.C) {
+func (s *manifoldConfigSuite) TestMissingGetRemovalService(c *tc.C) {
 	s.config.GetRemovalService = nil
 	s.checkNotValid(c, "nil GetRemovalService not valid")
 }
 
-func (s *manifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
+func (s *manifoldConfigSuite) TestMissingNewWorker(c *tc.C) {
 	s.config.NewWorker = nil
 	s.checkNotValid(c, "nil NewWorker not valid")
 }
 
-func (s *manifoldConfigSuite) TestMissingClock(c *gc.C) {
+func (s *manifoldConfigSuite) TestMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	s.checkNotValid(c, "nil Clock not valid")
 }
 
-func (s *manifoldConfigSuite) TestMissingLogger(c *gc.C) {
+func (s *manifoldConfigSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
 }
 
-func validConfig(c *gc.C) ManifoldConfig {
+func validConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		DomainServicesName: "domain-services",
 		GetRemovalService:  GetRemovalService,
@@ -66,19 +65,19 @@ func validConfig(c *gc.C) ManifoldConfig {
 	}
 }
 
-func (s *manifoldConfigSuite) checkNotValid(c *gc.C, expect string) {
+func (s *manifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 type manifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
+func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	cfg := ManifoldConfig{
 		DomainServicesName: "domain-services",
 		GetRemovalService:  func(dependency.Getter, string) (RemovalService, error) { return noService{}, nil },
@@ -93,8 +92,8 @@ func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
 	}
 
 	w, err := Manifold(cfg).Start(context.Background(), noGetter{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(w, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(w, tc.NotNil)
 }
 
 type noGetter struct {

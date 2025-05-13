@@ -8,11 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -20,12 +18,13 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/rpc/params"
 )
 
 type mockFacade struct {
-	stub         *testing.Stub
+	stub         *testhelpers.Stub
 	info         params.UndertakerModelInfoResult
 	clock        testclock.AdvanceableClock
 	advance      time.Duration
@@ -103,7 +102,7 @@ func (mock *mockFacade) WatchModel(context.Context) (watcher.NotifyWatcher, erro
 
 type mockDestroyer struct {
 	environs.Environ
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 func (mock *mockDestroyer) Destroy(ctx context.Context) error {
@@ -130,7 +129,7 @@ type fixture struct {
 	advance time.Duration
 }
 
-func (fix *fixture) cleanup(c *gc.C, w worker.Worker) {
+func (fix *fixture) cleanup(c *tc.C, w worker.Worker) {
 	if fix.dirty {
 		workertest.DirtyKill(c, w)
 	} else {
@@ -138,8 +137,8 @@ func (fix *fixture) cleanup(c *gc.C, w worker.Worker) {
 	}
 }
 
-func (fix *fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
-	stub := &testing.Stub{}
+func (fix *fixture) run(c *tc.C, test func(worker.Worker)) *testhelpers.Stub {
+	stub := &testhelpers.Stub{}
 	facade := &mockFacade{
 		stub:         stub,
 		info:         fix.info,
@@ -157,7 +156,7 @@ func (fix *fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 			return &mockDestroyer{stub: stub}, nil
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer fix.cleanup(c, w)
 	test(w)
 	return stub

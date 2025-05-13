@@ -12,9 +12,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
@@ -57,9 +56,9 @@ type OpenerSuite struct {
 	unleash sync.Mutex
 }
 
-var _ = gc.Suite(&OpenerSuite{})
+var _ = tc.Suite(&OpenerSuite{})
 
-func (s *OpenerSuite) TestOpenResource(c *gc.C) {
+func (s *OpenerSuite) TestOpenResource(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
 	res := coreresource.Resource{
 		Resource: charmresource.Resource{
@@ -93,13 +92,13 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 		c,
 		0,
 	).OpenResource(context.Background(), "wal-e")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(opened.Size, gc.Equals, res.Size)
-	c.Check(opened.Fingerprint.String(), gc.Equals, res.Fingerprint.String())
-	c.Assert(opened.Close(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(opened.Size, tc.Equals, res.Size)
+	c.Check(opened.Fingerprint.String(), tc.Equals, res.Fingerprint.String())
+	c.Assert(opened.Close(), tc.ErrorIsNil)
 }
 
-func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
+func (s *OpenerSuite) TestOpenResourceThrottle(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
 	res := coreresource.Resource{
 		Resource: charmresource.Resource{
@@ -146,14 +145,14 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 				c,
 				maxConcurrentRequests,
 			).OpenResource(context.Background(), "wal-e")
-			c.Assert(err, jc.ErrorIsNil)
-			c.Check(opened.Size, gc.Equals, res.Size)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(opened.Size, tc.Equals, res.Size)
 			c.Check(
 				opened.Fingerprint.String(),
-				gc.Equals,
+				tc.Equals,
 				res.Fingerprint.String(),
 			)
-			c.Assert(opened.Close(), jc.ErrorIsNil)
+			c.Assert(opened.Close(), tc.ErrorIsNil)
 		}()
 	}
 	// Let all the test routines queue up then unleash.
@@ -172,7 +171,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 	}
 }
 
-func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
+func (s *OpenerSuite) TestOpenResourceApplication(c *tc.C) {
 	defer s.setupMocks(c, false).Finish()
 	res := coreresource.Resource{
 		Resource: charmresource.Resource{
@@ -205,14 +204,14 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 		context.Background(),
 		"wal-e",
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(opened.Size, gc.Equals, res.Size)
-	c.Check(opened.Fingerprint.String(), gc.Equals, res.Fingerprint.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(opened.Size, tc.Equals, res.Size)
+	c.Check(opened.Fingerprint.String(), tc.Equals, res.Fingerprint.String())
 	err = opened.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
+func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	if includeUnit {
 		s.unitName = "postgresql/0"
@@ -240,7 +239,7 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 	s.resourceRevision = 3
 	var err error
 	s.resourceFingerprint, err = charmresource.GenerateFingerprint(strings.NewReader(s.resourceContent))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.resourceReader = io.NopCloser(strings.NewReader(s.resourceContent))
 
 	s.charmURL, _ = charm.ParseURL("postgresql")
@@ -333,7 +332,7 @@ func (s *OpenerSuite) expectServiceMethods(
 	}
 }
 
-func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
+func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	res := coreresource.Resource{
@@ -392,12 +391,12 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 		c,
 		-1,
 	).OpenResource(context.Background(), "wal-e")
-	c.Assert(err, gc.ErrorMatches, "failed after retrying: boom")
-	c.Check(opened, gc.NotNil)
-	c.Check(opened.ReadCloser, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "failed after retrying: boom")
+	c.Check(opened, tc.NotNil)
+	c.Check(opened.ReadCloser, tc.IsNil)
 }
 
-func (s *OpenerSuite) TestSetResourceUsedUnit(c *gc.C) {
+func (s *OpenerSuite) TestSetResourceUsedUnit(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
 	s.resourceService.EXPECT().GetApplicationResourceID(
 		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
@@ -415,10 +414,10 @@ func (s *OpenerSuite) TestSetResourceUsedUnit(c *gc.C) {
 		context.Background(),
 		"wal-e",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpenerSuite) TestSetResourceUsedUnitError(c *gc.C) {
+func (s *OpenerSuite) TestSetResourceUsedUnitError(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
 	s.resourceService.EXPECT().GetApplicationResourceID(
 		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
@@ -439,10 +438,10 @@ func (s *OpenerSuite) TestSetResourceUsedUnitError(c *gc.C) {
 		context.Background(),
 		"wal-e",
 	)
-	c.Assert(err, jc.ErrorIs, expectedErr)
+	c.Assert(err, tc.ErrorIs, expectedErr)
 }
 
-func (s *OpenerSuite) TestSetResourceUsedApplication(c *gc.C) {
+func (s *OpenerSuite) TestSetResourceUsedApplication(c *tc.C) {
 	defer s.setupMocks(c, false).Finish()
 	s.resourceService.EXPECT().GetApplicationResourceID(
 		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
@@ -460,10 +459,10 @@ func (s *OpenerSuite) TestSetResourceUsedApplication(c *gc.C) {
 		context.Background(),
 		"wal-e",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *gc.C) {
+func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *tc.C) {
 	defer s.setupMocks(c, false).Finish()
 	s.resourceService.EXPECT().GetApplicationResourceID(
 		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
@@ -482,10 +481,10 @@ func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *gc.C) {
 		context.Background(),
 		"wal-e",
 	)
-	c.Assert(err, jc.ErrorIs, expectedErr)
+	c.Assert(err, tc.ErrorIs, expectedErr)
 }
 
-func (s *OpenerSuite) expectNewUnitResourceOpener(c *gc.C) {
+func (s *OpenerSuite) expectNewUnitResourceOpener(c *tc.C) {
 	// Service calls in NewResourceOpenerForUnit.
 	s.applicationService.EXPECT().GetApplicationIDByUnitName(
 		gomock.Any(),
@@ -506,7 +505,7 @@ func (s *OpenerSuite) expectNewUnitResourceOpener(c *gc.C) {
 }
 
 func (s *OpenerSuite) newUnitResourceOpener(
-	c *gc.C,
+	c *tc.C,
 	maxRequests int,
 ) coreresource.Opener {
 	var (
@@ -517,7 +516,7 @@ func (s *OpenerSuite) newUnitResourceOpener(
 		limiter = s.limiter
 	} else {
 		limiter, err = NewResourceDownloadLimiter(maxRequests, 0)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	opener, err := newResourceOpenerForUnit(
@@ -533,11 +532,11 @@ func (s *OpenerSuite) newUnitResourceOpener(
 		},
 		s.unitName,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return opener
 }
 
-func (s *OpenerSuite) newApplicationResourceOpener(c *gc.C) coreresource.Opener {
+func (s *OpenerSuite) newApplicationResourceOpener(c *tc.C) coreresource.Opener {
 	// Service calls in NewResourceOpenerForApplication.
 	s.applicationService.EXPECT().GetApplicationIDByName(
 		gomock.Any(),
@@ -562,12 +561,12 @@ func (s *OpenerSuite) newApplicationResourceOpener(c *gc.C) coreresource.Opener 
 		},
 		s.appName,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return opener
 }
 
 func newResourceRetryClientForTest(
-	c *gc.C,
+	c *tc.C,
 	cl charmhub.ResourceClient,
 ) *charmhub.ResourceRetryClient {
 	client := charmhub.NewRetryClient(cl, testing.WrapCheckLog(c))

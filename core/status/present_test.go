@@ -4,16 +4,16 @@
 package status_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
 )
 
 type viableSuite struct{}
 
-var _ = gc.Suite(&viableSuite{})
+var _ = tc.Suite(&viableSuite{})
 
-func (s *viableSuite) TestIsMachinePresent(c *gc.C) {
+func (s *viableSuite) TestIsMachinePresent(c *tc.C) {
 	testcases := []struct {
 		name   string
 		status status.StatusInfo
@@ -64,11 +64,11 @@ func (s *viableSuite) TestIsMachinePresent(c *gc.C) {
 	}
 	for _, v := range testcases {
 		c.Logf("Testing machine status %s", v.name)
-		c.Assert(status.IsMachinePresent(v.status), gc.Equals, v.viable)
+		c.Assert(status.IsMachinePresent(v.status), tc.Equals, v.viable)
 	}
 }
 
-func (s *viableSuite) TestIsInstancePresent(c *gc.C) {
+func (s *viableSuite) TestIsInstancePresent(c *tc.C) {
 	testcases := []struct {
 		name   string
 		status status.StatusInfo
@@ -119,11 +119,11 @@ func (s *viableSuite) TestIsInstancePresent(c *gc.C) {
 	}
 	for _, v := range testcases {
 		c.Logf("Testing instance status %s", v.name)
-		c.Assert(status.IsInstancePresent(v.status), gc.Equals, v.viable)
+		c.Assert(status.IsInstancePresent(v.status), tc.Equals, v.viable)
 	}
 }
 
-func (s *viableSuite) TestIsAgentPresent(c *gc.C) {
+func (s *viableSuite) TestIsAgentPresent(c *tc.C) {
 	testcases := []struct {
 		name   string
 		status status.StatusInfo
@@ -181,11 +181,11 @@ func (s *viableSuite) TestIsAgentPresent(c *gc.C) {
 	}
 	for _, v := range testcases {
 		c.Logf("Testing agent status %s", v.name)
-		c.Assert(status.IsAgentPresent(v.status), gc.Equals, v.viable)
+		c.Assert(status.IsAgentPresent(v.status), tc.Equals, v.viable)
 	}
 }
 
-func (s *viableSuite) TestIsUnitWorkloadPresent(c *gc.C) {
+func (s *viableSuite) TestIsUnitWorkloadPresent(c *tc.C) {
 	testcases := []struct {
 		name   string
 		status status.StatusInfo
@@ -275,6 +275,6 @@ func (s *viableSuite) TestIsUnitWorkloadPresent(c *gc.C) {
 	}
 	for _, v := range testcases {
 		c.Logf("Testing unit workload status %s", v.name)
-		c.Assert(status.IsUnitWorkloadPresent(v.status), gc.Equals, v.viable)
+		c.Assert(status.IsUnitWorkloadPresent(v.status), tc.Equals, v.viable)
 	}
 }

@@ -9,13 +9,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -27,9 +26,9 @@ type updateCloudSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&updateCloudSuite{})
+var _ = tc.Suite(&updateCloudSuite{})
 
-func (s *updateCloudSuite) SetUpTest(c *gc.C) {
+func (s *updateCloudSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeUpdateCloudAPI{}
 	store := jujuclient.NewMemStore()
@@ -38,30 +37,30 @@ func (s *updateCloudSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *updateCloudSuite) TestBadArgs(c *gc.C) {
+func (s *updateCloudSuite) TestBadArgs(c *tc.C) {
 	command := cloud.NewUpdateCloudCommandForTest(newFakeCloudMetadataStore(), s.store, nil)
 	_, err := cmdtesting.RunCommand(c, command)
-	c.Assert(err, gc.ErrorMatches, "cloud name required")
+	c.Assert(err, tc.ErrorMatches, "cloud name required")
 
 	_, err = cmdtesting.RunCommand(c, command, "--controller", "blah")
-	c.Assert(err, gc.ErrorMatches, "cloud name required")
+	c.Assert(err, tc.ErrorMatches, "cloud name required")
 
 	_, err = cmdtesting.RunCommand(c, command, "--controller", "blah", "-f", "file/path")
-	c.Assert(err, gc.ErrorMatches, "cloud name required")
+	c.Assert(err, tc.ErrorMatches, "cloud name required")
 
 	_, err = cmdtesting.RunCommand(c, command, "-f", "file/path")
-	c.Assert(err, gc.ErrorMatches, "cloud name required")
+	c.Assert(err, tc.ErrorMatches, "cloud name required")
 
 	_, err = cmdtesting.RunCommand(c, command, "_a", "file/path")
-	c.Assert(err, gc.ErrorMatches, `cloud name "_a" not valid`)
+	c.Assert(err, tc.ErrorMatches, `cloud name "_a" not valid`)
 
 	_, err = cmdtesting.RunCommand(c, command, "boo", "boo")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["boo"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["boo"\]`)
 }
 
-func (s *updateCloudSuite) setupCloudFileScenario(c *gc.C, yamlFile string, apiFunc func(ctx context.Context) (cloud.UpdateCloudAPI, error)) (*cloud.UpdateCloudCommand, string) {
+func (s *updateCloudSuite) setupCloudFileScenario(c *tc.C, yamlFile string, apiFunc func(ctx context.Context) (cloud.UpdateCloudAPI, error)) (*cloud.UpdateCloudCommand, string) {
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(yamlFile))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ReadCloudData", "mycloud.yaml").Returns(yamlFile, nil)
@@ -73,41 +72,41 @@ func (s *updateCloudSuite) setupCloudFileScenario(c *gc.C, yamlFile string, apiF
 	return command, "mycloud.yaml"
 }
 
-func (s *updateCloudSuite) createLocalCacheFile(c *gc.C) {
+func (s *updateCloudSuite) createLocalCacheFile(c *tc.C) {
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("public-clouds.yaml"), []byte(garageMaasYamlFile), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *gc.C) {
+func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *tc.C) {
 	command, fileName := s.setupCloudFileScenario(c, garageMaasYamlFile, func(ctx context.Context) (cloud.UpdateCloudAPI, error) {
 		return nil, errors.New("")
 	})
 	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "--client")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.Calls(), gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.api.Calls(), tc.HasLen, 0)
 }
 
-func (s *updateCloudSuite) TestUpdateFromFileDefaultLocal(c *gc.C) {
+func (s *updateCloudSuite) TestUpdateFromFileDefaultLocal(c *tc.C) {
 	s.store.Controllers = nil
 	command, fileName := s.setupCloudFileScenario(c, garageMaasYamlFile, func(ctx context.Context) (cloud.UpdateCloudAPI, error) {
 		return nil, errors.New("")
 	})
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "--client")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.Calls(), gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.api.Calls(), tc.HasLen, 0)
 	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Matches, `Cloud "garage-maas" updated on this client using provided file.`)
+	c.Assert(out, tc.Matches, `Cloud "garage-maas" updated on this client using provided file.`)
 }
 
-func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
+func (s *updateCloudSuite) TestUpdateControllerFromFile(c *tc.C) {
 	command, fileName := s.setupCloudFileScenario(c, garageMaasYamlFile, func(ctx context.Context) (cloud.UpdateCloudAPI, error) {
 		return s.api, nil
 	})
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "-c", "mycontroller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "UpdateCloud", "Close")
-	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
 	s.api.CheckCall(c, 0, "UpdateCloud", jujucloud.Cloud{
 		Name:          "garage-maas",
 		Type:          "maas",
@@ -118,17 +117,17 @@ func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
 	})
 	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Matches, `Cloud "garage-maas" updated on controller "mycontroller" using provided file.`)
+	c.Assert(out, tc.Matches, `Cloud "garage-maas" updated on controller "mycontroller" using provided file.`)
 }
 
-func (s *updateCloudSuite) TestUpdateControllerFromFileWithoutCloudsKeyword(c *gc.C) {
+func (s *updateCloudSuite) TestUpdateControllerFromFileWithoutCloudsKeyword(c *tc.C) {
 	command, fileName := s.setupCloudFileScenario(c, garageMaasYamlFileListCloudOutput, func(ctx context.Context) (cloud.UpdateCloudAPI, error) {
 		return s.api, nil
 	})
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "-c", "mycontroller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "UpdateCloud", "Close")
-	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
 	s.api.CheckCall(c, 0, "UpdateCloud", jujucloud.Cloud{
 		Name:          "garage-maas",
 		Type:          "maas",
@@ -139,27 +138,27 @@ func (s *updateCloudSuite) TestUpdateControllerFromFileWithoutCloudsKeyword(c *g
 	})
 	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Matches, `Cloud "garage-maas" updated on controller "mycontroller" using provided file.`)
+	c.Assert(out, tc.Matches, `Cloud "garage-maas" updated on controller "mycontroller" using provided file.`)
 }
 
-func (s *updateCloudSuite) TestUpdateControllerLocalCacheBadFile(c *gc.C) {
+func (s *updateCloudSuite) TestUpdateControllerLocalCacheBadFile(c *tc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ReadCloudData", "somefile.yaml").Returns(nil, errors.New("kaboom"))
 
 	addCmd := cloud.NewUpdateCloudCommandForTest(fake, s.store, nil)
 	_, err := cmdtesting.RunCommand(c, addCmd, "cloud", "-f", "somefile.yaml", "--controller", "mycontroller")
-	c.Check(err, gc.ErrorMatches, "could not read cloud definition from provided file: kaboom")
+	c.Check(err, tc.ErrorMatches, "could not read cloud definition from provided file: kaboom")
 }
 
-func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
+func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *tc.C) {
 	s.createLocalCacheFile(c)
 	command, _ := s.setupCloudFileScenario(c, garageMaasYamlFile, func(ctx context.Context) (cloud.UpdateCloudAPI, error) {
 		return s.api, nil
 	})
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "--controller", "mycontroller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api.CheckCallNames(c, "UpdateCloud", "Close")
-	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(command.ControllerName, tc.Equals, "mycontroller")
 	s.api.CheckCall(c, 0, "UpdateCloud", jujucloud.Cloud{
 		Name:          "garage-maas",
 		Type:          "maas",
@@ -168,15 +167,15 @@ func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
 		Endpoint:      "http://garagemaas",
 		SkipTLSVerify: true,
 	})
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
 To ensure this client's copy or any controller copies of public cloud information is up to date with the latest region information, use `[1:]+"`juju update-public-clouds`"+`.
 Cloud "garage-maas" updated on controller "mycontroller" using client cloud definition.
 `)
 }
 
 type fakeUpdateCloudAPI struct {
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (api *fakeUpdateCloudAPI) Close() error {

@@ -8,8 +8,7 @@ import (
 	"sort"
 	"strconv"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -20,9 +19,9 @@ type eventsSuite struct {
 	resourceSuite
 }
 
-var _ = gc.Suite(&eventsSuite{})
+var _ = tc.Suite(&eventsSuite{})
 
-func (s *eventsSuite) TestList(c *gc.C) {
+func (s *eventsSuite) TestList(c *tc.C) {
 	template := corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test",
@@ -37,19 +36,19 @@ func (s *eventsSuite) TestList(c *gc.C) {
 		ev := template
 		ev.ObjectMeta.Name = strconv.Itoa(i)
 		_, err := s.client.CoreV1().Events("test").Create(context.Background(), &ev, metav1.CreateOptions{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		res = append(res, ev)
 	}
 	events, err := resources.ListEventsForObject(context.Background(), s.client, "test", "test", "Pod")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	toInt := func(s string) int {
 		i, err := strconv.Atoi(s)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return i
 	}
 	sort.Slice(events[:], func(i, j int) bool {
 		return toInt(events[i].Name) < toInt(events[j].Name)
 	})
-	c.Assert(events, jc.DeepEquals, res)
+	c.Assert(events, tc.DeepEquals, res)
 }

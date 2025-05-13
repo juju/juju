@@ -6,8 +6,7 @@ package jujuc_test
 import (
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cmd"
@@ -19,9 +18,9 @@ type OpenedPortsSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&OpenedPortsSuite{})
+var _ = tc.Suite(&OpenedPortsSuite{})
 
-func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
+func (s *OpenedPortsSuite) TestRunAllFormats(c *tc.C) {
 	expectedPorts := []network.PortRange{
 		network.MustParsePortRange("10-20/tcp"),
 		network.MustParsePortRange("80/tcp"),
@@ -53,12 +52,12 @@ func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
 		} else {
 			stdout, stderr = s.runCommand(c, hctx, "--format", format)
 		}
-		c.Check(stdout, gc.Equals, expectedOutput)
-		c.Check(stderr, gc.Equals, "")
+		c.Check(stdout, tc.Equals, expectedOutput)
+		c.Check(stderr, tc.Equals, "")
 	}
 }
 
-func (s *OpenedPortsSuite) TestRunAllFormatsWithEndpointDetails(c *gc.C) {
+func (s *OpenedPortsSuite) TestRunAllFormatsWithEndpointDetails(c *tc.C) {
 	portsAsStrings := []string{
 		"10-20/tcp (foo)",
 		"80/tcp (*)",
@@ -85,20 +84,20 @@ func (s *OpenedPortsSuite) TestRunAllFormatsWithEndpointDetails(c *gc.C) {
 		} else {
 			stdout, stderr = s.runCommand(c, hctx, "--endpoints", "--format", format)
 		}
-		c.Check(stdout, gc.Equals, expectedOutput)
-		c.Check(stderr, gc.Equals, "")
+		c.Check(stdout, tc.Equals, expectedOutput)
+		c.Check(stderr, tc.Equals, "")
 	}
 }
 
-func (s *OpenedPortsSuite) TestBadArgs(c *gc.C) {
+func (s *OpenedPortsSuite) TestBadArgs(c *tc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "opened-ports")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmdtesting.InitCommand(jujuc.NewJujucCommandWrappedForTest(com), []string{"foo"})
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["foo"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["foo"\]`)
 }
 
-func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *Context {
+func (s *OpenedPortsSuite) getContextAndOpenPorts(c *tc.C) *Context {
 	hctx := s.GetHookContext(c, -1, "")
 	hctx.OpenPortRange("", network.MustParsePortRange("80/tcp"))
 	hctx.OpenPortRange("foo", network.MustParsePortRange("10-20/tcp"))
@@ -107,11 +106,11 @@ func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *Context {
 	return hctx
 }
 
-func (s *OpenedPortsSuite) runCommand(c *gc.C, hctx *Context, args ...string) (stdout, stderr string) {
+func (s *OpenedPortsSuite) runCommand(c *tc.C, hctx *Context, args ...string) (stdout, stderr string) {
 	com, err := jujuc.NewCommand(hctx, "opened-ports")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	return bufferString(ctx.Stdout), bufferString(ctx.Stderr)
 }

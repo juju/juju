@@ -6,8 +6,7 @@ package relation_test
 import (
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -20,7 +19,7 @@ type stateSuite struct {
 
 type msi map[string]int64
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
 // writeTests verify the behaviour of sequences of HookInfos on a relation
 // state that starts off containing defaultMembers.
@@ -111,7 +110,7 @@ var writeTests = []struct {
 	},
 }
 
-func (s *stateSuite) TestWriteOrValidateSingleHook(c *gc.C) {
+func (s *stateSuite) TestWriteOrValidateSingleHook(c *tc.C) {
 	for i, t := range writeTests {
 		c.Logf("test %d: %v", i, t.description)
 		for i, hi := range t.hooks {
@@ -120,7 +119,7 @@ func (s *stateSuite) TestWriteOrValidateSingleHook(c *gc.C) {
 			if i == len(t.hooks)-1 && t.err != "" {
 				err := st.Validate(hi)
 				expect := fmt.Sprintf(`inappropriate %q for %q: %s`, hi.Kind, hi.RemoteUnit, t.err)
-				c.Assert(err, gc.ErrorMatches, expect)
+				c.Assert(err, tc.ErrorMatches, expect)
 			} else {
 				expectedState := s.setupTestState()
 				if t.pending != "" {
@@ -139,7 +138,7 @@ func (s *stateSuite) TestWriteOrValidateSingleHook(c *gc.C) {
 	}
 }
 
-func (s *stateSuite) TestWriteMultiHookJoinedChanged(c *gc.C) {
+func (s *stateSuite) TestWriteMultiHookJoinedChanged(c *tc.C) {
 	c.Log("relation - joined foo / 3 and relation - changed foo / 3")
 
 	// Setup initial state
@@ -170,7 +169,7 @@ func (s *stateSuite) TestWriteMultiHookJoinedChanged(c *gc.C) {
 	runWriteHookTest(c, st, expectedState, hiChanged)
 }
 
-func (s *stateSuite) TestWriteMultiHookDepartedJoinedJoined(c *gc.C) {
+func (s *stateSuite) TestWriteMultiHookDepartedJoinedJoined(c *tc.C) {
 	c.Log("relation-departed foo/1 and relation-joined foo/1")
 
 	// Setup initial state
@@ -201,7 +200,7 @@ func (s *stateSuite) TestWriteMultiHookDepartedJoinedJoined(c *gc.C) {
 	runWriteHookTest(c, st, expectedState, hiJoined)
 }
 
-func (s *stateSuite) TestWriteMultiHookDepartedJoinedChanged(c *gc.C) {
+func (s *stateSuite) TestWriteMultiHookDepartedJoinedChanged(c *tc.C) {
 	c.Logf("relation-departed foo/1 and relation-joined foo/1 and relation-changed foo/1")
 
 	// Setup initial state
@@ -242,7 +241,7 @@ func (s *stateSuite) TestWriteMultiHookDepartedJoinedChanged(c *gc.C) {
 	runWriteHookTest(c, st, expectedState, hiChanged)
 }
 
-func (s *stateSuite) TestWriteMultiHookDepartedDeparted(c *gc.C) {
+func (s *stateSuite) TestWriteMultiHookDepartedDeparted(c *tc.C) {
 	c.Logf("relation-departed foo/1 and relation-departed foo/2")
 
 	// Setup initial state
@@ -285,18 +284,18 @@ func (s *stateSuite) setupTestState() *relation.State {
 	}
 }
 
-func runWriteHookTest(c *gc.C, st, expectedState *relation.State, hi hook.Info) {
+func runWriteHookTest(c *tc.C, st, expectedState *relation.State, hi hook.Info) {
 	err := st.Validate(hi)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	logger := loggertesting.WrapCheckLog(c)
 	st.UpdateStateForHook(hi, logger)
-	c.Assert(*expectedState, jc.DeepEquals, *st)
+	c.Assert(*expectedState, tc.DeepEquals, *st)
 	// Check that writing the same change again is OK.
 	st.UpdateStateForHook(hi, logger)
-	c.Assert(*expectedState, jc.DeepEquals, *st)
+	c.Assert(*expectedState, tc.DeepEquals, *st)
 }
 
-func (s *stateSuite) TestStateValidateErrorJoinedJoined(c *gc.C) {
+func (s *stateSuite) TestStateValidateErrorJoinedJoined(c *tc.C) {
 	c.Logf("relation-changed foo/3 must follow relation-joined foo/3 (before relation-joined of another unit)")
 	// Setup 2nd Joined Hook
 	hiInfo := hook.Info{
@@ -308,7 +307,7 @@ func (s *stateSuite) TestStateValidateErrorJoinedJoined(c *gc.C) {
 	s.testStateValidateErrorAfterJoined(c, hiInfo)
 }
 
-func (s *stateSuite) TestStateValidateErrorJoined3Joined1(c *gc.C) {
+func (s *stateSuite) TestStateValidateErrorJoined3Joined1(c *tc.C) {
 	c.Logf("relation-changed foo/3 must follow relation-joined foo/3 (not relation-changed for another unit)")
 	// Setup relation changed for a different unit.
 	hiInfo := hook.Info{
@@ -320,7 +319,7 @@ func (s *stateSuite) TestStateValidateErrorJoined3Joined1(c *gc.C) {
 	s.testStateValidateErrorAfterJoined(c, hiInfo)
 }
 
-func (s *stateSuite) testStateValidateErrorAfterJoined(c *gc.C, hiInfo hook.Info) {
+func (s *stateSuite) testStateValidateErrorAfterJoined(c *tc.C, hiInfo hook.Info) {
 	// Setup state post relation-changed foo/3
 	st := &relation.State{
 		RelationId: 123,
@@ -338,10 +337,10 @@ func (s *stateSuite) testStateValidateErrorAfterJoined(c *gc.C, hiInfo hook.Info
 	// Run hook
 	err := st.Validate(hiInfo)
 	expect := fmt.Sprintf(`inappropriate %q for %q: expected "relation-changed" for "foo/3"`, hiInfo.Kind, hiInfo.RemoteUnit)
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }
 
-func (s *stateSuite) TestStateValidateErrorBrokenJoined(c *gc.C) {
+func (s *stateSuite) TestStateValidateErrorBrokenJoined(c *tc.C) {
 	c.Logf("relation-joined after relation has been broken")
 
 	// Setup state post broken relation app foo
@@ -359,5 +358,5 @@ func (s *stateSuite) TestStateValidateErrorBrokenJoined(c *gc.C) {
 
 	err := st.Validate(hiInfo)
 	expect := fmt.Sprintf(`inappropriate %q for %q: relation is broken and cannot be changed further`, hiInfo.Kind, hiInfo.RemoteUnit)
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }

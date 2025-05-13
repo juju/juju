@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -24,9 +23,9 @@ type environInstSuite struct {
 	gce.BaseSuite
 }
 
-var _ = gc.Suite(&environInstSuite{})
+var _ = tc.Suite(&environInstSuite{})
 
-func (s *environInstSuite) SetUpTest(c *gc.C) {
+func (s *environInstSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	// NOTE(achilleasa): at least one zone is required so that any tests
@@ -36,7 +35,7 @@ func (s *environInstSuite) SetUpTest(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{zone}
 }
 
-func (s *environInstSuite) TestInstances(c *gc.C) {
+func (s *environInstSuite) TestInstances(c *tc.C) {
 	spam := s.NewInstance(c, "spam")
 	ham := s.NewInstance(c, "ham")
 	eggs := s.NewInstance(c, "eggs")
@@ -44,181 +43,181 @@ func (s *environInstSuite) TestInstances(c *gc.C) {
 
 	ids := []instance.Id{"spam", "eggs", "ham"}
 	insts, err := s.Env.Instances(context.Background(), ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{spam, eggs, ham})
+	c.Check(insts, tc.DeepEquals, []instances.Instance{spam, eggs, ham})
 }
 
-func (s *environInstSuite) TestInstancesEmptyArg(c *gc.C) {
+func (s *environInstSuite) TestInstancesEmptyArg(c *tc.C) {
 	_, err := s.Env.Instances(context.Background(), nil)
 
-	c.Check(err, gc.Equals, environs.ErrNoInstances)
+	c.Check(err, tc.Equals, environs.ErrNoInstances)
 }
 
-func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
+func (s *environInstSuite) TestInstancesInstancesFailed(c *tc.C) {
 	failure := errors.New("<unknown>")
 	s.FakeEnviron.Err = failure
 
 	ids := []instance.Id{"spam"}
 	insts, err := s.Env.Instances(context.Background(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
-	c.Check(errors.Cause(err), gc.Equals, failure)
+	c.Check(insts, tc.DeepEquals, []instances.Instance{nil})
+	c.Check(errors.Cause(err), tc.Equals, failure)
 }
 
-func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
+func (s *environInstSuite) TestInstancesPartialMatch(c *tc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
 	ids := []instance.Id{"spam", "eggs"}
 	insts, err := s.Env.Instances(context.Background(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{s.Instance, nil})
-	c.Check(errors.Cause(err), gc.Equals, environs.ErrPartialInstances)
+	c.Check(insts, tc.DeepEquals, []instances.Instance{s.Instance, nil})
+	c.Check(errors.Cause(err), tc.Equals, environs.ErrPartialInstances)
 }
 
-func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
+func (s *environInstSuite) TestInstancesNoMatch(c *tc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
 	ids := []instance.Id{"eggs"}
 	insts, err := s.Env.Instances(context.Background(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
-	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
+	c.Check(insts, tc.DeepEquals, []instances.Instance{nil})
+	c.Check(errors.Cause(err), tc.Equals, environs.ErrNoInstances)
 }
 
-func (s *environInstSuite) TestBasicInstances(c *gc.C) {
+func (s *environInstSuite) TestBasicInstances(c *tc.C) {
 	spam := s.NewBaseInstance(c, "spam")
 	ham := s.NewBaseInstance(c, "ham")
 	eggs := s.NewBaseInstance(c, "eggs")
 	s.FakeConn.Insts = []google.Instance{*spam, *ham, *eggs}
 
 	insts, err := gce.GetInstances(s.Env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(insts, jc.DeepEquals, []instances.Instance{
+	c.Check(insts, tc.DeepEquals, []instances.Instance{
 		s.NewInstance(c, "spam"),
 		s.NewInstance(c, "ham"),
 		s.NewInstance(c, "eggs"),
 	})
 }
 
-func (s *environInstSuite) TestBasicInstancesAPI(c *gc.C) {
+func (s *environInstSuite) TestBasicInstancesAPI(c *tc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
 	_, err := gce.GetInstances(s.Env, context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Instances")
-	c.Check(s.FakeConn.Calls[0].Prefix, gc.Equals, s.Prefix())
-	c.Check(s.FakeConn.Calls[0].Statuses, jc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
+	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "Instances")
+	c.Check(s.FakeConn.Calls[0].Prefix, tc.Equals, s.Prefix())
+	c.Check(s.FakeConn.Calls[0].Statuses, tc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
 }
 
-func (s *environInstSuite) TestControllerInstances(c *gc.C) {
+func (s *environInstSuite) TestControllerInstances(c *tc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
 	ids, err := s.Env.ControllerInstances(context.Background(), s.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	c.Check(ids, tc.DeepEquals, []instance.Id{"spam"})
 }
 
-func (s *environInstSuite) TestControllerInstancesAPI(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesAPI(c *tc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
 	_, err := s.Env.ControllerInstances(context.Background(), s.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Instances")
-	c.Check(s.FakeConn.Calls[0].Prefix, gc.Equals, s.Prefix())
-	c.Check(s.FakeConn.Calls[0].Statuses, jc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
+	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "Instances")
+	c.Check(s.FakeConn.Calls[0].Prefix, tc.Equals, s.Prefix())
+	c.Check(s.FakeConn.Calls[0].Statuses, tc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
 }
 
-func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *tc.C) {
 	_, err := s.Env.ControllerInstances(context.Background(), s.ControllerUUID)
 
-	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
+	c.Check(err, tc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesMixed(c *tc.C) {
 	other := google.NewInstance(google.InstanceSummary{}, nil)
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance, *other}
 
 	ids, err := s.Env.ControllerInstances(context.Background(), s.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	c.Check(ids, tc.DeepEquals, []instance.Id{"spam"})
 }
 
-func (s *environInstSuite) TestParsePlacement(c *gc.C) {
+func (s *environInstSuite) TestParsePlacement(c *tc.C) {
 	zone := google.NewZone("a-zone", google.StatusUp, "", "")
 	s.FakeConn.Zones = []google.AvailabilityZone{zone}
 
 	placement, err := gce.ParsePlacement(s.Env, context.Background(), "zone=a-zone")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(placement.Zone, jc.DeepEquals, &zone)
+	c.Check(placement.Zone, tc.DeepEquals, &zone)
 }
 
-func (s *environInstSuite) TestParsePlacementZoneFailure(c *gc.C) {
+func (s *environInstSuite) TestParsePlacementZoneFailure(c *tc.C) {
 	failure := errors.New("<unknown>")
 	s.FakeConn.Err = failure
 
 	_, err := gce.ParsePlacement(s.Env, context.Background(), "zone=a-zone")
 
-	c.Check(errors.Cause(err), gc.Equals, failure)
+	c.Check(errors.Cause(err), tc.Equals, failure)
 }
 
-func (s *environInstSuite) TestParsePlacementMissingDirective(c *gc.C) {
+func (s *environInstSuite) TestParsePlacementMissingDirective(c *tc.C) {
 	_, err := gce.ParsePlacement(s.Env, context.Background(), "a-zone")
 
-	c.Check(err, gc.ErrorMatches, `.*unknown placement directive: .*`)
+	c.Check(err, tc.ErrorMatches, `.*unknown placement directive: .*`)
 }
 
-func (s *environInstSuite) TestParsePlacementUnknownDirective(c *gc.C) {
+func (s *environInstSuite) TestParsePlacementUnknownDirective(c *tc.C) {
 	_, err := gce.ParsePlacement(s.Env, context.Background(), "inst=spam")
 
-	c.Check(err, gc.ErrorMatches, `.*unknown placement directive: .*`)
+	c.Check(err, tc.ErrorMatches, `.*unknown placement directive: .*`)
 }
 
-func (s *environInstSuite) TestPrecheckInstanceWithValidInstanceType(c *gc.C) {
+func (s *environInstSuite) TestPrecheckInstanceWithValidInstanceType(c *tc.C) {
 	typ := "n1-standard-2"
 	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraints.Value{
 			InstanceType: &typ,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environInstSuite) TestPrecheckInstanceTypeUnknown(c *gc.C) {
+func (s *environInstSuite) TestPrecheckInstanceTypeUnknown(c *tc.C) {
 	typ := "bogus"
 	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Constraints: constraints.Value{
 			InstanceType: &typ,
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `.*invalid GCE instance type "bogus".*`)
+	c.Assert(err, tc.ErrorMatches, `.*invalid GCE instance type "bogus".*`)
 }
 
-func (s *environInstSuite) TestPrecheckInstanceInvalidCredentialError(c *gc.C) {
+func (s *environInstSuite) TestPrecheckInstanceInvalidCredentialError(c *tc.C) {
 	zone := google.NewZone("a-zone", google.StatusUp, "", "")
 	s.FakeConn.Zones = []google.AvailabilityZone{zone}
 	mem := uint64(1025)
 	s.FakeConn.Err = gce.InvalidCredentialError
 
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	_, err := s.Env.InstanceTypes(context.Background(), constraints.Value{Mem: &mem})
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
+func (s *environInstSuite) TestListMachineTypes(c *tc.C) {
 	// If no zone is specified, no machine types will be pulled.
 	s.FakeConn.Zones = nil
 	_, err := s.Env.InstanceTypes(context.Background(), constraints.Value{})
-	c.Assert(err, gc.ErrorMatches, "no instance types in  matching constraints.*")
+	c.Assert(err, tc.ErrorMatches, "no instance types in  matching constraints.*")
 
 	// If a non-empty list of zones is specified , we will make an API call
 	// to fetch the available machine types.
@@ -227,34 +226,34 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 
 	mem := uint64(1025)
 	types, err := s.Env.InstanceTypes(context.Background(), constraints.Value{Mem: &mem})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, tc.HasLen, 1)
 
 }
 
-func (s *environInstSuite) TestAdoptResources(c *gc.C) {
+func (s *environInstSuite) TestAdoptResources(c *tc.C) {
 	john := s.NewInstance(c, "john")
 	misty := s.NewInstance(c, "misty")
 	s.FakeEnviron.Insts = []instances.Instance{john, misty}
 
 	err := s.Env.AdoptResources(context.Background(), "other-uuid", semversion.MustParse("1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.FakeConn.Calls, tc.HasLen, 1)
 	call := s.FakeConn.Calls[0]
-	c.Check(call.FuncName, gc.Equals, "UpdateMetadata")
-	c.Check(call.IDs, gc.DeepEquals, []string{"john", "misty"})
-	c.Check(call.Key, gc.Equals, tags.JujuController)
-	c.Check(call.Value, gc.Equals, "other-uuid")
+	c.Check(call.FuncName, tc.Equals, "UpdateMetadata")
+	c.Check(call.IDs, tc.DeepEquals, []string{"john", "misty"})
+	c.Check(call.Key, tc.Equals, tags.JujuController)
+	c.Check(call.Value, tc.Equals, "other-uuid")
 }
 
-func (s *environInstSuite) TestAdoptResourcesInvalidCredentialError(c *gc.C) {
+func (s *environInstSuite) TestAdoptResourcesInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 	john := s.NewInstance(c, "john")
 	misty := s.NewInstance(c, "misty")
 	s.FakeEnviron.Insts = []instances.Instance{john, misty}
 
 	err := s.Env.AdoptResources(context.Background(), "other-uuid", semversion.MustParse("1.2.3"))
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }

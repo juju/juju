@@ -10,15 +10,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type RemoteSuite struct {
@@ -30,9 +29,9 @@ type RemoteSuite struct {
 	apiConnection *MockConnection
 }
 
-var _ = gc.Suite(&RemoteSuite{})
+var _ = tc.Suite(&RemoteSuite{})
 
-func (s *RemoteSuite) TestNotConnectedConnection(c *gc.C) {
+func (s *RemoteSuite) TestNotConnectedConnection(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newRemoteServer(c)
@@ -40,7 +39,7 @@ func (s *RemoteSuite) TestNotConnectedConnection(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	ctx, cancel := context.WithTimeout(context.Background(), jujutesting.ShortWait)
+	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.ShortWait)
 	defer cancel()
 
 	var called bool
@@ -48,13 +47,13 @@ func (s *RemoteSuite) TestNotConnectedConnection(c *gc.C) {
 		called = true
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, context.DeadlineExceeded)
-	c.Check(called, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, context.DeadlineExceeded)
+	c.Check(called, tc.IsFalse)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnect(c *gc.C) {
+func (s *RemoteSuite) TestConnect(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -75,7 +74,7 @@ func (s *RemoteSuite) TestConnect(c *gc.C) {
 
 	select {
 	case <-s.apiConnect:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for API connect")
 	}
 
@@ -86,15 +85,15 @@ func (s *RemoteSuite) TestConnect(c *gc.C) {
 		conn = c
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(conn, gc.NotNil)
-	c.Check(conn.Addr().String(), jc.DeepEquals, addr.String())
+	c.Assert(conn, tc.NotNil)
+	c.Check(conn.Addr().String(), tc.DeepEquals, addr.String())
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnectWhenAlreadyContextCancelled(c *gc.C) {
+func (s *RemoteSuite) TestConnectWhenAlreadyContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -113,13 +112,13 @@ func (s *RemoteSuite) TestConnectWhenAlreadyContextCancelled(c *gc.C) {
 		called = true
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, context.Canceled)
-	c.Check(called, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+	c.Check(called, tc.IsFalse)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnectWhenAlreadyKilled(c *gc.C) {
+func (s *RemoteSuite) TestConnectWhenAlreadyKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -137,11 +136,11 @@ func (s *RemoteSuite) TestConnectWhenAlreadyKilled(c *gc.C) {
 		called = true
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, tomb.ErrDying)
-	c.Check(called, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, tomb.ErrDying)
+	c.Check(called, tc.IsFalse)
 }
 
-func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *gc.C) {
+func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// This test ensures that when the first connection is cancelled, the second
@@ -191,14 +190,14 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *gc.C) {
 			called = true
 			return nil
 		})
-		c.Assert(err, jc.ErrorIs, context.Canceled)
-		c.Check(called, jc.IsFalse)
+		c.Assert(err, tc.ErrorIs, context.Canceled)
+		c.Check(called, tc.IsFalse)
 	}()
 	go func() {
 		// Wait for the first connection to be enqueued.
 		select {
 		case <-seq:
-		case <-time.After(jujutesting.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for first connection to be cancelled")
 		}
 
@@ -209,7 +208,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *gc.C) {
 		})
 		select {
 		case res <- err:
-		case <-time.After(jujutesting.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out sending result")
 		}
 	}()
@@ -222,13 +221,13 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *gc.C) {
 	}()
 	select {
 	case <-sync:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for connections to finish")
 	}
 
 	select {
 	case <-seq:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for first connection to be cancelled")
 	}
 
@@ -237,7 +236,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *gc.C) {
 	// This is our sequence point to ensure that we connect.
 	select {
 	case <-s.apiConnect:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for API connect")
 	}
 
@@ -245,15 +244,15 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *gc.C) {
 
 	select {
 	case err := <-res:
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(jujutesting.LongWait):
+		c.Assert(err, tc.ErrorIsNil)
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for connection")
 	}
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
+func (s *RemoteSuite) TestConnectWhilstConnecting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	var counter atomic.Int64
@@ -264,7 +263,7 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(jujutesting.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("timed out waiting for context to be done")
 			}
 		}
@@ -295,7 +294,7 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 
 	select {
 	case <-s.apiConnect:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for API connect")
 	}
 
@@ -306,22 +305,22 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 		conn = c
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(conn, gc.NotNil)
-	c.Check(conn.Addr().String(), jc.DeepEquals, addr1.String())
+	c.Assert(conn, tc.NotNil)
+	c.Check(conn.Addr().String(), tc.DeepEquals, addr1.String())
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnectBlocks(c *gc.C) {
+func (s *RemoteSuite) TestConnectBlocks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.apiConnectHandler = func(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(jujutesting.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out waiting for context to be done")
 		}
 		return nil
@@ -342,7 +341,7 @@ func (s *RemoteSuite) TestConnectBlocks(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) TestConnectWithSameAddress(c *gc.C) {
+func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	var counter atomic.Int64
@@ -374,7 +373,7 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *gc.C) {
 
 	select {
 	case <-s.apiConnect:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("timed out waiting for API connect")
 	}
 
@@ -386,12 +385,12 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *gc.C) {
 	case <-time.After(time.Second):
 	}
 
-	c.Assert(counter.Load(), gc.Equals, int64(1))
+	c.Assert(counter.Load(), tc.Equals, int64(1))
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *RemoteSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *RemoteSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.apiConnection = NewMockConnection(ctrl)
@@ -405,11 +404,11 @@ func (s *RemoteSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *RemoteSuite) newRemoteServer(c *gc.C) RemoteServer {
+func (s *RemoteSuite) newRemoteServer(c *tc.C) RemoteServer {
 	return newRemoteServer(s.newConfig(c), s.states)
 }
 
-func (s *RemoteSuite) newConfig(c *gc.C) RemoteServerConfig {
+func (s *RemoteSuite) newConfig(c *tc.C) RemoteServerConfig {
 	return RemoteServerConfig{
 		Clock:   s.clock,
 		Logger:  loggertesting.WrapCheckLog(c),

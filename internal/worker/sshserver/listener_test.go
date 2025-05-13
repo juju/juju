@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // testingSSHServerListener is required to prevent a race condition that can
@@ -28,31 +28,30 @@ type testingSSHServerListener struct {
 	// closeAllowed indicates when the server has reached
 	// a safe point that it can be killed.
 	closeAllowed chan struct{}
-	once         *sync.Once
+	once         sync.Once
 
 	timeout time.Duration
 }
 
 // newTestingSSHServerListener returns a listener.
 func newTestingSSHServerListener(l net.Listener, timeout time.Duration) net.Listener {
-	return testingSSHServerListener{
+	return &testingSSHServerListener{
 		Listener:     l,
 		closeAllowed: make(chan struct{}),
-		once:         &sync.Once{},
 		timeout:      timeout,
 	}
 }
 
 // Accept runs the listeners accept, but firstly closes the closeAllowed channel,
 // signalling that any routines waiting to close the listener may proceed.
-func (l testingSSHServerListener) Accept() (net.Conn, error) {
+func (l *testingSSHServerListener) Accept() (net.Conn, error) {
 	l.once.Do(func() {
 		close(l.closeAllowed)
 	})
 	return l.Listener.Accept()
 }
 
-func (l testingSSHServerListener) Close() error {
+func (l *testingSSHServerListener) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
 	defer cancel()
 
@@ -65,14 +64,14 @@ func (l testingSSHServerListener) Close() error {
 }
 
 type listenerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	listener *MockListener
 }
 
-var _ = gc.Suite(&listenerSuite{})
+var _ = tc.Suite(&listenerSuite{})
 
-func (s *listenerSuite) TestAcceptOnceListener(c *gc.C) {
+func (s *listenerSuite) TestAcceptOnceListener(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.listener.EXPECT().Accept().Return(nil, nil)
@@ -91,16 +90,16 @@ func (s *listenerSuite) TestAcceptOnceListener(c *gc.C) {
 	}()
 
 	err := acceptOnceListener.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fail()
 	}
 }
 
-func (s *listenerSuite) TestAcceptOnceListenerDoesNotStop(c *gc.C) {
+func (s *listenerSuite) TestAcceptOnceListenerDoesNotStop(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// No calls to the mock listener should have been made.
@@ -108,10 +107,10 @@ func (s *listenerSuite) TestAcceptOnceListenerDoesNotStop(c *gc.C) {
 	acceptOnceListener := newTestingSSHServerListener(s.listener, time.Millisecond*50)
 
 	err := acceptOnceListener.Close()
-	c.Assert(err, jc.ErrorIs, context.DeadlineExceeded)
+	c.Assert(err, tc.ErrorIs, context.DeadlineExceeded)
 }
 
-func (s *listenerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *listenerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.listener = NewMockListener(ctrl)

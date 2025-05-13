@@ -8,9 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -18,13 +16,14 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 // BaseSubnetSuite is used for embedding in other suites.
@@ -35,33 +34,33 @@ type BaseSubnetSuite struct {
 	api        *StubAPI
 }
 
-var _ = gc.Suite(&BaseSubnetSuite{})
+var _ = tc.Suite(&BaseSubnetSuite{})
 
-func (s *BaseSubnetSuite) SetUpSuite(c *gc.C) {
+func (s *BaseSubnetSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 }
 
-func (s *BaseSubnetSuite) TearDownSuite(c *gc.C) {
+func (s *BaseSubnetSuite) TearDownSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
-func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
+func (s *BaseSubnetSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.api = NewStubAPI()
-	c.Assert(s.api, gc.NotNil)
+	c.Assert(s.api, tc.NotNil)
 
 	// All subcommand suites embedding this one should initialize
 	// s.newCommand immediately after calling this method!
 }
 
-func (s *BaseSubnetSuite) TearDownTest(c *gc.C) {
+func (s *BaseSubnetSuite) TearDownTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 // InitCommand creates a command with s.newCommand and runs its
 // Init method only. It returns the inner command and any error.
-func (s *BaseSubnetSuite) InitCommand(c *gc.C, args ...string) (cmd.Command, error) {
+func (s *BaseSubnetSuite) InitCommand(c *tc.C, args ...string) (cmd.Command, error) {
 	cmd := s.newCommandForTest()
 	err := cmdtesting.InitCommand(cmd, args)
 	return modelcmd.InnerCommand(cmd), err
@@ -70,7 +69,7 @@ func (s *BaseSubnetSuite) InitCommand(c *gc.C, args ...string) (cmd.Command, err
 // RunCommand creates a command with s.newCommand and executes it,
 // passing any args and returning the stdout and stderr output as
 // strings, as well as any error.
-func (s *BaseSubnetSuite) RunCommand(c *gc.C, args ...string) (string, string, error) {
+func (s *BaseSubnetSuite) RunCommand(c *tc.C, args ...string) (string, string, error) {
 	cmd := s.newCommandForTest()
 	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
 	return cmdtesting.Stdout(ctx), cmdtesting.Stderr(ctx), err
@@ -89,11 +88,11 @@ func (s *BaseSubnetSuite) newCommandForTest() modelcmd.ModelCommand {
 // AssertRunFails is a shortcut for calling RunCommand with the
 // passed args then asserting the output is empty and the error is as
 // expected, finally returning the error.
-func (s *BaseSubnetSuite) AssertRunFails(c *gc.C, expectErr string, args ...string) error {
+func (s *BaseSubnetSuite) AssertRunFails(c *tc.C, expectErr string, args ...string) error {
 	stdout, stderr, err := s.RunCommand(c, args...)
-	c.Assert(err, gc.ErrorMatches, expectErr)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, expectErr)
+	c.Assert(stdout, tc.Equals, "")
+	c.Assert(stderr, tc.Equals, "")
 	return err
 }
 
@@ -101,11 +100,11 @@ func (s *BaseSubnetSuite) AssertRunFails(c *gc.C, expectErr string, args ...stri
 // the passed args then asserting the stderr output matches
 // expectStderr, stdout is equal to expectStdout, and the error is
 // nil.
-func (s *BaseSubnetSuite) AssertRunSucceeds(c *gc.C, expectStderr, expectStdout string, args ...string) {
+func (s *BaseSubnetSuite) AssertRunSucceeds(c *tc.C, expectStderr, expectStdout string, args ...string) {
 	stdout, stderr, err := s.RunCommand(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdout, gc.Equals, expectStdout)
-	c.Assert(stderr, gc.Matches, expectStderr)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(stdout, tc.Equals, expectStdout)
+	c.Assert(stderr, tc.Matches, expectStderr)
 }
 
 // Strings makes tests taking a slice of strings slightly easier to
@@ -116,7 +115,7 @@ func (s *BaseSubnetSuite) Strings(values ...string) []string {
 
 // StubAPI defines a testing stub for the SubnetAPI interface.
 type StubAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	Subnets []params.Subnet
 	Spaces  []names.Tag
@@ -152,7 +151,7 @@ func NewStubAPI() *StubAPI {
 		VLANTag:  42,
 	}}
 	return &StubAPI{
-		Stub:    &testing.Stub{},
+		Stub:    &testhelpers.Stub{},
 		Zones:   []string{"zone1", "zone2"},
 		Subnets: subnets,
 		Spaces: []names.Tag{

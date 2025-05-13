@@ -6,28 +6,27 @@ package errors_test
 import (
 	stderrors "errors"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/proxy/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&ErrorsSuite{})
+var _ = tc.Suite(&ErrorsSuite{})
 
 type ErrorsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-func (*ErrorsSuite) TestIsProxyConnectError(c *gc.C) {
-	c.Assert(errors.IsProxyConnectError(nil), jc.IsFalse)
+func (*ErrorsSuite) TestIsProxyConnectError(c *tc.C) {
+	c.Assert(errors.IsProxyConnectError(nil), tc.IsFalse)
 	err := stderrors.New("foo")
-	c.Assert(errors.IsProxyConnectError(err), jc.IsFalse)
+	c.Assert(errors.IsProxyConnectError(err), tc.IsFalse)
 	err = errors.NewProxyConnectError(stderrors.New("foo"), "")
-	c.Assert(errors.IsProxyConnectError(err), jc.IsTrue)
+	c.Assert(errors.IsProxyConnectError(err), tc.IsTrue)
 }
 
-func (*ErrorsSuite) TestProxyType(c *gc.C) {
+func (*ErrorsSuite) TestProxyType(c *tc.C) {
 	err := errors.NewProxyConnectError(stderrors.New("foo"), "bar")
-	c.Assert(errors.ProxyType(err), gc.Equals, "bar")
+	c.Assert(errors.ProxyType(err), tc.Equals, "bar")
 }

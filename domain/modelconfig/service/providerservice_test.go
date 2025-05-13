@@ -6,24 +6,23 @@ package service
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type providerServiceSuite struct {
 	mockState *MockProviderState
 }
 
-var _ = gc.Suite(&providerServiceSuite{})
+var _ = tc.Suite(&providerServiceSuite{})
 
-func (s *providerServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockState = NewMockProviderState(ctrl)
 	return ctrl
 }
 
-func (s *providerServiceSuite) TestModelConfig(c *gc.C) {
+func (s *providerServiceSuite) TestModelConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.mockState.EXPECT().ModelConfig(gomock.Any()).Return(
@@ -37,8 +36,8 @@ func (s *providerServiceSuite) TestModelConfig(c *gc.C) {
 
 	svc := NewProviderService(s.mockState)
 	cfg, err := svc.ModelConfig(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cfg.AllAttrs(), jc.DeepEquals, map[string]any{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cfg.AllAttrs(), tc.DeepEquals, map[string]any{
 		"name":           "wallyworld",
 		"uuid":           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
 		"type":           "sometype",

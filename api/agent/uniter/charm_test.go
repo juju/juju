@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -20,38 +19,38 @@ type charmSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&charmSuite{})
+var _ = tc.Suite(&charmSuite{})
 
-func (s *charmSuite) TestCharmWithNilFails(c *gc.C) {
+func (s *charmSuite) TestCharmWithNilFails(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	_, err := client.Charm("")
-	c.Assert(err, gc.ErrorMatches, "charm url cannot be empty")
+	c.Assert(err, tc.ErrorMatches, "charm url cannot be empty")
 }
 
-func (s *charmSuite) TestCharm(c *gc.C) {
+func (s *charmSuite) TestCharm(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	curl := "ch:mysql"
 	ch, err := client.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), jc.DeepEquals, curl)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch.URL(), tc.DeepEquals, curl)
 }
 
-func (s *charmSuite) TestArchiveSha256(c *gc.C) {
+func (s *charmSuite) TestArchiveSha256(c *tc.C) {
 	curl := "ch:mysql"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "CharmArchiveSha256")
-		c.Assert(arg, jc.DeepEquals, params.CharmURLs{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "CharmArchiveSha256")
+		c.Assert(arg, tc.DeepEquals, params.CharmURLs{
 			URLs: []params.CharmURL{{URL: curl}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
 				Result: "deadbeef",
@@ -61,22 +60,22 @@ func (s *charmSuite) TestArchiveSha256(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	ch, err := client.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sha, err := ch.ArchiveSha256(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sha, gc.Equals, "deadbeef")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sha, tc.Equals, "deadbeef")
 }
 
-func (s *charmSuite) TestLXDProfileRequired(c *gc.C) {
+func (s *charmSuite) TestLXDProfileRequired(c *tc.C) {
 	curl := "ch:mysql"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "LXDProfileRequired")
-		c.Assert(arg, jc.DeepEquals, params.CharmURLs{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "LXDProfileRequired")
+		c.Assert(arg, tc.DeepEquals, params.CharmURLs{
 			URLs: []params.CharmURL{{URL: curl}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.BoolResults{})
 		*(result.(*params.BoolResults)) = params.BoolResults{
 			Results: []params.BoolResult{{
 				Result: true,
@@ -86,8 +85,8 @@ func (s *charmSuite) TestLXDProfileRequired(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	ch, err := client.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	required, err := ch.LXDProfileRequired(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(required, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(required, tc.IsTrue)
 }

@@ -11,14 +11,12 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/symlink"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
@@ -31,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades"
@@ -41,11 +40,11 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/internal/worker/upgrader UpgraderClient
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type UpgraderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	confVersion          semversion.Number
 	upgradeStepsComplete gate.Lock
@@ -58,16 +57,16 @@ type UpgraderSuite struct {
 
 type AllowedTargetVersionSuite struct{}
 
-var _ = gc.Suite(&UpgraderSuite{})
+var _ = tc.Suite(&UpgraderSuite{})
 
-var _ = gc.Suite(&AllowedTargetVersionSuite{})
+var _ = tc.Suite(&AllowedTargetVersionSuite{})
 
-func (s *UpgraderSuite) SetUpTest(c *gc.C) {
+func (s *UpgraderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.dataDir = c.MkDir()
 	store, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.store = store
 
 	// For expediency we assume that upgrade-steps have run as the default.
@@ -105,7 +104,7 @@ func agentConfig(tag names.Tag, datadir string) agent.Config {
 	}
 }
 
-func (s *UpgraderSuite) makeUpgrader(c *gc.C, client upgrader.UpgraderClient) *upgrader.Upgrader {
+func (s *UpgraderSuite) makeUpgrader(c *tc.C, client upgrader.UpgraderClient) *upgrader.Upgrader {
 	w, err := upgrader.NewAgentUpgrader(upgrader.Config{
 		Clock:                       s.clock,
 		Logger:                      loggertesting.WrapCheckLog(c),
@@ -116,11 +115,11 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C, client upgrader.UpgraderClient) *u
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
 		CheckDiskSpace:              func(string, uint64) error { return nil },
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
-func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderSetsTools(c *tc.C) {
 	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
@@ -141,7 +140,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	workertest.CleanKill(c, u)
 }
 
-func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderSetVersion(c *tc.C) {
 	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
@@ -170,7 +169,7 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	workertest.CleanKill(c, u)
 }
 
-func (s *UpgraderSuite) TestUpgraderWaitsForUpgradeStepsGate(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderWaitsForUpgradeStepsGate(c *tc.C) {
 	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
@@ -192,7 +191,7 @@ func (s *UpgraderSuite) TestUpgraderWaitsForUpgradeStepsGate(c *gc.C) {
 	workertest.CleanKill(c, u)
 }
 
-func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *tc.C) {
 	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
@@ -223,11 +222,11 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 		DataDir:   s.dataDir,
 	})
 	foundTools, err := agenttools.ReadTools(s.dataDir, newVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.CheckTools(c, foundTools, newTools)
 }
 
-func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *tc.C) {
 	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
@@ -258,7 +257,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 
 	for i := 0; i < retryCount; i++ {
 		err := s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	// Make it upgrade to some newer tools that can be
@@ -290,11 +289,11 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 		c.Fatalf("upgrader did not quit after upgrading")
 	}
 	foundTools, err := agenttools.ReadTools(s.dataDir, newerVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.CheckTools(c, foundTools, newTools)
 }
 
-func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
+func (s *UpgraderSuite) TestChangeAgentTools(c *tc.C) {
 	oldTools := &coretools.Tools{Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64")}
 
 	newToolsBinary := "5.4.3-ubuntu-amd64"
@@ -308,15 +307,15 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 		DataDir:   s.dataDir,
 	}
 	err := ugErr.ChangeAgentTools(loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	target := agenttools.ToolsDir(s.dataDir, newToolsBinary)
 	link, err := symlink.Read(agenttools.ToolsDir(s.dataDir, "anAgent"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(link, jc.SamePath, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(link, tc.SamePath, target)
 }
 
-func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
+func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *tc.C) {
 	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
@@ -353,7 +352,7 @@ func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
 	})
 }
 
-func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *tc.C) {
 	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
@@ -389,11 +388,11 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
 		DataDir:   s.dataDir,
 	})
 	foundTools, err := agenttools.ReadTools(s.dataDir, downgradeTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
-func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *tc.C) {
 	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
@@ -422,15 +421,15 @@ func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *gc.C) {
 	err := worker.Stop(u)
 
 	// If the upgrade had been allowed we would get an UpgradeReadyError.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = agenttools.ReadTools(s.dataDir, downgradeTools.Version)
 	// TODO: ReadTools *should* be returning some form of
 	// errors.NotFound, however, it just passes back a fmt.Errorf so
-	// we live with it c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Check(err, gc.ErrorMatches, "cannot read agent metadata in directory.*"+utils.NoSuchFileErrRegexp)
+	// we live with it c.Assert(err, tc.ErrorIs, errors.NotFound)
+	c.Check(err, tc.ErrorMatches, "cannot read agent metadata in directory.*"+utils.NoSuchFileErrRegexp)
 }
 
-func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *tc.C) {
 	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
@@ -466,11 +465,11 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 		DataDir:   s.dataDir,
 	})
 	foundTools, err := agenttools.ReadTools(s.dataDir, downgradeTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
-func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToPriorMinorVersion(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToPriorMinorVersion(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -510,11 +509,11 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToPriorMinorVersion(c *gc.C) 
 		DataDir:   s.dataDir,
 	})
 	foundTools, err := agenttools.ReadTools(s.dataDir, prevTools.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envtesting.CheckTools(c, foundTools, prevTools)
 }
 
-func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
+func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -536,7 +535,7 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(newTools.Version.Number, nil)
 	client.EXPECT().Tools(gomock.Any(), "machine-666").Return(coretools.List{newTools}, nil)
 
-	var diskSpaceStub testing.Stub
+	var diskSpaceStub testhelpers.Stub
 	diskSpaceStub.SetErrors(nil, errors.Errorf("full-up"))
 	diskSpaceChecked := make(chan struct{}, 1)
 
@@ -562,7 +561,7 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 			return diskSpaceStub.NextErr()
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-diskSpaceChecked:
@@ -573,15 +572,15 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 
 	s.expectInitialUpgradeCheckNotDone(c)
 
-	c.Assert(diskSpaceStub.Calls(), gc.HasLen, 2)
+	c.Assert(diskSpaceStub.Calls(), tc.HasLen, 2)
 	diskSpaceStub.CheckCall(c, 0, "CheckDiskSpace", s.dataDir, upgrades.MinDiskSpaceMib)
 	diskSpaceStub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
 
 	_, err = agenttools.ReadTools(s.dataDir, newTools.Version)
-	c.Assert(err, gc.ErrorMatches, `cannot read agent metadata in directory.*: no such file or directory`)
+	c.Assert(err, tc.ErrorMatches, `cannot read agent metadata in directory.*: no such file or directory`)
 }
 
-func (s *UpgraderSuite) waitForUpgradeCheck(c *gc.C) {
+func (s *UpgraderSuite) waitForUpgradeCheck(c *tc.C) {
 	select {
 	case <-s.initialCheckComplete.Unlocked():
 	case <-time.After(coretesting.LongWait):
@@ -589,8 +588,8 @@ func (s *UpgraderSuite) waitForUpgradeCheck(c *gc.C) {
 	}
 }
 
-func (s *UpgraderSuite) expectInitialUpgradeCheckNotDone(c *gc.C) {
-	c.Assert(s.initialCheckComplete.IsUnlocked(), jc.IsFalse)
+func (s *UpgraderSuite) expectInitialUpgradeCheckNotDone(c *tc.C) {
+	c.Assert(s.initialCheckComplete.IsUnlocked(), tc.IsFalse)
 }
 
 type allowedTest struct {
@@ -599,7 +598,7 @@ type allowedTest struct {
 	allowed bool
 }
 
-func (s *AllowedTargetVersionSuite) TestAllowedTargetVersionSuite(c *gc.C) {
+func (s *AllowedTargetVersionSuite) TestAllowedTargetVersionSuite(c *tc.C) {
 	cases := []allowedTest{
 		{current: "2.7.4", target: "2.8.0", allowed: true},  // normal upgrade
 		{current: "2.8.0", target: "2.7.4", allowed: true},  // downgrade caused by restore after upgrade
@@ -612,6 +611,6 @@ func (s *AllowedTargetVersionSuite) TestAllowedTargetVersionSuite(c *gc.C) {
 		current := semversion.MustParse(test.current)
 		target := semversion.MustParse(test.target)
 		result := upgrader.AllowedTargetVersion(current, target)
-		c.Check(result, gc.Equals, test.allowed)
+		c.Check(result, tc.Equals, test.allowed)
 	}
 }

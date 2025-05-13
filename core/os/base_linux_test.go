@@ -7,18 +7,17 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type linuxBaseSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
-var _ = gc.Suite(&linuxBaseSuite{})
+var _ = tc.Suite(&linuxBaseSuite{})
 
 var readBaseTests = []struct {
 	contents string
@@ -117,20 +116,20 @@ VERSION_ID="42.3"`,
 },
 }
 
-func (s *linuxBaseSuite) TestReadSeries(c *gc.C) {
+func (s *linuxBaseSuite) TestReadSeries(c *tc.C) {
 	d := c.MkDir()
 	f := filepath.Join(d, "foo")
 	s.PatchValue(&osReleaseFile, f)
 	for i, t := range readBaseTests {
 		c.Logf("test %d", i)
 		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		b, err := readBase()
 		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(b, gc.Equals, t.base)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(b, tc.Equals, t.base)
 		} else {
-			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Assert(err, tc.ErrorMatches, t.err)
 		}
 	}
 }

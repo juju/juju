@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,9 +19,9 @@ type serviceAccountSuite struct {
 	resourceSuite
 }
 
-var _ = gc.Suite(&serviceAccountSuite{})
+var _ = tc.Suite(&serviceAccountSuite{})
 
-func (s *serviceAccountSuite) TestApply(c *gc.C) {
+func (s *serviceAccountSuite) TestApply(c *tc.C) {
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "sa1",
@@ -31,24 +30,24 @@ func (s *serviceAccountSuite) TestApply(c *gc.C) {
 	}
 	// Create.
 	saResource := resources.NewServiceAccount("sa1", "test", sa)
-	c.Assert(saResource.Apply(context.Background(), s.client), jc.ErrorIsNil)
+	c.Assert(saResource.Apply(context.Background(), s.client), tc.ErrorIsNil)
 	result, err := s.client.CoreV1().ServiceAccounts("test").Get(context.Background(), "sa1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	sa.SetAnnotations(map[string]string{"a": "b"})
 	saResource = resources.NewServiceAccount("sa1", "test", sa)
-	c.Assert(saResource.Apply(context.Background(), s.client), jc.ErrorIsNil)
+	c.Assert(saResource.Apply(context.Background(), s.client), tc.ErrorIsNil)
 
 	result, err = s.client.CoreV1().ServiceAccounts("test").Get(context.Background(), "sa1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `sa1`)
-	c.Assert(result.GetNamespace(), gc.Equals, `test`)
-	c.Assert(result.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `sa1`)
+	c.Assert(result.GetNamespace(), tc.Equals, `test`)
+	c.Assert(result.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *serviceAccountSuite) TestGet(c *gc.C) {
+func (s *serviceAccountSuite) TestGet(c *tc.C) {
 	template := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "sa1",
@@ -58,18 +57,18 @@ func (s *serviceAccountSuite) TestGet(c *gc.C) {
 	sa1 := template
 	sa1.SetAnnotations(map[string]string{"a": "b"})
 	_, err := s.client.CoreV1().ServiceAccounts("test").Create(context.Background(), &sa1, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	saResource := resources.NewServiceAccount("sa1", "test", &template)
-	c.Assert(len(saResource.GetAnnotations()), gc.Equals, 0)
+	c.Assert(len(saResource.GetAnnotations()), tc.Equals, 0)
 	err = saResource.Get(context.Background(), s.client)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saResource.GetName(), gc.Equals, `sa1`)
-	c.Assert(saResource.GetNamespace(), gc.Equals, `test`)
-	c.Assert(saResource.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(saResource.GetName(), tc.Equals, `sa1`)
+	c.Assert(saResource.GetNamespace(), tc.Equals, `test`)
+	c.Assert(saResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *serviceAccountSuite) TestDelete(c *gc.C) {
+func (s *serviceAccountSuite) TestDelete(c *tc.C) {
 	sa := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "sa1",
@@ -77,24 +76,24 @@ func (s *serviceAccountSuite) TestDelete(c *gc.C) {
 		},
 	}
 	_, err := s.client.CoreV1().ServiceAccounts("test").Create(context.Background(), &sa, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.client.CoreV1().ServiceAccounts("test").Get(context.Background(), "sa1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `sa1`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `sa1`)
 
 	saResource := resources.NewServiceAccount("sa1", "test", &sa)
 	err = saResource.Delete(context.Background(), s.client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = saResource.Get(context.Background(), s.client)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
 	_, err = s.client.CoreV1().ServiceAccounts("test").Get(context.Background(), "sa1", metav1.GetOptions{})
-	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
-func (s *serviceAccountSuite) TestUpdate(c *gc.C) {
+func (s *serviceAccountSuite) TestUpdate(c *tc.C) {
 	sa := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "sa1",
@@ -106,7 +105,7 @@ func (s *serviceAccountSuite) TestUpdate(c *gc.C) {
 		&sa,
 		metav1.CreateOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sa.ObjectMeta.Labels = map[string]string{
 		"test": "label",
@@ -114,26 +113,26 @@ func (s *serviceAccountSuite) TestUpdate(c *gc.C) {
 
 	saResource := resources.NewServiceAccount("sa1", "test", &sa)
 	err = saResource.Update(context.Background(), s.client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rsa, err := s.client.CoreV1().ServiceAccounts("test").Get(
 		context.Background(),
 		"sa1",
 		metav1.GetOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rsa, jc.DeepEquals, &saResource.ServiceAccount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rsa, tc.DeepEquals, &saResource.ServiceAccount)
 }
 
-func (s *serviceAccountSuite) TestEnsureCreatesNew(c *gc.C) {
+func (s *serviceAccountSuite) TestEnsureCreatesNew(c *tc.C) {
 	sa := resources.NewServiceAccount("sa1", "test", &corev1.ServiceAccount{})
 	cleanups, err := sa.Ensure(context.Background(), s.client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obj, err := s.client.CoreV1().ServiceAccounts("test").Get(
 		context.Background(), "sa1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&sa.ServiceAccount, jc.DeepEquals, obj)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(&sa.ServiceAccount, tc.DeepEquals, obj)
 
 	for _, v := range cleanups {
 		v()
@@ -142,10 +141,10 @@ func (s *serviceAccountSuite) TestEnsureCreatesNew(c *gc.C) {
 	// Test cleanup removes service account
 	_, err = s.client.CoreV1().ServiceAccounts("test").Get(
 		context.Background(), "sa1", metav1.GetOptions{})
-	c.Assert(k8serrors.IsNotFound(err), jc.IsTrue)
+	c.Assert(k8serrors.IsNotFound(err), tc.IsTrue)
 }
 
-func (s *serviceAccountSuite) TestEnsureUpdates(c *gc.C) {
+func (s *serviceAccountSuite) TestEnsureUpdates(c *tc.C) {
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "sa2",
@@ -155,7 +154,7 @@ func (s *serviceAccountSuite) TestEnsureUpdates(c *gc.C) {
 
 	_, err := s.client.CoreV1().ServiceAccounts("testing").Create(
 		context.Background(), sa, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sa.ObjectMeta.Labels = map[string]string{
 		"test": "case",
@@ -163,11 +162,11 @@ func (s *serviceAccountSuite) TestEnsureUpdates(c *gc.C) {
 
 	resource := resources.NewServiceAccount("sa2", "testing", sa)
 	_, err = resource.Ensure(context.Background(), s.client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obj, err := s.client.CoreV1().ServiceAccounts("testing").Get(
 		context.Background(), sa.Name, metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(obj, jc.DeepEquals, &resource.ServiceAccount)
+	c.Assert(obj, tc.DeepEquals, &resource.ServiceAccount)
 }

@@ -9,15 +9,14 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -71,14 +70,14 @@ func (mockProvider) FinalizeCredential(
 }
 
 type credentialsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	cloud cloud.Cloud
 	store *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&credentialsSuite{})
+var _ = tc.Suite(&credentialsSuite{})
 
-func (s *credentialsSuite) SetUpTest(c *gc.C) {
+func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.cloud = cloud.Cloud{
 		Name: "cloud",
@@ -92,7 +91,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 	dir := c.MkDir()
 	keyFile := filepath.Join(dir, "keyfile")
 	err := os.WriteFile(keyFile, []byte("value"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.store = jujuclient.NewMemStore()
 	s.store.Credentials["cloud"] = cloud.CloudCredential{
@@ -110,7 +109,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
+func (s *credentialsSuite) assertGetCredentials(c *tc.C, cred, region string) {
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
 		cmdtesting.Context(c), s.store, modelcmd.GetCredentialsParams{
 			Cloud:          s.cloud,
@@ -118,32 +117,32 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 			CredentialName: cred,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedRegion := region
 	if expectedRegion == "" {
 		expectedRegion = s.store.Credentials["cloud"].DefaultRegion
 	}
-	c.Assert(regionName, gc.Equals, expectedRegion)
-	c.Assert(credentialName, gc.Equals, cred)
-	c.Assert(credential.Attributes(), jc.DeepEquals, map[string]string{
+	c.Assert(regionName, tc.Equals, expectedRegion)
+	c.Assert(credentialName, tc.Equals, cred)
+	c.Assert(credential.Attributes(), tc.DeepEquals, map[string]string{
 		"key":      "value",
 		"username": "user",
 		"password": "sekret",
 	})
 }
 
-func (s *credentialsSuite) TestGetCredentialsUserDefaultRegion(c *gc.C) {
+func (s *credentialsSuite) TestGetCredentialsUserDefaultRegion(c *tc.C) {
 	s.assertGetCredentials(c, "secrets", "")
 }
 
-func (s *credentialsSuite) TestGetCredentialsCloudDefaultRegion(c *gc.C) {
+func (s *credentialsSuite) TestGetCredentialsCloudDefaultRegion(c *tc.C) {
 	creds := s.store.Credentials["cloud"]
 	creds.DefaultRegion = ""
 	s.store.Credentials["cloud"] = creds
 	s.assertGetCredentials(c, "secrets", "")
 }
 
-func (s *credentialsSuite) TestGetCredentialsNoRegion(c *gc.C) {
+func (s *credentialsSuite) TestGetCredentialsNoRegion(c *tc.C) {
 	creds := s.store.Credentials["cloud"]
 	creds.DefaultRegion = ""
 	s.store.Credentials["cloud"] = creds
@@ -151,16 +150,16 @@ func (s *credentialsSuite) TestGetCredentialsNoRegion(c *gc.C) {
 	s.assertGetCredentials(c, "secrets", "")
 }
 
-func (s *credentialsSuite) TestGetCredentials(c *gc.C) {
+func (s *credentialsSuite) TestGetCredentials(c *tc.C) {
 	s.cloud.Regions = append(s.cloud.Regions, cloud.Region{Name: "third-region"})
 	s.assertGetCredentials(c, "secrets", "third-region")
 }
 
-func (s *credentialsSuite) TestGetCredentialsProviderFinalizeCredential(c *gc.C) {
+func (s *credentialsSuite) TestGetCredentialsProviderFinalizeCredential(c *tc.C) {
 	s.assertGetCredentials(c, "interactive", "")
 }
 
-func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
+func (s *credentialsSuite) TestRegisterCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -186,11 +185,11 @@ func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
 			Name: "fake",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, gc.DeepEquals, credential)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials, tc.DeepEquals, credential)
 }
 
-func (s *credentialsSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
+func (s *credentialsSuite) TestRegisterCredentialsWithNoCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -208,11 +207,11 @@ func (s *credentialsSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
 			Name: "fake",
 		},
 	})
-	c.Assert(errors.Cause(err).Error(), gc.Matches, `credentials for provider not found`)
-	c.Assert(credentials, gc.IsNil)
+	c.Assert(errors.Cause(err).Error(), tc.Matches, `credentials for provider not found`)
+	c.Assert(credentials, tc.IsNil)
 }
 
-func (s *credentialsSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
+func (s *credentialsSuite) TestRegisterCredentialsWithCallFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -228,11 +227,11 @@ func (s *credentialsSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
 			Name: "fake",
 		},
 	})
-	c.Assert(err.Error(), gc.Matches, `registering credentials for provider: bad`)
-	c.Assert(credentials, gc.IsNil)
+	c.Assert(err.Error(), tc.Matches, `registering credentials for provider: bad`)
+	c.Assert(credentials, tc.IsNil)
 }
 
-func (s *credentialsSuite) TestDetectCredential(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredential(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -248,6 +247,6 @@ func (s *credentialsSuite) TestDetectCredential(c *gc.C) {
 	mockProvider.EXPECT().DetectCredentials("fake").Return(credential, nil)
 
 	credentials, err := modelcmd.DetectCredential("fake", mockProvider)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, gc.DeepEquals, credential)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials, tc.DeepEquals, credential)
 }

@@ -7,8 +7,7 @@ package imagemetadata_test
 import (
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -18,9 +17,9 @@ type URLsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&URLsSuite{})
+var _ = tc.Suite(&URLsSuite{})
 
-func (s *URLsSuite) TestImageMetadataURL(c *gc.C) {
+func (s *URLsSuite) TestImageMetadataURL(c *tc.C) {
 	var imageTests = []struct {
 		in          string
 		expected    string
@@ -55,22 +54,22 @@ func (s *URLsSuite) TestImageMetadataURL(c *gc.C) {
 		c.Logf("Test %d:", i)
 
 		out, err := imagemetadata.ImageMetadataURL(t.in, "")
-		c.Assert(err, gc.DeepEquals, t.expectedErr)
-		c.Assert(out, gc.Equals, t.expected)
+		c.Assert(err, tc.DeepEquals, t.expectedErr)
+		c.Assert(out, tc.Equals, t.expected)
 	}
 }
 
-func (s *URLsSuite) TestImageMetadataURLOfficialSource(c *gc.C) {
+func (s *URLsSuite) TestImageMetadataURLOfficialSource(c *tc.C) {
 	baseURL := imagemetadata.UbuntuCloudImagesURL
 	// Released streams.
 	url, err := imagemetadata.ImageMetadataURL(baseURL, "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(url, tc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
 	url, err = imagemetadata.ImageMetadataURL(baseURL, imagemetadata.ReleasedStream)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(url, tc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
 	// Non-released streams.
 	url, err = imagemetadata.ImageMetadataURL(baseURL, "daily")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "daily"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(url, tc.Equals, fmt.Sprintf("%s/%s", baseURL, "daily"))
 }

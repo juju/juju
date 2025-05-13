@@ -4,19 +4,18 @@
 package service
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type actionsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&actionsSuite{})
+var _ = tc.Suite(&actionsSuite{})
 
 var actionsTestCases = [...]struct {
 	name   string
@@ -96,17 +95,17 @@ var actionsTestCases = [...]struct {
 	},
 }
 
-func (s *metadataSuite) TestConvertActions(c *gc.C) {
-	for _, tc := range actionsTestCases {
-		c.Logf("Running test case %q", tc.name)
+func (s *metadataSuite) TestConvertActions(c *tc.C) {
+	for _, testCase := range actionsTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeActions(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, tc.output)
+		result, err := decodeActions(testCase.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, testCase.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, err := encodeActions(&result)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(converted, jc.DeepEquals, tc.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(converted, tc.DeepEquals, testCase.input)
 	}
 }

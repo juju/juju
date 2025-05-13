@@ -4,40 +4,40 @@
 package changestream
 
 import (
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type changestreamSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	txnRunner *MockTxnRunner
 }
 
-var _ = gc.Suite(&changestreamSuite{})
+var _ = tc.Suite(&changestreamSuite{})
 
-func (s *changestreamSuite) TestTxnRunnerFactory(c *gc.C) {
+func (s *changestreamSuite) TestTxnRunnerFactory(c *tc.C) {
 	db, err := NewTxnRunnerFactory(s.getWatchableDB)()
-	c.Assert(err, gc.IsNil)
-	c.Assert(db, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(db, tc.NotNil)
 }
 
-func (s *changestreamSuite) TestTxnRunnerFactoryForNamespace(c *gc.C) {
+func (s *changestreamSuite) TestTxnRunnerFactoryForNamespace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test multiple function return signatures to verify the generic behaviour.
 	db, err := database.NewTxnRunnerFactoryForNamespace(func(string) (database.TxnRunner, error) {
 		return s.txnRunner, nil
 	}, "any-old-namespace")()
-	c.Assert(err, gc.IsNil)
-	c.Assert(db, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(db, tc.NotNil)
 
 	db, err = database.NewTxnRunnerFactoryForNamespace(s.getWatchableDBForNameSpace, "any-old-namespace")()
-	c.Assert(err, gc.IsNil)
-	c.Assert(db, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(db, tc.NotNil)
 }
 
 func (s *changestreamSuite) getWatchableDB() (WatchableDB, error) {
@@ -48,7 +48,7 @@ func (s *changestreamSuite) getWatchableDBForNameSpace(_ string) (WatchableDB, e
 	return &stubWatchableDB{TxnRunner: s.txnRunner}, nil
 }
 
-func (s *changestreamSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *changestreamSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.txnRunner = NewMockTxnRunner(ctrl)

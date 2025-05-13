@@ -8,9 +8,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/constraints"
@@ -29,9 +28,9 @@ type exportApplicationSuite struct {
 	exportSuite
 }
 
-var _ = gc.Suite(&exportApplicationSuite{})
+var _ = tc.Suite(&exportApplicationSuite{})
 
-func (s *exportApplicationSuite) TestApplicationExportEmpty(c *gc.C) {
+func (s *exportApplicationSuite) TestApplicationExportEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return(nil, nil)
@@ -40,11 +39,11 @@ func (s *exportApplicationSuite) TestApplicationExportEmpty(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(model.Applications(), gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(model.Applications(), tc.HasLen, 0)
 }
 
-func (s *exportApplicationSuite) TestApplicationExportError(c *gc.C) {
+func (s *exportApplicationSuite) TestApplicationExportError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return(nil, errors.Errorf("boom"))
@@ -53,11 +52,11 @@ func (s *exportApplicationSuite) TestApplicationExportError(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, gc.ErrorMatches, ".*boom")
-	c.Check(model.Applications(), gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+	c.Check(model.Applications(), tc.HasLen, 0)
 }
 
-func (s *exportApplicationSuite) TestApplicationExportNoLocator(c *gc.C) {
+func (s *exportApplicationSuite) TestApplicationExportNoLocator(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	charmUUID := charmtesting.GenCharmID(c)
@@ -72,11 +71,11 @@ func (s *exportApplicationSuite) TestApplicationExportNoLocator(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, gc.ErrorMatches, `.*exporting charm URL: unsupported source ""`)
-	c.Check(model.Applications(), gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, `.*exporting charm URL: unsupported source ""`)
+	c.Check(model.Applications(), tc.HasLen, 0)
 }
 
-func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *gc.C) {
+func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	charmUUID := charmtesting.GenCharmID(c)
@@ -127,28 +126,28 @@ func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *gc
 
 	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Applications(), gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(model.Applications(), tc.HasLen, 2)
 
 	apps := model.Applications()
-	c.Check(apps[0].Name(), gc.Equals, "prometheus")
-	c.Check(apps[1].Name(), gc.Equals, "prometheus-k8s")
+	c.Check(apps[0].Name(), tc.Equals, "prometheus")
+	c.Check(apps[1].Name(), tc.Equals, "prometheus-k8s")
 
-	c.Check(apps[0].CharmURL(), gc.Equals, "ch:amd64/prometheus-42")
-	c.Check(apps[1].CharmURL(), gc.Equals, "ch:ppc64el/prometheus-k8s-42")
+	c.Check(apps[0].CharmURL(), tc.Equals, "ch:amd64/prometheus-42")
+	c.Check(apps[1].CharmURL(), tc.Equals, "ch:ppc64el/prometheus-k8s-42")
 
 	// Check that the scaling state is not set for the first application.
-	c.Check(apps[0].ProvisioningState().ScaleTarget(), gc.Equals, 0)
-	c.Check(apps[0].ProvisioningState().Scaling(), jc.IsFalse)
-	c.Check(apps[0].DesiredScale(), gc.Equals, 0)
+	c.Check(apps[0].ProvisioningState().ScaleTarget(), tc.Equals, 0)
+	c.Check(apps[0].ProvisioningState().Scaling(), tc.IsFalse)
+	c.Check(apps[0].DesiredScale(), tc.Equals, 0)
 
 	// Check that the scaling state is set for the second application.
-	c.Check(apps[1].ProvisioningState().ScaleTarget(), gc.Equals, 2)
-	c.Check(apps[1].ProvisioningState().Scaling(), jc.IsTrue)
-	c.Check(apps[1].DesiredScale(), gc.Equals, 1)
+	c.Check(apps[1].ProvisioningState().ScaleTarget(), tc.Equals, 2)
+	c.Check(apps[1].ProvisioningState().Scaling(), tc.IsTrue)
+	c.Check(apps[1].DesiredScale(), tc.Equals, 1)
 }
 
-func (s *exportApplicationSuite) TestApplicationExportUnits(c *gc.C) {
+func (s *exportApplicationSuite) TestApplicationExportUnits(c *tc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()
 
@@ -182,25 +181,25 @@ func (s *exportApplicationSuite) TestApplicationExportUnits(c *gc.C) {
 	err := exportOp.Execute(context.Background(), model)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Applications(), gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(model.Applications(), tc.HasLen, 1)
 
 	apps := model.Applications()
-	c.Check(apps[0].Name(), gc.Equals, "prometheus")
+	c.Check(apps[0].Name(), tc.Equals, "prometheus")
 
 	// Check that the scaling state is set for the second application.
 	units := apps[0].Units()
-	c.Check(units, gc.HasLen, 2)
-	c.Check(units[0].Name(), gc.Equals, "prometheus/0")
-	c.Check(units[0].Machine(), gc.Equals, "0")
-	c.Check(units[0].Principal(), gc.Equals, "principal1/0")
+	c.Check(units, tc.HasLen, 2)
+	c.Check(units[0].Name(), tc.Equals, "prometheus/0")
+	c.Check(units[0].Machine(), tc.Equals, "0")
+	c.Check(units[0].Principal(), tc.Equals, "principal1/0")
 
-	c.Check(units[1].Name(), gc.Equals, "prometheus/1")
-	c.Check(units[1].Machine(), gc.Equals, "1")
-	c.Check(units[1].Principal(), gc.Equals, "principal2/0")
+	c.Check(units[1].Name(), tc.Equals, "prometheus/1")
+	c.Check(units[1].Machine(), tc.Equals, "1")
+	c.Check(units[1].Principal(), tc.Equals, "principal2/0")
 }
 
-func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
+func (s *exportApplicationSuite) TestApplicationExportConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectApplication(c)
@@ -233,27 +232,27 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Applications(), gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(model.Applications(), tc.HasLen, 1)
 
 	app := model.Applications()[0]
-	c.Check(app.Constraints().AllocatePublicIP(), gc.Equals, true)
-	c.Check(app.Constraints().Architecture(), gc.Equals, "amd64")
-	c.Check(app.Constraints().Container(), gc.Equals, "lxd")
-	c.Check(app.Constraints().CpuCores(), gc.Equals, uint64(2))
-	c.Check(app.Constraints().CpuPower(), gc.Equals, uint64(1000))
-	c.Check(app.Constraints().ImageID(), gc.Equals, "foo")
-	c.Check(app.Constraints().InstanceType(), gc.Equals, "baz")
-	c.Check(app.Constraints().VirtType(), gc.Equals, "vm")
-	c.Check(app.Constraints().Memory(), gc.Equals, uint64(1024))
-	c.Check(app.Constraints().RootDisk(), gc.Equals, uint64(1024))
-	c.Check(app.Constraints().RootDiskSource(), gc.Equals, "qux")
-	c.Check(app.Constraints().Spaces(), gc.DeepEquals, []string{"space0", "space1"})
-	c.Check(app.Constraints().Tags(), gc.DeepEquals, []string{"tag0", "tag1"})
-	c.Check(app.Constraints().Zones(), gc.DeepEquals, []string{"zone0", "zone1"})
+	c.Check(app.Constraints().AllocatePublicIP(), tc.Equals, true)
+	c.Check(app.Constraints().Architecture(), tc.Equals, "amd64")
+	c.Check(app.Constraints().Container(), tc.Equals, "lxd")
+	c.Check(app.Constraints().CpuCores(), tc.Equals, uint64(2))
+	c.Check(app.Constraints().CpuPower(), tc.Equals, uint64(1000))
+	c.Check(app.Constraints().ImageID(), tc.Equals, "foo")
+	c.Check(app.Constraints().InstanceType(), tc.Equals, "baz")
+	c.Check(app.Constraints().VirtType(), tc.Equals, "vm")
+	c.Check(app.Constraints().Memory(), tc.Equals, uint64(1024))
+	c.Check(app.Constraints().RootDisk(), tc.Equals, uint64(1024))
+	c.Check(app.Constraints().RootDiskSource(), tc.Equals, "qux")
+	c.Check(app.Constraints().Spaces(), tc.DeepEquals, []string{"space0", "space1"})
+	c.Check(app.Constraints().Tags(), tc.DeepEquals, []string{"tag0", "tag1"})
+	c.Check(app.Constraints().Zones(), tc.DeepEquals, []string{"zone0", "zone1"})
 }
 
-func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
+func (s *exportApplicationSuite) TestExportScalingState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	charmUUID := charmtesting.GenCharmID(c)
@@ -295,16 +294,16 @@ func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Applications(), gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(model.Applications(), tc.HasLen, 1)
 
 	app := model.Applications()[0]
-	c.Check(app.ProvisioningState().ScaleTarget(), gc.Equals, 42)
-	c.Check(app.ProvisioningState().Scaling(), jc.IsTrue)
-	c.Check(app.DesiredScale(), gc.Equals, 1)
+	c.Check(app.ProvisioningState().ScaleTarget(), tc.Equals, 42)
+	c.Check(app.ProvisioningState().Scaling(), tc.IsTrue)
+	c.Check(app.DesiredScale(), tc.Equals, 1)
 }
 
-func (s *exportApplicationSuite) TestApplicationExportExposedEndpoints(c *gc.C) {
+func (s *exportApplicationSuite) TestApplicationExportExposedEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectApplication(c)
@@ -328,17 +327,17 @@ func (s *exportApplicationSuite) TestApplicationExportExposedEndpoints(c *gc.C) 
 	model := description.NewModel(description.ModelArgs{})
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Applications(), gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(model.Applications(), tc.HasLen, 1)
 
 	app := model.Applications()[0]
-	c.Check(app.ExposedEndpoints(), gc.HasLen, 2)
-	c.Check(app.ExposedEndpoints()[""].ExposeToSpaceIDs(), jc.SameContents, []string{"beta"})
-	c.Check(app.ExposedEndpoints()["foo"].ExposeToSpaceIDs(), jc.SameContents, []string{"space0", "space1"})
-	c.Check(app.ExposedEndpoints()["foo"].ExposeToCIDRs(), jc.SameContents, []string{"10.0.0.0/24", "10.0.1.0/24"})
+	c.Check(app.ExposedEndpoints(), tc.HasLen, 2)
+	c.Check(app.ExposedEndpoints()[""].ExposeToSpaceIDs(), tc.SameContents, []string{"beta"})
+	c.Check(app.ExposedEndpoints()["foo"].ExposeToSpaceIDs(), tc.SameContents, []string{"space0", "space1"})
+	c.Check(app.ExposedEndpoints()["foo"].ExposeToCIDRs(), tc.SameContents, []string{"10.0.0.0/24", "10.0.1.0/24"})
 }
 
-func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *gc.C) {
+func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
@@ -374,12 +373,12 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *gc.C) 
 	err := exportOp.Execute(context.Background(), model)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Applications(), gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(model.Applications(), tc.HasLen, 1)
 
 	app := model.Applications()[0]
-	c.Check(app.EndpointBindings(), gc.HasLen, 3)
-	c.Check(app.EndpointBindings()[""], gc.Equals, network.AlphaSpaceId)
-	c.Check(app.EndpointBindings()["endpoint"], gc.Equals, spaceUUID)
-	c.Check(app.EndpointBindings()["misc"], gc.Equals, "")
+	c.Check(app.EndpointBindings(), tc.HasLen, 3)
+	c.Check(app.EndpointBindings()[""], tc.Equals, network.AlphaSpaceId)
+	c.Check(app.EndpointBindings()["endpoint"], tc.Equals, spaceUUID)
+	c.Check(app.EndpointBindings()["misc"], tc.Equals, "")
 }

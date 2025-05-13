@@ -6,18 +6,18 @@ package ec2
 import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/collections/set"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type InstanceTypesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&InstanceTypesSuite{})
+var _ = tc.Suite(&InstanceTypesSuite{})
 
-func (s *InstanceTypesSuite) TestParseInstanceType(c *gc.C) {
+func (s *InstanceTypesSuite) TestParseInstanceType(c *tc.C) {
 	tests := []struct {
 		InstType types.InstanceType
 		Expected instanceType
@@ -136,7 +136,7 @@ func (s *InstanceTypesSuite) TestParseInstanceType(c *gc.C) {
 
 	for _, test := range tests {
 		it, err := parseInstanceType(test.InstType)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(it, jc.DeepEquals, test.Expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(it, tc.DeepEquals, test.Expected)
 	}
 }

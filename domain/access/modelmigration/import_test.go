@@ -8,9 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -25,9 +24,9 @@ type importSuite struct {
 	service     *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -42,7 +41,7 @@ func (s *importSuite) newImportOperation() *importOperation {
 	}
 }
 
-func (s *importSuite) TestRegisterImport(c *gc.C) {
+func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -50,7 +49,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
 }
 
-func (s *importSuite) TestNoModelUserPermissions(c *gc.C) {
+func (s *importSuite) TestNoModelUserPermissions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Empty model.
@@ -58,10 +57,10 @@ func (s *importSuite) TestNoModelUserPermissions(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImport(c *gc.C) {
+func (s *importSuite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -112,13 +111,13 @@ func (s *importSuite) TestImport(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestImportPermissionAlreadyExists tests that permissions that already exist
 // are ignored. This covers the permission of the model creator which is added
 // the model is added.
-func (s *importSuite) TestImportPermissionAlreadyExists(c *gc.C) {
+func (s *importSuite) TestImportPermissionAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -146,12 +145,12 @@ func (s *importSuite) TestImportPermissionAlreadyExists(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestImportPermissionUserDisabled tests that this error is returned to the
 // user.
-func (s *importSuite) TestImportPermissionUserDisabled(c *gc.C) {
+func (s *importSuite) TestImportPermissionUserDisabled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -179,5 +178,5 @@ func (s *importSuite) TestImportPermissionUserDisabled(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, accesserrors.UserAuthenticationDisabled)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserAuthenticationDisabled)
 }

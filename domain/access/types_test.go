@@ -4,8 +4,7 @@
 package access
 
 import (
-	"github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
@@ -14,9 +13,9 @@ import (
 
 type typesSuite struct{}
 
-var _ = gc.Suite(&typesSuite{})
+var _ = tc.Suite(&typesSuite{})
 
-func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
+func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *tc.C) {
 	argsToTest := []UpdatePermissionArgs{
 		{}, { // Missing Subject
 		}, {  // Missing Target
@@ -43,6 +42,6 @@ func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
 		}}
 	for i, args := range argsToTest {
 		c.Logf("Test %d", i)
-		c.Check(args.Validate(), checkers.ErrorIs, coreerrors.NotValid)
+		c.Check(args.Validate(), tc.ErrorIs, coreerrors.NotValid)
 	}
 }

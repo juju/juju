@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
@@ -23,9 +22,9 @@ type importSuite struct {
 	portService *MockPortService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -40,7 +39,7 @@ func (s *importSuite) newImportOperation() *importOperation {
 	}
 }
 
-func (s *importSuite) TestRegisterImport(c *gc.C) {
+func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -48,7 +47,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
 }
 
-func (s *importSuite) TestNoModelUserPermissions(c *gc.C) {
+func (s *importSuite) TestNoModelUserPermissions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Empty model.
@@ -56,10 +55,10 @@ func (s *importSuite) TestNoModelUserPermissions(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImport(c *gc.C) {
+func (s *importSuite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -106,10 +105,10 @@ func (s *importSuite) TestImport(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportUnitNotFound(c *gc.C) {
+func (s *importSuite) TestImportUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -128,5 +127,5 @@ func (s *importSuite) TestImportUnitNotFound(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, porterrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, porterrors.UnitNotFound)
 }

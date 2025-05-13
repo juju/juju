@@ -5,8 +5,7 @@ import (
 	"path"
 	"path/filepath"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
@@ -24,9 +23,9 @@ type fromHostSuite struct {
 	tempCurtinCfgFile string
 }
 
-var _ = gc.Suite(&fromHostSuite{})
+var _ = tc.Suite(&fromHostSuite{})
 
-func (s *fromHostSuite) SetUpTest(c *gc.C) {
+func (s *fromHostSuite) SetUpTest(c *tc.C) {
 	s.PatchValue(&coreos.HostBase, func() (corebase.Base, error) { return corebase.ParseBaseFromString("ubuntu@22.04") })
 
 	// Pre-seed /etc/cloud/cloud.cfg.d replacement for testing
@@ -46,10 +45,10 @@ func (s *fromHostSuite) SetUpTest(c *gc.C) {
 	s.tempCurtinCfgFile = filepath.Join(curtinDir, curtinFile)
 }
 
-func (s *fromHostSuite) TestGetMachineCloudInitData(c *gc.C) {
+func (s *fromHostSuite) TestGetMachineCloudInitData(c *tc.C) {
 	obtained, err := s.newMachineInitReader(corebase.MakeDefaultBase("ubuntu", "22.04")).GetInitConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(obtained, gc.DeepEquals, expectedResult)
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtained, tc.DeepEquals, expectedResult)
 }
 
 type cloudinitDataVerifyTest struct {
@@ -79,49 +78,49 @@ var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
 	},
 }
 
-func (s *fromHostSuite) TestGetMachineCloudInitDataVerifySeries(c *gc.C) {
+func (s *fromHostSuite) TestGetMachineCloudInitDataVerifySeries(c *tc.C) {
 	for i, test := range cloudinitDataVerifyTests {
 		c.Logf("Test %d of %d: %s", i, len(cloudinitDataVerifyTests), test.description)
 		s.PatchValue(&coreos.HostBase, func() (corebase.Base, error) { return test.machineBase, nil })
 		obtained, err := s.newMachineInitReader(test.containerBase).GetInitConfig()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		if test.result != nil {
-			c.Assert(obtained, gc.DeepEquals, expectedResult)
+			c.Assert(obtained, tc.DeepEquals, expectedResult)
 		} else {
-			c.Assert(obtained, gc.IsNil)
+			c.Assert(obtained, tc.IsNil)
 		}
 	}
 }
 
-func (s *fromHostSuite) TestMissingVendorDataFile(c *gc.C) {
+func (s *fromHostSuite) TestMissingVendorDataFile(c *tc.C) {
 	dir := c.MkDir()
-	c.Assert(os.RemoveAll(dir), jc.ErrorIsNil)
+	c.Assert(os.RemoveAll(dir), tc.ErrorIsNil)
 	s.tempCloudInitDir = dir
 
 	obtained, err := s.newMachineInitReader(corebase.MakeDefaultBase("ubuntu", "22.04")).GetInitConfig()
-	c.Assert(err, gc.ErrorMatches, "reading config from.*vendor-data.txt.*")
-	c.Assert(obtained, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "reading config from.*vendor-data.txt.*")
+	c.Assert(obtained, tc.IsNil)
 }
 
-func (s *fromHostSuite) TestGetMachineCloudCfgDirDataReadDirFailed(c *gc.C) {
+func (s *fromHostSuite) TestGetMachineCloudCfgDirDataReadDirFailed(c *tc.C) {
 	dir := c.MkDir()
-	c.Assert(os.RemoveAll(dir), jc.ErrorIsNil)
+	c.Assert(os.RemoveAll(dir), tc.ErrorIsNil)
 	s.tempCloudCfgDir = dir
 
 	obtained, err := s.newMachineInitReader(corebase.MakeDefaultBase("ubuntu", "22.04")).GetInitConfig()
-	c.Assert(err, gc.ErrorMatches, "determining files in CloudInitCfgDir for the machine: .* no such file or directory")
-	c.Assert(obtained, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "determining files in CloudInitCfgDir for the machine: .* no such file or directory")
+	c.Assert(obtained, tc.IsNil)
 }
 
-func (s *fromHostSuite) TestCloudConfig(c *gc.C) {
+func (s *fromHostSuite) TestCloudConfig(c *tc.C) {
 	reader := s.newMachineInitReader(corebase.MakeDefaultBase("ubuntu", "22.04"))
 	obtained, err := reader.GetInitConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(obtained, gc.DeepEquals, expectedResult)
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtained, tc.DeepEquals, expectedResult)
 
 	resultMap := reader.ExtractPropertiesFromConfig(
 		[]string{"apt-primary", "ca-certs", "apt-security"}, obtained, loggertesting.WrapCheckLog(c))
-	c.Assert(resultMap, gc.DeepEquals,
+	c.Assert(resultMap, tc.DeepEquals,
 		map[string]interface{}{
 			"apt": map[string]interface{}{
 				"primary": []interface{}{
@@ -144,13 +143,13 @@ func (s *fromHostSuite) TestCloudConfig(c *gc.C) {
 		})
 }
 
-func (s *fromHostSuite) TestCloudConfigVersionNoContainerInheritProperties(c *gc.C) {
+func (s *fromHostSuite) TestCloudConfigVersionNoContainerInheritProperties(c *tc.C) {
 	reader := s.newMachineInitReader(corebase.MakeDefaultBase("ubuntu", "22.04"))
 	resultMap := reader.ExtractPropertiesFromConfig(nil, nil, loggertesting.WrapCheckLog(c))
-	c.Assert(resultMap, gc.HasLen, 0)
+	c.Assert(resultMap, tc.HasLen, 0)
 }
 
-func (s *fromHostSuite) TestCurtinConfigAptProperties(c *gc.C) {
+func (s *fromHostSuite) TestCurtinConfigAptProperties(c *tc.C) {
 	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	// Seed the curtin install config as for MAAS 2.5+
@@ -179,14 +178,14 @@ deb http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main multive
 
 	reader := s.newMachineInitReader(corebase.MakeDefaultBase("ubuntu", "22.04"))
 	obtained, err := reader.GetInitConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(obtained["apt"], gc.DeepEquals, expected)
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtained["apt"], tc.DeepEquals, expected)
 
 	resultMap := reader.ExtractPropertiesFromConfig(
 		[]string{"apt-sources_list"}, obtained, loggertesting.WrapCheckLog(c))
 
-	c.Assert(resultMap["apt"], gc.HasLen, 1)
-	c.Assert(resultMap["apt"].(map[string]interface{})["sources_list"], gc.Equals, expectedSources)
+	c.Assert(resultMap["apt"], tc.HasLen, 1)
+	c.Assert(resultMap["apt"].(map[string]interface{})["sources_list"], tc.Equals, expectedSources)
 }
 
 func (s *fromHostSuite) newMachineInitReader(base corebase.Base) cloudconfig.InitReader {
@@ -199,8 +198,8 @@ func (s *fromHostSuite) newMachineInitReader(base corebase.Base) cloudconfig.Ini
 	return cloudconfig.NewMachineInitReaderFromConfig(cfg)
 }
 
-func seedData(c *gc.C, dir, name, data string) {
-	c.Assert(os.WriteFile(path.Join(dir, name), []byte(data), 0644), jc.ErrorIsNil)
+func seedData(c *tc.C, dir, name, data string) {
+	c.Assert(os.WriteFile(path.Join(dir, name), []byte(data), 0644), tc.ErrorIsNil)
 }
 
 var dpkgLocalCloudConfig = `

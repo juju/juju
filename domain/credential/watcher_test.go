@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -36,9 +35,9 @@ type watcherSuite struct {
 	controllerUUID string
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) SetUpTest(c *gc.C) {
+func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.controllerUUID = s.SeedControllerUUID(c)
 
@@ -52,7 +51,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestWatchCloud(c *gc.C) {
+func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 	logger := loggertesting.WrapCheckLog(c)
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "cloud")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, logger)
@@ -68,11 +67,11 @@ func (s *watcherSuite) TestWatchCloud(c *gc.C) {
 	s.createCloudCredential(c, st, key)
 
 	watcher, err := service.WatchCredential(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		credInfo := credential.CloudCredentialInfo{
 			AuthType: string(cloud.AccessKeyAuthType),
 			Attributes: map[string]string{
@@ -85,7 +84,7 @@ func (s *watcherSuite) TestWatchCloud(c *gc.C) {
 		err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 			return st.UpsertCloudCredential(ctx, key, credInfo)
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		// Get the change.
 		w.AssertChange()
@@ -94,19 +93,19 @@ func (s *watcherSuite) TestWatchCloud(c *gc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) addCloud(c *gc.C, userName user.Name, cloud cloud.Cloud) string {
+func (s *watcherSuite) addCloud(c *tc.C, userName user.Name, cloud cloud.Cloud) string {
 	cloudSt := dbcloud.NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	cloudUUID := uuid.MustNewUUID().String()
 	err := cloudSt.CreateCloud(ctx, userName, cloudUUID, cloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return cloudUUID
 }
 
-func (s *watcherSuite) addOwner(c *gc.C, name user.Name) user.UUID {
+func (s *watcherSuite) addOwner(c *tc.C, name user.Name) user.UUID {
 	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUserWithPermission(
 		context.Background(),
@@ -123,11 +122,11 @@ func (s *watcherSuite) addOwner(c *gc.C, name user.Name) user.UUID {
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return userUUID
 }
 
-func (s *watcherSuite) createCloudCredential(c *gc.C, st *state.State, key corecredential.Key) credential.CloudCredentialInfo {
+func (s *watcherSuite) createCloudCredential(c *tc.C, st *state.State, key corecredential.Key) credential.CloudCredentialInfo {
 	authType := cloud.AccessKeyAuthType
 	attributes := map[string]string{
 		"foo": "foo val",
@@ -140,6 +139,6 @@ func (s *watcherSuite) createCloudCredential(c *gc.C, st *state.State, key corec
 		Attributes: attributes,
 	}
 	err := st.UpsertCloudCredential(context.Background(), key, credInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return credInfo
 }

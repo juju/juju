@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/version"
@@ -22,7 +22,7 @@ import (
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type credentialInvalidator func(ctx context.Context, reason environs.CredentialInvalidReason) error
@@ -40,7 +40,7 @@ type baseProviderSuite struct {
 	invalidCredential     bool
 }
 
-func (s *baseProviderSuite) setupFakeTools(c *gc.C) {
+func (s *baseProviderSuite) setupFakeTools(c *tc.C) {
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	storageDir := c.MkDir()
 	toolsDir := filepath.Join(storageDir, "tools")
@@ -48,15 +48,15 @@ func (s *baseProviderSuite) setupFakeTools(c *gc.C) {
 	s.UploadFakeToolsToDirectory(c, storageDir, "released")
 }
 
-func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
+func (s *baseProviderSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		restoreFinishBootstrap()
 	})
 }
 
-func (s *baseProviderSuite) SetUpTest(c *gc.C) {
+func (s *baseProviderSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
@@ -67,12 +67,12 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *baseProviderSuite) TearDownTest(c *gc.C) {
+func (s *baseProviderSuite) TearDownTest(c *tc.C) {
 	s.invalidCredential = false
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (s *baseProviderSuite) TearDownSuite(c *gc.C) {
+func (s *baseProviderSuite) TearDownSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }

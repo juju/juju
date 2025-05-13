@@ -4,23 +4,22 @@
 package user_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type utilsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&utilsSuite{})
+var _ = tc.Suite(&utilsSuite{})
 
-func (s *utilsSuite) TestGenerateUserControllerAccessToken(c *gc.C) {
+func (s *utilsSuite) TestGenerateUserControllerAccessToken(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	controllerCMD := NewMockControllerCommand(ctrl)
@@ -44,6 +43,6 @@ func (s *utilsSuite) TestGenerateUserControllerAccessToken(c *gc.C) {
 	}, nil)
 
 	token, error := user.GenerateUserControllerAccessToken(controllerCMD, "foo", []byte("bar"))
-	c.Assert(error, jc.ErrorIsNil)
-	c.Assert(token, gc.Equals, "MIHOEwNmb28wAhMABANiYXITDWNvbnRyb2xsZXItazEMga50eXBlOiBrdWJlcm5ldGVzLXBvcnQtZm9yd2FyZApjb25maWc6CiAgYXBpLWhvc3Q6IGh0dHBzOi8vbG9jYWxob3N0OjEyMzQKICBjYS1jZXJ0OiAiIgogIG5hbWVzcGFjZTogdGVzdAogIHJlbW90ZS1wb3J0OiAiODEyMyIKICBzZXJ2aWNlOiB0ZXN0CiAgc2VydmljZS1hY2NvdW50LXRva2VuOiB0b2tlbgoA")
+	c.Assert(error, tc.ErrorIsNil)
+	c.Assert(token, tc.Equals, "MIHOEwNmb28wAhMABANiYXITDWNvbnRyb2xsZXItazEMga50eXBlOiBrdWJlcm5ldGVzLXBvcnQtZm9yd2FyZApjb25maWc6CiAgYXBpLWhvc3Q6IGh0dHBzOi8vbG9jYWxob3N0OjEyMzQKICBjYS1jZXJ0OiAiIgogIG5hbWVzcGFjZTogdGVzdAogIHJlbW90ZS1wb3J0OiAiODEyMyIKICBzZXJ2aWNlOiB0ZXN0CiAgc2VydmljZS1hY2NvdW50LXRva2VuOiB0b2tlbgoA")
 }

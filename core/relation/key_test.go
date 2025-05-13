@@ -5,21 +5,20 @@ package relation
 
 import (
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type relationKeySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&relationKeySuite{})
+var _ = tc.Suite(&relationKeySuite{})
 
-func (s *relationKeySuite) TestParseRelationKey(c *gc.C) {
+func (s *relationKeySuite) TestParseRelationKey(c *tc.C) {
 	tests := []struct {
 		summary     string
 		keyString   string
@@ -62,14 +61,14 @@ func (s *relationKeySuite) TestParseRelationKey(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d of %d: %s", count, i+1, test.summary)
 		key, err := NewKeyFromString(test.keyString)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(key, gc.DeepEquals, test.expectedKey)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(key, tc.DeepEquals, test.expectedKey)
 		// Check a string can be turned to a key and back.
-		c.Check(key.String(), gc.Equals, test.keyString)
+		c.Check(key.String(), tc.Equals, test.keyString)
 	}
 }
 
-func (s *relationKeySuite) TestNewKey(c *gc.C) {
+func (s *relationKeySuite) TestNewKey(c *tc.C) {
 	tests := []struct {
 		summary             string
 		endpointIdentifiers []EndpointIdentifier
@@ -152,12 +151,12 @@ func (s *relationKeySuite) TestNewKey(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d of %d: %s", count, i+1, test.summary)
 		key, err := NewKey(test.endpointIdentifiers)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(key, gc.DeepEquals, test.expectedKey)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(key, tc.DeepEquals, test.expectedKey)
 	}
 }
 
-func (s *relationKeySuite) TestNewKeyError(c *gc.C) {
+func (s *relationKeySuite) TestNewKeyError(c *tc.C) {
 	tests := []struct {
 		summary             string
 		endpointIdentifiers []EndpointIdentifier
@@ -220,11 +219,11 @@ func (s *relationKeySuite) TestNewKeyError(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d of %d: %s", count, i+1, test.summary)
 		_, err := NewKey(test.endpointIdentifiers)
-		c.Check(err, gc.ErrorMatches, test.errorRegex)
+		c.Check(err, tc.ErrorMatches, test.errorRegex)
 	}
 }
 
-func (s *relationKeySuite) TestValidate(c *gc.C) {
+func (s *relationKeySuite) TestValidate(c *tc.C) {
 	tests := []struct {
 		summary string
 		key     Key
@@ -273,11 +272,11 @@ func (s *relationKeySuite) TestValidate(c *gc.C) {
 	count := len(tests)
 	for i, test := range tests {
 		c.Logf("test %d of %d: %s", count, i+1, test.summary)
-		c.Check(test.key.Validate(), jc.ErrorIsNil)
+		c.Check(test.key.Validate(), tc.ErrorIsNil)
 	}
 }
 
-func (s *relationKeySuite) TestValidateError(c *gc.C) {
+func (s *relationKeySuite) TestValidateError(c *tc.C) {
 	tests := []struct {
 		summary string
 		key     Key
@@ -334,11 +333,11 @@ func (s *relationKeySuite) TestValidateError(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d of %d: %s", count, i+1, test.summary)
 		err := test.key.Validate()
-		c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	}
 }
 
-func (s *relationKeySuite) TestParseRelationKeyError(c *gc.C) {
+func (s *relationKeySuite) TestParseRelationKeyError(c *tc.C) {
 	tests := []struct {
 		summary    string
 		keyString  string
@@ -361,15 +360,15 @@ func (s *relationKeySuite) TestParseRelationKeyError(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d of %d: %s", count, i+1, test.summary)
 		_, err := NewKeyFromString(test.keyString)
-		c.Check(err, gc.ErrorMatches, test.errorRegex)
+		c.Check(err, tc.ErrorMatches, test.errorRegex)
 	}
 }
 
-func (*relationKeySuite) TestParseKeyFromTagString(c *gc.C) {
+func (*relationKeySuite) TestParseKeyFromTagString(c *tc.C) {
 	relationTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	key, err := ParseKeyFromTagString(relationTag.String())
-	c.Assert(err, gc.IsNil)
-	c.Check(key, jc.DeepEquals, Key([]EndpointIdentifier{{
+	c.Assert(err, tc.IsNil)
+	c.Check(key, tc.DeepEquals, Key([]EndpointIdentifier{{
 		ApplicationName: "mysql",
 		EndpointName:    "database",
 		Role:            "requirer",
@@ -381,11 +380,11 @@ func (*relationKeySuite) TestParseKeyFromTagString(c *gc.C) {
 	))
 }
 
-func (*relationKeySuite) TestParseKeyFromTagStringFails(c *gc.C) {
+func (*relationKeySuite) TestParseKeyFromTagStringFails(c *tc.C) {
 	unitTag := names.NewUnitTag("mysql/0")
 	_, err := ParseKeyFromTagString(unitTag.String())
-	c.Check(err, gc.ErrorMatches, `"unit-mysql-0" is not a valid relation tag`)
+	c.Check(err, tc.ErrorMatches, `"unit-mysql-0" is not a valid relation tag`)
 
 	_, err = ParseKeyFromTagString("")
-	c.Check(err, gc.ErrorMatches, `"" is not a valid tag`)
+	c.Check(err, tc.ErrorMatches, `"" is not a valid tag`)
 }

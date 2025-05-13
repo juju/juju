@@ -7,8 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	corecloud "github.com/juju/juju/core/cloud"
@@ -24,9 +23,9 @@ type bootstrapSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+var _ = tc.Suite(&bootstrapSuite{})
 
-func (*bootstrapSuite) TestBootstrapModelDefaults(c *gc.C) {
+func (*bootstrapSuite) TestBootstrapModelDefaults(c *tc.C) {
 	provider := ModelDefaultsProvider(
 		map[string]any{
 			"foo":        "controller",
@@ -40,38 +39,38 @@ func (*bootstrapSuite) TestBootstrapModelDefaults(c *gc.C) {
 	)
 
 	defaults, err := provider.ModelDefaults(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(defaults["foo"].Region, gc.Equals, "region")
-	c.Check(defaults["controller"].Controller, gc.Equals, "some value")
-	c.Check(defaults["region"].Region, gc.Equals, "some value")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(defaults["foo"].Region, tc.Equals, "region")
+	c.Check(defaults["controller"].Controller, tc.Equals, "some value")
+	c.Check(defaults["region"].Region, tc.Equals, "some value")
 
 	configDefaults := state.ConfigDefaults(context.Background())
 	for k, v := range configDefaults {
-		c.Check(defaults[k].Default, gc.Equals, v)
+		c.Check(defaults[k].Default, tc.Equals, v)
 	}
 }
 
 // TestSetCloudDefaultsNoExist asserts that if we try and set cloud defaults
 // for a cloud that doesn't exist we get a [clouderrors.NotFound] error back.
-func (s *bootstrapSuite) TestSetCloudDefaultsNoExist(c *gc.C) {
+func (s *bootstrapSuite) TestSetCloudDefaultsNoExist(c *tc.C) {
 	set := SetCloudDefaults("noexist", map[string]any{
 		"HTTP_PROXY": "[2001:0DB8::1]:80",
 	})
 
 	err := set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 
 	var count int
 	row := s.DB().QueryRow("SELECT count(*) FROM cloud_defaults")
 	err = row.Scan(&count)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(count, gc.Equals, 0)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 }
 
 // TestSetCloudDefaults is testing the happy path for setting cloud defaults. We
 // expect no errors to be returned in this test and at the end of setting the
 // clouds defaults for the same values to be reported back.
-func (s *bootstrapSuite) TestSetCloudDefaults(c *gc.C) {
+func (s *bootstrapSuite) TestSetCloudDefaults(c *tc.C) {
 	cld := cloud.Cloud{
 		Name:      "cirrus",
 		Type:      "ec2",
@@ -80,32 +79,32 @@ func (s *bootstrapSuite) TestSetCloudDefaults(c *gc.C) {
 
 	err := cloudbootstrap.InsertCloud(
 		coreuser.AdminUserName, cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	set := SetCloudDefaults("cirrus", map[string]any{
 		"HTTP_PROXY": "[2001:0DB8::1]:80",
 	})
 
 	err = set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	var cloudUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM cloud WHERE name = ?", "cirrus").Scan(&cloudUUID)
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	st := state.NewState(s.TxnRunnerFactory())
 	defaults, err := st.CloudDefaults(context.Background(), corecloud.UUID(cloudUUID))
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(defaults, jc.DeepEquals, map[string]string{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(defaults, tc.DeepEquals, map[string]string{
 		"HTTP_PROXY": "[2001:0DB8::1]:80",
 	})
 }
 
 // TestSetCloudDefaultsOverrides is testing that repeated calls to
 // [SetCloudDefaults] overrides existing cloud defaults that have been set.
-func (s *bootstrapSuite) TestSetCloudDefaultsOverides(c *gc.C) {
+func (s *bootstrapSuite) TestSetCloudDefaultsOverides(c *tc.C) {
 	cld := cloud.Cloud{
 		Name:      "cirrus",
 		Type:      "ec2",
@@ -115,25 +114,25 @@ func (s *bootstrapSuite) TestSetCloudDefaultsOverides(c *gc.C) {
 		coreuser.AdminUserName,
 		cld,
 	)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	set := SetCloudDefaults("cirrus", map[string]any{
 		"HTTP_PROXY": "[2001:0DB8::1]:80",
 	})
 
 	err = set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	var cloudUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM cloud WHERE name = ?", "cirrus").Scan(&cloudUUID)
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	st := state.NewState(s.TxnRunnerFactory())
 	defaults, err := st.CloudDefaults(context.Background(), corecloud.UUID(cloudUUID))
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(defaults, jc.DeepEquals, map[string]string{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(defaults, tc.DeepEquals, map[string]string{
 		"HTTP_PROXY": "[2001:0DB8::1]:80",
 	})
 
@@ -144,11 +143,11 @@ func (s *bootstrapSuite) TestSetCloudDefaultsOverides(c *gc.C) {
 	})
 
 	err = set(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	defaults, err = st.CloudDefaults(context.Background(), corecloud.UUID(cloudUUID))
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(defaults, jc.DeepEquals, map[string]string{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(defaults, tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
 }

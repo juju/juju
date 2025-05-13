@@ -10,11 +10,10 @@ import (
 	time "time"
 
 	clock "github.com/juju/clock"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -35,40 +34,40 @@ type workerSuite struct {
 	newAsyncWorker func() worker.Worker
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestWorkerConfig(c *gc.C) {
+func (s *workerSuite) TestWorkerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
-	c.Assert(cfg.Validate(), jc.ErrorIsNil)
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.newConfig(c)
 	cfg.ApplicationService = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.HTTPClientGetter = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.NewHTTPClient = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.NewDownloader = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Logger = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
 	cfg.Clock = nil
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-func (s *workerSuite) TestWorkerStart(c *gc.C) {
+func (s *workerSuite) TestWorkerStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string)
@@ -93,7 +92,7 @@ func (s *workerSuite) TestWorkerStart(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerCreatesAsyncWorker(c *gc.C) {
+func (s *workerSuite) TestWorkerCreatesAsyncWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := applicationtesting.GenApplicationUUID(c)
@@ -133,7 +132,7 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorker(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppID(c *gc.C) {
+func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Using the same App ID should not cause a new worker to be created.
@@ -195,12 +194,12 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppID(c *gc.C) {
 	// Wait for a bit to ensure that we're not creating a new worker.
 
 	<-time.After(time.Millisecond * 500)
-	c.Assert(atomic.LoadInt64(&called), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&called), tc.Equals, int64(1))
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppIDOverTwoChangeSet(c *gc.C) {
+func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppIDOverTwoChangeSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Using the same App ID should not cause a new worker to be created.
@@ -253,12 +252,12 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppIDOverTwoChangeSet(
 	// Wait for a bit to ensure that we're not creating a new worker.
 
 	<-time.After(time.Millisecond * 500)
-	c.Assert(atomic.LoadInt64(&called), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&called), tc.Equals, int64(1))
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithDifferentAppID(c *gc.C) {
+func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithDifferentAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Using the same App ID should not cause a new worker to be created.
@@ -312,12 +311,12 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithDifferentAppID(c *gc.C) {
 		c.Fatalf("timed out waiting for new worker to be called")
 	}
 
-	c.Assert(atomic.LoadInt64(&called), gc.Equals, int64(3))
+	c.Assert(atomic.LoadInt64(&called), tc.Equals, int64(3))
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	// Ensure we buffer the channel, this is because we might miss the
@@ -327,15 +326,15 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) newWorker(c *gc.C) *Worker {
+func (s *workerSuite) newWorker(c *tc.C) *Worker {
 	w, err := newWorker(s.newConfig(c), s.states)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return w
 }
 
-func (s *workerSuite) newConfig(c *gc.C) Config {
+func (s *workerSuite) newConfig(c *tc.C) Config {
 	return Config{
 		ApplicationService: s.applicationService,
 		HTTPClientGetter:   s.httpClientGetter,
@@ -356,10 +355,10 @@ func (s *workerSuite) newConfig(c *gc.C) Config {
 	}
 }
 
-func (s *workerSuite) ensureStartup(c *gc.C) {
+func (s *workerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, tc.Equals, stateStarted)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}

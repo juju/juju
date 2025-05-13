@@ -15,9 +15,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
@@ -30,7 +29,7 @@ type SSHSuite struct {
 	SSHMachineSuite
 }
 
-var _ = gc.Suite(&SSHSuite{})
+var _ = tc.Suite(&SSHSuite{})
 
 var sshTests = []struct {
 	about       string
@@ -184,7 +183,7 @@ var sshTests = []struct {
 	},
 }
 
-func (s *SSHSuite) TestSSHCommand(c *gc.C) {
+func (s *SSHSuite) TestSSHCommand(c *tc.C) {
 	for i, t := range sshTests {
 		c.Logf("test %d: %s -> %s", i, t.about, t.args)
 
@@ -196,15 +195,15 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 			target = t.target
 		}
 		ctrl := gomock.NewController(c)
-		ssh, app, status := s.setupModel(ctrl, t.expected.withProxy, nil, nil, target)
+		ssh, app, status := s.setupModel(ctrl, t.expected.withProxy, false, nil, nil, target)
 		sshCmd := NewSSHCommandForTest(app, ssh, status, t.hostChecker, isTerminal, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 		ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), t.args...)
 		if t.expectedErr != "" {
-			c.Check(err, gc.ErrorMatches, t.expectedErr)
+			c.Check(err, tc.ErrorMatches, t.expectedErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 			stdout := cmdtesting.Stdout(ctx)
 			t.expected.check(c, stdout)
 		}
@@ -212,16 +211,16 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	}
 }
 
-func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
+func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ssh, app, status := s.setupModel(ctrl, true, nil, nil, "0")
+	ssh, app, status := s.setupModel(ctrl, true, false, nil, nil, "0")
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "0")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 	expectedArgs := argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
@@ -231,16 +230,16 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 }
 
-func (s *SSHSuite) TestSSHCommandModelConfigProxySSHAddressMatch(c *gc.C) {
+func (s *SSHSuite) TestSSHCommandModelConfigProxySSHAddressMatch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ssh, app, status := s.setupModel(ctrl, true, nil, nil, "0")
+	ssh, app, status := s.setupModel(ctrl, true, false, nil, nil, "0")
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "0")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 	expectedArgs := argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
@@ -252,7 +251,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSHAddressMatch(c *gc.C) {
 
 }
 
-func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
+func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *tc.C) {
 	// Check the API client interface used by "juju ssh" against what
 	// the API server will allow during upgrades. Ensure that the API
 	// server will allow all required API calls to support SSH.
@@ -268,21 +267,21 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
 			continue
 		}
 		c.Logf("checking %q", name)
-		c.Check(apiserver.IsMethodAllowedDuringUpgrade("SSHClient", name), jc.IsTrue)
+		c.Check(apiserver.IsMethodAllowedDuringUpgrade("SSHClient", name), tc.IsTrue)
 	}
 }
 
-func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *gc.C) {
+func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *tc.C) {
 	s.setHostChecker(validAddresses())
 	s.testSSHCommandHostAddressRetry(c, false)
 }
 
-func (s *SSHSuite) TestSSHCommandHostAddressRetryProxy(c *gc.C) {
+func (s *SSHSuite) TestSSHCommandHostAddressRetryProxy(c *tc.C) {
 	s.setHostChecker(validAddresses())
 	s.testSSHCommandHostAddressRetry(c, true)
 }
 
-func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
+func (s *SSHSuite) testSSHCommandHostAddressRetry(c *tc.C, proxy bool) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -291,13 +290,13 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
 
 	var addr []string
-	ssh, app, status := s.setupModel(ctrl, proxy, func() []string {
+	ssh, app, status := s.setupModel(ctrl, proxy, false, func() []string {
 		return addr
 	}, nil, "0")
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), args...)
-	c.Assert(err, gc.ErrorMatches, `no .+ address\(es\)`)
+	c.Assert(err, tc.ErrorMatches, `no .+ address\(es\)`)
 
 	if proxy {
 		s.setHostChecker(nil) // not used when proxy=true
@@ -312,16 +311,16 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 		}
 	}
 
-	ssh, app, status = s.setupModel(ctrl, proxy, func() []string {
+	ssh, app, status = s.setupModel(ctrl, proxy, false, func() []string {
 		return addr
 	}, nil, "0")
 	sshCmd = NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 	sshCmd.retryStrategy = retryStrategy
 	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
+func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -330,11 +329,11 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
 
 	ldr := leaderResolver{leaderAPI: leaderAPI}
 	resolvedUnit, err := ldr.maybeResolveLeaderUnit(context.Background(), "loop/leader")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1 for principal application"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resolvedUnit, tc.Equals, "loop/1", tc.Commentf("expected leader to resolve to loop/1 for principal application"))
 }
 
-func (s *SSHSuite) TestKeyFetchRetries(c *gc.C) {
+func (s *SSHSuite) TestKeyFetchRetries(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -356,7 +355,7 @@ func (s *SSHSuite) TestKeyFetchRetries(c *gc.C) {
 		},
 	}
 	keysFunc := func(ctx context.Context, target string) ([]string, error) {
-		c.Check(target, gc.Equals, "1")
+		c.Check(target, tc.Equals, "1")
 		select {
 		case <-done:
 			return []string{
@@ -368,12 +367,12 @@ func (s *SSHSuite) TestKeyFetchRetries(c *gc.C) {
 		}
 	}
 
-	ssh, app, status := s.setupModel(ctrl, false, nil, keysFunc, "1")
+	ssh, app, status := s.setupModel(ctrl, false, false, nil, keysFunc, "1")
 	cmd := NewSSHCommandForTest(app, ssh, status, validAddresses("1.public"), isTerminal, baseTestingRetryStrategy, publicKeyRetry)
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), "1")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 
 	select {
 	case <-done:

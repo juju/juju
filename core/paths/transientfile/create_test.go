@@ -9,37 +9,36 @@ import (
 	"os"
 	"path/filepath"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type transientFileSuite struct{}
 
-var _ = gc.Suite(&transientFileSuite{})
+var _ = tc.Suite(&transientFileSuite{})
 
-func (s *transientFileSuite) TestCreateTransientFile(c *gc.C) {
+func (s *transientFileSuite) TestCreateTransientFile(c *tc.C) {
 	transientDir := c.MkDir()
 	f, err := Create(transientDir, "foo.test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.Close(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(f.Close(), tc.ErrorIsNil)
 
 	expPath := filepath.Join(transientDir, "foo.test")
 	s.assertFileExists(c, expPath)
 }
 
-func (s *transientFileSuite) TestCreateTransientFileInSubdirectory(c *gc.C) {
+func (s *transientFileSuite) TestCreateTransientFileInSubdirectory(c *tc.C) {
 	transientDir := c.MkDir()
 	f, err := Create(transientDir, filepath.Join("1", "2", "foo.test"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.Close(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(f.Close(), tc.ErrorIsNil)
 
 	expPath := filepath.Join(transientDir, "1", "2", "foo.test")
 	s.assertFileExists(c, expPath)
 }
 
-func (*transientFileSuite) assertFileExists(c *gc.C, path string) {
+func (*transientFileSuite) assertFileExists(c *tc.C, path string) {
 	stat, err := os.Stat(path)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("stat failed for %q", path))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("stat failed for %q", path))
 
-	c.Assert(stat.IsDir(), jc.IsFalse, gc.Commentf("%q seems to be a directory", path))
+	c.Assert(stat.IsDir(), tc.IsFalse, tc.Commentf("%q seems to be a directory", path))
 }

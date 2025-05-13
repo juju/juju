@@ -9,8 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/storage"
@@ -24,9 +23,9 @@ type poolListSuite struct {
 	mockAPI *mockPoolListAPI
 }
 
-var _ = gc.Suite(&poolListSuite{})
+var _ = tc.Suite(&poolListSuite{})
 
-func (s *poolListSuite) SetUpTest(c *gc.C) {
+func (s *poolListSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockPoolListAPI{
@@ -34,12 +33,12 @@ func (s *poolListSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *poolListSuite) runPoolList(c *gc.C, args []string) (*cmd.Context, error) {
+func (s *poolListSuite) runPoolList(c *tc.C, args []string) (*cmd.Context, error) {
 	args = append(args, []string{"-m", "controller"}...)
 	return cmdtesting.RunCommand(c, storage.NewPoolListCommandForTest(s.mockAPI, s.store), args...)
 }
 
-func (s *poolListSuite) TestPoolListEmpty(c *gc.C) {
+func (s *poolListSuite) TestPoolListEmpty(c *tc.C) {
 	// Both arguments - names and provider types - are optional.
 	// When none are supplied, all registered pools are listed.
 	// As this test uses mock api, no pools are registered by default.
@@ -59,7 +58,7 @@ const (
 	nameXYZ = "xyz"
 )
 
-func (s *poolListSuite) TestPoolListYAML(c *gc.C) {
+func (s *poolListSuite) TestPoolListYAML(c *tc.C) {
 	s.assertUnmarshalledOutput(c, goyaml.Unmarshal,
 		"--provider", providerA,
 		"--provider", providerB,
@@ -68,7 +67,7 @@ func (s *poolListSuite) TestPoolListYAML(c *gc.C) {
 		"--format", "yaml")
 }
 
-func (s *poolListSuite) TestPoolListJSON(c *gc.C) {
+func (s *poolListSuite) TestPoolListJSON(c *tc.C) {
 	s.assertUnmarshalledOutput(c, json.Unmarshal,
 		"--provider", providerA,
 		"--provider", providerB,
@@ -77,7 +76,7 @@ func (s *poolListSuite) TestPoolListJSON(c *gc.C) {
 		"--format", "json")
 }
 
-func (s *poolListSuite) TestPoolListTabular(c *gc.C) {
+func (s *poolListSuite) TestPoolListTabular(c *tc.C) {
 	s.assertValidList(
 		c,
 		[]string{"--provider", "a", "--provider", "b",
@@ -92,7 +91,7 @@ xyz        testType  key=value one=1 two=2
 `[1:])
 }
 
-func (s *poolListSuite) TestPoolListTabularSortedWithAttrs(c *gc.C) {
+func (s *poolListSuite) TestPoolListTabularSortedWithAttrs(c *tc.C) {
 	s.mockAPI.attrs = map[string]interface{}{
 		"a": true, "c": "well", "b": "maybe"}
 
@@ -110,13 +109,13 @@ xyz   testType  a=true b=maybe c=well
 
 type unmarshaller func(in []byte, out interface{}) (err error)
 
-func (s *poolListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshaller, args ...string) {
+func (s *poolListSuite) assertUnmarshalledOutput(c *tc.C, unmarshall unmarshaller, args ...string) {
 
 	context, err := s.runPoolList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var result map[string]storage.PoolInfo
 	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := s.expect(c,
 		[]string{providerA, providerB},
 		[]string{nameABC, nameXYZ})
@@ -126,31 +125,31 @@ func (s *poolListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshalle
 	s.assertSamePoolInfos(c, result, expected)
 }
 
-func (s poolListSuite) assertSamePoolInfos(c *gc.C, one, two map[string]storage.PoolInfo) {
-	c.Assert(one, gc.HasLen, len(two))
+func (s *poolListSuite) assertSamePoolInfos(c *tc.C, one, two map[string]storage.PoolInfo) {
+	c.Assert(one, tc.HasLen, len(two))
 
 	sameAttributes := func(a, b map[string]interface{}) {
-		c.Assert(a, gc.HasLen, len(b))
+		c.Assert(a, tc.HasLen, len(b))
 		for ka, va := range a {
 			vb, okb := b[ka]
-			c.Assert(okb, jc.IsTrue)
+			c.Assert(okb, tc.IsTrue)
 			// As some types may have been unmarshalled incorrectly, for example
 			// int versus float64, compare values' string representations
-			c.Assert(fmt.Sprintf("%v", va), jc.DeepEquals, fmt.Sprintf("%v", vb))
+			c.Assert(fmt.Sprintf("%v", va), tc.DeepEquals, fmt.Sprintf("%v", vb))
 		}
 	}
 
 	for key, v1 := range one {
 		v2, ok := two[key]
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v1.Provider, gc.Equals, v2.Provider)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(v1.Provider, tc.Equals, v2.Provider)
 		sameAttributes(v1.Attrs, v2.Attrs)
 	}
 }
 
-func (s poolListSuite) expect(c *gc.C, types, names []string) map[string]storage.PoolInfo {
+func (s *poolListSuite) expect(c *tc.C, types, names []string) map[string]storage.PoolInfo {
 	all, err := s.mockAPI.ListPools(context.Background(), types, names)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result := make(map[string]storage.PoolInfo, len(all))
 	for _, one := range all {
 		result[one.Name] = storage.PoolInfo{one.Provider, one.Attrs}
@@ -158,12 +157,12 @@ func (s poolListSuite) expect(c *gc.C, types, names []string) map[string]storage
 	return result
 }
 
-func (s *poolListSuite) assertValidList(c *gc.C, args []string, expected string) {
+func (s *poolListSuite) assertValidList(c *tc.C, args []string, expected string) {
 	context, err := s.runPoolList(c, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := cmdtesting.Stdout(context)
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
 type mockPoolListAPI struct {

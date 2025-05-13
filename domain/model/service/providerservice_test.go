@@ -7,10 +7,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corecloud "github.com/juju/juju/core/cloud"
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
@@ -19,6 +17,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -43,7 +42,7 @@ func (d *dummyProviderState) GetModel(ctx context.Context) (coremodel.ModelInfo,
 }
 
 type providerServiceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state *dummyProviderState
 
@@ -51,9 +50,9 @@ type providerServiceSuite struct {
 	mockWatcherFactory  *MockWatcherFactory
 }
 
-var _ = gc.Suite(&providerServiceSuite{})
+var _ = tc.Suite(&providerServiceSuite{})
 
-func (s *providerServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockControllerState = NewMockState(ctrl)
 	s.mockWatcherFactory = NewMockWatcherFactory(ctrl)
@@ -61,14 +60,14 @@ func (s *providerServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *providerServiceSuite) SetUpTest(c *gc.C) {
+func (s *providerServiceSuite) SetUpTest(c *tc.C) {
 	s.state = &dummyProviderState{
 		cloudUUID:      cloudtesting.GenCloudUUID(c),
 		credentialUUID: credential.UUID(uuid.MustNewUUID().String()),
 	}
 }
 
-func (s *providerServiceSuite) TestModel(c *gc.C) {
+func (s *providerServiceSuite) TestModel(c *tc.C) {
 	svc := NewProviderService(s.state, s.state, nil)
 
 	id := modeltesting.GenModelUUID(c)
@@ -82,12 +81,12 @@ func (s *providerServiceSuite) TestModel(c *gc.C) {
 	s.state.model = &model
 
 	got, err := svc.Model(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(got, gc.Equals, model)
+	c.Check(got, tc.Equals, model)
 }
 
-func (s *providerServiceSuite) TestWatchModelCloudCredential(c *gc.C) {
+func (s *providerServiceSuite) TestWatchModelCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -107,17 +106,17 @@ func (s *providerServiceSuite) TestWatchModelCloudCredential(c *gc.C) {
 		s.mockWatcherFactory,
 	)
 	w, err := svc.WatchModelCloudCredential(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("failed to send changes to channel")
 	}
 
 	select {
 	case <-w.Changes():
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("failed to receive changes from watcher")
 	}
 }

@@ -8,8 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
@@ -25,62 +24,62 @@ type undertakerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&undertakerSuite{})
+var _ = tc.Suite(&undertakerSuite{})
 
-func (s *undertakerSuite) TestRequiresModelConnection(c *gc.C) {
+func (s *undertakerSuite) TestRequiresModelConnection(c *tc.C) {
 	api, err := machineundertaker.NewAPI(&fakeAPICaller{hasModelTag: false}, nil)
-	c.Assert(err, gc.ErrorMatches, "machine undertaker client requires a model API connection")
-	c.Assert(api, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "machine undertaker client requires a model API connection")
+	c.Assert(api, tc.IsNil)
 	api, err = machineundertaker.NewAPI(&fakeAPICaller{hasModelTag: true}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(api, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(api, tc.NotNil)
 }
 
-func (s *undertakerSuite) TestAllMachineRemovals(c *gc.C) {
+func (s *undertakerSuite) TestAllMachineRemovals(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Check(facade, gc.Equals, "MachineUndertaker")
-		c.Check(request, gc.Equals, "AllMachineRemovals")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(arg, gc.DeepEquals, wrapEntities(coretesting.ModelTag.String()))
-		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
+		c.Check(facade, tc.Equals, "MachineUndertaker")
+		c.Check(request, tc.Equals, "AllMachineRemovals")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(arg, tc.DeepEquals, wrapEntities(coretesting.ModelTag.String()))
+		c.Assert(result, tc.FitsTypeOf, &params.EntitiesResults{})
 		*result.(*params.EntitiesResults) = *wrapEntitiesResults("machine-23", "machine-42")
 		return nil
 	}
 	api := makeAPI(c, caller)
 	results, err := api.AllMachineRemovals(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, []names.MachineTag{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []names.MachineTag{
 		names.NewMachineTag("23"),
 		names.NewMachineTag("42"),
 	})
 }
 
-func (s *undertakerSuite) TestAllMachineRemovals_Error(c *gc.C) {
+func (s *undertakerSuite) TestAllMachineRemovals_Error(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("restless year")
 	}
 	api := makeAPI(c, caller)
 	results, err := api.AllMachineRemovals(context.Background())
-	c.Assert(err, gc.ErrorMatches, "restless year")
-	c.Assert(results, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "restless year")
+	c.Assert(results, tc.IsNil)
 }
 
-func (s *undertakerSuite) TestAllMachineRemovals_BadTag(c *gc.C) {
+func (s *undertakerSuite) TestAllMachineRemovals_BadTag(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.EntitiesResults{})
 		*result.(*params.EntitiesResults) = *wrapEntitiesResults("machine-23", "application-burp")
 		return nil
 	}
 	api := makeAPI(c, caller)
 	results, err := api.AllMachineRemovals(context.Background())
-	c.Assert(err, gc.ErrorMatches, `"application-burp" is not a valid machine tag`)
-	c.Assert(results, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `"application-burp" is not a valid machine tag`)
+	c.Assert(results, tc.IsNil)
 }
 
-func (s *undertakerSuite) TestAllMachineRemovals_ErrorResult(c *gc.C) {
+func (s *undertakerSuite) TestAllMachineRemovals_ErrorResult(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.EntitiesResults{})
 		*result.(*params.EntitiesResults) = params.EntitiesResults{
 			Results: []params.EntitiesResult{{
 				Error: apiservererrors.ServerError(errors.New("everythingisterrible")),
@@ -90,13 +89,13 @@ func (s *undertakerSuite) TestAllMachineRemovals_ErrorResult(c *gc.C) {
 	}
 	api := makeAPI(c, caller)
 	results, err := api.AllMachineRemovals(context.Background())
-	c.Assert(err, gc.ErrorMatches, "everythingisterrible")
-	c.Assert(results, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "everythingisterrible")
+	c.Assert(results, tc.IsNil)
 }
 
-func (s *undertakerSuite) TestAllMachineRemovals_TooManyResults(c *gc.C) {
+func (s *undertakerSuite) TestAllMachineRemovals_TooManyResults(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.EntitiesResults{})
 		*result.(*params.EntitiesResults) = params.EntitiesResults{
 			Results: []params.EntitiesResult{{
 				Entities: []params.Entity{{Tag: "machine-1"}},
@@ -108,30 +107,30 @@ func (s *undertakerSuite) TestAllMachineRemovals_TooManyResults(c *gc.C) {
 	}
 	api := makeAPI(c, caller)
 	results, err := api.AllMachineRemovals(context.Background())
-	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
-	c.Assert(results, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "expected one result, got 2")
+	c.Assert(results, tc.IsNil)
 }
 
-func (s *undertakerSuite) TestAllMachineRemovals_TooFewResults(c *gc.C) {
+func (s *undertakerSuite) TestAllMachineRemovals_TooFewResults(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.EntitiesResults{})
 		*result.(*params.EntitiesResults) = params.EntitiesResults{}
 		return nil
 	}
 	api := makeAPI(c, caller)
 	results, err := api.AllMachineRemovals(context.Background())
-	c.Assert(err, gc.ErrorMatches, "expected one result, got 0")
-	c.Assert(results, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "expected one result, got 0")
+	c.Assert(results, tc.IsNil)
 }
 
-func (*undertakerSuite) TestGetInfo(c *gc.C) {
+func (*undertakerSuite) TestGetInfo(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Check(facade, gc.Equals, "MachineUndertaker")
-		c.Check(request, gc.Equals, "GetMachineProviderInterfaceInfo")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(arg, gc.DeepEquals, wrapEntities("machine-100"))
-		c.Assert(result, gc.FitsTypeOf, &params.ProviderInterfaceInfoResults{})
+		c.Check(facade, tc.Equals, "MachineUndertaker")
+		c.Check(request, tc.Equals, "GetMachineProviderInterfaceInfo")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(arg, tc.DeepEquals, wrapEntities("machine-100"))
+		c.Assert(result, tc.FitsTypeOf, &params.ProviderInterfaceInfoResults{})
 		*result.(*params.ProviderInterfaceInfoResults) = params.ProviderInterfaceInfoResults{
 			Results: []params.ProviderInterfaceInfoResult{{
 				MachineTag: "machine-100",
@@ -150,8 +149,8 @@ func (*undertakerSuite) TestGetInfo(c *gc.C) {
 	}
 	api := makeAPI(c, caller)
 	results, err := api.GetProviderInterfaceInfo(context.Background(), names.NewMachineTag("100"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, []network.ProviderInterfaceInfo{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []network.ProviderInterfaceInfo{{
 		InterfaceName:   "hamster huey",
 		HardwareAddress: "calvin",
 		ProviderId:      "1234",
@@ -162,19 +161,19 @@ func (*undertakerSuite) TestGetInfo(c *gc.C) {
 	}})
 }
 
-func (*undertakerSuite) TestGetInfo_GenericError(c *gc.C) {
+func (*undertakerSuite) TestGetInfo_GenericError(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("gooey kablooey")
 	}
 	api := makeAPI(c, caller)
 	results, err := api.GetProviderInterfaceInfo(context.Background(), names.NewMachineTag("100"))
-	c.Assert(err, gc.ErrorMatches, "gooey kablooey")
-	c.Assert(results, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "gooey kablooey")
+	c.Assert(results, tc.IsNil)
 }
 
-func (*undertakerSuite) TestGetInfo_TooMany(c *gc.C) {
+func (*undertakerSuite) TestGetInfo_TooMany(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.ProviderInterfaceInfoResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ProviderInterfaceInfoResults{})
 		*result.(*params.ProviderInterfaceInfoResults) = params.ProviderInterfaceInfoResults{
 			Results: []params.ProviderInterfaceInfoResult{{
 				MachineTag: "machine-100",
@@ -196,13 +195,13 @@ func (*undertakerSuite) TestGetInfo_TooMany(c *gc.C) {
 	}
 	api := makeAPI(c, caller)
 	results, err := api.GetProviderInterfaceInfo(context.Background(), names.NewMachineTag("100"))
-	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
-	c.Assert(results, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "expected one result, got 2")
+	c.Assert(results, tc.IsNil)
 }
 
-func (*undertakerSuite) TestGetInfo_BadMachine(c *gc.C) {
+func (*undertakerSuite) TestGetInfo_BadMachine(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.ProviderInterfaceInfoResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ProviderInterfaceInfoResults{})
 		*result.(*params.ProviderInterfaceInfoResults) = params.ProviderInterfaceInfoResults{
 			Results: []params.ProviderInterfaceInfoResult{{
 				MachineTag: "machine-101",
@@ -217,43 +216,43 @@ func (*undertakerSuite) TestGetInfo_BadMachine(c *gc.C) {
 	}
 	api := makeAPI(c, caller)
 	results, err := api.GetProviderInterfaceInfo(context.Background(), names.NewMachineTag("100"))
-	c.Assert(err, gc.ErrorMatches, "expected interface info for machine-100 but got machine-101")
-	c.Assert(results, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "expected interface info for machine-100 but got machine-101")
+	c.Assert(results, tc.IsNil)
 }
 
-func (*undertakerSuite) TestCompleteRemoval(c *gc.C) {
+func (*undertakerSuite) TestCompleteRemoval(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Check(facade, gc.Equals, "MachineUndertaker")
-		c.Check(request, gc.Equals, "CompleteMachineRemovals")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(arg, gc.DeepEquals, wrapEntities("machine-100"))
-		c.Check(result, gc.DeepEquals, nil)
+		c.Check(facade, tc.Equals, "MachineUndertaker")
+		c.Check(request, tc.Equals, "CompleteMachineRemovals")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(arg, tc.DeepEquals, wrapEntities("machine-100"))
+		c.Check(result, tc.DeepEquals, nil)
 		return errors.New("gooey kablooey")
 	}
 	api := makeAPI(c, caller)
 	err := api.CompleteRemoval(context.Background(), names.NewMachineTag("100"))
-	c.Assert(err, gc.ErrorMatches, "gooey kablooey")
+	c.Assert(err, tc.ErrorMatches, "gooey kablooey")
 }
 
-func (*undertakerSuite) TestWatchMachineRemovals_CallFailed(c *gc.C) {
+func (*undertakerSuite) TestWatchMachineRemovals_CallFailed(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Check(facade, gc.Equals, "MachineUndertaker")
-		c.Check(request, gc.Equals, "WatchMachineRemovals")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(arg, gc.DeepEquals, wrapEntities(coretesting.ModelTag.String()))
+		c.Check(facade, tc.Equals, "MachineUndertaker")
+		c.Check(request, tc.Equals, "WatchMachineRemovals")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(arg, tc.DeepEquals, wrapEntities(coretesting.ModelTag.String()))
 		return errors.New("oopsy")
 	}
 	api := makeAPI(c, caller)
 	w, err := api.WatchMachineRemovals(context.Background())
-	c.Check(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "oopsy")
+	c.Check(w, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "oopsy")
 }
 
-func (*undertakerSuite) TestWatchMachineRemovals_ErrorInWatcher(c *gc.C) {
+func (*undertakerSuite) TestWatchMachineRemovals_ErrorInWatcher(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
 		*result.(*params.NotifyWatchResults) = params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{{
 				Error: &params.Error{Message: "blammo"},
@@ -263,13 +262,13 @@ func (*undertakerSuite) TestWatchMachineRemovals_ErrorInWatcher(c *gc.C) {
 	}
 	api := makeAPI(c, caller)
 	w, err := api.WatchMachineRemovals(context.Background())
-	c.Check(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "blammo")
+	c.Check(w, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "blammo")
 }
 
-func (*undertakerSuite) TestWatchMachineRemovals_TooMany(c *gc.C) {
+func (*undertakerSuite) TestWatchMachineRemovals_TooMany(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
 		*result.(*params.NotifyWatchResults) = params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{{
 				NotifyWatcherId: "2",
@@ -281,13 +280,13 @@ func (*undertakerSuite) TestWatchMachineRemovals_TooMany(c *gc.C) {
 	}
 	api := makeAPI(c, caller)
 	w, err := api.WatchMachineRemovals(context.Background())
-	c.Check(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
+	c.Check(w, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "expected one result, got 2")
 }
 
-func (*undertakerSuite) TestWatchMachineRemovals_Success(c *gc.C) {
+func (*undertakerSuite) TestWatchMachineRemovals_Success(c *tc.C) {
 	caller := func(facade string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
 		*result.(*params.NotifyWatchResults) = params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{{
 				NotifyWatcherId: "2",
@@ -297,23 +296,23 @@ func (*undertakerSuite) TestWatchMachineRemovals_Success(c *gc.C) {
 	}
 	expectWatcher := &struct{ watcher.NotifyWatcher }{}
 	newWatcher := func(wcaller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
-		c.Check(wcaller, gc.NotNil) // not comparable
-		c.Check(result, gc.DeepEquals, params.NotifyWatchResult{
+		c.Check(wcaller, tc.NotNil) // not comparable
+		c.Check(result, tc.DeepEquals, params.NotifyWatchResult{
 			NotifyWatcherId: "2",
 		})
 		return expectWatcher
 	}
 
 	api, err := machineundertaker.NewAPI(testing.APICallerFunc(caller), newWatcher)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	w, err := api.WatchMachineRemovals(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(w, gc.Equals, expectWatcher)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(w, tc.Equals, expectWatcher)
 }
 
-func makeAPI(c *gc.C, caller testing.APICallerFunc) *machineundertaker.API {
+func makeAPI(c *tc.C, caller testing.APICallerFunc) *machineundertaker.API {
 	api, err := machineundertaker.NewAPI(caller, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 

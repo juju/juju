@@ -7,14 +7,14 @@ import (
 	"bytes"
 	"strings"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/configschema"
 )
 
 type sampleSuite struct{}
 
-var _ = gc.Suite(&sampleSuite{})
+var _ = tc.Suite(&sampleSuite{})
 
 var sampleYAMLTests = []struct {
 	about  string
@@ -300,12 +300,12 @@ var sampleYAMLTests = []struct {
 	`,
 }}
 
-func (sampleSuite) TestSampleYAML(c *gc.C) {
+func (sampleSuite) TestSampleYAML(c *tc.C) {
 	for i, test := range sampleYAMLTests {
 		c.Logf("test %d. %s\n", i, test.about)
 		var buf bytes.Buffer
 		err := configschema.SampleYAML(&buf, 0, test.attrs, test.fields)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		diff(c, buf.String(), unbeautify(test.expect[1:]))
 	}
 }
@@ -319,9 +319,9 @@ func unbeautify(s string) string {
 	return indentReplacer.Replace(s)
 }
 
-func diff(c *gc.C, have, want string) {
+func diff(c *tc.C, have, want string) {
 	// Final sanity check in case the below logic is flawed.
-	defer c.Check(have, gc.Equals, want)
+	defer c.Check(have, tc.Equals, want)
 
 	haveLines := strings.Split(have, "\n")
 	wantLines := strings.Split(want, "\n")
@@ -332,7 +332,7 @@ func diff(c *gc.C, have, want string) {
 			return
 		}
 		haveLine := haveLines[i]
-		c.Assert(haveLine, gc.Equals, wantLine, gc.Commentf("line %d", i+1))
+		c.Assert(haveLine, tc.Equals, wantLine, tc.Commentf("line %d", i+1))
 	}
 	if len(haveLines) > len(wantLines) {
 		c.Errorf("have too many lines from line %d, %s", len(wantLines), haveLines[len(wantLines)])

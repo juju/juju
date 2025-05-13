@@ -7,8 +7,7 @@ import (
 	"context"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -26,9 +25,9 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
+func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
 	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
@@ -37,7 +36,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 		),
 	)
 	watcher, err := svc.Watch()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for the initial change.
 	select {
@@ -54,18 +53,18 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 		Size:   666,
 	}
 	_, err = svc.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
 	select {
 	case change := <-watcher.Changes():
-		c.Assert(change, gc.DeepEquals, []string{metadata.Path})
+		c.Assert(change, tc.DeepEquals, []string{metadata.Path})
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for change")
 	}
 }
 
-func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
+func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
 	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
@@ -74,7 +73,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 		),
 	)
 	watcher, err := svc.Watch()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for the initial change.
 	select {
@@ -91,28 +90,28 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 		Size:   666,
 	}
 	_, err = svc.PutMetadata(context.Background(), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
 	select {
 	case change := <-watcher.Changes():
-		c.Assert(change, gc.DeepEquals, []string{metadata.Path})
+		c.Assert(change, tc.DeepEquals, []string{metadata.Path})
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for change")
 	}
 
 	// Remove the object.
 	err = svc.RemoveMetadata(context.Background(), metadata.Path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
 	select {
 	case change := <-watcher.Changes():
-		c.Assert(change, gc.DeepEquals, []string{metadata.Path})
+		c.Assert(change, tc.DeepEquals, []string{metadata.Path})
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for change")
 	}
 
 	_, err = svc.GetMetadata(context.Background(), metadata.Path)
-	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }

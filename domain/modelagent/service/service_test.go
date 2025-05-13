@@ -6,9 +6,8 @@ package service
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
@@ -28,9 +27,9 @@ type suite struct {
 	state *MockState
 }
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
-func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *suite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockState(ctrl)
 	return ctrl
@@ -38,34 +37,34 @@ func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
 
 // TestGetModelAgentVersionSuccess tests the happy path for
 // Service.GetModelAgentVersion.
-func (s *suite) TestGetModelAgentVersionSuccess(c *gc.C) {
+func (s *suite) TestGetModelAgentVersionSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expectedVersion, err := semversion.Parse("4.21.65")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expectedVersion, nil)
 
 	svc := NewService(s.state)
 	ver, err := svc.GetModelTargetAgentVersion(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(ver, jc.DeepEquals, expectedVersion)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver, tc.DeepEquals, expectedVersion)
 }
 
 // TestGetModelAgentVersionNotFound tests that Service.GetModelAgentVersion
 // returns an appropriate error when the agent version cannot be found.
-func (s *suite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
+func (s *suite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, modelagenterrors.AgentVersionNotFound)
 
 	svc := NewService(s.state)
 	_, err := svc.GetModelTargetAgentVersion(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestGetMachineTargetAgentVersion is asserting the happy path for getting
 // a machine's target agent version.
-func (s *suite) TestGetMachineTargetAgentVersion(c *gc.C) {
+func (s *suite) TestGetMachineTargetAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := coremachine.Name("0")
@@ -79,14 +78,14 @@ func (s *suite) TestGetMachineTargetAgentVersion(c *gc.C) {
 	s.state.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), uuid).Return(ver, nil)
 
 	rval, err := NewService(s.state).GetMachineTargetAgentVersion(context.Background(), machineName)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(rval, gc.Equals, ver)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, ver)
 }
 
 // TestGetMachineTargetAgentVersionNotFound is testing that the service
 // returns a [machineerrors.MachineNotFound] error when no machine exists for
 // a given name.
-func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *gc.C) {
+func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), coremachine.Name("0")).Return(
@@ -97,12 +96,12 @@ func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *gc.C) {
 		context.Background(),
 		coremachine.Name("0"),
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetUnitTargetAgentVersion is asserting the happy path for getting
 // a unit's target agent version.
-func (s *suite) TestGetUnitTargetAgentVersion(c *gc.C) {
+func (s *suite) TestGetUnitTargetAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ver := coreagentbinary.Version{
@@ -115,14 +114,14 @@ func (s *suite) TestGetUnitTargetAgentVersion(c *gc.C) {
 	s.state.EXPECT().GetUnitTargetAgentVersion(gomock.Any(), uuid).Return(ver, nil)
 
 	rval, err := NewService(s.state).GetUnitTargetAgentVersion(context.Background(), "foo/0")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(rval, gc.Equals, ver)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, ver)
 }
 
 // TestGetUnitTargetAgentVersionNotFound is testing that the service
 // returns a [applicationerrors.UnitNotFound] error when no unit exists for
 // a given name.
-func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *gc.C) {
+func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(
@@ -133,13 +132,13 @@ func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *gc.C) {
 		context.Background(),
 		"foo/0",
 	)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 // TestWatchUnitTargetAgentVersionNotFound is testing that the service
 // returns a [applicationerrors.UnitNotFound] error when no unit exists for
 // a given name.
-func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *gc.C) {
+func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(
@@ -150,13 +149,13 @@ func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *gc.C) {
 		context.Background(),
 		"foo/0",
 	)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 // TestWatchMachineTargetAgentVersionNotFound is testing that the service
 // returns a [machineerrors.MachineNotFound] error when no machine exists for
 // a given name.
-func (s *suite) TestWatchMachineTargetAgentVersionNotFound(c *gc.C) {
+func (s *suite) TestWatchMachineTargetAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), coremachine.Name("0")).Return(
@@ -164,13 +163,13 @@ func (s *suite) TestWatchMachineTargetAgentVersionNotFound(c *gc.C) {
 	)
 
 	_, err := NewWatchableService(s.state, nil).WatchMachineTargetAgentVersion(context.Background(), "0")
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestSetMachineReportedAgentVersionInvalid is here to assert that if pass a
 // junk agent binary version to [Service.SetMachineReportedAgentVersion] we get
 // back an error that satisfies [coreerrors.NotValid].
-func (s *suite) TestSetMachineReportedAgentVersionInvalid(c *gc.C) {
+func (s *suite) TestSetMachineReportedAgentVersionInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := NewService(s.state).SetMachineReportedAgentVersion(
@@ -180,7 +179,7 @@ func (s *suite) TestSetMachineReportedAgentVersionInvalid(c *gc.C) {
 			Number: semversion.Zero,
 		},
 	)
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestSetMachineReportedAgentVersionSuccess asserts that if we try to set the
@@ -188,7 +187,7 @@ func (s *suite) TestSetMachineReportedAgentVersionInvalid(c *gc.C) {
 // satisfying [machineerrors.MachineNotFound]. Because the service relied on
 // state for producing this error we need to simulate this in two different
 // locations to assert the full functionality.
-func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *gc.C) {
+func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// MachineNotFound error location 1.
@@ -204,11 +203,11 @@ func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *gc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 
 	// MachineNotFound error location 2.
 	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), coremachine.Name("0")).Return(
 		machineUUID.String(), nil,
@@ -231,14 +230,14 @@ func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *gc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *suite) TestSetMachineReportedAgentVersionDead(c *gc.C) {
+func (s *suite) TestSetMachineReportedAgentVersionDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), coremachine.Name("0")).Return(
 		machineUUID.String(), nil,
@@ -261,16 +260,16 @@ func (s *suite) TestSetMachineReportedAgentVersionDead(c *gc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineIsDead)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineIsDead)
 }
 
 // TestSetMachineReportedAgentVersion asserts the happy path of
 // [Service.SetMachineReportedAgentVersion].
-func (s *suite) TestSetMachineReportedAgentVersion(c *gc.C) {
+func (s *suite) TestSetMachineReportedAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), coremachine.Name("0")).Return(
 		machineUUID.String(), nil,
@@ -292,13 +291,13 @@ func (s *suite) TestSetMachineReportedAgentVersion(c *gc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestSetReportedUnitAgentVersionInvalid is here to assert that if pass a
 // junk agent binary version to [Service.SetReportedUnitAgentVersion] we get
 // back an error that satisfies [coreerrors.NotValid].
-func (s *suite) TestSetReportedUnitAgentVersionInvalid(c *gc.C) {
+func (s *suite) TestSetReportedUnitAgentVersionInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := NewService(s.state).SetUnitReportedAgentVersion(
@@ -308,7 +307,7 @@ func (s *suite) TestSetReportedUnitAgentVersionInvalid(c *gc.C) {
 			Number: semversion.Zero,
 		},
 	)
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestSetReportedUnitAgentVersionNotFound asserts that if we try to set the
@@ -316,7 +315,7 @@ func (s *suite) TestSetReportedUnitAgentVersionInvalid(c *gc.C) {
 // satisfying [applicationerrors.UnitNotFound]. Because the service relied on
 // state for producing this error we need to simulate this in two different
 // locations to assert the full functionality.
-func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
+func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// UnitNotFound error location 1.
@@ -332,7 +331,7 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 
 	// UnitNotFound error location 2.
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -358,13 +357,13 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 // TestSetReportedUnitAgentVersionDead asserts that if we try to set the
 // reported agent version for a dead unit we get an error satisfying
 // [applicationerrors.UnitIsDead].
-func (s *suite) TestSetReportedUnitAgentVersionDead(c *gc.C) {
+func (s *suite) TestSetReportedUnitAgentVersionDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -390,12 +389,12 @@ func (s *suite) TestSetReportedUnitAgentVersionDead(c *gc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitIsDead)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
 
 // TestSetReportedUnitAgentVersion asserts the happy path of
 // [Service.SetReportedUnitAgentVersion].
-func (s *suite) TestSetReportedUnitAgentVersion(c *gc.C) {
+func (s *suite) TestSetReportedUnitAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -421,13 +420,13 @@ func (s *suite) TestSetReportedUnitAgentVersion(c *gc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestGetMachineReportedAgentVersionMachineNotFound asserts that if we ask for
 // the reported agent version of a machine and the machine does not exist we get
 // back an error that satisfies [machineerrors.MachineNotFound].
-func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *gc.C) {
+func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := coremachine.Name("0")
@@ -438,7 +437,7 @@ func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *gc.C) {
 
 	svc := NewService(s.state)
 	_, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 
 	// Section test of MachineNotFound when using the uuid to fetch the running
 	// version.
@@ -449,13 +448,13 @@ func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *gc.C) {
 	)
 
 	_, err = svc.GetMachineReportedAgentVersion(context.Background(), machineName)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetMachineReportedAgentVersionAgentVersionNotFound asserts that if we ask
 // for the reported agent version of a machine and one has not been set that an
 // error statisfying [modelagenterrors.AgentVersionNotFound].
-func (s *suite) TestGetMachineReportedAgentVersionAgentVersionNotFound(c *gc.C) {
+func (s *suite) TestGetMachineReportedAgentVersionAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := coremachine.Name("0")
@@ -468,12 +467,12 @@ func (s *suite) TestGetMachineReportedAgentVersionAgentVersionNotFound(c *gc.C) 
 
 	svc := NewService(s.state)
 	_, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
-	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestGetMachineReportedAgentVersion is a happy path test of
 // [Service.GetMachineReportedAgentVersion].
-func (s *suite) TestGetMachineReportedAgentVersion(c *gc.C) {
+func (s *suite) TestGetMachineReportedAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := coremachine.Name("0")
@@ -489,8 +488,8 @@ func (s *suite) TestGetMachineReportedAgentVersion(c *gc.C) {
 
 	svc := NewService(s.state)
 	ver, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(ver, jc.DeepEquals, coreagentbinary.Version{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver, tc.DeepEquals, coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.1"),
 		Arch:   corearch.ARM64,
 	})
@@ -499,7 +498,7 @@ func (s *suite) TestGetMachineReportedAgentVersion(c *gc.C) {
 // TestGetUnitReportedAgentVersionUnitNotFound asserts that if we ask for
 // the reported agent version of a unit and the unit does not exist we get
 // back an error that satisfies [applicationerrors.UnitNotFound].
-func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *gc.C) {
+func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unittesting.GenNewName(c, "foo/0")
@@ -510,7 +509,7 @@ func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *gc.C) {
 
 	svc := NewService(s.state)
 	_, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 
 	// Section test of UnitNotFound when using the uuid to fetch the running
 	// version.
@@ -521,13 +520,13 @@ func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *gc.C) {
 	)
 
 	_, err = svc.GetUnitReportedAgentVersion(context.Background(), unitName)
-	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 // TestGetUnitReportedAgentVersionAgentVersionNotFound asserts that if we ask
 // for the reported agent version of a unit and one has not been set that an
 // error statisfying [modelagenterrors.AgentVersionNotFound].
-func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *gc.C) {
+func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unittesting.GenNewName(c, "foo/0")
@@ -540,12 +539,12 @@ func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *gc.C) {
 
 	svc := NewService(s.state)
 	_, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
-	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestGetUnitReportedAgentVersion is a happy path test of
 // [Service.GetMachineReportedAgentVersion].
-func (s *suite) TestGetUnitReportedAgentVersion(c *gc.C) {
+func (s *suite) TestGetUnitReportedAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unittesting.GenNewName(c, "foo/0")
@@ -561,8 +560,8 @@ func (s *suite) TestGetUnitReportedAgentVersion(c *gc.C) {
 
 	svc := NewService(s.state)
 	ver, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(ver, jc.DeepEquals, coreagentbinary.Version{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver, tc.DeepEquals, coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.1"),
 		Arch:   corearch.ARM64,
 	})
@@ -571,59 +570,59 @@ func (s *suite) TestGetUnitReportedAgentVersion(c *gc.C) {
 // TestGetMachinesReportedAgentVersionAgentVersionNotSet asserts error
 // pass through on state of modelagenterrors.AgentVersionNotSet to
 // satisfy contract.
-func (s *suite) TestGetMachinesReportedAgentVersionAgentVersionNotSet(c *gc.C) {
+func (s *suite) TestGetMachinesReportedAgentVersionAgentVersionNotSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetMachinesAgentBinaryMetadata(gomock.Any()).Return(
 		nil, modelagenterrors.AgentVersionNotSet,
 	)
 	svc := NewService(s.state)
 	_, err := svc.GetMachinesAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 }
 
 // TestGetMachinesReportedAgentVersionMissingAgentBinaries asserts error pass
 // through on state of modelagenterrors.MissingAgentBinaries to satisfy
 // contract.
-func (s *suite) TestGetMachinesReportedAgentVersionMissingAgentBinaries(c *gc.C) {
+func (s *suite) TestGetMachinesReportedAgentVersionMissingAgentBinaries(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetMachinesAgentBinaryMetadata(gomock.Any()).Return(
 		nil, modelagenterrors.MissingAgentBinaries,
 	)
 	svc := NewService(s.state)
 	_, err := svc.GetMachinesAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
 
 // TestGetUnitReportedAgentVersionAgentVersionNotSet asserts error pass
 // through on state of modelagenterrors.AgentVersionNotSet to satisfy
 // contract.
-func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotSet(c *gc.C) {
+func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetUnitsAgentBinaryMetadata(gomock.Any()).Return(
 		nil, modelagenterrors.AgentVersionNotSet,
 	)
 	svc := NewService(s.state)
 	_, err := svc.GetUnitsAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
+	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 }
 
 // TestGetUnitReportedAgentVersionMissingAgentBinaries asserts error pass
 // through on state of modelagenterrors.MissingAgentBinaries to satisfy
 // contract.
-func (s *suite) TestGetUnitReportedAgentVersionMissingAgentBinaries(c *gc.C) {
+func (s *suite) TestGetUnitReportedAgentVersionMissingAgentBinaries(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetUnitsAgentBinaryMetadata(gomock.Any()).Return(
 		nil, modelagenterrors.MissingAgentBinaries,
 	)
 	svc := NewService(s.state)
 	_, err := svc.GetUnitsAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
 
 // TestSetAgentStreamNotValidAgentStream is testing that if we supply an
 // unknown agent stream to [Service.SetModelAgentStream] we get back an error
 // satisfying [coreerrors.NotValid].
-func (s *suite) TestSetAgentStreamNotValidAgentStream(c *gc.C) {
+func (s *suite) TestSetAgentStreamNotValidAgentStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// This is a fake stream that doesn't exist.
@@ -633,12 +632,12 @@ func (s *suite) TestSetAgentStreamNotValidAgentStream(c *gc.C) {
 		context.Background(),
 		agentStream,
 	)
-	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestSetAgentStream is testing the happy path of setting the model's agent
 // stream.
-func (s *suite) TestSetAgentStream(c *gc.C) {
+func (s *suite) TestSetAgentStream(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().SetModelAgentStream(
@@ -650,5 +649,5 @@ func (s *suite) TestSetAgentStream(c *gc.C) {
 		context.Background(),
 		coreagentbinary.AgentStreamTesting,
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }

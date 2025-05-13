@@ -8,27 +8,26 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 
 type AddRelationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	mockAPI *mockAddAPI
 }
 
-func (s *AddRelationSuite) SetUpTest(c *gc.C) {
+func (s *AddRelationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockAddAPI{Stub: &testing.Stub{}}
+	s.mockAPI = &mockAddAPI{Stub: &testhelpers.Stub{}}
 	s.mockAPI.addRelationFunc = func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 		// At the moment, cmd implementation ignores the return values,
 		// so nil is an acceptable return for testing purposes.
@@ -36,46 +35,46 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-var _ = gc.Suite(&AddRelationSuite{})
+var _ = tc.Suite(&AddRelationSuite{})
 
-func (s *AddRelationSuite) runAddRelation(c *gc.C, args ...string) error {
+func (s *AddRelationSuite) runAddRelation(c *tc.C, args ...string) error {
 	cmd := application.NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
 }
 
-func (s *AddRelationSuite) TestAddRelationWrongNumberOfArguments(c *gc.C) {
+func (s *AddRelationSuite) TestAddRelationWrongNumberOfArguments(c *tc.C) {
 	// No arguments
 	err := s.runAddRelation(c)
-	c.Assert(err, gc.ErrorMatches, "an integration must involve two applications")
+	c.Assert(err, tc.ErrorMatches, "an integration must involve two applications")
 
 	// 1 argument
 	err = s.runAddRelation(c, "application1")
-	c.Assert(err, gc.ErrorMatches, "an integration must involve two applications")
+	c.Assert(err, tc.ErrorMatches, "an integration must involve two applications")
 
 	// more than 2 arguments
 	err = s.runAddRelation(c, "application1", "application2", "application3")
-	c.Assert(err, gc.ErrorMatches, "an integration must involve two applications")
+	c.Assert(err, tc.ErrorMatches, "an integration must involve two applications")
 }
 
-func (s *AddRelationSuite) TestAddRelationSuccess(c *gc.C) {
+func (s *AddRelationSuite) TestAddRelationSuccess(c *tc.C) {
 	err := s.runAddRelation(c, "application1", "application2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"}, []string(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
-func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
+func (s *AddRelationSuite) TestAddRelationFail(c *tc.C) {
 	msg := "fail integrate call at API"
 	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runAddRelation(c, "application1", "application2")
-	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorMatches, msg)
 	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"}, []string(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
-func (s *AddRelationSuite) TestAddRelationBlocked(c *gc.C) {
+func (s *AddRelationSuite) TestAddRelationBlocked(c *tc.C) {
 	s.mockAPI.SetErrors(apiservererrors.OperationBlockedError("TestBlockAddRelation"))
 	err := s.runAddRelation(c, "application1", "application2")
 	jtesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
@@ -83,7 +82,7 @@ func (s *AddRelationSuite) TestAddRelationBlocked(c *gc.C) {
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
-func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C) {
+func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *tc.C) {
 	s.mockAPI.SetErrors(&params.Error{
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
@@ -92,11 +91,11 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	ctx, _ := cmdtesting.RunCommand(c, cmd, "application1", "application2")
 	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
-	c.Assert(errString, gc.Matches, `.*juju grant.*`)
+	c.Assert(errString, tc.Matches, `.*juju grant.*`)
 }
 
 type mockAddAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 	addRelationFunc func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error)
 }
 

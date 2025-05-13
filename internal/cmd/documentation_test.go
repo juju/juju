@@ -9,17 +9,16 @@ import (
 	"path/filepath"
 
 	"github.com/juju/gnuflag"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 )
 
 type documentationSuite struct{}
 
-var _ = gc.Suite(&documentationSuite{})
+var _ = tc.Suite(&documentationSuite{})
 
-func (s *documentationSuite) TestFormatCommand(c *gc.C) {
+func (s *documentationSuite) TestFormatCommand(c *tc.C) {
 	tests := []struct {
 		command  cmd.Command
 		title    bool
@@ -100,8 +99,8 @@ insert details here...
 			t.title,
 			[]string{"juju", t.command.Info().Name},
 		)
-		c.Check(output, gc.Equals, t.expected)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(output, tc.Equals, t.expected)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
@@ -143,7 +142,7 @@ func (c *docTestCommand) Init(args []string) error     { return nil }
 func (c *docTestCommand) Run(ctx *cmd.Context) error   { return nil }
 func (c *docTestCommand) AllowInterspersedFlags() bool { return false }
 
-func (*documentationSuite) TestEscapeMarkdown(c *gc.C) {
+func (*documentationSuite) TestEscapeMarkdown(c *tc.C) {
 	tests := []struct {
 		input, output string
 	}{{
@@ -210,12 +209,12 @@ formatted YAML-formatted file.
 	}}
 
 	for _, t := range tests {
-		c.Check(cmd.EscapeMarkdown(t.input), gc.Equals, t.output)
+		c.Check(cmd.EscapeMarkdown(t.input), tc.Equals, t.output)
 	}
 }
 
 // TestWriteIndex checks that the index file is successfully written.
-func (*documentationSuite) TestWriteIndex(c *gc.C) {
+func (*documentationSuite) TestWriteIndex(c *tc.C) {
 	// Make temp dir to hold docs
 	docsDir := c.MkDir()
 
@@ -223,14 +222,14 @@ func (*documentationSuite) TestWriteIndex(c *gc.C) {
 	superCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
 	superCmd.SetFlags(&gnuflag.FlagSet{})
 	err := superCmd.Init([]string{"documentation", "--split", "--out", docsDir})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	err = superCmd.Run(&cmd.Context{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	// Check the index file
 	indexPath := filepath.Join(docsDir, "index.md")
 	indexContents, err := os.ReadFile(indexPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	// Index should be non-empty
-	c.Assert(string(indexContents), gc.Matches, "(?m).*Index.*")
+	c.Assert(string(indexContents), tc.Matches, "(?m).*Index.*")
 }

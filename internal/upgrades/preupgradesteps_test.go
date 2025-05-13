@@ -5,7 +5,7 @@ package upgrades_test
 
 import (
 	"github.com/dustin/go-humanize"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
@@ -15,11 +15,11 @@ type preupgradechecksSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&preupgradechecksSuite{})
+var _ = tc.Suite(&preupgradechecksSuite{})
 
-func (s *preupgradechecksSuite) TestCheckFreeDiskSpace(c *gc.C) {
+func (s *preupgradechecksSuite) TestCheckFreeDiskSpace(c *tc.C) {
 	// Expect an impossibly large amount of free disk.
 	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(humanize.PiByte/humanize.MiByte))
 	err := upgrades.PreUpgradeSteps(&mockAgentConfig{dataDir: "/"}, false)
-	c.Assert(err, gc.ErrorMatches, `not enough free disk space on "/" for upgrade: .* available, require 1073741824MiB`)
+	c.Assert(err, tc.ErrorMatches, `not enough free disk space on "/" for upgrade: .* available, require 1073741824MiB`)
 }

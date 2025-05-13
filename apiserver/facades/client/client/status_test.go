@@ -9,10 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -22,11 +20,12 @@ import (
 	domainmodel "github.com/juju/juju/domain/model"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	statusservice "github.com/juju/juju/domain/status/service"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type statusSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelUUID model.UUID
 
@@ -35,9 +34,9 @@ type statusSuite struct {
 	statusService    *MockStatusService
 }
 
-var _ = gc.Suite(&statusSuite{})
+var _ = tc.Suite(&statusSuite{})
 
-func (s *statusSuite) TestModelStatus(c *gc.C) {
+func (s *statusSuite) TestModelStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -57,8 +56,8 @@ func (s *statusSuite) TestModelStatus(c *gc.C) {
 
 	client := &Client{modelInfoService: s.modelInfoService}
 	statusInfo, err := client.modelStatus(context.Background())
-	c.Assert(err, gc.IsNil)
-	c.Assert(statusInfo, gc.DeepEquals, params.ModelStatusInfo{
+	c.Assert(err, tc.IsNil)
+	c.Assert(statusInfo, tc.DeepEquals, params.ModelStatusInfo{
 		Name:        "model-name",
 		Type:        model.IAAS.String(),
 		CloudTag:    "cloud-mycloud",
@@ -72,7 +71,7 @@ func (s *statusSuite) TestModelStatus(c *gc.C) {
 	})
 }
 
-func (s *statusSuite) TestModelStatusModelNotFound(c *gc.C) {
+func (s *statusSuite) TestModelStatusModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
@@ -87,14 +86,14 @@ func (s *statusSuite) TestModelStatusModelNotFound(c *gc.C) {
 
 	client := &Client{modelInfoService: s.modelInfoService}
 	_, err := client.modelStatus(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *statusSuite) TestStatusHistory(c *gc.C) {
+func (s *statusSuite) TestStatusHistory(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag, err := names.ParseApplicationTag("application-foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
 	s.statusService.EXPECT().GetStatusHistory(gomock.Any(), statusservice.StatusHistoryRequest{
@@ -115,8 +114,8 @@ func (s *statusSuite) TestStatusHistory(c *gc.C) {
 			Tag:  tag.String(),
 		}},
 	})
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results, gc.DeepEquals, []params.StatusHistoryResult{{
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results, tc.DeepEquals, []params.StatusHistoryResult{{
 		History: params.History{
 			Statuses: []params.DetailedStatus{{
 				Kind:   "application",
@@ -126,11 +125,11 @@ func (s *statusSuite) TestStatusHistory(c *gc.C) {
 	}})
 }
 
-func (s *statusSuite) TestStatusHistoryNoBulk(c *gc.C) {
+func (s *statusSuite) TestStatusHistoryNoBulk(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag, err := names.ParseApplicationTag("application-foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
 
@@ -147,7 +146,7 @@ func (s *statusSuite) TestStatusHistoryNoBulk(c *gc.C) {
 			Tag:  tag.String(),
 		}},
 	})
-	c.Check(results.Results, gc.DeepEquals, []params.StatusHistoryResult{{
+	c.Check(results.Results, tc.DeepEquals, []params.StatusHistoryResult{{
 		Error: &params.Error{
 			Message: "multiple requests are not supported",
 		},
@@ -158,11 +157,11 @@ func (s *statusSuite) TestStatusHistoryNoBulk(c *gc.C) {
 	}})
 }
 
-func (s *statusSuite) TestStatusHistoryInvalidKind(c *gc.C) {
+func (s *statusSuite) TestStatusHistoryInvalidKind(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag, err := names.ParseApplicationTag("application-foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
 
@@ -176,15 +175,15 @@ func (s *statusSuite) TestStatusHistoryInvalidKind(c *gc.C) {
 			Tag:  tag.String(),
 		}},
 	})
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results, gc.DeepEquals, []params.StatusHistoryResult{{
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results, tc.DeepEquals, []params.StatusHistoryResult{{
 		Error: &params.Error{
 			Message: `invalid status history kind "blah"`,
 		},
 	}})
 }
 
-func (s *statusSuite) TestStatusHistoryInvalidTag(c *gc.C) {
+func (s *statusSuite) TestStatusHistoryInvalidTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
@@ -199,19 +198,19 @@ func (s *statusSuite) TestStatusHistoryInvalidTag(c *gc.C) {
 			Tag:  "invalid-tag",
 		}},
 	})
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results, gc.DeepEquals, []params.StatusHistoryResult{{
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results, tc.DeepEquals, []params.StatusHistoryResult{{
 		Error: &params.Error{
 			Message: `"invalid-tag" is not a valid tag`,
 		},
 	}})
 }
 
-func (s *statusSuite) TestStatusHistoryError(c *gc.C) {
+func (s *statusSuite) TestStatusHistoryError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag, err := names.ParseApplicationTag("application-foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
 	s.statusService.EXPECT().GetStatusHistory(gomock.Any(), statusservice.StatusHistoryRequest{
@@ -232,15 +231,15 @@ func (s *statusSuite) TestStatusHistoryError(c *gc.C) {
 			Tag:  tag.String(),
 		}},
 	})
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results, gc.DeepEquals, []params.StatusHistoryResult{{
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results, tc.DeepEquals, []params.StatusHistoryResult{{
 		Error: &params.Error{
 			Message: `boom`,
 		},
 	}})
 }
 
-func (s *statusSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *statusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelInfoService = NewMockModelInfoService(ctrl)

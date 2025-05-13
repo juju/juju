@@ -18,72 +18,76 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/introspect"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/juju/sockets"
 )
 
 type IntrospectCommandSuite struct {
 	testing.BaseSuite
 }
 
-func (s *IntrospectCommandSuite) SetUpTest(c *gc.C) {
+func (s *IntrospectCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&config.DataDir, c.MkDir())
 }
 
-var _ = gc.Suite(&IntrospectCommandSuite{})
+var _ = tc.Suite(&IntrospectCommandSuite{})
 
-func (s *IntrospectCommandSuite) TestInitErrors(c *gc.C) {
+func (s *IntrospectCommandSuite) TestInitErrors(c *tc.C) {
 	s.assertInitError(c, "either a query path or a --listen address must be specified")
 	s.assertInitError(c, "a query path may not be specified with --listen", "query-path", "--listen=foo")
 	s.assertInitError(c, `unrecognized args: \["path"\]`, "query", "path")
 	s.assertInitError(c, "form value missing '='", "--post", "query-path", "foo")
 }
 
-func (*IntrospectCommandSuite) assertInitError(c *gc.C, expect string, args ...string) {
+func (*IntrospectCommandSuite) assertInitError(c *tc.C, expect string, args ...string) {
 	err := cmdtesting.InitCommand(&introspect.IntrospectCommand{}, args)
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }
 
-func (*IntrospectCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+func (*IntrospectCommandSuite) run(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, &introspect.IntrospectCommand{}, args...)
 }
 
-func (s *IntrospectCommandSuite) TestAutoDetectMachineAgent(c *gc.C) {
+func (s *IntrospectCommandSuite) TestAutoDetectMachineAgent(c *tc.C) {
 	machineDir := filepath.Join(config.DataDir, "agents", "machine-1024")
 	err := os.MkdirAll(machineDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "query")
-	c.Assert(err, gc.ErrorMatches, ".*machine-1024.*")
+	c.Assert(err, tc.ErrorMatches, ".*machine-1024.*")
 }
 
-func (s *IntrospectCommandSuite) TestAutoDetectMachineAgentFails(c *gc.C) {
+func (s *IntrospectCommandSuite) TestAutoDetectMachineAgentFails(c *tc.C) {
 	machineDir := filepath.Join(config.DataDir, "agents")
 	err := os.MkdirAll(machineDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.run(c, "query")
-	c.Assert(err, gc.ErrorMatches, "could not determine machine or controller agent tag")
+	c.Assert(err, tc.ErrorMatches, "could not determine machine or controller agent tag")
 }
 
-func (s *IntrospectCommandSuite) TestAgentSpecified(c *gc.C) {
+func (s *IntrospectCommandSuite) TestAgentSpecified(c *tc.C) {
 	_, err := s.run(c, "query", "--agent=unit-foo-0")
-	c.Assert(err, gc.ErrorMatches, ".*unit-foo-0.*")
+	c.Assert(err, tc.ErrorMatches, ".*unit-foo-0.*")
 }
 
-func (s *IntrospectCommandSuite) TestQuery(c *gc.C) {
+func (s *IntrospectCommandSuite) TestQuery(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: filepath.Join(agentDir, "introspection.socket"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
 	defer listener.Close()
 
 	srv := newServer(listener)
@@ -91,16 +95,19 @@ func (s *IntrospectCommandSuite) TestQuery(c *gc.C) {
 	defer srv.Shutdown(context.Background())
 
 	ctx, err := s.run(c, "query", "--agent=machine-0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "hello")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "hello")
 }
 
-func (s *IntrospectCommandSuite) TestQueryFails(c *gc.C) {
+func (s *IntrospectCommandSuite) TestQueryFails(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: filepath.Join(agentDir, "introspection.socket"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
 	defer listener.Close()
 
 	srv := newServer(listener)
@@ -108,22 +115,25 @@ func (s *IntrospectCommandSuite) TestQueryFails(c *gc.C) {
 	defer srv.Shutdown(context.Background())
 
 	ctx, err := s.run(c, "missing", "--agent=machine-0")
-	c.Assert(err.Error(), gc.Equals, "response returned 404 (Not Found)")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "404 page not found\n")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(err.Error(), tc.Equals, "response returned 404 (Not Found)")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "404 page not found\n")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 	ctx, err = s.run(c, "badness", "--agent=machine-0")
-	c.Assert(err.Error(), gc.Equals, "response returned 500 (Internal Server Error)")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "argh\n")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(err.Error(), tc.Equals, "response returned 500 (Internal Server Error)")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "argh\n")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
 
-func (s *IntrospectCommandSuite) TestGetToPostEndpoint(c *gc.C) {
+func (s *IntrospectCommandSuite) TestGetToPostEndpoint(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: filepath.Join(agentDir, "introspection.socket"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
 	defer listener.Close()
 
 	srv := newServer(listener)
@@ -131,17 +141,20 @@ func (s *IntrospectCommandSuite) TestGetToPostEndpoint(c *gc.C) {
 	defer srv.Shutdown(context.Background())
 
 	ctx, err := s.run(c, "postonly", "--agent=machine-0")
-	c.Assert(err, gc.ErrorMatches, `response returned 405 \(Method Not Allowed\)`)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "postonly requires a POST request\n")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, `response returned 405 \(Method Not Allowed\)`)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "postonly requires a POST request\n")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
 
-func (s *IntrospectCommandSuite) TestPost(c *gc.C) {
+func (s *IntrospectCommandSuite) TestPost(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	listener, err := net.Listen("unix", filepath.Join(agentDir, "introspection.socket"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: filepath.Join(agentDir, "introspection.socket"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
 	defer listener.Close()
 
 	srv := newServer(listener)
@@ -149,21 +162,23 @@ func (s *IntrospectCommandSuite) TestPost(c *gc.C) {
 	defer srv.Shutdown(context.Background())
 
 	ctx, err := s.run(c, "--post", "postonly", "--agent=machine-0", "single=value", "double=foo", "double=bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 double="foo"
 double="bar"
 single="value"
 `[1:])
 }
 
-func (s *IntrospectCommandSuite) TestListen(c *gc.C) {
+func (s *IntrospectCommandSuite) TestListen(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	socketName := filepath.Join(agentDir, "introspection.socket")
-	listener, err := net.Listen("unix", socketName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: filepath.Join(agentDir, "introspection.socket"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
 	defer listener.Close()
 
 	srv := newServer(listener)
@@ -174,25 +189,25 @@ func (s *IntrospectCommandSuite) TestListen(c *gc.C) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, os.Args[0], "-run-listen="+config.DataDir)
 	stderr, err := cmd.StderrPipe()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer stderr.Close()
 	err = cmd.Start()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	scanner := bufio.NewScanner(stderr)
-	c.Assert(scanner.Scan(), jc.IsTrue)
+	c.Assert(scanner.Scan(), tc.IsTrue)
 	line := scanner.Text()
-	c.Assert(line, gc.Matches, "Exposing .* introspection socket on 127.0.0.1:.*")
+	c.Assert(line, tc.Matches, "Exposing .* introspection socket on 127.0.0.1:.*")
 
 	fields := strings.Fields(line)
 	addr := fields[len(fields)-1]
 	resp, err := http.Get(fmt.Sprintf("http://%s/query", addr))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	body, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(body), gc.Equals, "hello")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(body), tc.Equals, "hello")
 }
 
 func newServer(l net.Listener) *http.Server {

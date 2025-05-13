@@ -9,9 +9,8 @@ import (
 	"sync"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
@@ -93,7 +92,7 @@ func (u *unit) String() string {
 	return u.MockUnit.Name()
 }
 
-func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *unit {
+func (ctx *testContext) makeUnit(c *tc.C, unitTag names.UnitTag, l life.Value) *unit {
 	u := &unit{
 		MockUnit: uniterapi.NewMockUnit(ctx.ctrl),
 		life:     l,
@@ -232,7 +231,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 	u.EXPECT().CanApplyLXDProfile(gomock.Any()).DoAndReturn(func(context.Context) (bool, error) {
 		u.mu.Lock()
 		tag, err := u.AssignedMachine(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		u.mu.Unlock()
 		return tag.ContainerType() == "lxd", nil
 	}).AnyTimes()
@@ -304,14 +303,14 @@ type relation struct {
 	life life.Value
 }
 
-func (ctx *testContext) makeRelation(c *gc.C, relTag names.RelationTag, l life.Value, otherApp string) *relation {
+func (ctx *testContext) makeRelation(c *tc.C, relTag names.RelationTag, l life.Value, otherApp string) *relation {
 	r := &relation{
 		MockRelation: uniterapi.NewMockRelation(ctx.ctrl),
 		life:         l,
 	}
 
 	ep, ok := endpointsForTest[relTag.Id()]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	relId := int(ctx.relCounter.Add(1))
 	r.EXPECT().Tag().Return(relTag).AnyTimes()
@@ -339,14 +338,14 @@ type relationUnit struct {
 	*uniterapi.MockRelationUnit
 }
 
-func (ctx *testContext) makeRelationUnit(c *gc.C, rel *relation, u *unit) *relationUnit {
+func (ctx *testContext) makeRelationUnit(c *tc.C, rel *relation, u *unit) *relationUnit {
 	ru := &relationUnit{
 		MockRelationUnit: uniterapi.NewMockRelationUnit(ctx.ctrl),
 	}
 
 	ru.EXPECT().Relation().Return(rel).AnyTimes()
 	ep, err := rel.Endpoint(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ru.EXPECT().Endpoint().Return(*ep).AnyTimes()
 
 	ru.EXPECT().EnterScope(gomock.Any()).DoAndReturn(func(context.Context) error {

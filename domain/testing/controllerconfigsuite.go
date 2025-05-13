@@ -8,8 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
 	coredatabase "github.com/juju/juju/core/database"
@@ -23,13 +22,13 @@ type ControllerTxnProvider interface {
 }
 
 func SeedControllerConfig(
-	c *gc.C,
+	c *tc.C,
 	config controller.Config,
 	controllerModelUUID coremodel.UUID,
 	provider ControllerTxnProvider,
 ) controller.Config {
 	err := bootstrap.InsertInitialControllerConfig(config, controllerModelUUID)(context.Background(), provider.ControllerTxnRunner(), noopTxnRunner{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return config
 }
 

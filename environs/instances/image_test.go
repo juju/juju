@@ -6,8 +6,7 @@ package instances
 import (
 	"testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -21,10 +20,10 @@ type imageSuite struct {
 }
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
-var _ = gc.Suite(&imageSuite{})
+var _ = tc.Suite(&imageSuite{})
 
 var jsonImagesContent = `
 {
@@ -319,7 +318,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 	},
 }
 
-func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
+func (s *imageSuite) TestFindInstanceSpec(c *tc.C) {
 	for _, t := range findInstanceSpecTests {
 		c.Logf("test: %v", t.desc)
 		t.init()
@@ -328,7 +327,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 			Releases:  []string{"12.04"},
 			Stream:    t.stream,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dataSource := simplestreams.NewDataSource(simplestreams.Config{
 			Description:          "test",
 			BaseURL:              "some-url",
@@ -336,7 +335,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 		})
 		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), dataSource, cons)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {
 			im := *imageMetadata
@@ -354,18 +353,18 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 			Constraints: imageCons,
 		}, t.instanceTypes)
 		if t.err != "" {
-			c.Check(err, gc.ErrorMatches, t.err)
+			c.Check(err, tc.ErrorMatches, t.err)
 			continue
 		} else {
-			if !c.Check(err, jc.ErrorIsNil) {
+			if !c.Check(err, tc.ErrorIsNil) {
 				continue
 			}
-			c.Check(spec.Image.Id, gc.Equals, t.imageId)
+			c.Check(spec.Image.Id, tc.Equals, t.imageId)
 			if len(t.instanceTypes) == 1 {
-				c.Check(spec.InstanceType, gc.DeepEquals, t.instanceTypes[0])
+				c.Check(spec.InstanceType, tc.DeepEquals, t.instanceTypes[0])
 			}
 			if imageCons.HasInstanceType() {
-				c.Assert(spec.InstanceType.Name, gc.Equals, *imageCons.InstanceType)
+				c.Assert(spec.InstanceType.Name, tc.Equals, *imageCons.InstanceType)
 			}
 		}
 	}
@@ -406,18 +405,18 @@ var imageMatchtests = []struct {
 	},
 }
 
-func (s *imageSuite) TestImageMatch(c *gc.C) {
+func (s *imageSuite) TestImageMatch(c *tc.C) {
 	for i, t := range imageMatchtests {
 		c.Logf("test %d", i)
-		c.Check(t.image.match(t.itype), gc.Equals, t.match)
+		c.Check(t.image.match(t.itype), tc.Equals, t.match)
 	}
 }
 
-func (*imageSuite) TestImageMetadataToImagesAcceptsNil(c *gc.C) {
-	c.Check(ImageMetadataToImages(nil), gc.HasLen, 0)
+func (*imageSuite) TestImageMetadataToImagesAcceptsNil(c *tc.C) {
+	c.Check(ImageMetadataToImages(nil), tc.HasLen, 0)
 }
 
-func (*imageSuite) TestImageMetadataToImagesConvertsSelectMetadata(c *gc.C) {
+func (*imageSuite) TestImageMetadataToImagesConvertsSelectMetadata(c *tc.C) {
 	input := []*imagemetadata.ImageMetadata{
 		{
 			Id:          "id",
@@ -436,10 +435,10 @@ func (*imageSuite) TestImageMetadataToImagesConvertsSelectMetadata(c *gc.C) {
 			Arch:     "arch",
 		},
 	}
-	c.Check(ImageMetadataToImages(input), gc.DeepEquals, expectation)
+	c.Check(ImageMetadataToImages(input), tc.DeepEquals, expectation)
 }
 
-func (*imageSuite) TestImageMetadataToImagesMaintainsOrdering(c *gc.C) {
+func (*imageSuite) TestImageMetadataToImagesMaintainsOrdering(c *tc.C) {
 	input := []*imagemetadata.ImageMetadata{
 		{Id: "one", Arch: "Z80"},
 		{Id: "two", Arch: "i386"},
@@ -450,10 +449,10 @@ func (*imageSuite) TestImageMetadataToImagesMaintainsOrdering(c *gc.C) {
 		{Id: "two", Arch: "i386"},
 		{Id: "three", Arch: "amd64"},
 	}
-	c.Check(ImageMetadataToImages(input), gc.DeepEquals, expectation)
+	c.Check(ImageMetadataToImages(input), tc.DeepEquals, expectation)
 }
 
-func (*imageSuite) TestInstanceConstraintString(c *gc.C) {
+func (*imageSuite) TestInstanceConstraintString(c *tc.C) {
 	imageCons := constraints.MustParse("mem=4G")
 	ic := &InstanceConstraint{
 		Base:        corebase.MakeDefaultBase("ubuntu", "12.04"),
@@ -462,11 +461,11 @@ func (*imageSuite) TestInstanceConstraintString(c *gc.C) {
 		Constraints: imageCons,
 	}
 	c.Assert(
-		ic.String(), gc.Equals,
+		ic.String(), tc.Equals,
 		"{region: region, base: ubuntu@12.04, arch: amd64, constraints: mem=4096M, storage: []}")
 
 	ic.Storage = []string{"ebs", "ssd"}
 	c.Assert(
-		ic.String(), gc.Equals,
+		ic.String(), tc.Equals,
 		"{region: region, base: ubuntu@12.04, arch: amd64, constraints: mem=4096M, storage: [ebs ssd]}")
 }

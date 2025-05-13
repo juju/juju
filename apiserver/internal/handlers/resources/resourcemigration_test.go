@@ -14,9 +14,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/core/resource"
@@ -46,9 +45,9 @@ type resourcesUploadSuite struct {
 	srv *httptest.Server
 }
 
-var _ = gc.Suite(&resourcesUploadSuite{})
+var _ = tc.Suite(&resourcesUploadSuite{})
 
-func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
+func (s *resourcesUploadSuite) SetUpTest(c *tc.C) {
 	s.content = "resource-content"
 	s.origin = charmresource.OriginStore
 	s.originStr = s.origin.String()
@@ -57,7 +56,7 @@ func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
 	s.size = int64(len(s.content))
 	s.sizeStr = strconv.Itoa(int(s.size))
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(s.content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.fingerprint = fp
 	s.fingerprintStr = fp.String()
 
@@ -65,11 +64,11 @@ func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
 	s.srv = httptest.NewServer(s.mux)
 }
 
-func (s *resourcesUploadSuite) TearDownTest(c *gc.C) {
+func (s *resourcesUploadSuite) TearDownTest(c *tc.C) {
 	s.srv.Close()
 }
 
-func (s *resourcesUploadSuite) TestStub(c *gc.C) {
+func (s *resourcesUploadSuite) TestStub(c *tc.C) {
 	c.Skip("This suite is missing tests for the following scenarios:\n" +
 		"- Sending a POST req requires authorization via unit or application only.\n" +
 		"- Rejects an unknown model with http.StatusNotFound.\n" +
@@ -78,7 +77,7 @@ func (s *resourcesUploadSuite) TestStub(c *gc.C) {
 
 // TestServeMethodNotSupported ensures that the handler rejects HTTP methods
 // other than POST with a 405 Method Not Allowed response.
-func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *tc.C) {
 	// Arrange
 	handler := NewResourceMigrationUploadHandler(
 		nil,
@@ -106,19 +105,19 @@ func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *gc.C) {
 	for _, method := range unsupportedMethods {
 		// Act
 		request, err := http.NewRequest(method, url, nil)
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while building request. method: %s", method))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while building request. method: %s", method))
 		response, err := http.DefaultClient.Do(request)
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request. method: %s", method))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request. method: %s", method))
 
 		// Assert
-		c.Check(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed,
-			gc.Commentf("(Assert) unexpected status code. method: %s", method))
+		c.Check(response.StatusCode, tc.Equals, http.StatusMethodNotAllowed,
+			tc.Commentf("(Assert) unexpected status code. method: %s", method))
 	}
 }
 
 // TestServeUploadApplicationResourceNotFound verifies the handler's behavior
 // when the application resource is not found.
-func (s *resourcesUploadSuite) TestServeUploadApplicationResourceNotFound(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeUploadApplicationResourceNotFound(c *tc.C) {
 	// Arrange
 	defer s.setupHandler(c).Finish()
 	query := url.Values{
@@ -134,16 +133,16 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationResourceNotFound(c *gc.
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", nil)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
-	c.Check(response.StatusCode, gc.Equals, http.StatusNotFound,
-		gc.Commentf("(Assert) unexpected status code."))
+	c.Check(response.StatusCode, tc.Equals, http.StatusNotFound,
+		tc.Commentf("(Assert) unexpected status code."))
 }
 
 // TestServeUploadApplicationStoreResourceError verifies error handling
 // when storing a resource during an upload operation.
-func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *tc.C) {
 	// Arrange
 	defer s.setupHandler(c).Finish()
 	query := url.Values{
@@ -171,16 +170,16 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *g
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", nil)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
-	c.Check(response.StatusCode, gc.Equals, http.StatusInternalServerError,
-		gc.Commentf("(Assert) unexpected status code."))
+	c.Check(response.StatusCode, tc.Equals, http.StatusInternalServerError,
+		tc.Commentf("(Assert) unexpected status code."))
 }
 
 // TestServeUploadApplicationGetResourceError validates the behavior
 // when an error occurs while retrieving a resource.
-func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *tc.C) {
 	// Arrange
 	defer s.setupHandler(c).Finish()
 	query := url.Values{
@@ -202,17 +201,17 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *gc.
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", nil)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
-	c.Check(response.StatusCode, gc.Equals, http.StatusInternalServerError,
-		gc.Commentf("(Assert) unexpected status code."))
+	c.Check(response.StatusCode, tc.Equals, http.StatusInternalServerError,
+		tc.Commentf("(Assert) unexpected status code."))
 }
 
 // TestServeUploadApplicationWithPlaceholder tests the application's ability to
 // handle uploading with placeholders correctly. It verifies that StoreResource is
 // not called through not configuring related mock.
-func (s *resourcesUploadSuite) TestServeUploadApplicationWithPlaceholder(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeUploadApplicationWithPlaceholder(c *tc.C) {
 	// Arrange
 	defer s.setupHandler(c).Finish()
 	query := url.Values{
@@ -222,17 +221,17 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationWithPlaceholder(c *gc.C
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
-	c.Check(response.StatusCode, gc.Equals, http.StatusOK,
-		gc.Commentf("(Assert) unexpected status code."))
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
+		tc.Commentf("(Assert) unexpected status code."))
 }
 
 // TestServeUploadApplication tests the HTTP endpoint for uploading application
 // resources, ensuring correct handling and storage. It verifies correct values
 // are passed as argument for calling the different underlying services.
-func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeUploadApplication(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	defer s.setupHandler(c).Finish()
@@ -268,17 +267,17 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
 	var obtained params.ResourceUploadResult
-	c.Check(response.StatusCode, gc.Equals, http.StatusOK,
-		gc.Commentf("(Assert) unexpected status code."))
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
+		tc.Commentf("(Assert) unexpected status code."))
 	body, err := io.ReadAll(response.Body)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error while reading response body"))
-	c.Assert(json.Unmarshal(body, &obtained), jc.ErrorIsNil,
-		gc.Commentf("(Assert) unexpected error while unmarshalling response"))
-	c.Check(obtained, gc.Equals, params.ResourceUploadResult{
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error while reading response body"))
+	c.Assert(json.Unmarshal(body, &obtained), tc.ErrorIsNil,
+		tc.Commentf("(Assert) unexpected error while unmarshalling response"))
+	c.Check(obtained, tc.Equals, params.ResourceUploadResult{
 		ID:        "res-uuid",
 		Timestamp: now,
 	})
@@ -286,7 +285,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 
 // TestServeUploadApplicationRetrievedByUser tests that the RetrievedBy and
 // RetrievedByType values are correctly determined for a user retriever.
-func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	defer s.setupHandler(c).Finish()
@@ -323,13 +322,13 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *gc.C
 
 	// Act
 	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 }
 
 // TestServeUploadApplicationRetrievedByApplication tests that the RetrievedBy
 // and RetrievedByType values are correctly determined for an application
 // retriever.
-func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	defer s.setupHandler(c).Finish()
@@ -367,12 +366,12 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(
 
 	// Act
 	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 }
 
 // TestServeUploadApplicationRetrievedByUnit tests that the RetrievedBy and
 // RetrievedByType values are correctly determined for a unit retriever.
-func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	defer s.setupHandler(c).Finish()
@@ -410,13 +409,13 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *gc.C
 
 	// Act
 	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 }
 
 // TestServeUploadUnitWithPlaceholder tests the upload functionality for a unit
 // with a placeholder in the resource upload service. It is basically the same
 // test than the one with application, with one call to SetUnitResource.
-func (s *resourcesUploadSuite) TestServeUploadUnitWithPlaceholder(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeUploadUnitWithPlaceholder(c *tc.C) {
 	// Arrange
 	defer s.setupHandler(c).Finish()
 	query := url.Values{
@@ -426,17 +425,17 @@ func (s *resourcesUploadSuite) TestServeUploadUnitWithPlaceholder(c *gc.C) {
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
-	c.Check(response.StatusCode, gc.Equals, http.StatusOK,
-		gc.Commentf("(Assert) unexpected status code."))
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
+		tc.Commentf("(Assert) unexpected status code."))
 }
 
 // TestServeUploadUnit tests the process of uploading a resource unit and
 // verifies correct resource handling and response. It is basically the same
 // test than the one with application, with one call to SetUnitResource.
-func (s *resourcesUploadSuite) TestServeUploadUnit(c *gc.C) {
+func (s *resourcesUploadSuite) TestServeUploadUnit(c *tc.C) {
 	// Arrange
 	defer s.setupHandler(c).Finish()
 	query := url.Values{
@@ -447,16 +446,16 @@ func (s *resourcesUploadSuite) TestServeUploadUnit(c *gc.C) {
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
-	c.Check(response.StatusCode, gc.Equals, http.StatusOK,
-		gc.Commentf("(Assert) unexpected status code."))
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
+		tc.Commentf("(Assert) unexpected status code."))
 }
 
 // setupHandler configures the resources migration upload HTTP handler, init
 // mocks and registers it to the mux. It provides cleanup logic.
-func (s *resourcesUploadSuite) setupHandler(c *gc.C) Finisher {
+func (s *resourcesUploadSuite) setupHandler(c *tc.C) Finisher {
 	finish := s.setupMocks(c).Finish
 	s.expectResourceService()
 
@@ -466,7 +465,7 @@ func (s *resourcesUploadSuite) setupHandler(c *gc.C) Finisher {
 	)
 
 	err := s.mux.AddHandler("POST", migrateResourcesPrefix, handler)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) unexpected error while adding handler"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) unexpected error while adding handler"))
 
 	return &finisherWrapper{
 		finish: func() {
@@ -483,7 +482,7 @@ func (s *resourcesUploadSuite) expectResourceService() {
 
 // setupMocks initializes mock services and returns a gomock.Controller
 // for managing mock lifecycle.
-func (s *resourcesUploadSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *resourcesUploadSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.resourceServiceGetter = NewMockResourceServiceGetter(ctrl)

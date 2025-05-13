@@ -8,8 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/juju/clock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -25,9 +24,9 @@ type watcherSuite struct {
 	changestreamtesting.ModelSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) TestWatchRemovals(c *gc.C) {
+func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "some-model-uuid")
 
 	log := loggertesting.WrapCheckLog(c)
@@ -40,12 +39,12 @@ func (s *watcherSuite) TestWatchRemovals(c *gc.C) {
 	)
 
 	w, err := svc.WatchRemovals()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 
 	// Insert 2 new jobs and check that the watcher emits their UUIDs.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			q := `INSERT INTO removal (uuid, removal_type_id, entity_uuid) VALUES (?, ?, ?)`
 
@@ -55,7 +54,7 @@ func (s *watcherSuite) TestWatchRemovals(c *gc.C) {
 			_, err := tx.ExecContext(ctx, q, "job-uuid-2", 1, "rel-uuid-2")
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("job-uuid-1", "job-uuid-2"))

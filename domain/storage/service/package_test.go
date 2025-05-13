@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/storage"
@@ -18,7 +18,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination internal_storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry,Provider,VolumeSource,VolumeImporter,FilesystemSource,FilesystemImporter
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type modelStorageRegistryGetter func() storage.ProviderRegistry

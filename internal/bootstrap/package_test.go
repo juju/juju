@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -28,11 +28,11 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination clock_mock_test.go github.com/juju/clock Clock
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	agentBinaryStore     *MockAgentBinaryStore
 	storage              *MockAgentBinaryStorage
@@ -49,7 +49,7 @@ type baseSuite struct {
 	logger logger.Logger
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.agentBinaryStore = NewMockAgentBinaryStore(ctrl)
@@ -70,7 +70,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
+func (s *baseSuite) newConfig(c *tc.C) BaseDeployerConfig {
 	controllerUUID := uuid.MustNewUUID()
 
 	return BaseDeployerConfig{

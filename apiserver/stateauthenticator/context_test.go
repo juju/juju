@@ -12,9 +12,8 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock/testclock"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -40,17 +39,17 @@ type macaroonCommonSuite struct {
 	controllerConfig map[string]interface{}
 }
 
-func (s *macaroonCommonSuite) SetUpTest(c *gc.C) {
+func (s *macaroonCommonSuite) SetUpTest(c *tc.C) {
 	s.clock = testclock.NewClock(time.Now())
 }
 
-func (s *macaroonCommonSuite) TearDownTest(c *gc.C) {
+func (s *macaroonCommonSuite) TearDownTest(c *tc.C) {
 	if s.discharger != nil {
 		s.discharger.Close()
 	}
 }
 
-func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *macaroonCommonSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
@@ -74,7 +73,7 @@ func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 		agentAuthGetter,
 		s.clock,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authenticator = authenticator
 
 	return ctrl
@@ -84,12 +83,12 @@ type macaroonAuthWrongPublicKeySuite struct {
 	macaroonCommonSuite
 }
 
-var _ = gc.Suite(&macaroonAuthWrongPublicKeySuite{})
+var _ = tc.Suite(&macaroonAuthWrongPublicKeySuite{})
 
-func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *gc.C) {
+func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *tc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)
 	wrongKey, err := bakery.GenerateKey()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	s.controllerConfig = map[string]interface{}{
 		controller.IdentityURL:       s.discharger.Location(),
 		controller.IdentityPublicKey: wrongKey.Public.String(),
@@ -97,44 +96,44 @@ func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *gc.C) {
 	s.macaroonCommonSuite.SetUpTest(c)
 }
 
-func (s *macaroonAuthWrongPublicKeySuite) TearDownTest(c *gc.C) {
+func (s *macaroonAuthWrongPublicKeySuite) TearDownTest(c *tc.C) {
 	s.discharger.Close()
 }
 
-func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
+func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ctx := context.Background()
 	client := httpbakery.NewClient()
 
 	m, err := macaroon.New(nil, nil, "loc", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mac, err := bakery.NewLegacyMacaroon(m)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cav := checkers.Caveat{
 		Location:  s.discharger.Location(),
 		Condition: "true",
 	}
 	anotherKey, err := bakery.GenerateKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	loc := bakery.NewThirdPartyStore()
 	loc.AddInfo(s.discharger.Location(), bakery.ThirdPartyInfo{})
 	err = mac.AddCaveat(ctx, cav, anotherKey, loc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = client.DischargeAll(ctx, mac)
-	c.Assert(err, gc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
+	c.Assert(err, tc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
 }
 
 type macaroonNoURLSuite struct {
 	macaroonCommonSuite
 }
 
-var _ = gc.Suite(&macaroonNoURLSuite{})
+var _ = tc.Suite(&macaroonNoURLSuite{})
 
-func (s *macaroonNoURLSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
+func (s *macaroonNoURLSuite) TestNoBakeryWhenNoIdentityURL(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// By default, when there is no identity location, no bakery is created.
 	_, err := ServerBakery(context.Background(), s.authenticator, nil)
-	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
+	c.Assert(err, tc.ErrorMatches, "macaroon authentication is not configured")
 }

@@ -4,9 +4,8 @@
 package watcher_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -14,14 +13,14 @@ import (
 
 type normaliseWatcherSuite struct{}
 
-var _ = gc.Suite(&normaliseWatcherSuite{})
+var _ = tc.Suite(&normaliseWatcherSuite{})
 
-func (s *normaliseWatcherSuite) TestStringsWatcher(c *gc.C) {
+func (s *normaliseWatcherSuite) TestStringsWatcher(c *tc.C) {
 	ch := make(chan []string, 1)
 	source := watchertest.NewMockStringsWatcher(ch)
 
 	nw, err := watcher.Normalise[[]string](source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nwC := watchertest.NewNotifyWatcherC(c, nw)
 
@@ -36,12 +35,12 @@ func (s *normaliseWatcherSuite) TestStringsWatcher(c *gc.C) {
 	nwC.AssertKilled()
 }
 
-func (s *normaliseWatcherSuite) TestSourceDies(c *gc.C) {
+func (s *normaliseWatcherSuite) TestSourceDies(c *tc.C) {
 	ch := make(chan []string, 1)
 	source := watchertest.NewMockStringsWatcher(ch)
 
 	nw, err := watcher.Normalise[[]string](source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nwC := watchertest.NewNotifyWatcherC(c, nw)
 
@@ -58,11 +57,11 @@ func (s *normaliseWatcherSuite) TestSourceDies(c *gc.C) {
 	workertest.CheckKilled(c, nw)
 }
 
-func (s *normaliseWatcherSuite) TestNotifyWatcherElided(c *gc.C) {
+func (s *normaliseWatcherSuite) TestNotifyWatcherElided(c *tc.C) {
 	ch := make(chan struct{}, 1)
 	source := watchertest.NewMockNotifyWatcher(ch)
 
 	nw, err := watcher.Normalise[struct{}](source)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nw, gc.Equals, source)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(nw, tc.Equals, source)
 }

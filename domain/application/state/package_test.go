@@ -10,8 +10,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
@@ -36,14 +35,14 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package state -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
 	schematesting.ModelSuite
 }
 
-func (s *baseSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
@@ -54,16 +53,16 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) minimalMetadata(c *gc.C, name string) charm.Metadata {
+func (s *baseSuite) minimalMetadata(c *tc.C, name string) charm.Metadata {
 	return charm.Metadata{
 		Name: name,
 	}
 }
 
-func (s *baseSuite) minimalMetadataWithPeerRelation(c *gc.C, name string, relationNames ...string) charm.Metadata {
+func (s *baseSuite) minimalMetadataWithPeerRelation(c *tc.C, name string, relationNames ...string) charm.Metadata {
 	peers := make(map[string]charm.Relation)
 	for _, relation := range relationNames {
 		peers[relation] = charm.Relation{
@@ -78,7 +77,7 @@ func (s *baseSuite) minimalMetadataWithPeerRelation(c *gc.C, name string, relati
 	}
 }
 
-func (s *baseSuite) minimalManifest(c *gc.C) charm.Manifest {
+func (s *baseSuite) minimalManifest(c *tc.C) charm.Manifest {
 	return charm.Manifest{
 		Bases: []charm.Base{
 			{
@@ -92,7 +91,7 @@ func (s *baseSuite) minimalManifest(c *gc.C) charm.Manifest {
 	}
 }
 
-func (s *baseSuite) addApplicationArgForResources(c *gc.C,
+func (s *baseSuite) addApplicationArgForResources(c *tc.C,
 	name string,
 	charmResources map[string]charm.Resource,
 	addResourcesArgs []application.AddApplicationResourceArg,
@@ -132,7 +131,7 @@ func (s *baseSuite) addApplicationArgForResources(c *gc.C,
 	}
 }
 
-func (s *baseSuite) createObjectStoreBlob(c *gc.C, path string) objectstore.UUID {
+func (s *baseSuite) createObjectStoreBlob(c *tc.C, path string) objectstore.UUID {
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -147,11 +146,11 @@ INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
 `, path, uuid.String())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }
 
-func (s *baseSuite) addApplicationArgForStorage(c *gc.C,
+func (s *baseSuite) addApplicationArgForStorage(c *tc.C,
 	name string,
 	charmStorage []charm.Storage,
 	addStorageArgs []application.ApplicationStorageArg) application.AddApplicationArg {
@@ -197,10 +196,10 @@ func (s *baseSuite) addApplicationArgForStorage(c *gc.C,
 		provider.CommonStorageProviders(),
 	}
 	types, err := registry.StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, t := range types {
 		p, err := registry.StorageProvider(t)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		if p.Supports(storage.StorageKindFilesystem) {
 			args.StoragePoolKind[string(t)] = storage.StorageKindFilesystem
 		} else {
@@ -210,7 +209,7 @@ func (s *baseSuite) addApplicationArgForStorage(c *gc.C,
 	return args
 }
 
-func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
+func (s *baseSuite) createApplication(c *tc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
@@ -279,13 +278,13 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 			},
 		},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelType, err := state.GetModelType(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	db, err := state.DB()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, u := range units {
 		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			if modelType == coremodel.IAAS {
@@ -293,7 +292,7 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 			}
 			return state.insertCAASUnit(ctx, tx, appID, u)
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
@@ -304,12 +303,12 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 		_, err = tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE application_uuid = ?", l, appID)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return appID
 }
 
-func (s *baseSuite) createScalingApplication(c *gc.C, name string, l life.Life, scale int) coreapplication.ID {
+func (s *baseSuite) createScalingApplication(c *tc.C, name string, l life.Life, scale int) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
@@ -357,19 +356,19 @@ func (s *baseSuite) createScalingApplication(c *gc.C, name string, l life.Life, 
 		},
 		Scale: scale,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return appID
 }
 
 func (s *baseSuite) assertApplication(
-	c *gc.C,
+	c *tc.C,
 	name string,
 	platform deployment.Platform,
 	channel *deployment.Channel,
@@ -411,18 +410,18 @@ func (s *baseSuite) assertApplication(
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotName, gc.Equals, name)
-	c.Check(gotPlatform, jc.DeepEquals, platform)
-	c.Check(gotScale, jc.DeepEquals, scale)
-	c.Check(gotAvailable, gc.Equals, available)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotName, tc.Equals, name)
+	c.Check(gotPlatform, tc.DeepEquals, platform)
+	c.Check(gotScale, tc.DeepEquals, scale)
+	c.Check(gotAvailable, tc.Equals, available)
 
 	// Channel is optional, so we need to check it separately.
 	if channel != nil {
-		c.Check(gotChannel, gc.DeepEquals, *channel)
+		c.Check(gotChannel, tc.DeepEquals, *channel)
 	} else {
 		// Ensure it's empty if the original origin channel isn't set.
 		// Prevent the db from sending back bogus values.
-		c.Check(gotChannel, gc.DeepEquals, deployment.Channel{})
+		c.Check(gotChannel, tc.DeepEquals, deployment.Channel{})
 	}
 }

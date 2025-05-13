@@ -10,9 +10,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/gomaasapi/v2"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -26,7 +25,7 @@ type EnvironProviderSuite struct {
 	maasSuite
 }
 
-var _ = gc.Suite(&EnvironProviderSuite{})
+var _ = tc.Suite(&EnvironProviderSuite{})
 
 func (s *EnvironProviderSuite) cloudSpec() environscloudspec.CloudSpec {
 	credential := oauthCredential("aa:bb:cc")
@@ -47,51 +46,51 @@ func oauthCredential(token string) cloud.Credential {
 	)
 }
 
-func (s *EnvironProviderSuite) TestValidateCloud(c *gc.C) {
+func (s *EnvironProviderSuite) TestValidateCloud(c *tc.C) {
 	err := providerInstance.ValidateCloud(context.Background(), s.cloudSpec())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *EnvironProviderSuite) TestValidateCloudSkipTLSVerify(c *gc.C) {
+func (s *EnvironProviderSuite) TestValidateCloudSkipTLSVerify(c *tc.C) {
 	cloud := s.cloudSpec()
 	cloud.SkipTLSVerify = true
 	err := providerInstance.ValidateCloud(context.Background(), cloud)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *EnvironProviderSuite) TestValidateCloudInvalidOAuth(c *gc.C) {
+func (s *EnvironProviderSuite) TestValidateCloudInvalidOAuth(c *tc.C) {
 	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
 	err := providerInstance.ValidateCloud(context.Background(), spec)
-	c.Assert(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
+	c.Assert(err, tc.ErrorMatches, ".*malformed maas-oauth.*")
 }
 
-func (s *EnvironProviderSuite) TestValidateCloudInvalidEndpoint(c *gc.C) {
+func (s *EnvironProviderSuite) TestValidateCloudInvalidEndpoint(c *tc.C) {
 	spec := s.cloudSpec()
 	spec.Endpoint = "This should have been a URL or host."
 	err := providerInstance.ValidateCloud(context.Background(), spec)
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`validating cloud spec: validating endpoint: endpoint "This should have been a URL or host." not valid`,
 	)
 }
 
 // create a temporary file with the given content.  The file will be cleaned
 // up at the end of the test calling this method.
-func createTempFile(c *gc.C, content []byte) string {
+func createTempFile(c *tc.C, content []byte) string {
 	file, err := os.CreateTemp(c.MkDir(), "")
 	defer file.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	filename := file.Name()
 	err = os.WriteFile(filename, content, 0o644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return filename
 }
 
-func (s *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
+func (s *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *tc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
 	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
@@ -102,102 +101,102 @@ func (s *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	// When Open() fails (i.e. returns a non-nil error), it returns an
 	// environs.Environ interface object with a nil value and a nil
 	// type.
-	c.Check(env, gc.Equals, nil)
-	c.Check(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
+	c.Check(env, tc.Equals, nil)
+	c.Check(err, tc.ErrorMatches, ".*malformed maas-oauth.*")
 }
 
-func (s *EnvironProviderSuite) TestSchema(c *gc.C) {
+func (s *EnvironProviderSuite) TestSchema(c *tc.C) {
 	y := []byte(`
 auth-types: [oauth1]
 endpoint: http://foo.com/openstack
 `[1:])
 	var v interface{}
 	err := yaml.Unmarshal(y, &v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	v, err = utils.ConformYAML(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	p, err := environs.Provider("maas")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.CloudSchema().Validate(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type MaasPingSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&MaasPingSuite{})
+var _ = tc.Suite(&MaasPingSuite{})
 
-func (s *MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
+func (s *MaasPingSuite) TestPingNoEndpoint(c *tc.C) {
 	endpoint := "https://foo.com/MAAS"
 	var serverURLs []string
 	err := ping(c, endpoint,
 		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
-			c.Assert(serverURL, gc.Equals, endpoint)
+			c.Assert(serverURL, tc.Equals, endpoint)
 			return nil, errors.New("nope")
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint+": nope")
-	c.Assert(serverURLs, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorMatches, "No MAAS server running at "+endpoint+": nope")
+	c.Assert(serverURLs, tc.DeepEquals, []string{
 		"https://foo.com/MAAS/api/2.0/",
 	})
 }
 
-func (s *MaasPingSuite) TestPingOK(c *gc.C) {
+func (s *MaasPingSuite) TestPingOK(c *tc.C) {
 	endpoint := "https://foo.com/MAAS"
 	var serverURLs []string
 	err := ping(c, endpoint,
 		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
-			c.Assert(serverURL, gc.Equals, endpoint)
+			c.Assert(serverURL, tc.Equals, endpoint)
 			return set.NewStrings("network-deployment-ubuntu"), nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serverURLs, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(serverURLs, tc.DeepEquals, []string{
 		"https://foo.com/MAAS/api/2.0/",
 	})
 }
 
-func (s *MaasPingSuite) TestPingVersionURLOK(c *gc.C) {
+func (s *MaasPingSuite) TestPingVersionURLOK(c *tc.C) {
 	endpoint := "https://foo.com/MAAS/api/10.1/"
 	var serverURLs []string
 	err := ping(c, endpoint,
 		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
-			c.Assert(serverURL, gc.Equals, "https://foo.com/MAAS/")
+			c.Assert(serverURL, tc.Equals, "https://foo.com/MAAS/")
 			return set.NewStrings("network-deployment-ubuntu"), nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serverURLs, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(serverURLs, tc.DeepEquals, []string{
 		"https://foo.com/MAAS/api/10.1/",
 	})
 }
 
-func (s *MaasPingSuite) TestPingVersionURLBad(c *gc.C) {
+func (s *MaasPingSuite) TestPingVersionURLBad(c *tc.C) {
 	endpoint := "https://foo.com/MAAS/api/10.1/"
 	var serverURLs []string
 	err := ping(c, endpoint,
 		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
-			c.Assert(serverURL, gc.Equals, "https://foo.com/MAAS/")
+			c.Assert(serverURL, tc.Equals, "https://foo.com/MAAS/")
 			return nil, errors.New("nope")
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint+": nope")
-	c.Assert(serverURLs, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorMatches, "No MAAS server running at "+endpoint+": nope")
+	c.Assert(serverURLs, tc.DeepEquals, []string{
 		"https://foo.com/MAAS/api/10.1/",
 	})
 }
 
-func ping(c *gc.C, endpoint string, getCapabilities Capabilities) error {
+func ping(c *tc.C, endpoint string, getCapabilities Capabilities) error {
 	p, err := environs.Provider("maas")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, ok := p.(EnvironProvider)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	m.GetCapabilities = getCapabilities
 	return m.Ping(context.Background(), endpoint)
 }

@@ -9,8 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
@@ -47,9 +46,9 @@ type watcherSuite struct {
 	changestreamtesting.ModelSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) SetUpTest(c *gc.C) {
+func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
@@ -60,22 +59,22 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *watcherSuite) TestWatchCharm(c *gc.C) {
+func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchCharms()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Ensure that we get the charm created event.
 
 	var id corecharm.ID
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		id, _, err = svc.SetCharm(context.Background(), charm.SetCharmArgs{
 			Charm:         &stubCharm{},
 			Source:        corecharm.CharmHub,
@@ -87,7 +86,7 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 				DownloadURL: "http://example.com",
 			},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(id.String()),
@@ -96,13 +95,13 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 
 	// Ensure that we get the charm deleted event.
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.DeleteCharm(context.Background(), charm.CharmLocator{
 			Name:     "test",
 			Revision: 1,
 			Source:   charm.CharmHubSource,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(id.String()),
@@ -112,7 +111,7 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
+func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
 
 	svc := s.setupService(c, factory)
@@ -121,13 +120,13 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	s.createApplication(c, svc, "bar")
 
 	var unitID1, unitID2, unitID3 string
-	setup := func(c *gc.C) {
+	setup := func(c *tc.C) {
 
 		ctx := context.Background()
 		err := svc.AddUnits(ctx, "foo", service.AddUnitArg{}, service.AddUnitArg{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = svc.AddUnits(ctx, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/0").Scan(&unitID1); err != nil {
@@ -141,14 +140,14 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	watcher, err := svc.WatchApplicationUnitLife("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		setup(c)
 		// Update non app unit first up.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -157,40 +156,40 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Initial event after creating the units.
 		w.Check(
 			watchertest.StringSliceAssert[string](unitID1, unitID2),
 		)
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "foo/0"); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](unitID1),
 		)
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/0"); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](unitID1),
 		)
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Removing dead unit, no change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID1); err != nil {
@@ -210,11 +209,11 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Updating different app unit with > 0 app units remaining - no change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/1"); err != nil {
@@ -222,11 +221,11 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Removing non app unit - no change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/0"); err != nil {
@@ -234,11 +233,11 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Removing non dead unit - change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID2); err != nil {
@@ -258,13 +257,13 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](unitID2),
 		)
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Updating different app unit with no app units remaining - no change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/667"); err != nil {
@@ -272,11 +271,11 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Deleting different app unit with no app units remaining - no change.
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID3); err != nil {
@@ -296,20 +295,20 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 	harness.Run(c, []string{})
 }
 
-func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
+func (s *watcherSuite) TestWatchUnitLifeInitial(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit")
 
 	svc := s.setupService(c, factory)
 
 	var unitID1, unitID2 string
-	setup := func(c *gc.C) {
+	setup := func(c *tc.C) {
 		s.createApplication(c, svc, "foo", service.AddUnitArg{}, service.AddUnitArg{})
 		s.createApplication(c, svc, "bar", service.AddUnitArg{})
 
@@ -322,15 +321,15 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 	}
 
 	watcher, err := svc.WatchApplicationUnitLife("foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		setup(c)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -341,7 +340,7 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *gc.C) {
 	harness.Run(c, []string{})
 }
 
-func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
+func (s *watcherSuite) TestWatchApplicationScale(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_scale")
 
 	svc := s.setupService(c, factory)
@@ -351,34 +350,34 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 
 	ctx := context.Background()
 	watcher, err := svc.WatchApplicationScale(ctx, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[struct{}](s, watchertest.NewWatcherC[struct{}](c, watcher))
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// First update after creating the app.
 		err = svc.SetApplicationScale(ctx, "foo", 2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Update same value.
 		err = svc.SetApplicationScale(ctx, "foo", 2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Update new value.
 		err = svc.SetApplicationScale(ctx, "foo", 3)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Different app.
 		err = svc.SetApplicationScale(ctx, "bar", 2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
@@ -386,19 +385,19 @@ func (s *watcherSuite) TestWatchApplicationScale(c *gc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
+func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
 
 	svc := s.setupService(c, factory)
 
 	ctx := context.Background()
 	watcher, err := svc.WatchApplicationsWithPendingCharms(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 
 	var id0, id1 coreapplication.ID
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		id0 = s.createApplication(c, svc, "foo")
 		id1 = s.createApplication(c, svc, "bar")
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -408,9 +407,9 @@ func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	})
 
 	// Updating the charm doesn't emit an event.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		db, err := factory()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
@@ -420,16 +419,16 @@ INNER JOIN charm AS c ON a.charm_uuid = c.uuid
 WHERE a.uuid=?`, id0.String())
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Updating the parts of the application table ignored by the mapper doesn't
 	// emit an event.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		db, err := factory()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
@@ -437,14 +436,14 @@ UPDATE application SET charm_modified_version = 1
 WHERE uuid=?`, id0.String())
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Add another application with a pending charm.
 	var id2 coreapplication.ID
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		id2 = s.createApplication(c, svc, "baz")
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -454,7 +453,7 @@ WHERE uuid=?`, id0.String())
 
 	// Add another application with an available charm.
 	// Available charms are not pending charms!
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		id2 = s.createApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{})
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -463,7 +462,7 @@ WHERE uuid=?`, id0.String())
 	harness.Run(c, []string{})
 }
 
-func (s *watcherSuite) TestWatchApplication(c *gc.C) {
+func (s *watcherSuite) TestWatchApplication(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
 
 	svc := s.setupService(c, factory)
@@ -473,14 +472,14 @@ func (s *watcherSuite) TestWatchApplication(c *gc.C) {
 
 	ctx := context.Background()
 	watcher, err := svc.WatchApplication(ctx, appName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[struct{}](s, watchertest.NewWatcherC[struct{}](c, watcher))
 
 	// Assert that a change to the charm modified version triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		db, err := factory()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
@@ -488,15 +487,15 @@ UPDATE application SET charm_modified_version = 1
 WHERE uuid=?`, appUUID)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	// Assert that a changing the name to itself does not trigger the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		db, err := factory()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
@@ -504,28 +503,28 @@ UPDATE application SET name = ?
 WHERE uuid=?`, appName, appUUID)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchApplicationBadName(c *gc.C) {
+func (s *watcherSuite) TestWatchApplicationBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchApplication(context.Background(), "bad-name")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *watcherSuite) TestWatchApplicationConfig(c *gc.C) {
+func (s *watcherSuite) TestWatchApplicationConfig(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
 
 	svc := s.setupService(c, factory)
@@ -535,75 +534,75 @@ func (s *watcherSuite) TestWatchApplicationConfig(c *gc.C) {
 
 	ctx := context.Background()
 	watcher, err := svc.WatchApplicationConfig(ctx, appName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[struct{}](s, watchertest.NewWatcherC[struct{}](c, watcher))
 
 	// Assert that a change to the config triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	// Assert the same change doesn't trigger a change.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	// Assert multiple changes to the config triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "blah",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	// Assert that the trust also triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"trust": "true",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchApplicationConfigBadName(c *gc.C) {
+func (s *watcherSuite) TestWatchApplicationConfigBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchApplicationConfig(context.Background(), "bad-name")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
+func (s *watcherSuite) TestWatchApplicationConfigHash(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
 
 	db, err := factory()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	svc := s.setupService(c, factory)
 
@@ -612,41 +611,41 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 
 	ctx := context.Background()
 	watcher, err := svc.WatchApplicationConfigHash(ctx, appName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 
 	// Assert that a change to the config triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		hash := s.getApplicationConfigHash(c, db, appUUID)
 		w.Check(watchertest.StringSliceAssert(hash))
 	})
 
 	// Assert the same change doesn't trigger a change.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Assert multiple changes to the config triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "blah",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// We should only see one hash change.
 		hash := s.getApplicationConfigHash(c, db, appUUID)
@@ -654,11 +653,11 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 	})
 
 	// Assert that the trust also triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"trust": "true",
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// We should only see one hash change.
 		hash := s.getApplicationConfigHash(c, db, appUUID)
@@ -666,7 +665,7 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 	})
 
 	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
@@ -674,15 +673,15 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 	harness.Run(c, []string{hash})
 }
 
-func (s *watcherSuite) TestWatchApplicationConfigHashBadName(c *gc.C) {
+func (s *watcherSuite) TestWatchApplicationConfigHashBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchApplicationConfigHash(context.Background(), "bad-name")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *gc.C) {
+func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
 	svc := s.setupService(c, factory)
 
@@ -691,12 +690,12 @@ func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *gc.C) {
 
 	ctx := context.Background()
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC[[]string](c, watcher))
 
 	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
@@ -704,7 +703,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *gc.C) {
 	harness.Run(c, []string{"09511b3ff5d870167ea4613c5b73f4ef4cb4a6953a828469ac456f31d468c2e7"})
 }
 
-func (s *watcherSuite) TestWatchUnitAddressesHash(c *gc.C) {
+func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
 	svc := s.setupService(c, factory)
 
@@ -759,15 +758,15 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := context.Background()
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Change the address for that net node should trigger a change.
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			updateIPAddress := `UPDATE ip_address SET address_value = ? WHERE uuid = ?`
@@ -777,13 +776,13 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertChange()
 	})
 
 	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
@@ -791,7 +790,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *gc.C) {
 	harness.Run(c, []string{"524100834051ef8c675e3adea593c50cceab2eacbd485f0879100045d273aacf"})
 }
 
-func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *gc.C) {
+func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
 	svc := s.setupService(c, factory)
 
@@ -802,22 +801,22 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *gc.C) {
 
 	// Add a cloud service to get an initial state.
 	err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.NewSpaceAddresses("10.0.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Change the address for the cloud service should trigger a change.
 		err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.NewSpaceAddresses("192.168.0.1"))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Add an endpoint binding should trigger a change.
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			insertCharm := `INSERT INTO charm (uuid, reference_name) VALUES (?, ?)`
@@ -837,13 +836,13 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *gc.C) {
 			}
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertChange()
 	})
 
 	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
@@ -851,15 +850,15 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *gc.C) {
 	harness.Run(c, []string{"5c83f0f6cd8dbec57a4503b85c7e807564fd2c8bf246f741a1da578aa570dbc2"})
 }
 
-func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *gc.C) {
+func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchUnitAddressesHash(context.Background(), "bad-unit-name")
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *watcherSuite) TestWatchApplicationExposed(c *gc.C) {
+func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "v_application_exposed_endpoint")
 
 	svc := s.setupService(c, factory)
@@ -869,18 +868,18 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *gc.C) {
 
 	ctx := context.Background()
 	watcher, err := svc.WatchApplicationExposed(ctx, appName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[struct{}](s, watchertest.NewWatcherC[struct{}](c, watcher))
 
 	// Assert that a change to the exposed endpoints triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
 			"": {
 				ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
 			},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -909,54 +908,54 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Assert that a single endpoint exposed to spaces triggers a change.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
 			"endpoint0": {
 				ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
 			},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	// Assert multiple changes to the exposed endpoints triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
 			"endpoint0": {
 				ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
 			},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
 			"": {
 				ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
 			},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchApplicationExposedBadName(c *gc.C) {
+func (s *watcherSuite) TestWatchApplicationExposedBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "v_application_exposed_endpoint")
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchApplicationExposed(context.Background(), "bad-name")
-	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *gc.C) {
+func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
 
 	svc := s.setupService(c, factory)
@@ -970,9 +969,9 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *gc.C) {
 	otherUnitName := unit.Name("foo/1")
 
 	unitUUID, err := svc.GetUnitUUID(ctx, unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	otherUnitUUID, err := svc.GetUnitUUID(ctx, otherUnitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
@@ -991,31 +990,31 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *gc.C) {
 			DownloadURL: "http://example.com",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := svc.WatchUnitForLegacyUniter(ctx, unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Capture the initial event
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 		w.AssertNoChange()
 	})
 
 	// Assert no change is emitted from just changing the status.
 	// Conveniently, setting this also allows us to resolve in the next test
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		statusState.SetUnitAgentStatus(ctx, unitUUID, status.StatusInfo[status.UnitAgentStatusType]{Status: status.UnitAgentStatusError})
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	// Assert resolving the unit triggers a change.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := resolveState.ResolveUnit(ctx, unitUUID, resolve.ResolveModeNoHooks)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -1023,13 +1022,13 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *gc.C) {
 	// Assert that refreshing a unit's charm triggers a change.
 	// NOTE: refresh has not been implemented yet, so change the charm_uuid value
 	// manually
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		stmt := `UPDATE unit SET charm_uuid = ? WHERE uuid = ?`
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, stmt, alternateCharmID, unitUUID)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -1037,78 +1036,78 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *gc.C) {
 	// Assert that adding a subordinate unit triggers a change
 	// NOTE: subordinate units have not been implemented yet, so insert directly into
 	// the unit_principal table
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		stmt := `INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, stmt, otherUnitUUID, unitUUID)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	// Assert that removing a subordinate unit triggers a change
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		stmt := `DELETE FROM unit_principal`
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, stmt)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	// Assert that changing the life of a unit triggers a change
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := svc.EnsureUnitDead(ctx, unitName, noOpRevoker{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
 	// Assert that refreshing another unit's charm does not trigger a change.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		stmt := `UPDATE unit SET charm_uuid = ? WHERE uuid = ?`
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, stmt, alternateCharmID, otherUnitUUID)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchUnitForLegacyUniterBadName(c *gc.C) {
+func (s *watcherSuite) TestWatchUnitForLegacyUniterBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchUnitForLegacyUniter(context.Background(), unit.Name("foo/0"))
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *watcherSuite) getApplicationConfigHash(c *gc.C, db changestream.WatchableDB, appUUID coreapplication.ID) string {
+func (s *watcherSuite) getApplicationConfigHash(c *tc.C, db changestream.WatchableDB, appUUID coreapplication.ID) string {
 	var hash string
 	err := db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `SELECT sha256 FROM application_config_hash WHERE application_uuid=?`, appUUID.String())
 		err := row.Scan(&hash)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return hash
 }
 
-func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
+func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *service.WatchableService {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
@@ -1139,11 +1138,11 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 	)
 }
 
-func (s *watcherSuite) createApplication(c *gc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
 	return s.createApplicationWithCharmAndStoragePath(c, svc, name, &stubCharm{}, "", units...)
 }
 
-func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *gc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *tc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := context.Background()
 	appID, err := svc.CreateApplication(ctx, name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -1160,7 +1159,7 @@ func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *gc.C, svc *se
 			DownloadURL: "http://example.com",
 		},
 	}, units...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return appID
 }
 

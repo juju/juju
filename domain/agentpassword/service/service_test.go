@@ -6,9 +6,8 @@ package service
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -20,54 +19,54 @@ type serviceSuite struct {
 	state *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestSetUnitPassword(c *gc.C) {
+func (s *serviceSuite) TestSetUnitPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().SetUnitPasswordHash(gomock.Any(), unitUUID, hashPassword(password)).Return(nil)
 
 	service := NewService(s.state)
 	err = service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
+func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, agentpassworderrors.UnitNotFound)
 
 	service := NewService(s.state)
 	err = service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
-func (s *serviceSuite) TestSetUnitPasswordInvalidName(c *gc.C) {
+func (s *serviceSuite) TestSetUnitPasswordInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("!!!")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	service := NewService(s.state)
 	err = service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
 }
 
-func (s *serviceSuite) TestSetUnitPasswordInvalidPassword(c *gc.C) {
+func (s *serviceSuite) TestSetUnitPasswordInvalidPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("unit/0")
@@ -75,76 +74,76 @@ func (s *serviceSuite) TestSetUnitPasswordInvalidPassword(c *gc.C) {
 
 	service := NewService(s.state)
 	err := service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, gc.ErrorMatches, "password is only 3 chars long, and is not a valid Agent password.*")
+	c.Assert(err, tc.ErrorMatches, "password is only 3 chars long, and is not a valid Agent password.*")
 }
 
-func (s *serviceSuite) TestMatchesUnitPasswordHash(c *gc.C) {
+func (s *serviceSuite) TestMatchesUnitPasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unitUUID, hashPassword(password)).Return(true, nil)
 
 	service := NewService(s.state)
 	valid, err := service.MatchesUnitPasswordHash(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(valid, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
 }
 
-func (s *serviceSuite) TestMatchesUnitPasswordHashUnitNotFound(c *gc.C) {
+func (s *serviceSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, agentpassworderrors.UnitNotFound)
 
 	service := NewService(s.state)
 	_, err = service.MatchesUnitPasswordHash(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
-func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidName(c *gc.C) {
+func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("!!!")
 	password, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	service := NewService(s.state)
 	_, err = service.MatchesUnitPasswordHash(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
+	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
 }
 
-func (s *serviceSuite) TestMatchesUnitPasswordHashEmptyPassword(c *gc.C) {
+func (s *serviceSuite) TestMatchesUnitPasswordHashEmptyPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("unit/0")
 
 	service := NewService(s.state)
 	_, err := service.MatchesUnitPasswordHash(context.Background(), unitName, "")
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.EmptyPassword)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.EmptyPassword)
 }
 
-func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *gc.C) {
+func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unit.Name("unit/0")
 
 	service := NewService(s.state)
 	_, err := service.MatchesUnitPasswordHash(context.Background(), unitName, "abc")
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.InvalidPassword)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.InvalidPassword)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)

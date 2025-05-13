@@ -8,8 +8,7 @@ import (
 	"net"
 	"sort"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
@@ -21,9 +20,9 @@ type AddressSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&AddressSuite{})
+var _ = tc.Suite(&AddressSuite{})
 
-func (s *AddressSuite) TestNewScopedAddressIPv4(c *gc.C) {
+func (s *AddressSuite) TestNewScopedAddressIPv4(c *tc.C) {
 	type test struct {
 		value         string
 		scope         network.Scope
@@ -67,13 +66,13 @@ func (s *AddressSuite) TestNewScopedAddressIPv4(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("test %d: %s %s", i, t.value, t.scope)
 		addr := network.NewSpaceAddress(t.value, network.WithScope(t.scope))
-		c.Check(addr.Value, gc.Equals, t.value)
-		c.Check(addr.Type, gc.Equals, network.IPv4Address)
-		c.Check(addr.Scope, gc.Equals, t.expectedScope)
+		c.Check(addr.Value, tc.Equals, t.value)
+		c.Check(addr.Type, tc.Equals, network.IPv4Address)
+		c.Check(addr.Scope, tc.Equals, t.expectedScope)
 	}
 }
 
-func (s *AddressSuite) TestNewScopedAddressIPv6(c *gc.C) {
+func (s *AddressSuite) TestNewScopedAddressIPv6(c *tc.C) {
 	// Examples below taken from
 	// http://en.wikipedia.org/wiki/IPv6_address
 	testAddresses := []struct {
@@ -116,13 +115,13 @@ func (s *AddressSuite) TestNewScopedAddressIPv6(c *gc.C) {
 	for i, test := range testAddresses {
 		c.Logf("test %d: %q -> %q", i, test.value, test.scope)
 		addr := network.NewSpaceAddress(test.value)
-		c.Check(addr.Value, gc.Equals, test.value)
-		c.Check(addr.Type, gc.Equals, network.IPv6Address)
-		c.Check(addr.Scope, gc.Equals, test.scope)
+		c.Check(addr.Value, tc.Equals, test.value)
+		c.Check(addr.Type, tc.Equals, network.IPv6Address)
+		c.Check(addr.Scope, tc.Equals, test.scope)
 	}
 }
 
-func (s *AddressSuite) TestAsProviderAddress(c *gc.C) {
+func (s *AddressSuite) TestAsProviderAddress(c *tc.C) {
 	addr1 := network.NewMachineAddress("0.1.2.3").AsProviderAddress(
 		network.WithSpaceName("foo"),
 		network.WithProviderSpaceID("3"),
@@ -134,7 +133,7 @@ func (s *AddressSuite) TestAsProviderAddress(c *gc.C) {
 	addr2 := network.NewMachineAddress("2001:db8::123").AsProviderAddress(
 		network.WithSpaceName(""),
 	)
-	c.Check(addr1, jc.DeepEquals, network.ProviderAddress{
+	c.Check(addr1, tc.DeepEquals, network.ProviderAddress{
 		MachineAddress: network.MachineAddress{
 			Value: "0.1.2.3",
 			Type:  "ipv4",
@@ -147,7 +146,7 @@ func (s *AddressSuite) TestAsProviderAddress(c *gc.C) {
 		ProviderVLANID:   "5001",
 		VLANTag:          50,
 	})
-	c.Check(addr2, jc.DeepEquals, network.ProviderAddress{
+	c.Check(addr2, tc.DeepEquals, network.ProviderAddress{
 		MachineAddress: network.MachineAddress{
 			Value: "2001:db8::123",
 			Type:  "ipv6",
@@ -157,7 +156,7 @@ func (s *AddressSuite) TestAsProviderAddress(c *gc.C) {
 	})
 }
 
-func (s *AddressSuite) TestAsProviderAddresses(c *gc.C) {
+func (s *AddressSuite) TestAsProviderAddresses(c *tc.C) {
 	addrs := network.NewMachineAddresses([]string{"0.2.3.4", "fc00::1"}).AsProviderAddresses(
 		network.WithSpaceName("bar"),
 		network.WithProviderSpaceID("4"),
@@ -165,7 +164,7 @@ func (s *AddressSuite) TestAsProviderAddresses(c *gc.C) {
 		network.WithProviderVLANID("5002"),
 		network.WithVLANTag(100),
 	)
-	c.Check(addrs, jc.DeepEquals, network.ProviderAddresses{{
+	c.Check(addrs, tc.DeepEquals, network.ProviderAddresses{{
 		MachineAddress: network.MachineAddress{
 			Value: "0.2.3.4",
 			Type:  "ipv4",
@@ -190,27 +189,27 @@ func (s *AddressSuite) TestAsProviderAddresses(c *gc.C) {
 	}})
 }
 
-func (s *AddressSuite) TestNewAddressIPv4(c *gc.C) {
+func (s *AddressSuite) TestNewAddressIPv4(c *tc.C) {
 	value := "0.1.2.3"
 	addr1 := network.NewSpaceAddress(value)
 	addr2 := network.NewSpaceAddress(value, network.WithScope(network.ScopeLinkLocal))
-	c.Assert(addr1.Scope, gc.Equals, network.ScopePublic) // derived from value
-	c.Assert(addr1.Value, gc.Equals, value)
-	c.Assert(addr1.Type, gc.Equals, network.IPv4Address)
-	c.Assert(addr2.Scope, gc.Equals, network.ScopeLinkLocal)
+	c.Assert(addr1.Scope, tc.Equals, network.ScopePublic) // derived from value
+	c.Assert(addr1.Value, tc.Equals, value)
+	c.Assert(addr1.Type, tc.Equals, network.IPv4Address)
+	c.Assert(addr2.Scope, tc.Equals, network.ScopeLinkLocal)
 }
 
-func (s *AddressSuite) TestNewAddressIPv6(c *gc.C) {
+func (s *AddressSuite) TestNewAddressIPv6(c *tc.C) {
 	value := "2001:db8::1"
 	addr1 := network.NewSpaceAddress(value)
 	addr2 := network.NewSpaceAddress(value, network.WithScope(network.ScopeLinkLocal))
-	c.Assert(addr1.Scope, gc.Equals, network.ScopePublic) // derived from value
-	c.Assert(addr1.Value, gc.Equals, value)
-	c.Assert(addr1.Type, gc.Equals, network.IPv6Address)
-	c.Assert(addr2.Scope, gc.Equals, network.ScopeLinkLocal)
+	c.Assert(addr1.Scope, tc.Equals, network.ScopePublic) // derived from value
+	c.Assert(addr1.Value, tc.Equals, value)
+	c.Assert(addr1.Type, tc.Equals, network.IPv6Address)
+	c.Assert(addr2.Scope, tc.Equals, network.ScopeLinkLocal)
 }
 
-func (s *AddressSuite) TestNewAddresses(c *gc.C) {
+func (s *AddressSuite) TestNewAddresses(c *tc.C) {
 	testAddresses := []struct {
 		values   []string
 		addrType network.AddressType
@@ -260,24 +259,24 @@ func (s *AddressSuite) TestNewAddresses(c *gc.C) {
 	for i, test := range testAddresses {
 		c.Logf("test %d: %v -> %q", i, test.values, test.scope)
 		addresses := network.NewSpaceAddresses(test.values...)
-		c.Check(addresses, gc.HasLen, len(test.values))
+		c.Check(addresses, tc.HasLen, len(test.values))
 		for j, addr := range addresses {
-			c.Check(addr.Value, gc.Equals, test.values[j])
-			c.Check(addr.Type, gc.Equals, test.addrType)
-			c.Check(addr.Scope, gc.Equals, test.scope)
+			c.Check(addr.Value, tc.Equals, test.values[j])
+			c.Check(addr.Type, tc.Equals, test.addrType)
+			c.Check(addr.Scope, tc.Equals, test.scope)
 		}
 	}
 }
 
-func (s *AddressSuite) TestNewScopedAddressHostname(c *gc.C) {
+func (s *AddressSuite) TestNewScopedAddressHostname(c *tc.C) {
 	addr := network.NewSpaceAddress("localhost")
-	c.Check(addr.Value, gc.Equals, "localhost")
-	c.Check(addr.Type, gc.Equals, network.HostName)
-	c.Check(addr.Scope, gc.Equals, network.ScopeUnknown)
+	c.Check(addr.Value, tc.Equals, "localhost")
+	c.Check(addr.Type, tc.Equals, network.HostName)
+	c.Check(addr.Scope, tc.Equals, network.ScopeUnknown)
 	addr = network.NewSpaceAddress("example.com")
-	c.Check(addr.Value, gc.Equals, "example.com")
-	c.Check(addr.Type, gc.Equals, network.HostName)
-	c.Check(addr.Scope, gc.Equals, network.ScopeUnknown)
+	c.Check(addr.Value, tc.Equals, "example.com")
+	c.Check(addr.Type, tc.Equals, network.HostName)
+	c.Check(addr.Scope, tc.Equals, network.ScopeUnknown)
 }
 
 type selectTest struct {
@@ -412,13 +411,13 @@ var selectPublicTests = []selectTest{{
 		1,
 	}}
 
-func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
+func (s *AddressSuite) TestSelectPublicAddress(c *tc.C) {
 	for i, t := range selectPublicTests {
 		c.Logf("test %d: %s", i, t.about)
 		expectAddr, expectOK := t.expected()
 		actualAddr, actualOK := t.addresses.OneMatchingScope(network.ScopeMatchPublic)
-		c.Check(actualOK, gc.Equals, expectOK)
-		c.Check(actualAddr, gc.Equals, expectAddr)
+		c.Check(actualOK, tc.Equals, expectOK)
+		c.Check(actualAddr, tc.Equals, expectAddr)
 	}
 }
 
@@ -478,13 +477,13 @@ var selectInternalTests = []selectTest{{
 	2,
 }}
 
-func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
+func (s *AddressSuite) TestSelectInternalAddress(c *tc.C) {
 	for i, t := range selectInternalTests {
 		c.Logf("test %d: %s", i, t.about)
 		expectAddr, expectOK := t.expected()
 		actualAddr, actualOK := t.addresses.OneMatchingScope(network.ScopeMatchCloudLocal)
-		c.Check(actualOK, gc.Equals, expectOK)
-		c.Check(actualAddr, gc.Equals, expectAddr)
+		c.Check(actualOK, tc.Equals, expectOK)
+		c.Check(actualAddr, tc.Equals, expectAddr)
 	}
 }
 
@@ -565,13 +564,13 @@ var selectInternalMachineTests = []selectTest{{
 	2,
 }}
 
-func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
+func (s *AddressSuite) TestSelectInternalMachineAddress(c *tc.C) {
 	for i, t := range selectInternalMachineTests {
 		c.Logf("test %d: %s", i, t.about)
 		expectAddr, expectOK := t.expected()
 		actualAddr, actualOK := t.addresses.OneMatchingScope(network.ScopeMatchMachineOrCloudLocal)
-		c.Check(actualOK, gc.Equals, expectOK)
-		c.Check(actualAddr, gc.Equals, expectAddr)
+		c.Check(actualOK, tc.Equals, expectOK)
+		c.Check(actualAddr, tc.Equals, expectAddr)
 	}
 }
 
@@ -622,11 +621,11 @@ var selectInternalAddressesTests = []selectInternalAddressesTest{
 	},
 }
 
-func (s *AddressSuite) TestSelectInternalAddresses(c *gc.C) {
+func (s *AddressSuite) TestSelectInternalAddresses(c *tc.C) {
 	for i, t := range selectInternalAddressesTests {
 		c.Logf("test %d: %s", i, t.about)
 		actualAddr := t.addresses.AllMatchingScope(t.matcher)
-		c.Check(actualAddr, gc.DeepEquals, t.expected)
+		c.Check(actualAddr, tc.DeepEquals, t.expected)
 	}
 }
 
@@ -755,15 +754,15 @@ var stringTests = []struct {
 	str: "public:foo.com@badlands(id:3)",
 }}
 
-func (s *AddressSuite) TestString(c *gc.C) {
+func (s *AddressSuite) TestString(c *tc.C) {
 	for i, test := range stringTests {
 		c.Logf("test %d: %#v", i, test.addr)
-		c.Check(test.addr.String(), gc.Equals, test.str)
-		c.Check(test.addr.GoString(), gc.Equals, test.str)
+		c.Check(test.addr.String(), tc.Equals, test.str)
+		c.Check(test.addr.GoString(), tc.Equals, test.str)
 	}
 }
 
-func (*AddressSuite) TestSortAddresses(c *gc.C) {
+func (*AddressSuite) TestSortAddresses(c *tc.C) {
 	addrs := network.NewSpaceAddresses(
 		"127.0.0.1",
 		"::1",
@@ -784,7 +783,7 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 	addrs = append(addrs, network.NewSpaceAddress("172.16.0.1", network.WithSecondary(true)))
 
 	sort.Sort(addrs)
-	c.Assert(addrs.Values(), jc.DeepEquals, []string{
+	c.Assert(addrs.Values(), tc.DeepEquals, []string{
 		// Public IPv4 addresses on top.
 		"7.8.8.8",
 		"8.8.8.8",
@@ -815,23 +814,23 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 	})
 }
 
-func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
+func (*AddressSuite) TestExactScopeMatch(c *tc.C) {
 	var addr network.Address
 
 	addr = network.NewMachineAddress("10.0.0.2", network.WithScope(network.ScopeCloudLocal))
 	match := network.ExactScopeMatch(addr, network.ScopeCloudLocal)
-	c.Assert(match, jc.IsTrue)
+	c.Assert(match, tc.IsTrue)
 	match = network.ExactScopeMatch(addr, network.ScopePublic)
-	c.Assert(match, jc.IsFalse)
+	c.Assert(match, tc.IsFalse)
 
 	addr = network.NewMachineAddress("8.8.8.8", network.WithScope(network.ScopePublic)).AsProviderAddress()
 	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
-	c.Assert(match, jc.IsFalse)
+	c.Assert(match, tc.IsFalse)
 	match = network.ExactScopeMatch(addr, network.ScopePublic)
-	c.Assert(match, jc.IsTrue)
+	c.Assert(match, tc.IsTrue)
 }
 
-func (s *AddressSuite) TestSelectAddressesBySpaceNamesFiltered(c *gc.C) {
+func (s *AddressSuite) TestSelectAddressesBySpaceNamesFiltered(c *tc.C) {
 	sp := network.SpaceInfo{
 		ID:         "666",
 		Name:       "thaSpace",
@@ -848,18 +847,18 @@ func (s *AddressSuite) TestSelectAddressesBySpaceNamesFiltered(c *gc.C) {
 	}
 
 	filtered, ok := addrs.InSpaces(sp)
-	c.Check(ok, jc.IsTrue)
-	c.Check(filtered, jc.DeepEquals, network.SpaceAddresses{addr})
+	c.Check(ok, tc.IsTrue)
+	c.Check(filtered, tc.DeepEquals, network.SpaceAddresses{addr})
 }
 
-func (s *AddressSuite) TestSelectAddressesBySpaceNoSpaceFalse(c *gc.C) {
+func (s *AddressSuite) TestSelectAddressesBySpaceNoSpaceFalse(c *tc.C) {
 	addrs := network.SpaceAddresses{network.NewSpaceAddress("127.0.0.1")}
 	filtered, ok := addrs.InSpaces()
-	c.Check(ok, jc.IsFalse)
-	c.Check(filtered, jc.DeepEquals, addrs)
+	c.Check(ok, tc.IsFalse)
+	c.Check(filtered, tc.DeepEquals, addrs)
 }
 
-func (s *AddressSuite) TestSelectAddressesBySpaceNoneFound(c *gc.C) {
+func (s *AddressSuite) TestSelectAddressesBySpaceNoneFound(c *tc.C) {
 	sp := network.SpaceInfo{
 		ID:         "666",
 		Name:       "noneSpace",
@@ -869,11 +868,11 @@ func (s *AddressSuite) TestSelectAddressesBySpaceNoneFound(c *gc.C) {
 
 	addrs := network.SpaceAddresses{network.NewSpaceAddress("127.0.0.1")}
 	filtered, ok := addrs.InSpaces(sp)
-	c.Check(ok, jc.IsFalse)
-	c.Check(filtered, jc.DeepEquals, addrs)
+	c.Check(ok, tc.IsFalse)
+	c.Check(filtered, tc.DeepEquals, addrs)
 }
 
-func (s *AddressSuite) TestProviderAddressesToSpaceAddressesByName(c *gc.C) {
+func (s *AddressSuite) TestProviderAddressesToSpaceAddressesByName(c *tc.C) {
 	// Check success.
 	addrs := network.ProviderAddresses{
 		network.NewMachineAddress("1.2.3.4").AsProviderAddress(network.WithSpaceName("space-one")),
@@ -890,16 +889,16 @@ func (s *AddressSuite) TestProviderAddressesToSpaceAddressesByName(c *gc.C) {
 	exp[1].SpaceID = "2"
 
 	res, err := addrs.ToSpaceAddresses(allSpaces)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, jc.SameContents, exp)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.SameContents, exp)
 
 	// Add an address in a space that the lookup will not resolve.
 	addrs = append(addrs, network.NewMachineAddress("4.5.6.7").AsProviderAddress(network.WithSpaceName("space-denied")))
 	_, err = addrs.ToSpaceAddresses(allSpaces)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
-func (s *AddressSuite) TestProviderAddressesToSpaceAddressesBySubnet(c *gc.C) {
+func (s *AddressSuite) TestProviderAddressesToSpaceAddressesBySubnet(c *tc.C) {
 	// Check success.
 	addrs := network.ProviderAddresses{
 		network.NewMachineAddress(
@@ -924,12 +923,12 @@ func (s *AddressSuite) TestProviderAddressesToSpaceAddressesBySubnet(c *gc.C) {
 		},
 	}
 	res, err := addrs.ToSpaceAddresses(allSpaces)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.HasLen, 1)
-	c.Check(res[0].SpaceID, gc.Equals, "6")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.HasLen, 1)
+	c.Check(res[0].SpaceID, tc.Equals, "6")
 }
 
-func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
+func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *tc.C) {
 	// Check success.
 	addrs := network.NewSpaceAddresses("1.2.3.4", "2.3.4.5", "3.4.5.6")
 	addrs[0].SpaceID = "1"
@@ -948,35 +947,35 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	exp[0].ProviderSpaceID = "p1"
 
 	res, err := addrs.ToProviderAddresses(allSpaces)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, jc.SameContents, exp)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.SameContents, exp)
 
 	// Add an address in a space that the lookup will not resolve.
 	addrs = append(addrs, network.NewSpaceAddress("4.5.6.7"))
 	addrs[3].SpaceID = "3"
 	_, err = addrs.ToProviderAddresses(allSpaces)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
-func (s *AddressSuite) TestSpaceAddressesValues(c *gc.C) {
+func (s *AddressSuite) TestSpaceAddressesValues(c *tc.C) {
 	values := []string{"1.2.3.4", "2.3.4.5", "3.4.5.6"}
 	addrs := network.NewSpaceAddresses(values...)
-	c.Check(addrs.Values(), gc.DeepEquals, values)
+	c.Check(addrs.Values(), tc.DeepEquals, values)
 }
 
-func (s *AddressSuite) TestAddressValueForCIDR(c *gc.C) {
+func (s *AddressSuite) TestAddressValueForCIDR(c *tc.C) {
 	_, err := network.NewMachineAddress("172.31.37.53").ValueWithMask()
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 
 	_, err = network.NewMachineAddress("", network.WithCIDR("172.31.37.0/20")).ValueWithMask()
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 
 	val, err := network.NewMachineAddress("172.31.37.53", network.WithCIDR("172.31.37.0/20")).ValueWithMask()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(val, gc.Equals, "172.31.37.53/20")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(val, tc.Equals, "172.31.37.53/20")
 }
 
-func (s *AddressSuite) TestCIDRAddressType(c *gc.C) {
+func (s *AddressSuite) TestCIDRAddressType(c *tc.C) {
 	tests := []struct {
 		descr  string
 		CIDR   string
@@ -1010,23 +1009,23 @@ func (s *AddressSuite) TestCIDRAddressType(c *gc.C) {
 		c.Logf("test %d: %s", i, t.descr)
 		got, err := network.CIDRAddressType(t.CIDR)
 		if t.expErr != "" {
-			c.Check(got, gc.Equals, network.AddressType(""))
-			c.Check(err, gc.ErrorMatches, t.expErr)
+			c.Check(got, tc.Equals, network.AddressType(""))
+			c.Check(err, tc.ErrorMatches, t.expErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(got, gc.Equals, t.exp)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(got, tc.Equals, t.exp)
 		}
 	}
 }
 
-func (s *AddressSuite) TestNoAddressError(c *gc.C) {
+func (s *AddressSuite) TestNoAddressError(c *tc.C) {
 	err := network.NoAddressError("fake")
-	c.Assert(err, gc.ErrorMatches, `no fake address\(es\)`)
-	c.Assert(network.IsNoAddressError(err), jc.IsTrue)
-	c.Assert(network.IsNoAddressError(errors.New("address found")), jc.IsFalse)
+	c.Assert(err, tc.ErrorMatches, `no fake address\(es\)`)
+	c.Assert(network.IsNoAddressError(err), tc.IsTrue)
+	c.Assert(network.IsNoAddressError(errors.New("address found")), tc.IsFalse)
 }
 
-func (s *AddressSuite) TestNetworkCIDRFromIPAndMask(c *gc.C) {
+func (s *AddressSuite) TestNetworkCIDRFromIPAndMask(c *tc.C) {
 	specs := []struct {
 		descr   string
 		ip      net.IP
@@ -1060,11 +1059,11 @@ func (s *AddressSuite) TestNetworkCIDRFromIPAndMask(c *gc.C) {
 	for i, spec := range specs {
 		c.Logf("%d: %s", i, spec.descr)
 		gotCIDR := network.NetworkCIDRFromIPAndMask(spec.ip, spec.mask)
-		c.Assert(gotCIDR, gc.Equals, spec.expCIDR)
+		c.Assert(gotCIDR, tc.Equals, spec.expCIDR)
 	}
 }
 
-func (s *AddressSuite) TestIsValidAddressConfigTypeWithValidValues(c *gc.C) {
+func (s *AddressSuite) TestIsValidAddressConfigTypeWithValidValues(c *tc.C) {
 	validTypes := []network.AddressConfigType{
 		network.ConfigLoopback,
 		network.ConfigStatic,
@@ -1074,19 +1073,19 @@ func (s *AddressSuite) TestIsValidAddressConfigTypeWithValidValues(c *gc.C) {
 
 	for _, value := range validTypes {
 		result := network.IsValidAddressConfigType(string(value))
-		c.Check(result, jc.IsTrue)
+		c.Check(result, tc.IsTrue)
 	}
 }
 
-func (s *AddressSuite) TestIsValidAddressConfigTypeWithInvalidValues(c *gc.C) {
+func (s *AddressSuite) TestIsValidAddressConfigTypeWithInvalidValues(c *tc.C) {
 	result := network.IsValidAddressConfigType("")
-	c.Check(result, jc.IsFalse)
+	c.Check(result, tc.IsFalse)
 
 	result = network.IsValidAddressConfigType("anything")
-	c.Check(result, jc.IsFalse)
+	c.Check(result, tc.IsFalse)
 
 	result = network.IsValidAddressConfigType(" ")
-	c.Check(result, jc.IsFalse)
+	c.Check(result, tc.IsFalse)
 }
 
 // spaceAddressCandidate implements the SpaceAddressCandidate
@@ -1114,7 +1113,7 @@ func (s spaceAddressCandidate) IsSecondary() bool {
 	return s.isSecondary
 }
 
-func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
+func (s *AddressSuite) TestConvertToSpaceAddresses(c *tc.C) {
 	subs := network.SubnetInfos{
 		{ID: "1", CIDR: "192.168.0.0/24", SpaceID: "666"},
 		{ID: "2", CIDR: "252.80.0.0/12", SpaceID: "999"},
@@ -1146,11 +1145,11 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 	for i, ca := range candidates {
 		var err error
 		addrs[i], err = network.ConvertToSpaceAddress(ca, subs)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	sort.Sort(addrs)
-	c.Check(addrs, gc.DeepEquals, network.SpaceAddresses{
+	c.Check(addrs, tc.DeepEquals, network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.10",
@@ -1185,7 +1184,7 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 	})
 }
 
-func (s *AddressSuite) TestSortOrderScope(c *gc.C) {
+func (s *AddressSuite) TestSortOrderScope(c *tc.C) {
 	sas := network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
@@ -1209,7 +1208,7 @@ func (s *AddressSuite) TestSortOrderScope(c *gc.C) {
 
 	sort.Sort(sas)
 	// Public addresses first.
-	c.Check(sas, gc.DeepEquals, network.SpaceAddresses{
+	c.Check(sas, tc.DeepEquals, network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
 				Value: "10.0.0.1",
@@ -1231,7 +1230,7 @@ func (s *AddressSuite) TestSortOrderScope(c *gc.C) {
 	})
 }
 
-func (s *AddressSuite) TestSortOrderSameScopeDiffOrigin(c *gc.C) {
+func (s *AddressSuite) TestSortOrderSameScopeDiffOrigin(c *tc.C) {
 	sas := network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
@@ -1255,7 +1254,7 @@ func (s *AddressSuite) TestSortOrderSameScopeDiffOrigin(c *gc.C) {
 
 	sort.Sort(sas)
 	// Public addresses first.
-	c.Check(sas, gc.DeepEquals, network.SpaceAddresses{
+	c.Check(sas, tc.DeepEquals, network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
 				Value: "10.0.0.1",
@@ -1277,7 +1276,7 @@ func (s *AddressSuite) TestSortOrderSameScopeDiffOrigin(c *gc.C) {
 	})
 }
 
-func (s *AddressSuite) TestSortOrderSameScopeSameOriginDiffValue(c *gc.C) {
+func (s *AddressSuite) TestSortOrderSameScopeSameOriginDiffValue(c *tc.C) {
 	sas := network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
@@ -1301,7 +1300,7 @@ func (s *AddressSuite) TestSortOrderSameScopeSameOriginDiffValue(c *gc.C) {
 
 	sort.Sort(sas)
 	// Public addresses first.
-	c.Check(sas, gc.DeepEquals, network.SpaceAddresses{
+	c.Check(sas, tc.DeepEquals, network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
 				Value: "10.0.0.0",
@@ -1335,20 +1334,20 @@ func (a testFindSubnetAddr) String() string {
 	return a.val
 }
 
-func testAddresses(c *gc.C, networks ...string) ([]net.Addr, error) {
+func testAddresses(c *tc.C, networks ...string) ([]net.Addr, error) {
 	addrs := make([]net.Addr, 0)
 	for _, n := range networks {
 		_, _, err := net.ParseCIDR(n)
 		if err != nil {
 			return nil, err
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		addrs = append(addrs, testFindSubnetAddr{n})
 	}
 	return addrs, nil
 }
 
-func (s *AddressSuite) TestIsLocalAddress(c *gc.C) {
+func (s *AddressSuite) TestIsLocalAddress(c *tc.C) {
 
 	tests := []struct {
 		descr            string
@@ -1401,14 +1400,14 @@ func (s *AddressSuite) TestIsLocalAddress(c *gc.C) {
 		})
 		isLocal, err := network.IsLocalAddress(tt.ip)
 		if err != nil {
-			c.Check(err, gc.ErrorMatches, tt.expectedErr)
+			c.Check(err, tc.ErrorMatches, tt.expectedErr)
 			// when err is returned, isLocal is false
-			c.Check(isLocal, gc.Equals, false)
+			c.Check(isLocal, tc.Equals, false)
 			continue
 		}
-		c.Check(err, jc.ErrorIsNil)
-		c.Check("", gc.Equals, tt.expectedErr)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check("", tc.Equals, tt.expectedErr)
 
-		c.Check(isLocal, gc.Equals, tt.expected)
+		c.Check(isLocal, tc.Equals, tt.expected)
 	}
 }

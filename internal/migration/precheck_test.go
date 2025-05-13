@@ -11,9 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/base"
@@ -45,7 +44,7 @@ type SourcePrecheckSuite struct {
 	precheckBaseSuite
 }
 
-var _ = gc.Suite(&SourcePrecheckSuite{})
+var _ = tc.Suite(&SourcePrecheckSuite{})
 
 func sourcePrecheck(
 	backend migration.PrecheckBackend,
@@ -59,7 +58,7 @@ func sourcePrecheck(
 	return migration.SourcePrecheck(context.Background(), backend, credentialService, upgradeService, applicationService, relationService, statusService, agentService)
 }
 
-func (s *SourcePrecheckSuite) TestSuccess(c *gc.C) {
+func (s *SourcePrecheckSuite) TestSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAgentVersion()
 	s.expectIsUpgrade(false)
@@ -77,20 +76,20 @@ func (s *SourcePrecheckSuite) TestSuccess(c *gc.C) {
 		s.statusService,
 		s.agentService,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *SourcePrecheckSuite) TestDyingModel(c *gc.C) {
+func (s *SourcePrecheckSuite) TestDyingModel(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newFakeBackend()
 	backend.model.life = state.Dying
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "model is dying")
+	c.Assert(err, tc.ErrorMatches, "model is dying")
 }
 
-func (s *SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
+func (s *SourcePrecheckSuite) TestCharmUpgrades(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectApplicationLife("spanner", life.Alive)
@@ -110,10 +109,10 @@ func (s *SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "unit spanner/1 is upgrading")
+	c.Assert(err, tc.ErrorMatches, "unit spanner/1 is upgrading")
 }
 
-func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
+func (s *SourcePrecheckSuite) TestTargetController3Failed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
@@ -135,13 +134,13 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 
 	err := migration.SourcePrecheck(context.Background(), backend, &fakeCredentialService{}, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, `
+	c.Assert(err.Error(), tc.Equals, `
 cannot migrate to controller due to issues:
 "foo/model-1":
 - the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`[1:])
 }
 
-func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
+func (s *SourcePrecheckSuite) TestTargetController2Failed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
@@ -162,23 +161,23 @@ func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	backend.model.owner = names.NewUserTag("foo")
 	err := migration.SourcePrecheck(context.Background(), backend, &fakeCredentialService{}, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, `
+	c.Assert(err.Error(), tc.Equals, `
 cannot migrate to controller due to issues:
 "foo/model-1":
 - the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`[1:])
 }
 
-func (s *SourcePrecheckSuite) TestImportingModel(c *gc.C) {
+func (s *SourcePrecheckSuite) TestImportingModel(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newFakeBackend()
 	backend.model.migrationMode = state.MigrationModeImporting
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "model is being imported as part of another migration")
+	c.Assert(err, tc.ErrorMatches, "model is being imported as part of another migration")
 }
 
-func (s *SourcePrecheckSuite) TestCleanupsError(c *gc.C) {
+func (s *SourcePrecheckSuite) TestCleanupsError(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectCheckUnitStatuses(nil)
@@ -188,10 +187,10 @@ func (s *SourcePrecheckSuite) TestCleanupsError(c *gc.C) {
 	backend.cleanupErr = errors.New("boom")
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "checking cleanups: boom")
+	c.Assert(err, tc.ErrorMatches, "checking cleanups: boom")
 }
 
-func (s *SourcePrecheckSuite) TestCleanupsNeeded(c *gc.C) {
+func (s *SourcePrecheckSuite) TestCleanupsNeeded(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectCheckUnitStatuses(nil)
@@ -201,10 +200,10 @@ func (s *SourcePrecheckSuite) TestCleanupsNeeded(c *gc.C) {
 	backend.cleanupNeeded = true
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "cleanup needed")
+	c.Assert(err, tc.ErrorMatches, "cleanup needed")
 }
 
-func (s *SourcePrecheckSuite) TestIsUpgradingError(c *gc.C) {
+func (s *SourcePrecheckSuite) TestIsUpgradingError(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgradeError(errors.New("boom"))
@@ -214,10 +213,10 @@ func (s *SourcePrecheckSuite) TestIsUpgradingError(c *gc.C) {
 	backend := newFakeBackend()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "controller: checking for upgrades: boom")
+	c.Assert(err, tc.ErrorMatches, "controller: checking for upgrades: boom")
 }
 
-func (s *SourcePrecheckSuite) TestIsUpgrading(c *gc.C) {
+func (s *SourcePrecheckSuite) TestIsUpgrading(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(true)
@@ -227,19 +226,19 @@ func (s *SourcePrecheckSuite) TestIsUpgrading(c *gc.C) {
 	backend := newFakeBackend()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "controller: upgrade in progress")
+	c.Assert(err, tc.ErrorMatches, "controller: upgrade in progress")
 }
 
-func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
-	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
-
+func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *tc.C) {
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
-	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+	c.Skip("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.checkRebootRequired(c, sourcePrecheck)
 }
 
-func (s *SourcePrecheckSuite) TestMachineVersionsDoNotMatch(c *gc.C) {
+func (s *SourcePrecheckSuite) TestMachineVersionsDoNotMatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentService.EXPECT().GetMachinesNotAtTargetAgentVersion(gomock.Any()).Return(
@@ -258,36 +257,36 @@ func (s *SourcePrecheckSuite) TestMachineVersionsDoNotMatch(c *gc.C) {
 
 	err := sourcePrecheck(&backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Check(err, gc.ErrorMatches, `there exists machines in the model that are not running the target agent version of the model \[1\]`)
+	c.Check(err, tc.ErrorMatches, `there exists machines in the model that are not running the target agent version of the model \[1\]`)
 }
 
-func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
+func (s *SourcePrecheckSuite) TestDyingMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newBackendWithDyingMachine()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "machine 0 is dying")
+	c.Assert(err, tc.ErrorMatches, "machine 0 is dying")
 }
 
-func (s *SourcePrecheckSuite) TestNonStartedMachine(c *gc.C) {
+func (s *SourcePrecheckSuite) TestNonStartedMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newBackendWithDownMachine()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "machine 0 agent not functioning at this time (down)")
+	c.Assert(err.Error(), tc.Equals, "machine 0 agent not functioning at this time (down)")
 }
 
-func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
+func (s *SourcePrecheckSuite) TestProvisioningMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	err := sourcePrecheck(newBackendWithProvisioningMachine(), &fakeCredentialService{}, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
+	c.Assert(err.Error(), tc.Equals, "machine 0 not running (allocating)")
 }
 
-func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
+func (s *SourcePrecheckSuite) TestDownMachineAgent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAgentVersion()
 	s.expectAgentTargetVersions(c)
@@ -299,10 +298,10 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	}
 	err := migration.SourcePrecheck(context.Background(), backend, &fakeCredentialService{}, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
+	c.Assert(err.Error(), tc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
-func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
+func (s *SourcePrecheckSuite) TestDyingApplication(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectApplicationLife("foo", life.Dying)
@@ -317,10 +316,10 @@ func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "application foo is dying")
+	c.Assert(err.Error(), tc.Equals, "application foo is dying")
 }
 
-func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *gc.C) {
+func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentService.EXPECT().GetModelTargetAgentVersion(
@@ -346,10 +345,10 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *gc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Check(err, gc.ErrorMatches, `there exists units in the model that are not running the target agent version of the model \[foo/0\]`)
+	c.Check(err, tc.ErrorMatches, `there exists units in the model that are not running the target agent version of the model \[foo/0\]`)
 }
 
-func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *gc.C) {
+func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -368,10 +367,10 @@ func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *gc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
+func (s *SourcePrecheckSuite) TestDeadUnit(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectApplicationLife("foo", life.Alive)
@@ -389,10 +388,10 @@ func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "unit foo/0 is dead")
+	c.Assert(err.Error(), tc.Equals, "unit foo/0 is dead")
 }
 
-func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
+func (s *SourcePrecheckSuite) TestUnitExecuting(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -413,10 +412,10 @@ func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *SourcePrecheckSuite) TestUnitNotReadyForMigration(c *gc.C) {
+func (s *SourcePrecheckSuite) TestUnitNotReadyForMigration(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectCheckUnitStatuses(errors.Errorf("boom"))
@@ -434,10 +433,10 @@ func (s *SourcePrecheckSuite) TestUnitNotReadyForMigration(c *gc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "boom")
+	c.Assert(err.Error(), tc.Equals, "boom")
 }
 
-func (s *SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
+func (s *SourcePrecheckSuite) TestDyingControllerModel(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectCheckUnitStatuses(nil)
@@ -447,10 +446,10 @@ func (s *SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
 	backend.controllerBackend.model.life = state.Dying
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "controller: model is dying")
+	c.Assert(err, tc.ErrorMatches, "controller: model is dying")
 }
 
-func (s *SourcePrecheckSuite) TestControllerMachineVersionsDoNotMatch(c *gc.C) {
+func (s *SourcePrecheckSuite) TestControllerMachineVersionsDoNotMatch(c *tc.C) {
 	c.Skip("(tlm) Re-enable when migration is moved to dqlite.")
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
@@ -462,14 +461,14 @@ func (s *SourcePrecheckSuite) TestControllerMachineVersionsDoNotMatch(c *gc.C) {
 	backend.controllerBackend = newBackendWithMismatchingTools()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "controller: machine . agent binaries don't match model.+")
+	c.Assert(err, tc.ErrorMatches, "controller: machine . agent binaries don't match model.+")
 }
 
-func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *gc.C) {
-	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
-
+func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *tc.C) {
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
-	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+	c.Skip("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 	s.expectCheckUnitStatuses(nil)
@@ -479,10 +478,10 @@ func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *gc.C) {
 	backend.controllerBackend = newBackendWithRebootingMachine()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "controller: machine 0 is scheduled to reboot")
+	c.Assert(err, tc.ErrorMatches, "controller: machine 0 is scheduled to reboot")
 }
 
-func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *gc.C) {
+func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -494,10 +493,10 @@ func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *gc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "controller: machine 0 is dying")
+	c.Assert(err, tc.ErrorMatches, "controller: machine 0 is dying")
 }
 
-func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *gc.C) {
+func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -509,10 +508,10 @@ func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *gc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "controller: machine 0 agent not functioning at this time (down)")
+	c.Assert(err.Error(), tc.Equals, "controller: machine 0 agent not functioning at this time (down)")
 }
 
-func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
+func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -524,10 +523,10 @@ func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "controller: machine 0 not running (allocating)")
+	c.Assert(err.Error(), tc.Equals, "controller: machine 0 not running (allocating)")
 }
 
-func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
+func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAgentVersion()
@@ -561,10 +560,10 @@ func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
 	backend := newHappyBackend()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
+func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAgentVersion()
@@ -597,10 +596,10 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
 	backend := newHappyBackend()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, `unit bar/1 hasn't joined relation "foo:db bar:db" yet`)
+	c.Assert(err, tc.ErrorMatches, `unit bar/1 hasn't joined relation "foo:db bar:db" yet`)
 }
 
-func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
+func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *tc.C) {
 	c.Skip("(gfouillet) Re-enable when crossmodel relation  moved to dqlite.")
 	defer s.setupMocks(c).Finish()
 
@@ -619,22 +618,22 @@ func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
 	backend := newHappyBackend()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
 		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, `unit remote-mysql/0 hasn't joined relation "foo:db remote-mysql:db" yet`)
+	c.Assert(err, tc.ErrorMatches, `unit remote-mysql/0 hasn't joined relation "foo:db remote-mysql:db" yet`)
 }
 
 type ImportPrecheckSuite struct {
 	precheckBaseSuite
 }
 
-var _ = gc.Suite(&ImportPrecheckSuite{})
+var _ = tc.Suite(&ImportPrecheckSuite{})
 
-func (s *ImportPrecheckSuite) TestImportPrecheckEmpty(c *gc.C) {
+func (s *ImportPrecheckSuite) TestImportPrecheckEmpty(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	err := migration.ImportPrecheck(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ImportPrecheckSuite) TestCharmsWithNoManifest(c *gc.C) {
+func (s *ImportPrecheckSuite) TestCharmsWithNoManifest(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	// Add an app with a nil slice of bases.
 	model.AddApplication(description.ApplicationArgs{
@@ -660,7 +659,7 @@ func (s *ImportPrecheckSuite) TestCharmsWithNoManifest(c *gc.C) {
 	})
 
 	err := migration.ImportPrecheck(context.Background(), model)
-	c.Assert(err, gc.ErrorMatches, ".* all charms now require a manifest.yaml file, this model hosts charm\\(s\\) with no manifest.yaml file: empty-bases-app, nil-bases-app")
+	c.Assert(err, tc.ErrorMatches, ".* all charms now require a manifest.yaml file, this model hosts charm\\(s\\) with no manifest.yaml file: empty-bases-app, nil-bases-app")
 }
 
 type baseType struct {
@@ -689,9 +688,9 @@ type TargetPrecheckSuite struct {
 	modelInfo coremigration.ModelInfo
 }
 
-var _ = gc.Suite(&TargetPrecheckSuite{})
+var _ = tc.Suite(&TargetPrecheckSuite{})
 
-func (s *TargetPrecheckSuite) SetUpTest(c *gc.C) {
+func (s *TargetPrecheckSuite) SetUpTest(c *tc.C) {
 	s.modelInfo = coremigration.ModelInfo{
 		UUID:         modelUUID,
 		Owner:        modelOwner,
@@ -712,7 +711,7 @@ func (s *TargetPrecheckSuite) runPrecheck(
 	return migration.TargetPrecheck(context.Background(), backend, nil, s.modelInfo, upgradeService, applicationService, relationService, statusService, s.agentService)
 }
 
-func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
+func (s *TargetPrecheckSuite) TestSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -722,10 +721,10 @@ func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
 
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *TargetPrecheckSuite) TestModelVersionAheadOfTarget(c *gc.C) {
+func (s *TargetPrecheckSuite) TestModelVersionAheadOfTarget(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	backend := newFakeBackend()
@@ -737,11 +736,11 @@ func (s *TargetPrecheckSuite) TestModelVersionAheadOfTarget(c *gc.C) {
 
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err.Error(), gc.Equals,
+	c.Assert(err.Error(), tc.Equals,
 		`model has higher version than target controller (1.2.4 > 1.2.3)`)
 }
 
-func (s *TargetPrecheckSuite) TestSourceControllerMajorAhead(c *gc.C) {
+func (s *TargetPrecheckSuite) TestSourceControllerMajorAhead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	backend := newFakeBackend()
@@ -755,11 +754,11 @@ func (s *TargetPrecheckSuite) TestSourceControllerMajorAhead(c *gc.C) {
 
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err.Error(), gc.Equals,
+	c.Assert(err.Error(), tc.Equals,
 		`source controller has higher version than target controller (2.0.0 > 1.2.3)`)
 }
 
-func (s *TargetPrecheckSuite) TestSourceControllerMinorAhead(c *gc.C) {
+func (s *TargetPrecheckSuite) TestSourceControllerMinorAhead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	backend := newFakeBackend()
@@ -772,11 +771,11 @@ func (s *TargetPrecheckSuite) TestSourceControllerMinorAhead(c *gc.C) {
 
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err.Error(), gc.Equals,
+	c.Assert(err.Error(), tc.Equals,
 		`source controller has higher version than target controller (1.3.0 > 1.2.3)`)
 }
 
-func (s *TargetPrecheckSuite) TestSourceControllerPatchAhead(c *gc.C) {
+func (s *TargetPrecheckSuite) TestSourceControllerPatchAhead(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -789,10 +788,10 @@ func (s *TargetPrecheckSuite) TestSourceControllerPatchAhead(c *gc.C) {
 
 	c.Assert(s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 }
 
-func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *gc.C) {
+func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -805,10 +804,10 @@ func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *gc.C) {
 
 	c.Assert(s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 }
 
-func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *gc.C) {
+func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -821,31 +820,31 @@ func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *gc.C) {
 
 	c.Assert(s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 }
 
-func (s *TargetPrecheckSuite) TestDying(c *gc.C) {
+func (s *TargetPrecheckSuite) TestDying(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := newFakeBackend()
 	backend.model.life = state.Dying
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err, gc.ErrorMatches, "model is dying")
+	c.Assert(err, tc.ErrorMatches, "model is dying")
 }
 
-func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
-	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
-
+func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *tc.C) {
 	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
-	c.ExpectFailure("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+	c.Skip("Machine reboot have been moved to dqlite, this precheck has been temporarily disabled")
+
+	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
 
 	s.checkRebootRequired(c, s.runPrecheck)
 }
 
-func (s *TargetPrecheckSuite) TestIsUpgradingError(c *gc.C) {
+func (s *TargetPrecheckSuite) TestIsUpgradingError(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgradeError(errors.New("boom"))
@@ -853,10 +852,10 @@ func (s *TargetPrecheckSuite) TestIsUpgradingError(c *gc.C) {
 	backend := newFakeBackend()
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err, gc.ErrorMatches, "checking for upgrades: boom")
+	c.Assert(err, tc.ErrorMatches, "checking for upgrades: boom")
 }
 
-func (s *TargetPrecheckSuite) TestIsUpgrading(c *gc.C) {
+func (s *TargetPrecheckSuite) TestIsUpgrading(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(true)
@@ -864,28 +863,28 @@ func (s *TargetPrecheckSuite) TestIsUpgrading(c *gc.C) {
 	backend := newFakeBackend()
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err, gc.ErrorMatches, "upgrade in progress")
+	c.Assert(err, tc.ErrorMatches, "upgrade in progress")
 }
 
-func (s *TargetPrecheckSuite) TestIsMigrationActiveError(c *gc.C) {
+func (s *TargetPrecheckSuite) TestIsMigrationActiveError(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := &fakeBackend{migrationActiveErr: errors.New("boom")}
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err, gc.ErrorMatches, "checking for active migration: boom")
+	c.Assert(err, tc.ErrorMatches, "checking for active migration: boom")
 }
 
-func (s *TargetPrecheckSuite) TestIsMigrationActive(c *gc.C) {
+func (s *TargetPrecheckSuite) TestIsMigrationActive(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	backend := &fakeBackend{migrationActive: true}
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err, gc.ErrorMatches, "model is being migrated out of target controller")
+	c.Assert(err, tc.ErrorMatches, "model is being migrated out of target controller")
 }
 
-func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
+func (s *TargetPrecheckSuite) TestDyingMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -893,10 +892,10 @@ func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
 	backend := newBackendWithDyingMachine()
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err, gc.ErrorMatches, "machine 0 is dying")
+	c.Assert(err, tc.ErrorMatches, "machine 0 is dying")
 }
 
-func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
+func (s *TargetPrecheckSuite) TestNonStartedMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -904,10 +903,10 @@ func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err.Error(), gc.Equals, "machine 0 agent not functioning at this time (down)")
+	c.Assert(err.Error(), tc.Equals, "machine 0 agent not functioning at this time (down)")
 }
 
-func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
+func (s *TargetPrecheckSuite) TestProvisioningMachine(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -915,10 +914,10 @@ func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	backend := newBackendWithProvisioningMachine()
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
+	c.Assert(err.Error(), tc.Equals, "machine 0 not running (allocating)")
 }
 
-func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
+func (s *TargetPrecheckSuite) TestDownMachineAgent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAgentVersion()
@@ -932,10 +931,10 @@ func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	}
 	err := migration.TargetPrecheck(context.Background(), backend, nil, s.modelInfo, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
+	c.Assert(err.Error(), tc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
-func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
+func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -954,10 +953,10 @@ func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
 	backend.models = pool.uuids()
 	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err, gc.ErrorMatches, "model named \"model-name\" already exists")
+	c.Assert(err, tc.ErrorMatches, "model named \"model-name\" already exists")
 }
 
-func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
+func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -974,10 +973,10 @@ func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
 	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, s.upgradeService, s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *gc.C) {
+func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -991,10 +990,10 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *gc.C) {
 	backend.models = pool.uuids()
 	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "model with same UUID already exists (model-uuid)")
+	c.Assert(err.Error(), tc.Equals, "model with same UUID already exists (model-uuid)")
 }
 
-func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
+func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -1012,10 +1011,10 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
 	backend.models = pool.uuids()
 	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *TargetPrecheckSuite) TestFanConfigInModelConfig(c *gc.C) {
+func (s *TargetPrecheckSuite) TestFanConfigInModelConfig(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -1026,10 +1025,10 @@ func (s *TargetPrecheckSuite) TestFanConfigInModelConfig(c *gc.C) {
 
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err.Error(), gc.Equals, "fan networking not supported, remove fan-config \"10.100.0.0/16=251.0.0.0/8 192.168.0.0/16=252.0.0.0/8\" from migrating model config")
+	c.Assert(err.Error(), tc.Equals, "fan networking not supported, remove fan-config \"10.100.0.0/16=251.0.0.0/8 192.168.0.0/16=252.0.0.0/8\" from migrating model config")
 }
 
-func (s *TargetPrecheckSuite) TestContainerNetworkingFan(c *gc.C) {
+func (s *TargetPrecheckSuite) TestContainerNetworkingFan(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectIsUpgrade(false)
@@ -1040,7 +1039,7 @@ func (s *TargetPrecheckSuite) TestContainerNetworkingFan(c *gc.C) {
 
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.relationService, s.statusService,
 		s.agentService)
-	c.Assert(err.Error(), gc.Equals, "fan networking not supported, remove container-networking-method \"fan\" from migrating model config")
+	c.Assert(err.Error(), tc.Equals, "fan networking not supported, remove container-networking-method \"fan\" from migrating model config")
 }
 
 type precheckRunner func(migration.PrecheckBackend, migration.CredentialService, migration.UpgradeService,

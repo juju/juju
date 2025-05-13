@@ -8,9 +8,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	cryptossh "golang.org/x/crypto/ssh"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/pki/ssh"
 )
@@ -18,9 +17,9 @@ import (
 type FormatSuite struct {
 }
 
-var _ = gc.Suite(&FormatSuite{})
+var _ = tc.Suite(&FormatSuite{})
 
-func (s *FormatSuite) TestKeyProfilesFormat(c *gc.C) {
+func (s *FormatSuite) TestKeyProfilesFormat(c *tc.C) {
 	tests := []struct {
 		name          string
 		profile       ssh.KeyProfile
@@ -35,27 +34,27 @@ func (s *FormatSuite) TestKeyProfilesFormat(c *gc.C) {
 	}
 	for _, test := range tests {
 		pk, err := test.profile()
-		c.Check(err, jc.ErrorIsNil, gc.Commentf("profile %s", test.name))
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("profile %s", test.name))
 
 		private, public, publicKeyType, err := ssh.FormatKey(pk, "test-comment")
-		c.Check(err, jc.ErrorIsNil, gc.Commentf("profile %s", test.name))
-		c.Check(private, gc.Not(gc.Equals), "")
-		c.Check(public, gc.Not(gc.Equals), "")
-		c.Check(public, gc.Matches, test.publicKeyType+` .* test-comment\n`)
-		c.Check(publicKeyType, gc.Equals, test.publicKeyType)
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("profile %s", test.name))
+		c.Check(private, tc.Not(tc.Equals), "")
+		c.Check(public, tc.Not(tc.Equals), "")
+		c.Check(public, tc.Matches, test.publicKeyType+` .* test-comment\n`)
+		c.Check(publicKeyType, tc.Equals, test.publicKeyType)
 	}
 }
 
-func (s *FormatSuite) TestBadKey(c *gc.C) {
+func (s *FormatSuite) TestBadKey(c *tc.C) {
 	_, _, _, err := ssh.FormatKey(nil, "nope")
-	c.Assert(err, gc.ErrorMatches, `private key not valid`)
+	c.Assert(err, tc.ErrorMatches, `private key not valid`)
 	_, _, _, err = ssh.FormatKey(&struct{}{}, "nope")
-	c.Assert(err, gc.ErrorMatches, `private key not valid`)
+	c.Assert(err, tc.ErrorMatches, `private key not valid`)
 	_, _, _, err = ssh.FormatKey(&ecdsa.PrivateKey{}, "nope")
-	c.Assert(err, gc.ErrorMatches, `cannot encode private key: x509: unknown curve while marshaling to PKCS#8`)
+	c.Assert(err, tc.ErrorMatches, `cannot encode private key: x509: unknown curve while marshaling to PKCS#8`)
 
 	pk, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, _, _, err = ssh.FormatKey(pk, "nope")
-	c.Assert(err, gc.ErrorMatches, `cannot encode public key: public key: ssh: only P-256, P-384 and P-521 EC keys are supported`)
+	c.Assert(err, tc.ErrorMatches, `cannot encode public key: public key: ssh: only P-256, P-384 and P-521 EC keys are supported`)
 }

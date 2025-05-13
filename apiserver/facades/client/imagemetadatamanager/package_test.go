@@ -6,8 +6,8 @@ package imagemetadatamanager
 import (
 	stdtesting "testing"
 
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -19,7 +19,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package imagemetadatamanager -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/imagemetadatamanager ModelConfigService,ModelInfoService,MetadataService
 
 func TestAll(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseImageMetadataSuite struct {
@@ -31,16 +31,16 @@ type baseImageMetadataSuite struct {
 	api                *API
 }
 
-func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
+func (s *baseImageMetadataSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 }
 
-func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
+func (s *baseImageMetadataSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *baseImageMetadataSuite) setupAPI(c *gc.C) *gomock.Controller {
+func (s *baseImageMetadataSuite) setupAPI(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)

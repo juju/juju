@@ -14,10 +14,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4/shell"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -31,16 +29,17 @@ import (
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
 
 type provisionerSuite struct {
-	jujutesting.LoggingCleanupSuite
+	testhelpers.LoggingCleanupSuite
 }
 
-var _ = gc.Suite(&provisionerSuite{})
+var _ = tc.Suite(&provisionerSuite{})
 
 type mockMachineManager struct {
 	manual.ProvisioningClientAPI
@@ -85,9 +84,9 @@ func (m *mockMachineManager) DestroyMachinesWithParams(ctx context.Context, forc
 	}}, nil
 }
 
-func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
+func (s *provisionerSuite) getArgs(c *tc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	client := &mockMachineManager{}
 	return manual.ProvisionMachineArgs{
 		Host:           hostname,
@@ -96,7 +95,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	}
 }
 
-func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
+func (s *provisionerSuite) TestProvisionMachine(c *tc.C) {
 	base := jujuversion.DefaultSupportedLTSBase()
 
 	args := s.getArgs(c)
@@ -121,14 +120,14 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		}.install(c).Restore()
 		machineId, err := sshprovisioner.ProvisionMachine(context.Background(), args)
 		if errorCode != 0 {
-			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
-			c.Assert(machineId, gc.Equals, "")
+			c.Assert(err, tc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
+			c.Assert(machineId, tc.Equals, "")
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Check(machineId, gc.Not(gc.Equals), "")
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(machineId, tc.Not(tc.Equals), "")
 			// machine ID will be incremented. Even though we failed and the
 			// machine is removed, the ID is not reused.
-			c.Assert(machineId, gc.Equals, fmt.Sprint(i+1))
+			c.Assert(machineId, tc.Equals, fmt.Sprint(i+1))
 		}
 	}
 
@@ -141,7 +140,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
 	_, err := sshprovisioner.ProvisionMachine(context.Background(), args)
-	c.Assert(err, gc.Equals, manual.ErrProvisioned)
+	c.Assert(err, tc.Equals, manual.ErrProvisioned)
 	defer fakeSSH{
 		Provisioned:              true,
 		CheckProvisionedExitCode: 255,
@@ -150,10 +149,10 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
 	_, err = sshprovisioner.ProvisionMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
+	c.Assert(err, tc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 
-func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
+func (s *provisionerSuite) TestProvisioningScript(c *tc.C) {
 	base := jujuversion.DefaultSupportedLTSBase()
 
 	defer fakeSSH{
@@ -189,22 +188,22 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		URL:     "https://example.org",
 	}}
 	err := icfg.SetTools(tools)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	script, err := sshprovisioner.ProvisioningScript(icfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudcfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = udata.ConfigureJuju()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cloudcfg.SetSystemUpgrade(false)
 	provisioningScript, err := cloudcfg.RenderScript()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
 	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
-	c.Assert(script, gc.Equals, expectedScript)
+	c.Assert(script, tc.Equals, expectedScript)
 }

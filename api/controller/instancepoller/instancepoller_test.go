@@ -8,8 +8,7 @@ import (
 	"errors"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -25,27 +24,27 @@ type InstancePollerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&InstancePollerSuite{})
+var _ = tc.Suite(&InstancePollerSuite{})
 
-func (s *InstancePollerSuite) TestNewAPI(c *gc.C) {
+func (s *InstancePollerSuite) TestNewAPI(c *tc.C) {
 	apiCaller := clientErrorAPICaller(c, "Life", nil)
 	api := instancepoller.NewAPI(apiCaller)
-	c.Check(api, gc.NotNil)
-	c.Check(apiCaller.CallCount, gc.Equals, 0)
+	c.Check(api, tc.NotNil)
+	c.Check(apiCaller.CallCount, tc.Equals, 0)
 
 	// Nothing happens until we actually call something else.
 	m, err := api.Machine(context.Background(), names.MachineTag{})
-	c.Assert(err, gc.ErrorMatches, "client error!")
-	c.Assert(m, gc.IsNil)
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
+	c.Assert(err, tc.ErrorMatches, "client error!")
+	c.Assert(m, tc.IsNil)
+	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
-func (s *InstancePollerSuite) TestNewAPIWithNilCaller(c *gc.C) {
+func (s *InstancePollerSuite) TestNewAPIWithNilCaller(c *tc.C) {
 	panicFunc := func() { instancepoller.NewAPI(nil) }
-	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
+	c.Assert(panicFunc, tc.PanicMatches, "caller is nil")
 }
 
-func (s *InstancePollerSuite) TestMachineCallsLife(c *gc.C) {
+func (s *InstancePollerSuite) TestMachineCallsLife(c *tc.C) {
 	// We have tested separately the Life method, here we just check
 	// it's called internally.
 	expectedResults := params.LifeResults{
@@ -54,13 +53,13 @@ func (s *InstancePollerSuite) TestMachineCallsLife(c *gc.C) {
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, expectedResults)
 	api := instancepoller.NewAPI(apiCaller)
 	m, err := api.Machine(context.Background(), names.NewMachineTag("42"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(m.Life(), gc.Equals, life.Value("working"))
-	c.Assert(m.Id(), gc.Equals, "42")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apiCaller.CallCount, tc.Equals, 1)
+	c.Assert(m.Life(), tc.Equals, life.Value("working"))
+	c.Assert(m.Id(), tc.Equals, "42")
 }
 
-func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *tc.C) {
 	// We're not testing the watcher logic here as it's already tested elsewhere.
 	var numWatcherCalls int
 	expectResult := params.StringsWatchResult{
@@ -69,8 +68,8 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *gc.C) {
 	}
 	watcherFunc := func(caller base.APICaller, result params.StringsWatchResult) watcher.StringsWatcher {
 		numWatcherCalls++
-		c.Check(caller, gc.NotNil)
-		c.Check(result, jc.DeepEquals, expectResult)
+		c.Check(caller, tc.NotNil)
+		c.Check(result, tc.DeepEquals, expectResult)
 		return nil
 	}
 	s.PatchValue(instancepoller.NewStringsWatcher, watcherFunc)
@@ -79,22 +78,22 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *gc.C) {
 
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchModelMachines(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(numWatcherCalls, gc.Equals, 1)
-	c.Assert(w, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apiCaller.CallCount, tc.Equals, 1)
+	c.Assert(numWatcherCalls, tc.Equals, 1)
+	c.Assert(w, tc.IsNil)
 }
 
-func (s *InstancePollerSuite) TestWatchModelMachineStartTimesClientError(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachineStartTimesClientError(c *tc.C) {
 	apiCaller := clientErrorAPICaller(c, "WatchModelMachineStartTimes", nil)
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchModelMachines(context.Background())
-	c.Assert(err, gc.ErrorMatches, "client error!")
-	c.Assert(w, gc.IsNil)
-	c.Assert(apiCaller.CallCount, gc.Equals, 1)
+	c.Assert(err, tc.ErrorMatches, "client error!")
+	c.Assert(w, tc.IsNil)
+	c.Assert(apiCaller.CallCount, tc.Equals, 1)
 }
 
-func (s *InstancePollerSuite) TestWatchModelMachineStartTimesServerError(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachineStartTimesServerError(c *tc.C) {
 	expectedResults := params.StringsWatchResult{
 		Error: apiservertesting.ServerError("server boom!"),
 	}
@@ -102,12 +101,12 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesServerError(c *gc.C
 
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchModelMachines(context.Background())
-	c.Assert(err, gc.ErrorMatches, "server boom!")
-	c.Assert(apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(w, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "server boom!")
+	c.Assert(apiCaller.CallCount, tc.Equals, 1)
+	c.Assert(w, tc.IsNil)
 }
 
-func clientErrorAPICaller(c *gc.C, method string, expectArgs interface{}) *apitesting.CallChecker {
+func clientErrorAPICaller(c *tc.C, method string, expectArgs interface{}) *apitesting.CallChecker {
 	return apitesting.APICallChecker(c, apitesting.APICall{
 		Facade:        "InstancePoller",
 		VersionIsZero: true,
@@ -118,7 +117,7 @@ func clientErrorAPICaller(c *gc.C, method string, expectArgs interface{}) *apite
 	})
 }
 
-func successAPICaller(c *gc.C, method string, expectArgs, useResults interface{}) *apitesting.CallChecker {
+func successAPICaller(c *tc.C, method string, expectArgs, useResults interface{}) *apitesting.CallChecker {
 	return apitesting.APICallChecker(c, apitesting.APICall{
 		Facade:        "InstancePoller",
 		VersionIsZero: true,

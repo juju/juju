@@ -12,11 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
@@ -25,7 +23,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	jt "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
 )
 
@@ -39,9 +37,9 @@ type NestedContextSuite struct {
 	workers *unitWorkersStub
 }
 
-var _ = gc.Suite(&NestedContextSuite{})
+var _ = tc.Suite(&NestedContextSuite{})
 
-func (s *NestedContextSuite) SetUpTest(c *gc.C) {
+func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	logger := loggertesting.WrapCheckLog(c).Child("nested-context")
 
@@ -57,20 +55,20 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 			Tag:                    machine,
 			Password:               "sekrit",
 			Nonce:                  "unused",
-			Controller:             jt.ControllerTag,
-			Model:                  jt.ModelTag,
+			Controller:             testing.ControllerTag,
+			Model:                  testing.ModelTag,
 			APIAddresses:           []string{"a1:123", "a2:123"},
 			CACert:                 "fake CACert",
 			UpgradedToVersion:      jv.Current,
 			AgentLogfileMaxBackups: 7,
 			AgentLogfileMaxSizeMB:  123,
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(config.Write(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(config.Write(), tc.ErrorIsNil)
 
 	s.agent = agentconfig.NewAgentConfig(datadir)
 	err = s.agent.ReadConfig(machine.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.workers = &unitWorkersStub{
 		started: make(chan string, 10), // eval size later
@@ -92,61 +90,61 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *NestedContextSuite) TestConfigMissingAgentConfig(c *gc.C) {
+func (s *NestedContextSuite) TestConfigMissingAgentConfig(c *tc.C) {
 	s.config.Agent = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err.Error(), gc.Equals, "missing Agent not valid")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err.Error(), tc.Equals, "missing Agent not valid")
 }
 
-func (s *NestedContextSuite) TestConfigMissingClock(c *gc.C) {
+func (s *NestedContextSuite) TestConfigMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err.Error(), tc.Equals, "missing Clock not valid")
 }
 
-func (s *NestedContextSuite) TestConfigMissingLogger(c *gc.C) {
+func (s *NestedContextSuite) TestConfigMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err.Error(), tc.Equals, "missing Logger not valid")
 }
 
-func (s *NestedContextSuite) TestConfigMissingSetupLogging(c *gc.C) {
+func (s *NestedContextSuite) TestConfigMissingSetupLogging(c *tc.C) {
 	s.config.SetupLogging = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err.Error(), gc.Equals, "missing SetupLogging not valid")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err.Error(), tc.Equals, "missing SetupLogging not valid")
 }
 
-func (s *NestedContextSuite) TestConfigMissingUnitEngineConfig(c *gc.C) {
+func (s *NestedContextSuite) TestConfigMissingUnitEngineConfig(c *tc.C) {
 	s.config.UnitEngineConfig = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err.Error(), gc.Equals, "missing UnitEngineConfig not valid")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err.Error(), tc.Equals, "missing UnitEngineConfig not valid")
 }
 
-func (s *NestedContextSuite) TestConfigMissingUnitManifolds(c *gc.C) {
+func (s *NestedContextSuite) TestConfigMissingUnitManifolds(c *tc.C) {
 	s.config.UnitManifolds = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err.Error(), gc.Equals, "missing UnitManifolds not valid")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err.Error(), tc.Equals, "missing UnitManifolds not valid")
 }
 
-func (s *NestedContextSuite) newContext(c *gc.C) deployer.Context {
+func (s *NestedContextSuite) newContext(c *tc.C) deployer.Context {
 	context, err := deployer.NewNestedContext(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, context) })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, context) })
 	s.InitializeCurrentToolsDir(c, s.agent.DataDir())
 	return context
 }
 
-func (s *NestedContextSuite) TestContextStops(c *gc.C) {
+func (s *NestedContextSuite) TestContextStops(c *tc.C) {
 	// Create a context and make sure the clean kill is good.
 	ctx := s.newContext(c)
 	report := ctx.Report()
-	c.Assert(report, jc.DeepEquals, map[string]interface{}{
+	c.Assert(report, tc.DeepEquals, map[string]interface{}{
 		"deployed": []string{},
 		"units": map[string]interface{}{
 			"workers": map[string]interface{}{},
@@ -154,32 +152,32 @@ func (s *NestedContextSuite) TestContextStops(c *gc.C) {
 	})
 }
 
-func (s *NestedContextSuite) TestDeployUnit(c *gc.C) {
+func (s *NestedContextSuite) TestDeployUnit(c *tc.C) {
 	ctx := s.newContext(c)
 	unitName := "something/0"
 	err := ctx.DeployUnit(unitName, "password")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for unit to start.
 	s.workers.waitForStart(c, unitName)
 
 	// Unit agent dir exists.
 	unitConfig := agent.ConfigPath(s.agent.DataDir(), names.NewUnitTag(unitName))
-	c.Assert(unitConfig, jc.IsNonEmptyFile)
+	c.Assert(unitConfig, tc.IsNonEmptyFile)
 
 	// Unit written into the config value as deployed units.
-	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), gc.Equals, unitName)
-	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxBackups(), gc.Equals, 7)
-	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxSizeMB(), gc.Equals, 123)
+	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), tc.Equals, unitName)
+	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxBackups(), tc.Equals, 7)
+	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxSizeMB(), tc.Equals, 123)
 }
 
-func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
+func (s *NestedContextSuite) TestRecallUnit(c *tc.C) {
 	unitName := "something/0"
 	tag := names.NewUnitTag(unitName)
 	s.config.RebootMonitorStatePurger = &fakeRebootMonitor{c: c, tag: tag}
 	ctx := s.newContext(c)
 	err := ctx.DeployUnit(unitName, "password")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for unit to start.
 	s.workers.waitForStart(c, unitName)
@@ -193,20 +191,20 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 	// Waiting for the socket file to be present on disk is more robust.
 	socketPath := path.Join(agent.Dir(s.agent.DataDir(), tag), addons.IntrospectionSocketName)
 	err = waitForFile(socketPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = ctx.RecallUnit(unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Unit agent dir no longer exists.
-	c.Assert(agent.Dir(s.agent.DataDir(), tag), jc.DoesNotExist)
+	c.Assert(agent.Dir(s.agent.DataDir(), tag), tc.DoesNotExist)
 
 	// Unit written into the config value as deployed units.
-	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), gc.HasLen, 0)
+	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), tc.HasLen, 0)
 
 	// Recall is idempotent.
 	err = ctx.RecallUnit(unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func waitForFile(filePath string) error {
@@ -226,11 +224,11 @@ func waitForFile(filePath string) error {
 	return errors.New("file not found after 10 attempts")
 }
 
-func (s *NestedContextSuite) deployThreeUnits(c *gc.C, ctx deployer.Context) {
+func (s *NestedContextSuite) deployThreeUnits(c *tc.C, ctx deployer.Context) {
 	// Units are conveniently in alphabetical order.
 	for _, unitName := range []string{"first/0", "second/0", "third/0"} {
 		err := ctx.DeployUnit(unitName, "password")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		// Wait for unit to start.
 		s.workers.waitForStart(c, unitName)
 	}
@@ -262,13 +260,13 @@ func (s *NestedContextSuite) deployThreeUnits(c *gc.C, ctx deployer.Context) {
 	}
 }
 
-func (s *NestedContextSuite) TestReport(c *gc.C) {
+func (s *NestedContextSuite) TestReport(c *tc.C) {
 	ctx := s.newContext(c)
 	s.deployThreeUnits(c, ctx)
 
-	check := jc.NewMultiChecker()
-	check.AddExpr(`_["units"][_][_][_][_][_]["started"]`, jc.Ignore)
-	check.AddExpr(`_["units"][_][_]["started"]`, jc.Ignore)
+	check := tc.NewMultiChecker()
+	check.AddExpr(`_["units"][_][_][_][_][_]["started"]`, tc.Ignore)
+	check.AddExpr(`_["units"][_][_]["started"]`, tc.Ignore)
 	// Dates are shown here as an example, but are ignored by the checker.
 	c.Assert(ctx.Report(), check, map[string]interface{}{
 		"deployed": []string{"first/0", "second/0", "third/0"},
@@ -326,11 +324,11 @@ func (s *NestedContextSuite) TestReport(c *gc.C) {
 }
 
 type fakeRebootMonitor struct {
-	c   *gc.C
+	c   *tc.C
 	tag names.UnitTag
 }
 
 func (m *fakeRebootMonitor) PurgeState(tag names.Tag) error {
-	m.c.Assert(tag.String(), gc.Equals, m.tag.String())
+	m.c.Assert(tag.String(), tc.Equals, m.tag.String())
 	return nil
 }

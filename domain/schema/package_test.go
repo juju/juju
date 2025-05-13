@@ -11,15 +11,14 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/database/schema"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type schemaBaseSuite struct {
@@ -27,19 +26,19 @@ type schemaBaseSuite struct {
 }
 
 // NewCleanDB returns a new sql.DB reference.
-func (s *schemaBaseSuite) NewCleanDB(c *gc.C) *sql.DB {
+func (s *schemaBaseSuite) NewCleanDB(c *tc.C) *sql.DB {
 	dir := c.MkDir()
 
 	url := fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir)
 	c.Logf("Opening sqlite3 db with: %v", url)
 
 	db, err := sql.Open("sqlite3", url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return db
 }
 
-func (s *schemaBaseSuite) applyDDL(c *gc.C, ddl *schema.Schema) {
+func (s *schemaBaseSuite) applyDDL(c *tc.C, ddl *schema.Schema) {
 	if s.Verbose {
 		ddl.Hook(func(i int, statement string) error {
 			c.Logf("-- Applying schema change %d\n%s\n", i, statement)
@@ -47,25 +46,25 @@ func (s *schemaBaseSuite) applyDDL(c *gc.C, ddl *schema.Schema) {
 		})
 	}
 	changeSet, err := ddl.Ensure(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(changeSet.Current, gc.Equals, 0)
-	c.Check(changeSet.Post, gc.Equals, ddl.Len())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(changeSet.Current, tc.Equals, 0)
+	c.Check(changeSet.Post, tc.Equals, ddl.Len())
 }
 
-func (s *schemaBaseSuite) assertExecSQL(c *gc.C, q string, args ...any) {
+func (s *schemaBaseSuite) assertExecSQL(c *tc.C, q string, args ...any) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, args...)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *schemaBaseSuite) assertExecSQLError(c *gc.C, q string, errMsg string, args ...any) {
+func (s *schemaBaseSuite) assertExecSQLError(c *tc.C, q string, errMsg string, args ...any) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, args...)
 		return err
 	})
-	c.Assert(err, gc.ErrorMatches, errMsg)
+	c.Assert(err, tc.ErrorMatches, errMsg)
 }
 
 var (
@@ -75,27 +74,27 @@ var (
 	)
 )
 
-func readEntityNames(c *gc.C, db *sql.DB, entity_type string) []string {
+func readEntityNames(c *tc.C, db *sql.DB, entity_type string) []string {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	tx, err := db.BeginTx(ctx, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT name FROM sqlite_master WHERE type = ? ORDER BY name ASC;`, entity_type)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 
 	var names []string
 	for rows.Next() {
 		var name string
 		err = rows.Scan(&name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		names = append(names, name)
 	}
 
 	err = tx.Commit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return names
 }

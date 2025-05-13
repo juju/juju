@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/semversion"
@@ -22,9 +21,9 @@ type exportCharmSuite struct {
 	exportSuite
 }
 
-var _ = gc.Suite(&exportCharmSuite{})
+var _ = tc.Suite(&exportCharmSuite{})
 
-func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *gc.C) {
+func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectApplication(c)
@@ -39,19 +38,19 @@ func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(model.Applications(), gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(model.Applications(), tc.HasLen, 1)
 
 	app := model.Applications()[0]
-	c.Check(app.Name(), gc.Equals, "prometheus")
-	c.Check(app.CharmURL(), gc.Equals, "ch:amd64/prometheus-42")
+	c.Check(app.Name(), tc.Equals, "prometheus")
+	c.Check(app.CharmURL(), tc.Equals, "ch:amd64/prometheus-42")
 
 	metadata := app.CharmMetadata()
-	c.Assert(metadata, gc.NotNil)
-	c.Check(metadata.Name(), gc.Equals, "prometheus")
+	c.Assert(metadata, tc.NotNil)
+	c.Check(metadata.Name(), tc.Equals, "prometheus")
 }
 
-func (s *exportCharmSuite) TestExportCharmMetadata(c *gc.C) {
+func (s *exportCharmSuite) TestExportCharmMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test that all the properties are correctly exported to the description
@@ -156,7 +155,7 @@ func (s *exportCharmSuite) TestExportCharmMetadata(c *gc.C) {
 	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmMetadata(meta, "{}")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// As the description package exposes interfaces, it becomes difficult to
 	// test it nicely. To work around this, we'll check the individual fields
@@ -164,84 +163,84 @@ func (s *exportCharmSuite) TestExportCharmMetadata(c *gc.C) {
 	// out the fields so that we can compare the rest of the struct.
 
 	provides := args.Provides
-	c.Assert(provides, gc.HasLen, 1)
+	c.Assert(provides, tc.HasLen, 1)
 	provider := provides["prometheus"]
-	c.Check(provider.Name(), gc.Equals, "prometheus")
-	c.Check(provider.Role(), gc.Equals, "provider")
-	c.Check(provider.Interface(), gc.Equals, "monitoring")
-	c.Check(provider.Optional(), gc.Equals, true)
-	c.Check(provider.Limit(), gc.Equals, 1)
-	c.Check(provider.Scope(), gc.Equals, "global")
+	c.Check(provider.Name(), tc.Equals, "prometheus")
+	c.Check(provider.Role(), tc.Equals, "provider")
+	c.Check(provider.Interface(), tc.Equals, "monitoring")
+	c.Check(provider.Optional(), tc.Equals, true)
+	c.Check(provider.Limit(), tc.Equals, 1)
+	c.Check(provider.Scope(), tc.Equals, "global")
 	args.Provides = nil
 
 	requires := args.Requires
-	c.Assert(requires, gc.HasLen, 1)
+	c.Assert(requires, tc.HasLen, 1)
 	require := requires["foo"]
-	c.Check(require.Name(), gc.Equals, "bar")
-	c.Check(require.Role(), gc.Equals, "requirer")
-	c.Check(require.Interface(), gc.Equals, "baz")
-	c.Check(require.Optional(), gc.Equals, true)
-	c.Check(require.Limit(), gc.Equals, 2)
-	c.Check(require.Scope(), gc.Equals, "container")
+	c.Check(require.Name(), tc.Equals, "bar")
+	c.Check(require.Role(), tc.Equals, "requirer")
+	c.Check(require.Interface(), tc.Equals, "baz")
+	c.Check(require.Optional(), tc.Equals, true)
+	c.Check(require.Limit(), tc.Equals, 2)
+	c.Check(require.Scope(), tc.Equals, "container")
 	args.Requires = nil
 
 	peers := args.Peers
-	c.Assert(peers, gc.HasLen, 1)
+	c.Assert(peers, tc.HasLen, 1)
 	peer := peers["alpha"]
-	c.Check(peer.Name(), gc.Equals, "omega")
-	c.Check(peer.Role(), gc.Equals, "peer")
-	c.Check(peer.Interface(), gc.Equals, "monitoring")
-	c.Check(peer.Optional(), gc.Equals, true)
-	c.Check(peer.Limit(), gc.Equals, 3)
-	c.Check(peer.Scope(), gc.Equals, "global")
+	c.Check(peer.Name(), tc.Equals, "omega")
+	c.Check(peer.Role(), tc.Equals, "peer")
+	c.Check(peer.Interface(), tc.Equals, "monitoring")
+	c.Check(peer.Optional(), tc.Equals, true)
+	c.Check(peer.Limit(), tc.Equals, 3)
+	c.Check(peer.Scope(), tc.Equals, "global")
 	args.Peers = nil
 
 	storage := args.Storage
-	c.Assert(storage, gc.HasLen, 1)
+	c.Assert(storage, tc.HasLen, 1)
 	stor := storage["foo"]
-	c.Check(stor.Name(), gc.Equals, "bar")
-	c.Check(stor.Description(), gc.Equals, "baz")
-	c.Check(stor.Type(), gc.Equals, "block")
-	c.Check(stor.Shared(), gc.Equals, true)
-	c.Check(stor.Readonly(), gc.Equals, true)
-	c.Check(stor.CountMin(), gc.Equals, 1)
-	c.Check(stor.CountMax(), gc.Equals, 2)
-	c.Check(stor.MinimumSize(), gc.Equals, 1024)
-	c.Check(stor.Location(), gc.Equals, "/var/lib/foo")
-	c.Check(stor.Properties(), jc.DeepEquals, []string{"foo", "bar"})
+	c.Check(stor.Name(), tc.Equals, "bar")
+	c.Check(stor.Description(), tc.Equals, "baz")
+	c.Check(stor.Type(), tc.Equals, "block")
+	c.Check(stor.Shared(), tc.Equals, true)
+	c.Check(stor.Readonly(), tc.Equals, true)
+	c.Check(stor.CountMin(), tc.Equals, 1)
+	c.Check(stor.CountMax(), tc.Equals, 2)
+	c.Check(stor.MinimumSize(), tc.Equals, 1024)
+	c.Check(stor.Location(), tc.Equals, "/var/lib/foo")
+	c.Check(stor.Properties(), tc.DeepEquals, []string{"foo", "bar"})
 	args.Storage = nil
 
 	devices := args.Devices
-	c.Assert(devices, gc.HasLen, 1)
+	c.Assert(devices, tc.HasLen, 1)
 	device := devices["foo"]
-	c.Check(device.Name(), gc.Equals, "bar")
-	c.Check(device.Description(), gc.Equals, "baz")
-	c.Check(device.Type(), gc.Equals, "gpu")
-	c.Check(device.CountMin(), gc.Equals, 1)
-	c.Check(device.CountMax(), gc.Equals, 2)
+	c.Check(device.Name(), tc.Equals, "bar")
+	c.Check(device.Description(), tc.Equals, "baz")
+	c.Check(device.Type(), tc.Equals, "gpu")
+	c.Check(device.CountMin(), tc.Equals, 1)
+	c.Check(device.CountMax(), tc.Equals, 2)
 	args.Devices = nil
 
 	containers := args.Containers
-	c.Assert(containers, gc.HasLen, 1)
+	c.Assert(containers, tc.HasLen, 1)
 	container := containers["foo"]
-	c.Check(container.Resource(), gc.Equals, "resource")
+	c.Check(container.Resource(), tc.Equals, "resource")
 	mounts := container.Mounts()
-	c.Assert(mounts, gc.HasLen, 1)
+	c.Assert(mounts, tc.HasLen, 1)
 	mount := mounts[0]
-	c.Check(mount.Location(), gc.Equals, "/var/lib/foo")
-	c.Check(mount.Storage(), gc.Equals, "bar")
+	c.Check(mount.Location(), tc.Equals, "/var/lib/foo")
+	c.Check(mount.Storage(), tc.Equals, "bar")
 	args.Containers = nil
 
 	resources := args.Resources
-	c.Assert(resources, gc.HasLen, 1)
+	c.Assert(resources, tc.HasLen, 1)
 	resource := resources["foo"]
-	c.Check(resource.Name(), gc.Equals, "bar")
-	c.Check(resource.Description(), gc.Equals, "baz")
-	c.Check(resource.Type(), gc.Equals, "file")
-	c.Check(resource.Path(), gc.Equals, "/var/lib/foo")
+	c.Check(resource.Name(), tc.Equals, "bar")
+	c.Check(resource.Description(), tc.Equals, "baz")
+	c.Check(resource.Type(), tc.Equals, "file")
+	c.Check(resource.Path(), tc.Equals, "/var/lib/foo")
 	args.Resources = nil
 
-	c.Check(args, gc.DeepEquals, description.CharmMetadataArgs{
+	c.Check(args, tc.DeepEquals, description.CharmMetadataArgs{
 		Name:           "prometheus",
 		Summary:        "Prometheus monitoring",
 		Description:    "Prometheus is a monitoring system and time series database.",
@@ -259,7 +258,7 @@ func (s *exportCharmSuite) TestExportCharmMetadata(c *gc.C) {
 	})
 }
 
-func (s *exportCharmSuite) TestExportCharmManifest(c *gc.C) {
+func (s *exportCharmSuite) TestExportCharmManifest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	manifest := &internalcharm.Manifest{
@@ -277,16 +276,16 @@ func (s *exportCharmSuite) TestExportCharmManifest(c *gc.C) {
 	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmManifest(manifest)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(args.Bases, gc.HasLen, 1)
+	c.Assert(args.Bases, tc.HasLen, 1)
 	base := args.Bases[0]
-	c.Check(base.Name(), gc.Equals, "ubuntu")
-	c.Check(base.Channel(), gc.Equals, "devel/edge/foo")
-	c.Check(base.Architectures(), jc.DeepEquals, []string{"amd64"})
+	c.Check(base.Name(), tc.Equals, "ubuntu")
+	c.Check(base.Channel(), tc.Equals, "devel/edge/foo")
+	c.Check(base.Architectures(), tc.DeepEquals, []string{"amd64"})
 }
 
-func (s *exportCharmSuite) TestExportCharmConfig(c *gc.C) {
+func (s *exportCharmSuite) TestExportCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := &internalcharm.Config{
@@ -302,16 +301,16 @@ func (s *exportCharmSuite) TestExportCharmConfig(c *gc.C) {
 	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmConfig(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(args.Configs, gc.HasLen, 1)
+	c.Assert(args.Configs, tc.HasLen, 1)
 	option := args.Configs["foo"]
-	c.Check(option.Type(), gc.Equals, "string")
-	c.Check(option.Description(), gc.Equals, "foo option")
-	c.Check(option.Default(), gc.Equals, "bar")
+	c.Check(option.Type(), tc.Equals, "string")
+	c.Check(option.Description(), tc.Equals, "foo option")
+	c.Check(option.Default(), tc.Equals, "bar")
 }
 
-func (s *exportCharmSuite) TestExportCharmActions(c *gc.C) {
+func (s *exportCharmSuite) TestExportCharmActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	actions := &internalcharm.Actions{
@@ -330,14 +329,14 @@ func (s *exportCharmSuite) TestExportCharmActions(c *gc.C) {
 	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmActions(actions)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(args.Actions, gc.HasLen, 1)
+	c.Assert(args.Actions, tc.HasLen, 1)
 	action := args.Actions["foo"]
-	c.Check(action.Description(), gc.Equals, "foo action")
-	c.Check(action.Parallel(), gc.Equals, true)
-	c.Check(action.ExecutionGroup(), gc.Equals, "group")
-	c.Check(action.Parameters(), jc.DeepEquals, map[string]interface{}{
+	c.Check(action.Description(), tc.Equals, "foo action")
+	c.Check(action.Parallel(), tc.Equals, true)
+	c.Check(action.ExecutionGroup(), tc.Equals, "group")
+	c.Check(action.Parameters(), tc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }

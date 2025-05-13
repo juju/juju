@@ -11,9 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/common/charms"
@@ -44,18 +43,18 @@ type sshContainerSuite struct {
 	sshC ssh.SSHContainerInterfaceForTest
 }
 
-var _ = gc.Suite(&sshContainerSuite{})
+var _ = tc.Suite(&sshContainerSuite{})
 
-func (s *sshContainerSuite) SetUpSuite(c *gc.C) {
+func (s *sshContainerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.modelUUID = "e0453597-8109-4f7d-a58f-af08bc72a414"
 }
 
-func (s *sshContainerSuite) SetUpTest(c *gc.C) {
+func (s *sshContainerSuite) SetUpTest(c *tc.C) {
 	s.modelName = "test"
 }
 
-func (s *sshContainerSuite) TearDownTest(c *gc.C) {
+func (s *sshContainerSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.applicationAPI = nil
 	s.execClient = nil
@@ -63,7 +62,7 @@ func (s *sshContainerSuite) TearDownTest(c *gc.C) {
 	s.mockNamespaces = nil
 }
 
-func (s *sshContainerSuite) setUpController(c *gc.C, containerName string) *gomock.Controller {
+func (s *sshContainerSuite) setUpController(c *tc.C, containerName string) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.applicationAPI = mocks.NewMockApplicationAPI(ctrl)
 	s.charmAPI = mocks.NewMockCharmAPI(ctrl)
@@ -96,7 +95,7 @@ func (s *sshContainerSuite) setUpController(c *gc.C, containerName string) *gomo
 	return ctrl
 }
 
-func (s *sshContainerSuite) TestCleanupRun(c *gc.C) {
+func (s *sshContainerSuite) TestCleanupRun(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
@@ -108,7 +107,7 @@ func (s *sshContainerSuite) TestCleanupRun(c *gc.C) {
 	s.sshC.CleanupRun()
 }
 
-func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *gc.C) {
+func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
@@ -123,30 +122,30 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *gc.C) {
 			}, nil),
 	)
 	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
 
-func (s *sshContainerSuite) TestResolveTargetForController(c *gc.C) {
+func (s *sshContainerSuite) TestResolveTargetForController(c *tc.C) {
 	s.modelName = "controller"
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
 	target, err := s.sshC.ResolveTarget(context.Background(), "0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(target.GetEntity(), gc.DeepEquals, "controller-0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(target.GetEntity(), tc.DeepEquals, "controller-0")
 }
 
-func (s *sshContainerSuite) TestResolveTargetForControllerInvalidTarget(c *gc.C) {
+func (s *sshContainerSuite) TestResolveTargetForControllerInvalidTarget(c *tc.C) {
 	s.modelName = "controller"
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
 	_, err := s.sshC.ResolveTarget(context.Background(), "1")
-	c.Assert(err, gc.ErrorMatches, `target "1" not found`)
+	c.Assert(err, tc.ErrorMatches, `target "1" not found`)
 }
 
-func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
+func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
@@ -170,11 +169,11 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
 			}, nil),
 	)
 	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
 
-func (s *sshContainerSuite) TestResolveCharmTargetForSidecarCharm(c *gc.C) {
+func (s *sshContainerSuite) TestResolveCharmTargetForSidecarCharm(c *tc.C) {
 	ctrl := s.setUpController(c, "charm")
 	defer ctrl.Finish()
 
@@ -198,11 +197,11 @@ func (s *sshContainerSuite) TestResolveCharmTargetForSidecarCharm(c *gc.C) {
 			}, nil),
 	)
 	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
 
-func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *gc.C) {
+func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *tc.C) {
 	ctrl := s.setUpController(c, "test-container")
 	defer ctrl.Finish()
 
@@ -230,11 +229,11 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *gc.
 			}, nil),
 	)
 	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
 
-func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainerMissing(c *gc.C) {
+func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainerMissing(c *tc.C) {
 	ctrl := s.setUpController(c, "bad-test-container")
 	defer ctrl.Finish()
 
@@ -262,10 +261,10 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainerMissing
 			}, nil),
 	)
 	_, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
-	c.Assert(err, gc.ErrorMatches, `container "bad-test-container" must be one of charm, test-container`)
+	c.Assert(err, tc.ErrorMatches, `container "bad-test-container" must be one of charm, test-container`)
 }
 
-func (s *sshContainerSuite) TestResolveTargetForWorkloadPodNoProviderID(c *gc.C) {
+func (s *sshContainerSuite) TestResolveTargetForWorkloadPodNoProviderID(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
@@ -280,10 +279,10 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPodNoProviderID(c *gc.C)
 			}, nil),
 	)
 	_, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
-	c.Assert(err, gc.ErrorMatches, `container for unit "mariadb-k8s/0" is not ready yet`)
+	c.Assert(err, tc.ErrorMatches, `container for unit "mariadb-k8s/0" is not ready yet`)
 }
 
-func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
+func (s *sshContainerSuite) TestGetExecClient(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
@@ -292,12 +291,12 @@ func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 			Return(cloudspec.CloudSpec{}, nil),
 	)
 	execC, err := s.sshC.GetExecClient()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.sshC.ModelName(), gc.Equals, s.modelName)
-	c.Assert(execC, gc.DeepEquals, s.execClient)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.sshC.ModelName(), tc.Equals, s.modelName)
+	c.Assert(execC, tc.DeepEquals, s.execClient)
 }
 
-func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *gc.C) {
+func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
@@ -313,8 +312,8 @@ func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *gc.C) {
 		ctx.EXPECT().GetStdin().Return(buffer),
 		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_.Env`, jc.Ignore)
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_.Env`, tc.Ignore)
 				c.Check(arg, mc, k8sexec.ExecParams{
 					PodName:  "mariadb-k8s-0",
 					Commands: []string{"bash"},
@@ -331,10 +330,10 @@ func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *gc.C) {
 	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *gc.C) {
+func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *tc.C) {
 	ctrl := s.setUpController(c, "container1")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
@@ -350,8 +349,8 @@ func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *gc.C) {
 		ctx.EXPECT().GetStdin().Return(buffer),
 		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_.Env`, jc.Ignore)
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_.Env`, tc.Ignore)
 				c.Check(arg, mc, k8sexec.ExecParams{
 					PodName:       "mariadb-k8s-0",
 					ContainerName: "container1",
@@ -369,10 +368,10 @@ func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *gc.C) {
 	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *sshContainerSuite) TestSSHCancelled(c *gc.C) {
+func (s *sshContainerSuite) TestSSHCancelled(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
@@ -392,8 +391,8 @@ func (s *sshContainerSuite) TestSSHCancelled(c *gc.C) {
 		ctx.EXPECT().GetStdin().Return(buffer),
 		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_.Env`, jc.Ignore)
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_.Env`, tc.Ignore)
 				c.Check(arg, mc, k8sexec.ExecParams{
 					PodName:  "mariadb-k8s-0",
 					Commands: []string{"bash"},
@@ -417,10 +416,10 @@ func (s *sshContainerSuite) TestSSHCancelled(c *gc.C) {
 	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
-	c.Assert(err, gc.ErrorMatches, `cancelled`)
+	c.Assert(err, tc.ErrorMatches, `cancelled`)
 }
 
-func (s *sshContainerSuite) TestGetInterruptAbortChanInterrupted(c *gc.C) {
+func (s *sshContainerSuite) TestGetInterruptAbortChanInterrupted(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
@@ -436,13 +435,13 @@ func (s *sshContainerSuite) TestGetInterruptAbortChanInterrupted(c *gc.C) {
 
 	select {
 	case _, ok := <-cancel:
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for cancelling")
 	}
 }
 
-func (s *sshContainerSuite) TestGetInterruptAbortChanStopped(c *gc.C) {
+func (s *sshContainerSuite) TestGetInterruptAbortChanStopped(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
@@ -455,27 +454,27 @@ func (s *sshContainerSuite) TestGetInterruptAbortChanStopped(c *gc.C) {
 	stop()
 	select {
 	case _, ok := <-cancel:
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for cancelling")
 	}
 }
 
-func (s *sshContainerSuite) TestCopyInvalidArgs(c *gc.C) {
+func (s *sshContainerSuite) TestCopyInvalidArgs(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
 	s.sshC.SetArgs([]string{"./file1"})
 	err := s.sshC.Copy(ctx)
-	c.Assert(err, gc.ErrorMatches, `source and destination are required`)
+	c.Assert(err, tc.ErrorMatches, `source and destination are required`)
 
 	s.sshC.SetArgs([]string{"./file1", "./file2", "mariadb-k8s/0:/home/ubuntu/"})
 	err = s.sshC.Copy(ctx)
-	c.Assert(err, gc.ErrorMatches, `only one source and one destination are allowed for a k8s application`)
+	c.Assert(err, tc.ErrorMatches, `only one source and one destination are allowed for a k8s application`)
 }
 
-func (s *sshContainerSuite) TestCopyFromWorkloadPod(c *gc.C) {
+func (s *sshContainerSuite) TestCopyFromWorkloadPod(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
@@ -502,10 +501,10 @@ func (s *sshContainerSuite) TestCopyFromWorkloadPod(c *gc.C) {
 	)
 
 	err := s.sshC.Copy(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *sshContainerSuite) TestCopyToWorkloadPod(c *gc.C) {
+func (s *sshContainerSuite) TestCopyToWorkloadPod(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
@@ -532,10 +531,10 @@ func (s *sshContainerSuite) TestCopyToWorkloadPod(c *gc.C) {
 	)
 
 	err := s.sshC.Copy(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *gc.C) {
+func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *tc.C) {
 	ctrl := s.setUpController(c, "container1")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
@@ -566,10 +565,10 @@ func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *gc.C)
 	)
 
 	err := s.sshC.Copy(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *sshContainerSuite) TestNamespaceControllerModel(c *gc.C) {
+func (s *sshContainerSuite) TestNamespaceControllerModel(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
@@ -584,18 +583,18 @@ func (s *sshContainerSuite) TestNamespaceControllerModel(c *gc.C) {
 		controller.Config{"controller-name": "foobar"}, nil)
 
 	err := s.sshC.InitRun(context.Background(), mc)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.sshC.Namespace(), gc.Equals, "controller-foobar")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.sshC.Namespace(), tc.Equals, "controller-foobar")
 }
 
-func (s *sshContainerSuite) TestSSHWithTerm(c *gc.C) {
+func (s *sshContainerSuite) TestSSHWithTerm(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
 	prevTerm, prevTermSet := os.LookupEnv("TERM")
 	os.Setenv("TERM", "foobar-256color")
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		if prevTermSet {
 			os.Setenv("TERM", prevTerm)
 		} else {
@@ -614,7 +613,7 @@ func (s *sshContainerSuite) TestSSHWithTerm(c *gc.C) {
 		ctx.EXPECT().GetStdin().Return(buffer),
 		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
-				c.Check(arg, jc.DeepEquals, k8sexec.ExecParams{
+				c.Check(arg, tc.DeepEquals, k8sexec.ExecParams{
 					PodName:  "mariadb-k8s-0",
 					Env:      []string{"TERM=foobar-256color"},
 					Commands: []string{"bash"},
@@ -631,17 +630,17 @@ func (s *sshContainerSuite) TestSSHWithTerm(c *gc.C) {
 	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *sshContainerSuite) TestSSHWithTermNoTTY(c *gc.C) {
+func (s *sshContainerSuite) TestSSHWithTermNoTTY(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
 	prevTerm, prevTermSet := os.LookupEnv("TERM")
 	os.Setenv("TERM", "foobar-256color")
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		if prevTermSet {
 			os.Setenv("TERM", prevTerm)
 		} else {
@@ -660,7 +659,7 @@ func (s *sshContainerSuite) TestSSHWithTermNoTTY(c *gc.C) {
 		ctx.EXPECT().GetStdin().Return(buffer),
 		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
-				c.Check(arg, jc.DeepEquals, k8sexec.ExecParams{
+				c.Check(arg, tc.DeepEquals, k8sexec.ExecParams{
 					PodName:  "mariadb-k8s-0",
 					Env:      nil,
 					Commands: []string{"bash"},
@@ -677,5 +676,5 @@ func (s *sshContainerSuite) TestSSHWithTermNoTTY(c *gc.C) {
 	target := &ssh.ResolvedTarget{}
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, false, target)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

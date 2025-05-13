@@ -6,15 +6,15 @@ package engine_test
 import (
 	"testing"
 
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type dummyWorker struct {

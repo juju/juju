@@ -6,20 +6,20 @@ package rpc_test
 import (
 	"context"
 
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc"
 )
 
 type multiplexerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&multiplexerSuite{})
+var _ = tc.Suite(&multiplexerSuite{})
 
-func (*multiplexerSuite) TestServerReply_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestServerReply_CallsAllObservers(c *tc.C) {
 	observers := []*fakeobserver.RPCInstance{
 		(&fakeobserver.Instance{}).RPCObserver().(*fakeobserver.RPCInstance),
 		(&fakeobserver.Instance{}).RPCObserver().(*fakeobserver.RPCInstance),
@@ -38,7 +38,7 @@ func (*multiplexerSuite) TestServerReply_CallsAllObservers(c *gc.C) {
 	}
 }
 
-func (*multiplexerSuite) TestServerRequest_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestServerRequest_CallsAllObservers(c *tc.C) {
 	observers := []*fakeobserver.RPCInstance{
 		(&fakeobserver.Instance{}).RPCObserver().(*fakeobserver.RPCInstance),
 		(&fakeobserver.Instance{}).RPCObserver().(*fakeobserver.RPCInstance),

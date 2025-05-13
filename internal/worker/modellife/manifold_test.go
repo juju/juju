@@ -6,59 +6,58 @@ package modellife
 import (
 	"context"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelService *MockModelService
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *ManifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig()
 	cfg.DomainServicesName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewWorker = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.ModelUUID = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Result = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.GetModelService = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 var expectedInputs = []string{"domainservices"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.newManifold(c).Inputs, jc.SameContents, expectedInputs)
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.newManifold(c).Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	for _, input := range expectedInputs {
@@ -66,22 +65,22 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 			input: dependency.ErrMissing,
 		})
 		_, err := s.newManifold(c).Start(context.Background(), getter)
-		c.Assert(err, jc.ErrorIs, dependency.ErrMissing)
+		c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w, err := s.newManifold(c).Start(context.Background(), s.newGetter(c, map[string]any{
 		"domainservices": s.modelService,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CheckAlive(c, w)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *ManifoldSuite) newManifold(c *gc.C) dependency.Manifold {
+func (s *ManifoldSuite) newManifold(c *tc.C) dependency.Manifold {
 	manifold := Manifold(s.getConfig())
 	return manifold
 }
@@ -104,7 +103,7 @@ func (s *ManifoldSuite) getConfig() ManifoldConfig {
 	}
 }
 
-func (s *ManifoldSuite) newGetter(c *gc.C, overlay map[string]any) dependency.Getter {
+func (s *ManifoldSuite) newGetter(c *tc.C, overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"domainservices": s.modelService,
 	}
@@ -114,7 +113,7 @@ func (s *ManifoldSuite) newGetter(c *gc.C, overlay map[string]any) dependency.Ge
 	return dt.StubGetter(resources)
 }
 
-func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelService = NewMockModelService(ctrl)

@@ -4,14 +4,13 @@
 package testing
 
 import (
-	"github.com/juju/testing"
-
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // FakeAuditLog implements auditlog.AuditLog.
 type FakeAuditLog struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (l *FakeAuditLog) AddConversation(m auditlog.Conversation) error {

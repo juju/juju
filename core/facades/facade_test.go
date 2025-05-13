@@ -4,7 +4,7 @@
 package facades
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -13,9 +13,9 @@ type FacadeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&FacadeSuite{})
+var _ = tc.Suite(&FacadeSuite{})
 
-func (s *FacadeSuite) TestBestVersion(c *gc.C) {
+func (s *FacadeSuite) TestBestVersion(c *tc.C) {
 	tests := []struct {
 		versions FacadeVersion
 		desired  FacadeVersion
@@ -39,11 +39,11 @@ func (s *FacadeSuite) TestBestVersion(c *gc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("test %d", i)
-		c.Check(BestVersion(test.desired, test.versions), gc.Equals, test.expected)
+		c.Check(BestVersion(test.desired, test.versions), tc.Equals, test.expected)
 	}
 }
 
-func (s *FacadeSuite) TestCompleteIntersection(c *gc.C) {
+func (s *FacadeSuite) TestCompleteIntersection(c *tc.C) {
 	tests := []struct {
 		src      FacadeVersions
 		dst      FacadeVersions
@@ -101,6 +101,6 @@ func (s *FacadeSuite) TestCompleteIntersection(c *gc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("test %d", i)
-		c.Check(CompleteIntersection(test.src, test.dst), gc.Equals, test.expected)
+		c.Check(CompleteIntersection(test.src, test.dst), tc.Equals, test.expected)
 	}
 }

@@ -6,18 +6,18 @@ package virtualhostname
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type HostnameSuite struct{}
 
-var _ = gc.Suite(&HostnameSuite{})
+var _ = tc.Suite(&HostnameSuite{})
 
-func (s *HostnameSuite) TestParseHostname(c *gc.C) {
+func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 	testCases := []struct {
 		desc        string
 		hostname    string
@@ -91,16 +91,16 @@ func (s *HostnameSuite) TestParseHostname(c *gc.C) {
 		c.Logf("test %d: %s", i, tC.desc)
 		res, err := Parse(tC.hostname)
 		if tC.expectedErr == "" {
-			c.Assert(err, gc.IsNil)
-			c.Assert(res, gc.DeepEquals, tC.result)
-			c.Assert(res.String(), gc.Equals, tC.hostname)
+			c.Assert(err, tc.IsNil)
+			c.Assert(res, tc.DeepEquals, tC.result)
+			c.Assert(res.String(), tc.Equals, tC.hostname)
 		} else {
-			c.Assert(err, gc.ErrorMatches, tC.expectedErr)
+			c.Assert(err, tc.ErrorMatches, tC.expectedErr)
 		}
 	}
 }
 
-func (s *HostnameSuite) TestNewInfoMachineTarget(c *gc.C) {
+func (s *HostnameSuite) TestNewInfoMachineTarget(c *tc.C) {
 	testCases := []struct {
 		desc        string
 		modelUUID   string
@@ -142,15 +142,15 @@ func (s *HostnameSuite) TestNewInfoMachineTarget(c *gc.C) {
 		c.Logf("test %d: %s", i, tC.desc)
 		res, err := NewInfoMachineTarget(tC.modelUUID, tC.machine)
 		if tC.expectedErr == "" {
-			c.Assert(err, gc.IsNil)
-			c.Assert(res, gc.DeepEquals, tC.expected)
+			c.Assert(err, tc.IsNil)
+			c.Assert(res, tc.DeepEquals, tC.expected)
 		} else {
-			c.Assert(err, gc.ErrorMatches, tC.expectedErr)
+			c.Assert(err, tc.ErrorMatches, tC.expectedErr)
 		}
 	}
 }
 
-func (s *HostnameSuite) TestNewInfoUnitTarget(c *gc.C) {
+func (s *HostnameSuite) TestNewInfoUnitTarget(c *tc.C) {
 	testCases := []struct {
 		desc        string
 		modelUUID   string
@@ -187,15 +187,15 @@ func (s *HostnameSuite) TestNewInfoUnitTarget(c *gc.C) {
 		c.Logf("test %d: %s", i, tC.desc)
 		res, err := NewInfoUnitTarget(tC.modelUUID, tC.unit)
 		if tC.expectedErr == "" {
-			c.Assert(err, gc.IsNil)
-			c.Assert(res, gc.DeepEquals, tC.expected)
+			c.Assert(err, tc.IsNil)
+			c.Assert(res, tc.DeepEquals, tC.expected)
 		} else {
-			c.Assert(err, gc.ErrorMatches, tC.expectedErr)
+			c.Assert(err, tc.ErrorMatches, tC.expectedErr)
 		}
 	}
 }
 
-func (s *HostnameSuite) TestNewInfoContainerTarget(c *gc.C) {
+func (s *HostnameSuite) TestNewInfoContainerTarget(c *tc.C) {
 	testCases := []struct {
 		desc        string
 		modelUUID   string
@@ -237,16 +237,16 @@ func (s *HostnameSuite) TestNewInfoContainerTarget(c *gc.C) {
 		c.Logf("test %d: %s", i, tC.desc)
 		res, err := NewInfoContainerTarget(tC.modelUUID, tC.unit, tC.container)
 		if tC.expectedErr == "" {
-			if c.Check(err, gc.IsNil) {
-				c.Check(res, gc.DeepEquals, tC.expected)
+			if c.Check(err, tc.IsNil) {
+				c.Check(res, tc.DeepEquals, tC.expected)
 			}
 		} else {
-			c.Check(err, gc.ErrorMatches, tC.expectedErr)
+			c.Check(err, tc.ErrorMatches, tC.expectedErr)
 		}
 	}
 }
 
-func (s *HostnameSuite) TestnewInfoInvalidTarget(c *gc.C) {
+func (s *HostnameSuite) TestnewInfoInvalidTarget(c *tc.C) {
 	_, err := newInfo(100, "8419cd78-4993-4c3a-928e-c646226beeee", 1, 1, "1", "charm")
-	c.Assert(err, gc.ErrorMatches, "unknown target: 100")
+	c.Assert(err, tc.ErrorMatches, "unknown target: 100")
 }

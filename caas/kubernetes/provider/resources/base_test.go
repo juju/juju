@@ -4,7 +4,7 @@
 package resources_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -12,10 +12,10 @@ type resourceSuite struct {
 	client *fake.Clientset
 }
 
-func (s *resourceSuite) SetUpTest(c *gc.C) {
+func (s *resourceSuite) SetUpTest(c *tc.C) {
 	s.client = fake.NewSimpleClientset()
 }
 
-func (s *resourceSuite) TearDownTest(c *gc.C) {
+func (s *resourceSuite) TearDownTest(c *tc.C) {
 	s.client = nil
 }

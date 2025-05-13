@@ -4,8 +4,7 @@
 package jujuclient_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
@@ -17,7 +16,7 @@ type ModelValidationSuite struct {
 	model jujuclient.ModelDetails
 }
 
-func (s *ModelValidationSuite) SetUpTest(c *gc.C) {
+func (s *ModelValidationSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.model = jujuclient.ModelDetails{
 		ModelUUID: "test.uuid",
@@ -25,27 +24,27 @@ func (s *ModelValidationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-var _ = gc.Suite(&ModelValidationSuite{})
+var _ = tc.Suite(&ModelValidationSuite{})
 
-func (s *ModelValidationSuite) TestValidateModelName(c *gc.C) {
-	c.Assert(jujuclient.ValidateModelName("foo@bar/baz"), jc.ErrorIsNil)
-	c.Assert(jujuclient.ValidateModelName("foo"), gc.ErrorMatches, `validating model name "foo": unqualified model name "foo" not valid`)
-	c.Assert(jujuclient.ValidateModelName(""), gc.ErrorMatches, `validating model name "": unqualified model name "" not valid`)
-	c.Assert(jujuclient.ValidateModelName("!"), gc.ErrorMatches, `validating model name "!": unqualified model name "!" not valid`)
-	c.Assert(jujuclient.ValidateModelName("!/foo"), gc.ErrorMatches, `validating model name "!/foo": user name "!" not valid`)
+func (s *ModelValidationSuite) TestValidateModelName(c *tc.C) {
+	c.Assert(jujuclient.ValidateModelName("foo@bar/baz"), tc.ErrorIsNil)
+	c.Assert(jujuclient.ValidateModelName("foo"), tc.ErrorMatches, `validating model name "foo": unqualified model name "foo" not valid`)
+	c.Assert(jujuclient.ValidateModelName(""), tc.ErrorMatches, `validating model name "": unqualified model name "" not valid`)
+	c.Assert(jujuclient.ValidateModelName("!"), tc.ErrorMatches, `validating model name "!": unqualified model name "!" not valid`)
+	c.Assert(jujuclient.ValidateModelName("!/foo"), tc.ErrorMatches, `validating model name "!/foo": user name "!" not valid`)
 }
 
-func (s *ModelValidationSuite) TestValidateModelDetailsNoModelUUID(c *gc.C) {
+func (s *ModelValidationSuite) TestValidateModelDetailsNoModelUUID(c *tc.C) {
 	s.model.ModelUUID = ""
 	s.assertValidateModelDetailsFails(c, "missing uuid, model details not valid")
 }
 
-func (s *ModelValidationSuite) TestValidateModelDetailsNoModelType(c *gc.C) {
+func (s *ModelValidationSuite) TestValidateModelDetailsNoModelType(c *tc.C) {
 	s.model.ModelType = ""
 	s.assertValidateModelDetailsFails(c, "missing type, model details not valid")
 }
 
-func (s *ModelValidationSuite) assertValidateModelDetailsFails(c *gc.C, failureMessage string) {
+func (s *ModelValidationSuite) assertValidateModelDetailsFails(c *tc.C, failureMessage string) {
 	err := jujuclient.ValidateModelDetails(s.model)
-	c.Assert(err, gc.ErrorMatches, failureMessage)
+	c.Assert(err, tc.ErrorMatches, failureMessage)
 }

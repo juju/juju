@@ -6,8 +6,7 @@ package resolver_test
 import (
 	"context"
 
-	"github.com/juju/testing"
-
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -30,7 +29,7 @@ func (w *mockRemoteStateWatcher) Snapshot() remotestate.Snapshot {
 
 type mockOpFactory struct {
 	operation.Factory
-	testing.Stub
+	testhelpers.Stub
 	op mockOp
 }
 
@@ -76,7 +75,7 @@ func (f *mockOpFactory) NewFailAction(id string) (operation.Operation, error) {
 
 type mockOpExecutor struct {
 	operation.Executor
-	testing.Stub
+	testhelpers.Stub
 	st  operation.State
 	run func(operation.Operation, <-chan remotestate.Snapshot) error
 }
@@ -116,7 +115,7 @@ func (op mockOp) Commit(ctx context.Context, st operation.State) (*operation.Sta
 
 type mockCharmDirGuard struct {
 	fortress.Guard
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (l *mockCharmDirGuard) Unlock(context.Context) error {

@@ -9,9 +9,8 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	charmscommon "github.com/juju/juju/api/common/charms"
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
@@ -35,7 +34,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&OpsSuite{})
+var _ = tc.Suite(&OpsSuite{})
 
 type OpsSuite struct {
 	coretesting.BaseSuite
@@ -44,14 +43,14 @@ type OpsSuite struct {
 	logger   logger.Logger
 }
 
-func (s *OpsSuite) SetUpTest(c *gc.C) {
+func (s *OpsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
 	s.logger = loggertesting.WrapCheckLog(c)
 }
 
-func (s *OpsSuite) TestCheckCharmFormatV1(c *gc.C) {
+func (s *OpsSuite) TestCheckCharmFormatV1(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -65,11 +64,11 @@ func (s *OpsSuite) TestCheckCharmFormatV1(c *gc.C) {
 	facade.EXPECT().ApplicationCharmInfo(gomock.Any(), "test").Return(charmInfoV1, nil)
 
 	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(context.Background(), "test", facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isOk, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isOk, tc.IsFalse)
 }
 
-func (s *OpsSuite) TestCheckCharmFormatV2(c *gc.C) {
+func (s *OpsSuite) TestCheckCharmFormatV2(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -84,11 +83,11 @@ func (s *OpsSuite) TestCheckCharmFormatV2(c *gc.C) {
 	facade.EXPECT().ApplicationCharmInfo(gomock.Any(), "test").Return(charmInfoV2, nil)
 
 	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(context.Background(), "test", facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isOk, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isOk, tc.IsTrue)
 }
 
-func (s *OpsSuite) TestCheckCharmFormatNotFound(c *gc.C) {
+func (s *OpsSuite) TestCheckCharmFormatNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -99,11 +98,11 @@ func (s *OpsSuite) TestCheckCharmFormatNotFound(c *gc.C) {
 	})
 
 	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(context.Background(), "test", facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isOk, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isOk, tc.IsFalse)
 }
 
-func (s *OpsSuite) TestEnsureTrust(c *gc.C) {
+func (s *OpsSuite) TestEnsureTrust(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -116,10 +115,10 @@ func (s *OpsSuite) TestEnsureTrust(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureTrust(context.Background(), "test", app, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestUpdateState(c *gc.C) {
+func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -236,14 +235,14 @@ func (s *OpsSuite) TestUpdateState(c *gc.C) {
 		},
 	}
 	currentReportedStatus, err := caasapplicationprovisioner.AppOps.UpdateState(context.Background(), "test", app, lastReportedStatus, broker, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentReportedStatus, jc.DeepEquals, map[string]status.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(currentReportedStatus, tc.DeepEquals, map[string]status.StatusInfo{
 		"a": {Status: "active", Message: "different"},
 		"b": {Status: "allocating", Message: "same"},
 	})
 }
 
-func (s *OpsSuite) TestRefreshApplicationStatus(c *gc.C) {
+func (s *OpsSuite) TestRefreshApplicationStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -266,10 +265,10 @@ func (s *OpsSuite) TestRefreshApplicationStatus(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.RefreshApplicationStatus(context.Background(), "test", app, appLife, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestWaitForTerminated(c *gc.C) {
+func (s *OpsSuite) TestWaitForTerminated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -282,7 +281,7 @@ func (s *OpsSuite) TestWaitForTerminated(c *gc.C) {
 		}, nil),
 	)
 	err := caasapplicationprovisioner.AppOps.WaitForTerminated("test", app, clk)
-	c.Assert(err, gc.ErrorMatches, `application "test" should be terminating but is now running`)
+	c.Assert(err, tc.ErrorMatches, `application "test" should be terminating but is now running`)
 
 	gomock.InOrder(
 		app.EXPECT().Exists().Return(caas.DeploymentState{
@@ -292,10 +291,10 @@ func (s *OpsSuite) TestWaitForTerminated(c *gc.C) {
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
 	)
 	err = caasapplicationprovisioner.AppOps.WaitForTerminated("test", app, clk)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestReconcileDeadUnitScale(c *gc.C) {
+func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -332,10 +331,10 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(context.Background(), "test", app, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestEnsureScaleAlive(c *gc.C) {
+func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -363,10 +362,10 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(context.Background(), "test", app, life.Alive, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestEnsureScaleAliveRetry(c *gc.C) {
+func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -393,10 +392,10 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(context.Background(), "test", app, life.Alive, facade, unitFacade, s.logger)
-	c.Assert(err, gc.ErrorMatches, `try again`)
+	c.Assert(err, tc.ErrorMatches, `try again`)
 }
 
-func (s *OpsSuite) TestEnsureScaleDyingDead(c *gc.C) {
+func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -423,10 +422,10 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(context.Background(), "test", app, life.Dead, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestAppAlive(c *gc.C) {
+func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -547,16 +546,16 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
 		facade.EXPECT().ApplicationOCIResources(gomock.Any(), "test").Return(oci, nil),
 		app.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
-			c.Check(config, gc.DeepEquals, ensureParams)
+			c.Check(config, tc.DeepEquals, ensureParams)
 			return nil
 		}),
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppAlive(context.Background(), "test", app, password, &lastApplied, facade, clk, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestAppDying(c *gc.C) {
+func (s *OpsSuite) TestAppDying(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -580,10 +579,10 @@ func (s *OpsSuite) TestAppDying(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppDying(context.Background(), "test", app, life.Dying, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestAppDead(c *gc.C) {
+func (s *OpsSuite) TestAppDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -608,7 +607,7 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppDead(context.Background(), "test", app, broker, facade, unitFacade, clk, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func intPtr(i int) *int {

@@ -10,10 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	coretesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -27,13 +25,14 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type instanceMutaterAPISuite struct {
-	coretesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authorizer         *facademocks.MockAuthorizer
 	entity             *mocks.MockEntity
@@ -50,7 +49,7 @@ type instanceMutaterAPISuite struct {
 	stringsDone chan []string
 }
 
-func (s *instanceMutaterAPISuite) SetUpTest(c *gc.C) {
+func (s *instanceMutaterAPISuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.machineTag = names.NewMachineTag("0")
@@ -58,7 +57,7 @@ func (s *instanceMutaterAPISuite) SetUpTest(c *gc.C) {
 	s.stringsDone = make(chan []string)
 }
 
-func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
+func (s *instanceMutaterAPISuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -74,9 +73,9 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C) *instancemutater.InstanceMutaterAPI {
+func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *tc.C) *instancemutater.InstanceMutaterAPI {
 	facade, err := instancemutater.NewTestAPI(c, s.state, s.machineService, s.applicationService, s.modelInfoService, s.mutatorWatcher, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return facade
 }
 
@@ -101,7 +100,7 @@ func (s *instanceMutaterAPISuite) expectAuthMachineAgent() {
 	s.authorizer.EXPECT().AuthMachineAgent().Return(true)
 }
 
-func (s *instanceMutaterAPISuite) assertNotifyStop(c *gc.C) {
+func (s *instanceMutaterAPISuite) assertNotifyStop(c *tc.C) {
 	select {
 	case <-s.notifyDone:
 	case <-time.After(testing.LongWait):
@@ -109,7 +108,7 @@ func (s *instanceMutaterAPISuite) assertNotifyStop(c *gc.C) {
 	}
 }
 
-func (s *instanceMutaterAPISuite) assertStringsStop(c *gc.C) {
+func (s *instanceMutaterAPISuite) assertStringsStop(c *tc.C) {
 	select {
 	case <-s.stringsDone:
 	case <-time.After(testing.LongWait):
@@ -121,9 +120,9 @@ type InstanceMutaterAPILifeSuite struct {
 	instanceMutaterAPISuite
 }
 
-var _ = gc.Suite(&InstanceMutaterAPILifeSuite{})
+var _ = tc.Suite(&InstanceMutaterAPILifeSuite{})
 
-func (s *InstanceMutaterAPILifeSuite) TestLife(c *gc.C) {
+func (s *InstanceMutaterAPILifeSuite) TestLife(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -137,9 +136,9 @@ func (s *InstanceMutaterAPILifeSuite) TestLife(c *gc.C) {
 	results, err := facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0"}},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results, gc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{
 				Life: life.Alive,
@@ -148,7 +147,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLife(c *gc.C) {
 	})
 }
 
-func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidType(c *gc.C) {
+func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidType(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -158,9 +157,9 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidType(c *gc.C) {
 	results, err := facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "user-0"}},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results, gc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{
 				Error: &params.Error{
@@ -172,7 +171,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidType(c *gc.C) {
 	})
 }
 
-func (s *InstanceMutaterAPILifeSuite) TestLifeWithParentId(c *gc.C) {
+func (s *InstanceMutaterAPILifeSuite) TestLifeWithParentId(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	machineTag := names.NewMachineTag("0/lxd/0")
@@ -188,9 +187,9 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithParentId(c *gc.C) {
 	results, err := facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0-lxd-0"}},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results, gc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{
 				Life: life.Alive,
@@ -199,7 +198,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithParentId(c *gc.C) {
 	})
 }
 
-func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidParentId(c *gc.C) {
+func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidParentId(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	machineTag := names.NewMachineTag("0/lxd/0")
@@ -211,9 +210,9 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidParentId(c *gc.C) {
 	results, err := facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1-lxd-0"}},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results, gc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{
 				Error: &params.Error{
@@ -243,9 +242,9 @@ type InstanceMutaterAPICharmProfilingInfoSuite struct {
 	application *mocks.MockApplication
 }
 
-var _ = gc.Suite(&InstanceMutaterAPICharmProfilingInfoSuite{})
+var _ = tc.Suite(&InstanceMutaterAPICharmProfilingInfoSuite{})
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *gc.C) *gomock.Controller {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
 	s.machine = mocks.NewMockMachine(ctrl)
@@ -255,7 +254,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *gc.C) *gomock.Contr
 	return ctrl
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc.C) {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -275,13 +274,13 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 	}, nil)
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Error, gc.IsNil)
-	c.Assert(results.InstanceId, gc.Equals, instance.Id("0"))
-	c.Assert(results.ModelName, gc.Equals, "foo")
-	c.Assert(results.ProfileChanges, gc.HasLen, 1)
-	c.Assert(results.CurrentProfiles, gc.HasLen, 1)
-	c.Assert(results.ProfileChanges, gc.DeepEquals, []params.ProfileInfoResult{
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Error, tc.IsNil)
+	c.Assert(results.InstanceId, tc.Equals, instance.Id("0"))
+	c.Assert(results.ModelName, tc.Equals, "foo")
+	c.Assert(results.ProfileChanges, tc.HasLen, 1)
+	c.Assert(results.CurrentProfiles, tc.HasLen, 1)
+	c.Assert(results.ProfileChanges, tc.DeepEquals, []params.ProfileInfoResult{
 		{
 			ApplicationName: "foo",
 			Revision:        0,
@@ -298,12 +297,12 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 			},
 		},
 	})
-	c.Assert(results.CurrentProfiles, gc.DeepEquals, []string{
+	c.Assert(results.CurrentProfiles, tc.DeepEquals, []string{
 		"charm-app-0",
 	})
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNoProfile(c *gc.C) {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNoProfile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -324,13 +323,13 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 	}, nil)
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Error, gc.IsNil)
-	c.Assert(results.InstanceId, gc.Equals, instance.Id("0"))
-	c.Assert(results.ModelName, gc.Equals, "foo")
-	c.Assert(results.ProfileChanges, gc.HasLen, 2)
-	c.Assert(results.CurrentProfiles, gc.HasLen, 1)
-	c.Assert(results.ProfileChanges, gc.DeepEquals, []params.ProfileInfoResult{
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Error, tc.IsNil)
+	c.Assert(results.InstanceId, tc.Equals, instance.Id("0"))
+	c.Assert(results.ModelName, tc.Equals, "foo")
+	c.Assert(results.ProfileChanges, tc.HasLen, 2)
+	c.Assert(results.CurrentProfiles, tc.HasLen, 1)
+	c.Assert(results.ProfileChanges, tc.DeepEquals, []params.ProfileInfoResult{
 		{
 			ApplicationName: "foo",
 			Revision:        0,
@@ -351,12 +350,12 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 			Revision:        0,
 		},
 	})
-	c.Assert(results.CurrentProfiles, gc.DeepEquals, []string{
+	c.Assert(results.CurrentProfiles, tc.DeepEquals, []string{
 		"charm-app-0",
 	})
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithInvalidMachine(c *gc.C) {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithInvalidMachine(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -365,11 +364,11 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithIn
 	facade := s.facadeAPIForScenario(c)
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Error, gc.ErrorMatches, "not found")
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Error, tc.ErrorMatches, "not found")
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMachineNotProvisioned(c *gc.C) {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMachineNotProvisioned(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -381,12 +380,12 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid0")).Return("", machineerrors.NotProvisioned)
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Error, gc.ErrorMatches, ".* not provisioned")
-	c.Assert(results.InstanceId, gc.Equals, instance.Id(""))
-	c.Assert(results.ModelName, gc.Equals, "")
-	c.Assert(results.ProfileChanges, gc.HasLen, 0)
-	c.Assert(results.CurrentProfiles, gc.HasLen, 0)
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Error, tc.ErrorMatches, ".* not provisioned")
+	c.Assert(results.InstanceId, tc.Equals, instance.Id(""))
+	c.Assert(results.ModelName, tc.Equals, "")
+	c.Assert(results.ProfileChanges, tc.HasLen, 0)
+	c.Assert(results.CurrentProfiles, tc.HasLen, 0)
 }
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectUnits(lives ...state.Life) {
@@ -402,7 +401,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectUnits(lives ...state.L
 	machineExp.Units().Return(units, nil)
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction(c *gc.C) {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction(c *tc.C) {
 	appExp := s.application.EXPECT()
 	stateExp := s.state.EXPECT()
 	unitExp := s.unit.EXPECT()
@@ -415,11 +414,11 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction(c *g
 
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithLXDProfile(c *gc.C, chURLStr string) {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithLXDProfile(c *tc.C, chURLStr string) {
 	curl, err := internalcharm.ParseURL(chURLStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,
@@ -439,7 +438,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithLXDProfile(c 
 		}, 0, nil)
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithEmpty(c *gc.C) {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithEmpty(c *tc.C) {
 	appExp := s.application.EXPECT()
 	stateExp := s.state.EXPECT()
 	unitExp := s.unit.EXPECT()
@@ -451,11 +450,11 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithE
 	s.assertCharmWithoutLXDProfile(c, chURLStr)
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithoutLXDProfile(c *gc.C, chURLStr string) {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithoutLXDProfile(c *tc.C, chURLStr string) {
 	curl, err := internalcharm.ParseURL(chURLStr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,
@@ -471,9 +470,9 @@ type InstanceMutaterAPISetCharmProfilesSuite struct {
 	machine *mocks.MockMachine
 }
 
-var _ = gc.Suite(&InstanceMutaterAPISetCharmProfilesSuite{})
+var _ = tc.Suite(&InstanceMutaterAPISetCharmProfilesSuite{})
 
-func (s *InstanceMutaterAPISetCharmProfilesSuite) setup(c *gc.C) *gomock.Controller {
+func (s *InstanceMutaterAPISetCharmProfilesSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
 	s.machine = mocks.NewMockMachine(ctrl)
@@ -481,7 +480,7 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) setup(c *gc.C) *gomock.Control
 	return ctrl
 }
 
-func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *gc.C) {
+func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	profiles := []string{"unit-foo-0"}
@@ -501,12 +500,12 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *gc.C) 
 			},
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{{}})
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{{}})
 }
 
-func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(c *gc.C) {
+func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	profiles := []string{"unit-foo-0"}
@@ -531,9 +530,9 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(
 			},
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
 		{},
 		{
 			Error: &params.Error{
@@ -549,9 +548,9 @@ type InstanceMutaterAPISetModificationStatusSuite struct {
 	machine *mocks.MockMachine
 }
 
-var _ = gc.Suite(&InstanceMutaterAPISetModificationStatusSuite{})
+var _ = tc.Suite(&InstanceMutaterAPISetModificationStatusSuite{})
 
-func (s *InstanceMutaterAPISetModificationStatusSuite) setup(c *gc.C) *gomock.Controller {
+func (s *InstanceMutaterAPISetModificationStatusSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
 	s.machine = mocks.NewMockMachine(ctrl)
@@ -559,7 +558,7 @@ func (s *InstanceMutaterAPISetModificationStatusSuite) setup(c *gc.C) *gomock.Co
 	return ctrl
 }
 
-func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatusProfiles(c *gc.C) {
+func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatusProfiles(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -573,15 +572,15 @@ func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatus
 			{Tag: "machine-0", Status: "applied", Info: "applied", Data: nil},
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
 		},
 	})
 }
 
-func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatusProfilesWithError(c *gc.C) {
+func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatusProfilesWithError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -595,8 +594,8 @@ func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatus
 			{Tag: "machine-0", Status: "applied", Info: "applied", Data: nil},
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "failed"}},
 		},
@@ -625,9 +624,9 @@ type InstanceMutaterAPIWatchMachinesSuite struct {
 	watcher *mocks.MockStringsWatcher
 }
 
-var _ = gc.Suite(&InstanceMutaterAPIWatchMachinesSuite{})
+var _ = tc.Suite(&InstanceMutaterAPIWatchMachinesSuite{})
 
-func (s *InstanceMutaterAPIWatchMachinesSuite) setup(c *gc.C) *gomock.Controller {
+func (s *InstanceMutaterAPIWatchMachinesSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
 	s.machine = mocks.NewMockMachine(ctrl)
@@ -636,7 +635,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) setup(c *gc.C) *gomock.Controller
 	return ctrl
 }
 
-func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchModelMachines(c *gc.C) {
+func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchModelMachines(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -645,15 +644,15 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchModelMachines(c *gc.C) {
 	facade := s.facadeAPIForScenario(c)
 
 	result, err := facade.WatchModelMachines(context.Background())
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{"0"},
 	})
 	s.assertNotifyStop(c)
 }
 
-func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchModelMachinesWithClosedChannel(c *gc.C) {
+func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchModelMachinesWithClosedChannel(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -662,10 +661,10 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchModelMachinesWithClosedC
 	facade := s.facadeAPIForScenario(c)
 
 	_, err := facade.WatchModelMachines(context.Background())
-	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines")
+	c.Assert(err, tc.ErrorMatches, "cannot obtain initial model machines")
 }
 
-func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *gc.C) {
+func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -674,15 +673,15 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *gc.C) {
 	facade := s.facadeAPIForScenario(c)
 
 	result, err := facade.WatchMachines(context.Background())
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{"0"},
 	})
 	s.assertNotifyStop(c)
 }
 
-func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChannel(c *gc.C) {
+func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChannel(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -691,7 +690,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChanne
 	facade := s.facadeAPIForScenario(c)
 
 	_, err := facade.WatchMachines(context.Background())
-	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines")
+	c.Assert(err, tc.ErrorMatches, "cannot obtain initial model machines")
 }
 
 func (s *InstanceMutaterAPIWatchMachinesSuite) expectAuthController() {
@@ -751,9 +750,9 @@ type InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite struct {
 	watcher *mocks.MockNotifyWatcher
 }
 
-var _ = gc.Suite(&InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite{})
+var _ = tc.Suite(&InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite{})
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) setup(c *gc.C) *gomock.Controller {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
 	s.machine = mocks.NewMockMachine(ctrl)
@@ -762,7 +761,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) setup(c *gc.C
 	return ctrl
 }
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeeded(c *gc.C) {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeeded(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -773,8 +772,8 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	result, err := facade.WatchLXDProfileVerificationNeeded(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: "1",
 		}},
@@ -782,7 +781,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	s.assertNotifyStop(c)
 }
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededWithInvalidTag(c *gc.C) {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededWithInvalidTag(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -792,15 +791,15 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	result, err := facade.WatchLXDProfileVerificationNeeded(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewUserTag("bob@local").String()}},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
 		}},
 	})
 }
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededWithClosedChannel(c *gc.C) {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededWithClosedChannel(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -811,15 +810,15 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	result, err := facade.WatchLXDProfileVerificationNeeded(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			Error: apiservererrors.ServerError(errors.New("cannot obtain initial machine watch application LXD profiles")),
 		}},
 	})
 }
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededWithManualMachine(c *gc.C) {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededWithManualMachine(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -830,15 +829,15 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	result, err := facade.WatchLXDProfileVerificationNeeded(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			Error: apiservererrors.ServerError(errors.NotSupportedf("watching lxd profiles on manual machines")),
 		}},
 	})
 }
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededModelCacheError(c *gc.C) {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededModelCacheError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -849,8 +848,8 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	result, err := facade.WatchLXDProfileVerificationNeeded(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			Error: apiservererrors.ServerError(errors.New("watcher error")),
 		}},
@@ -906,9 +905,9 @@ type InstanceMutaterAPIWatchContainersSuite struct {
 	watcher *mocks.MockStringsWatcher
 }
 
-var _ = gc.Suite(&InstanceMutaterAPIWatchContainersSuite{})
+var _ = tc.Suite(&InstanceMutaterAPIWatchContainersSuite{})
 
-func (s *InstanceMutaterAPIWatchContainersSuite) setup(c *gc.C) *gomock.Controller {
+func (s *InstanceMutaterAPIWatchContainersSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
 	s.machine = mocks.NewMockMachine(ctrl)
@@ -917,7 +916,7 @@ func (s *InstanceMutaterAPIWatchContainersSuite) setup(c *gc.C) *gomock.Controll
 	return ctrl
 }
 
-func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainers(c *gc.C) {
+func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainers(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -926,15 +925,15 @@ func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainers(c *gc.C) {
 	facade := s.facadeAPIForScenario(c)
 
 	result, err := facade.WatchContainers(context.Background(), params.Entity{Tag: s.machineTag.String()})
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{"0"},
 	})
 	s.assertStringsStop(c)
 }
 
-func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithInvalidTag(c *gc.C) {
+func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithInvalidTag(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -943,11 +942,11 @@ func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithInvalidT
 
 	result, err := facade.WatchContainers(context.Background(), params.Entity{Tag: names.NewUserTag("bob@local").String()})
 	c.Logf("%#v", err)
-	c.Assert(err, gc.ErrorMatches, "\"user-bob\" is not a valid machine tag")
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
+	c.Assert(err, tc.ErrorMatches, "\"user-bob\" is not a valid machine tag")
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithClosedChannel(c *gc.C) {
+func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithClosedChannel(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthMachineAgent()
@@ -956,8 +955,8 @@ func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithClosedCh
 	facade := s.facadeAPIForScenario(c)
 
 	result, err := facade.WatchContainers(context.Background(), params.Entity{Tag: s.machineTag.String()})
-	c.Assert(err, gc.ErrorMatches, "cannot obtain initial machine containers")
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
+	c.Assert(err, tc.ErrorMatches, "cannot obtain initial machine containers")
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{})
 }
 
 func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersWithNotify(times int) {

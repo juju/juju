@@ -8,68 +8,67 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lifeflag"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (*ManifoldSuite) TestInputs(c *gc.C) {
+func (*ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
 		APICallerName: "boris",
 	})
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"boris"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"boris"})
 }
 
-func (*ManifoldSuite) TestFilter(c *gc.C) {
+func (*ManifoldSuite) TestFilter(c *tc.C) {
 	expect := errors.New("squish")
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
 		Filter: func(error) error { return expect },
 	})
 	actual := manifold.Filter(errors.New("blarg"))
-	c.Check(actual, gc.Equals, expect)
+	c.Check(actual, tc.Equals, expect)
 }
 
-func (*ManifoldSuite) TestOutputBadWorker(c *gc.C) {
+func (*ManifoldSuite) TestOutputBadWorker(c *tc.C) {
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{})
 	worker := struct{ worker.Worker }{}
 	var flag engine.Flag
 	err := manifold.Output(worker, &flag)
-	c.Check(err, gc.ErrorMatches, "expected in to implement Flag; got a .*")
+	c.Check(err, tc.ErrorMatches, "expected in to implement Flag; got a .*")
 }
 
-func (*ManifoldSuite) TestOutputBadTarget(c *gc.C) {
+func (*ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{})
 	worker := &lifeflag.Worker{}
 	var flag interface{}
 	err := manifold.Output(worker, &flag)
-	c.Check(err, gc.ErrorMatches, "expected out to be a \\*Flag; got a .*")
+	c.Check(err, tc.ErrorMatches, "expected out to be a \\*Flag; got a .*")
 }
 
-func (*ManifoldSuite) TestOutputSuccess(c *gc.C) {
+func (*ManifoldSuite) TestOutputSuccess(c *tc.C) {
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{})
 	worker := &lifeflag.Worker{}
 	var flag engine.Flag
 	err := manifold.Output(worker, &flag)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(flag, gc.Equals, worker)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(flag, tc.Equals, worker)
 }
 
-func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
+func (*ManifoldSuite) TestMissingAPICaller(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 	})
@@ -78,11 +77,11 @@ func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
+func (*ManifoldSuite) TestNewWorkerError(c *tc.C) {
 	expectFacade := struct{ lifeflag.Facade }{}
 	expectEntity := names.NewMachineTag("33")
 	getter := dt.StubGetter(map[string]interface{}{
@@ -96,19 +95,19 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 			return expectFacade, nil
 		},
 		NewWorker: func(_ context.Context, config lifeflag.Config) (worker.Worker, error) {
-			c.Check(config.Facade, gc.Equals, expectFacade)
-			c.Check(config.Entity, gc.Equals, expectEntity)
-			c.Check(config.Result, gc.NotNil) // uncomparable
+			c.Check(config.Facade, tc.Equals, expectFacade)
+			c.Check(config.Entity, tc.Equals, expectEntity)
+			c.Check(config.Result, tc.NotNil) // uncomparable
 			return nil, errors.New("boof")
 		},
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "boof")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "boof")
 }
 
-func (*ManifoldSuite) TestNewWorkerSuccess(c *gc.C) {
+func (*ManifoldSuite) TestNewWorkerSuccess(c *tc.C) {
 	expectWorker := &struct{ worker.Worker }{}
 	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
@@ -124,11 +123,11 @@ func (*ManifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.Equals, expectWorker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(worker, tc.Equals, expectWorker)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (*ManifoldSuite) TestNewWorkerSuccessWithAgentName(c *gc.C) {
+func (*ManifoldSuite) TestNewWorkerSuccessWithAgentName(c *tc.C) {
 	expectWorker := &struct{ worker.Worker }{}
 	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
@@ -141,14 +140,14 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithAgentName(c *gc.C) {
 			return struct{ lifeflag.Facade }{}, nil
 		},
 		NewWorker: func(_ context.Context, config lifeflag.Config) (worker.Worker, error) {
-			c.Check(config.Entity, gc.Equals, names.NewUnitTag("ubuntu/0"))
+			c.Check(config.Entity, tc.Equals, names.NewUnitTag("ubuntu/0"))
 			return expectWorker, nil
 		},
 	})
 
 	worker, err := manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.Equals, expectWorker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(worker, tc.Equals, expectWorker)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 type fakeAgent struct {

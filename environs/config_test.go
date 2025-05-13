@@ -5,8 +5,7 @@ package environs_test
 
 import (
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
 	_ "github.com/juju/juju/internal/provider/manual"
@@ -17,13 +16,13 @@ type suite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
 type dummyProvider struct {
 	environs.CloudEnvironProvider
 }
 
-func (s *suite) TestRegisterProvider(c *gc.C) {
+func (s *suite) TestRegisterProvider(c *tc.C) {
 	s.PatchValue(environs.Providers, make(map[string]environs.EnvironProvider))
 	s.PatchValue(environs.ProviderAliases, make(map[string]string))
 	type step struct {
@@ -77,13 +76,13 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 		registered := &dummyProvider{}
 		environs.RegisterProvider(name, registered, aliases...)
 		p, err := environs.Provider(name)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(p, gc.Equals, registered)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(p, tc.Equals, registered)
 		for _, alias := range aliases {
 			p, err := environs.Provider(alias)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(p, gc.Equals, registered)
-			c.Assert(p, gc.Equals, registered)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(p, tc.Equals, registered)
+			c.Assert(p, tc.Equals, registered)
 		}
 		return nil
 	}
@@ -98,24 +97,24 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 		for _, step := range test {
 			err := registerProvider(step.name, step.aliases)
 			if step.err == "" {
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 			} else {
-				c.Assert(err, gc.ErrorMatches, step.err)
+				c.Assert(err, tc.ErrorMatches, step.err)
 			}
 		}
 	}
 }
 
-func (s *suite) TestUnregisterProvider(c *gc.C) {
+func (s *suite) TestUnregisterProvider(c *tc.C) {
 	s.PatchValue(environs.Providers, make(map[string]environs.EnvironProvider))
 	s.PatchValue(environs.ProviderAliases, make(map[string]string))
 	registered := &dummyProvider{}
 	unreg := environs.RegisterProvider("test", registered, "alias1", "alias2")
 	unreg()
 	_, err := environs.Provider("test")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	_, err = environs.Provider("alias1")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	_, err = environs.Provider("alias2")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

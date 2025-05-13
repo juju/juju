@@ -6,34 +6,34 @@ package trace
 import (
 	"fmt"
 
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type nameSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&nameSuite{})
+var _ = tc.Suite(&nameSuite{})
 
-func (nameSuite) TestNameFromFuncMethod(c *gc.C) {
+func (s *nameSuite) TestNameFromFuncMethod(c *tc.C) {
 	name := NameFromFunc()
-	c.Assert(name, gc.Equals, Name("trace.nameSuite.TestNameFromFuncMethod"))
+	c.Assert(name, tc.Equals, Name("trace.(*nameSuite).TestNameFromFuncMethod"))
 }
 
-func (nameSuite) TestControllerNamespaceConstant(c *gc.C) {
-	c.Assert(controllerNamespace, gc.Equals, database.ControllerNS)
+func (s *nameSuite) TestControllerNamespaceConstant(c *tc.C) {
+	c.Assert(controllerNamespace, tc.Equals, database.ControllerNS)
 }
 
 type namespaceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&namespaceSuite{})
+var _ = tc.Suite(&namespaceSuite{})
 
-func (namespaceSuite) TestNamespaceShortNamespace(c *gc.C) {
+func (s *namespaceSuite) TestNamespaceShortNamespace(c *tc.C) {
 	tests := []struct {
 		workerName string
 		namespace  string
@@ -59,11 +59,11 @@ func (namespaceSuite) TestNamespaceShortNamespace(c *gc.C) {
 		c.Logf("test %d: %s", i, test.workerName)
 
 		ns := Namespace(test.workerName, test.namespace)
-		c.Assert(ns.ShortNamespace(), gc.Equals, test.expected)
+		c.Assert(ns.ShortNamespace(), tc.Equals, test.expected)
 	}
 }
 
-func (namespaceSuite) TestNamespaceString(c *gc.C) {
+func (s *namespaceSuite) TestNamespaceString(c *tc.C) {
 	tests := []struct {
 		workerName string
 		namespace  string
@@ -89,6 +89,6 @@ func (namespaceSuite) TestNamespaceString(c *gc.C) {
 		c.Logf("test %d: %s", i, test.workerName)
 
 		ns := Namespace(test.workerName, test.namespace)
-		c.Assert(ns.String(), gc.Equals, test.expected)
+		c.Assert(ns.String(), tc.Equals, test.expected)
 	}
 }

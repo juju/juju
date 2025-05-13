@@ -7,12 +7,14 @@ package sockets
 import (
 	"context"
 	"crypto/tls"
-	"io"
 	"net"
 	"net/rpc"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
+	"testing"
 
 	"github.com/juju/errors"
 
@@ -33,14 +35,26 @@ type Socket struct {
 	TLSConfig *tls.Config
 }
 
-func Dial(soc Socket) (*rpc.Client, error) {
-	var conn io.ReadWriteCloser
+func Dialer(soc Socket) (net.Conn, error) {
+	var conn net.Conn
 	var err error
-	if soc.TLSConfig != nil {
+	if testing.Testing() &&
+		soc.Network == "unix" &&
+		soc.Address != "" && soc.Address[0] != '@' {
+		conn, err = testUnixDial(soc)
+	} else if soc.TLSConfig != nil {
 		conn, err = tls.Dial(soc.Network, soc.Address, soc.TLSConfig)
 	} else {
 		conn, err = net.Dial(soc.Network, soc.Address)
 	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return conn, nil
+}
+
+func Dial(soc Socket) (*rpc.Client, error) {
+	conn, err := Dialer(soc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -71,32 +85,95 @@ func innerListen(soc Socket) (listener net.Listener, err error) {
 		listener, err = net.Listen(soc.Network, soc.Address)
 		return listener, errors.Trace(err)
 	}
-	// We first create the socket in a temporary directory as a subdirectory of
-	// the target dir so we know we can get the permissions correct and still
-	// rename the socket into the correct place.
-	// os.MkdirTemp creates the temporary directory as 0700 so it starts with
-	// the right perms as well.
-	socketDir := filepath.Dir(soc.Address)
-	tempdir, err := os.MkdirTemp(socketDir, "")
+	// Hold the OS thread while we manipulate Umask.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	// Mask out permissions to keep the socket private.
+	oldmask := syscall.Umask(077)
+	defer syscall.Umask(oldmask)
+
+	// If we are testing, listen with long path support.
+	if testing.Testing() {
+		return testUnixListen(soc)
+	}
+
+	// With the umask set to 077 above, we are creating
+	// this socket with 0700 permissions. Chmod below is
+	// only to be explicit.
+	listener, err = net.Listen(soc.Network, soc.Address)
 	if err != nil {
+		logger.Errorf(context.TODO(), "failed to listen on unix:%s: %v", soc.Address, err)
 		return nil, errors.Trace(err)
 	}
-	defer os.RemoveAll(tempdir)
-	// Keep the socket path as short as possible so as not to
-	// exceed the 108 length limit.
-	tempSocketPath := filepath.Join(tempdir, "s")
-	listener, err = net.Listen(soc.Network, tempSocketPath)
-	if err != nil {
-		logger.Errorf(context.TODO(), "failed to listen on unix:%s: %v", tempSocketPath, err)
-		return nil, errors.Trace(err)
-	}
-	if err := os.Chmod(tempSocketPath, 0700); err != nil {
-		listener.Close()
-		return nil, errors.Annotatef(err, "could not chmod socket %v", tempSocketPath)
-	}
-	if err := os.Rename(tempSocketPath, soc.Address); err != nil {
-		listener.Close()
-		return nil, errors.Annotatef(err, "could not rename socket %v", tempSocketPath)
+	if err := os.Chmod(soc.Address, 0700); err != nil {
+		_ = listener.Close()
+		return nil, errors.Annotatef(err, "could not chmod socket %v", soc.Address)
 	}
 	return listener, nil
+}
+
+// testUnixListen is used in tests to ensure the socket path is not
+// too long for Linux.
+func testUnixListen(soc Socket) (listener net.Listener, err error) {
+	// Create a directory with a short path to open the socket in.
+	// Since wee need to keep the socket path as short as possible
+	// so as not to exceed the 108 length limit.
+	openSocketDir, err := os.MkdirTemp("", "juju-socket-*")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	socketName := filepath.Base(soc.Address)
+	if socketName == "." || socketName[0] == filepath.Separator {
+		socketName = "juju.socket"
+	}
+	socketPath := filepath.Join(openSocketDir, socketName)
+	listener, err = net.Listen(soc.Network, socketPath)
+	if err != nil {
+		logger.Errorf(context.TODO(), "failed to listen on unix:%s: %v", socketPath, err)
+		_ = os.RemoveAll(openSocketDir)
+		return nil, errors.Trace(err)
+	}
+	if err := os.Chmod(socketPath, 0700); err != nil {
+		_ = listener.Close()
+		_ = os.RemoveAll(openSocketDir)
+		return nil, errors.Annotatef(err, "could not chmod socket %v", socketPath)
+	}
+	if err := os.Symlink(socketPath, soc.Address); err != nil {
+		_ = listener.Close()
+		_ = os.RemoveAll(openSocketDir)
+		return nil, errors.Annotatef(err, "could not symlink socket %v => %v", socketPath, soc.Address)
+	}
+	// Wrap the socket listener to ensure cleanup.
+	res := &cleanupListener{
+		Listener: listener,
+		cleanup: func() {
+			_ = os.Remove(soc.Address)
+			_ = os.RemoveAll(openSocketDir)
+		},
+	}
+	return res, nil
+}
+
+// testUnixDial is used during testing to dial a unix socket via
+// a symlink indirection. Linux supports dialing a symlink, but
+// if the path is too long it will fail with invalid argument.
+func testUnixDial(soc Socket) (conn net.Conn, err error) {
+	target, err := os.Readlink(soc.Address)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot read test unix socket link: %s", soc.Address)
+	}
+	return net.Dial("unix", target)
+}
+
+type cleanupListener struct {
+	net.Listener
+	cleanup func()
+}
+
+func (l *cleanupListener) Close() error {
+	err := l.Listener.Close()
+	if l.cleanup != nil {
+		l.cleanup()
+	}
+	return err
 }

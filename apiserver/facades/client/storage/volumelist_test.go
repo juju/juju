@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/status"
@@ -20,7 +19,7 @@ type volumeSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&volumeSuite{})
+var _ = tc.Suite(&volumeSuite{})
 
 func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 	return params.VolumeDetails{
@@ -55,26 +54,26 @@ func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 	}
 }
 
-func (s *volumeSuite) TestListVolumesNoFilters(c *gc.C) {
+func (s *volumeSuite) TestListVolumesNoFilters(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 0)
 }
 
-func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
+func (s *volumeSuite) TestListVolumesEmptyFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.IsNil)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], gc.DeepEquals, s.expectedVolumeDetails())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.IsNil)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, s.expectedVolumeDetails())
 }
 
-func (s *volumeSuite) TestListVolumesError(c *gc.C) {
+func (s *volumeSuite) TestListVolumesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	msg := "inventing error"
@@ -82,52 +81,52 @@ func (s *volumeSuite) TestListVolumesError(c *gc.C) {
 		return nil, errors.New(msg)
 	}
 	results, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, msg)
 }
 
-func (s *volumeSuite) TestListVolumesNoVolumes(c *gc.C) {
+func (s *volumeSuite) TestListVolumesNoVolumes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageAccessor.allVolumes = func() ([]state.Volume, error) {
 		return nil, nil
 	}
 	results, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Result, gc.HasLen, 0)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Result, tc.HasLen, 0)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *volumeSuite) TestListVolumesFilter(c *gc.C) {
+func (s *volumeSuite) TestListVolumesFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	filters := []params.VolumeFilter{{
 		Machines: []string{s.machineTag.String()},
 	}}
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{filters})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.IsNil)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, s.expectedVolumeDetails())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.IsNil)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, s.expectedVolumeDetails())
 }
 
-func (s *volumeSuite) TestListVolumesFilterNonMatching(c *gc.C) {
+func (s *volumeSuite) TestListVolumesFilterNonMatching(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	filters := []params.VolumeFilter{{
 		Machines: []string{"machine-42"},
 	}}
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{filters})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 0)
-	c.Assert(found.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 0)
+	c.Assert(found.Results[0].Error, tc.IsNil)
 }
 
-func (s *volumeSuite) TestListVolumesVolumeInfo(c *gc.C) {
+func (s *volumeSuite) TestListVolumesVolumeInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.volume.info = &state.VolumeInfo{
@@ -140,14 +139,14 @@ func (s *volumeSuite) TestListVolumesVolumeInfo(c *gc.C) {
 	expected.Info.HardwareId = "abc"
 	expected.Info.Persistent = true
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.IsNil)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.IsNil)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)
 }
 
-func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
+func (s *volumeSuite) TestListVolumesAttachmentInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.volumeAttachment.info = &state.VolumeAttachmentInfo{
@@ -163,13 +162,13 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 		Life: "alive",
 	}
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)
 }
 
-func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
+func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageInstance.kind = state.StorageKindBlock
@@ -187,13 +186,13 @@ func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
 		Life: "alive",
 	}
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)
 }
 
-func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
+func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.blockDeviceGetter.blockDevices = func(machineId string) ([]blockdevice.BlockDevice, error) {
@@ -222,7 +221,7 @@ func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
 		Life: "alive",
 	}
 	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)
 }

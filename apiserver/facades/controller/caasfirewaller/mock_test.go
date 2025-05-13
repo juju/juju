@@ -5,17 +5,17 @@ package caasfirewaller_test
 
 import (
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type mockState struct {
-	testing.Stub
+	testhelpers.Stub
 	application         mockApplication
 	applicationsWatcher *watchertest.MockStringsWatcher
 	appExposedWatcher   *watchertest.MockNotifyWatcher
@@ -51,7 +51,7 @@ func (st *mockState) Model() (*state.Model, error) {
 }
 
 type mockApplication struct {
-	testing.Stub
+	testhelpers.Stub
 	state.Entity // Pull in Tag method (which tests don't use)
 	exposed      bool
 	watcher      state.NotifyWatcher

@@ -6,15 +6,14 @@ package service
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
 )
 
-func (s *serviceSuite) TestGetManagementCaveatOwnerUnit(c *gc.C) {
+func (s *serviceSuite) TestGetManagementCaveatOwnerUnit(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -29,10 +28,10 @@ func (s *serviceSuite) TestGetManagementCaveatOwnerUnit(c *gc.C) {
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetManagementCaveatLeaderUnitAppSecret(c *gc.C) {
+func (s *serviceSuite) TestGetManagementCaveatLeaderUnitAppSecret(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -52,10 +51,10 @@ func (s *serviceSuite) TestGetManagementCaveatLeaderUnitAppSecret(c *gc.C) {
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetManagementCaveatUserSecrets(c *gc.C) {
+func (s *serviceSuite) TestGetManagementCaveatUserSecrets(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -70,10 +69,10 @@ func (s *serviceSuite) TestGetManagementCaveatUserSecrets(c *gc.C) {
 		Kind: ModelAccessor,
 		ID:   "model-uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestCanReadAppSecret(c *gc.C) {
+func (s *serviceSuite) TestCanReadAppSecret(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -92,5 +91,5 @@ func (s *serviceSuite) TestCanReadAppSecret(c *gc.C) {
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

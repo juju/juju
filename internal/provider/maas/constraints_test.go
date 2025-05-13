@@ -7,8 +7,7 @@ import (
 	"net/url"
 
 	"github.com/juju/gomaasapi/v2"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
 )
@@ -17,9 +16,9 @@ type environSuite struct {
 	maasSuite
 }
 
-var _ = gc.Suite(&environSuite{})
+var _ = tc.Suite(&environSuite{})
 
-func (*environSuite) TestConvertConstraints(c *gc.C) {
+func (*environSuite) TestConvertConstraints(c *tc.C) {
 	for i, test := range []struct {
 		cons     constraints.Value
 		expected gomaasapi.AllocateMachineArgs
@@ -71,13 +70,13 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 		},
 	}} {
 		c.Logf("test #%d: cons2=%s", i, test.cons.String())
-		c.Check(convertConstraints(test.cons), jc.DeepEquals, test.expected)
+		c.Check(convertConstraints(test.cons), tc.DeepEquals, test.expected)
 	}
 }
 
 var nilStringSlice []string
 
-func (*environSuite) TestConvertTagsToParams(c *gc.C) {
+func (*environSuite) TestConvertTagsToParams(c *tc.C) {
 	for i, test := range []struct {
 		tags     *[]string
 		expected url.Values
@@ -136,7 +135,7 @@ func (*environSuite) TestConvertTagsToParams(c *gc.C) {
 		c.Logf("test #%d: tags=%v", i, test.tags)
 		var vals = url.Values{}
 		convertTagsToParams(vals, test.tags)
-		c.Check(vals, jc.DeepEquals, test.expected)
+		c.Check(vals, tc.DeepEquals, test.expected)
 	}
 }
 
@@ -152,7 +151,7 @@ func stringslicep(values ...string) *[]string {
 	return &values
 }
 
-func (suite *environSuite) TestParseDelimitedValues(c *gc.C) {
+func (suite *environSuite) TestParseDelimitedValues(c *tc.C) {
 	for i, test := range []struct {
 		about     string
 		input     []string
@@ -206,7 +205,7 @@ func (suite *environSuite) TestParseDelimitedValues(c *gc.C) {
 	}} {
 		c.Logf("test %d: %s", i, test.about)
 		positives, negatives := parseDelimitedValues(test.input)
-		c.Check(positives, jc.DeepEquals, test.positives)
-		c.Check(negatives, jc.DeepEquals, test.negatives)
+		c.Check(positives, tc.DeepEquals, test.positives)
+		c.Check(negatives, tc.DeepEquals, test.negatives)
 	}
 }

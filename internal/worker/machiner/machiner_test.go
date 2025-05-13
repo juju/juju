@@ -9,15 +9,14 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/machiner"
@@ -25,7 +24,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type MachinerSuite struct {
@@ -35,9 +34,9 @@ type MachinerSuite struct {
 	addresses  []net.Addr
 }
 
-var _ = gc.Suite(&MachinerSuite{})
+var _ = tc.Suite(&MachinerSuite{})
 
-func (s *MachinerSuite) SetUpTest(c *gc.C) {
+func (s *MachinerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.accessor = &mockMachineAccessor{}
 	s.accessor.machine.watcher.changes = make(chan struct{})
@@ -56,47 +55,47 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *MachinerSuite) TestMachinerConfigValidate(c *gc.C) {
+func (s *MachinerSuite) TestMachinerConfigValidate(c *tc.C) {
 	_, err := machiner.NewMachiner(machiner.Config{})
-	c.Assert(err, gc.ErrorMatches, "validating config: unspecified MachineAccessor not valid")
+	c.Assert(err, tc.ErrorMatches, "validating config: unspecified MachineAccessor not valid")
 	_, err = machiner.NewMachiner(machiner.Config{
 		MachineAccessor: &mockMachineAccessor{},
 	})
-	c.Assert(err, gc.ErrorMatches, "validating config: unspecified Tag not valid")
+	c.Assert(err, tc.ErrorMatches, "validating config: unspecified Tag not valid")
 
 	w, err := machiner.NewMachiner(machiner.Config{
 		MachineAccessor: &mockMachineAccessor{},
 		Tag:             names.NewMachineTag("123"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// must stop the worker to prevent a data race when cleanup suite
 	// rolls back the patches
 	err = stopWorker(w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MachinerSuite) TestMachinerSetUpMachineNotFound(c *gc.C) {
+func (s *MachinerSuite) TestMachinerSetUpMachineNotFound(c *tc.C) {
 	s.accessor.SetErrors(
 		&params.Error{Code: params.CodeNotFound}, // Machine
 	)
 	w, err := machiner.NewMachiner(machiner.Config{
 		s.accessor, s.machineTag, false,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = stopWorker(w)
-	c.Assert(errors.Cause(err), gc.Equals, jworker.ErrTerminateAgent)
+	c.Assert(errors.Cause(err), tc.Equals, jworker.ErrTerminateAgent)
 }
 
-func (s *MachinerSuite) TestMachinerMachineRefreshNotFound(c *gc.C) {
+func (s *MachinerSuite) TestMachinerMachineRefreshNotFound(c *tc.C) {
 	s.testMachinerMachineRefreshNotFoundOrUnauthorized(c, params.CodeNotFound)
 }
 
-func (s *MachinerSuite) TestMachinerMachineRefreshUnauthorized(c *gc.C) {
+func (s *MachinerSuite) TestMachinerMachineRefreshUnauthorized(c *tc.C) {
 	s.testMachinerMachineRefreshNotFoundOrUnauthorized(c, params.CodeUnauthorized)
 }
 
-func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *gc.C, code string) {
+func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *tc.C, code string) {
 	// Accessing the machine initially yields "not found or unauthorized".
 	// We don't know which, so we don't report that the machine is dead.
 	s.accessor.machine.SetErrors(
@@ -108,13 +107,13 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *gc.C
 	w, err := machiner.NewMachiner(machiner.Config{
 		s.accessor, s.machineTag, false,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrTerminateAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrTerminateAgent)
 }
 
-func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
+func (s *MachinerSuite) TestMachinerSetStatusStopped(c *tc.C) {
 	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
 		nil,                             // Watch
@@ -125,11 +124,11 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 	c.Assert(
-		err, gc.ErrorMatches,
+		err, tc.ErrorMatches,
 		"machine-123 failed to set status stopped: cannot set status",
 	)
 	s.accessor.machine.CheckCallNames(c,
@@ -147,7 +146,7 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 	)
 }
 
-func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
+func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *tc.C) {
 	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
 		nil, // Watch
@@ -159,11 +158,11 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 	c.Check(
-		err, gc.ErrorMatches,
+		err, tc.ErrorMatches,
 		"machine-123 failed to set machine to dead: cannot ensure machine is dead",
 	)
 	s.accessor.machine.CheckCall(
@@ -174,7 +173,7 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 	)
 }
 
-func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
+func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *tc.C) {
 	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
 		nil, // Watch
@@ -186,13 +185,13 @@ func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 
 	// If EnsureDead fails with "machine has assigned units", then
 	// the worker will not fail, but will wait for more events.
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
@@ -204,7 +203,7 @@ func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
 	)
 }
 
-func (s *MachinerSuite) TestMachinerMachineHasContainers(c *gc.C) {
+func (s *MachinerSuite) TestMachinerMachineHasContainers(c *tc.C) {
 	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
 		nil, // Watch
@@ -216,13 +215,13 @@ func (s *MachinerSuite) TestMachinerMachineHasContainers(c *gc.C) {
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 
 	// If EnsureDead fails with "machine has containers", then
 	// the worker will fail and restart.
-	c.Check(err, jc.Satisfies, params.IsCodeMachineHasContainers)
+	c.Check(err, tc.Satisfies, params.IsCodeMachineHasContainers)
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
@@ -234,7 +233,7 @@ func (s *MachinerSuite) TestMachinerMachineHasContainers(c *gc.C) {
 	)
 }
 
-func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
+func (s *MachinerSuite) TestMachinerStorageAttached(c *tc.C) {
 	// Machine is dying. We'll respond to "EnsureDead" by
 	// saying that there are still storage attachments;
 	// this should not cause an error.
@@ -249,17 +248,17 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	worker, err := machiner.NewMachiner(machiner.Config{
 		MachineAccessor: s.accessor, Tag: s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(worker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
-	s.accessor.CheckCalls(c, []jujutesting.StubCall{{
+	s.accessor.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Machine",
 		Args:     []interface{}{s.machineTag},
 	}})
 
-	s.accessor.machine.CheckCalls(c, []jujutesting.StubCall{{
+	s.accessor.machine.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
 	}, {
 		FuncName: "Watch",
@@ -279,7 +278,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	}})
 }
 
-func (s *MachinerSuite) TestMachinerTryAgain(c *gc.C) {
+func (s *MachinerSuite) TestMachinerTryAgain(c *tc.C) {
 	// Machine is dying. We'll respond to "EnsureDead" by
 	// saying that we need to try again;
 	// this should not cause an error.
@@ -294,17 +293,17 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *gc.C) {
 	worker, err := machiner.NewMachiner(machiner.Config{
 		MachineAccessor: s.accessor, Tag: s.machineTag,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(worker)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
-	s.accessor.CheckCalls(c, []jujutesting.StubCall{{
+	s.accessor.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Machine",
 		Args:     []interface{}{s.machineTag},
 	}})
 
-	s.accessor.machine.CheckCalls(c, []jujutesting.StubCall{{
+	s.accessor.machine.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
 	}, {
 		FuncName: "Watch",
@@ -324,9 +323,9 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *gc.C) {
 	}})
 }
 
-func (s *MachinerSuite) TestRunStop(c *gc.C) {
+func (s *MachinerSuite) TestRunStop(c *tc.C) {
 	mr := s.makeMachiner(c, false)
-	c.Assert(worker.Stop(mr), jc.ErrorIsNil)
+	c.Assert(worker.Stop(mr), tc.ErrorIsNil)
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
 		"SetMachineAddresses",
@@ -335,10 +334,10 @@ func (s *MachinerSuite) TestRunStop(c *gc.C) {
 	)
 }
 
-func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
+func (s *MachinerSuite) TestStartSetsStatus(c *tc.C) {
 	mr := s.makeMachiner(c, false)
 	err := stopWorker(mr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
 		"SetMachineAddresses",
@@ -351,16 +350,16 @@ func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
 	)
 }
 
-func (s *MachinerSuite) TestSetDead(c *gc.C) {
+func (s *MachinerSuite) TestSetDead(c *tc.C) {
 	s.accessor.machine.life = life.Dying
 	mr := s.makeMachiner(c, false)
 	s.accessor.machine.watcher.changes <- struct{}{}
 
 	err := stopWorker(mr)
-	c.Assert(err, jc.ErrorIs, jworker.ErrTerminateAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrTerminateAgent)
 }
 
-func (s *MachinerSuite) TestSetMachineAddresses(c *gc.C) {
+func (s *MachinerSuite) TestSetMachineAddresses(c *tc.C) {
 	s.addresses = []net.Addr{
 		&net.IPAddr{IP: net.IPv4(10, 0, 0, 1)},
 		&net.IPAddr{IP: net.IPv4(127, 0, 0, 1)},
@@ -383,7 +382,7 @@ func (s *MachinerSuite) TestSetMachineAddresses(c *gc.C) {
 	})
 
 	mr := s.makeMachiner(c, false)
-	c.Assert(stopWorker(mr), jc.ErrorIsNil)
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 	s.accessor.machine.CheckCall(c, 1, "SetMachineAddresses", []corenetwork.MachineAddress{
 		corenetwork.NewMachineAddress("10.0.0.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 		corenetwork.NewMachineAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)),
@@ -392,28 +391,28 @@ func (s *MachinerSuite) TestSetMachineAddresses(c *gc.C) {
 	})
 }
 
-func (s *MachinerSuite) TestSetMachineAddressesEmpty(c *gc.C) {
+func (s *MachinerSuite) TestSetMachineAddressesEmpty(c *tc.C) {
 	s.addresses = []net.Addr{}
 	mr := s.makeMachiner(c, false)
-	c.Assert(stopWorker(mr), jc.ErrorIsNil)
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 	// No call to SetMachineAddresses
 	s.accessor.machine.CheckCallNames(c, "Life", "SetStatus", "Watch")
 }
 
-func (s *MachinerSuite) TestMachineAddressesWithClearFlag(c *gc.C) {
+func (s *MachinerSuite) TestMachineAddressesWithClearFlag(c *tc.C) {
 	mr := s.makeMachiner(c, true)
-	c.Assert(stopWorker(mr), jc.ErrorIsNil)
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 	s.accessor.machine.CheckCall(c, 1, "SetMachineAddresses", []corenetwork.MachineAddress(nil))
 }
 
-func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *gc.C) {
+func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *tc.C) {
 	s.PatchValue(&machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		return corenetwork.InterfaceInfos{}, nil
 	})
 
 	mr := s.makeMachiner(c, false)
 	s.accessor.machine.watcher.changes <- struct{}{}
-	c.Assert(stopWorker(mr), jc.ErrorIsNil)
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
@@ -425,14 +424,14 @@ func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *gc.C) {
 	)
 }
 
-func (s *MachinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
+func (s *MachinerSuite) TestSetObservedNetworkConfig(c *tc.C) {
 	s.PatchValue(&machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		return corenetwork.InterfaceInfos{{}}, nil
 	})
 
 	mr := s.makeMachiner(c, false)
 	s.accessor.machine.watcher.changes <- struct{}{}
-	c.Assert(stopWorker(mr), jc.ErrorIsNil)
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
@@ -445,14 +444,14 @@ func (s *MachinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
 	)
 }
 
-func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *gc.C) {
+func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *tc.C) {
 	s.PatchValue(&machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		return nil, errors.New("no config!")
 	})
 
 	mr := s.makeMachiner(c, false)
 	s.accessor.machine.watcher.changes <- struct{}{}
-	c.Assert(stopWorker(mr), gc.ErrorMatches, "cannot discover observed network config: no config!")
+	c.Assert(stopWorker(mr), tc.ErrorMatches, "cannot discover observed network config: no config!")
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
@@ -465,7 +464,7 @@ func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *gc.C) {
 }
 
 func (s *MachinerSuite) makeMachiner(
-	c *gc.C,
+	c *tc.C,
 	ignoreAddresses bool,
 ) worker.Worker {
 	w, err := machiner.NewMachiner(machiner.Config{
@@ -473,7 +472,7 @@ func (s *MachinerSuite) makeMachiner(
 		Tag:                          s.machineTag,
 		ClearMachineAddressesOnStart: ignoreAddresses,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 

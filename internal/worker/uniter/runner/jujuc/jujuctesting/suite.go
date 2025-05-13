@@ -6,21 +6,21 @@ package jujuctesting
 import (
 	"time"
 
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // ContextSuite is the base suite for testing jujuc.Context-related code.
 type ContextSuite struct {
-	Stub *testing.Stub
+	Stub *testhelpers.Stub
 	Unit string
 }
 
-func (s *ContextSuite) SetUpTest(c *gc.C) {
-	s.Stub = &testing.Stub{}
+func (s *ContextSuite) SetUpTest(c *tc.C) {
+	s.Stub = &testhelpers.Stub{}
 	s.Unit = "u/0"
 }
 

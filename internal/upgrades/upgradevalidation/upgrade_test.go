@@ -5,9 +5,8 @@ package upgradevalidation_test
 
 import (
 	"github.com/juju/collections/transform"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/semversion"
@@ -15,7 +14,7 @@ import (
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
 
-func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C) {
+func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -48,17 +47,17 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	validators := upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion)
 	checker := upgradevalidation.NewModelUpgradeCheck(ctrlState, "test-model", agentVersion, validators...)
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blockers, tc.IsNil)
 
 	validators = upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion)
 	checker = upgradevalidation.NewModelUpgradeCheck(state1, "test-model", agentVersion, validators...)
 	blockers, err = checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blockers, tc.IsNil)
 }
 
-func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
+func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -76,6 +75,6 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion)
 	checker := upgradevalidation.NewModelUpgradeCheck(st, "test-model", agentService, validators...)
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blockers, tc.IsNil)
 }

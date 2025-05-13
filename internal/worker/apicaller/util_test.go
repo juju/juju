@@ -10,15 +10,14 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/rpc/params"
@@ -29,7 +28,7 @@ var errNotAuthorized = &params.Error{Code: params.CodeUnauthorized}
 
 type mockAgent struct {
 	agent.Agent
-	stub   *testing.Stub
+	stub   *testhelpers.Stub
 	entity names.Tag
 	model  names.ModelTag
 }
@@ -76,7 +75,7 @@ func (dummy dummyConfig) OldPassword() string {
 }
 
 type mockSetter struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 	agent.ConfigSetter
 }
 
@@ -91,7 +90,7 @@ func (mock *mockSetter) SetPassword(pw string) {
 }
 
 type mockConn struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 	api.Connection
 	controllerOnly bool
 	broken         chan struct{}
@@ -121,7 +120,7 @@ func (mock *mockConn) Close() error {
 	return mock.stub.NextErr()
 }
 
-func newMockConnFacade(stub *testing.Stub, life apiagent.Life) apiagent.ConnFacade {
+func newMockConnFacade(stub *testhelpers.Stub, life apiagent.Life) apiagent.ConnFacade {
 	return &mockConnFacade{
 		stub: stub,
 		life: life,
@@ -129,7 +128,7 @@ func newMockConnFacade(stub *testing.Stub, life apiagent.Life) apiagent.ConnFaca
 }
 
 type mockConnFacade struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 	life apiagent.Life
 }
 
@@ -150,26 +149,26 @@ type dummyWorker struct {
 	worker.Worker
 }
 
-func assertStop(c *gc.C, w worker.Worker) {
-	c.Assert(worker.Stop(w), jc.ErrorIsNil)
+func assertStop(c *tc.C, w worker.Worker) {
+	c.Assert(worker.Stop(w), tc.ErrorIsNil)
 }
 
-func assertStopError(c *gc.C, w worker.Worker, match string) {
-	c.Assert(worker.Stop(w), gc.ErrorMatches, match)
+func assertStopError(c *tc.C, w worker.Worker, match string) {
+	c.Assert(worker.Stop(w), tc.ErrorMatches, match)
 }
 
-func lifeTest(c *gc.C, stub *testing.Stub, life apiagent.Life, test func() (api.Connection, error)) (api.Connection, error) {
+func lifeTest(c *tc.C, stub *testhelpers.Stub, life apiagent.Life, test func() (api.Connection, error)) (api.Connection, error) {
 	newFacade := func(apiCaller base.APICaller) (apiagent.ConnFacade, error) {
-		c.Check(apiCaller, gc.FitsTypeOf, (*mockConn)(nil))
+		c.Check(apiCaller, tc.FitsTypeOf, (*mockConn)(nil))
 		return newMockConnFacade(stub, life), nil
 	}
-	unpatch := testing.PatchValue(apicaller.NewConnFacade, newFacade)
+	unpatch := testhelpers.PatchValue(apicaller.NewConnFacade, newFacade)
 	defer unpatch()
 	return test()
 }
 
-func strategyTest(stub *testing.Stub, strategy retry.CallArgs, test func(api.OpenFunc) (api.Connection, error)) (api.Connection, error) {
-	unpatch := testing.PatchValue(apicaller.Strategy, strategy)
+func strategyTest(stub *testhelpers.Stub, strategy retry.CallArgs, test func(api.OpenFunc) (api.Connection, error)) (api.Connection, error) {
+	unpatch := testhelpers.PatchValue(apicaller.Strategy, strategy)
 	defer unpatch()
 	return test(func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		// copy because I don't trust what might happen to info
@@ -182,20 +181,20 @@ func strategyTest(stub *testing.Stub, strategy retry.CallArgs, test func(api.Ope
 	})
 }
 
-func checkOpenCalls(c *gc.C, stub *testing.Stub, passwords ...string) {
+func checkOpenCalls(c *tc.C, stub *testhelpers.Stub, passwords ...string) {
 	calls := openCalls(names.ModelTag{}, testEntity, passwords...)
 	stub.CheckCalls(c, calls)
 }
 
-func openCalls(model names.ModelTag, entity names.Tag, passwords ...string) []testing.StubCall {
-	calls := make([]testing.StubCall, len(passwords))
+func openCalls(model names.ModelTag, entity names.Tag, passwords ...string) []testhelpers.StubCall {
+	calls := make([]testhelpers.StubCall, len(passwords))
 	for i, pw := range passwords {
 		info := api.Info{
 			ModelTag: model,
 			Tag:      entity,
 			Password: pw,
 		}
-		calls[i] = testing.StubCall{
+		calls[i] = testhelpers.StubCall{
 			FuncName: "apiOpen",
 			Args: []interface{}{info, api.DialOpts{
 				DialAddressInterval: 200 * time.Millisecond,

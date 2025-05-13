@@ -13,11 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -27,6 +25,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/rpc"
@@ -43,18 +42,18 @@ var (
 type Suite struct {
 	coretesting.BaseSuite
 	config migrationminion.Config
-	stub   *jujutesting.Stub
+	stub   *testhelpers.Stub
 	client *stubMinionClient
 	guard  *stubGuard
 	agent  *stubAgent
 	clock  *testclock.Clock
 }
 
-var _ = gc.Suite(&Suite{})
+var _ = tc.Suite(&Suite{})
 
-func (s *Suite) SetUpTest(c *gc.C) {
+func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.stub = new(jujutesting.Stub)
+	s.stub = new(testhelpers.Stub)
 	s.client = newStubMinionClient(s.stub)
 	s.guard = newStubGuard(s.stub)
 	s.agent = newStubAgent()
@@ -78,56 +77,56 @@ func (s *Suite) apiOpen(ctx context.Context, info *api.Info, _ api.DialOpts) (ap
 	return &stubConnection{stub: s.stub}, nil
 }
 
-func (s *Suite) TestStartAndStop(c *gc.C) {
+func (s *Suite) TestStartAndStop(c *tc.C) {
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "Watch")
 }
 
-func (s *Suite) TestWatchFailure(c *gc.C) {
+func (s *Suite) TestWatchFailure(c *tc.C) {
 	s.client.watchErr = errors.New("boom")
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "setting up watcher: boom")
+	c.Check(err, tc.ErrorMatches, "setting up watcher: boom")
 }
 
-func (s *Suite) TestClosedWatcherChannel(c *gc.C) {
+func (s *Suite) TestClosedWatcherChannel(c *tc.C) {
 	close(s.client.watcher.changes)
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "watcher channel closed")
+	c.Check(err, tc.ErrorMatches, "watcher channel closed")
 }
 
-func (s *Suite) TestUnlockError(c *gc.C) {
+func (s *Suite) TestUnlockError(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		Phase: migration.NONE,
 	}
 	s.guard.unlockErr = errors.New("squish")
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "squish")
+	c.Check(err, tc.ErrorMatches, "squish")
 	s.stub.CheckCallNames(c, "Watch", "Unlock")
 }
 
-func (s *Suite) TestLockdownError(c *gc.C) {
+func (s *Suite) TestLockdownError(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		Phase: migration.QUIESCE,
 	}
 	s.guard.lockdownErr = errors.New("squash")
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "squash")
+	c.Check(err, tc.ErrorMatches, "squash")
 	s.stub.CheckCallNames(c, "Watch", "Lockdown")
 }
 
-func (s *Suite) TestNonRunningPhases(c *gc.C) {
+func (s *Suite) TestNonRunningPhases(c *tc.C) {
 	phases := []migration.Phase{
 		migration.UNKNOWN,
 		migration.NONE,
@@ -143,24 +142,24 @@ func (s *Suite) TestNonRunningPhases(c *gc.C) {
 	}
 }
 
-func (s *Suite) checkNonRunningPhase(c *gc.C, phase migration.Phase) {
+func (s *Suite) checkNonRunningPhase(c *tc.C, phase migration.Phase) {
 	c.Logf("checking %s", phase)
 	s.stub.ResetCalls()
 	s.client.watcher.changes <- watcher.MigrationStatus{Phase: phase}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "Watch", "Unlock")
 }
 
-func (s *Suite) TestQUIESCE(c *gc.C) {
+func (s *Suite) TestQUIESCE(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.QUIESCE,
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
@@ -171,7 +170,7 @@ func (s *Suite) TestQUIESCE(c *gc.C) {
 	s.stub.CheckCall(c, 2, "Report", "id", migration.QUIESCE, true)
 }
 
-func (s *Suite) TestVALIDATION(c *gc.C) {
+func (s *Suite) TestVALIDATION(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId:    "id",
 		Phase:          migration.VALIDATION,
@@ -179,7 +178,7 @@ func (s *Suite) TestVALIDATION(c *gc.C) {
 		TargetCACert:   caCert,
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
@@ -200,7 +199,7 @@ func (s *Suite) TestVALIDATION(c *gc.C) {
 	s.stub.CheckCall(c, 5, "Report", "id", migration.VALIDATION, true)
 }
 
-func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *gc.C) {
+func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId:    "id",
 		Phase:          migration.VALIDATION,
@@ -214,7 +213,7 @@ func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *gc.C) {
 		TargetCACert:   caCert,
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
@@ -236,7 +235,7 @@ func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *gc.C) {
 	s.stub.CheckCall(c, 5, "Report", "id", migration.VALIDATION, true)
 }
 
-func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
+func (s *Suite) TestVALIDATIONCantConnect(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
@@ -246,14 +245,14 @@ func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 		return nil, errors.New("boom")
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
 	for i := 0; i < 20; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		sleepTime = calculateSleepTime(i)
 	}
 
@@ -285,7 +284,7 @@ func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 	s.stub.CheckCall(c, 22, "Report", "id", migration.VALIDATION, false)
 }
 
-func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
+func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
@@ -295,14 +294,14 @@ func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
 		return nil, apiservererrors.ErrTryAgain
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
 	for i := 0; i < 20; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		sleepTime = calculateSleepTime(i)
 	}
 
@@ -332,7 +331,7 @@ func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestVALIDATIONFail(c *gc.C) {
+func (s *Suite) TestVALIDATIONFail(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
@@ -342,14 +341,14 @@ func (s *Suite) TestVALIDATIONFail(c *gc.C) {
 		return errors.New("boom")
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
 	for i := 0; i < 20; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		sleepTime = calculateSleepTime(i)
 	}
 
@@ -362,12 +361,12 @@ func (s *Suite) TestVALIDATIONFail(c *gc.C) {
 	s.stub.CheckCall(c, 62, "Report", "id", migration.VALIDATION, false)
 }
 
-func (s *Suite) TestVALIDATIONRetrySucceed(c *gc.C) {
+func (s *Suite) TestVALIDATIONRetrySucceed(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
 	}
-	var stub jujutesting.Stub
+	var stub testhelpers.Stub
 	stub.SetErrors(errors.New("nope"), errors.New("not yet"), nil)
 	s.config.ValidateMigration = func(context.Context, base.APICaller) error {
 		stub.AddCall("ValidateMigration")
@@ -375,18 +374,18 @@ func (s *Suite) TestVALIDATIONRetrySucceed(c *gc.C) {
 	}
 
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	waitForStubCalls(c, &stub, "ValidateMigration")
 
 	err = s.clock.WaitAdvance(160*time.Millisecond, coretesting.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitForStubCalls(c, &stub, "ValidateMigration", "ValidateMigration")
 
 	err = s.clock.WaitAdvance(256*time.Millisecond, coretesting.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.waitForStubCalls(c, []string{
 		"Watch",
@@ -402,7 +401,7 @@ func (s *Suite) TestVALIDATIONRetrySucceed(c *gc.C) {
 	s.stub.CheckCall(c, 8, "Report", "id", migration.VALIDATION, true)
 }
 
-func (s *Suite) TestSUCCESS(c *gc.C) {
+func (s *Suite) TestSUCCESS(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId:    "id",
 		Phase:          migration.SUCCESS,
@@ -410,7 +409,7 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 		TargetCACert:   caCert,
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-s.agent.configChanged:
@@ -418,13 +417,13 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 		c.Fatal("timed out")
 	}
 	workertest.CleanKill(c, w)
-	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
-	c.Assert(s.agent.conf.caCert, gc.DeepEquals, caCert)
+	c.Assert(s.agent.conf.addrs, tc.DeepEquals, addrs)
+	c.Assert(s.agent.conf.caCert, tc.DeepEquals, caCert)
 	s.stub.CheckCallNames(c, "Watch", "Lockdown", "Report")
 	s.stub.CheckCall(c, 2, "Report", "id", migration.SUCCESS, true)
 }
 
-func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
+func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.SUCCESS,
@@ -437,14 +436,14 @@ func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
 	}
 	s.stub.SetErrors(rpc.ErrShutdown)
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
 	for i := 0; i < 9; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		sleepTime = sleepTime * 2
 	}
 
@@ -465,7 +464,7 @@ func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestSUCCESSRetryReport(c *gc.C) {
+func (s *Suite) TestSUCCESSRetryReport(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
 		Phase:       migration.SUCCESS,
@@ -478,7 +477,7 @@ func (s *Suite) TestSUCCESSRetryReport(c *gc.C) {
 
 	s.stub.SetErrors(rpc.ErrShutdown)
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
@@ -491,11 +490,11 @@ func (s *Suite) TestSUCCESSRetryReport(c *gc.C) {
 	})
 }
 
-func (s *Suite) waitForStubCalls(c *gc.C, expectedCallNames []string) {
+func (s *Suite) waitForStubCalls(c *tc.C, expectedCallNames []string) {
 	waitForStubCalls(c, s.stub, expectedCallNames...)
 }
 
-func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expectedCallNames ...string) {
+func waitForStubCalls(c *tc.C, stub *testhelpers.Stub, expectedCallNames ...string) {
 	var callNames []string
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		callNames = stubCallNames(stub)
@@ -507,7 +506,7 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expectedCallNames ...stri
 }
 
 // Make this a feature of stub
-func stubCallNames(stub *jujutesting.Stub) []string {
+func stubCallNames(stub *testhelpers.Stub) []string {
 	var out []string
 	for _, call := range stub.Calls() {
 		out = append(out, call.FuncName)
@@ -521,12 +520,12 @@ func calculateSleepTime(i int) time.Duration {
 	return retry.ExpBackoff(100*time.Millisecond, 25*time.Second, 1.6, false)(0, i+1)
 }
 
-func newStubGuard(stub *jujutesting.Stub) *stubGuard {
+func newStubGuard(stub *testhelpers.Stub) *stubGuard {
 	return &stubGuard{stub: stub}
 }
 
 type stubGuard struct {
-	stub        *jujutesting.Stub
+	stub        *testhelpers.Stub
 	unlockErr   error
 	lockdownErr error
 }
@@ -541,7 +540,7 @@ func (g *stubGuard) Unlock(ctx context.Context) error {
 	return g.unlockErr
 }
 
-func newStubMinionClient(stub *jujutesting.Stub) *stubMinionClient {
+func newStubMinionClient(stub *testhelpers.Stub) *stubMinionClient {
 	return &stubMinionClient{
 		stub:    stub,
 		watcher: newStubWatcher(),
@@ -549,7 +548,7 @@ func newStubMinionClient(stub *jujutesting.Stub) *stubMinionClient {
 }
 
 type stubMinionClient struct {
-	stub     *jujutesting.Stub
+	stub     *testhelpers.Stub
 	watcher  *stubWatcher
 	watchErr error
 }
@@ -655,7 +654,7 @@ func (mc *stubAgentConfig) Dir() string {
 
 type stubConnection struct {
 	api.Connection
-	stub *jujutesting.Stub
+	stub *testhelpers.Stub
 }
 
 func (c *stubConnection) Close() error {

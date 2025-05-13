@@ -7,10 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -29,16 +28,16 @@ type bundleSuite struct {
 	applicationService *MockApplicationService
 }
 
-var _ = gc.Suite(&bundleSuite{})
+var _ = tc.Suite(&bundleSuite{})
 
-func (s *bundleSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *bundleSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	return ctrl
 }
 
-func (s *bundleSuite) SetUpTest(c *gc.C) {
+func (s *bundleSuite) SetUpTest(c *tc.C) {
 
 	s.BaseSuite.SetUpTest(c)
 	s.auth = &apiservertesting.FakeAuthorizer{
@@ -48,7 +47,7 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState()
 }
 
-func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
+func (s *bundleSuite) makeAPI(c *tc.C) *bundle.APIv8 {
 	api, err := bundle.NewBundleAPI(
 		s.st,
 		s.store,
@@ -57,11 +56,11 @@ func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
 		s.applicationService,
 		loggertesting.WrapCheckLog(c),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &bundle.APIv8{api}
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -69,11 +68,11 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
-	c.Assert(r, gc.DeepEquals, params.BundleChangesMapArgsResults{})
+	c.Assert(err, tc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
+	c.Assert(r, tc.DeepEquals, params.BundleChangesMapArgsResults{})
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -89,9 +88,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`placement "1" refers to a machine not defined in this bundle`,
 		`too many units specified in unit placement for application "django"`,
 		`invalid charm URL in application "haproxy": cannot parse name and/or revision in URL "42": name "42" not valid`,
@@ -99,7 +98,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *gc.C) {
 	})
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -113,14 +112,14 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid constraints "bad=wolf" in application "django": unknown constraint "bad"`,
 	})
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -135,14 +134,14 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid storage "bad" in application "django": cannot parse count: count must be greater than zero, got "0"`,
 	})
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -157,14 +156,14 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid device "bad-gpu" in application "django": count must be greater than zero, got "-1"`,
 	})
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -190,8 +189,8 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -241,13 +240,13 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 			"endpoint2": "$deploy-3:web",
 		},
 		Requires: []string{"deploy-1", "deploy-3"},
-	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
+	}}, tc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
 	for _, err := range r.Errors {
-		c.Assert(err, gc.Equals, "")
+		c.Assert(err, tc.Equals, "")
 	}
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -261,8 +260,8 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -281,11 +280,11 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
 		Requires: []string{"addCharm-0"},
 	}})
 	for _, err := range r.Errors {
-		c.Assert(err, gc.Equals, "")
+		c.Assert(err, tc.Equals, "")
 	}
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -312,8 +311,8 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -362,13 +361,13 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 			"endpoint2": "$deploy-3:web",
 		},
 		Requires: []string{"deploy-1", "deploy-3"},
-	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
+	}}, tc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
 	for _, err := range r.Errors {
-		c.Assert(err, gc.Equals, "")
+		c.Assert(err, tc.Equals, "")
 	}
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -383,11 +382,11 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, change := range r.Changes {
 		if change.Method == "deploy" {
-			c.Assert(change, jc.DeepEquals, &params.BundleChangesMapArgs{
+			c.Assert(change, tc.DeepEquals, &params.BundleChangesMapArgs{
 				Id:     "deploy-1",
 				Method: "deploy",
 				Args: map[string]interface{}{

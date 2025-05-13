@@ -7,8 +7,7 @@ import (
 	"bytes"
 	"testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 )
@@ -18,13 +17,13 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ./mocks/fsys_mock.go github.com/juju/juju/cmd/modelcmd Filesystem,ReadSeekCloser
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
-func commandContextForTest(c *gc.C) *cmd.Context {
+func commandContextForTest(c *tc.C) *cmd.Context {
 	var stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stderr = &stderr
 	return ctx

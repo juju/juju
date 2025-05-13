@@ -9,13 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
@@ -40,13 +40,13 @@ type AgentConfigUpdaterSuite struct {
 	controllerConfigService  *MockControllerConfigService
 }
 
-var _ = gc.Suite(&AgentConfigUpdaterSuite{})
+var _ = tc.Suite(&AgentConfigUpdaterSuite{})
 
-func (s *AgentConfigUpdaterSuite) TestInputs(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestInputs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupManifold(c)
 
-	c.Assert(s.manifold.Inputs, jc.SameContents, []string{
+	c.Assert(s.manifold.Inputs, tc.SameContents, []string{
 		"agent",
 		"api-caller",
 		"domain-services",
@@ -54,7 +54,7 @@ func (s *AgentConfigUpdaterSuite) TestInputs(c *gc.C) {
 	})
 }
 
-func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupManifold(c)
 
@@ -62,11 +62,11 @@ func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *gc.C) {
 		"agent": dependency.ErrMissing,
 	})
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupManifold(c)
 
@@ -76,11 +76,11 @@ func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *gc.C) {
 		"api-caller":      dependency.ErrMissing,
 	})
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *AgentConfigUpdaterSuite) TestNotMachine(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestNotMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupManifold(c)
 
@@ -91,11 +91,11 @@ func (s *AgentConfigUpdaterSuite) TestNotMachine(c *gc.C) {
 		"agent": a,
 	})
 	worker, err := s.manifold.Start(context.Background(), getter)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "agent's tag is not a machine or controller agent tag")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "agent's tag is not a machine or controller agent tag")
 }
 
-func (s *AgentConfigUpdaterSuite) TestIsControllerFailure(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestIsControllerFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupManifold(c)
 
@@ -118,14 +118,14 @@ func (s *AgentConfigUpdaterSuite) TestIsControllerFailure(c *gc.C) {
 		"trace":           coretrace.NoopTracer{},
 	})
 	w, err := s.manifold.Start(context.Background(), getter)
-	c.Assert(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "checking is controller: boom")
+	c.Assert(w, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "checking is controller: boom")
 }
 
-func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIPort int) (worker.Worker, error) {
+func (s *AgentConfigUpdaterSuite) startManifold(c *tc.C, a agent.Agent, mockAPIPort int) (worker.Worker, error) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
-			c.Assert(objType, gc.Equals, "Agent")
+			c.Assert(objType, tc.Equals, "Agent")
 			switch request {
 			case "StateServingInfo":
 				result := response.(*params.StateServingInfo)
@@ -149,24 +149,46 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 	return s.manifold.Start(context.Background(), getter)
 }
 
-func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupManifold(c)
+
+	wc := watchertest.NewMockStringsWatcher(nil)
+	s.controllerNodeService.EXPECT().IsControllerNode(gomock.Any(), gomock.Any()).Return(true, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
+		controller.ObjectStoreType:   objectstore.FileBackend.String(),
+	}, nil)
+	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(wc, nil)
+
 	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234
 
 	a := &mockAgent{}
 	w, err := s.startManifold(c, a, mockAPIPort)
-	c.Assert(w, gc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
 	workertest.CleanKill(c, w)
 
 	// Verify that the state serving info was actually set.
-	c.Assert(a.conf.ssiSet, jc.IsTrue)
-	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
-	c.Assert(a.conf.ssi.Cert, gc.Equals, "cert")
-	c.Assert(a.conf.ssi.PrivateKey, gc.Equals, "key")
+	c.Assert(a.conf.ssiSet, tc.IsTrue)
+	c.Assert(a.conf.ssi.APIPort, tc.Equals, mockAPIPort)
+	c.Assert(a.conf.ssi.Cert, tc.Equals, "cert")
+	c.Assert(a.conf.ssi.PrivateKey, tc.Equals, "key")
 }
 
-func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupManifold(c)
+
+	wc := watchertest.NewMockStringsWatcher(nil)
+	s.controllerNodeService.EXPECT().IsControllerNode(gomock.Any(), gomock.Any()).Return(true, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
+		controller.ObjectStoreType:   objectstore.FileBackend.String(),
+	}, nil)
+	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(wc, nil)
+
 	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234
 
@@ -179,30 +201,35 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) 
 	})
 
 	w, err := s.startManifold(c, a, mockAPIPort)
-	c.Assert(w, gc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
 	// Verify that the state serving info was actually set.
-	c.Assert(a.conf.ssiSet, jc.IsTrue)
-	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
-	c.Assert(a.conf.ssi.Cert, gc.Equals, existingCert)
-	c.Assert(a.conf.ssi.PrivateKey, gc.Equals, existingKey)
+	c.Assert(a.conf.ssiSet, tc.IsTrue)
+	c.Assert(a.conf.ssi.APIPort, tc.Equals, mockAPIPort)
+	c.Assert(a.conf.ssi.Cert, tc.Equals, existingCert)
+	c.Assert(a.conf.ssi.PrivateKey, tc.Equals, existingKey)
 }
 
-func (s *AgentConfigUpdaterSuite) TestJobHostUnits(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) TestJobHostUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupManifold(c)
+
+	s.controllerNodeService.EXPECT().IsControllerNode(gomock.Any(), gomock.Any()).Return(false, nil)
+
 	// State serving info should not be set for JobHostUnits.
 	s.checkNotController(c, model.JobHostUnits)
 }
 
-func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job model.MachineJob) {
+func (s *AgentConfigUpdaterSuite) checkNotController(c *tc.C, job model.MachineJob) {
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
-			c.Assert(objType, gc.Equals, "Agent")
+			c.Assert(objType, tc.Equals, "Agent")
 			switch request {
 			case "GetEntities":
-				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
+				c.Assert(args.(params.Entities).Entities, tc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
 					Jobs: []model.MachineJob{job},
@@ -217,24 +244,29 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job model.MachineJ
 		"agent":      a,
 		"api-caller": apiCaller,
 	}))
-	c.Assert(w, gc.IsNil)
-	c.Assert(err, gc.Equals, dependency.ErrUninstall)
+	c.Assert(w, tc.IsNil)
+	c.Assert(err, tc.Equals, dependency.ErrUninstall)
 
 	// State serving info shouldn't have been set for this job type.
-	c.Assert(a.conf.ssiSet, jc.IsFalse)
+	c.Assert(a.conf.ssiSet, tc.IsFalse)
 }
 
-func (s *AgentConfigUpdaterSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *AgentConfigUpdaterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.controllerDomainServices = NewMockControllerDomainServices(ctrl)
 
+	c.Cleanup(func() {
+		s.controllerConfigService = nil
+		s.controllerNodeService = nil
+		s.controllerDomainServices = nil
+	})
 	return ctrl
 }
 
-func (s *AgentConfigUpdaterSuite) setupManifold(c *gc.C) {
+func (s *AgentConfigUpdaterSuite) setupManifold(c *tc.C) {
 	logger := loggertesting.WrapCheckLog(c)
 	s.manifold = agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 		AgentName:          "agent",

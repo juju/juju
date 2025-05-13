@@ -4,9 +4,8 @@
 package oci
 
 import (
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/instances"
@@ -15,9 +14,9 @@ import (
 type environSuite struct {
 }
 
-var _ = gc.Suite(&environSuite{})
+var _ = tc.Suite(&environSuite{})
 
-func (s *environSuite) TestEnsureShapeConfig(c *gc.C) {
+func (s *environSuite) TestEnsureShapeConfig(c *tc.C) {
 	type test struct {
 		name                string
 		maxCpuCores, maxMem *uint64
@@ -107,10 +106,10 @@ func (s *environSuite) TestEnsureShapeConfig(c *gc.C) {
 			Mem:         test.mem,
 		}
 		cons, err := constraints.Parse(test.constraints)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		instanceDetails := ociCore.LaunchInstanceDetails{}
 		ensureShapeConfig(instanceSpec, cons, &instanceDetails)
-		c.Check(instanceDetails.ShapeConfig, gc.DeepEquals, test.want)
+		c.Check(instanceDetails.ShapeConfig, tc.DeepEquals, test.want)
 	}
 }
 

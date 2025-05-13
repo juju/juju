@@ -11,9 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
@@ -27,9 +26,9 @@ type agentBinarySuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&agentBinarySuite{})
+var _ = tc.Suite(&agentBinarySuite{})
 
-func (s *agentBinarySuite) TestPopulateAgentBinary(c *gc.C) {
+func (s *agentBinarySuite) TestPopulateAgentBinary(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	current := semversion.Binary{
@@ -68,13 +67,13 @@ func (s *agentBinarySuite) TestPopulateAgentBinary(c *gc.C) {
 	).Return(nil)
 
 	cleanup, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cleanup()
 
 	s.expectNoTools(c, toolsPath)
 }
 
-func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *gc.C) {
+func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	current := semversion.Binary{
@@ -102,12 +101,12 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *gc.C) {
 	}).Return(errors.New("boom"))
 
 	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 
 	s.expectTools(c, toolsPath)
 }
 
-func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *gc.C) {
+func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	current := semversion.Binary{
@@ -119,10 +118,10 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *gc.C)
 	dir, _ := s.ensureDirs(c, current)
 
 	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
-	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
+	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
 }
 
-func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *gc.C) {
+func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	current := semversion.Binary{
@@ -142,47 +141,47 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *gc.C) {
 	})
 
 	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
-	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
+	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
 }
 
-func (s *agentBinarySuite) ensureDirs(c *gc.C, current semversion.Binary) (string, string) {
+func (s *agentBinarySuite) ensureDirs(c *tc.C, current semversion.Binary) (string, string) {
 	dir := c.MkDir()
 
 	path := filepath.Join(dir, "tools", current.String())
 
 	err := os.MkdirAll(path, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = os.Stat(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return dir, path
 }
 
-func (s *agentBinarySuite) writeDownloadTools(c *gc.C, dir string, tools downloadTools) {
+func (s *agentBinarySuite) writeDownloadTools(c *tc.C, dir string, tools downloadTools) {
 	b, err := json.Marshal(tools)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = os.WriteFile(filepath.Join(dir, "downloaded-tools.txt"), b, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *agentBinarySuite) writeAgentBinary(c *gc.C, dir string, current semversion.Binary) {
+func (s *agentBinarySuite) writeAgentBinary(c *tc.C, dir string, current semversion.Binary) {
 	err := os.WriteFile(filepath.Join(dir, "tools.tar.gz"), []byte("data"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = os.WriteFile(filepath.Join(dir, fmt.Sprintf("%s.sha256", current.String())), []byte("sha256"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *agentBinarySuite) expectNoTools(c *gc.C, dir string) {
+func (s *agentBinarySuite) expectNoTools(c *tc.C, dir string) {
 	_, err := os.Stat(filepath.Join(dir, "tools.tar.gz"))
-	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
+	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
 }
 
-func (s *agentBinarySuite) expectTools(c *gc.C, dir string) {
+func (s *agentBinarySuite) expectTools(c *tc.C, dir string) {
 	_, err := os.Stat(filepath.Join(dir, "tools.tar.gz"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type downloadTools struct {

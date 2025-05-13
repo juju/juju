@@ -7,90 +7,89 @@ import (
 	"io"
 	"os"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/backups"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type workspaceSuiteV0 struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	baseArchiveDataSuite
 }
 
-var _ = gc.Suite(&workspaceSuiteV0{})
-var _ = gc.Suite(&workspaceSuiteV1{})
+var _ = tc.Suite(&workspaceSuiteV0{})
+var _ = tc.Suite(&workspaceSuiteV1{})
 
-func (s *workspaceSuiteV0) SetUpTest(c *gc.C) {
+func (s *workspaceSuiteV0) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)
 }
 
-func (s *workspaceSuiteV0) TestNewArchiveWorkspaceReader(c *gc.C) {
+func (s *workspaceSuiteV0) TestNewArchiveWorkspaceReader(c *tc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ws.Close()
 
-	c.Check(ws.RootDir, gc.Not(gc.Equals), "")
+	c.Check(ws.RootDir, tc.Not(tc.Equals), "")
 }
 
-func (s *workspaceSuiteV0) TestClose(c *gc.C) {
+func (s *workspaceSuiteV0) TestClose(c *tc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = ws.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = os.Stat(ws.RootDir)
-	c.Check(err, jc.Satisfies, os.IsNotExist)
+	c.Check(err, tc.Satisfies, os.IsNotExist)
 }
 
-func (s *workspaceSuiteV0) TestUnpackFilesBundle(c *gc.C) {
+func (s *workspaceSuiteV0) TestUnpackFilesBundle(c *tc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ws.Close()
 
 	targetDir := c.MkDir()
 	err = ws.UnpackFilesBundle(targetDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = os.Stat(targetDir + "/var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = os.Stat(targetDir + "/var/lib/juju/system-identity")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *workspaceSuiteV0) TestOpenBundledFile(c *gc.C) {
+func (s *workspaceSuiteV0) TestOpenBundledFile(c *tc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ws.Close()
 
 	file, err := ws.OpenBundledFile("var/lib/juju/system-identity")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := io.ReadAll(file)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(data), gc.Equals, "<an ssh key goes here>")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(data), tc.Equals, "<an ssh key goes here>")
 }
 
-func (s *workspaceSuiteV0) TestMetadata(c *gc.C) {
+func (s *workspaceSuiteV0) TestMetadata(c *tc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ws.Close()
 
 	meta, err := ws.Metadata()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(meta, jc.DeepEquals, s.meta)
+	c.Check(meta, tc.DeepEquals, s.meta)
 }
 
 type workspaceSuiteV1 struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	baseArchiveDataSuite
 }
 
-func (s *workspaceSuiteV1) SetUpTest(c *gc.C) {
+func (s *workspaceSuiteV1) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)
 }

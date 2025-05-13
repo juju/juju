@@ -7,9 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -20,9 +19,9 @@ type poolRemoveSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&poolRemoveSuite{})
+var _ = tc.Suite(&poolRemoveSuite{})
 
-func (s *poolRemoveSuite) TestRemovePool(c *gc.C) {
+func (s *poolRemoveSuite) TestRemovePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
@@ -34,12 +33,12 @@ func (s *poolRemoveSuite) TestRemovePool(c *gc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *poolRemoveSuite) TestRemoveNotExists(c *gc.C) {
+func (s *poolRemoveSuite) TestRemoveNotExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
@@ -51,12 +50,12 @@ func (s *poolRemoveSuite) TestRemoveNotExists(c *gc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "storage pool is not found")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, "storage pool is not found")
 }
 
-func (s *poolRemoveSuite) TestRemoveInUse(c *gc.C) {
+func (s *poolRemoveSuite) TestRemoveInUse(c *tc.C) {
 	c.Skip("TODO(storage) - support storage pool in-use checks")
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 	s.poolsInUse = []string{poolName}
@@ -66,16 +65,16 @@ func (s *poolRemoveSuite) TestRemoveInUse(c *gc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
 
 	pools, err := s.storageService.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.NilProviders)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pools, tc.HasLen, 1)
 }
 
-func (s *poolRemoveSuite) TestRemoveSomeInUse(c *gc.C) {
+func (s *poolRemoveSuite) TestRemoveSomeInUse(c *tc.C) {
 	c.Skip("TODO(storage) - support storage pool in-use checks")
 	poolNameInUse := fmt.Sprintf("%v%v", tstName, 0)
 	poolNameNotInUse := fmt.Sprintf("%v%v", tstName, 1)
@@ -88,12 +87,12 @@ func (s *poolRemoveSuite) TestRemoveSomeInUse(c *gc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolNameInUse))
-	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolNameInUse))
+	c.Assert(results.Results[1].Error, tc.IsNil)
 
 	pools, err := s.storageService.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.NilProviders)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pools, tc.HasLen, 1)
 }

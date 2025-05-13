@@ -7,24 +7,23 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestLeases(c *gc.C) {
+func (s *serviceSuite) TestLeases(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expected := map[lease.Key]lease.Info{
@@ -37,11 +36,11 @@ func (s *serviceSuite) TestLeases(c *gc.C) {
 
 	service := NewService(s.state)
 	val, err := service.Leases(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val, gc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(val, tc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestLeasesWithKey(c *gc.C) {
+func (s *serviceSuite) TestLeasesWithKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := fixedKey()
@@ -55,19 +54,19 @@ func (s *serviceSuite) TestLeasesWithKey(c *gc.C) {
 
 	service := NewService(s.state)
 	val, err := service.Leases(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val, gc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(val, tc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestLeasesWithMultipleKeys(c *gc.C) {
+func (s *serviceSuite) TestLeasesWithMultipleKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	service := NewService(s.state)
 	_, err := service.Leases(context.Background(), fixedKey(), fixedKey())
-	c.Assert(err, gc.ErrorMatches, "filtering with more than one lease key not supported")
+	c.Assert(err, tc.ErrorMatches, "filtering with more than one lease key not supported")
 }
 
-func (s *serviceSuite) TestClaimLease(c *gc.C) {
+func (s *serviceSuite) TestClaimLease(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key, req := fixedKey(), lease.Request{
@@ -79,18 +78,18 @@ func (s *serviceSuite) TestClaimLease(c *gc.C) {
 
 	service := NewService(s.state)
 	err := service.ClaimLease(context.Background(), key, req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestClaimLeaseValidation(c *gc.C) {
+func (s *serviceSuite) TestClaimLeaseValidation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	service := NewService(s.state)
 	err := service.ClaimLease(context.Background(), fixedKey(), lease.Request{})
-	c.Assert(err, gc.ErrorMatches, "invalid holder: string is empty")
+	c.Assert(err, tc.ErrorMatches, "invalid holder: string is empty")
 }
 
-func (s *serviceSuite) TestExtendLease(c *gc.C) {
+func (s *serviceSuite) TestExtendLease(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key, req := fixedKey(), lease.Request{
@@ -102,18 +101,18 @@ func (s *serviceSuite) TestExtendLease(c *gc.C) {
 
 	service := NewService(s.state)
 	err := service.ExtendLease(context.Background(), key, req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestExtendLeaseValidation(c *gc.C) {
+func (s *serviceSuite) TestExtendLeaseValidation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	service := NewService(s.state)
 	err := service.ClaimLease(context.Background(), fixedKey(), lease.Request{})
-	c.Assert(err, gc.ErrorMatches, "invalid holder: string is empty")
+	c.Assert(err, tc.ErrorMatches, "invalid holder: string is empty")
 }
 
-func (s *serviceSuite) TestRevokeLease(c *gc.C) {
+func (s *serviceSuite) TestRevokeLease(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := fixedKey()
@@ -122,10 +121,10 @@ func (s *serviceSuite) TestRevokeLease(c *gc.C) {
 
 	service := NewService(s.state)
 	err := service.RevokeLease(context.Background(), key, "postgresql/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestLeaseGroup(c *gc.C) {
+func (s *serviceSuite) TestLeaseGroup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := fixedKey()
@@ -139,11 +138,11 @@ func (s *serviceSuite) TestLeaseGroup(c *gc.C) {
 
 	service := NewService(s.state)
 	got, err := service.LeaseGroup(context.Background(), "foo", "123")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestPinLease(c *gc.C) {
+func (s *serviceSuite) TestPinLease(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := fixedKey()
@@ -152,10 +151,10 @@ func (s *serviceSuite) TestPinLease(c *gc.C) {
 
 	service := NewService(s.state)
 	err := service.PinLease(context.Background(), key, "machine/6")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUnpinLease(c *gc.C) {
+func (s *serviceSuite) TestUnpinLease(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := fixedKey()
@@ -164,10 +163,10 @@ func (s *serviceSuite) TestUnpinLease(c *gc.C) {
 
 	service := NewService(s.state)
 	err := service.UnpinLease(context.Background(), key, "machine/6")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestPinned(c *gc.C) {
+func (s *serviceSuite) TestPinned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := fixedKey()
@@ -179,21 +178,21 @@ func (s *serviceSuite) TestPinned(c *gc.C) {
 
 	service := NewService(s.state)
 	got, err := service.Pinned(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestExpireLeases(c *gc.C) {
+func (s *serviceSuite) TestExpireLeases(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().ExpireLeases(gomock.Any()).Return(nil)
 
 	service := NewService(s.state)
 	err := service.ExpireLeases(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)

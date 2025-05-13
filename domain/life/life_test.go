@@ -4,8 +4,7 @@
 package life
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corelife "github.com/juju/juju/core/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -15,14 +14,14 @@ type lifeSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&lifeSuite{})
+var _ = tc.Suite(&lifeSuite{})
 
 // TestLifeDBValues ensures there's no skew between what's in the
 // database table for life and the typed consts used in the state packages.
-func (s *lifeSuite) TestLifeDBValues(c *gc.C) {
+func (s *lifeSuite) TestLifeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, value FROM life")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[Life]string)
@@ -32,30 +31,30 @@ func (s *lifeSuite) TestLifeDBValues(c *gc.C) {
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[Life(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[Life]string{
+	c.Assert(dbValues, tc.DeepEquals, map[Life]string{
 		Alive: "alive",
 		Dying: "dying",
 		Dead:  "dead",
 	})
 }
 
-func (s *lifeSuite) TestValueAlive(c *gc.C) {
+func (s *lifeSuite) TestValueAlive(c *tc.C) {
 	result, err := Alive.Value()
-	c.Assert(err, gc.IsNil)
-	c.Check(result, gc.Equals, corelife.Alive)
+	c.Assert(err, tc.IsNil)
+	c.Check(result, tc.Equals, corelife.Alive)
 }
 
-func (s *lifeSuite) TestValueDying(c *gc.C) {
+func (s *lifeSuite) TestValueDying(c *tc.C) {
 	result, err := Dying.Value()
-	c.Assert(err, gc.IsNil)
-	c.Check(result, gc.Equals, corelife.Dying)
+	c.Assert(err, tc.IsNil)
+	c.Check(result, tc.Equals, corelife.Dying)
 }
 
-func (s *lifeSuite) TestValueDead(c *gc.C) {
+func (s *lifeSuite) TestValueDead(c *tc.C) {
 	result, err := Dead.Value()
-	c.Assert(err, gc.IsNil)
-	c.Check(result, gc.Equals, corelife.Dead)
+	c.Assert(err, tc.IsNil)
+	c.Check(result, tc.Equals, corelife.Dead)
 }

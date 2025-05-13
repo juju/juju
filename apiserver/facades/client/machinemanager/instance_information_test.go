@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/instances"
@@ -22,15 +21,15 @@ type instanceTypesSuite struct {
 	instanceTypesFetcher *MockInstanceTypesFetcher
 }
 
-var _ = gc.Suite(&instanceTypesSuite{})
+var _ = tc.Suite(&instanceTypesSuite{})
 
-func (s *instanceTypesSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *instanceTypesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.instanceTypesFetcher = NewMockInstanceTypesFetcher(ctrl)
 	return ctrl
 }
 
-func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
+func (s *instanceTypesSuite) TestInstanceTypes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
@@ -54,8 +53,8 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	}
 
 	r, err := instanceTypes(context.Background(), s.instanceTypesFetcher, cons)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Results, tc.HasLen, 3)
 	expected := []params.InstanceTypesResult{
 		{
 			InstanceTypes: []params.InstanceType{
@@ -76,5 +75,5 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(r.Results, gc.DeepEquals, expected)
+	c.Assert(r.Results, tc.DeepEquals, expected)
 }

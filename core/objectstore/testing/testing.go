@@ -4,8 +4,7 @@
 package testing
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 )
@@ -13,8 +12,8 @@ import (
 // GenObjectStoreUUID can be used in testing for generating a objectstore UUID
 // that is checked for subsequent errors using the test suit's go check
 // instance.
-func GenObjectStoreUUID(c *gc.C) coreobjectstore.UUID {
+func GenObjectStoreUUID(c *tc.C) coreobjectstore.UUID {
 	id, err := coreobjectstore.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return id
 }

@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
@@ -19,9 +18,9 @@ type poolCreateSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&poolCreateSuite{})
+var _ = tc.Suite(&poolCreateSuite{})
 
-func (s *poolCreateSuite) TestCreatePool(c *gc.C) {
+func (s *poolCreateSuite) TestCreatePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageService.EXPECT().CreateStoragePool(gomock.Any(), "pname", provider.LoopProviderType, nil).Return(nil)
@@ -34,12 +33,12 @@ func (s *poolCreateSuite) TestCreatePool(c *gc.C) {
 		}},
 	}
 	results, err := s.api.CreatePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
-func (s *poolCreateSuite) TestCreatePoolError(c *gc.C) {
+func (s *poolCreateSuite) TestCreatePoolError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.storageService.EXPECT().CreateStoragePool(gomock.Any(), "doesnt-matter", gomock.Any(), gomock.Any()).Return(errors.New("as expected"))
@@ -50,9 +49,9 @@ func (s *poolCreateSuite) TestCreatePoolError(c *gc.C) {
 		}},
 	}
 	results, err := s.api.CreatePool(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.DeepEquals, &params.Error{
 		Message: "as expected",
 	})
 }

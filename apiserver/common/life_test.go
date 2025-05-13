@@ -8,8 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -20,7 +19,7 @@ import (
 
 type lifeSuite struct{}
 
-var _ = gc.Suite(&lifeSuite{})
+var _ = tc.Suite(&lifeSuite{})
 
 type fakeLifer struct {
 	state.Entity
@@ -32,7 +31,7 @@ func (l *fakeLifer) Life() state.Life {
 	return l.life
 }
 
-func (*lifeSuite) TestLife(c *gc.C) {
+func (*lifeSuite) TestLife(c *tc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			u("x/0"): &fakeLifer{life: state.Alive},
@@ -54,8 +53,8 @@ func (*lifeSuite) TestLife(c *gc.C) {
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"}, {Tag: "unit-x-4"},
 	}}
 	results, err := lg.Life(context.Background(), entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -66,21 +65,21 @@ func (*lifeSuite) TestLife(c *gc.C) {
 	})
 }
 
-func (*lifeSuite) TestLifeError(c *gc.C) {
+func (*lifeSuite) TestLifeError(c *tc.C) {
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
 	_, err := lg.Life(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
-func (*lifeSuite) TestLifeNoArgsNoError(c *gc.C) {
+func (*lifeSuite) TestLifeNoArgsNoError(c *tc.C) {
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
 	result, err := lg.Life(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 0)
 }

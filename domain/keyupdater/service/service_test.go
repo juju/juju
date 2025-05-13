@@ -7,9 +7,8 @@ import (
 	"context"
 	"slices"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -27,7 +26,7 @@ type serviceSuite struct {
 }
 
 var (
-	_ = gc.Suite(&serviceSuite{})
+	_ = tc.Suite(&serviceSuite{})
 
 	controllerKeys = []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju-client-key",
@@ -40,11 +39,11 @@ var (
 	}
 )
 
-func (s *serviceSuite) SetUpTest(c *gc.C) {
+func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.modelId = modeltesting.GenModelUUID(c)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerKeyProvider = NewMockControllerKeyProvider(ctrl)
 	s.state = NewMockState(ctrl)
@@ -54,7 +53,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 // TestAuthorisedKeysForMachine is testing the happy path of
 // [Service.AuthorisedKeysForMachine].
-func (s *serviceSuite) TestAuthorisedKeysForMachine(c *gc.C) {
+func (s *serviceSuite) TestAuthorisedKeysForMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(controllerKeys, nil)
@@ -70,16 +69,16 @@ func (s *serviceSuite) TestAuthorisedKeysForMachine(c *gc.C) {
 		context.Background(),
 		coremachine.Name("0"),
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	slices.Sort(expected)
 	slices.Sort(keys)
-	c.Check(keys, jc.DeepEquals, expected)
+	c.Check(keys, tc.DeepEquals, expected)
 }
 
 // TestAuthorisedKeysForMachineNoControllerKeys is asserting that if no
 // controller keys are available we still succeed with no errors.
-func (s *serviceSuite) TestAuthorisedKeysForMachineNoControllerKeys(c *gc.C) {
+func (s *serviceSuite) TestAuthorisedKeysForMachineNoControllerKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(nil, nil)
@@ -94,17 +93,17 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNoControllerKeys(c *gc.C) {
 		context.Background(),
 		coremachine.Name("0"),
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	slices.Sort(expected)
 	slices.Sort(keys)
-	c.Check(keys, jc.DeepEquals, expected)
+	c.Check(keys, tc.DeepEquals, expected)
 }
 
 // TestAuthorisedKeysForMachineNotFound is asserting that if we ask for
 // authorised keys for a machine that doesn't exist we get back a
 // [machineerrors.MachineNotFound] error.
-func (s *serviceSuite) TestAuthorisedKeysForMachineNotFound(c *gc.C) {
+func (s *serviceSuite) TestAuthorisedKeysForMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().CheckMachineExists(gomock.Any(), coremachine.Name("0")).Return(machineerrors.MachineNotFound)
@@ -113,12 +112,12 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNotFound(c *gc.C) {
 		context.Background(),
 		coremachine.Name("0"),
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetInitialAuthorisedKeysForContainerSuccess tests the happy path for
 // Service.GetInitialAuthorisedKeysForContainer.
-func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerSuccess(c *gc.C) {
+func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(nil, nil)
@@ -127,13 +126,13 @@ func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerSuccess(c *gc.C) 
 
 	keys, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).
 		GetInitialAuthorisedKeysForContainer(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(keys, jc.DeepEquals, controllerKeys)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, controllerKeys)
 }
 
 // TestGetInitialAuthorisedKeysForContainerSuccess checks that
 // Service.GetInitialAuthorisedKeysForContainer surfaces errors from state.
-func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerFailure(c *gc.C) {
+func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	boom := errors.New("boom")
@@ -147,5 +146,5 @@ func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerFailure(c *gc.C) 
 
 	_, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).
 		GetInitialAuthorisedKeysForContainer(context.Background())
-	c.Check(err, jc.ErrorIs, boom)
+	c.Check(err, tc.ErrorIs, boom)
 }

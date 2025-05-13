@@ -7,9 +7,8 @@ import (
 	"crypto"
 	"crypto/ed25519"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/pki/ssh"
 )
@@ -17,9 +16,9 @@ import (
 type KeySuite struct {
 }
 
-var _ = gc.Suite(&KeySuite{})
+var _ = tc.Suite(&KeySuite{})
 
-func (s *KeySuite) TestKeyProfilesForErrors(c *gc.C) {
+func (s *KeySuite) TestKeyProfilesForErrors(c *tc.C) {
 	tests := []struct {
 		name    string
 		profile ssh.KeyProfile
@@ -33,53 +32,53 @@ func (s *KeySuite) TestKeyProfilesForErrors(c *gc.C) {
 	}
 	for _, test := range tests {
 		_, err := test.profile()
-		c.Check(err, jc.ErrorIsNil, gc.Commentf("profile %s", test.name))
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("profile %s", test.name))
 	}
 }
 
-func (s *KeySuite) TestGenerateHostKeys(c *gc.C) {
+func (s *KeySuite) TestGenerateHostKeys(c *tc.C) {
 	keys, err := ssh.GenerateHostKeys()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(keys, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(keys, tc.HasLen, 3)
 	keys2, err := ssh.GenerateHostKeys()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(keys2, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(keys2, tc.HasLen, 3)
 	for i, key := range keys {
 		key2 := keys2[i]
-		c.Assert(key, gc.FitsTypeOf, key2)
+		c.Assert(key, tc.FitsTypeOf, key2)
 		typedKey, ok := key.(interface {
 			Equal(crypto.PrivateKey) bool
 		})
-		c.Assert(ok, jc.IsTrue, gc.Commentf("cast %v", key))
-		c.Assert(typedKey.Equal(key), jc.IsTrue)
-		c.Assert(typedKey.Equal(key2), jc.IsFalse)
+		c.Assert(ok, tc.IsTrue, tc.Commentf("cast %v", key))
+		c.Assert(typedKey.Equal(key), tc.IsTrue)
+		c.Assert(typedKey.Equal(key2), tc.IsFalse)
 	}
 }
 
-func (s *KeySuite) TestKeyMarshalling(c *gc.C) {
+func (s *KeySuite) TestKeyMarshalling(c *tc.C) {
 	privateKey, err := ssh.ED25519()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	want, ok := privateKey.(ed25519.PrivateKey)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
 	data, err := ssh.MarshalPrivateKey(privateKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	unmarshalledKey, err := ssh.UnmarshalPrivateKey(data)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	got, ok := unmarshalledKey.(*ed25519.PrivateKey)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
-	c.Assert(want, gc.DeepEquals, *got)
+	c.Assert(want, tc.DeepEquals, *got)
 }
 
-func (s *KeySuite) TestGenerateMarshalledED25519Key(c *gc.C) {
+func (s *KeySuite) TestGenerateMarshalledED25519Key(c *tc.C) {
 	keyStr, err := ssh.NewMarshalledED25519()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	signer, err := gossh.ParsePrivateKey(keyStr)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
-	c.Assert(signer.PublicKey().Type(), gc.Equals, "ssh-ed25519")
+	c.Assert(signer.PublicKey().Type(), tc.Equals, "ssh-ed25519")
 }

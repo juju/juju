@@ -8,8 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/constraints"
@@ -18,7 +17,7 @@ import (
 
 type ConstraintsSuite struct{}
 
-var _ = gc.Suite(&ConstraintsSuite{})
+var _ = tc.Suite(&ConstraintsSuite{})
 
 var parseConstraintsTests = []struct {
 	summary string
@@ -460,7 +459,7 @@ var parseConstraintsTests = []struct {
 	},
 }
 
-func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
+func (s *ConstraintsSuite) TestParseConstraints(c *tc.C) {
 	// TODO(dimitern): This test is inadequate and needs to check for
 	// more than just the reparsed output of String() matches the
 	// expected.
@@ -468,107 +467,107 @@ func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		cons0, err := constraints.Parse(t.args...)
 		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
-			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Assert(err, tc.ErrorMatches, t.err)
 			continue
 		}
 		if t.result != nil {
-			c.Check(cons0, gc.DeepEquals, *t.result)
+			c.Check(cons0, tc.DeepEquals, *t.result)
 		}
 		cons1, err := constraints.Parse(cons0.String())
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cons1, gc.DeepEquals, cons0)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cons1, tc.DeepEquals, cons0)
 	}
 }
 
-func (s *ConstraintsSuite) TestParseAliases(c *gc.C) {
+func (s *ConstraintsSuite) TestParseAliases(c *tc.C) {
 	v, aliases, err := constraints.ParseWithAliases("cpu-cores=5 arch=amd64")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(v, gc.DeepEquals, constraints.Value{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(v, tc.DeepEquals, constraints.Value{
 		CpuCores: uint64p(5),
 		Arch:     strp("amd64"),
 	})
-	c.Assert(aliases, gc.DeepEquals, map[string]string{
+	c.Assert(aliases, tc.DeepEquals, map[string]string{
 		"cpu-cores": "cores",
 	})
 }
 
-func (s *ConstraintsSuite) TestMerge(c *gc.C) {
+func (s *ConstraintsSuite) TestMerge(c *tc.C) {
 	con1 := constraints.MustParse("arch=amd64 mem=4G")
 	con2 := constraints.MustParse("cores=42")
 	con3 := constraints.MustParse(
 		"root-disk=8G container=lxd spaces=space1,^space2 image-id=ubuntu-bf2",
 	)
 	merged, err := constraints.Merge(con1, con2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(merged, jc.DeepEquals, constraints.MustParse("arch=amd64 mem=4G cores=42"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(merged, tc.DeepEquals, constraints.MustParse("arch=amd64 mem=4G cores=42"))
 	merged, err = constraints.Merge(con1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(merged, jc.DeepEquals, con1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(merged, tc.DeepEquals, con1)
 	merged, err = constraints.Merge(con1, con2, con3)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(merged, jc.DeepEquals, constraints.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(merged, tc.DeepEquals, constraints.
 		MustParse("arch=amd64 mem=4G cores=42 root-disk=8G container=lxd spaces=space1,^space2 image-id=ubuntu-bf2"),
 	)
 	merged, err = constraints.Merge()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(merged, jc.DeepEquals, constraints.Value{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(merged, tc.DeepEquals, constraints.Value{})
 	foo := "foo"
 	merged, err = constraints.Merge(constraints.Value{Arch: &foo}, con2)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, `bad "arch" constraint: "foo" not recognized`)
-	c.Assert(merged, jc.DeepEquals, constraints.Value{})
+	c.Assert(err, tc.NotNil)
+	c.Assert(err, tc.ErrorMatches, `bad "arch" constraint: "foo" not recognized`)
+	c.Assert(merged, tc.DeepEquals, constraints.Value{})
 	merged, err = constraints.Merge(con1, con1)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, `bad "arch" constraint: already set`)
-	c.Assert(merged, jc.DeepEquals, constraints.Value{})
+	c.Assert(err, tc.NotNil)
+	c.Assert(err, tc.ErrorMatches, `bad "arch" constraint: already set`)
+	c.Assert(merged, tc.DeepEquals, constraints.Value{})
 }
 
-func (s *ConstraintsSuite) TestParseInstanceTypeWithSpaces(c *gc.C) {
+func (s *ConstraintsSuite) TestParseInstanceTypeWithSpaces(c *tc.C) {
 	con := constraints.MustParse(
 		`arch=amd64 instance-type=with\ spaces cores=1`,
 	)
-	c.Assert(con.Arch, gc.Not(gc.IsNil))
-	c.Assert(con.InstanceType, gc.Not(gc.IsNil))
-	c.Assert(con.CpuCores, gc.Not(gc.IsNil))
-	c.Check(*con.Arch, gc.Equals, "amd64")
-	c.Check(*con.InstanceType, gc.Equals, "with spaces")
-	c.Check(*con.CpuCores, gc.Equals, uint64(1))
+	c.Assert(con.Arch, tc.Not(tc.IsNil))
+	c.Assert(con.InstanceType, tc.Not(tc.IsNil))
+	c.Assert(con.CpuCores, tc.Not(tc.IsNil))
+	c.Check(*con.Arch, tc.Equals, "amd64")
+	c.Check(*con.InstanceType, tc.Equals, "with spaces")
+	c.Check(*con.CpuCores, tc.Equals, uint64(1))
 }
 
-func (s *ConstraintsSuite) TestParseMissingTagsAndSpaces(c *gc.C) {
+func (s *ConstraintsSuite) TestParseMissingTagsAndSpaces(c *tc.C) {
 	con := constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G")
-	c.Check(con.Tags, gc.IsNil)
-	c.Check(con.Spaces, gc.IsNil)
+	c.Check(con.Tags, tc.IsNil)
+	c.Check(con.Spaces, tc.IsNil)
 }
 
-func (s *ConstraintsSuite) TestParseNoTagsNoSpaces(c *gc.C) {
+func (s *ConstraintsSuite) TestParseNoTagsNoSpaces(c *tc.C) {
 	con := constraints.MustParse(
 		"arch=amd64 mem=4G cores=1 root-disk=8G tags= spaces=",
 	)
-	c.Assert(con.Tags, gc.Not(gc.IsNil))
-	c.Assert(con.Spaces, gc.Not(gc.IsNil))
-	c.Check(*con.Tags, gc.HasLen, 0)
-	c.Check(*con.Spaces, gc.HasLen, 0)
+	c.Assert(con.Tags, tc.Not(tc.IsNil))
+	c.Assert(con.Spaces, tc.Not(tc.IsNil))
+	c.Check(*con.Tags, tc.HasLen, 0)
+	c.Check(*con.Spaces, tc.HasLen, 0)
 }
 
-func (s *ConstraintsSuite) TestIncludeExcludeAndHasSpaces(c *gc.C) {
+func (s *ConstraintsSuite) TestIncludeExcludeAndHasSpaces(c *tc.C) {
 	con := constraints.MustParse("spaces=space1,^space2,space3,^space4")
-	c.Assert(con.Spaces, gc.Not(gc.IsNil))
-	c.Check(*con.Spaces, gc.HasLen, 4)
-	c.Check(con.IncludeSpaces(), jc.SameContents, []string{"space1", "space3"})
-	c.Check(con.ExcludeSpaces(), jc.SameContents, []string{"space2", "space4"})
-	c.Check(con.HasSpaces(), jc.IsTrue)
+	c.Assert(con.Spaces, tc.Not(tc.IsNil))
+	c.Check(*con.Spaces, tc.HasLen, 4)
+	c.Check(con.IncludeSpaces(), tc.SameContents, []string{"space1", "space3"})
+	c.Check(con.ExcludeSpaces(), tc.SameContents, []string{"space2", "space4"})
+	c.Check(con.HasSpaces(), tc.IsTrue)
 	con = constraints.MustParse("mem=4G")
-	c.Check(con.HasSpaces(), jc.IsFalse)
+	c.Check(con.HasSpaces(), tc.IsFalse)
 	con = constraints.MustParse("mem=4G spaces=space-foo,^space-bar")
-	c.Check(con.IncludeSpaces(), jc.SameContents, []string{"space-foo"})
-	c.Check(con.ExcludeSpaces(), jc.SameContents, []string{"space-bar"})
-	c.Check(con.HasSpaces(), jc.IsTrue)
+	c.Check(con.IncludeSpaces(), tc.SameContents, []string{"space-foo"})
+	c.Check(con.ExcludeSpaces(), tc.SameContents, []string{"space-bar"})
+	c.Check(con.HasSpaces(), tc.IsTrue)
 }
 
-func (s *ConstraintsSuite) TestInvalidSpaces(c *gc.C) {
+func (s *ConstraintsSuite) TestInvalidSpaces(c *tc.C) {
 	invalidNames := []string{
 		"%$pace", "^foo#2", "+", "tcp:ip",
 		"^^myspace", "^^^^^^^^", "space^x",
@@ -578,97 +577,97 @@ func (s *ConstraintsSuite) TestInvalidSpaces(c *gc.C) {
 		con, err := constraints.Parse("spaces=" + name)
 		expectName := strings.TrimPrefix(name, "^")
 		expectErr := fmt.Sprintf(`bad "spaces" constraint: %q is not a valid space name`, expectName)
-		c.Check(err, gc.NotNil)
-		c.Check(err.Error(), gc.Equals, expectErr)
-		c.Check(con, jc.DeepEquals, constraints.Value{})
+		c.Check(err, tc.NotNil)
+		c.Check(err.Error(), tc.Equals, expectErr)
+		c.Check(con, tc.DeepEquals, constraints.Value{})
 	}
 }
 
-func (s *ConstraintsSuite) TestHasZones(c *gc.C) {
+func (s *ConstraintsSuite) TestHasZones(c *tc.C) {
 	con := constraints.MustParse("zones=az1,az2,az3")
-	c.Assert(con.Zones, gc.Not(gc.IsNil))
-	c.Check(*con.Zones, gc.HasLen, 3)
-	c.Check(con.HasZones(), jc.IsTrue)
+	c.Assert(con.Zones, tc.Not(tc.IsNil))
+	c.Check(*con.Zones, tc.HasLen, 3)
+	c.Check(con.HasZones(), tc.IsTrue)
 
 	con = constraints.MustParse("zones=")
-	c.Check(con.HasZones(), jc.IsFalse)
+	c.Check(con.HasZones(), tc.IsFalse)
 
 	con = constraints.MustParse("spaces=space1,^space2")
-	c.Check(con.HasZones(), jc.IsFalse)
+	c.Check(con.HasZones(), tc.IsFalse)
 }
 
-func (s *ConstraintsSuite) TestHasAllocatePublicIP(c *gc.C) {
+func (s *ConstraintsSuite) TestHasAllocatePublicIP(c *tc.C) {
 	con := constraints.MustParse("allocate-public-ip=true")
-	c.Assert(con.AllocatePublicIP, gc.Not(gc.IsNil))
-	c.Check(con.HasAllocatePublicIP(), jc.IsTrue)
+	c.Assert(con.AllocatePublicIP, tc.Not(tc.IsNil))
+	c.Check(con.HasAllocatePublicIP(), tc.IsTrue)
 
 	con = constraints.MustParse("allocate-public-ip=")
-	c.Check(con.HasAllocatePublicIP(), jc.IsFalse)
+	c.Check(con.HasAllocatePublicIP(), tc.IsFalse)
 
 	con = constraints.MustParse("spaces=space1,^space2")
-	c.Check(con.HasAllocatePublicIP(), jc.IsFalse)
+	c.Check(con.HasAllocatePublicIP(), tc.IsFalse)
 }
 
-func (s *ConstraintsSuite) TestHasRootDiskSource(c *gc.C) {
+func (s *ConstraintsSuite) TestHasRootDiskSource(c *tc.C) {
 	con := constraints.MustParse("root-disk-source=pilgrim")
-	c.Check(con.HasRootDiskSource(), jc.IsTrue)
+	c.Check(con.HasRootDiskSource(), tc.IsTrue)
 	con = constraints.MustParse("root-disk-source=")
-	c.Check(con.HasRootDiskSource(), jc.IsFalse)
+	c.Check(con.HasRootDiskSource(), tc.IsFalse)
 	con = constraints.MustParse("root-disk=32G")
-	c.Check(con.HasRootDiskSource(), jc.IsFalse)
+	c.Check(con.HasRootDiskSource(), tc.IsFalse)
 }
 
-func (s *ConstraintsSuite) TestHasRootDisk(c *gc.C) {
+func (s *ConstraintsSuite) TestHasRootDisk(c *tc.C) {
 	con := constraints.MustParse("root-disk=32G")
-	c.Check(con.HasRootDisk(), jc.IsTrue)
+	c.Check(con.HasRootDisk(), tc.IsTrue)
 	con = constraints.MustParse("root-disk=")
-	c.Check(con.HasRootDisk(), jc.IsFalse)
+	c.Check(con.HasRootDisk(), tc.IsFalse)
 	con = constraints.MustParse("root-disk-source=pilgrim")
-	c.Check(con.HasRootDisk(), jc.IsFalse)
+	c.Check(con.HasRootDisk(), tc.IsFalse)
 }
 
-func (s *ConstraintsSuite) TestHasImageID(c *gc.C) {
+func (s *ConstraintsSuite) TestHasImageID(c *tc.C) {
 	con := constraints.MustParse("image-id=ubuntu-bf2")
-	c.Check(con.HasImageID(), jc.IsTrue)
+	c.Check(con.HasImageID(), tc.IsTrue)
 	con = constraints.MustParse("image-id=")
-	c.Check(con.HasImageID(), jc.IsFalse)
+	c.Check(con.HasImageID(), tc.IsFalse)
 	con = constraints.MustParse("spaces=space1,^space2")
-	c.Check(con.HasImageID(), jc.IsFalse)
+	c.Check(con.HasImageID(), tc.IsFalse)
 }
 
-func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
+func (s *ConstraintsSuite) TestIsEmpty(c *tc.C) {
 	con := constraints.Value{}
-	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
+	c.Check(&con, tc.Satisfies, constraints.IsEmpty)
 	con = constraints.MustParse("arch=amd64")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("")
-	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
+	c.Check(&con, tc.Satisfies, constraints.IsEmpty)
 	con = constraints.MustParse("tags=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("spaces=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("mem=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("arch=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("root-disk=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("cpu-power=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("cores=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("container=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("instance-role=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("instance-type=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("zones=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("allocate-public-ip=")
-	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
+	c.Check(&con, tc.Satisfies, constraints.IsEmpty)
 	con = constraints.MustParse("image-id=")
-	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	c.Check(&con, tc.Not(tc.Satisfies), constraints.IsEmpty)
 }
 
 func boolp(b bool) *bool {
@@ -749,47 +748,47 @@ var constraintsRoundtripTests = []roundTrip{
 	}},
 }
 
-func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *gc.C) {
+func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *tc.C) {
 	for _, t := range constraintsRoundtripTests {
 		c.Logf("test %s", t.Name)
 		var cons constraints.Value
 		val := constraints.ConstraintsValue{&cons}
 		err := val.Set(t.Value.String())
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cons, jc.DeepEquals, t.Value)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, t.Value)
 	}
 }
 
-func (s *ConstraintsSuite) TestRoundtripString(c *gc.C) {
+func (s *ConstraintsSuite) TestRoundtripString(c *tc.C) {
 	for _, t := range constraintsRoundtripTests {
 		c.Logf("test %s", t.Name)
 		cons, err := constraints.Parse(t.Value.String())
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cons, jc.DeepEquals, t.Value)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, t.Value)
 	}
 }
 
-func (s *ConstraintsSuite) TestRoundtripJson(c *gc.C) {
+func (s *ConstraintsSuite) TestRoundtripJson(c *tc.C) {
 	for _, t := range constraintsRoundtripTests {
 		c.Logf("test %s", t.Name)
 		data, err := json.Marshal(t.Value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		var cons constraints.Value
 		err = json.Unmarshal(data, &cons)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cons, jc.DeepEquals, t.Value)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, t.Value)
 	}
 }
 
-func (s *ConstraintsSuite) TestRoundtripYaml(c *gc.C) {
+func (s *ConstraintsSuite) TestRoundtripYaml(c *tc.C) {
 	for _, t := range constraintsRoundtripTests {
 		c.Logf("test %s", t.Name)
 		data, err := goyaml.Marshal(t.Value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		var cons constraints.Value
 		err = goyaml.Unmarshal(data, &cons)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cons, jc.DeepEquals, t.Value)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, t.Value)
 	}
 }
 
@@ -808,19 +807,19 @@ var hasContainerTests = []struct {
 	},
 }
 
-func (s *ConstraintsSuite) TestHasContainer(c *gc.C) {
+func (s *ConstraintsSuite) TestHasContainer(c *tc.C) {
 	for i, t := range hasContainerTests {
 		c.Logf("test %d", i)
 		cons := constraints.MustParse(t.constraints)
-		c.Check(cons.HasContainer(), gc.Equals, t.hasContainer)
+		c.Check(cons.HasContainer(), tc.Equals, t.hasContainer)
 	}
 }
 
-func (s *ConstraintsSuite) TestHasInstanceType(c *gc.C) {
+func (s *ConstraintsSuite) TestHasInstanceType(c *tc.C) {
 	cons := constraints.MustParse("arch=amd64")
-	c.Check(cons.HasInstanceType(), jc.IsFalse)
+	c.Check(cons.HasInstanceType(), tc.IsFalse)
 	cons = constraints.MustParse("arch=amd64 instance-type=foo")
-	c.Check(cons.HasInstanceType(), jc.IsTrue)
+	c.Check(cons.HasInstanceType(), tc.IsTrue)
 }
 
 const initialWithoutCons = "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo " +
@@ -884,12 +883,12 @@ var withoutTests = []struct {
 	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar zones=az1,az2 allocate-public-ip=true",
 }}
 
-func (s *ConstraintsSuite) TestWithout(c *gc.C) {
+func (s *ConstraintsSuite) TestWithout(c *tc.C) {
 	for i, t := range withoutTests {
 		c.Logf("test %d", i)
 		initial := constraints.MustParse(t.initial)
 		final := constraints.Without(initial, t.without...)
-		c.Check(final, jc.DeepEquals, constraints.MustParse(t.final))
+		c.Check(final, tc.DeepEquals, constraints.MustParse(t.final))
 	}
 }
 
@@ -915,28 +914,28 @@ var hasAnyTests = []struct {
 	},
 }
 
-func (s *ConstraintsSuite) TestHasAny(c *gc.C) {
+func (s *ConstraintsSuite) TestHasAny(c *tc.C) {
 	for i, t := range hasAnyTests {
 		c.Logf("test %d", i)
 		cons := constraints.MustParse(t.cons)
 		obtained := constraints.HasAny(cons, t.attrs...)
-		c.Check(obtained, jc.DeepEquals, t.expected)
+		c.Check(obtained, tc.DeepEquals, t.expected)
 	}
 }
 
 // TestAddSpaceNilSlice is testing that if we add a space to a
 // [constraints.Value] that has a nil space slice a new slice is allocated.
-func (s *ConstraintsSuite) TestAddSpaceNilSlice(c *gc.C) {
+func (s *ConstraintsSuite) TestAddSpaceNilSlice(c *tc.C) {
 	val := constraints.Value{}
 	val.AddSpace("space1", false)
 	val.AddSpace("space2", true)
 
-	c.Check(*val.Spaces, jc.DeepEquals, []string{"space1", "^space2"})
+	c.Check(*val.Spaces, tc.DeepEquals, []string{"space1", "^space2"})
 }
 
 // TestAddSpaceAppend is testing that if we add a space to an existing slice
 // the value is appended correctly.
-func (s *ConstraintsSuite) TestAddSpaceAppend(c *gc.C) {
+func (s *ConstraintsSuite) TestAddSpaceAppend(c *tc.C) {
 	existingSpaces := []string{"space1", "^space2"}
 	val := constraints.Value{
 		Spaces: &existingSpaces,
@@ -945,7 +944,7 @@ func (s *ConstraintsSuite) TestAddSpaceAppend(c *gc.C) {
 	val.AddSpace("space3", true)
 	val.AddSpace("space4", false)
 
-	c.Check(*val.Spaces, jc.DeepEquals, []string{
+	c.Check(*val.Spaces, tc.DeepEquals, []string{
 		"space1",
 		"^space2",
 		"^space3",

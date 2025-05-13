@@ -7,11 +7,10 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type MockAuthenticatorNotFound struct{}
@@ -39,12 +38,12 @@ func (m *MockAuthenticatorNoError) Authenticate(req *http.Request) (authenticati
 }
 
 type HTTPAuthenticatorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&HTTPAuthenticatorSuite{})
+var _ = tc.Suite(&HTTPAuthenticatorSuite{})
 
-func (s *HTTPAuthenticatorSuite) TestHTTPStrategicAuthenticator(c *gc.C) {
+func (s *HTTPAuthenticatorSuite) TestHTTPStrategicAuthenticator(c *tc.C) {
 	tests := []struct {
 		description        string
 		httpAuthenticators authentication.HTTPStrategicAuthenticator
@@ -81,9 +80,9 @@ func (s *HTTPAuthenticatorSuite) TestHTTPStrategicAuthenticator(c *gc.C) {
 	for _, t := range tests {
 		_, err := t.httpAuthenticators.Authenticate(nil)
 		if t.expectedError != "" {
-			c.Check(err.Error(), jc.Contains, t.expectedError)
+			c.Check(err.Error(), tc.Contains, t.expectedError)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 	}
 }

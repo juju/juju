@@ -8,9 +8,8 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	instance "github.com/juju/juju/core/instance"
@@ -38,9 +37,9 @@ type machineConfigSuite struct {
 	bootstrapEnviron        *MockBootstrapEnviron
 }
 
-var _ = gc.Suite(&machineConfigSuite{})
+var _ = tc.Suite(&machineConfigSuite{})
 
-func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
+func (s *machineConfigSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
@@ -56,7 +55,7 @@ func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
+func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -65,7 +64,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 		"enable-os-upgrade":        true,
 		"enable-os-refresh-update": true,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(
 		cfg, nil,
 	)
@@ -115,10 +114,10 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	}
 
 	icfg, err := InstanceConfig(context.Background(), modelID, providerGetter, s.ctrlSt, s.st, services, "0", "nonce", "")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(icfg.APIInfo.Addrs, gc.DeepEquals, []string{"1.2.3.4:1"})
-	c.Check(icfg.ToolsList().URLs(), gc.DeepEquals, map[semversion.Binary][]string{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(icfg.APIInfo.Addrs, tc.DeepEquals, []string{"1.2.3.4:1"})
+	c.Check(icfg.ToolsList().URLs(), tc.DeepEquals, map[semversion.Binary][]string{
 		icfg.AgentVersion(): {fmt.Sprintf("https://1.2.3.4:1/model/%s/tools/2.6.6-ubuntu-amd64", modelID.String())},
 	})
-	c.Check(icfg.AuthorizedKeys, gc.Equals, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1")
+	c.Check(icfg.AuthorizedKeys, tc.Equals, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1")
 }

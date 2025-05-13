@@ -12,14 +12,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/arch"
@@ -37,18 +35,19 @@ import (
 	"github.com/juju/juju/internal/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/internal/provider/vsphere/internal/vsphereclient"
 	"github.com/juju/juju/internal/provider/vsphere/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
 
 type legacyEnvironBrokerSuite struct {
 	EnvironFixture
-	statusCallbackStub testing.Stub
+	statusCallbackStub testhelpers.Stub
 }
 
-var _ = gc.Suite(&legacyEnvironBrokerSuite{})
+var _ = tc.Suite(&legacyEnvironBrokerSuite{})
 
-func (s *legacyEnvironBrokerSuite) SetUpTest(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) SetUpTest(c *tc.C) {
 	s.EnvironFixture.SetUpTest(c)
 	s.statusCallbackStub.ResetCalls()
 
@@ -65,12 +64,12 @@ func (s *legacyEnvironBrokerSuite) SetUpTest(c *gc.C) {
 	s.client.createdVirtualMachine = buildVM("new-vm").vm()
 }
 
-func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
+func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *tc.C) environs.StartInstanceParams {
 	var cons constraints.Value
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		coretesting.FakeControllerConfig(), cons, cons, corebase.MakeDefaultBase("ubuntu", "22.04"), "", nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	setInstanceConfigAuthorizedKeys(c, instanceConfig)
 	tools := setInstanceConfigTools(c, instanceConfig)
@@ -88,7 +87,7 @@ func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.Sta
 	}
 }
 
-func setInstanceConfigTools(c *gc.C, instanceConfig *instancecfg.InstanceConfig) coretools.List {
+func setInstanceConfigTools(c *tc.C, instanceConfig *instancecfg.InstanceConfig) coretools.List {
 	tools := []*coretools.Tools{{
 		Version: semversion.Binary{
 			Number:  semversion.MustParse("1.2.3"),
@@ -98,16 +97,16 @@ func setInstanceConfigTools(c *gc.C, instanceConfig *instancecfg.InstanceConfig)
 		URL: "https://example.org",
 	}}
 	err := instanceConfig.SetTools(tools[:1])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return tools
 }
 
-func setInstanceConfigAuthorizedKeys(c *gc.C, instanceConfig *instancecfg.InstanceConfig) {
+func setInstanceConfigAuthorizedKeys(c *tc.C, instanceConfig *instancecfg.InstanceConfig) {
 	config := fakeConfig(c)
 	instanceConfig.AuthorizedKeys = config.AuthorizedKeys()
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstance(c *tc.C) {
 	s.client.datastores = []mo.Datastore{{
 		ManagedEntity: mo.ManagedEntity{Name: "foo"},
 	}, {
@@ -129,19 +128,19 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 	}
 
 	result, err := s.env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
-	c.Assert(result.Instance, gc.NotNil)
-	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("new-vm"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+	c.Assert(result.Instance, tc.NotNil)
+	c.Assert(result.Instance.Id(), tc.Equals, instance.Id("new-vm"))
 
 	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[8]
-	c.Assert(call.Args, gc.HasLen, 2)
-	c.Assert(call.Args[0], gc.Implements, new(context.Context))
-	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
+	c.Assert(call.Args, tc.HasLen, 2)
+	c.Assert(call.Args[0], tc.Implements, new(context.Context))
+	c.Assert(call.Args[1], tc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
 
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.UserData, gc.Not(gc.Equals), "")
+	c.Assert(createVMArgs.UserData, tc.Not(tc.Equals), "")
 
 	createVMArgs.UserData = ""
 	createVMArgs.Constraints = constraints.Value{}
@@ -149,7 +148,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 	createVMArgs.StatusUpdateParams.Clock = nil
 
 	createVMArgs.NetworkDevices = []vsphereclient.NetworkDevice{}
-	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
+	c.Assert(createVMArgs, tc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
 		Name:            "juju-f75cba-0",
 		Folder:          `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
 		Metadata:        startInstArgs.InstanceConfig.Tags,
@@ -174,7 +173,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 	})
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *tc.C) {
 	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
@@ -183,38 +182,38 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 			"image-metadata-url": s.imageServer.URL,
 		}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
 
 	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.NetworkDevices, gc.HasLen, 2)
-	c.Assert(createVMArgs.NetworkDevices[0].Network, gc.Equals, "foo")
-	c.Assert(createVMArgs.NetworkDevices[1].Network, gc.Equals, "bar")
+	c.Assert(createVMArgs.NetworkDevices, tc.HasLen, 2)
+	c.Assert(createVMArgs.NetworkDevices[0].Network, tc.Equals, "foo")
+	c.Assert(createVMArgs.NetworkDevices[1].Network, tc.Equals, "bar")
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningMissingModelConfigOption(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningMissingModelConfigOption(c *tc.C) {
 	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServer.URL,
 		}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
 
 	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DefaultDiskProvisioningType)
+	c.Assert(createVMArgs.DiskProvisioningType, tc.Equals, vsphereclient.DefaultDiskProvisioningType)
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningDefaultOption(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningDefaultOption(c *tc.C) {
 	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
@@ -222,18 +221,18 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningDefaultOptio
 			"disk-provisioning-type": "",
 		}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
 
 	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DefaultDiskProvisioningType)
+	c.Assert(createVMArgs.DiskProvisioningType, tc.Equals, vsphereclient.DefaultDiskProvisioningType)
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThinDisk(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThinDisk(c *tc.C) {
 	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
@@ -241,18 +240,18 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThinDisk(c *
 			"disk-provisioning-type": "thin",
 		}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
 
 	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThin)
+	c.Assert(createVMArgs.DiskProvisioningType, tc.Equals, vsphereclient.DiskTypeThin)
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickDisk(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickDisk(c *tc.C) {
 	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
@@ -260,18 +259,18 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickDisk(c 
 			"disk-provisioning-type": "thick",
 		}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
 
 	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThick)
+	c.Assert(createVMArgs.DiskProvisioningType, tc.Equals, vsphereclient.DiskTypeThick)
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZeroDisk(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZeroDisk(c *tc.C) {
 	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
@@ -279,18 +278,18 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZe
 			"disk-provisioning-type": "thick",
 		}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
 
 	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.DiskProvisioningType, gc.Equals, vsphereclient.DiskTypeThick)
+	c.Assert(createVMArgs.DiskProvisioningType, tc.Equals, vsphereclient.DiskTypeThick)
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *tc.C) {
 	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
@@ -298,21 +297,21 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 			"image-metadata-url": s.imageServer.URL,
 		}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err = env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	// The model name in the folder name should be truncated
 	// so that the final part of the model name is 80 characters.
-	c.Assert(path.Base(createVMArgs.Folder), gc.HasLen, 80)
-	c.Assert(createVMArgs.Folder, gc.Equals,
+	c.Assert(path.Base(createVMArgs.Folder), tc.HasLen, 80)
+	c.Assert(createVMArgs.Folder, tc.Equals,
 		`Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "supercalifragilisticexpialidociou" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
 	)
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *tc.C) {
 	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
@@ -320,51 +319,51 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
 			"image-metadata-url": s.imageServer.URL,
 		}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
 
 	call := s.client.Calls()[8]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.EnableDiskUUID, gc.Equals, false)
+	c.Assert(createVMArgs.EnableDiskUUID, tc.Equals, false)
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *tc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.Tools[0].Version.Arch = "someArch"
 	_, err := s.env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, gc.ErrorMatches, "no matching images found for given constraints: .*")
-	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
+	c.Assert(err, tc.ErrorMatches, "no matching images found for given constraints: .*")
+	c.Assert(err, tc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *tc.C) {
 	cfg := s.env.Config()
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"datastore": "datastore0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.env.SetConfig(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	startInstArgs := s.createStartInstanceArgs(c)
 	res, err := s.env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var (
 		arch      = "amd64"
 		rootDisk  = common.MinRootDiskSizeGiB(ostype.Ubuntu) * 1024
 		datastore = "datastore0"
 	)
-	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
+	c.Assert(res.Hardware, tc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:           &arch,
 		RootDisk:       &rootDisk,
 		RootDiskSource: &datastore,
 	})
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *tc.C) {
 	var (
 		cpuCores uint64 = 4
 		cpuPower uint64 = 2001
@@ -380,10 +379,10 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *
 	startInstArgs.Constraints.RootDiskSource = &source
 
 	res, err := s.env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defaultArch := arch.DefaultArchitecture
-	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
+	c.Assert(res.Hardware, tc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:           &defaultArch,
 		CpuCores:       &cpuCores,
 		CpuPower:       &cpuPower,
@@ -393,88 +392,88 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *
 	})
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *tc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	s.PatchValue(&vsphere.FinishInstanceConfig, func(mcfg *instancecfg.InstanceConfig, cfg *config.Config) (err error) {
 		return errors.New("FinishMachineConfig called")
 	})
 	_, err := s.env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, gc.ErrorMatches, "FinishMachineConfig called")
+	c.Assert(err, tc.ErrorMatches, "FinishMachineConfig called")
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConstraintValue(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConstraintValue(c *tc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	rootDisk := uint64(1000)
 	startInstArgs.Constraints.RootDisk = &rootDisk
 	res, err := s.env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB(ostype.Ubuntu)*uint64(1024))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*res.Hardware.RootDisk, tc.Equals, common.MinRootDiskSizeGiB(ostype.Ubuntu)*uint64(1024))
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *tc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.AvailabilityZone = "z2"
 	_, err := s.env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[8]
-	c.Assert(call.Args, gc.HasLen, 2)
-	c.Assert(call.Args[0], gc.Implements, new(context.Context))
-	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
+	c.Assert(call.Args, tc.HasLen, 2)
+	c.Assert(call.Args[0], tc.Implements, new(context.Context))
+	c.Assert(call.Args[1], tc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
 
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1].Resource)
+	c.Assert(createVMArgs.ComputeResource, tc.DeepEquals, s.client.computeResources[1].Resource)
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *tc.C) {
 	s.client.SetErrors(nil, nil, nil, nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, gc.Not(jc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
+	c.Assert(err, tc.Not(tc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
 
 	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "Close")
 	getDatastoreCall := s.client.Calls()[4]
 	getDataStoreArgs1 := getDatastoreCall.Args[1].(*mo.ComputeResource)
-	c.Assert(getDataStoreArgs1, jc.DeepEquals, s.client.computeResources[0].Resource)
+	c.Assert(getDataStoreArgs1, tc.DeepEquals, s.client.computeResources[0].Resource)
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *tc.C) {
 	cfg := s.env.Config()
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"datastore": "datastore0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.env.SetConfig(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	call := s.client.Calls()[4]
 	createVMArgs := call.Args[2].(string)
-	c.Assert(createVMArgs, gc.Equals, "datastore0")
+	c.Assert(createVMArgs, tc.Equals, "datastore0")
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceRootDiskSource(c *tc.C) {
 	cfg := s.env.Config()
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"datastore": "datastore0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.env.SetConfig(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := s.createStartInstanceArgs(c)
 	datastore := "zebras"
 	args.Constraints.RootDiskSource = &datastore
 	result, err := s.env.StartInstance(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*result.Hardware.RootDiskSource, gc.Equals, "zebras")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*result.Hardware.RootDiskSource, tc.Equals, "zebras")
 
 	call := s.client.Calls()[4]
 	requestedDatastore := call.Args[2].(string)
-	c.Assert(requestedDatastore, gc.Equals, "zebras")
+	c.Assert(requestedDatastore, tc.Equals, "zebras")
 }
 
 type environBrokerSuite struct {
@@ -487,9 +486,9 @@ type environBrokerSuite struct {
 	imageServerURL string
 }
 
-var _ = gc.Suite(&environBrokerSuite{})
+var _ = tc.Suite(&environBrokerSuite{})
 
-func (s *environBrokerSuite) setUpClient(c *gc.C) *gomock.Controller {
+func (s *environBrokerSuite) setUpClient(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.mockClient = mocks.NewMockClient(ctrl)
@@ -504,12 +503,12 @@ func (s *environBrokerSuite) setUpClient(c *gc.C) *gomock.Controller {
 			"image-metadata-url": s.imageServerURL,
 		}),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.env = env
 	return ctrl
 }
 
-func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
+func (s *environBrokerSuite) TestStopInstances(c *tc.C) {
 	ctrl := s.setUpClient(c)
 	defer ctrl.Finish()
 
@@ -522,10 +521,10 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
 
 	err := s.env.StopInstances(context.Background(), "vm-0", "vm-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStopInstancesOneFailure(c *gc.C) {
+func (s *environBrokerSuite) TestStopInstancesOneFailure(c *tc.C) {
 	ctrl := s.setUpClient(c)
 	defer ctrl.Finish()
 
@@ -541,10 +540,10 @@ func (s *environBrokerSuite) TestStopInstancesOneFailure(c *gc.C) {
 	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
 
 	err := s.env.StopInstances(context.Background(), "vm-0", "vm-1")
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to stop instance %s: bah", "vm-0"))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("failed to stop instance %s: bah", "vm-0"))
 }
 
-func (s *environBrokerSuite) TestStopInstancesMultipleFailures(c *gc.C) {
+func (s *environBrokerSuite) TestStopInstancesMultipleFailures(c *tc.C) {
 	ctrl := s.setUpClient(c)
 	defer ctrl.Finish()
 
@@ -566,47 +565,47 @@ func (s *environBrokerSuite) TestStopInstancesMultipleFailures(c *gc.C) {
 	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
 
 	err := s.env.StopInstances(context.Background(), "vm-0", "vm-1")
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
 		`failed to stop instances \[vm-0 vm-1\]: \[%s %s\]`,
 		err1, err2,
 	))
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceLoginErrorInvalidatesCreds(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceLoginErrorInvalidatesCreds(c *tc.C) {
 	s.dialStub.SetErrors(soap.WrapSoapFault(&soap.Fault{
 		Code:   "ServerFaultCode",
 		String: "You passed an incorrect user name or password, bucko.",
 	}))
 	_, err := s.env.StartInstance(context.Background(), s.createStartInstanceArgs(c))
-	c.Assert(err, gc.ErrorMatches, "dialing client: ServerFaultCode: You passed an incorrect user name or password, bucko.")
-	c.Assert(s.client.invalidReason, gc.Equals, "cloud denied access: ServerFaultCode: You passed an incorrect user name or password, bucko.")
+	c.Assert(err, tc.ErrorMatches, "dialing client: ServerFaultCode: You passed an incorrect user name or password, bucko.")
+	c.Assert(s.client.invalidReason, tc.Equals, "cloud denied access: ServerFaultCode: You passed an incorrect user name or password, bucko.")
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstancePermissionError(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstancePermissionError(c *tc.C) {
 	AssertInvalidatesCredential(c, s.client, func(ctx context.Context) error {
 		_, err := s.env.StartInstance(ctx, s.createStartInstanceArgs(c))
 		return err
 	})
 }
 
-func (s *legacyEnvironBrokerSuite) TestStopInstancesPermissionError(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStopInstancesPermissionError(c *tc.C) {
 	AssertInvalidatesCredential(c, s.client, func(ctx context.Context) error {
 		return s.env.StopInstances(ctx, "vm-0")
 	})
 }
 
-func (s *legacyEnvironBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceNoDatastoreSetting(c *tc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	res, err := s.env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[4]
-	c.Assert(call.Args, gc.HasLen, 3)
+	c.Assert(call.Args, tc.HasLen, 3)
 	requestedDatastore := call.Args[2].(string)
 
 	var expected string
-	c.Assert(requestedDatastore, gc.Equals, expected)
+	c.Assert(requestedDatastore, tc.Equals, expected)
 
 	var (
 		arch           = "amd64"
@@ -614,14 +613,14 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) 
 		rootDiskSource = ""
 	)
 
-	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
+	c.Assert(res.Hardware, tc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:           &arch,
 		RootDisk:       &rootDisk,
 		RootDiskSource: &rootDiskSource,
 	})
 }
 
-func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *tc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	nonBootstrapInstance, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(coretesting.FakeControllerConfig().ControllerUUID()),
@@ -638,18 +637,18 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 		},
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	startInstArgs.InstanceConfig = nonBootstrapInstance
 
 	result, err := s.env.StartInstance(context.Background(), startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
-	c.Assert(result.Instance, gc.NotNil)
-	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("new-vm"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+	c.Assert(result.Instance, tc.NotNil)
+	c.Assert(result.Instance.Id(), tc.Equals, instance.Id("new-vm"))
 
 	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "ListVMTemplates", "EnsureVMFolder", "CreateTemplateVM", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[8]
-	c.Assert(call.Args, gc.HasLen, 2)
-	c.Assert(call.Args[0], gc.Implements, new(context.Context))
-	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
+	c.Assert(call.Args, tc.HasLen, 2)
+	c.Assert(call.Args[0], tc.Implements, new(context.Context))
+	c.Assert(call.Args[1], tc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
 }

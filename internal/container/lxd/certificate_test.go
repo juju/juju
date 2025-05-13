@@ -8,100 +8,99 @@ import (
 	"encoding/pem"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/container/lxd"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 )
 
-var _ = gc.Suite(&certSuite{})
+var _ = tc.Suite(&certSuite{})
 
 type certSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func (s *certSuite) TestGenerateClientCertificate(c *gc.C) {
+func (s *certSuite) TestGenerateClientCertificate(c *tc.C) {
 	cert, err := lxd.GenerateClientCertificate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cert.Validate(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cert.Validate(), tc.ErrorIsNil)
 }
 
-func (s *certSuite) TestValidateMissingCertPEM(c *gc.C) {
+func (s *certSuite) TestValidateMissingCertPEM(c *tc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), nil)
-	c.Check(cert.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cert.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-func (s *certSuite) TestValidateMissingKeyPEM(c *gc.C) {
+func (s *certSuite) TestValidateMissingKeyPEM(c *tc.C) {
 	cert := lxd.NewCertificate(nil, []byte(testKeyPEM))
-	c.Check(cert.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cert.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-func (s *certSuite) TestWriteCertPEM(c *gc.C) {
+func (s *certSuite) TestWriteCertPEM(c *tc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 
 	var buf bytes.Buffer
 	err := cert.WriteCertPEM(&buf)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(buf.String(), gc.Equals, testCertPEM)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(buf.String(), tc.Equals, testCertPEM)
 }
 
-func (s *certSuite) TestWriteKeyPEM(c *gc.C) {
+func (s *certSuite) TestWriteKeyPEM(c *tc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 
 	var buf bytes.Buffer
 	err := cert.WriteKeyPEM(&buf)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(buf.String(), gc.Equals, testKeyPEM)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(buf.String(), tc.Equals, testKeyPEM)
 }
 
-func (s *certSuite) TestFingerprint(c *gc.C) {
+func (s *certSuite) TestFingerprint(c *tc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 	fingerprint, err := cert.Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(fingerprint, gc.Equals, testCertFingerprint)
+	c.Check(fingerprint, tc.Equals, testCertFingerprint)
 }
 
-func (s *certSuite) TestX509Okay(c *gc.C) {
+func (s *certSuite) TestX509Okay(c *tc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 	x509Cert, err := cert.X509()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	block, _ := pem.Decode([]byte(testCertPEM))
-	c.Assert(block, gc.NotNil)
-	c.Check(string(x509Cert.Raw), gc.Equals, string(block.Bytes))
+	c.Assert(block, tc.NotNil)
+	c.Check(string(x509Cert.Raw), tc.Equals, string(block.Bytes))
 }
 
-func (s *certSuite) TestX509ZeroValue(c *gc.C) {
+func (s *certSuite) TestX509ZeroValue(c *tc.C) {
 	cert := &lxd.Certificate{}
 	_, err := cert.X509()
-	c.Check(err, gc.ErrorMatches, `invalid cert PEM \(0 bytes\)`)
+	c.Check(err, tc.ErrorMatches, `invalid cert PEM \(0 bytes\)`)
 }
 
-func (s *certSuite) TestX509BadPEM(c *gc.C) {
+func (s *certSuite) TestX509BadPEM(c *tc.C) {
 	cert := lxd.NewCertificate([]byte("some-invalid-pem"), nil)
 	_, err := cert.X509()
-	c.Check(err, gc.ErrorMatches, `invalid cert PEM \(\d+ bytes\)`)
+	c.Check(err, tc.ErrorMatches, `invalid cert PEM \(\d+ bytes\)`)
 }
 
-func (s *certSuite) TestAsCreateRequestValidCert(c *gc.C) {
+func (s *certSuite) TestAsCreateRequestValidCert(c *tc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 	cert.Name = "juju-client-cert"
 	req, err := cert.AsCreateRequest()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(req.Name, gc.Equals, "juju-client-cert")
-	c.Check(req.Type, gc.Equals, "client")
-	c.Check(req.Certificate, gc.Not(gc.Equals), "")
+	c.Check(req.Name, tc.Equals, "juju-client-cert")
+	c.Check(req.Type, tc.Equals, "client")
+	c.Check(req.Certificate, tc.Not(tc.Equals), "")
 }
 
-func (s *certSuite) TestAsCreateReqInvalidCert(c *gc.C) {
+func (s *certSuite) TestAsCreateReqInvalidCert(c *tc.C) {
 	cert := lxd.NewCertificate([]byte("some-invalid-pem"), nil)
 	cert.Name = "juju-client-cert"
 
 	_, err := cert.AsCreateRequest()
-	c.Assert(err, gc.ErrorMatches, "failed to decode certificate PEM")
+	c.Assert(err, tc.ErrorMatches, "failed to decode certificate PEM")
 }
 
 const (

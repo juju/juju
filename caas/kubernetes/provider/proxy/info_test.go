@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -23,9 +22,9 @@ type infoSuite struct {
 	clock  *testclock.Clock
 }
 
-var _ = gc.Suite(&infoSuite{})
+var _ = tc.Suite(&infoSuite{})
 
-func (i *infoSuite) SetUpTest(c *gc.C) {
+func (i *infoSuite) SetUpTest(c *tc.C) {
 	i.clock = testclock.NewClock(time.Time{})
 
 	i.client = fake.NewSimpleClientset()
@@ -37,10 +36,10 @@ func (i *infoSuite) SetUpTest(c *gc.C) {
 		},
 		meta.CreateOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
+func (i *infoSuite) TestGetControllerProxier(c *tc.C) {
 	config := proxy.ControllerProxyConfig{
 		Name:          "controller-proxy",
 		Namespace:     testNamespace,
@@ -62,7 +61,7 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 			core.ServiceAccountTokenKey: []byte("token"),
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
 		context.Background(),
 		config,
@@ -74,7 +73,7 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 		i.client.CoreV1().ServiceAccounts(testNamespace),
 		i.client.CoreV1().Secrets(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = proxy.GetControllerProxy(
 		context.Background(),
@@ -84,5 +83,5 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 		i.client.CoreV1().ServiceAccounts(testNamespace),
 		i.client.CoreV1().Secrets(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

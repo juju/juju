@@ -4,8 +4,7 @@
 package model_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -16,9 +15,9 @@ type ModelConstraintsCommandsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&ModelConstraintsCommandsSuite{})
+var _ = tc.Suite(&ModelConstraintsCommandsSuite{})
 
-func (s *ModelConstraintsCommandsSuite) TestSetInit(c *gc.C) {
+func (s *ModelConstraintsCommandsSuite) TestSetInit(c *tc.C) {
 	for _, test := range []struct {
 		args []string
 		err  string
@@ -35,14 +34,14 @@ func (s *ModelConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 	} {
 		err := cmdtesting.InitCommand(model.NewModelSetConstraintsCommandForTest(), test.args)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		}
 	}
 }
 
-func (s *ModelConstraintsCommandsSuite) TestGetInit(c *gc.C) {
+func (s *ModelConstraintsCommandsSuite) TestGetInit(c *tc.C) {
 	for _, test := range []struct {
 		args []string
 		err  string
@@ -59,9 +58,9 @@ func (s *ModelConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 	} {
 		err := cmdtesting.InitCommand(model.NewModelGetConstraintsCommandForTest(), test.args)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		}
 	}
 }

@@ -12,8 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/semversion"
@@ -21,41 +20,41 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 )
 
-func repoMeta(c *gc.C, name string) io.Reader {
+func repoMeta(c *tc.C, name string) io.Reader {
 	charmDir := charmDirPath(c, name)
 	file, err := os.Open(filepath.Join(charmDir, "metadata.yaml"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	defer file.Close()
 	data, err := io.ReadAll(file)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return bytes.NewReader(data)
 }
 
 type MetaSuite struct{}
 
-var _ = gc.Suite(&MetaSuite{})
+var _ = tc.Suite(&MetaSuite{})
 
-func (s *MetaSuite) TestReadMetaVersion1(c *gc.C) {
+func (s *MetaSuite) TestReadMetaVersion1(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "dummy"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Name, gc.Equals, "dummy")
-	c.Assert(meta.Summary, gc.Equals, "That's a dummy charm.")
-	c.Assert(meta.Description, gc.Equals,
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Name, tc.Equals, "dummy")
+	c.Assert(meta.Summary, tc.Equals, "That's a dummy charm.")
+	c.Assert(meta.Description, tc.Equals,
 		"This is a longer description which\npotentially contains multiple lines.\n")
-	c.Assert(meta.Subordinate, gc.Equals, false)
+	c.Assert(meta.Subordinate, tc.Equals, false)
 }
 
-func (s *MetaSuite) TestReadMetaVersion2(c *gc.C) {
+func (s *MetaSuite) TestReadMetaVersion2(c *tc.C) {
 	// This checks that we can accept a charm with the
 	// obsolete "format" field, even though we ignore it.
 	meta, err := charm.ReadMeta(repoMeta(c, "format2"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Name, gc.Equals, "format2")
-	c.Assert(meta.Categories, gc.HasLen, 0)
-	c.Assert(meta.Terms, gc.HasLen, 0)
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Name, tc.Equals, "format2")
+	c.Assert(meta.Categories, tc.HasLen, 0)
+	c.Assert(meta.Terms, tc.HasLen, 0)
 }
 
-func (s *MetaSuite) TestValidTermFormat(c *gc.C) {
+func (s *MetaSuite) TestValidTermFormat(c *tc.C) {
 	valid := []string{
 		"foobar",
 		"foobar/27",
@@ -84,18 +83,18 @@ func (s *MetaSuite) TestValidTermFormat(c *gc.C) {
 		c.Logf("valid test %d: %s", i, s)
 		meta := charm.Meta{Terms: []string{s}}
 		err := meta.Check(charm.FormatV2, charm.SelectionManifest)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 
 	for i, s := range invalid {
 		c.Logf("invalid test %d: %s", i, s)
 		meta := charm.Meta{Terms: []string{s}}
 		err := meta.Check(charm.FormatV2, charm.SelectionManifest)
-		c.Check(err, gc.NotNil)
+		c.Check(err, tc.NotNil)
 	}
 }
 
-func (s *MetaSuite) TestTermStringRoundTrip(c *gc.C) {
+func (s *MetaSuite) TestTermStringRoundTrip(c *tc.C) {
 	terms := []string{
 		"foobar",
 		"foobar/27",
@@ -109,12 +108,12 @@ func (s *MetaSuite) TestTermStringRoundTrip(c *gc.C) {
 	for i, term := range terms {
 		c.Logf("test %d: %s", i, term)
 		id, err := charm.ParseTerm(term)
-		c.Check(err, gc.IsNil)
-		c.Check(id.String(), gc.Equals, term)
+		c.Check(err, tc.IsNil)
+		c.Check(id.String(), tc.Equals, term)
 	}
 }
 
-func (s *MetaSuite) TestCheckTerms(c *gc.C) {
+func (s *MetaSuite) TestCheckTerms(c *tc.C) {
 	tests := []struct {
 		about       string
 		terms       []string
@@ -179,14 +178,14 @@ func (s *MetaSuite) TestCheckTerms(c *gc.C) {
 		meta := charm.Meta{Terms: test.terms}
 		err := meta.Check(charm.FormatV2, charm.SelectionManifest)
 		if test.expectError == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.expectError)
+			c.Check(err, tc.ErrorMatches, test.expectError)
 		}
 	}
 }
 
-func (s *MetaSuite) TestParseTerms(c *gc.C) {
+func (s *MetaSuite) TestParseTerms(c *tc.C) {
 	tests := []struct {
 		about       string
 		term        string
@@ -261,27 +260,27 @@ func (s *MetaSuite) TestParseTerms(c *gc.C) {
 		c.Logf("running test %v: %v", i, test.about)
 		term, err := charm.ParseTerm(test.term)
 		if test.expectError == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(term, gc.DeepEquals, &test.expectTerm)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(term, tc.DeepEquals, &test.expectTerm)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.expectError)
-			c.Check(term, gc.IsNil)
+			c.Check(err, tc.ErrorMatches, test.expectError)
+			c.Check(term, tc.IsNil)
 		}
 	}
 }
 
-func (s *MetaSuite) TestReadCategory(c *gc.C) {
+func (s *MetaSuite) TestReadCategory(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "category"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Categories, jc.DeepEquals, []string{"database"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Categories, tc.DeepEquals, []string{"database"})
 }
 
-func (s *MetaSuite) TestReadTerms(c *gc.C) {
+func (s *MetaSuite) TestReadTerms(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "terms"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = meta.Check(charm.FormatV2, charm.SelectionManifest)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(meta.Terms, jc.DeepEquals, []string{"term1/1", "term2", "owner/term3/1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(meta.Terms, tc.DeepEquals, []string{"term1/1", "term2", "owner/term3/1"})
 }
 
 var metaDataWithInvalidTermsId = `
@@ -292,111 +291,111 @@ description: |
 terms: ["!!!/abc"]
 `
 
-func (s *MetaSuite) TestCheckReadInvalidTerms(c *gc.C) {
+func (s *MetaSuite) TestCheckReadInvalidTerms(c *tc.C) {
 	reader := strings.NewReader(metaDataWithInvalidTermsId)
 	meta, err := charm.ReadMeta(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = meta.Check(charm.FormatV2, charm.SelectionManifest)
-	c.Assert(err, gc.ErrorMatches, `wrong owner format "!!!"`)
+	c.Assert(err, tc.ErrorMatches, `wrong owner format "!!!"`)
 }
 
-func (s *MetaSuite) TestReadTags(c *gc.C) {
+func (s *MetaSuite) TestReadTags(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "category"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Tags, jc.DeepEquals, []string{"openstack", "storage"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Tags, tc.DeepEquals, []string{"openstack", "storage"})
 }
 
-func (s *MetaSuite) TestSubordinate(c *gc.C) {
+func (s *MetaSuite) TestSubordinate(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "logging"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Subordinate, gc.Equals, true)
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Subordinate, tc.Equals, true)
 }
 
-func (s *MetaSuite) TestCheckSubordinateWithoutContainerRelation(c *gc.C) {
+func (s *MetaSuite) TestCheckSubordinateWithoutContainerRelation(c *tc.C) {
 	r := repoMeta(c, "dummy")
 	hackYaml := ReadYaml(r)
 	hackYaml["subordinate"] = true
 	meta, err := charm.ReadMeta(hackYaml.Reader())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = meta.Check(charm.FormatV2, charm.SelectionManifest)
-	c.Assert(err, gc.ErrorMatches, "subordinate charm \"dummy\" lacks \"requires\" relation with container scope")
+	c.Assert(err, tc.ErrorMatches, "subordinate charm \"dummy\" lacks \"requires\" relation with container scope")
 }
 
-func (s *MetaSuite) TestScopeConstraint(c *gc.C) {
+func (s *MetaSuite) TestScopeConstraint(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "logging"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Provides["logging-client"].Scope, gc.Equals, charm.ScopeGlobal)
-	c.Assert(meta.Requires["logging-directory"].Scope, gc.Equals, charm.ScopeContainer)
-	c.Assert(meta.Subordinate, gc.Equals, true)
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Provides["logging-client"].Scope, tc.Equals, charm.ScopeGlobal)
+	c.Assert(meta.Requires["logging-directory"].Scope, tc.Equals, charm.ScopeContainer)
+	c.Assert(meta.Subordinate, tc.Equals, true)
 }
 
-func (s *MetaSuite) TestParseMetaRelations(c *gc.C) {
+func (s *MetaSuite) TestParseMetaRelations(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "mysql"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Provides["server"], gc.Equals, charm.Relation{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Provides["server"], tc.Equals, charm.Relation{
 		Name:      "server",
 		Role:      charm.RoleProvider,
 		Interface: "mysql",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires, gc.IsNil)
-	c.Assert(meta.Peers, gc.IsNil)
+	c.Assert(meta.Requires, tc.IsNil)
+	c.Assert(meta.Peers, tc.IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta(c, "riak"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Provides["endpoint"], gc.Equals, charm.Relation{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Provides["endpoint"], tc.Equals, charm.Relation{
 		Name:      "endpoint",
 		Role:      charm.RoleProvider,
 		Interface: "http",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Provides["admin"], gc.Equals, charm.Relation{
+	c.Assert(meta.Provides["admin"], tc.Equals, charm.Relation{
 		Name:      "admin",
 		Role:      charm.RoleProvider,
 		Interface: "http",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Peers["ring"], gc.Equals, charm.Relation{
+	c.Assert(meta.Peers["ring"], tc.Equals, charm.Relation{
 		Name:      "ring",
 		Role:      charm.RolePeer,
 		Interface: "riak",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires, gc.IsNil)
+	c.Assert(meta.Requires, tc.IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta(c, "terracotta"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Provides["dso"], gc.Equals, charm.Relation{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Provides["dso"], tc.Equals, charm.Relation{
 		Name:      "dso",
 		Role:      charm.RoleProvider,
 		Interface: "terracotta",
 		Optional:  true,
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Peers["server-array"], gc.Equals, charm.Relation{
+	c.Assert(meta.Peers["server-array"], tc.Equals, charm.Relation{
 		Name:      "server-array",
 		Role:      charm.RolePeer,
 		Interface: "terracotta-server",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires, gc.IsNil)
+	c.Assert(meta.Requires, tc.IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Provides["url"], gc.Equals, charm.Relation{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Provides["url"], tc.Equals, charm.Relation{
 		Name:      "url",
 		Role:      charm.RoleProvider,
 		Interface: "http",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires["db"], gc.Equals, charm.Relation{
+	c.Assert(meta.Requires["db"], tc.Equals, charm.Relation{
 		Name:      "db",
 		Role:      charm.RoleRequirer,
 		Interface: "mysql",
 		Limit:     1,
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires["cache"], gc.Equals, charm.Relation{
+	c.Assert(meta.Requires["cache"], tc.Equals, charm.Relation{
 		Name:      "cache",
 		Role:      charm.RoleRequirer,
 		Interface: "varnish",
@@ -404,39 +403,39 @@ func (s *MetaSuite) TestParseMetaRelations(c *gc.C) {
 		Optional:  true,
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Peers, gc.IsNil)
+	c.Assert(meta.Peers, tc.IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta(c, "monitoring"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Provides["monitoring-client"], gc.Equals, charm.Relation{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Provides["monitoring-client"], tc.Equals, charm.Relation{
 		Name:      "monitoring-client",
 		Role:      charm.RoleProvider,
 		Interface: "monitoring",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires["monitoring-port"], gc.Equals, charm.Relation{
+	c.Assert(meta.Requires["monitoring-port"], tc.Equals, charm.Relation{
 		Name:      "monitoring-port",
 		Role:      charm.RoleRequirer,
 		Interface: "monitoring",
 		Scope:     charm.ScopeContainer,
 	})
-	c.Assert(meta.Requires["info"], gc.Equals, charm.Relation{
+	c.Assert(meta.Requires["info"], tc.Equals, charm.Relation{
 		Name:      "info",
 		Role:      charm.RoleRequirer,
 		Interface: "juju-info",
 		Scope:     charm.ScopeContainer,
 	})
 
-	c.Assert(meta.Peers, gc.IsNil)
+	c.Assert(meta.Peers, tc.IsNil)
 }
 
-func (s *MetaSuite) TestCombinedRelations(c *gc.C) {
+func (s *MetaSuite) TestCombinedRelations(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "riak"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	combinedRelations := meta.CombinedRelations()
 	expectedLength := len(meta.Provides) + len(meta.Requires) + len(meta.Peers)
-	c.Assert(combinedRelations, gc.HasLen, expectedLength)
-	c.Assert(combinedRelations, jc.DeepEquals, map[string]charm.Relation{
+	c.Assert(combinedRelations, tc.HasLen, expectedLength)
+	c.Assert(combinedRelations, tc.DeepEquals, map[string]charm.Relation{
 		"endpoint": {
 			Name:      "endpoint",
 			Role:      charm.RoleProvider,
@@ -458,10 +457,10 @@ func (s *MetaSuite) TestCombinedRelations(c *gc.C) {
 	})
 }
 
-func (s *MetaSuite) TestParseJujuRelations(c *gc.C) {
+func (s *MetaSuite) TestParseJujuRelations(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "juju-charm"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Provides["dashboard"], gc.Equals, charm.Relation{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Provides["dashboard"], tc.Equals, charm.Relation{
 		Name:      "dashboard",
 		Role:      charm.RoleProvider,
 		Interface: "juju-dashboard",
@@ -473,9 +472,9 @@ func (s *MetaSuite) TestParseJujuRelations(c *gc.C) {
 // for testing valid and invalid series.
 const dummyMetadata = "name: a\nsummary: b\ndescription: c"
 
-func (s *MetaSuite) TestMinJujuVersion(c *gc.C) {
+func (s *MetaSuite) TestMinJujuVersion(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(dummyMetadata))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	charmMeta := fmt.Sprintf("%s\nmin-juju-version: ", dummyMetadata)
 	vals := []semversion.Number{
 		{Major: 1, Minor: 25},
@@ -485,24 +484,24 @@ func (s *MetaSuite) TestMinJujuVersion(c *gc.C) {
 	for _, ver := range vals {
 		val := charmMeta + ver.String()
 		meta, err = charm.ReadMeta(strings.NewReader(val))
-		c.Assert(err, gc.IsNil)
-		c.Assert(meta.MinJujuVersion, gc.Equals, ver)
+		c.Assert(err, tc.IsNil)
+		c.Assert(meta.MinJujuVersion, tc.Equals, ver)
 	}
 }
 
-func (s *MetaSuite) TestInvalidMinJujuVersion(c *gc.C) {
+func (s *MetaSuite) TestInvalidMinJujuVersion(c *tc.C) {
 	_, err := charm.ReadMeta(strings.NewReader(dummyMetadata + "\nmin-juju-version: invalid-version"))
 
-	c.Check(err, gc.ErrorMatches, `invalid min-juju-version: invalid version "invalid-version"`)
+	c.Check(err, tc.ErrorMatches, `invalid min-juju-version: invalid version "invalid-version"`)
 }
 
-func (s *MetaSuite) TestNoMinJujuVersion(c *gc.C) {
+func (s *MetaSuite) TestNoMinJujuVersion(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(dummyMetadata))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(meta.MinJujuVersion, gc.Equals, semversion.Zero)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(meta.MinJujuVersion, tc.Equals, semversion.Zero)
 }
 
-func (s *MetaSuite) TestCheckMismatchedExtraBindingName(c *gc.C) {
+func (s *MetaSuite) TestCheckMismatchedExtraBindingName(c *tc.C) {
 	meta := charm.Meta{
 		Name: "foo",
 		ExtraBindings: map[string]charm.ExtraBinding{
@@ -510,21 +509,21 @@ func (s *MetaSuite) TestCheckMismatchedExtraBindingName(c *gc.C) {
 		},
 	}
 	err := meta.Check(charm.FormatV2, charm.SelectionManifest)
-	c.Assert(err, gc.ErrorMatches, `charm "foo" has invalid extra bindings: mismatched extra binding name: got "bar", expected "foo"`)
+	c.Assert(err, tc.ErrorMatches, `charm "foo" has invalid extra bindings: mismatched extra binding name: got "bar", expected "foo"`)
 }
 
-func (s *MetaSuite) TestCheckEmptyNameKeyOrEmptyExtraBindingName(c *gc.C) {
+func (s *MetaSuite) TestCheckEmptyNameKeyOrEmptyExtraBindingName(c *tc.C) {
 	meta := charm.Meta{
 		Name:          "foo",
 		ExtraBindings: map[string]charm.ExtraBinding{"": {Name: "bar"}},
 	}
 	err := meta.Check(charm.FormatV2, charm.SelectionManifest)
 	expectedError := `charm "foo" has invalid extra bindings: missing binding name`
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Assert(err, tc.ErrorMatches, expectedError)
 
 	meta.ExtraBindings = map[string]charm.ExtraBinding{"bar": {Name: ""}}
 	err = meta.Check(charm.FormatV2, charm.SelectionManifest)
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Assert(err, tc.ErrorMatches, expectedError)
 }
 
 // Test rewriting of a given interface specification into long form.
@@ -537,49 +536,49 @@ func (s *MetaSuite) TestCheckEmptyNameKeyOrEmptyExtraBindingName(c *gc.C) {
 // This test ensures test coverage on each of these branches, along
 // with ensuring the conversion object properly raises SchemaError
 // exceptions on invalid data.
-func (s *MetaSuite) TestIfaceExpander(c *gc.C) {
+func (s *MetaSuite) TestIfaceExpander(c *tc.C) {
 	e := charm.IfaceExpander(nil)
 
 	path := []string{"<pa", "th>"}
 
 	// Shorthand is properly rewritten
 	v, err := e.Coerce("http", path)
-	c.Assert(err, gc.IsNil)
-	c.Assert(v, jc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(err, tc.IsNil)
+	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	// Defaults are properly applied
 	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
-	c.Assert(err, gc.IsNil)
-	c.Assert(v, jc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(err, tc.IsNil)
+	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	v, err = e.Coerce(map[string]interface{}{"interface": "http", "limit": 2}, path)
-	c.Assert(err, gc.IsNil)
-	c.Assert(v, jc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(2), "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(err, tc.IsNil)
+	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(2), "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	v, err = e.Coerce(map[string]interface{}{"interface": "http", "optional": true}, path)
-	c.Assert(err, gc.IsNil)
-	c.Assert(v, jc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": true, "scope": string(charm.ScopeGlobal)})
+	c.Assert(err, tc.IsNil)
+	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": true, "scope": string(charm.ScopeGlobal)})
 
 	// Invalid data raises an error.
 	_, err = e.Coerce(42, path)
-	c.Assert(err, gc.ErrorMatches, `<path>: expected map, got int\(42\)`)
+	c.Assert(err, tc.ErrorMatches, `<path>: expected map, got int\(42\)`)
 
 	_, err = e.Coerce(map[string]interface{}{"interface": "http", "optional": nil}, path)
-	c.Assert(err, gc.ErrorMatches, "<path>.optional: expected bool, got nothing")
+	c.Assert(err, tc.ErrorMatches, "<path>.optional: expected bool, got nothing")
 
 	_, err = e.Coerce(map[string]interface{}{"interface": "http", "limit": "none, really"}, path)
-	c.Assert(err, gc.ErrorMatches, "<path>.limit: unexpected value.*")
+	c.Assert(err, tc.ErrorMatches, "<path>.limit: unexpected value.*")
 
 	// Can change default limit
 	e = charm.IfaceExpander(1)
 	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
-	c.Assert(err, gc.IsNil)
-	c.Assert(v, jc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(err, tc.IsNil)
+	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
 }
 
-func (s *MetaSuite) TestMetaHooks(c *gc.C) {
+func (s *MetaSuite) TestMetaHooks(c *tc.C) {
 	meta, err := charm.ReadMeta(repoMeta(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	hooks := meta.Hooks()
 	expectedHooks := map[string]bool{
 		"install":                           true,
@@ -621,23 +620,23 @@ func (s *MetaSuite) TestMetaHooks(c *gc.C) {
 		"secret-remove":                     true,
 		"secret-rotate":                     true,
 	}
-	c.Assert(hooks, jc.DeepEquals, expectedHooks)
+	c.Assert(hooks, tc.DeepEquals, expectedHooks)
 }
 
-func (s *MetaSuite) TestCodecRoundTripEmpty(c *gc.C) {
+func (s *MetaSuite) TestCodecRoundTripEmpty(c *tc.C) {
 	for _, codec := range codecs {
 		c.Logf("codec %s", codec.Name)
 		empty_input := charm.Meta{}
 		data, err := codec.Marshal(empty_input)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		var empty_output charm.Meta
 		err = codec.Unmarshal(data, &empty_output)
-		c.Assert(err, gc.IsNil)
-		c.Assert(empty_input, jc.DeepEquals, empty_output)
+		c.Assert(err, tc.IsNil)
+		c.Assert(empty_input, tc.DeepEquals, empty_output)
 	}
 }
 
-func (s *MetaSuite) TestCodecRoundTrip(c *gc.C) {
+func (s *MetaSuite) TestCodecRoundTrip(c *tc.C) {
 	var input = charm.Meta{
 		Name:        "Foo",
 		Summary:     "Bar",
@@ -684,15 +683,15 @@ func (s *MetaSuite) TestCodecRoundTrip(c *gc.C) {
 	for _, codec := range codecs {
 		c.Logf("codec %s", codec.Name)
 		data, err := codec.Marshal(input)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		var output charm.Meta
 		err = codec.Unmarshal(data, &output)
-		c.Assert(err, gc.IsNil)
-		c.Assert(output, jc.DeepEquals, input, gc.Commentf("data: %q", data))
+		c.Assert(err, tc.IsNil)
+		c.Assert(output, tc.DeepEquals, input, tc.Commentf("data: %q", data))
 	}
 }
 
-func (s *MetaSuite) TestCodecRoundTripKubernetes(c *gc.C) {
+func (s *MetaSuite) TestCodecRoundTripKubernetes(c *tc.C) {
 	var input = charm.Meta{
 		Name:        "Foo",
 		Summary:     "Bar",
@@ -766,11 +765,11 @@ func (s *MetaSuite) TestCodecRoundTripKubernetes(c *gc.C) {
 	for _, codec := range codecs {
 		c.Logf("codec %s", codec.Name)
 		data, err := codec.Marshal(input)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		var output charm.Meta
 		err = codec.Unmarshal(data, &output)
-		c.Assert(err, gc.IsNil)
-		c.Assert(output, jc.DeepEquals, input, gc.Commentf("data: %q", data))
+		c.Assert(err, tc.IsNil)
+		c.Assert(output, tc.DeepEquals, input, tc.Commentf("data: %q", data))
 	}
 }
 
@@ -813,7 +812,7 @@ var implementedByTests = []struct {
 	{"ifce-peer", "peer", charm.RolePeer, charm.ScopeContainer, true, false},
 }
 
-func (s *MetaSuite) TestImplementedBy(c *gc.C) {
+func (s *MetaSuite) TestImplementedBy(c *tc.C) {
 	for i, t := range implementedByTests {
 		c.Logf("test %d", i)
 		r := charm.Relation{
@@ -822,8 +821,8 @@ func (s *MetaSuite) TestImplementedBy(c *gc.C) {
 			Role:      t.role,
 			Scope:     t.scope,
 		}
-		c.Assert(r.ImplementedBy(dummyMeta), gc.Equals, t.match)
-		c.Assert(r.IsImplicit(), gc.Equals, t.implicit)
+		c.Assert(r.ImplementedBy(dummyMeta), tc.Equals, t.match)
+		c.Assert(r.IsImplicit(), tc.Equals, t.implicit)
 	}
 }
 
@@ -898,20 +897,20 @@ assumes:
 `,
 }}
 
-func (s *MetaSuite) TestYAMLMarshal(c *gc.C) {
+func (s *MetaSuite) TestYAMLMarshal(c *tc.C) {
 	for i, test := range metaYAMLMarshalTests {
 		c.Logf("test %d: %s", i, test.about)
 		ch, err := charm.ReadMeta(strings.NewReader(test.yaml))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		gotYAML, err := yaml.Marshal(ch)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		gotCh, err := charm.ReadMeta(bytes.NewReader(gotYAML))
-		c.Assert(err, gc.IsNil)
-		c.Assert(gotCh, jc.DeepEquals, ch)
+		c.Assert(err, tc.IsNil)
+		c.Assert(gotCh, tc.DeepEquals, ch)
 	}
 }
 
-func (s *MetaSuite) TestYAMLMarshalSimpleRelationOrExtraBinding(c *gc.C) {
+func (s *MetaSuite) TestYAMLMarshalSimpleRelationOrExtraBinding(c *tc.C) {
 	// Check that a simple relation / extra-binding gets marshaled as a string.
 	chYAML := `
 name: minimal
@@ -927,14 +926,14 @@ extra-bindings:
      foo:
 `
 	ch, err := charm.ReadMeta(strings.NewReader(chYAML))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	gotYAML, err := yaml.Marshal(ch)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	var x interface{}
 	err = yaml.Unmarshal(gotYAML, &x)
-	c.Assert(err, gc.IsNil)
-	c.Assert(x, jc.DeepEquals, map[interface{}]interface{}{
+	c.Assert(err, tc.IsNil)
+	c.Assert(x, tc.DeepEquals, map[interface{}]interface{}{
 		"name":        "minimal",
 		"description": "d",
 		"summary":     "s",
@@ -953,7 +952,7 @@ extra-bindings:
 	})
 }
 
-func (s *MetaSuite) TestDevices(c *gc.C) {
+func (s *MetaSuite) TestDevices(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -975,8 +974,8 @@ devices:
         countmin: 1
         countmax: 2
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Devices, gc.DeepEquals, map[string]charm.Device{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Devices, tc.DeepEquals, map[string]charm.Device{
 		"bitcoin-miner1": {
 			Name:        "bitcoin-miner1",
 			Description: "a big gpu device",
@@ -998,10 +997,10 @@ devices:
 			CountMin:    1,
 			CountMax:    2,
 		},
-	}, gc.Commentf("meta: %+v", meta))
+	}, tc.Commentf("meta: %+v", meta))
 }
 
-func (s *MetaSuite) TestDevicesDefaultLimitAndRequest(c *gc.C) {
+func (s *MetaSuite) TestDevicesDefaultLimitAndRequest(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1011,8 +1010,8 @@ devices:
         description: a big gpu device
         type: gpu
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Devices, gc.DeepEquals, map[string]charm.Device{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Devices, tc.DeepEquals, map[string]charm.Device{
 		"bitcoin-miner": {
 			Name:        "bitcoin-miner",
 			Description: "a big gpu device",
@@ -1020,7 +1019,7 @@ devices:
 			CountMin:    1,
 			CountMax:    1,
 		},
-	}, gc.Commentf("meta: %+v", meta))
+	}, tc.Commentf("meta: %+v", meta))
 }
 
 type testErrorPayload struct {
@@ -1029,27 +1028,27 @@ type testErrorPayload struct {
 	err  string
 }
 
-func testErrors(c *gc.C, prefix string, tests []testErrorPayload) {
+func testErrors(c *tc.C, prefix string, tests []testErrorPayload) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.desc)
 		c.Logf("\n%s\n", prefix+test.yaml)
 		_, err := charm.ReadMeta(strings.NewReader(prefix + test.yaml))
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Assert(err, tc.ErrorMatches, test.err)
 	}
 }
 
-func testCheckErrors(c *gc.C, prefix string, tests []testErrorPayload) {
+func testCheckErrors(c *tc.C, prefix string, tests []testErrorPayload) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.desc)
 		c.Logf("\n%s\n", prefix+test.yaml)
 		meta, err := charm.ReadMeta(strings.NewReader(prefix + test.yaml))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = meta.Check(charm.FormatV2, charm.SelectionManifest)
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Assert(err, tc.ErrorMatches, test.err)
 	}
 }
 
-func (s *MetaSuite) TestDevicesErrors(c *gc.C) {
+func (s *MetaSuite) TestDevicesErrors(c *tc.C) {
 	prefix := `
 name: a
 summary: b
@@ -1076,7 +1075,7 @@ devices:
 
 }
 
-func (s *MetaSuite) TestCheckDevicesErrors(c *gc.C) {
+func (s *MetaSuite) TestCheckDevicesErrors(c *tc.C) {
 	prefix := `
 name: a
 summary: b
@@ -1095,7 +1094,7 @@ devices:
 
 }
 
-func (s *MetaSuite) TestStorage(c *gc.C) {
+func (s *MetaSuite) TestStorage(c *tc.C) {
 	// "type" is the only required attribute for storage.
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
@@ -1108,8 +1107,8 @@ storage:
     store1:
         type: filesystem
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Storage, gc.DeepEquals, map[string]charm.Storage{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Storage, tc.DeepEquals, map[string]charm.Storage{
 		"store0": {
 			Name:        "store0",
 			Description: "woo tee bix",
@@ -1126,7 +1125,7 @@ storage:
 	})
 }
 
-func (s *MetaSuite) TestStorageErrors(c *gc.C) {
+func (s *MetaSuite) TestStorageErrors(c *tc.C) {
 	prefix := `
 name: a
 summary: b
@@ -1172,7 +1171,7 @@ storage:
 	testErrors(c, prefix, tests)
 }
 
-func (s *MetaSuite) TestCheckStorageErrors(c *gc.C) {
+func (s *MetaSuite) TestCheckStorageErrors(c *tc.C) {
 	prefix := `
 name: a
 summary: b
@@ -1190,7 +1189,7 @@ storage:
 	testCheckErrors(c, prefix, tests)
 }
 
-func (s *MetaSuite) TestStorageCount(c *gc.C) {
+func (s *MetaSuite) TestStorageCount(c *tc.C) {
 	testStorageCount := func(count string, min, max int) {
 		meta, err := charm.ReadMeta(strings.NewReader(fmt.Sprintf(`
 name: a
@@ -1202,11 +1201,11 @@ storage:
         multiple:
             range: %s
 `, count)))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		store := meta.Storage["store0"]
-		c.Assert(store, gc.NotNil)
-		c.Assert(store.CountMin, gc.Equals, min)
-		c.Assert(store.CountMax, gc.Equals, max)
+		c.Assert(store, tc.NotNil)
+		c.Assert(store.CountMin, tc.Equals, min)
+		c.Assert(store.CountMax, tc.Equals, max)
 	}
 	testStorageCount("1", 1, 1)
 	testStorageCount("0-1", 0, 1)
@@ -1216,7 +1215,7 @@ storage:
 	testStorageCount("1-", 1, -1)
 }
 
-func (s *MetaSuite) TestStorageLocation(c *gc.C) {
+func (s *MetaSuite) TestStorageLocation(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1226,13 +1225,13 @@ storage:
         type: filesystem
         location: /var/lib/things
 `))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	store := meta.Storage["store0"]
-	c.Assert(store, gc.NotNil)
-	c.Assert(store.Location, gc.Equals, "/var/lib/things")
+	c.Assert(store, tc.NotNil)
+	c.Assert(store.Location, tc.Equals, "/var/lib/things")
 }
 
-func (s *MetaSuite) TestStorageMinimumSize(c *gc.C) {
+func (s *MetaSuite) TestStorageMinimumSize(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1242,13 +1241,13 @@ storage:
         type: filesystem
         minimum-size: 10G
 `))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	store := meta.Storage["store0"]
-	c.Assert(store, gc.NotNil)
-	c.Assert(store.MinimumSize, gc.Equals, uint64(10*1024))
+	c.Assert(store, tc.NotNil)
+	c.Assert(store.MinimumSize, tc.Equals, uint64(10*1024))
 }
 
-func (s *MetaSuite) TestStorageProperties(c *gc.C) {
+func (s *MetaSuite) TestStorageProperties(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1258,13 +1257,13 @@ storage:
         type: filesystem
         properties: [transient]
 `))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	store := meta.Storage["store0"]
-	c.Assert(store, gc.NotNil)
-	c.Assert(store.Properties, jc.SameContents, []string{"transient"})
+	c.Assert(store, tc.NotNil)
+	c.Assert(store.Properties, tc.SameContents, []string{"transient"})
 }
 
-func (s *MetaSuite) TestExtraBindings(c *gc.C) {
+func (s *MetaSuite) TestExtraBindings(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1274,8 +1273,8 @@ extra-bindings:
     foo:
     bar-42:
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.ExtraBindings, gc.DeepEquals, map[string]charm.ExtraBinding{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.ExtraBindings, tc.DeepEquals, map[string]charm.ExtraBinding{
 		"endpoint-1": {
 			Name: "endpoint-1",
 		},
@@ -1288,18 +1287,18 @@ extra-bindings:
 	})
 }
 
-func (s *MetaSuite) TestExtraBindingsEmptyMapError(c *gc.C) {
+func (s *MetaSuite) TestExtraBindingsEmptyMapError(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
 description: c
 extra-bindings:
 `))
-	c.Assert(err, gc.ErrorMatches, "metadata: extra-bindings: expected map, got nothing")
-	c.Assert(meta, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "metadata: extra-bindings: expected map, got nothing")
+	c.Assert(meta, tc.IsNil)
 }
 
-func (s *MetaSuite) TestExtraBindingsNonEmptyValueError(c *gc.C) {
+func (s *MetaSuite) TestExtraBindingsNonEmptyValueError(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1307,11 +1306,11 @@ description: c
 extra-bindings:
     foo: 42
 `))
-	c.Assert(err, gc.ErrorMatches, `metadata: extra-bindings.foo: expected empty value, got int\(42\)`)
-	c.Assert(meta, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `metadata: extra-bindings.foo: expected empty value, got int\(42\)`)
+	c.Assert(meta, tc.IsNil)
 }
 
-func (s *MetaSuite) TestExtraBindingsEmptyNameError(c *gc.C) {
+func (s *MetaSuite) TestExtraBindingsEmptyNameError(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1319,11 +1318,11 @@ description: c
 extra-bindings:
     "":
 `))
-	c.Assert(err, gc.ErrorMatches, `metadata: extra-bindings: expected non-empty binding name, got string\(""\)`)
-	c.Assert(meta, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `metadata: extra-bindings: expected non-empty binding name, got string\(""\)`)
+	c.Assert(meta, tc.IsNil)
 }
 
-func (s *MetaSuite) TestResources(c *gc.C) {
+func (s *MetaSuite) TestResources(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1340,9 +1339,9 @@ resources:
          type: oci-image
          description: "An image"
 `))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
-	c.Check(meta.Resources, jc.DeepEquals, map[string]resource.Meta{
+	c.Check(meta.Resources, tc.DeepEquals, map[string]resource.Meta{
 		"resource-name": {
 			Name:        "resource-name",
 			Type:        resource.TypeFile,
@@ -1362,7 +1361,7 @@ resources:
 	})
 }
 
-func (s *MetaSuite) TestParseResourceMetaOkay(c *gc.C) {
+func (s *MetaSuite) TestParseResourceMetaOkay(c *tc.C) {
 	name := "my-resource"
 	data := map[string]interface{}{
 		"type":        "file",
@@ -1370,9 +1369,9 @@ func (s *MetaSuite) TestParseResourceMetaOkay(c *gc.C) {
 		"description": "One line that is useful when operators need to push it.",
 	}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name:        "my-resource",
 		Type:        resource.TypeFile,
 		Path:        "filename.tgz",
@@ -1380,7 +1379,7 @@ func (s *MetaSuite) TestParseResourceMetaOkay(c *gc.C) {
 	})
 }
 
-func (s *MetaSuite) TestParseResourceMetaMissingName(c *gc.C) {
+func (s *MetaSuite) TestParseResourceMetaMissingName(c *tc.C) {
 	name := ""
 	data := map[string]interface{}{
 		"type":        "file",
@@ -1388,9 +1387,9 @@ func (s *MetaSuite) TestParseResourceMetaMissingName(c *gc.C) {
 		"description": "One line that is useful when operators need to push it.",
 	}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name:        "",
 		Type:        resource.TypeFile,
 		Path:        "filename.tgz",
@@ -1398,16 +1397,16 @@ func (s *MetaSuite) TestParseResourceMetaMissingName(c *gc.C) {
 	})
 }
 
-func (s *MetaSuite) TestParseResourceMetaMissingType(c *gc.C) {
+func (s *MetaSuite) TestParseResourceMetaMissingType(c *tc.C) {
 	name := "my-resource"
 	data := map[string]interface{}{
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
 	}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name: "my-resource",
 		// Type is the zero value.
 		Path:        "filename.tgz",
@@ -1415,7 +1414,7 @@ func (s *MetaSuite) TestParseResourceMetaMissingType(c *gc.C) {
 	})
 }
 
-func (s *MetaSuite) TestParseResourceMetaEmptyType(c *gc.C) {
+func (s *MetaSuite) TestParseResourceMetaEmptyType(c *tc.C) {
 	name := "my-resource"
 	data := map[string]interface{}{
 		"type":        "",
@@ -1424,10 +1423,10 @@ func (s *MetaSuite) TestParseResourceMetaEmptyType(c *gc.C) {
 	}
 	_, err := charm.ParseResourceMeta(name, data)
 
-	c.Check(err, gc.ErrorMatches, `unsupported resource type .*`)
+	c.Check(err, tc.ErrorMatches, `unsupported resource type .*`)
 }
 
-func (s *MetaSuite) TestParseResourceMetaUnknownType(c *gc.C) {
+func (s *MetaSuite) TestParseResourceMetaUnknownType(c *tc.C) {
 	name := "my-resource"
 	data := map[string]interface{}{
 		"type":        "spam",
@@ -1436,19 +1435,19 @@ func (s *MetaSuite) TestParseResourceMetaUnknownType(c *gc.C) {
 	}
 	_, err := charm.ParseResourceMeta(name, data)
 
-	c.Check(err, gc.ErrorMatches, `unsupported resource type .*`)
+	c.Check(err, tc.ErrorMatches, `unsupported resource type .*`)
 }
 
-func (s *MetaSuite) TestParseResourceMetaMissingPath(c *gc.C) {
+func (s *MetaSuite) TestParseResourceMetaMissingPath(c *tc.C) {
 	name := "my-resource"
 	data := map[string]interface{}{
 		"type":        "file",
 		"description": "One line that is useful when operators need to push it.",
 	}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name:        "my-resource",
 		Type:        resource.TypeFile,
 		Path:        "",
@@ -1456,16 +1455,16 @@ func (s *MetaSuite) TestParseResourceMetaMissingPath(c *gc.C) {
 	})
 }
 
-func (s *MetaSuite) TestParseResourceMetaMissingComment(c *gc.C) {
+func (s *MetaSuite) TestParseResourceMetaMissingComment(c *tc.C) {
 	name := "my-resource"
 	data := map[string]interface{}{
 		"type":     "file",
 		"filename": "filename.tgz",
 	}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name:        "my-resource",
 		Type:        resource.TypeFile,
 		Path:        "filename.tgz",
@@ -1473,29 +1472,29 @@ func (s *MetaSuite) TestParseResourceMetaMissingComment(c *gc.C) {
 	})
 }
 
-func (s *MetaSuite) TestParseResourceMetaEmpty(c *gc.C) {
+func (s *MetaSuite) TestParseResourceMetaEmpty(c *tc.C) {
 	name := "my-resource"
 	data := make(map[string]interface{})
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name: "my-resource",
 	})
 }
 
-func (s *MetaSuite) TestParseResourceMetaNil(c *gc.C) {
+func (s *MetaSuite) TestParseResourceMetaNil(c *tc.C) {
 	name := "my-resource"
 	var data map[string]interface{}
 	res, err := charm.ParseResourceMeta(name, data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.Meta{
+	c.Check(res, tc.DeepEquals, resource.Meta{
 		Name: "my-resource",
 	})
 }
 
-func (s *MetaSuite) TestContainers(c *gc.C) {
+func (s *MetaSuite) TestContainers(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1515,8 +1514,8 @@ storage:
   a:
     type: filesystem
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.Containers, jc.DeepEquals, map[string]charm.Container{
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.Containers, tc.DeepEquals, map[string]charm.Container{
 		"foo": {
 			Resource: "test-os",
 			Mounts: []charm.Mount{{
@@ -1533,7 +1532,7 @@ func intPtr(i int) *int {
 	return &i
 }
 
-func (s *MetaSuite) TestInvalidUid(c *gc.C) {
+func (s *MetaSuite) TestInvalidUid(c *tc.C) {
 	_, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1546,10 +1545,10 @@ resources:
   test-os:
     type: oci-image
 `))
-	c.Assert(err, gc.ErrorMatches, `parsing containers: container "foo" has invalid uid 1000: uid cannot be in reserved range 1000-9999`)
+	c.Assert(err, tc.ErrorMatches, `parsing containers: container "foo" has invalid uid 1000: uid cannot be in reserved range 1000-9999`)
 }
 
-func (s *MetaSuite) TestInvalidGid(c *gc.C) {
+func (s *MetaSuite) TestInvalidGid(c *tc.C) {
 	_, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1562,10 +1561,10 @@ resources:
   test-os:
     type: oci-image
 `))
-	c.Assert(err, gc.ErrorMatches, `parsing containers: container "foo" has invalid gid 1000: gid cannot be in reserved range 1000-9999`)
+	c.Assert(err, tc.ErrorMatches, `parsing containers: container "foo" has invalid gid 1000: gid cannot be in reserved range 1000-9999`)
 }
 
-func (s *MetaSuite) TestSystemReferencesFileResource(c *gc.C) {
+func (s *MetaSuite) TestSystemReferencesFileResource(c *tc.C) {
 	_, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1584,10 +1583,10 @@ storage:
   a:
     type: filesystem
 `))
-	c.Assert(err, gc.ErrorMatches, `parsing containers: referenced resource "test-os" is not a oci-image`)
+	c.Assert(err, tc.ErrorMatches, `parsing containers: referenced resource "test-os" is not a oci-image`)
 }
 
-func (s *MetaSuite) TestSystemReferencedMissingResource(c *gc.C) {
+func (s *MetaSuite) TestSystemReferencedMissingResource(c *tc.C) {
 	_, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1602,10 +1601,10 @@ storage:
   a:
     type: filesystem
 `))
-	c.Assert(err, gc.ErrorMatches, `parsing containers: referenced resource "test-os" not found`)
+	c.Assert(err, tc.ErrorMatches, `parsing containers: referenced resource "test-os" not found`)
 }
 
-func (s *MetaSuite) TestMountMissingStorage(c *gc.C) {
+func (s *MetaSuite) TestMountMissingStorage(c *tc.C) {
 	_, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1622,10 +1621,10 @@ storage:
   a:
     type: filesystem
 `))
-	c.Assert(err, gc.ErrorMatches, `parsing containers: container "foo": storage must be specified on mount`)
+	c.Assert(err, tc.ErrorMatches, `parsing containers: container "foo": storage must be specified on mount`)
 }
 
-func (s *MetaSuite) TestMountMissingLocation(c *gc.C) {
+func (s *MetaSuite) TestMountMissingLocation(c *tc.C) {
 	_, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1642,10 +1641,10 @@ storage:
   a:
     type: filesystem
 `))
-	c.Assert(err, gc.ErrorMatches, `parsing containers: container "foo": location must be specified on mount`)
+	c.Assert(err, tc.ErrorMatches, `parsing containers: container "foo": location must be specified on mount`)
 }
 
-func (s *MetaSuite) TestMountIncorrectStorage(c *gc.C) {
+func (s *MetaSuite) TestMountIncorrectStorage(c *tc.C) {
 	_, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1663,10 +1662,10 @@ storage:
   a:
     type: filesystem
 `))
-	c.Assert(err, gc.ErrorMatches, `parsing containers: container "foo": storage "b" not valid`)
+	c.Assert(err, tc.ErrorMatches, `parsing containers: container "foo": storage "b" not valid`)
 }
 
-func (s *MetaSuite) TestFormatV1AndV2Mixing(c *gc.C) {
+func (s *MetaSuite) TestFormatV1AndV2Mixing(c *tc.C) {
 	_, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
@@ -1686,7 +1685,7 @@ storage:
   a:
     type: filesystem
 `))
-	c.Assert(err, gc.ErrorMatches, `ambiguous metadata: keys "series" cannot be used with "containers"`)
+	c.Assert(err, tc.ErrorMatches, `ambiguous metadata: keys "series" cannot be used with "containers"`)
 }
 
 var dummyMeta = &charm.Meta{
@@ -1704,44 +1703,44 @@ var dummyMeta = &charm.Meta{
 
 type FormatMetaSuite struct{}
 
-var _ = gc.Suite(&FormatMetaSuite{})
+var _ = tc.Suite(&FormatMetaSuite{})
 
-func (FormatMetaSuite) TestCheckV1Fails(c *gc.C) {
+func (FormatMetaSuite) TestCheckV1Fails(c *tc.C) {
 	meta := charm.Meta{}
 	err := meta.Check(charm.FormatV1)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err, gc.ErrorMatches, "charm metadata without bases in manifest not valid")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorMatches, "charm metadata without bases in manifest not valid")
 }
 
-func (FormatMetaSuite) TestCheckV2(c *gc.C) {
+func (FormatMetaSuite) TestCheckV2(c *tc.C) {
 	meta := charm.Meta{}
 	err := meta.Check(charm.FormatV2, charm.SelectionManifest, charm.SelectionBases)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (FormatMetaSuite) TestCheckV2NoReasons(c *gc.C) {
+func (FormatMetaSuite) TestCheckV2NoReasons(c *tc.C) {
 	meta := charm.Meta{}
 	err := meta.Check(charm.FormatV2)
-	c.Assert(err, gc.ErrorMatches, `metadata v2 without manifest.yaml not valid`)
+	c.Assert(err, tc.ErrorMatches, `metadata v2 without manifest.yaml not valid`)
 }
 
-func (FormatMetaSuite) TestCheckV2WithMinJujuVersion(c *gc.C) {
+func (FormatMetaSuite) TestCheckV2WithMinJujuVersion(c *tc.C) {
 	meta := charm.Meta{
 		MinJujuVersion: semversion.MustParse("2.0.0"),
 	}
 	err := meta.Check(charm.FormatV2, charm.SelectionManifest, charm.SelectionBases)
-	c.Assert(err, gc.ErrorMatches, `min-juju-version in metadata v2 not valid`)
+	c.Assert(err, tc.ErrorMatches, `min-juju-version in metadata v2 not valid`)
 }
 
-func (s *MetaSuite) TestCharmUser(c *gc.C) {
+func (s *MetaSuite) TestCharmUser(c *tc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
 description: c
 charm-user: root
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.CharmUser, gc.Equals, charm.RunAsRoot)
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.CharmUser, tc.Equals, charm.RunAsRoot)
 
 	meta, err = charm.ReadMeta(strings.NewReader(`
 name: a
@@ -1749,8 +1748,8 @@ summary: b
 description: c
 charm-user: sudoer
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.CharmUser, gc.Equals, charm.RunAsSudoer)
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.CharmUser, tc.Equals, charm.RunAsSudoer)
 
 	meta, err = charm.ReadMeta(strings.NewReader(`
 name: a
@@ -1758,16 +1757,16 @@ summary: b
 description: c
 charm-user: non-root
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.CharmUser, gc.Equals, charm.RunAsNonRoot)
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.CharmUser, tc.Equals, charm.RunAsNonRoot)
 
 	meta, err = charm.ReadMeta(strings.NewReader(`
 name: a
 summary: b
 description: c
 `))
-	c.Assert(err, gc.IsNil)
-	c.Assert(meta.CharmUser, gc.Equals, charm.RunAsDefault)
+	c.Assert(err, tc.IsNil)
+	c.Assert(meta.CharmUser, tc.Equals, charm.RunAsDefault)
 
 	_, err = charm.ReadMeta(strings.NewReader(`
 name: a
@@ -1775,5 +1774,5 @@ summary: b
 description: c
 charm-user: barry
 `))
-	c.Assert(err, gc.ErrorMatches, `parsing charm-user: invalid charm-user "barry" expected one of root, sudoer or non-root`)
+	c.Assert(err, tc.ErrorMatches, `parsing charm-user: invalid charm-user "barry" expected one of root, sudoer or non-root`)
 }

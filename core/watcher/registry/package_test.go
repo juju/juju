@@ -6,8 +6,7 @@ package registry_test
 import (
 	"testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -16,18 +15,18 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package registry -destination clock_mock_test.go github.com/juju/clock Clock
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type ImportTest struct{}
 
-var _ = gc.Suite(&ImportTest{})
+var _ = tc.Suite(&ImportTest{})
 
-func (*ImportTest) TestImports(c *gc.C) {
+func (*ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher/registry")
 
 	// This package brings in nothing else from outside juju/juju/core
-	c.Assert(found, jc.SameContents, []string{
+	c.Assert(found, tc.SameContents, []string{
 		"core/credential",
 		"core/errors",
 		"core/life",

@@ -6,13 +6,12 @@ package service
 import (
 	"context"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type dummyLogSinkState struct {
@@ -27,18 +26,18 @@ func (d *dummyLogSinkState) GetModelSeedInformation(ctx context.Context, modelUU
 }
 
 type logSinkServiceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state *dummyLogSinkState
 }
 
-var _ = gc.Suite(&logSinkServiceSuite{})
+var _ = tc.Suite(&logSinkServiceSuite{})
 
-func (s *logSinkServiceSuite) SetUpTest(c *gc.C) {
+func (s *logSinkServiceSuite) SetUpTest(c *tc.C) {
 	s.state = &dummyLogSinkState{}
 }
 
-func (s *logSinkServiceSuite) TestModel(c *gc.C) {
+func (s *logSinkServiceSuite) TestModel(c *tc.C) {
 	svc := NewLogSinkService(s.state)
 
 	id := modeltesting.GenModelUUID(c)
@@ -52,7 +51,7 @@ func (s *logSinkServiceSuite) TestModel(c *gc.C) {
 	s.state.model = &model
 
 	got, err := svc.Model(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(got, gc.Equals, model)
+	c.Check(got, tc.Equals, model)
 }

@@ -10,18 +10,17 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type SecretsManagerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authorizer      *facademocks.MockAuthorizer
 	clock           clock.Clock
@@ -31,9 +30,9 @@ type SecretsManagerSuite struct {
 	facade          *SecretBackendsManagerAPI
 }
 
-var _ = gc.Suite(&SecretsManagerSuite{})
+var _ = tc.Suite(&SecretsManagerSuite{})
 
-func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *SecretsManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -45,7 +44,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	var err error
 	s.facade, err = NewTestAPI(s.authorizer, s.watcherRegistry, s.mockService, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl
 }
 
@@ -53,7 +52,7 @@ func (s *SecretsManagerSuite) expectAuthController() {
 	s.authorizer.EXPECT().AuthController().Return(true)
 }
 
-func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *gc.C) {
+func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.mockService.EXPECT().WatchSecretBackendRotationChanges(gomock.Any()).Return(s.mockWatcher, nil)
@@ -69,8 +68,8 @@ func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *gc.C) {
 	s.mockWatcher.EXPECT().Changes().Return(rotateChan)
 
 	result, err := s.facade.WatchSecretBackendsRotateChanges(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretBackendRotateWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SecretBackendRotateWatchResult{
 		WatcherId: "1",
 		Changes: []params.SecretBackendRotateChange{{
 			ID:              "backend-id",
@@ -80,7 +79,7 @@ func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestRotateBackendTokens(c *gc.C) {
+func (s *SecretsManagerSuite) TestRotateBackendTokens(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -92,8 +91,8 @@ func (s *SecretsManagerSuite) TestRotateBackendTokens(c *gc.C) {
 			"backend-id-1",
 			"backend-id-2",
 		}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
 			{

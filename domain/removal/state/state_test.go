@@ -7,8 +7,7 @@ import (
 	"context"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/removal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -19,17 +18,17 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = tc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestGetAllJobsNoRows(c *gc.C) {
+func (s *stateSuite) TestGetAllJobsNoRows(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	jobs, err := st.GetAllJobs(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(jobs, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jobs, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetAllJobsWithData(c *gc.C) {
+func (s *stateSuite) TestGetAllJobsWithData(c *tc.C) {
 	ins := `
 INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for, arg) 
 VALUES (?, ?, ?, ?, ?, ?)`
@@ -39,18 +38,18 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	now := time.Now().UTC()
 
 	_, err := s.DB().Exec(ins, jID1, 0, "rel-1", 0, now, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(ins, jID2, 0, "rel-2", 1, now, `{"special-key":"special-value"}`)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	jobs, err := st.GetAllJobs(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(jobs, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobs, tc.HasLen, 2)
 
-	c.Check(jobs[0], jc.DeepEquals, removal.Job{
+	c.Check(jobs[0], tc.DeepEquals, removal.Job{
 		UUID:         jID1,
 		RemovalType:  removal.RelationJob,
 		EntityUUID:   "rel-1",
@@ -58,7 +57,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 		ScheduledFor: now,
 	})
 
-	c.Check(jobs[1], jc.DeepEquals, removal.Job{
+	c.Check(jobs[1], tc.DeepEquals, removal.Job{
 		UUID:         jID2,
 		RemovalType:  removal.RelationJob,
 		EntityUUID:   "rel-2",
@@ -70,7 +69,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	})
 }
 
-func (s *stateSuite) TestDeleteJob(c *gc.C) {
+func (s *stateSuite) TestDeleteJob(c *tc.C) {
 	ins := `
 INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for, arg) 
 VALUES (?, ?, ?, ?, ?, ?)`
@@ -78,19 +77,19 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	jID1, _ := removal.NewUUID()
 	now := time.Now().UTC()
 	_, err := s.DB().Exec(ins, jID1, 0, "rel-1", 0, now, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err = st.DeleteJob(context.Background(), jID1.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	row := s.DB().QueryRow("SELECT count(*) FROM removal where uuid = ?", jID1)
 	var count int
 	err = row.Scan(&count)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(count, gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 
 	// Idempotent.
 	err = st.DeleteJob(context.Background(), jID1.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

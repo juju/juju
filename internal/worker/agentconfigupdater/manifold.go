@@ -5,18 +5,20 @@ package agentconfigupdater
 
 import (
 	"context"
+	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/controller"
 	coreagent "github.com/juju/juju/core/agent"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/trace"
@@ -95,12 +97,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			controllerServices, err := config.GetControllerDomainServicesFn(getter, config.DomainServicesName)
 			if err != nil {
-				return nil, errors.Annotate(err, "getting controller domain services")
+				return nil, errors.Errorf("getting controller domain services: %w", err)
 			}
 
 			controllerNodeService := controllerServices.ControllerNode()
 			if isControllerNode, err := controllerNodeService.IsControllerNode(ctx, tag.Id()); err != nil {
-				return nil, errors.Annotate(err, "checking is controller")
+				return nil, errors.Errorf("checking is controller: %w", err)
 			} else if !isControllerNode {
 				// Not a controller, nothing to do.
 				return nil, dependency.ErrUninstall
@@ -111,7 +113,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// Get the tracer from the context.
 			var tracerGetter trace.TracerGetter
 			if err := getter.Get(config.TraceName, &tracerGetter); err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("agentconfigupdater", currentConfig.Model().Id()))
@@ -121,7 +123,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			agentsJujuDBSnapChannel := currentConfig.JujuDBSnapChannel()
@@ -166,14 +168,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			apiState, err := apiagent.NewClient(apiCaller, apiagent.WithTracer(tracer))
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			// If the machine needs Client, grab the state serving info
 			// over the API and write it to the agent configuration.
 			info, err := apiState.StateServingInfo(ctx)
 			if err != nil {
-				return nil, errors.Annotate(err, "getting state serving info")
+				return nil, errors.Errorf("getting state serving info: %w", err)
 			}
 			err = agent.ChangeConfig(func(config jujuagent.ConfigSetter) error {
 				existing, hasInfo := config.StateServingInfo()
@@ -231,40 +233,54 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil
 			})
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			// If we need a restart, return the fatal error.
+			reason := []string{}
 			if jujuDBSnapChannelChanged {
 				logger.Infof(ctx, "restarting agent for new mongo snap channel")
-				return nil, jworker.ErrRestartAgent
-			} else if queryTracingEnabledChanged {
+				reason = append(reason, controller.JujuDBSnapChannel)
+			}
+			if queryTracingEnabledChanged {
 				logger.Infof(ctx, "restarting agent for new query tracing enabled")
-				return nil, jworker.ErrRestartAgent
-			} else if queryTracingThresholdChanged {
+				reason = append(reason, controller.QueryTracingEnabled)
+			}
+			if queryTracingThresholdChanged {
 				logger.Infof(ctx, "restarting agent for new query tracing threshold")
-				return nil, jworker.ErrRestartAgent
-			} else if openTelemetryEnabledChanged {
+				reason = append(reason, controller.QueryTracingThreshold)
+			}
+			if openTelemetryEnabledChanged {
 				logger.Infof(ctx, "restarting agent for new open telemetry enabled")
-				return nil, jworker.ErrRestartAgent
-			} else if openTelemetryEndpointChanged {
+				reason = append(reason, controller.OpenTelemetryEnabled)
+			}
+			if openTelemetryEndpointChanged {
 				logger.Infof(ctx, "restarting agent for new open telemetry endpoint")
-				return nil, jworker.ErrRestartAgent
-			} else if openTelemetryInsecureChanged {
+				reason = append(reason, controller.OpenTelemetryEndpoint)
+			}
+			if openTelemetryInsecureChanged {
 				logger.Infof(ctx, "restarting agent for new open telemetry insecure")
-				return nil, jworker.ErrRestartAgent
-			} else if openTelemetryStackTracesChanged {
+				reason = append(reason, controller.OpenTelemetryInsecure)
+			}
+			if openTelemetryStackTracesChanged {
 				logger.Infof(ctx, "restarting agent for new open telemetry stack traces")
-				return nil, jworker.ErrRestartAgent
-			} else if openTelemetrySampleRatioChanged {
+				reason = append(reason, controller.OpenTelemetryStackTraces)
+			}
+			if openTelemetrySampleRatioChanged {
 				logger.Infof(ctx, "restarting agent for new open telemetry sample ratio")
-				return nil, jworker.ErrRestartAgent
-			} else if openTelemetryTailSamplingThresholdChanged {
+				reason = append(reason, controller.OpenTelemetrySampleRatio)
+			}
+			if openTelemetryTailSamplingThresholdChanged {
 				logger.Infof(ctx, "restarting agent for new open telemetry tail sampling threshold")
-				return nil, jworker.ErrRestartAgent
-			} else if objectStoreTypeChanged {
+				reason = append(reason, controller.OpenTelemetryTailSamplingThreshold)
+			}
+			if objectStoreTypeChanged {
 				logger.Infof(ctx, "restarting agent for new object store type")
-				return nil, jworker.ErrRestartAgent
+				reason = append(reason, controller.ObjectStoreType)
+			}
+			if len(reason) > 0 {
+				return nil, errors.Errorf("%w: controller config changed: %s",
+					jworker.ErrRestartAgent, strings.Join(reason, ", "))
 			}
 
 			return NewWorker(WorkerConfig{

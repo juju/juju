@@ -8,9 +8,8 @@ import (
 	"net"
 	stdtesting "testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -23,7 +22,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type CertUpdaterSuite struct {
@@ -31,9 +30,9 @@ type CertUpdaterSuite struct {
 	stateServingInfo controller.StateServingInfo
 }
 
-var _ = gc.Suite(&CertUpdaterSuite{})
+var _ = tc.Suite(&CertUpdaterSuite{})
 
-func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
+func (s *CertUpdaterSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stateServingInfo = controller.StateServingInfo{
@@ -45,9 +44,9 @@ func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
+func (s *CertUpdaterSuite) TestStartStop(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	changes := make(chan struct{})
 	worker, err := certupdater.NewCertificateUpdater(certupdater.Config{
@@ -57,18 +56,18 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 		ControllerConfigGetter: &mockControllerConfigGetter{},
 		Logger:                 loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, worker)
 
 	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(leaf.Certificate().IPAddresses, jujutesting.IPsEqual,
 		[]net.IP{net.ParseIP("192.168.1.1")})
 }
 
-func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
+func (s *CertUpdaterSuite) TestAddressChange(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	changes := make(chan struct{})
 	worker, err := certupdater.NewCertificateUpdater(certupdater.Config{
@@ -78,14 +77,14 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 		ControllerConfigGetter: &mockControllerConfigGetter{},
 		Logger:                 loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	changes <- struct{}{}
 	// Certificate should be updated with the address value.
 
 	workertest.CleanKill(c, worker)
 	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(leaf.Certificate().IPAddresses, jujutesting.IPsEqual,
 		[]net.IP{net.ParseIP("0.1.2.3")})
 }

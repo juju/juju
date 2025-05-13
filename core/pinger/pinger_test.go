@@ -6,21 +6,22 @@ package pinger
 import (
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type suite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	clock *MockClock
 }
 
-var _ = gc.Suite(&suite{})
+var _ = tc.Suite(&suite{})
 
-func (s *suite) TestPing(c *gc.C) {
+func (s *suite) TestPing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.clock.EXPECT().After(time.Second).DoAndReturn(func(d time.Duration) <-chan time.Time {
@@ -37,13 +38,13 @@ func (s *suite) TestPing(c *gc.C) {
 	for i := 0; i < 10; i++ {
 		p.Ping()
 		// Ensure that the ping timer has been at least called
-		<-time.After(testing.ShortWait)
+		<-time.After(testhelpers.ShortWait)
 	}
 
 	workertest.CheckKill(c, p)
 }
 
-func (s *suite) TestPingAfterKilled(c *gc.C) {
+func (s *suite) TestPingAfterKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.clock.EXPECT().After(time.Second).DoAndReturn(func(d time.Duration) <-chan time.Time {
@@ -60,7 +61,7 @@ func (s *suite) TestPingAfterKilled(c *gc.C) {
 	p.Ping()
 }
 
-func (s *suite) TestPingTimeout(c *gc.C) {
+func (s *suite) TestPingTimeout(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.clock.EXPECT().After(time.Second).DoAndReturn(func(d time.Duration) <-chan time.Time {
@@ -83,15 +84,15 @@ func (s *suite) TestPingTimeout(c *gc.C) {
 
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatal("timed out waiting for action")
 	}
 
 	err := p.Wait()
-	c.Assert(err, gc.ErrorMatches, "ping timeout")
+	c.Assert(err, tc.ErrorMatches, "ping timeout")
 }
 
-func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *suite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)

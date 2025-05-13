@@ -5,10 +5,9 @@ package schema
 
 import (
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	_ "github.com/mattn/go-sqlite3"
-	gc "gopkg.in/check.v1"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
 )
@@ -17,9 +16,9 @@ type modelSchemaSuite struct {
 	schemaBaseSuite
 }
 
-var _ = gc.Suite(&modelSchemaSuite{})
+var _ = tc.Suite(&modelSchemaSuite{})
 
-func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
+func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	// Ensure that each table is present.
@@ -288,14 +287,14 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
-	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf(
+	c.Assert(got, tc.SameContents, wanted.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
 		set.NewStrings(got...).Difference(wanted).SortedValues(),
 		wanted.Difference(set.NewStrings(got...)).SortedValues(),
 	))
 }
 
-func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
+func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 	c.Logf("Committing schema DDL")
 
 	s.applyDDL(c, ModelDDL())
@@ -363,14 +362,14 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_agent_binary_store",
 	)
 	got := readEntityNames(c, s.DB(), "view")
-	c.Assert(got, jc.SameContents, expected.SortedValues(), gc.Commentf(
+	c.Assert(got, tc.SameContents, expected.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
 		set.NewStrings(got...).Difference(expected).SortedValues(),
 		expected.Difference(set.NewStrings(got...)).SortedValues(),
 	))
 }
 
-func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
+func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	// Expected changelog triggers. Additional triggers are not included and
@@ -561,14 +560,14 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 
 	got := readEntityNames(c, s.DB(), "trigger")
 	wanted := expected.Union(additional)
-	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf(
+	c.Assert(got, tc.SameContents, wanted.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
 		set.NewStrings(got...).Difference(wanted).SortedValues(),
 		wanted.Difference(set.NewStrings(got...)).SortedValues(),
 	))
 }
 
-func (s *modelSchemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {
+func (s *modelSchemaSuite) TestModelTriggersForImmutableTables(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	modelUUID := utils.MustNewUUID().String()
@@ -587,7 +586,7 @@ VALUES (?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
 		"model table is immutable, only insertions are allowed", modelUUID)
 }
 
-func (s *modelSchemaSuite) TestTriggersForUnmodifiableTables(c *gc.C) {
+func (s *modelSchemaSuite) TestTriggersForUnmodifiableTables(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	id := charmtesting.GenCharmID(c)

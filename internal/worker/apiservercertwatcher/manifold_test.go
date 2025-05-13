@@ -7,32 +7,31 @@ import (
 	"context"
 	"sync"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	manifold dependency.Manifold
 	getter   dependency.Getter
 	agent    *mockAgent
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{
@@ -53,41 +52,41 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, []string{"agent"})
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, []string{"agent"})
 }
 
-func (s *ManifoldSuite) TestNoAgent(c *gc.C) {
+func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
 	_, err := s.manifold.Start(context.Background(), getter)
-	c.Assert(err, gc.Equals, dependency.ErrMissing)
+	c.Assert(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestNoStateServingInfo(c *gc.C) {
+func (s *ManifoldSuite) TestNoStateServingInfo(c *tc.C) {
 	s.agent.conf.info = nil
 	_, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "setting up initial ca authority: no state serving info in agent config")
+	c.Assert(err, tc.ErrorMatches, "setting up initial ca authority: no state serving info in agent config")
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 }
 
-func (s *ManifoldSuite) TestOutput(c *gc.C) {
+func (s *ManifoldSuite) TestOutput(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
 	var authority pki.Authority
 	err := s.manifold.Output(w, &authority)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }

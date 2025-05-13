@@ -5,8 +5,7 @@ package user_test
 
 import (
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/core/model"
@@ -24,9 +23,9 @@ type WhoAmITestSuite struct {
 	expectedErr    string
 }
 
-var _ = gc.Suite(&WhoAmITestSuite{})
+var _ = tc.Suite(&WhoAmITestSuite{})
 
-func (s *WhoAmITestSuite) TestEmptyStore(c *gc.C) {
+func (s *WhoAmITestSuite) TestEmptyStore(c *tc.C) {
 	s.expectedOutput = `
 There is no current controller.
 Run juju controllers to see available controllers.
@@ -36,7 +35,7 @@ Run juju controllers to see available controllers.
 	s.assertWhoAmI(c)
 }
 
-func (s *WhoAmITestSuite) TestNoCurrentController(c *gc.C) {
+func (s *WhoAmITestSuite) TestNoCurrentController(c *tc.C) {
 	s.expectedOutput = `
 There is no current controller.
 Run juju controllers to see available controllers.
@@ -50,7 +49,7 @@ Run juju controllers to see available controllers.
 	s.assertWhoAmI(c)
 }
 
-func (s *WhoAmITestSuite) TestNoCurrentModel(c *gc.C) {
+func (s *WhoAmITestSuite) TestNoCurrentModel(c *tc.C) {
 	s.expectedOutput = `
 Controller:  controller
 Model:       <no-current-model>
@@ -78,7 +77,7 @@ User:        admin
 	s.assertWhoAmI(c)
 }
 
-func (s *WhoAmITestSuite) TestNoCurrentUser(c *gc.C) {
+func (s *WhoAmITestSuite) TestNoCurrentUser(c *tc.C) {
 	s.expectedOutput = `
 You are not logged in to controller "controller" and model "admin/model".
 Run juju login if you want to login.
@@ -101,7 +100,7 @@ Run juju login if you want to login.
 	s.assertWhoAmI(c)
 }
 
-func (s *WhoAmITestSuite) assertWhoAmIForUser(c *gc.C, user, format string) {
+func (s *WhoAmITestSuite) assertWhoAmIForUser(c *tc.C, user, format string) {
 	s.store = &jujuclient.MemStore{
 		CurrentControllerName: "controller",
 		Controllers: map[string]jujuclient.ControllerDetails{
@@ -124,7 +123,7 @@ func (s *WhoAmITestSuite) assertWhoAmIForUser(c *gc.C, user, format string) {
 	s.assertWhoAmI(c, "--format", format)
 }
 
-func (s *WhoAmITestSuite) TestWhoAmISameUser(c *gc.C) {
+func (s *WhoAmITestSuite) TestWhoAmISameUser(c *tc.C) {
 	s.expectedOutput = `
 Controller:  controller
 Model:       model
@@ -133,7 +132,7 @@ User:        admin
 	s.assertWhoAmIForUser(c, "admin", "tabular")
 }
 
-func (s *WhoAmITestSuite) TestWhoAmIYaml(c *gc.C) {
+func (s *WhoAmITestSuite) TestWhoAmIYaml(c *tc.C) {
 	s.expectedOutput = `
 controller: controller
 model: model
@@ -142,14 +141,14 @@ user: admin
 	s.assertWhoAmIForUser(c, "admin", "yaml")
 }
 
-func (s *WhoAmITestSuite) TestWhoAmIJson(c *gc.C) {
+func (s *WhoAmITestSuite) TestWhoAmIJson(c *tc.C) {
 	s.expectedOutput = `
 {"controller":"controller","model":"model","user":"admin"}
 `[1:]
 	s.assertWhoAmIForUser(c, "admin", "json")
 }
 
-func (s *WhoAmITestSuite) TestWhoAmIDifferentUsersModel(c *gc.C) {
+func (s *WhoAmITestSuite) TestWhoAmIDifferentUsersModel(c *tc.C) {
 	s.expectedOutput = `
 Controller:  controller
 Model:       admin/model
@@ -158,7 +157,7 @@ User:        bob
 	s.assertWhoAmIForUser(c, "bob", "tabular")
 }
 
-func (s *WhoAmITestSuite) TestFromStoreErr(c *gc.C) {
+func (s *WhoAmITestSuite) TestFromStoreErr(c *tc.C) {
 	msg := "fail getting current controller"
 	errStore := jujuclienttesting.NewStubStore()
 	errStore.SetErrors(errors.New(msg))
@@ -168,24 +167,24 @@ func (s *WhoAmITestSuite) TestFromStoreErr(c *gc.C) {
 	errStore.CheckCallNames(c, "CurrentController")
 }
 
-func (s *WhoAmITestSuite) runWhoAmI(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *WhoAmITestSuite) runWhoAmI(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, user.NewWhoAmICommandForTest(s.store), args...)
 }
 
-func (s *WhoAmITestSuite) assertWhoAmIFailed(c *gc.C, args ...string) {
+func (s *WhoAmITestSuite) assertWhoAmIFailed(c *tc.C, args ...string) {
 	_, err := s.runWhoAmI(c, args...)
-	c.Assert(err, gc.ErrorMatches, s.expectedErr)
+	c.Assert(err, tc.ErrorMatches, s.expectedErr)
 }
 
-func (s *WhoAmITestSuite) assertWhoAmI(c *gc.C, args ...string) string {
+func (s *WhoAmITestSuite) assertWhoAmI(c *tc.C, args ...string) string {
 	context, err := s.runWhoAmI(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := cmdtesting.Stdout(context)
 	if output == "" {
 		output = cmdtesting.Stderr(context)
 	}
 	if s.expectedOutput != "" {
-		c.Assert(output, gc.Equals, s.expectedOutput)
+		c.Assert(output, tc.Equals, s.expectedOutput)
 	}
 	return output
 }

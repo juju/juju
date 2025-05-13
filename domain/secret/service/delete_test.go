@@ -6,9 +6,8 @@ package service
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -17,23 +16,23 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
+func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	revisionID1, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	revisionID2, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return([]string{revisionID1.String(), revisionID2.String()}, nil)
 	s.secretBackendState.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID1.String(), revisionID2.String()).Return(nil)
 
 	err = s.service.DeleteObsoleteUserSecretRevisions(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestDeleteSecret(c *gc.C) {
+func (s *serviceSuite) TestDeleteSecret(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -56,5 +55,5 @@ func (s *serviceSuite) TestDeleteSecret(c *gc.C) {
 		},
 		Revisions: []int{1, 2},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

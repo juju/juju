@@ -4,8 +4,9 @@
 package client_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // Most (if not all) of the permission tests below aim to test
@@ -14,18 +15,18 @@ import (
 // (usually due to "permission denied"). There are separate test cases
 // testing each individual API call data flow later on.
 type permSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&permSuite{})
+var _ = tc.Suite(&permSuite{})
 
 type watcherPermSuite struct {
 	permSuite
 }
 
-var _ = gc.Suite(&watcherPermSuite{})
+var _ = tc.Suite(&watcherPermSuite{})
 
-func (s *permSuite) TestStub(c *gc.C) {
+func (s *permSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Not found should be returned when trying to add a relation between non-exsting endpoints.
 - Not found should be returned when trying to destroy a relation between non-exsting endpoints.

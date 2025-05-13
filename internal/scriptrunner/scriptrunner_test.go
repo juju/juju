@@ -10,62 +10,61 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/scriptrunner"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func Test(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type ScriptRunnerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ScriptRunnerSuite{})
+var _ = tc.Suite(&ScriptRunnerSuite{})
 
-func (s *ScriptRunnerSuite) SetUpSuite(c *gc.C) {
+func (s *ScriptRunnerSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 }
 
-func (*ScriptRunnerSuite) TestScriptRunnerFails(c *gc.C) {
+func (*ScriptRunnerSuite) TestScriptRunnerFails(c *tc.C) {
 	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand("exit 1", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Code, gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Code, tc.Equals, 1)
 }
 
-func (*ScriptRunnerSuite) TestScriptRunnerSucceeds(c *gc.C) {
+func (*ScriptRunnerSuite) TestScriptRunnerSucceeds(c *tc.C) {
 	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand("exit 0", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Code, gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Code, tc.Equals, 0)
 }
 
-func (*ScriptRunnerSuite) TestScriptRunnerCheckStdout(c *gc.C) {
+func (*ScriptRunnerSuite) TestScriptRunnerCheckStdout(c *tc.C) {
 	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand("echo -n 42", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Code, gc.Equals, 0)
-	c.Check(string(result.Stdout), gc.Equals, "42")
-	c.Check(string(result.Stderr), gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Code, tc.Equals, 0)
+	c.Check(string(result.Stdout), tc.Equals, "42")
+	c.Check(string(result.Stderr), tc.Equals, "")
 }
 
-func (*ScriptRunnerSuite) TestScriptRunnerCheckStderr(c *gc.C) {
+func (*ScriptRunnerSuite) TestScriptRunnerCheckStderr(c *tc.C) {
 	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand(">&2 echo -n 3.141", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Code, gc.Equals, 0)
-	c.Check(string(result.Stdout), gc.Equals, "")
-	c.Check(string(result.Stderr), gc.Equals, "3.141")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Code, tc.Equals, 0)
+	c.Check(string(result.Stdout), tc.Equals, "")
+	c.Check(string(result.Stderr), tc.Equals, "3.141")
 }
 
-func (*ScriptRunnerSuite) TestScriptRunnerTimeout(c *gc.C) {
+func (*ScriptRunnerSuite) TestScriptRunnerTimeout(c *tc.C) {
 	_, err := scriptrunner.RunCommand("sleep 6", os.Environ(), clock.WallClock, 500*time.Microsecond)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "command cancelled")
+	c.Assert(err, tc.NotNil)
+	c.Assert(err, tc.ErrorMatches, "command cancelled")
 }

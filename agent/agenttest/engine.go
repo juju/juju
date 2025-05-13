@@ -5,13 +5,12 @@ package agenttest
 
 import (
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
-	gc "gopkg.in/check.v1"
 )
 
 // AssertManifoldsDependencies asserts that given manifolds have expected dependencies.
-func AssertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expected map[string][]string) {
+func AssertManifoldsDependencies(c *tc.C, manifolds dependency.Manifolds, expected map[string][]string) {
 	dependencies := make(map[string][]string, len(manifolds))
 	manifoldNames := set.NewStrings()
 
@@ -24,12 +23,12 @@ func AssertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expect
 	names := set.NewStrings(keys(dependencies)...)
 	expectedNames := set.NewStrings(keys(expected)...)
 	// Unexpected names...
-	c.Assert(names.Difference(expectedNames), gc.DeepEquals, empty)
+	c.Assert(names.Difference(expectedNames), tc.DeepEquals, empty)
 	// Missing names...
-	c.Assert(expectedNames.Difference(names), gc.DeepEquals, empty)
+	c.Assert(expectedNames.Difference(names), tc.DeepEquals, empty)
 
 	for _, n := range manifoldNames.SortedValues() {
-		if !c.Check(dependencies[n], jc.SameContents, expected[n], gc.Commentf("mismatched dependencies for worker %q", n)) {
+		if !c.Check(dependencies[n], tc.SameContents, expected[n], tc.Commentf("mismatched dependencies for worker %q", n)) {
 			// Make life easier when attempting to interpret the output.
 			// We already know the answer, just tell us what to do!
 			add := set.NewStrings(dependencies[n]...).Difference(set.NewStrings(expected[n]...)).SortedValues()

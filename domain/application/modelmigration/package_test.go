@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
@@ -21,22 +20,23 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/application/modelmigration ImportService,ExportService
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination description_mock_test.go github.com/juju/description/v9 CharmMetadata,CharmMetadataRelation,CharmMetadataStorage,CharmMetadataDevice,CharmMetadataResource,CharmMetadataContainer,CharmMetadataContainerMount,CharmManifest,CharmManifestBase,CharmActions,CharmAction,CharmConfigs,CharmConfig
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type exportSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	exportService *MockExportService
 }
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.exportService = NewMockExportService(ctrl)
@@ -51,11 +51,11 @@ func (s *exportSuite) newExportOperation() exportOperation {
 	}
 }
 
-func (s *exportSuite) expectApplication(c *gc.C) {
+func (s *exportSuite) expectApplication(c *tc.C) {
 	s.expectApplicationFor(c, "prometheus")
 }
 
-func (s *exportSuite) expectApplicationFor(c *gc.C, name string) {
+func (s *exportSuite) expectApplicationFor(c *tc.C, name string) {
 	charmUUID := charmtesting.GenCharmID(c)
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{

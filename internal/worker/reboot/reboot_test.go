@@ -5,14 +5,13 @@ package reboot_test
 
 import (
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/reboot/mocks"
@@ -20,12 +19,12 @@ import (
 )
 
 type rebootSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&rebootSuite{})
+var _ = tc.Suite(&rebootSuite{})
 
-func (s *rebootSuite) TestStartStop(c *gc.C) {
+func (s *rebootSuite) TestStartStop(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -37,14 +36,14 @@ func (s *rebootSuite) TestStartStop(c *gc.C) {
 	lock := mocks.NewMockLock(ctrl)
 
 	w, err := reboot.NewReboot(client, names.NewMachineTag("666"), lock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w.Kill()
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *rebootSuite) TestWorkerReboot(c *gc.C) {
+func (s *rebootSuite) TestWorkerReboot(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -65,12 +64,12 @@ func (s *rebootSuite) TestWorkerReboot(c *gc.C) {
 	}).Return(func() {}, nil)
 
 	w, err := reboot.NewReboot(client, names.NewMachineTag("666"), lock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, worker.ErrRebootMachine)
+	c.Assert(err, tc.ErrorIs, worker.ErrRebootMachine)
 }
 
-func (s *rebootSuite) TestContainerShutdown(c *gc.C) {
+func (s *rebootSuite) TestContainerShutdown(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -91,7 +90,7 @@ func (s *rebootSuite) TestContainerShutdown(c *gc.C) {
 	}).Return(func() {}, nil)
 
 	w, err := reboot.NewReboot(client, names.NewMachineTag("666/lxd/0"), lock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, worker.ErrShutdownMachine)
+	c.Assert(err, tc.ErrorIs, worker.ErrShutdownMachine)
 }

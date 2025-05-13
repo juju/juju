@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/controller"
@@ -16,7 +15,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func (s *Suite) TestMongoVersionCallError(c *gc.C) {
+func (s *Suite) TestMongoVersionCallError(c *tc.C) {
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 6,
 		APICallerFunc: func(string, int, string, string, interface{}, interface{}) error {
@@ -25,18 +24,18 @@ func (s *Suite) TestMongoVersionCallError(c *gc.C) {
 	}
 	client := controller.NewClient(apiCaller)
 	result, err := client.MongoVersion(context.Background())
-	c.Check(result, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, "boom")
+	c.Check(result, tc.Equals, "")
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
-func (s *Suite) TestMongoVersion(c *gc.C) {
+func (s *Suite) TestMongoVersion(c *tc.C) {
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 6,
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
-			c.Check(objType, gc.Equals, "Controller")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "MongoVersion")
-			c.Check(result, gc.FitsTypeOf, &params.StringResult{})
+			c.Check(objType, tc.Equals, "Controller")
+			c.Check(id, tc.Equals, "")
+			c.Check(request, tc.Equals, "MongoVersion")
+			c.Check(result, tc.FitsTypeOf, &params.StringResult{})
 
 			out := result.(*params.StringResult)
 			out.Result = "3.5.12"
@@ -46,18 +45,18 @@ func (s *Suite) TestMongoVersion(c *gc.C) {
 
 	client := controller.NewClient(apiCaller)
 	result, err := client.MongoVersion(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, "3.5.12")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, "3.5.12")
 }
 
-func (s *Suite) TestMongoVersionWithErrorResult(c *gc.C) {
+func (s *Suite) TestMongoVersionWithErrorResult(c *tc.C) {
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 6,
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
-			c.Check(objType, gc.Equals, "Controller")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "MongoVersion")
-			c.Check(result, gc.FitsTypeOf, &params.StringResult{})
+			c.Check(objType, tc.Equals, "Controller")
+			c.Check(id, tc.Equals, "")
+			c.Check(request, tc.Equals, "MongoVersion")
+			c.Check(result, tc.FitsTypeOf, &params.StringResult{})
 
 			out := result.(*params.StringResult)
 			out.Result = "3.5.12"
@@ -68,5 +67,5 @@ func (s *Suite) TestMongoVersionWithErrorResult(c *gc.C) {
 
 	client := controller.NewClient(apiCaller)
 	_, err := client.MongoVersion(context.Background())
-	c.Assert(err, gc.ErrorMatches, "version error")
+	c.Assert(err, tc.ErrorMatches, "version error")
 }

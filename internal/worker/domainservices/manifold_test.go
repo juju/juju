@@ -8,12 +8,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -32,76 +31,76 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig(c)
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig(c)
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.DBAccessorName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.ProviderFactoryName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.ObjectStoreName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.ChangeStreamName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.StorageRegistryName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.HTTPClientName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.LeaseManagerName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.LogSinkName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.NewWorker = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.NewDomainServicesGetter = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.NewControllerDomainServices = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.NewModelDomainServices = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.LogDir = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.Clock = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.SSHImporterPurpose).Return(s.httpClient, nil)
@@ -135,13 +134,13 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		Clock:                       s.clock,
 	})
 	w, err := manifold.Start(context.Background(), dt.StubGetter(getter))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	workertest.CheckAlive(c, w)
 }
 
-func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
+func (s *manifoldSuite) TestOutputControllerDomainServices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
@@ -160,17 +159,17 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
 		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	manifold := ManifoldConfig{}
 
 	var factory services.ControllerDomainServices
 	err = manifold.output(w, &factory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
+func (s *manifoldSuite) TestOutputDomainServicesGetter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
@@ -189,17 +188,17 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
 		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	manifold := ManifoldConfig{}
 
 	var factory services.DomainServicesGetter
 	err = manifold.output(w, &factory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
+func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
@@ -218,22 +217,22 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	manifold := ManifoldConfig{}
 
 	var factory struct{}
 	err = manifold.output(w, &factory)
-	c.Assert(err, gc.ErrorMatches, `unsupported output type .*`)
+	c.Assert(err, tc.ErrorMatches, `unsupported output type .*`)
 }
 
-func (s *manifoldSuite) TestNewControllerDomainServices(c *gc.C) {
+func (s *manifoldSuite) TestNewControllerDomainServices(c *tc.C) {
 	factory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.modelObjectStoreGetter, s.clock, s.logger)
-	c.Assert(factory, gc.NotNil)
+	c.Assert(factory, tc.NotNil)
 }
 
-func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
+func (s *manifoldSuite) TestNewModelDomainServices(c *tc.C) {
 	factory := NewModelDomainServices(
 		"model",
 		s.dbGetter,
@@ -245,10 +244,10 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
 		s.clock,
 		s.logger,
 	)
-	c.Assert(factory, gc.NotNil)
+	c.Assert(factory, tc.NotNil)
 }
 
-func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
+func (s *manifoldSuite) TestNewDomainServicesGetter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.loggerContextGetter.EXPECT().GetLoggerContext(gomock.Any(), coremodel.UUID("model")).Return(s.loggerContext, nil)
@@ -268,14 +267,14 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 		s.clock,
 		s.loggerContextGetter,
 	)
-	c.Assert(factory, gc.NotNil)
+	c.Assert(factory, tc.NotNil)
 
 	modelFactory, err := factory.ServicesForModel(context.Background(), "model")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelFactory, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelFactory, tc.NotNil)
 }
 
-func (s *manifoldSuite) getConfig(c *gc.C) ManifoldConfig {
+func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		DBAccessorName:      "dbaccessor",
 		ChangeStreamName:    "changestream",

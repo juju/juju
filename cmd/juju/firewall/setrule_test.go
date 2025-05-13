@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/firewall"
 	"github.com/juju/juju/environs/config"
@@ -23,46 +22,46 @@ type SetRuleSuite struct {
 	mockAPI *mockSetRuleAPI
 }
 
-var _ = gc.Suite(&SetRuleSuite{})
+var _ = tc.Suite(&SetRuleSuite{})
 
-func (s *SetRuleSuite) SetUpTest(c *gc.C) {
+func (s *SetRuleSuite) SetUpTest(c *tc.C) {
 	s.mockAPI = &mockSetRuleAPI{}
 }
 
-func (s *SetRuleSuite) TestInitMissingService(c *gc.C) {
+func (s *SetRuleSuite) TestInitMissingService(c *tc.C) {
 	_, err := s.runSetRule(c, "--allowlist", "10.0.0.0/8")
-	c.Assert(err, gc.ErrorMatches, "no well known service specified")
+	c.Assert(err, tc.ErrorMatches, "no well known service specified")
 }
 
-func (s *SetRuleSuite) TestInitMissingWhitelist(c *gc.C) {
+func (s *SetRuleSuite) TestInitMissingWhitelist(c *tc.C) {
 	_, err := s.runSetRule(c, "ssh")
-	c.Assert(err, gc.ErrorMatches, `no allowlist subnets specified`)
+	c.Assert(err, tc.ErrorMatches, `no allowlist subnets specified`)
 }
 
-func (s *SetRuleSuite) TestSetRuleSSH(c *gc.C) {
+func (s *SetRuleSuite) TestSetRuleSSH(c *tc.C) {
 	_, err := s.runSetRule(c, "--allowlist", "10.2.1.0/8,192.168.1.0/8", "ssh")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.sshRule, gc.Equals, "10.2.1.0/8,192.168.1.0/8")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.mockAPI.sshRule, tc.Equals, "10.2.1.0/8,192.168.1.0/8")
 }
 
-func (s *SetRuleSuite) TestSetRuleSAAS(c *gc.C) {
+func (s *SetRuleSuite) TestSetRuleSAAS(c *tc.C) {
 	_, err := s.runSetRule(c, "--allowlist", "10.2.1.0/8,192.168.1.0/8", "juju-application-offer")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.saasRule, gc.Equals, "10.2.1.0/8,192.168.1.0/8")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.mockAPI.saasRule, tc.Equals, "10.2.1.0/8,192.168.1.0/8")
 }
 
-func (s *SetRuleSuite) TestWhitelistAndAllowlist(c *gc.C) {
+func (s *SetRuleSuite) TestWhitelistAndAllowlist(c *tc.C) {
 	_, err := s.runSetRule(c, "ssh", "--allowlist", "192.168.0.0/24", "--whitelist", "192.168.1.0/24")
-	c.Assert(err, gc.ErrorMatches, "cannot specify both whitelist and allowlist")
+	c.Assert(err, tc.ErrorMatches, "cannot specify both whitelist and allowlist")
 }
 
-func (s *SetRuleSuite) TestSetError(c *gc.C) {
+func (s *SetRuleSuite) TestSetError(c *tc.C) {
 	s.mockAPI.err = errors.New("fail")
 	_, err := s.runSetRule(c, "ssh", "--allowlist", "10.0.0.0/8")
-	c.Assert(err, gc.ErrorMatches, ".*fail.*")
+	c.Assert(err, tc.ErrorMatches, ".*fail.*")
 }
 
-func (s *SetRuleSuite) runSetRule(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *SetRuleSuite) runSetRule(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, firewall.NewSetRulesCommandForTest(s.mockAPI), args...)
 }
 

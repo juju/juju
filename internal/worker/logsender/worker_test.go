@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/juju/loggo/v2"
-	jtesting "github.com/juju/testing"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apilogsender "github.com/juju/juju/api/logsender"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsender/mocks"
@@ -23,10 +23,10 @@ import (
 )
 
 type workerSuite struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
 type logsenderAPI struct {
 	writer *mocks.MockLogWriter
@@ -36,7 +36,7 @@ func (s logsenderAPI) LogWriter(_ context.Context) (apilogsender.LogWriter, erro
 	return s.writer, nil
 }
 
-func (s *workerSuite) TestLogSending(c *gc.C) {
+func (s *workerSuite) TestLogSending(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -98,7 +98,7 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestDroppedLogs(c *gc.C) {
+func (s *workerSuite) TestDroppedLogs(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

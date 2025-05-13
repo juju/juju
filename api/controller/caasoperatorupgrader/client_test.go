@@ -6,44 +6,43 @@ package caasoperatorupgrader_test
 import (
 	"context"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasoperatorupgrader"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type provisionerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&provisionerSuite{})
+var _ = tc.Suite(&provisionerSuite{})
 
 func newClient(f basetesting.APICallerFunc) *caasoperatorupgrader.Client {
 	return caasoperatorupgrader.NewClient(basetesting.BestVersionCaller{f, 5})
 }
 
-func (s *provisionerSuite) TestUpgrader(c *gc.C) {
+func (s *provisionerSuite) TestUpgrader(c *tc.C) {
 	var called bool
 	client := newClient(func(objType string, v int, id, request string, a, result interface{}) error {
 		called = true
-		c.Check(objType, gc.Equals, "CAASOperatorUpgrader")
-		c.Check(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "UpgradeOperator")
-		c.Assert(a, jc.DeepEquals, params.KubernetesUpgradeArg{
+		c.Check(objType, tc.Equals, "CAASOperatorUpgrader")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "UpgradeOperator")
+		c.Assert(a, tc.DeepEquals, params.KubernetesUpgradeArg{
 			AgentTag: "application-foo",
 			Version:  semversion.MustParse("6.6.6"),
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResult{})
 		*(result.(*params.ErrorResult)) = params.ErrorResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
 		return nil
 	})
 	err := client.Upgrade(context.Background(), "application-foo", semversion.MustParse("6.6.6"))
-	c.Check(err, gc.ErrorMatches, "FAIL")
-	c.Check(called, jc.IsTrue)
+	c.Check(err, tc.ErrorMatches, "FAIL")
+	c.Check(called, tc.IsTrue)
 }

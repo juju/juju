@@ -12,10 +12,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -32,11 +30,12 @@ import (
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type providerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	k8sClient               *mocks.MockInterface
 	mockDiscovery           *mocks.MockDiscoveryInterface
@@ -52,16 +51,16 @@ type providerSuite struct {
 	namespace string
 }
 
-var _ = gc.Suite(&providerSuite{})
+var _ = tc.Suite(&providerSuite{})
 
-func (s *providerSuite) SetUpTest(c *gc.C) {
+func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.namespace = "test"
 	s.PatchValue(&kubernetes.NewK8sClient, func(config *rest.Config) (kubernetes2.Interface, error) {
 		return s.k8sClient, nil
 	})
 }
 
-func (s *providerSuite) setupController(c *gc.C) *gomock.Controller {
+func (s *providerSuite) setupController(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.k8sClient = mocks.NewMockInterface(ctrl)
@@ -326,7 +325,7 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 	gomock.InOrder(args...)
 }
 
-func (s *providerSuite) assertRestrictedConfig(c *gc.C, accessor secrets.Accessor, isControllerCloud, sameController bool) {
+func (s *providerSuite) assertRestrictedConfig(c *tc.C, accessor secrets.Accessor, isControllerCloud, sameController bool) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -359,7 +358,7 @@ func (s *providerSuite) assertRestrictedConfig(c *gc.C, accessor secrets.Accesso
 	s.PatchEnvironment("KUBERNETES_SERVICE_PORT", "8888")
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg := s.backendConfig()
 	if isControllerCloud {
 		cfg.Config["prefer-incluster-address"] = true
@@ -375,7 +374,7 @@ func (s *providerSuite) assertRestrictedConfig(c *gc.C, accessor secrets.Accesso
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
 		Config: map[string]interface{}{
@@ -388,31 +387,31 @@ func (s *providerSuite) assertRestrictedConfig(c *gc.C, accessor secrets.Accesso
 	if isControllerCloud && sameController {
 		expected.Config["endpoint"] = "https://8.6.8.6:8888"
 	}
-	c.Assert(backendCfg, jc.DeepEquals, expected)
+	c.Assert(backendCfg, tc.DeepEquals, expected)
 }
 
-func (s *providerSuite) TestRestrictedConfigWithUnit(c *gc.C) {
+func (s *providerSuite) TestRestrictedConfigWithUnit(c *tc.C) {
 	s.assertRestrictedConfig(c, secrets.Accessor{
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
 	}, false, false)
 }
 
-func (s *providerSuite) TestRestrictedConfigWithModel(c *gc.C) {
+func (s *providerSuite) TestRestrictedConfigWithModel(c *tc.C) {
 	s.assertRestrictedConfig(c, secrets.Accessor{
 		Kind: secrets.ModelAccessor,
 		ID:   coretesting.ModelTag.Id(),
 	}, false, false)
 }
 
-func (s *providerSuite) TestRestrictedConfiWithControllerCloud(c *gc.C) {
+func (s *providerSuite) TestRestrictedConfiWithControllerCloud(c *tc.C) {
 	s.assertRestrictedConfig(c, secrets.Accessor{
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
 	}, true, true)
 }
 
-func (s *providerSuite) TestRestrictedConfigWithControllerCloudDifferentController(c *gc.C) {
+func (s *providerSuite) TestRestrictedConfigWithControllerCloudDifferentController(c *tc.C) {
 	s.assertRestrictedConfig(c, secrets.Accessor{
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
@@ -423,7 +422,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *providerSuite) TestCleanupModel(c *gc.C) {
+func (s *providerSuite) TestCleanupModel(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -473,7 +472,7 @@ func (s *providerSuite) TestCleanupModel(c *gc.C) {
 	})
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	adminCfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
@@ -482,10 +481,10 @@ func (s *providerSuite) TestCleanupModel(c *gc.C) {
 	}
 
 	err = p.CleanupModel(context.Background(), adminCfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
+func (s *providerSuite) TestCleanupSecrets(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -493,7 +492,7 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 	s.expectEnsureSecretAccessToken(consumer, "gitlab", nil, nil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	adminCfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
@@ -504,29 +503,29 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 	err = p.CleanupSecrets(context.Background(), adminCfg,
 		secrets.Accessor{Kind: secrets.UnitAccessor, ID: "gitlab/0"},
 		provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestNewBackend(c *gc.C) {
+func (s *providerSuite) TestNewBackend(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	s.mockDiscovery.EXPECT().ServerVersion().Return(nil, errors.New("boom"))
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	b, err := p.NewBackend(&provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
 		BackendConfig:  s.backendConfig(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = b.Ping()
-	c.Assert(err, gc.ErrorMatches, "backend not reachable: boom")
+	c.Assert(err, tc.ErrorMatches, "backend not reachable: boom")
 }
 
-func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C) {
+func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *tc.C) {
 	s.namespace = "juju-secrets"
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
@@ -535,7 +534,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C
 		"unit-gitlab-0", []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"}, false)
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	adminCfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
@@ -550,7 +549,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
 		Config: map[string]interface{}{
@@ -560,11 +559,11 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C
 			"token":     "token",
 		},
 	}
-	c.Assert(backendCfg, jc.DeepEquals, expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendCfg, tc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
+func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -645,7 +644,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 	)
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	adminCfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
@@ -660,7 +659,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
 		Config: map[string]interface{}{
@@ -670,11 +669,11 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 			"token":     "token",
 		},
 	}
-	c.Assert(backendCfg, jc.DeepEquals, expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendCfg, tc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelUpdate(c *gc.C) {
+func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -682,7 +681,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelUpdate(c *gc.C
 		"unit-gitlab-0", []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"}, true)
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	adminCfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
@@ -697,7 +696,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelUpdate(c *gc.C
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
 		Config: map[string]interface{}{
@@ -707,11 +706,11 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelUpdate(c *gc.C
 			"token":     "token",
 		},
 	}
-	c.Assert(backendCfg, jc.DeepEquals, expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendCfg, tc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestGetContent(c *gc.C) {
+func (s *providerSuite) TestGetContent(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -729,21 +728,21 @@ func (s *providerSuite) TestGetContent(c *gc.C) {
 	s.mockSecrets.EXPECT().Get(gomock.Any(), uri.ID+"-1", v1.GetOptions{}).Return(secret, nil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	b, err := p.NewBackend(&provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
 		BackendConfig:  s.backendConfig(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	content, err := b.GetContent(context.Background(), uri.ID+"-1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(content.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "YmFy"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(content.EncodedValues(), tc.DeepEquals, map[string]string{"foo": "YmFy"})
 }
 
-func (s *providerSuite) TestSaveContent(c *gc.C) {
+func (s *providerSuite) TestSaveContent(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -770,21 +769,21 @@ func (s *providerSuite) TestSaveContent(c *gc.C) {
 		Return(nil, s.k8sNotFoundError())
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	b, err := p.NewBackend(&provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
 		BackendConfig:  s.backendConfig(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	name, err := b.SaveContent(context.Background(), uri, 1, secrets.NewSecretValue(map[string]string{"foo": "YmFy"}))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, uri.ID+"-1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(name, tc.Equals, uri.ID+"-1")
 }
 
-func (s *providerSuite) TestDeleteContent(c *gc.C) {
+func (s *providerSuite) TestDeleteContent(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -800,20 +799,20 @@ func (s *providerSuite) TestDeleteContent(c *gc.C) {
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy()})
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	b, err := p.NewBackend(&provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
 		BackendConfig:  s.backendConfig(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = b.DeleteContent(context.Background(), uri.ID+"-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestRefreshAuth(c *gc.C) {
+func (s *providerSuite) TestRefreshAuth(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -828,15 +827,15 @@ func (s *providerSuite) TestRefreshAuth(c *gc.C) {
 		}, nil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r, ok := p.(provider.SupportAuthRefresh)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	cfg := s.backendConfig()
 	cfg.Config["service-account"] = "default"
 
 	validFor := time.Hour
 	newCfg, err := r.RefreshAuth(context.Background(), cfg, validFor)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCfg.Config["token"], gc.Equals, "token2")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newCfg.Config["token"], tc.Equals, "token2")
 }

@@ -4,17 +4,18 @@
 package upgrader_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type unitUpgraderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&unitUpgraderSuite{})
+var _ = tc.Suite(&unitUpgraderSuite{})
 
-func (s *unitUpgraderSuite) TestStub(c *gc.C) {
+func (s *unitUpgraderSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
  - TestWatchAPIVersionNothing: Not an error to watch nothing
  - TestWatchAPIVersion: watch the api version

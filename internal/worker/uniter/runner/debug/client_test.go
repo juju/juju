@@ -8,8 +8,7 @@ import (
 	"fmt"
 	"regexp"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/debug"
@@ -17,34 +16,34 @@ import (
 
 type DebugHooksClientSuite struct{}
 
-var _ = gc.Suite(&DebugHooksClientSuite{})
+var _ = tc.Suite(&DebugHooksClientSuite{})
 
-func (*DebugHooksClientSuite) TestClientScript(c *gc.C) {
+func (*DebugHooksClientSuite) TestClientScript(c *tc.C) {
 	ctx := debug.NewHooksContext("foo/8")
 
 	// Test the variable substitutions.
 	result := debug.ClientScript(ctx, nil, "")
 	// No variables left behind.
-	c.Assert(result, gc.Not(gc.Matches), "(.|\n)*{unit_name}(.|\n)*")
-	c.Assert(result, gc.Not(gc.Matches), "(.|\n)*{tmux_conf}(.|\n)*")
-	c.Assert(result, gc.Not(gc.Matches), "(.|\n)*{entry_flock}(.|\n)*")
-	c.Assert(result, gc.Not(gc.Matches), "(.|\n)*{exit_flock}(.|\n)*")
+	c.Assert(result, tc.Not(tc.Matches), "(.|\n)*{unit_name}(.|\n)*")
+	c.Assert(result, tc.Not(tc.Matches), "(.|\n)*{tmux_conf}(.|\n)*")
+	c.Assert(result, tc.Not(tc.Matches), "(.|\n)*{entry_flock}(.|\n)*")
+	c.Assert(result, tc.Not(tc.Matches), "(.|\n)*{exit_flock}(.|\n)*")
 	// tmux new-session -d -s {unit_name}
-	c.Assert(result, gc.Matches, fmt.Sprintf("(.|\n)*tmux attach-session -t %s(.|\n)*", regexp.QuoteMeta(ctx.Unit)))
+	c.Assert(result, tc.Matches, fmt.Sprintf("(.|\n)*tmux attach-session -t %s(.|\n)*", regexp.QuoteMeta(ctx.Unit)))
 	//) 9>{exit_flock}
-	c.Assert(result, gc.Matches, fmt.Sprintf("(.|\n)*\\) 9>%s(.|\n)*", regexp.QuoteMeta(ctx.ClientExitFileLock())))
+	c.Assert(result, tc.Matches, fmt.Sprintf("(.|\n)*\\) 9>%s(.|\n)*", regexp.QuoteMeta(ctx.ClientExitFileLock())))
 	//) 8>{entry_flock}
-	c.Assert(result, gc.Matches, fmt.Sprintf("(.|\n)*\\) 8>%s(.|\n)*", regexp.QuoteMeta(ctx.ClientFileLock())))
+	c.Assert(result, tc.Matches, fmt.Sprintf("(.|\n)*\\) 8>%s(.|\n)*", regexp.QuoteMeta(ctx.ClientFileLock())))
 
 	// nil is the same as empty slice is the same as "*".
 	// Also, if "*" is present as well as a named hook,
 	// it is equivalent to "*".
 	c.Check(debug.ClientScript(ctx, nil, ""),
-		gc.Equals, debug.ClientScript(ctx, []string{}, ""))
+		tc.Equals, debug.ClientScript(ctx, []string{}, ""))
 	c.Check(debug.ClientScript(ctx, []string{"*"}, ""),
-		gc.Equals, debug.ClientScript(ctx, nil, ""))
+		tc.Equals, debug.ClientScript(ctx, nil, ""))
 	c.Check(debug.ClientScript(ctx, []string{"*", "something"}, ""),
-		gc.Equals, debug.ClientScript(ctx, []string{"*"}, ""))
+		tc.Equals, debug.ClientScript(ctx, []string{"*"}, ""))
 
 	// debug.ClientScript does not validate hook names, as it doesn't have
 	// a full state API connection to determine valid relation hooks.
@@ -52,41 +51,41 @@ func (*DebugHooksClientSuite) TestClientScript(c *gc.C) {
 	//  Without escaping the '|' it was actually just asserting that 'base64 -d' existed in the
 	//  file.
 	c.Check(debug.Base64HookArgs([]string{"something somethingelse"}, ""),
-		gc.Equals, "aG9va3M6Ci0gc29tZXRoaW5nIHNvbWV0aGluZ2Vsc2UK")
+		tc.Equals, "aG9va3M6Ci0gc29tZXRoaW5nIHNvbWV0aGluZ2Vsc2UK")
 	expected := fmt.Sprintf(
 		`(.|\n)*echo "aG9va3M6Ci0gc29tZXRoaW5nIHNvbWV0aGluZ2Vsc2UK" \| base64 -d > %s(.|\n)*`,
 		regexp.QuoteMeta(ctx.ClientFileLock()),
 	)
-	c.Assert(debug.ClientScript(ctx, []string{"something somethingelse"}, ""), gc.Matches, expected)
+	c.Assert(debug.ClientScript(ctx, []string{"something somethingelse"}, ""), tc.Matches, expected)
 	expected = fmt.Sprintf(
 		`(.|\n)*echo "%s" \| base64 -d > %s(.|\n)*`,
 		debug.Base64HookArgs(nil, "breakpoint-string"),
 		regexp.QuoteMeta(ctx.ClientFileLock()),
 	)
 	c.Assert(debug.ClientScript(ctx, []string{}, "breakpoint-string"),
-		gc.Matches, expected)
+		tc.Matches, expected)
 }
 
-func (*DebugHooksClientSuite) TestBase64HookArgsNoValues(c *gc.C) {
+func (*DebugHooksClientSuite) TestBase64HookArgsNoValues(c *tc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
 	testEncodeRoundTrips(c, nil, "", map[string]interface{}{})
 }
 
-func (*DebugHooksClientSuite) TestBase64HookArgsHookList(c *gc.C) {
+func (*DebugHooksClientSuite) TestBase64HookArgsHookList(c *tc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
 	testEncodeRoundTrips(c, []string{"install", "start"}, "", map[string]interface{}{
 		"hooks": []interface{}{"install", "start"},
 	})
 }
 
-func (*DebugHooksClientSuite) TestBase64HookArgsDebugAt(c *gc.C) {
+func (*DebugHooksClientSuite) TestBase64HookArgsDebugAt(c *tc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
 	testEncodeRoundTrips(c, nil, "all,broken", map[string]interface{}{
 		"debug-at": "all,broken",
 	})
 }
 
-func (*DebugHooksClientSuite) TestBase64HookArgsBoth(c *gc.C) {
+func (*DebugHooksClientSuite) TestBase64HookArgsBoth(c *tc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
 	testEncodeRoundTrips(c, []string{"db-relation-changed", "stop"}, "brokepoint",
 		map[string]interface{}{
@@ -95,17 +94,17 @@ func (*DebugHooksClientSuite) TestBase64HookArgsBoth(c *gc.C) {
 		})
 }
 
-func testEncodeRoundTrips(c *gc.C, match []string, debugAt string, decoded map[string]interface{}) {
+func testEncodeRoundTrips(c *tc.C, match []string, debugAt string, decoded map[string]interface{}) {
 	base64Args := debug.Base64HookArgs(match, debugAt)
 	args := decodeArgs(c, base64Args)
-	c.Check(args, gc.DeepEquals, decoded)
+	c.Check(args, tc.DeepEquals, decoded)
 }
 
-func decodeArgs(c *gc.C, base64Args string) map[string]interface{} {
-	c.Assert(base64Args, gc.Not(gc.Equals), "")
+func decodeArgs(c *tc.C, base64Args string) map[string]interface{} {
+	c.Assert(base64Args, tc.Not(tc.Equals), "")
 	yamlArgs, err := base64.StdEncoding.DecodeString(base64Args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var decoded map[string]interface{}
-	c.Assert(goyaml.Unmarshal(yamlArgs, &decoded), jc.ErrorIsNil)
+	c.Assert(goyaml.Unmarshal(yamlArgs, &decoded), tc.ErrorIsNil)
 	return decoded
 }

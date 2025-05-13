@@ -4,8 +4,7 @@
 package google_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/gce/google"
@@ -15,9 +14,9 @@ type connConfigSuite struct {
 	google.BaseSuite
 }
 
-var _ = gc.Suite(&connConfigSuite{})
+var _ = tc.Suite(&connConfigSuite{})
 
-func (*connConfigSuite) TestValidateValid(c *gc.C) {
+func (*connConfigSuite) TestValidateValid(c *tc.C) {
 	cfg := google.ConnectionConfig{
 		Region:     "spam",
 		ProjectID:  "eggs",
@@ -25,25 +24,25 @@ func (*connConfigSuite) TestValidateValid(c *gc.C) {
 	}
 	err := cfg.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (*connConfigSuite) TestValidateMissingRegion(c *gc.C) {
+func (*connConfigSuite) TestValidateMissingRegion(c *tc.C) {
 	cfg := google.ConnectionConfig{
 		ProjectID: "eggs",
 	}
 	err := cfg.Validate()
 
-	c.Assert(err, gc.FitsTypeOf, &google.InvalidConfigValueError{})
-	c.Check(err.(*google.InvalidConfigValueError).Key, gc.Equals, "GCE_REGION")
+	c.Assert(err, tc.FitsTypeOf, &google.InvalidConfigValueError{})
+	c.Check(err.(*google.InvalidConfigValueError).Key, tc.Equals, "GCE_REGION")
 }
 
-func (*connConfigSuite) TestValidateMissingProjectID(c *gc.C) {
+func (*connConfigSuite) TestValidateMissingProjectID(c *tc.C) {
 	cfg := google.ConnectionConfig{
 		Region: "spam",
 	}
 	err := cfg.Validate()
 
-	c.Assert(err, gc.FitsTypeOf, &google.InvalidConfigValueError{})
-	c.Check(err.(*google.InvalidConfigValueError).Key, gc.Equals, "GCE_PROJECT_ID")
+	c.Assert(err, tc.FitsTypeOf, &google.InvalidConfigValueError{})
+	c.Check(err.(*google.InvalidConfigValueError).Key, tc.Equals, "GCE_PROJECT_ID")
 }

@@ -4,16 +4,15 @@
 package testing
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coremachine "github.com/juju/juju/core/machine"
 )
 
 // GenUUID can be used in testing for generating a machine uuid that is
 // checked for errors using the test suit's go check instance.
-func GenUUID(c *gc.C) coremachine.UUID {
+func GenUUID(c *tc.C) coremachine.UUID {
 	uuid, err := coremachine.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

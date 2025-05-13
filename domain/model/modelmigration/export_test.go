@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
@@ -20,14 +19,14 @@ type exportSuite struct {
 	modelExportService *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
 // ptr returns a pointer to the value t passed in.
 func ptr[T any](t T) *T {
 	return &t
 }
 
-func (e *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (e *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	e.modelExportService = NewMockExportService(ctrl)
@@ -35,7 +34,7 @@ func (e *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (e *exportSuite) TestModelEnvironVersionExport(c *gc.C) {
+func (e *exportSuite) TestModelEnvironVersionExport(c *tc.C) {
 	defer e.setupMocks(c).Finish()
 
 	newUUID := testing.GenModelUUID(c)
@@ -45,8 +44,8 @@ func (e *exportSuite) TestModelEnvironVersionExport(c *gc.C) {
 			"uuid": newUUID.String(),
 		},
 	})
-	c.Check(model.UUID(), gc.Equals, newUUID.String())
-	c.Check(model.EnvironVersion(), gc.Equals, 5)
+	c.Check(model.UUID(), tc.Equals, newUUID.String())
+	c.Check(model.EnvironVersion(), tc.Equals, 5)
 
 	e.modelExportService.EXPECT().GetEnvironVersion(gomock.Any()).Return(3, nil)
 	exportOp := exportEnvironVersionOperation{
@@ -57,10 +56,10 @@ func (e *exportSuite) TestModelEnvironVersionExport(c *gc.C) {
 		},
 	}
 	_ = exportOp.Execute(context.Background(), model)
-	c.Check(model.EnvironVersion(), gc.Equals, 3)
+	c.Check(model.EnvironVersion(), tc.Equals, 3)
 }
 
-func (e *exportSuite) TestModelConstraintsExport(c *gc.C) {
+func (e *exportSuite) TestModelConstraintsExport(c *tc.C) {
 	defer e.setupMocks(c).Finish()
 
 	newUUID := testing.GenModelUUID(c)
@@ -70,8 +69,8 @@ func (e *exportSuite) TestModelConstraintsExport(c *gc.C) {
 			"uuid": newUUID.String(),
 		},
 	})
-	c.Check(model.UUID(), gc.Equals, newUUID.String())
-	c.Check(model.EnvironVersion(), gc.Equals, 5)
+	c.Check(model.UUID(), tc.Equals, newUUID.String())
+	c.Check(model.EnvironVersion(), tc.Equals, 5)
 
 	e.modelExportService.EXPECT().GetModelConstraints(gomock.Any()).Return(
 		constraints.Value{
@@ -93,12 +92,12 @@ func (e *exportSuite) TestModelConstraintsExport(c *gc.C) {
 	_ = exportOp.Execute(context.Background(), model)
 
 	// Test values that we know should be set
-	c.Check(model.Constraints().AllocatePublicIP(), jc.IsTrue)
-	c.Check(model.Constraints().Architecture(), gc.Equals, "arm64")
-	c.Check(model.Constraints().Spaces(), jc.DeepEquals, []string{"space1", "space2"})
+	c.Check(model.Constraints().AllocatePublicIP(), tc.IsTrue)
+	c.Check(model.Constraints().Architecture(), tc.Equals, "arm64")
+	c.Check(model.Constraints().Spaces(), tc.DeepEquals, []string{"space1", "space2"})
 
 	// Test values that we know should not be set
-	c.Check(model.Constraints().CpuCores(), gc.Equals, uint64(0))
-	c.Check(model.Constraints().CpuPower(), gc.Equals, uint64(0))
-	c.Check(model.Constraints().ImageID(), gc.Equals, "")
+	c.Check(model.Constraints().CpuCores(), tc.Equals, uint64(0))
+	c.Check(model.Constraints().CpuPower(), tc.Equals, uint64(0))
+	c.Check(model.Constraints().ImageID(), tc.Equals, "")
 }

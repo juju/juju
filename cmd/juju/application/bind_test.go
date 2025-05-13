@@ -8,9 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -18,13 +16,14 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
 type BindSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 
 	apiConnection     mockAPIConnection
 	applicationClient mockApplicationBindClient
@@ -32,9 +31,9 @@ type BindSuite struct {
 	cmd               cmd.Command
 }
 
-var _ = gc.Suite(&BindSuite{})
+var _ = tc.Suite(&BindSuite{})
 
-func (s *BindSuite) SetUpTest(c *gc.C) {
+func (s *BindSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
 
@@ -91,11 +90,11 @@ func (s *BindSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *BindSuite) runBind(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *BindSuite) runBind(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, s.cmd, args...)
 }
 
-func (s *BindSuite) TestBind(c *gc.C) {
+func (s *BindSuite) TestBind(c *tc.C) {
 	s.setupAPIConnection()
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
@@ -105,7 +104,7 @@ func (s *BindSuite) TestBind(c *gc.C) {
 	}
 
 	_, err := s.runBind(c, "foo", "ep1=sp1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.spacesClient.CheckCallNames(c, "ListSpaces")
 	s.applicationClient.CheckCallNames(c, "Get", "MergeBindings")
 	s.applicationClient.CheckCall(c, 1, "MergeBindings", params.ApplicationMergeBindingsArgs{
@@ -121,14 +120,14 @@ func (s *BindSuite) TestBind(c *gc.C) {
 	})
 }
 
-func (s *BindSuite) TestBindWithNoBindings(c *gc.C) {
+func (s *BindSuite) TestBindWithNoBindings(c *tc.C) {
 	s.setupAPIConnection()
 
 	_, err := s.runBind(c, "foo")
-	c.Assert(err, gc.ErrorMatches, "no bindings specified")
+	c.Assert(err, tc.ErrorMatches, "no bindings specified")
 }
 
-func (s *BindSuite) TestBindUnknownEndpoint(c *gc.C) {
+func (s *BindSuite) TestBindUnknownEndpoint(c *tc.C) {
 	s.setupAPIConnection()
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
@@ -138,7 +137,7 @@ func (s *BindSuite) TestBindUnknownEndpoint(c *gc.C) {
 	}
 
 	_, err := s.runBind(c, "foo", "unknown=sp1")
-	c.Assert(err, gc.ErrorMatches, `endpoint "unknown" not found`)
+	c.Assert(err, tc.ErrorMatches, `endpoint "unknown" not found`)
 }
 
 func (s *BindSuite) setupAPIConnection() {
@@ -154,7 +153,7 @@ func (s *BindSuite) setupAPIConnection() {
 
 type mockApplicationBindClient struct {
 	ApplicationBindClient
-	testing.Stub
+	testhelpers.Stub
 
 	getResults *params.ApplicationGetResults
 }

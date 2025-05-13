@@ -7,8 +7,7 @@ import (
 	"fmt"
 	"sort"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -18,9 +17,9 @@ type HostPortSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&HostPortSuite{})
+var _ = tc.Suite(&HostPortSuite{})
 
-func (s *HostPortSuite) TestFilterUnusableHostPorts(c *gc.C) {
+func (s *HostPortSuite) TestFilterUnusableHostPorts(c *tc.C) {
 	// The order is preserved, but machine- and link-local addresses
 	// are dropped.
 	expected := append(
@@ -49,11 +48,11 @@ func (s *HostPortSuite) TestFilterUnusableHostPorts(c *gc.C) {
 	).HostPorts()
 
 	result := s.makeHostPorts().HostPorts().FilterUnusable()
-	c.Assert(result, gc.HasLen, len(expected))
-	c.Assert(result, jc.DeepEquals, expected)
+	c.Assert(result, tc.HasLen, len(expected))
+	c.Assert(result, tc.DeepEquals, expected)
 }
 
-func (*HostPortSuite) TestCollapseToHostPorts(c *gc.C) {
+func (*HostPortSuite) TestCollapseToHostPorts(c *tc.C) {
 	servers := []network.MachineHostPorts{
 		network.NewMachineHostPorts(1234,
 			"0.1.2.3", "10.0.1.2", "fc00::1", "2001:db8::1", "::1",
@@ -68,39 +67,39 @@ func (*HostPortSuite) TestCollapseToHostPorts(c *gc.C) {
 	}
 	expected := append(servers[0], append(servers[1], servers[2]...)...).HostPorts()
 	result := network.CollapseToHostPorts(servers)
-	c.Assert(result, gc.HasLen, len(servers[0])+len(servers[1])+len(servers[2]))
-	c.Assert(result, jc.DeepEquals, expected)
+	c.Assert(result, tc.HasLen, len(servers[0])+len(servers[1])+len(servers[2]))
+	c.Assert(result, tc.DeepEquals, expected)
 }
 
-func (s *HostPortSuite) TestEnsureFirstHostPort(c *gc.C) {
+func (s *HostPortSuite) TestEnsureFirstHostPort(c *tc.C) {
 	first := network.NewSpaceHostPorts(1234, "1.2.3.4")[0]
 
 	// Without any HostPorts, it still works.
 	hps := network.EnsureFirstHostPort(first, []network.SpaceHostPort{})
-	c.Assert(hps, jc.DeepEquals, network.SpaceHostPorts{first})
+	c.Assert(hps, tc.DeepEquals, network.SpaceHostPorts{first})
 
 	// If already there, no changes happen.
 	hps = s.makeHostPorts()
 	result := network.EnsureFirstHostPort(hps[0], hps)
-	c.Assert(result, jc.DeepEquals, hps)
+	c.Assert(result, tc.DeepEquals, hps)
 
 	// If not at the top, pop it up and put it on top.
 	firstLast := append(hps, first)
 	result = network.EnsureFirstHostPort(first, firstLast)
-	c.Assert(result, jc.DeepEquals, append(network.SpaceHostPorts{first}, hps...))
+	c.Assert(result, tc.DeepEquals, append(network.SpaceHostPorts{first}, hps...))
 }
 
-func (*HostPortSuite) TestNewHostPorts(c *gc.C) {
+func (*HostPortSuite) TestNewHostPorts(c *tc.C) {
 	addrs := []string{"0.1.2.3", "fc00::1", "::1", "example.com"}
 	expected := network.SpaceAddressesWithPort(
 		network.NewSpaceAddresses(addrs...), 42,
 	)
 	result := network.NewSpaceHostPorts(42, addrs...)
-	c.Assert(result, gc.HasLen, len(addrs))
-	c.Assert(result, jc.DeepEquals, expected)
+	c.Assert(result, tc.HasLen, len(addrs))
+	c.Assert(result, tc.DeepEquals, expected)
 }
 
-func (*HostPortSuite) TestParseHostPortsErrors(c *gc.C) {
+func (*HostPortSuite) TestParseHostPortsErrors(c *tc.C) {
 	for i, test := range []struct {
 		input string
 		err   string
@@ -132,16 +131,16 @@ func (*HostPortSuite) TestParseHostPortsErrors(c *gc.C) {
 		c.Logf("test %d: input %q", i, test.input)
 		// First test all error cases with a single argument.
 		hps, err := network.ParseMachineHostPort(test.input)
-		c.Check(err, gc.ErrorMatches, test.err)
-		c.Check(hps, gc.IsNil)
+		c.Check(err, tc.ErrorMatches, test.err)
+		c.Check(hps, tc.IsNil)
 	}
 	// Finally, test with mixed valid and invalid args.
 	hps, err := network.ParseProviderHostPorts("1.2.3.4:42", "[fc00::1]:12", "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot parse "foo" as address:port: .*missing port in address.*`)
-	c.Assert(hps, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `cannot parse "foo" as address:port: .*missing port in address.*`)
+	c.Assert(hps, tc.IsNil)
 }
 
-func (*HostPortSuite) TestParseProviderHostPortsSuccess(c *gc.C) {
+func (*HostPortSuite) TestParseProviderHostPortsSuccess(c *tc.C) {
 	for i, test := range []struct {
 		args   []string
 		expect network.ProviderHostPorts
@@ -164,15 +163,15 @@ func (*HostPortSuite) TestParseProviderHostPortsSuccess(c *gc.C) {
 	}} {
 		c.Logf("test %d: args %v", i, test.args)
 		hps, err := network.ParseProviderHostPorts(test.args...)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(hps, jc.DeepEquals, test.expect)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(hps, tc.DeepEquals, test.expect)
 	}
 }
 
-func (*HostPortSuite) TestAddressesWithPort(c *gc.C) {
+func (*HostPortSuite) TestAddressesWithPort(c *tc.C) {
 	addrs := network.NewSpaceAddresses("0.1.2.3", "0.2.4.6")
 	hps := network.SpaceAddressesWithPort(addrs, 999)
-	c.Assert(hps, jc.DeepEquals, network.SpaceHostPorts{{
+	c.Assert(hps, tc.DeepEquals, network.SpaceHostPorts{{
 		SpaceAddress: network.NewSpaceAddress("0.1.2.3"),
 		NetPort:      999,
 	}, {
@@ -181,11 +180,11 @@ func (*HostPortSuite) TestAddressesWithPort(c *gc.C) {
 	}})
 }
 
-func (s *HostPortSuite) assertHostPorts(c *gc.C, actual network.HostPorts, expected ...string) {
-	c.Assert(actual.Strings(), jc.DeepEquals, expected)
+func (s *HostPortSuite) assertHostPorts(c *tc.C, actual network.HostPorts, expected ...string) {
+	c.Assert(actual.Strings(), tc.DeepEquals, expected)
 }
 
-func (s *HostPortSuite) TestSortHostPorts(c *gc.C) {
+func (s *HostPortSuite) TestSortHostPorts(c *tc.C) {
 	hps := s.makeHostPorts()
 	sort.Sort(hps)
 	s.assertHostPorts(c, hps.HostPorts(),
@@ -276,24 +275,24 @@ var netAddrTests = []struct {
 	expect: "[::1]:111",
 }}
 
-func (*HostPortSuite) TestDialAddressAndString(c *gc.C) {
+func (*HostPortSuite) TestDialAddressAndString(c *tc.C) {
 	for i, test := range netAddrTests {
 		c.Logf("test %d: %q", i, test.addr)
 		hp := network.SpaceHostPort{
 			SpaceAddress: test.addr,
 			NetPort:      network.NetPort(test.port),
 		}
-		c.Check(network.DialAddress(hp), gc.Equals, test.expect)
-		c.Check(hp.String(), gc.Equals, test.expect)
-		c.Check(hp.GoString(), gc.Equals, test.expect)
+		c.Check(network.DialAddress(hp), tc.Equals, test.expect)
+		c.Check(hp.String(), tc.Equals, test.expect)
+		c.Check(hp.GoString(), tc.Equals, test.expect)
 	}
 }
 
-func (s *HostPortSuite) TestHostPortsToStrings(c *gc.C) {
+func (s *HostPortSuite) TestHostPortsToStrings(c *tc.C) {
 	hps := s.makeHostPorts()
 	strHPs := hps.HostPorts().Strings()
-	c.Assert(strHPs, gc.HasLen, len(hps))
-	c.Assert(strHPs, jc.DeepEquals, []string{
+	c.Assert(strHPs, tc.HasLen, len(hps))
+	c.Assert(strHPs, tc.DeepEquals, []string{
 		"127.0.0.1:1234",
 		"localhost:1234",
 		"example.com:1234",
@@ -364,30 +363,30 @@ func (*HostPortSuite) makeHostPorts() network.SpaceHostPorts {
 	)
 }
 
-func (s *HostPortSuite) TestUniqueHostPortsSimpleInput(c *gc.C) {
+func (s *HostPortSuite) TestUniqueHostPortsSimpleInput(c *tc.C) {
 	input := network.NewSpaceHostPorts(1234, "127.0.0.1", "::1")
 	expected := input.HostPorts()
-	c.Assert(input.HostPorts().Unique(), jc.DeepEquals, expected)
+	c.Assert(input.HostPorts().Unique(), tc.DeepEquals, expected)
 }
 
-func (s *HostPortSuite) TestUniqueHostPortsOnlyDuplicates(c *gc.C) {
+func (s *HostPortSuite) TestUniqueHostPortsOnlyDuplicates(c *tc.C) {
 	input := s.manyMachineHostPorts(c, 10000, nil) // use IANA reserved port
 	expected := input[0:1].HostPorts()
-	c.Assert(input.HostPorts().Unique(), jc.DeepEquals, expected)
+	c.Assert(input.HostPorts().Unique(), tc.DeepEquals, expected)
 }
 
-func (s *HostPortSuite) TestUniqueHostPortsHugeUniqueInput(c *gc.C) {
+func (s *HostPortSuite) TestUniqueHostPortsHugeUniqueInput(c *tc.C) {
 	input := s.manyMachineHostPorts(c, maxTCPPort, func(port int) string {
 		return fmt.Sprintf("127.1.0.1:%d", port)
 	})
 	expected := input.HostPorts()
-	c.Assert(input.HostPorts().Unique(), jc.DeepEquals, expected)
+	c.Assert(input.HostPorts().Unique(), tc.DeepEquals, expected)
 }
 
 const maxTCPPort = 65535
 
 func (s *HostPortSuite) manyMachineHostPorts(
-	c *gc.C, count int, addressFunc func(index int) string) network.MachineHostPorts {
+	c *tc.C, count int, addressFunc func(index int) string) network.MachineHostPorts {
 	if addressFunc == nil {
 		addressFunc = func(_ int) string {
 			return "127.0.0.1:49151" // all use the same IANA reserved port.
@@ -397,7 +396,7 @@ func (s *HostPortSuite) manyMachineHostPorts(
 	results := make([]network.MachineHostPort, count)
 	for i := range results {
 		hostPort, err := network.ParseMachineHostPort(addressFunc(i))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		results[i] = *hostPort
 	}
 	return results
@@ -446,11 +445,11 @@ var prioritizeInternalHostPortsTests = []selectInternalHostPortsTest{{
 	[]string{"10.0.0.1:4444", "[fc00::1]:123", "8.8.8.8:123", "[2001:db8::1]:123"},
 }}
 
-func (s *HostPortSuite) TestPrioritizeInternalHostPorts(c *gc.C) {
+func (s *HostPortSuite) TestPrioritizeInternalHostPorts(c *tc.C) {
 	for i, t := range prioritizeInternalHostPortsTests {
 		c.Logf("test %d: %s", i, t.about)
 		prioritized := t.addresses.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
-		c.Check(prioritized, gc.DeepEquals, t.expected)
+		c.Check(prioritized, tc.DeepEquals, t.expected)
 	}
 }
 
@@ -499,9 +498,9 @@ var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
 	[]string{"[fc00::1]:123"},
 }}
 
-func (s *HostPortSuite) TestSelectInternalHostPorts(c *gc.C) {
+func (s *HostPortSuite) TestSelectInternalHostPorts(c *tc.C) {
 	for i, t := range selectInternalHostPortsTests {
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(t.addresses.AllMatchingScope(network.ScopeMatchCloudLocal), gc.DeepEquals, t.expected)
+		c.Check(t.addresses.AllMatchingScope(network.ScopeMatchCloudLocal), tc.DeepEquals, t.expected)
 	}
 }

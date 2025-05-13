@@ -14,9 +14,8 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/controller"
@@ -54,9 +53,9 @@ type macaroonAuthSuite struct {
 	controllerConfig map[string]interface{}
 }
 
-var _ = gc.Suite(&macaroonAuthSuite{})
+var _ = tc.Suite(&macaroonAuthSuite{})
 
-func (s *macaroonAuthSuite) SetUpTest(c *gc.C) {
+func (s *macaroonAuthSuite) SetUpTest(c *tc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)
 	s.controllerConfig = map[string]interface{}{
 		controller.IdentityURL: s.discharger.Location(),
@@ -70,7 +69,7 @@ func (s *macaroonAuthSuite) SetUpTest(c *gc.C) {
 	s.macaroonService.InitialiseBakeryConfig(context.Background())
 }
 
-func (s *macaroonAuthSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *macaroonAuthSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
@@ -89,7 +88,7 @@ func (s *macaroonAuthSuite) setupMocks(c *gc.C) *gomock.Controller {
 		agentAuthGetter,
 		s.clock,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authenticator = authenticator
 
 	return ctrl
@@ -108,7 +107,7 @@ func (alwaysIdent) DeclaredIdentity(ctx context.Context, declared map[string]str
 	return nil, errors.New("not called")
 }
 
-func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
+func (s *macaroonAuthSuite) TestServerBakery(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	discharger := bakerytest.NewDischarger(nil)
@@ -123,7 +122,7 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 	})
 
 	bsvc, err := ServerBakery(context.Background(), s.authenticator, &alwaysIdent{IdentityLocation: discharger.Location()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	cav := []checkers.Caveat{
 		checkers.NeedDeclaredCaveat(
@@ -135,26 +134,26 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 		),
 	}
 	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	client := httpbakery.NewClient()
 	ms, err := client.DischargeAll(context.Background(), mac)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, cond, err := bsvc.Oven.VerifyMacaroon(context.Background(), ms)
-	c.Assert(err, gc.IsNil)
-	c.Assert(cond, jc.DeepEquals, []string{"declared username fred"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(cond, tc.DeepEquals, []string{"declared username fred"})
 	authChecker := bsvc.Checker.Auth(ms)
 	ai, err := authChecker.Allow(context.Background(), identchecker.LoginOp)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ai.Identity.Id(), gc.Equals, "fred")
+	c.Assert(err, tc.IsNil)
+	c.Assert(ai.Identity.Id(), tc.Equals, "fred")
 }
 
-func (s *macaroonAuthSuite) TestExpiredKey(c *gc.C) {
+func (s *macaroonAuthSuite) TestExpiredKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	bsvc, err := ServerBakeryExpiresImmediately(context.Background(), s.authenticator, &alwaysIdent{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	cav := []checkers.Caveat{
 		checkers.NeedDeclaredCaveat(
@@ -165,7 +164,7 @@ func (s *macaroonAuthSuite) TestExpiredKey(c *gc.C) {
 		),
 	}
 	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	// Advance time here because the root key is created during NewMacaroon.
 	// The clock needs to move over here to expire the root key correctly
@@ -173,8 +172,8 @@ func (s *macaroonAuthSuite) TestExpiredKey(c *gc.C) {
 
 	client := httpbakery.NewClient()
 	ms, err := client.DischargeAll(context.Background(), mac)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = bsvc.Oven.VerifyMacaroon(context.Background(), ms)
-	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
+	c.Assert(err, tc.ErrorMatches, "verification failed: macaroon not found in storage")
 }

@@ -8,24 +8,23 @@ import (
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
 
-var _ = gc.Suite(&upgradeValidationSuite{})
+var _ = tc.Suite(&upgradeValidationSuite{})
 
 type upgradeValidationSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *gc.C) {
+func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *tc.C) {
 	blockers1 := upgradevalidation.NewModelUpgradeBlockers(
 		"controller",
 		*upgradevalidation.NewBlocker("model migration is in process"),
@@ -37,7 +36,7 @@ func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *gc.C) {
 		)
 		blockers1.Join(blockers)
 	}
-	c.Assert(blockers1.String(), gc.Equals, `
+	c.Assert(blockers1.String(), tc.Equals, `
 "controller":
 - model migration is in process
 "model-1":
@@ -50,7 +49,7 @@ func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *gc.C) {
 - model migration is in process`[1:])
 }
 
-func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *gc.C) {
+func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -67,11 +66,11 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *gc.C) {
 	)
 
 	blockers, err := checker.Validate()
-	c.Assert(err, gc.ErrorMatches, `server is unreachable`)
-	c.Assert(blockers, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `server is unreachable`)
+	c.Assert(blockers, tc.IsNil)
 }
 
-func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *gc.C) {
+func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -85,13 +84,13 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *gc.C) {
 	)
 
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers.String(), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blockers.String(), tc.Equals, `
 "test-model":
 - model migration is in process`[1:])
 }
 
-func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *gc.C) {
+func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -104,11 +103,11 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 	st.EXPECT().AllMachinesCount().Return(5, nil)
 
 	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel(st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker.Error(), tc.Equals, `the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`)
 }
 
-func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *gc.C) {
+func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -128,27 +127,27 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *
 		semversion.MustParse("3.0.0"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)(nil, agentService)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.ErrorMatches, `current model \("2.9.29"\) has to be upgraded to "2.9.30" at least`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.ErrorMatches, `current model \("2.9.29"\) has to be upgraded to "2.9.30" at least`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		semversion.MustParse("3.0.0"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)(nil, agentService)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		semversion.MustParse("1.1.1"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)(nil, agentService)
-	c.Assert(err, gc.ErrorMatches, `downgrade is not allowed`)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `downgrade is not allowed`)
+	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		semversion.MustParse("4.1.1"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)(nil, agentService)
-	c.Assert(err, gc.ErrorMatches, `upgrading controller to "4.1.1" is not supported from "2.9.31"`)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `upgrading controller to "4.1.1" is not supported from "2.9.31"`)
+	c.Assert(blocker, tc.IsNil)
 }

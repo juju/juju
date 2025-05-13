@@ -4,39 +4,38 @@
 package common_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/service/common"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type serviceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (*serviceSuite) TestNoConfMissing(c *gc.C) {
+func (*serviceSuite) TestNoConfMissing(c *tc.C) {
 	service := common.Service{
 		Name: "a-application",
 	}
 	noConf := service.NoConf()
 
-	c.Check(noConf, jc.IsTrue)
+	c.Check(noConf, tc.IsTrue)
 }
 
-func (*serviceSuite) TestNoConfEmpty(c *gc.C) {
+func (*serviceSuite) TestNoConfEmpty(c *tc.C) {
 	service := common.Service{
 		Name: "a-application",
 		Conf: common.Conf{},
 	}
 	noConf := service.NoConf()
 
-	c.Check(noConf, jc.IsTrue)
+	c.Check(noConf, tc.IsTrue)
 }
 
-func (*serviceSuite) TestNoConfFalse(c *gc.C) {
+func (*serviceSuite) TestNoConfFalse(c *tc.C) {
 	service := common.Service{
 		Name: "a-application",
 		Conf: common.Conf{
@@ -46,10 +45,10 @@ func (*serviceSuite) TestNoConfFalse(c *gc.C) {
 	}
 	noConf := service.NoConf()
 
-	c.Check(noConf, jc.IsFalse)
+	c.Check(noConf, tc.IsFalse)
 }
 
-func (*serviceSuite) TestValidateOkay(c *gc.C) {
+func (*serviceSuite) TestValidateOkay(c *tc.C) {
 	service := common.Service{
 		Name: "a-application",
 		Conf: common.Conf{
@@ -59,10 +58,10 @@ func (*serviceSuite) TestValidateOkay(c *gc.C) {
 	}
 	err := service.Validate(renderer)
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (*serviceSuite) TestValidateMissingName(c *gc.C) {
+func (*serviceSuite) TestValidateMissingName(c *tc.C) {
 	service := common.Service{
 		Conf: common.Conf{
 			Desc:      "some service",
@@ -71,10 +70,10 @@ func (*serviceSuite) TestValidateMissingName(c *gc.C) {
 	}
 	err := service.Validate(renderer)
 
-	c.Check(err, gc.ErrorMatches, ".*missing Name.*")
+	c.Check(err, tc.ErrorMatches, ".*missing Name.*")
 }
 
-func (*serviceSuite) TestValidateMissingDesc(c *gc.C) {
+func (*serviceSuite) TestValidateMissingDesc(c *tc.C) {
 	service := common.Service{
 		Name: "a-application",
 		Conf: common.Conf{
@@ -83,10 +82,10 @@ func (*serviceSuite) TestValidateMissingDesc(c *gc.C) {
 	}
 	err := service.Validate(renderer)
 
-	c.Check(err, gc.ErrorMatches, ".*missing Desc.*")
+	c.Check(err, tc.ErrorMatches, ".*missing Desc.*")
 }
 
-func (*serviceSuite) TestValidateMissingExecStart(c *gc.C) {
+func (*serviceSuite) TestValidateMissingExecStart(c *tc.C) {
 	service := common.Service{
 		Name: "a-application",
 		Conf: common.Conf{
@@ -95,5 +94,5 @@ func (*serviceSuite) TestValidateMissingExecStart(c *gc.C) {
 	}
 	err := service.Validate(renderer)
 
-	c.Check(err, gc.ErrorMatches, ".*missing ExecStart.*")
+	c.Check(err, tc.ErrorMatches, ".*missing ExecStart.*")
 }

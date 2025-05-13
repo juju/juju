@@ -7,14 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	caasmocks "github.com/juju/juju/caas/mocks"
@@ -22,14 +20,15 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	portservice "github.com/juju/juju/domain/port/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
 type manifoldSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 	manifold dependency.Manifold
 	getter   dependency.Getter
 
@@ -41,16 +40,16 @@ type manifoldSuite struct {
 	logger logger.Logger
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) SetUpTest(c *gc.C) {
+func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.ResetCalls()
 
 	s.logger = loggertesting.WrapCheckLog(c)
 }
 
-func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.apiCaller = mocks.NewMockAPICaller(ctrl)
@@ -94,7 +93,7 @@ func (s *manifoldSuite) newWorker(config caasfirewaller.Config) (worker.Worker, 
 	if err != nil {
 		return nil, err
 	}
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 	return w, nil
 }
 
@@ -110,7 +109,7 @@ func (s *manifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 	return dt.StubGetter(resources)
 }
 
-func (s *manifoldSuite) TestMissingControllerUUID(c *gc.C) {
+func (s *manifoldSuite) TestMissingControllerUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.validConfig()
@@ -118,7 +117,7 @@ func (s *manifoldSuite) TestMissingControllerUUID(c *gc.C) {
 	s.checkConfigInvalid(c, config, "empty ControllerUUID not valid")
 }
 
-func (s *manifoldSuite) TestMissingModelUUID(c *gc.C) {
+func (s *manifoldSuite) TestMissingModelUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.validConfig()
@@ -126,7 +125,7 @@ func (s *manifoldSuite) TestMissingModelUUID(c *gc.C) {
 	s.checkConfigInvalid(c, config, "empty ModelUUID not valid")
 }
 
-func (s *manifoldSuite) TestMissingAPICallerName(c *gc.C) {
+func (s *manifoldSuite) TestMissingAPICallerName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.validConfig()
@@ -134,7 +133,7 @@ func (s *manifoldSuite) TestMissingAPICallerName(c *gc.C) {
 	s.checkConfigInvalid(c, config, "empty APICallerName not valid")
 }
 
-func (s *manifoldSuite) TestMissingBrokerName(c *gc.C) {
+func (s *manifoldSuite) TestMissingBrokerName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.validConfig()
@@ -142,7 +141,7 @@ func (s *manifoldSuite) TestMissingBrokerName(c *gc.C) {
 	s.checkConfigInvalid(c, config, "empty BrokerName not valid")
 }
 
-func (s *manifoldSuite) TestMissingNewWorker(c *gc.C) {
+func (s *manifoldSuite) TestMissingNewWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.validConfig()
@@ -150,7 +149,7 @@ func (s *manifoldSuite) TestMissingNewWorker(c *gc.C) {
 	s.checkConfigInvalid(c, config, "nil NewWorker not valid")
 }
 
-func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
+func (s *manifoldSuite) TestMissingLogger(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config := s.validConfig()
@@ -158,21 +157,21 @@ func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
 	s.checkConfigInvalid(c, config, "nil Logger not valid")
 }
 
-func (s *manifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewaller.ManifoldConfig, expect string) {
+func (s *manifoldSuite) checkConfigInvalid(c *tc.C, config caasfirewaller.ManifoldConfig, expect string) {
 	err := config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
 var expectedInputs = []string{"api-caller", "broker", "domain-services"}
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *manifoldSuite) TestMissingInputs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	for _, input := range expectedInputs {
@@ -180,15 +179,15 @@ func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context.Background(), getter)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
 	s.CheckCallNames(c, "NewClient", "NewWorker")

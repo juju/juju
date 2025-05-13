@@ -14,21 +14,20 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	jujuhttp "github.com/juju/juju/internal/http"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type APIRequesterSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&APIRequesterSuite{})
+var _ = tc.Suite(&APIRequesterSuite{})
 
-func (s *APIRequesterSuite) TestDo(c *gc.C) {
+func (s *APIRequesterSuite) TestDo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -39,11 +38,11 @@ func (s *APIRequesterSuite) TestDo(c *gc.C) {
 
 	requester := newAPIRequester(mockHTTPClient, s.logger)
 	resp, err := requester.Do(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *APIRequesterSuite) TestDoWithFailure(c *gc.C) {
+func (s *APIRequesterSuite) TestDoWithFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -54,10 +53,10 @@ func (s *APIRequesterSuite) TestDoWithFailure(c *gc.C) {
 
 	requester := newAPIRequester(mockHTTPClient, s.logger)
 	_, err := requester.Do(req)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-func (s *APIRequesterSuite) TestDoWithInvalidContentType(c *gc.C) {
+func (s *APIRequesterSuite) TestDoWithInvalidContentType(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -68,10 +67,10 @@ func (s *APIRequesterSuite) TestDoWithInvalidContentType(c *gc.C) {
 
 	requester := newAPIRequester(mockHTTPClient, s.logger)
 	_, err := requester.Do(req)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-func (s *APIRequesterSuite) TestDoWithNotFoundResponse(c *gc.C) {
+func (s *APIRequesterSuite) TestDoWithNotFoundResponse(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -82,11 +81,11 @@ func (s *APIRequesterSuite) TestDoWithNotFoundResponse(c *gc.C) {
 
 	requester := newAPIRequester(mockHTTPClient, s.logger)
 	resp, err := requester.Do(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 }
 
-func (s *APIRequesterSuite) TestDoRetrySuccess(c *gc.C) {
+func (s *APIRequesterSuite) TestDoRetrySuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -99,39 +98,39 @@ func (s *APIRequesterSuite) TestDoRetrySuccess(c *gc.C) {
 	requester := newAPIRequester(mockHTTPClient, s.logger)
 	requester.retryDelay = time.Microsecond
 	resp, err := requester.Do(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *APIRequesterSuite) TestDoRetrySuccessBody(c *gc.C) {
+func (s *APIRequesterSuite) TestDoRetrySuccessBody(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	req, err := http.NewRequest("POST", "http://api.foo.bar", strings.NewReader("body"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
 	mockHTTPClient.EXPECT().Do(req).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 		b, err := io.ReadAll(req.Body)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(b), gc.Equals, "body")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(string(b), tc.Equals, "body")
 		return nil, io.EOF
 	})
 	mockHTTPClient.EXPECT().Do(req).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 		b, err := io.ReadAll(req.Body)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(b), gc.Equals, "body")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(string(b), tc.Equals, "body")
 		return emptyResponse(), nil
 	})
 
 	requester := newAPIRequester(mockHTTPClient, s.logger)
 	requester.retryDelay = time.Microsecond
 	resp, err := requester.Do(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *APIRequesterSuite) TestDoRetryMaxAttempts(c *gc.C) {
+func (s *APIRequesterSuite) TestDoRetryMaxAttempts(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -145,19 +144,19 @@ func (s *APIRequesterSuite) TestDoRetryMaxAttempts(c *gc.C) {
 	requester := newAPIRequester(mockHTTPClient, s.logger)
 	requester.retryDelay = time.Microsecond
 	_, err := requester.Do(req)
-	c.Assert(err, gc.ErrorMatches, `attempt count exceeded: EOF`)
+	c.Assert(err, tc.ErrorMatches, `attempt count exceeded: EOF`)
 	elapsed := time.Since(start)
-	c.Assert(elapsed >= (1+2+4)*time.Microsecond, gc.Equals, true)
+	c.Assert(elapsed >= (1+2+4)*time.Microsecond, tc.Equals, true)
 }
 
-func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *gc.C) {
+func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel right away
 	req, err := http.NewRequestWithContext(ctx, "GET", "http://api.foo.bar", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
 	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
@@ -166,18 +165,18 @@ func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *gc.C) {
 	requester := newAPIRequester(mockHTTPClient, s.logger)
 	requester.retryDelay = time.Second
 	_, err = requester.Do(req)
-	c.Assert(err, gc.ErrorMatches, `retry stopped`)
+	c.Assert(err, tc.ErrorMatches, `retry stopped`)
 	elapsed := time.Since(start)
-	c.Assert(elapsed < 250*time.Millisecond, gc.Equals, true)
+	c.Assert(elapsed < 250*time.Millisecond, tc.Equals, true)
 }
 
 type RESTSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&RESTSuite{})
+var _ = tc.Suite(&RESTSuite{})
 
-func (s *RESTSuite) TestGet(c *gc.C) {
+func (s *RESTSuite) TestGet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -195,11 +194,11 @@ func (s *RESTSuite) TestGet(c *gc.C) {
 
 	var result interface{}
 	_, err := client.Get(context.Background(), base, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(recievedURL, gc.Equals, "http://api.foo.bar")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(recievedURL, tc.Equals, "http://api.foo.bar")
 }
 
-func (s *RESTSuite) TestGetWithInvalidContext(c *gc.C) {
+func (s *RESTSuite) TestGetWithInvalidContext(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -210,10 +209,10 @@ func (s *RESTSuite) TestGetWithInvalidContext(c *gc.C) {
 
 	var result interface{}
 	_, err := client.Get(nil, base, &result)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-func (s *RESTSuite) TestGetWithFailure(c *gc.C) {
+func (s *RESTSuite) TestGetWithFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -226,10 +225,10 @@ func (s *RESTSuite) TestGetWithFailure(c *gc.C) {
 
 	var result interface{}
 	_, err := client.Get(context.Background(), base, &result)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-func (s *RESTSuite) TestGetWithFailureRetry(c *gc.C) {
+func (s *RESTSuite) TestGetWithFailureRetry(c *tc.C) {
 	var called int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called++
@@ -239,8 +238,8 @@ func (s *RESTSuite) TestGetWithFailureRetry(c *gc.C) {
 
 	httpClient := requestHTTPClient(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
-		Delay:    testing.ShortWait,
-		MaxDelay: testing.LongWait,
+		Delay:    testhelpers.ShortWait,
+		MaxDelay: testhelpers.LongWait,
 	})(s.logger)
 	client := newHTTPRESTClient(httpClient)
 
@@ -248,11 +247,11 @@ func (s *RESTSuite) TestGetWithFailureRetry(c *gc.C) {
 
 	var result interface{}
 	_, err := client.Get(context.Background(), base, &result)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Assert(called, gc.Equals, 3)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	c.Assert(called, tc.Equals, 3)
 }
 
-func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *gc.C) {
+func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *tc.C) {
 	var called int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called++
@@ -262,8 +261,8 @@ func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *gc.C) {
 
 	httpClient := requestHTTPClient(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
-		Delay:    testing.ShortWait,
-		MaxDelay: testing.LongWait,
+		Delay:    testhelpers.ShortWait,
+		MaxDelay: testhelpers.LongWait,
 	})(s.logger)
 	client := newHTTPRESTClient(httpClient)
 
@@ -271,11 +270,11 @@ func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *gc.C) {
 
 	var result interface{}
 	_, err := client.Get(context.Background(), base, &result)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	c.Assert(called, tc.Equals, 1)
 }
 
-func (s *RESTSuite) TestGetWithNoRetry(c *gc.C) {
+func (s *RESTSuite) TestGetWithNoRetry(c *tc.C) {
 	var called int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called++
@@ -287,8 +286,8 @@ func (s *RESTSuite) TestGetWithNoRetry(c *gc.C) {
 
 	httpClient := requestHTTPClient(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
-		Delay:    testing.ShortWait,
-		MaxDelay: testing.LongWait,
+		Delay:    testhelpers.ShortWait,
+		MaxDelay: testhelpers.LongWait,
 	})(s.logger)
 	client := newHTTPRESTClient(httpClient)
 
@@ -296,11 +295,11 @@ func (s *RESTSuite) TestGetWithNoRetry(c *gc.C) {
 
 	var result interface{}
 	_, err := client.Get(context.Background(), base, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.Equals, 1)
 }
 
-func (s *RESTSuite) TestGetWithUnmarshalFailure(c *gc.C) {
+func (s *RESTSuite) TestGetWithUnmarshalFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -313,7 +312,7 @@ func (s *RESTSuite) TestGetWithUnmarshalFailure(c *gc.C) {
 
 	var result interface{}
 	_, err := client.Get(context.Background(), base, &result)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 func emptyResponse() *http.Response {

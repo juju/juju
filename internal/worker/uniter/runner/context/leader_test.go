@@ -4,24 +4,23 @@
 package context_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 )
 
 type LeaderSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 	tracker *StubTracker
 	context context.LeadershipContext
 }
 
-var _ = gc.Suite(&LeaderSuite{})
+var _ = tc.Suite(&LeaderSuite{})
 
-func (s *LeaderSuite) SetUpTest(c *gc.C) {
+func (s *LeaderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.tracker = &StubTracker{
 		Stub:            &s.Stub,
@@ -30,85 +29,85 @@ func (s *LeaderSuite) SetUpTest(c *gc.C) {
 	s.context = context.NewLeadershipContext(s.tracker)
 }
 
-func (s *LeaderSuite) CheckCalls(c *gc.C, stubCalls []testing.StubCall, f func()) {
-	s.Stub = testing.Stub{}
+func (s *LeaderSuite) CheckCalls(c *tc.C, stubCalls []testhelpers.StubCall, f func()) {
+	s.Stub = testhelpers.Stub{}
 	f()
 	s.Stub.CheckCalls(c, stubCalls)
 }
 
-func (s *LeaderSuite) TestIsLeaderSuccess(c *gc.C) {
-	s.CheckCalls(c, []testing.StubCall{{
+func (s *LeaderSuite) TestIsLeaderSuccess(c *tc.C) {
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
 		// The first call succeeds...
 		s.tracker.results = []StubTicket{true}
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsTrue)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
 	})
 
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
 		// ...and so does the second.
 		s.tracker.results = []StubTicket{true}
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsTrue)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
-func (s *LeaderSuite) TestIsLeaderFailure(c *gc.C) {
-	s.CheckCalls(c, []testing.StubCall{{
+func (s *LeaderSuite) TestIsLeaderFailure(c *tc.C) {
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
 		// The first call fails...
 		s.tracker.results = []StubTicket{false}
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsFalse)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsFalse)
+		c.Check(err, tc.ErrorIsNil)
 	})
 
 	s.CheckCalls(c, nil, func() {
 		// ...and the second doesn't even try.
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsFalse)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsFalse)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
-func (s *LeaderSuite) TestIsLeaderFailureAfterSuccess(c *gc.C) {
-	s.CheckCalls(c, []testing.StubCall{{
+func (s *LeaderSuite) TestIsLeaderFailureAfterSuccess(c *tc.C) {
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
 		// The first call succeeds...
 		s.tracker.results = []StubTicket{true}
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsTrue)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
 	})
 
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
 		// The second fails...
 		s.tracker.results = []StubTicket{false}
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsFalse)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsFalse)
+		c.Check(err, tc.ErrorIsNil)
 	})
 
 	s.CheckCalls(c, nil, func() {
 		// The third doesn't even try.
 		leader, err := s.context.IsLeader()
-		c.Check(leader, jc.IsFalse)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(leader, tc.IsFalse)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
 type StubTracker struct {
 	leadership.Tracker
-	*testing.Stub
+	*testhelpers.Stub
 	applicationName string
 	results         []StubTicket
 }

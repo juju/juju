@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/errors"
@@ -20,9 +19,9 @@ type importSuite struct {
 	service     *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -31,7 +30,7 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) TestRegisterImport(c *gc.C) {
+func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -39,7 +38,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 	RegisterImport(s.coordinator)
 }
 
-func (s *importSuite) TestEmptyExternalControllers(c *gc.C) {
+func (s *importSuite) TestEmptyExternalControllers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Empty model.
@@ -47,12 +46,12 @@ func (s *importSuite) TestEmptyExternalControllers(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// No import executed.
 	s.service.EXPECT().ImportExternalControllers(gomock.All(), gomock.Any()).Times(0)
 }
 
-func (s *importSuite) TestExecuteMultipleExternalControllers(c *gc.C) {
+func (s *importSuite) TestExecuteMultipleExternalControllers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Model with 2 external controllers.
@@ -96,10 +95,10 @@ func (s *importSuite) TestExecuteMultipleExternalControllers(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestExecuteReturnsError(c *gc.C) {
+func (s *importSuite) TestExecuteReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Model with 2 external controllers.
@@ -129,7 +128,7 @@ func (s *importSuite) TestExecuteReturnsError(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, gc.ErrorMatches, "cannot import external controllers: fail on test")
+	c.Assert(err, tc.ErrorMatches, "cannot import external controllers: fail on test")
 }
 
 func (s *importSuite) newImportOperation() *importOperation {

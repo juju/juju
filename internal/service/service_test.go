@@ -6,50 +6,49 @@ package service_test
 import (
 	"errors"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/mocks"
 	"github.com/juju/juju/internal/service/systemd"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type serviceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestNewService(c *gc.C) {
+func (s *serviceSuite) TestNewService(c *tc.C) {
 	cfg := common.Conf{Desc: "test", ExecStart: "/path/to/script"}
 	svc, err := service.NewService("fred", cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc, gc.FitsTypeOf, &systemd.Service{})
-	c.Assert(svc.Name(), gc.Equals, "fred")
-	c.Assert(svc.Conf(), jc.DeepEquals, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(svc, tc.FitsTypeOf, &systemd.Service{})
+	c.Assert(svc.Name(), tc.Equals, "fred")
+	c.Assert(svc.Conf(), tc.DeepEquals, cfg)
 }
 
-func (s *serviceSuite) TestNewServiceMissingName(c *gc.C) {
+func (s *serviceSuite) TestNewServiceMissingName(c *tc.C) {
 	_, err := service.NewService("", common.Conf{})
-	c.Assert(err, gc.ErrorMatches, `.*missing name.*`)
+	c.Assert(err, tc.ErrorMatches, `.*missing name.*`)
 }
 
-func (s *serviceSuite) TestListServices(c *gc.C) {
+func (s *serviceSuite) TestListServices(c *tc.C) {
 	_, err := service.ListServices()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (*serviceSuite) TestListServicesScript(c *gc.C) {
+func (*serviceSuite) TestListServicesScript(c *tc.C) {
 	script := service.ListServicesScript()
 	expected := `/bin/systemctl list-unit-files --no-legend --no-page -l -t service` +
 		` | grep -o -P '^\w[\S]*(?=\.service)'`
-	c.Assert(script, gc.Equals, expected)
+	c.Assert(script, tc.Equals, expected)
 }
 
-func (s *serviceSuite) TestInstallAndStartOkay(c *gc.C) {
+func (s *serviceSuite) TestInstallAndStartOkay(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -60,10 +59,10 @@ func (s *serviceSuite) TestInstallAndStartOkay(c *gc.C) {
 	svc.EXPECT().Start().Return(nil)
 
 	err := service.InstallAndStart(svc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestInstallAndStartRetry(c *gc.C) {
+func (s *serviceSuite) TestInstallAndStartRetry(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -76,10 +75,10 @@ func (s *serviceSuite) TestInstallAndStartRetry(c *gc.C) {
 	svc.EXPECT().Start().Return(nil)
 
 	err := service.InstallAndStart(svc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestInstallAndStartFail(c *gc.C) {
+func (s *serviceSuite) TestInstallAndStartFail(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -92,16 +91,16 @@ func (s *serviceSuite) TestInstallAndStartFail(c *gc.C) {
 	}
 
 	err := service.InstallAndStart(svc)
-	c.Assert(err, gc.ErrorMatches, "start error")
+	c.Assert(err, tc.ErrorMatches, "start error")
 }
 
 type restartSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&restartSuite{})
+var _ = tc.Suite(&restartSuite{})
 
-func (s *restartSuite) TestRestartStopAndStart(c *gc.C) {
+func (s *restartSuite) TestRestartStopAndStart(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -110,14 +109,14 @@ func (s *restartSuite) TestRestartStopAndStart(c *gc.C) {
 	svc.EXPECT().Start().Return(nil)
 
 	s.PatchValue(&service.NewService, func(name string, conf common.Conf) (service.Service, error) {
-		c.Assert(name, gc.Equals, "fred")
+		c.Assert(name, tc.Equals, "fred")
 		return svc, nil
 	})
 	err := service.Restart("fred")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *restartSuite) TestRestartFailStop(c *gc.C) {
+func (s *restartSuite) TestRestartFailStop(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -126,14 +125,14 @@ func (s *restartSuite) TestRestartFailStop(c *gc.C) {
 	svc.EXPECT().Start().Return(nil)
 
 	s.PatchValue(&service.NewService, func(name string, conf common.Conf) (service.Service, error) {
-		c.Assert(name, gc.Equals, "fred")
+		c.Assert(name, tc.Equals, "fred")
 		return svc, nil
 	})
 	err := service.Restart("fred")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *restartSuite) TestRestartFailStart(c *gc.C) {
+func (s *restartSuite) TestRestartFailStart(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -142,9 +141,9 @@ func (s *restartSuite) TestRestartFailStart(c *gc.C) {
 	svc.EXPECT().Start().Return(errors.New("boom"))
 
 	s.PatchValue(&service.NewService, func(name string, conf common.Conf) (service.Service, error) {
-		c.Assert(name, gc.Equals, "fred")
+		c.Assert(name, tc.Equals, "fred")
 		return svc, nil
 	})
 	err := service.Restart("fred")
-	c.Assert(err, gc.ErrorMatches, `failed to restart service "fred": boom`)
+	c.Assert(err, tc.ErrorMatches, `failed to restart service "fred": boom`)
 }

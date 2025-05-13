@@ -9,20 +9,19 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apihttp "github.com/juju/juju/api/http"
 	"github.com/juju/juju/api/http/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type httpSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&httpSuite{})
+var _ = tc.Suite(&httpSuite{})
 
 type uriMatcher struct {
 	expectedURL string
@@ -43,7 +42,7 @@ func (uriMatcher) String() string {
 	return "matches charm upload requests"
 }
 
-func (s *httpSuite) TestOpenURI(c *gc.C) {
+func (s *httpSuite) TestOpenURI(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -61,11 +60,11 @@ func (s *httpSuite) TestOpenURI(c *gc.C) {
 	})
 
 	reader, err := apihttp.OpenURI(context.Background(), mockHttp, "/tools/2.6.6-ubuntu-amd64", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer reader.Close()
 
 	// The fake tools content will be the version number.
 	content, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, "2.6.6-ubuntu-amd64")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(content), tc.Equals, "2.6.6-ubuntu-amd64")
 }

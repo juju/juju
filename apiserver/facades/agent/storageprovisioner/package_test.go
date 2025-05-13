@@ -6,7 +6,7 @@ package storageprovisioner_test
 import (
 	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -22,8 +22,8 @@ func TestAll(t *stdtesting.T) {
 }
 
 type storageSetUp interface {
-	setupVolumes(c *gc.C)
-	setupFilesystems(c *gc.C)
+	setupVolumes(c *tc.C)
+	setupFilesystems(c *tc.C)
 }
 
 type byMachineAndEntity []params.MachineStorageId

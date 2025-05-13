@@ -4,21 +4,20 @@
 package containermetadataresource
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type ContainerMetadataResourceUUIDSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ContainerMetadataResourceUUIDSuite{})
+var _ = tc.Suite(&ContainerMetadataResourceUUIDSuite{})
 
-func (*ContainerMetadataResourceUUIDSuite) TestIDValidate(c *gc.C) {
+func (*ContainerMetadataResourceUUIDSuite) TestIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -41,10 +40,10 @@ func (*ContainerMetadataResourceUUIDSuite) TestIDValidate(c *gc.C) {
 		err := UUID(test.uuid).Validate()
 
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			c.Check(err, tc.IsNil)
 			continue
 		}
 
-		c.Check(err, jc.ErrorIs, test.err)
+		c.Check(err, tc.ErrorIs, test.err)
 	}
 }

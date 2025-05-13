@@ -6,23 +6,22 @@ package charms
 import (
 	"context"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type clientNormalizeOriginSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&clientNormalizeOriginSuite{})
+var _ = tc.Suite(&clientNormalizeOriginSuite{})
 
-func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
+func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *tc.C) {
 	track := "1.0"
 	branch := "foo"
 	origin := params.CharmOrigin{
@@ -34,12 +33,12 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
 		Architecture: "all",
 	}
 	obtained, err := normalizeCharmOrigin(context.Background(), origin, "amd64", loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	origin.Architecture = "amd64"
-	c.Assert(obtained, gc.DeepEquals, origin)
+	c.Assert(obtained, tc.DeepEquals, origin)
 }
 
-func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *gc.C) {
+func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *tc.C) {
 	track := "1.0"
 	origin := params.CharmOrigin{
 		Source:       "charm-hub",
@@ -50,33 +49,33 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *gc.C) 
 		Base:         params.Base{Channel: "all"},
 	}
 	obtained, err := normalizeCharmOrigin(context.Background(), origin, "amd64", loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	origin.Architecture = "amd64"
 	origin.Base.Channel = ""
-	c.Assert(obtained, gc.DeepEquals, origin)
+	c.Assert(obtained, tc.DeepEquals, origin)
 }
 
 type clientValidateOriginSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&clientValidateOriginSuite{})
+var _ = tc.Suite(&clientValidateOriginSuite{})
 
-func (s *clientValidateOriginSuite) TestValidateOrigin(c *gc.C) {
+func (s *clientValidateOriginSuite) TestValidateOrigin(c *tc.C) {
 	origin := corecharm.Origin{
 		Source:   "charm-hub",
 		Platform: corecharm.Platform{Architecture: "all"},
 	}
 
 	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *clientValidateOriginSuite) TestValidateOriginWithEmptyArch(c *gc.C) {
+func (s *clientValidateOriginSuite) TestValidateOriginWithEmptyArch(c *tc.C) {
 	origin := corecharm.Origin{
 		Source: "charm-hub",
 	}
 
 	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
-	c.Assert(err, gc.ErrorMatches, "empty architecture not valid")
+	c.Assert(err, tc.ErrorMatches, "empty architecture not valid")
 }

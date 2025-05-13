@@ -6,16 +6,15 @@ package cloud
 import (
 	"os"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type utilSuite struct {
 }
 
-var _ = gc.Suite(&utilSuite{})
+var _ = tc.Suite(&utilSuite{})
 
-func (u *utilSuite) TestDataOrFile(c *gc.C) {
+func (u *utilSuite) TestDataOrFile(c *tc.C) {
 	tests := []struct {
 		dataContents     []byte
 		fileContents     []byte
@@ -42,19 +41,19 @@ func (u *utilSuite) TestDataOrFile(c *gc.C) {
 		if len(test.fileContents) > 0 {
 			f, err := os.CreateTemp("", "")
 			fileName = f.Name()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			n, err := f.Write(test.fileContents)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(n, gc.Equals, len(test.fileContents))
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(n, tc.Equals, len(test.fileContents))
 		}
 
 		r, err := dataOrFile(test.dataContents, fileName)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(r, jc.DeepEquals, test.expectedContents)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(r, tc.DeepEquals, test.expectedContents)
 	}
 }
 
-func (u *utilSuite) TestStringOrFile(c *gc.C) {
+func (u *utilSuite) TestStringOrFile(c *tc.C) {
 	tests := []struct {
 		dataContents     string
 		fileContents     string
@@ -78,14 +77,14 @@ func (u *utilSuite) TestStringOrFile(c *gc.C) {
 		if test.fileContents != "" {
 			f, err := os.CreateTemp("", "")
 			fileName = f.Name()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			n, err := f.Write([]byte(test.fileContents))
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(n, gc.Equals, len(test.fileContents))
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(n, tc.Equals, len(test.fileContents))
 		}
 
 		r, err := stringOrFile(test.dataContents, fileName)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(r, jc.DeepEquals, test.expectedContents)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(r, tc.DeepEquals, test.expectedContents)
 	}
 }

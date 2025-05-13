@@ -7,28 +7,27 @@ import (
 	"net/http"
 
 	"github.com/juju/proxy"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 )
 
 type Suite struct{}
 
-var _ = gc.Suite(&Suite{})
+var _ = tc.Suite(&Suite{})
 
-func checkProxy(c *gc.C, settings proxy.Settings, requestURL, expectedURL string) {
+func checkProxy(c *tc.C, settings proxy.Settings, requestURL, expectedURL string) {
 	pc := proxyconfig.ProxyConfig{}
-	c.Assert(pc.Set(settings), jc.ErrorIsNil)
+	c.Assert(pc.Set(settings), tc.ErrorIsNil)
 	req, err := http.NewRequest("GET", requestURL, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	proxyURL, err := pc.GetProxy(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if expectedURL == "" {
-		c.Check(proxyURL, gc.IsNil)
+		c.Check(proxyURL, tc.IsNil)
 	} else {
-		c.Assert(proxyURL, gc.Not(gc.IsNil))
-		c.Check(proxyURL.String(), gc.Equals, expectedURL)
+		c.Assert(proxyURL, tc.Not(tc.IsNil))
+		c.Check(proxyURL.String(), tc.Equals, expectedURL)
 	}
 }
 
@@ -48,7 +47,7 @@ var (
 	}
 )
 
-func (s *Suite) TestGetProxy(c *gc.C) {
+func (s *Suite) TestGetProxy(c *tc.C) {
 	checkProxy(c, normal, "https://perfect.crime", "https://https.proxy")
 	checkProxy(c, normal, "http://decemberists.com", "http://http.proxy")
 	checkProxy(c, normal, "http://[2001:db8:85a3::8a2e:370:7334]", "http://http.proxy")
@@ -67,19 +66,19 @@ func (s *Suite) TestGetProxy(c *gc.C) {
 	checkProxy(c, normal, "http://192.168.30.40:80", "")
 }
 
-func (s *Suite) TestSetBadUrl(c *gc.C) {
+func (s *Suite) TestSetBadUrl(c *tc.C) {
 	pc := proxyconfig.ProxyConfig{}
 	err := pc.Set(proxy.Settings{
 		Https: "http://badurl%gg",
 	})
-	c.Assert(err, gc.ErrorMatches, `https proxy: invalid proxy address "http://badurl%gg": .*$`)
+	c.Assert(err, tc.ErrorMatches, `https proxy: invalid proxy address "http://badurl%gg": .*$`)
 	err = pc.Set(proxy.Settings{
 		Http: "http://badurl%gg",
 	})
-	c.Assert(err, gc.ErrorMatches, `http proxy: invalid proxy address "http://badurl%gg": .*$`)
+	c.Assert(err, tc.ErrorMatches, `http proxy: invalid proxy address "http://badurl%gg": .*$`)
 }
 
-func (s *Suite) TestInstallError(c *gc.C) {
+func (s *Suite) TestInstallError(c *tc.C) {
 	type fakeRoundTripper struct {
 		http.RoundTripper
 	}
@@ -93,10 +92,10 @@ func (s *Suite) TestInstallError(c *gc.C) {
 
 	pc := proxyconfig.ProxyConfig{}
 	err := pc.InstallInDefaultTransport()
-	c.Assert(err, gc.ErrorMatches, `http.DefaultTransport was .*\.fakeRoundTripper instead of \*http\.Transport`)
+	c.Assert(err, tc.ErrorMatches, `http.DefaultTransport was .*\.fakeRoundTripper instead of \*http\.Transport`)
 }
 
-func (s *Suite) TestInstall(c *gc.C) {
+func (s *Suite) TestInstall(c *tc.C) {
 	oldTransport := http.DefaultTransport
 	defer func() {
 		http.DefaultTransport = oldTransport
@@ -107,12 +106,12 @@ func (s *Suite) TestInstall(c *gc.C) {
 	pc.InstallInDefaultTransport()
 
 	transport, ok := http.DefaultTransport.(*http.Transport)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	req, err := http.NewRequest("GET", "https://risky.biz", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	proxyURL, err := transport.Proxy(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(proxyURL, gc.Not(gc.IsNil))
-	c.Assert(proxyURL.String(), gc.Equals, "https://https.proxy")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(proxyURL, tc.Not(tc.IsNil))
+	c.Assert(proxyURL.String(), tc.Equals, "https://https.proxy")
 }

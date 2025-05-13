@@ -4,9 +4,7 @@
 package service
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
@@ -14,13 +12,14 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type metadataSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&metadataSuite{})
+var _ = tc.Suite(&metadataSuite{})
 
 var metadataTestCases = [...]struct {
 	name   string
@@ -364,17 +363,17 @@ var metadataTestCases = [...]struct {
 	},
 }
 
-func (s *metadataSuite) TestConvertMetadata(c *gc.C) {
-	for _, tc := range metadataTestCases {
-		c.Logf("Running test case %q", tc.name)
+func (s *metadataSuite) TestConvertMetadata(c *tc.C) {
+	for _, testCase := range metadataTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeMetadata(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, tc.output)
+		result, err := decodeMetadata(testCase.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, testCase.output)
 
 		// Ensure that the conversion is idempotent.
 		converted, err := encodeMetadata(&result)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(converted, jc.DeepEquals, tc.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(converted, tc.DeepEquals, testCase.input)
 	}
 }

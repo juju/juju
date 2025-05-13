@@ -1,0 +1,9 @@
+# Replace juju/testing/httptesting with internal/testhelpers/httptesting
+@@
+var ht, x identifier
+@@
+-import ht "github.com/juju/testing/httptesting"
++import "github.com/juju/juju/internal/testhelpers/httptesting"
+
+-ht.x
++httptesting.x

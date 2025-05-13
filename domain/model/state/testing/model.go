@@ -8,8 +8,7 @@ import (
 	"database/sql"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -27,9 +26,9 @@ import (
 // CreateInternalSecretBackend creates the internal secret backend on a controller.
 // This should only ever be used from within other state packages.
 // This avoids the need for introducing cyclic imports with tests.
-func CreateInternalSecretBackend(c *gc.C, runner database.TxnRunner) {
+func CreateInternalSecretBackend(c *tc.C, runner database.TxnRunner) {
 	backendUUID, err := corecredential.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(context.Background(),
@@ -40,15 +39,15 @@ func CreateInternalSecretBackend(c *gc.C, runner database.TxnRunner) {
 		`, backendUUID.String(), juju.BackendName, 0)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // CreateKubernetesSecretBackend creates the kubernetes secret backend on a controller.
 // This should only ever be used from within other state packages.
 // This avoids the need for introducing cyclic imports with tests.
-func CreateKubernetesSecretBackend(c *gc.C, runner database.TxnRunner) {
+func CreateKubernetesSecretBackend(c *tc.C, runner database.TxnRunner) {
 	backendUUID, err := corecredential.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(context.Background(),
@@ -59,7 +58,7 @@ func CreateKubernetesSecretBackend(c *gc.C, runner database.TxnRunner) {
 		`, backendUUID.String(), kubernetes.BackendName, 1)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // CreateTestModel is a testing utility function for creating a basic model for
@@ -69,26 +68,26 @@ func CreateKubernetesSecretBackend(c *gc.C, runner database.TxnRunner) {
 // reference model. This avoids the need for introducing cyclic imports with
 // tests.
 func CreateTestModel(
-	c *gc.C,
+	c *tc.C,
 	txnRunner database.TxnRunnerFactory,
 	name string,
 ) coremodel.UUID {
 	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	regionName := name + "-region"
 	cloudRegionUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credId, err := corecredential.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	userName := usertesting.GenNewName(c, "test-user"+name)
 	runner, err := txnRunner()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	CreateInternalSecretBackend(c, runner)
 
@@ -143,7 +142,7 @@ func CreateTestModel(
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewState(txnRunner)
@@ -164,18 +163,18 @@ func CreateTestModel(
 			SecretBackend: juju.BackendName,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelSt.Activate(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return modelUUID
 }
 
 // DeleteTestModel is responsible for cleaning up a testing mode previously
 // created with [CreateTestModel].
-func DeleteTestModel(c *gc.C, ctx context.Context, txnRunner database.TxnRunnerFactory, modelUUID coremodel.UUID) {
+func DeleteTestModel(c *tc.C, ctx context.Context, txnRunner database.TxnRunnerFactory, modelUUID coremodel.UUID) {
 	modelSt := modelstate.NewState(txnRunner)
 	err := modelSt.Delete(ctx, modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

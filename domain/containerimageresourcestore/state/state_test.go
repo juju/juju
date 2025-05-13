@@ -7,8 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/resource/store"
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
@@ -22,9 +21,9 @@ type containerImageMetadataSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&containerImageMetadataSuite{})
+var _ = tc.Suite(&containerImageMetadataSuite{})
 
-func (s *containerImageMetadataSuite) TestContainerImageMetadataPut(c *gc.C) {
+func (s *containerImageMetadataSuite) TestContainerImageMetadataPut(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
@@ -39,16 +38,16 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPut(c *gc.C) {
 		ociImageMetadata.Username,
 		ociImageMetadata.Password,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resourceStorageUUID, gc.Not(gc.Equals), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resourceStorageUUID, tc.Not(tc.Equals), "")
 
 	retrievedRegistryPath, retrievedUsername, retrievedPassword := s.getContainerImageMetadata(c, resourceStorageUUID)
-	c.Assert(retrievedRegistryPath, gc.Equals, ociImageMetadata.RegistryPath)
-	c.Assert(retrievedUsername, gc.Equals, ociImageMetadata.Username)
-	c.Assert(retrievedPassword, gc.Equals, ociImageMetadata.Password)
+	c.Assert(retrievedRegistryPath, tc.Equals, ociImageMetadata.RegistryPath)
+	c.Assert(retrievedUsername, tc.Equals, ociImageMetadata.Username)
+	c.Assert(retrievedPassword, tc.Equals, ociImageMetadata.Password)
 }
 
-func (s *containerImageMetadataSuite) TestContainerImageMetadataPutOnlyRegistryName(c *gc.C) {
+func (s *containerImageMetadataSuite) TestContainerImageMetadataPutOnlyRegistryName(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
@@ -61,16 +60,16 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutOnlyRegistryN
 		"",
 		"",
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageKey, gc.Not(gc.Equals), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storageKey, tc.Not(tc.Equals), "")
 
 	retrievedRegistryPath, retrievedUsername, retrievedPassword := s.getContainerImageMetadata(c, storageKey)
-	c.Assert(retrievedRegistryPath, gc.Equals, ociImageMetadata.RegistryPath)
-	c.Assert(retrievedUsername, gc.Equals, "")
-	c.Assert(retrievedPassword, gc.Equals, "")
+	c.Assert(retrievedRegistryPath, tc.Equals, ociImageMetadata.RegistryPath)
+	c.Assert(retrievedUsername, tc.Equals, "")
+	c.Assert(retrievedPassword, tc.Equals, "")
 }
 
-func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwice(c *gc.C) {
+func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwice(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
@@ -90,8 +89,8 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwice(c *gc.C
 		ociImageMetadata.Username,
 		ociImageMetadata.Password,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageKey, gc.Not(gc.Equals), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storageKey, tc.Not(tc.Equals), "")
 
 	_, err = st.PutContainerImageMetadata(
 		context.Background(),
@@ -100,10 +99,10 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwice(c *gc.C
 		ociImageMetadata2.Username,
 		ociImageMetadata2.Password,
 	)
-	c.Assert(err, jc.ErrorIs, errors.ContainerImageMetadataAlreadyStored)
+	c.Assert(err, tc.ErrorIs, errors.ContainerImageMetadataAlreadyStored)
 }
 
-func (s *containerImageMetadataSuite) TestContainerImageMetadataGet(c *gc.C) {
+func (s *containerImageMetadataSuite) TestContainerImageMetadataGet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	uuid := coreresourcetesting.GenResourceUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
@@ -114,18 +113,18 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataGet(c *gc.C) {
 	}
 	s.putContainerImageMetadata(c, ociImageMetadata)
 	retrieved, err := st.GetContainerImageMetadata(context.Background(), uuid.String())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(retrieved, gc.Equals, ociImageMetadata)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(retrieved, tc.Equals, ociImageMetadata)
 }
 
-func (s *containerImageMetadataSuite) TestContainerImageMetadataGetBadUUID(c *gc.C) {
+func (s *containerImageMetadataSuite) TestContainerImageMetadataGetBadUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	storageKey := coreresourcetesting.GenResourceUUID(c).String()
 	_, err := st.GetContainerImageMetadata(context.Background(), storageKey)
-	c.Assert(err, jc.ErrorIs, errors.ContainerImageMetadataNotFound)
+	c.Assert(err, tc.ErrorIs, errors.ContainerImageMetadataNotFound)
 }
 
-func (s *containerImageMetadataSuite) TestContainerImageMetadataRemove(c *gc.C) {
+func (s *containerImageMetadataSuite) TestContainerImageMetadataRemove(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	storageKey := coreresourcetesting.GenResourceUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
@@ -137,7 +136,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataRemove(c *gc.C) 
 	s.putContainerImageMetadata(c, ociImageMetadata)
 
 	err := st.RemoveContainerImageMetadata(context.Background(), storageKey.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -145,19 +144,19 @@ SELECT 1
 FROM resource_container_image_metadata_store
 WHERE storage_key = ?`, storageKey.String()).Scan()
 	})
-	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(err, tc.ErrorIs, sql.ErrNoRows)
 }
 
-func (s *containerImageMetadataSuite) TestContainerImageMetadataRemoveBadUUID(c *gc.C) {
+func (s *containerImageMetadataSuite) TestContainerImageMetadataRemoveBadUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
 	err := st.RemoveContainerImageMetadata(context.Background(), resourceUUID.String())
-	c.Assert(err, jc.ErrorIs, errors.ContainerImageMetadataNotFound)
+	c.Assert(err, tc.ErrorIs, errors.ContainerImageMetadataNotFound)
 }
 
-func (s *containerImageMetadataSuite) getContainerImageMetadata(c *gc.C, storageKey store.ID) (string, string, string) {
+func (s *containerImageMetadataSuite) getContainerImageMetadata(c *tc.C, storageKey store.ID) (string, string, string) {
 	id, err := storageKey.ContainerImageMetadataStoreID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var retrievedRegistryPath, retrievedUsername, retrievedPassword string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -165,11 +164,11 @@ SELECT registry_path, username, password
 FROM resource_container_image_metadata_store
 WHERE storage_key = ?`, id).Scan(&retrievedRegistryPath, &retrievedUsername, &retrievedPassword)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return retrievedRegistryPath, retrievedUsername, retrievedPassword
 }
 
-func (s *containerImageMetadataSuite) putContainerImageMetadata(c *gc.C, metadata containerimageresourcestore.ContainerImageMetadata) {
+func (s *containerImageMetadataSuite) putContainerImageMetadata(c *tc.C, metadata containerimageresourcestore.ContainerImageMetadata) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 INSERT INTO resource_container_image_metadata_store
@@ -177,5 +176,5 @@ INSERT INTO resource_container_image_metadata_store
 `, metadata.StorageKey, metadata.RegistryPath, metadata.Username, metadata.Password)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

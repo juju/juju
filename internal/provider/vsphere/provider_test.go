@@ -8,10 +8,9 @@ import (
 	"errors"
 	"net/url"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	"golang.org/x/net/context"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -23,68 +22,68 @@ type providerSuite struct {
 	ProviderFixture
 }
 
-var _ = gc.Suite(&providerSuite{})
+var _ = tc.Suite(&providerSuite{})
 
-func (s *providerSuite) TestRegistered(c *gc.C) {
+func (s *providerSuite) TestRegistered(c *tc.C) {
 	provider, err := environs.Provider("vsphere")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider, tc.NotNil)
 }
 
-func (s *providerSuite) TestOpen(c *gc.C) {
+func (s *providerSuite) TestOpen(c *tc.C) {
 	config := fakeConfig(c)
 	env, err := s.provider.Open(stdcontext.Background(), environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: config,
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	envConfig := env.Config()
-	c.Assert(envConfig.Name(), gc.Equals, "testmodel")
+	c.Assert(envConfig.Name(), tc.Equals, "testmodel")
 }
 
-func (s *providerSuite) TestOpenInvalidCloudSpec(c *gc.C) {
+func (s *providerSuite) TestOpenInvalidCloudSpec(c *tc.C) {
 	spec := fakeCloudSpec()
 	spec.Name = ""
 	s.testOpenError(c, spec, `validating cloud spec: cloud name "" not valid`)
 }
 
-func (s *providerSuite) TestOpenMissingCredential(c *gc.C) {
+func (s *providerSuite) TestOpenMissingCredential(c *tc.C) {
 	spec := fakeCloudSpec()
 	spec.Credential = nil
 	s.testOpenError(c, spec, `validating cloud spec: missing credential not valid`)
 }
 
-func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {
+func (s *providerSuite) TestOpenUnsupportedCredential(c *tc.C) {
 	credential := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{})
 	spec := fakeCloudSpec()
 	spec.Credential = &credential
 	s.testOpenError(c, spec, `validating cloud spec: "oauth1" auth-type not supported`)
 }
 
-func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
+func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec, expect string) {
 	_, err := s.provider.Open(stdcontext.Background(), environs.OpenParams{
 		Cloud:  spec,
 		Config: fakeConfig(c),
 	}, environs.NoopCredentialInvalidator())
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 }
 
-func (s *providerSuite) TestValidateCloud(c *gc.C) {
+func (s *providerSuite) TestValidateCloud(c *tc.C) {
 	err := s.provider.ValidateCloud(context.Background(), fakeCloudSpec())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestValidate(c *gc.C) {
+func (s *providerSuite) TestValidate(c *tc.C) {
 	config := fakeConfig(c)
 	validCfg, err := s.provider.Validate(context.Background(), config, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()
-	c.Assert(config.AllAttrs(), gc.DeepEquals, validAttrs)
+	c.Assert(config.AllAttrs(), tc.DeepEquals, validAttrs)
 }
 
-func (s *providerSuite) TestSchema(c *gc.C) {
+func (s *providerSuite) TestSchema(c *tc.C) {
 	y := []byte(`
 auth-types: [userpass]
 endpoint: http://foo.com/vsphere
@@ -94,21 +93,21 @@ regions:
 `[1:])
 	var v interface{}
 	err := yaml.Unmarshal(y, &v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	v, err = utils.ConformYAML(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.provider.CloudSchema().Validate(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type pingSuite struct {
 	ProviderFixture
 }
 
-var _ = gc.Suite(&pingSuite{})
+var _ = tc.Suite(&pingSuite{})
 
-func (s *pingSuite) TestPingInvalidHost(c *gc.C) {
+func (s *pingSuite) TestPingInvalidHost(c *tc.C) {
 	s.dialStub.SetErrors(
 		errors.New("foo"),
 		errors.New("bar"),
@@ -132,34 +131,34 @@ func (s *pingSuite) TestPingInvalidHost(c *gc.C) {
 	}
 }
 
-func (s *pingSuite) TestPingInvalidURL(c *gc.C) {
+func (s *pingSuite) TestPingInvalidURL(c *tc.C) {
 	err := s.provider.Ping(context.Background(), "abc%sdef")
-	c.Assert(err, gc.ErrorMatches, "Invalid endpoint format, please give a full url or IP/hostname.")
+	c.Assert(err, tc.ErrorMatches, "Invalid endpoint format, please give a full url or IP/hostname.")
 }
 
-func (s *pingSuite) TestPingInvalidScheme(c *gc.C) {
+func (s *pingSuite) TestPingInvalidScheme(c *tc.C) {
 	err := s.provider.Ping(context.Background(), "gopher://abcdef.com")
-	c.Assert(err, gc.ErrorMatches, "Invalid endpoint format, please use an http or https URL.")
+	c.Assert(err, tc.ErrorMatches, "Invalid endpoint format, please use an http or https URL.")
 }
 
-func (s *pingSuite) TestPingLoginSucceeded(c *gc.C) {
+func (s *pingSuite) TestPingLoginSucceeded(c *tc.C) {
 	// This test shows that when - against all odds - the
 	// login succeeds, Ping returns nil.
 
 	err := s.provider.Ping(context.Background(), "testing.invalid")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.dialStub.CheckCallNames(c, "Dial")
 	call := s.dialStub.Calls()[0]
-	c.Assert(call.Args, gc.HasLen, 3)
-	c.Assert(call.Args[0], gc.Implements, new(context.Context))
-	c.Assert(call.Args[1], jc.DeepEquals, &url.URL{
+	c.Assert(call.Args, tc.HasLen, 3)
+	c.Assert(call.Args[0], tc.Implements, new(context.Context))
+	c.Assert(call.Args[1], tc.DeepEquals, &url.URL{
 		Scheme: "https",
 		Host:   "testing.invalid",
 		Path:   "/sdk",
 		User:   url.User("juju"),
 	})
-	c.Assert(call.Args[2], gc.Equals, "")
+	c.Assert(call.Args[2], tc.Equals, "")
 
 	s.client.CheckCallNames(c, "Close")
 }

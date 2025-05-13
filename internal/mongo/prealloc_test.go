@@ -4,11 +4,10 @@
 package mongo_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -16,9 +15,9 @@ type preallocSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&preallocSuite{})
+var _ = tc.Suite(&preallocSuite{})
 
-func (s *preallocSuite) TestOplogSize(c *gc.C) {
+func (s *preallocSuite) TestOplogSize(c *tc.C) {
 	type test struct {
 		hostWordSize int
 		runtimeGOOS  string
@@ -56,22 +55,22 @@ func (s *preallocSuite) TestOplogSize(c *gc.C) {
 		s.PatchValue(mongo.RuntimeGOOS, test.runtimeGOOS)
 		availSpace = test.availSpace
 		size, err := mongo.DefaultOplogSize("")
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(size, gc.Equals, test.expected)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(size, tc.Equals, test.expected)
 	}
 }
 
-func (s *preallocSuite) TestFsAvailSpace(c *gc.C) {
+func (s *preallocSuite) TestFsAvailSpace(c *tc.C) {
 	output := `Filesystem     1K-blocks    Used Available Use% Mounted on
     /dev/vda1        8124856 1365292     12345  18% /`
-	testing.PatchExecutable(c, s, "df", "#!/bin/sh\ncat<<EOF\n"+output+"\nEOF")
+	testhelpers.PatchExecutable(c, s, "df", "#!/bin/sh\ncat<<EOF\n"+output+"\nEOF")
 
 	mb, err := mongo.FsAvailSpace("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mb, gc.Equals, float64(12345)/1024)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mb, tc.Equals, float64(12345)/1024)
 }
 
-func (s *preallocSuite) TestFsAvailSpaceErrors(c *gc.C) {
+func (s *preallocSuite) TestFsAvailSpaceErrors(c *tc.C) {
 	tests := []struct {
 		desc   string
 		output string
@@ -92,8 +91,8 @@ func (s *preallocSuite) TestFsAvailSpaceErrors(c *gc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.desc)
-		testing.PatchExecutable(c, s, "df", "#!/bin/sh\ncat<<EOF\n"+test.output+"\nEOF")
+		testhelpers.PatchExecutable(c, s, "df", "#!/bin/sh\ncat<<EOF\n"+test.output+"\nEOF")
 		_, err := mongo.FsAvailSpace("")
-		c.Check(err, gc.ErrorMatches, test.err)
+		c.Check(err, tc.ErrorMatches, test.err)
 	}
 }

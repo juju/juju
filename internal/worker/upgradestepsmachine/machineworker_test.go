@@ -8,10 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	agent "github.com/juju/juju/agent"
 	version "github.com/juju/juju/core/semversion"
@@ -25,9 +24,9 @@ type machineWorkerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&machineWorkerSuite{})
+var _ = tc.Suite(&machineWorkerSuite{})
 
-func (s *machineWorkerSuite) TestAlreadyUpgraded(c *gc.C) {
+func (s *machineWorkerSuite) TestAlreadyUpgraded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -48,7 +47,7 @@ func (s *machineWorkerSuite) TestAlreadyUpgraded(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *machineWorkerSuite) TestRunUpgrades(c *gc.C) {
+func (s *machineWorkerSuite) TestRunUpgrades(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -80,7 +79,7 @@ func (s *machineWorkerSuite) TestRunUpgrades(c *gc.C) {
 		atomic.AddInt64(&called, 1)
 
 		// Ensure that the targets are correct.
-		c.Check(targets, jc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
+		c.Check(targets, tc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
 		return nil
 	}
 	w := newMachineWorker(baseWorker)
@@ -92,12 +91,12 @@ func (s *machineWorkerSuite) TestRunUpgrades(c *gc.C) {
 		c.Fatalf("timed out waiting for lock to be checked")
 	}
 
-	c.Check(atomic.LoadInt64(&called), gc.Equals, int64(2))
+	c.Check(atomic.LoadInt64(&called), tc.Equals, int64(2))
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *machineWorkerSuite) TestRunUpgradesFailedWithAPIError(c *gc.C) {
+func (s *machineWorkerSuite) TestRunUpgradesFailedWithAPIError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -125,13 +124,13 @@ func (s *machineWorkerSuite) TestRunUpgradesFailedWithAPIError(c *gc.C) {
 		c.Fatalf("timed out waiting for lock to be checked")
 	}
 
-	c.Check(atomic.LoadInt64(&called), gc.Equals, int64(1))
+	c.Check(atomic.LoadInt64(&called), tc.Equals, int64(1))
 
 	err := workertest.CheckKill(c, w)
-	c.Assert(err, gc.ErrorMatches, ".*API connection lost during upgrade: boom")
+	c.Assert(err, tc.ErrorMatches, ".*API connection lost during upgrade: boom")
 }
 
-func (s *machineWorkerSuite) TestRunUpgradesFailedWithNotAPIError(c *gc.C) {
+func (s *machineWorkerSuite) TestRunUpgradesFailedWithNotAPIError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -159,13 +158,13 @@ func (s *machineWorkerSuite) TestRunUpgradesFailedWithNotAPIError(c *gc.C) {
 		c.Fatalf("timed out waiting for lock to be checked")
 	}
 
-	c.Check(atomic.LoadInt64(&called), gc.Equals, int64(1))
+	c.Check(atomic.LoadInt64(&called), tc.Equals, int64(1))
 
 	err := workertest.CheckKill(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *machineWorkerSuite) newWorker(c *gc.C) *machineWorker {
+func (s *machineWorkerSuite) newWorker(c *tc.C) *machineWorker {
 	baseWorker := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("9.9.9"))
 	return newMachineWorker(baseWorker)
 }

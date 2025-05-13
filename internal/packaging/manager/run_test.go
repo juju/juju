@@ -9,19 +9,19 @@ import (
 	"os/exec"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/packaging/manager"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&RunSuite{})
+var _ = tc.Suite(&RunSuite{})
 
 type RunSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-func (s *RunSuite) TestRunCommandWithRetryAttemptsExceeded(c *gc.C) {
+func (s *RunSuite) TestRunCommandWithRetryAttemptsExceeded(c *tc.C) {
 	calls := 0
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
@@ -31,7 +31,7 @@ func (s *RunSuite) TestRunCommandWithRetryAttemptsExceeded(c *gc.C) {
 		// happens in production. See also http://pad.lv/1394524.
 		output, err := cmd.CombinedOutput()
 		if _, ok := err.(*exec.Error); err != nil && !ok {
-			c.Check(err, gc.ErrorMatches, "exec: Stdout already set")
+			c.Check(err, tc.ErrorMatches, "exec: Stdout already set")
 			c.Fatalf("CommandOutput called twice unexpectedly")
 		}
 		return output, cmdError
@@ -39,14 +39,14 @@ func (s *RunSuite) TestRunCommandWithRetryAttemptsExceeded(c *gc.C) {
 
 	_, _, err := manager.RunCommandWithRetry("ls -la", alwaysRetryable{}, manager.RetryPolicy{
 		Attempts: 3,
-		Delay:    testing.ShortWait,
+		Delay:    testhelpers.ShortWait,
 	})
 
-	c.Check(err, gc.ErrorMatches, "packaging command failed: attempt count exceeded: exit status.*")
-	c.Check(calls, gc.Equals, 3)
+	c.Check(err, tc.ErrorMatches, "packaging command failed: attempt count exceeded: exit status.*")
+	c.Check(calls, tc.Equals, 3)
 }
 
-func (s *RunSuite) TestRunCommandWithRetryStopsWithFatalError(c *gc.C) {
+func (s *RunSuite) TestRunCommandWithRetryStopsWithFatalError(c *tc.C) {
 	calls := 0
 	state := os.ProcessState{}
 	cmdError := &exec.ExitError{ProcessState: &state}
@@ -56,7 +56,7 @@ func (s *RunSuite) TestRunCommandWithRetryStopsWithFatalError(c *gc.C) {
 		// happens in production. See also http://pad.lv/1394524.
 		output, err := cmd.CombinedOutput()
 		if _, ok := err.(*exec.Error); err != nil && !ok {
-			c.Check(err, gc.ErrorMatches, "exec: Stdout already set")
+			c.Check(err, tc.ErrorMatches, "exec: Stdout already set")
 			c.Fatalf("CommandOutput called twice unexpectedly")
 		}
 		return output, cmdError
@@ -64,11 +64,11 @@ func (s *RunSuite) TestRunCommandWithRetryStopsWithFatalError(c *gc.C) {
 
 	_, _, err := manager.RunCommandWithRetry("ls -la", alwaysFatal{}, manager.RetryPolicy{
 		Attempts: 3,
-		Delay:    testing.ShortWait,
+		Delay:    testhelpers.ShortWait,
 	})
 
-	c.Check(err, gc.ErrorMatches, "packaging command failed: encountered fatal error: boom!")
-	c.Check(calls, gc.Equals, 1)
+	c.Check(err, tc.ErrorMatches, "packaging command failed: encountered fatal error: boom!")
+	c.Check(calls, tc.Equals, 1)
 }
 
 type mockExitStatuser int

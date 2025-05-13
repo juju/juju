@@ -6,8 +6,8 @@ package charmrevisioner
 import (
 	"testing"
 
+	"github.com/juju/tc"
 	"go.uber.org/goleak"
-	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package charmrevisioner -destination package_mocks_test.go github.com/juju/juju/internal/worker/charmrevisioner CharmhubClient,ModelConfigService,ApplicationService,ModelService,ResourceService
@@ -17,7 +17,7 @@ import (
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 func ptr[T any](v T) *T {

@@ -9,9 +9,8 @@ import (
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreapplication "github.com/juju/juju/core/application"
@@ -26,9 +25,9 @@ type unitFacadeSuite struct {
 	applicationService *MockApplicationService
 }
 
-var _ = gc.Suite(&unitFacadeSuite{})
+var _ = tc.Suite(&unitFacadeSuite{})
 
-func (s *unitFacadeSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *unitFacadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.resourceService = NewMockResourceService(ctrl)
@@ -40,7 +39,7 @@ func (s *unitFacadeSuite) setupMocks(c *gc.C) *gomock.Controller {
 // TestNewUnitFacadeApplicationTag tests the creation of a UnitFacade using an
 // application tag and verifies that underlying method to get the appID
 // rely on the right call to application service.
-func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTag(c *gc.C) {
+func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTag(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
@@ -50,19 +49,19 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTag(c *gc.C) {
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
 		s.resourceService)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", err))
-	c.Assert(facade, gc.NotNil, gc.Commentf("(Act) facade is nil"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
+	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
 	appID, err := facade.getApplicationID(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %v", err))
-	c.Check(appID, gc.Equals, coreapplication.ID("expected-application-id"),
-		gc.Commentf("(Assert) application ID doesn't match: %v", appID))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
+	c.Check(appID, tc.Equals, coreapplication.ID("expected-application-id"),
+		tc.Commentf("(Assert) application ID doesn't match: %v", appID))
 }
 
 // TestNewUnitFacadeApplicationTagError verifies error handling during
 // UnitFacade creation with an application tag when application service fails.
-func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTagError(c *gc.C) {
+func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTagError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
@@ -73,18 +72,18 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTagError(c *gc.C) {
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
 		s.resourceService)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", err))
-	c.Assert(facade, gc.NotNil, gc.Commentf("(Act) facade is nil"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
+	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
 	_, err = facade.getApplicationID(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, expectedError, gc.Commentf("(Assert) unexpected error: %v", err))
+	c.Assert(err, tc.ErrorIs, expectedError, tc.Commentf("(Assert) unexpected error: %v", err))
 }
 
 // TestNewUnitFacadeUnitTag verifies the creation of a UnitFacade using a unit
 // tag and verifies that underlying method to get the appID  rely on the right
 // call to application service.
-func (s *unitFacadeSuite) TestNewUnitFacadeUnitTag(c *gc.C) {
+func (s *unitFacadeSuite) TestNewUnitFacadeUnitTag(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	tag := names.NewUnitTag("a-application/0")
@@ -95,19 +94,19 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTag(c *gc.C) {
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
 		s.resourceService)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", err))
-	c.Assert(facade, gc.NotNil, gc.Commentf("(Act) facade is nil"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
+	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
 	appID, err := facade.getApplicationID(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %v", err))
-	c.Check(appID, gc.Equals, coreapplication.ID("expected-application-id"),
-		gc.Commentf("(Assert) application ID doesn't match: %v", appID))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
+	c.Check(appID, tc.Equals, coreapplication.ID("expected-application-id"),
+		tc.Commentf("(Assert) application ID doesn't match: %v", appID))
 }
 
 // TestNewUnitFacadeUnitTagError verifies error handling during UnitFacade
 // creation using a unit tag when the application service fails.
-func (s *unitFacadeSuite) TestNewUnitFacadeUnitTagError(c *gc.C) {
+func (s *unitFacadeSuite) TestNewUnitFacadeUnitTagError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	tag := names.NewUnitTag("a-application/0")
@@ -118,17 +117,17 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTagError(c *gc.C) {
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
 		s.resourceService)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", err))
-	c.Assert(facade, gc.NotNil, gc.Commentf("(Act) facade is nil"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
+	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
 	_, err = facade.getApplicationID(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, expectedError, gc.Commentf("(Assert) unexpected error: %v", err))
+	c.Assert(err, tc.ErrorIs, expectedError, tc.Commentf("(Assert) unexpected error: %v", err))
 }
 
 // TestNewUnitUnexpectedTag verifies that creating a UnitFacade with an invalid
 // tag returns the expected error.
-func (s *unitFacadeSuite) TestNewUnitUnexpectedTag(c *gc.C) {
+func (s *unitFacadeSuite) TestNewUnitUnexpectedTag(c *tc.C) {
 	// Arrange
 	tag := names.NewActionTag("42")
 
@@ -138,13 +137,13 @@ func (s *unitFacadeSuite) TestNewUnitUnexpectedTag(c *gc.C) {
 		s.resourceService)
 
 	// Assert
-	c.Assert(err, gc.ErrorMatches, "expected names.UnitTag or names.ApplicationTag.*",
-		gc.Commentf("(Assert) error doesn't match or no error: %v", err))
+	c.Assert(err, tc.ErrorMatches, "expected names.UnitTag or names.ApplicationTag.*",
+		tc.Commentf("(Assert) error doesn't match or no error: %v", err))
 }
 
 // TestGetResourceInfoGetApplicationIDError verifies the behavior of
 // GetResourceInfo when getApplicationID returns an error.
-func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationIDError(c *gc.C) {
+func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationIDError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("expected error")
@@ -156,13 +155,13 @@ func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationIDError(c *gc.C) {
 	result, err := facade.GetResourceInfo(nil, params.ListUnitResourcesArgs{ResourceNames: []string{"a-resource"}})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %v", err))
-	c.Check(result.Error, gc.ErrorMatches, ".*expected error.*", gc.Commentf("(Assert) unexpected error result: %v",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
+	c.Check(result.Error, tc.ErrorMatches, ".*expected error.*", tc.Commentf("(Assert) unexpected error result: %v",
 		result.Error))
 }
 
 // TestGetApplicationIDCache verifies that the application ID is correctly retrieved and cached to avoid redundant API calls.
-func (s *unitFacadeSuite) TestGetApplicationIDCache(c *gc.C) {
+func (s *unitFacadeSuite) TestGetApplicationIDCache(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	facade := UnitFacade{
@@ -171,41 +170,41 @@ func (s *unitFacadeSuite) TestGetApplicationIDCache(c *gc.C) {
 
 	// Act & Assert: first retrieval (non cached)
 	id, err := facade.getApplicationID(context.Background())
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", err))
-	c.Check(id, gc.Equals, coreapplication.ID("cached-id"), gc.Commentf("(Assert) unexpected application ID: %v", id))
-	c.Check(facade.applicationID, gc.Equals, coreapplication.ID("cached-id"),
-		gc.Commentf("(Assert)application ID should be cached: %v", id))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
+	c.Check(id, tc.Equals, coreapplication.ID("cached-id"), tc.Commentf("(Assert) unexpected application ID: %v", id))
+	c.Check(facade.applicationID, tc.Equals, coreapplication.ID("cached-id"),
+		tc.Commentf("(Assert)application ID should be cached: %v", id))
 
 	// Act & Assert: first retrieval (cached)
 	id, err = facade.getApplicationID(context.Background())
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", err))
-	c.Check(id, gc.Equals, coreapplication.ID("cached-id"), gc.Commentf("(Assert) unexpected application ID: %v", id))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
+	c.Check(id, tc.Equals, coreapplication.ID("cached-id"), tc.Commentf("(Assert) unexpected application ID: %v", id))
 
 }
 
 // TestGetResourceInfoEmpty verifies that GetResourceInfo returns an empty list
 // of resources when no resources are specified.
-func (s *unitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
+func (s *unitFacadeSuite) TestGetResourceInfoEmpty(c *tc.C) {
 	// Arrange
 	tag := names.NewApplicationTag("a-application")
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
 		s.resourceService)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) unexpected error: %v", err))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) unexpected error: %v", err))
 
 	// Act
 	result, err := facade.GetResourceInfo(nil, params.ListUnitResourcesArgs{})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %v", err))
-	c.Check(result, gc.DeepEquals, params.UnitResourcesResult{
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
+	c.Check(result, tc.DeepEquals, params.UnitResourcesResult{
 		Resources: []params.UnitResourceResult{},
-	}, gc.Commentf("(Assert) should be empty: %v", result))
+	}, tc.Commentf("(Assert) should be empty: %v", result))
 }
 
 // TestGetResourceInfoListResourceError tests error handling when ListResources
 // fails in GetResourceInfo method.
-func (s *unitFacadeSuite) TestGetResourceInfoListResourceError(c *gc.C) {
+func (s *unitFacadeSuite) TestGetResourceInfoListResourceError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("expected error")
@@ -215,14 +214,14 @@ func (s *unitFacadeSuite) TestGetResourceInfoListResourceError(c *gc.C) {
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
 		s.resourceService)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrang) unexpected error: %v", err))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrang) unexpected error: %v", err))
 
 	// Act
 	result, err := facade.GetResourceInfo(nil, params.ListUnitResourcesArgs{ResourceNames: []string{"a-resource"}})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %v", err))
-	c.Check(result.Error, gc.ErrorMatches, ".*expected error.*", gc.Commentf("(Assert) unexpected error result: %v",
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
+	c.Check(result.Error, tc.ErrorMatches, ".*expected error.*", tc.Commentf("(Assert) unexpected error result: %v",
 		result.Error))
 }
 
@@ -231,7 +230,7 @@ func (s *unitFacadeSuite) TestGetResourceInfoListResourceError(c *gc.C) {
 // - Only requested resources are retrieved
 // - Requesting unexisting resources return a not found error
 // - All requested resources (found and not found), yield a line in the results.
-func (s *unitFacadeSuite) TestGetResourceInfo(c *gc.C) {
+func (s *unitFacadeSuite) TestGetResourceInfo(c *tc.C) {
 	// helpers
 	minimalResourceInfo := func(name string) coreresource.Resource {
 		return coreresource.Resource{
@@ -255,7 +254,7 @@ func (s *unitFacadeSuite) TestGetResourceInfo(c *gc.C) {
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
 		s.resourceService)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrang) unexpected error: %v", err))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrang) unexpected error: %v", err))
 
 	// Act
 	result, err := facade.GetResourceInfo(nil,
@@ -265,8 +264,8 @@ func (s *unitFacadeSuite) TestGetResourceInfo(c *gc.C) {
 			"fetched-resource-1"}})
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %v", err))
-	c.Check(result, gc.DeepEquals, params.UnitResourcesResult{
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
+	c.Check(result, tc.DeepEquals, params.UnitResourcesResult{
 		Resources: []params.UnitResourceResult{
 			{
 				ErrorResult: params.ErrorResult{
@@ -294,5 +293,5 @@ func (s *unitFacadeSuite) TestGetResourceInfo(c *gc.C) {
 				},
 			},
 		},
-	}, gc.Commentf("(Assert) unexpected resources result: %+v", result))
+	}, tc.Commentf("(Assert) unexpected resources result: %+v", result))
 }

@@ -9,8 +9,7 @@ import (
 	"net/http"
 
 	"github.com/juju/clock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -95,38 +94,38 @@ func (s stubDBDeleter) DeleteDB(namespace string) error {
 
 // ControllerDomainServices conveniently constructs a domain services for the
 // controller model.
-func (s *DomainServicesSuite) ControllerDomainServices(c *gc.C) services.DomainServices {
+func (s *DomainServicesSuite) ControllerDomainServices(c *tc.C) services.DomainServices {
 	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(s.ControllerModelUUID)
 }
 
 // DefaultModelDomainServices conveniently constructs a domain services for the
 // default model.
-func (s *DomainServicesSuite) DefaultModelDomainServices(c *gc.C) services.DomainServices {
+func (s *DomainServicesSuite) DefaultModelDomainServices(c *tc.C) services.DomainServices {
 	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(s.DefaultModelUUID)
 }
 
 // ModelDomainServices conveniently constructs a domain services for the
 // default model.
-func (s *DomainServicesSuite) ModelDomainServices(c *gc.C, modelUUID model.UUID) services.DomainServices {
+func (s *DomainServicesSuite) ModelDomainServices(c *tc.C, modelUUID model.UUID) services.DomainServices {
 	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(modelUUID)
 }
 
 // ModelDomainServicesGetter conveniently constructs a domain services getter
 // for the default model.
-func (s *DomainServicesSuite) ModelDomainServicesGetter(c *gc.C) services.DomainServicesGetter {
+func (s *DomainServicesSuite) ModelDomainServicesGetter(c *tc.C) services.DomainServicesGetter {
 	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})
 }
 
-func (s *DomainServicesSuite) SeedControllerConfig(c *gc.C) {
+func (s *DomainServicesSuite) SeedControllerConfig(c *tc.C) {
 	fn := controllerconfigbootstrap.InsertInitialControllerConfig(
 		s.ControllerConfig,
 		s.ControllerModelUUID,
 	)
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *DomainServicesSuite) SeedAdminUser(c *gc.C) {
+func (s *DomainServicesSuite) SeedAdminUser(c *tc.C) {
 	password := auth.NewPassword("dummy-secret")
 	uuid, fn := userbootstrap.AddUserWithPassword(
 		coreuser.AdminUserName,
@@ -141,14 +140,14 @@ func (s *DomainServicesSuite) SeedAdminUser(c *gc.C) {
 	)
 	s.AdminUserUUID = uuid
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *DomainServicesSuite) SeedCloudAndCredential(c *gc.C) {
+func (s *DomainServicesSuite) SeedCloudAndCredential(c *tc.C) {
 	ctx := context.Background()
 
 	err := cloudstate.AllowCloudType(ctx, s.ControllerTxnRunner(), 99, "dummy")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.CloudName = "dummy"
 	s.CloudType = "dummy"
@@ -162,7 +161,7 @@ func (s *DomainServicesSuite) SeedCloudAndCredential(c *gc.C) {
 			},
 		},
 	})(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.CredentialKey = credential.Key{
 		Cloud: s.CloudName,
@@ -176,16 +175,16 @@ func (s *DomainServicesSuite) SeedCloudAndCredential(c *gc.C) {
 			"password": "secret",
 		}),
 	)(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // SeedModelDatabases makes sure that model's for both the controller and default
 // model have been created in the database.
-func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
+func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
 	ctx := context.Background()
 
 	controllerUUID, err := uuid.UUIDFromString(jujutesting.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerArgs := modeldomain.GlobalModelCreationArgs{
 		Cloud:       s.CloudName,
@@ -197,13 +196,13 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 
 	fn := modelbootstrap.CreateGlobalModelRecord(s.ControllerModelUUID, controllerArgs)
 	c.Assert(backendbootstrap.CreateDefaultBackends(model.IAAS)(
-		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String())), jc.ErrorIsNil)
+		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String())), tc.ErrorIsNil)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(s.ControllerModelUUID, controllerUUID, jujuversion.Current)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fn = modelconfigbootstrap.SetModelConfig(
 		s.ControllerModelUUID,
@@ -211,7 +210,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, s.CloudType),
 	)
 	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelArgs := modeldomain.GlobalModelCreationArgs{
 		Cloud:      s.CloudName,
@@ -222,11 +221,11 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 
 	fn = modelbootstrap.CreateGlobalModelRecord(s.DefaultModelUUID, modelArgs)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(s.DefaultModelUUID, controllerUUID, jujuversion.Current)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fn = modelconfigbootstrap.SetModelConfig(
 		s.DefaultModelUUID,
@@ -234,12 +233,12 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, s.CloudType),
 	)
 	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // DomainServicesGetter provides an implementation of the DomainServicesGetter
 // interface to use in tests. This includes the dummy storage registry.
-func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker) DomainServicesGetterFunc {
+func (s *DomainServicesSuite) DomainServicesGetter(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker) DomainServicesGetterFunc {
 	return s.DomainServicesGetterWithStorageRegistry(c, objectStore, leaseManager, storage.ChainedProviderRegistry{
 		// Using the dummy storage provider for testing purposes isn't
 		// ideal. We should potentially use a mock storage provider
@@ -257,7 +256,7 @@ type domainServices struct {
 // DomainServicesGetterWithStorageRegistry provides an implementation of the
 // DomainServicesGetterWithStorageRegistry interface to use in tests with the
 // additional storage provider.
-func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
+func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
 	return func(modelUUID model.UUID) services.DomainServices {
 		clock := clock.WallClock
 		logger := loggertesting.WrapCheckLog(c)
@@ -302,7 +301,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 
 // ObjectStoreServicesGetter provides an implementation of the
 // ObjectStoreServicesGetter interface to use in tests.
-func (s *DomainServicesSuite) ObjectStoreServicesGetter(c *gc.C) ObjectStoreServicesGetterFunc {
+func (s *DomainServicesSuite) ObjectStoreServicesGetter(c *tc.C) ObjectStoreServicesGetterFunc {
 	return func(modelUUID model.UUID) services.ObjectStoreServices {
 		return domainservices.NewObjectStoreServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
@@ -314,18 +313,18 @@ func (s *DomainServicesSuite) ObjectStoreServicesGetter(c *gc.C) ObjectStoreServ
 
 // NoopObjectStore returns a no-op implementation of the ObjectStore interface.
 // This is useful when the test does not require any object store functionality.
-func (s *DomainServicesSuite) NoopObjectStore(c *gc.C) objectstore.ObjectStore {
+func (s *DomainServicesSuite) NoopObjectStore(c *tc.C) objectstore.ObjectStore {
 	return TestingObjectStore{}
 }
 
 // NoopLeaseManager returns a no-op implementation of lease.Checker.
-func (s *DomainServicesSuite) NoopLeaseManager(c *gc.C) lease.Checker {
+func (s *DomainServicesSuite) NoopLeaseManager(c *tc.C) lease.Checker {
 	return TestingLeaseManager{}
 }
 
 // SetUpTest creates the controller and default model unique identifiers if they
 // have not already been set. Also seeds the initial database with the models.
-func (s *DomainServicesSuite) SetUpTest(c *gc.C) {
+func (s *DomainServicesSuite) SetUpTest(c *tc.C) {
 	s.ControllerModelSuite.SetUpTest(c)
 	if s.ControllerModelUUID == "" {
 		s.ControllerModelUUID = modeltesting.GenModelUUID(c)

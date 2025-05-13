@@ -4,57 +4,57 @@
 package base
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ChannelSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ChannelSuite{})
+var _ = tc.Suite(&ChannelSuite{})
 
-func (s *ChannelSuite) TestParse(c *gc.C) {
+func (s *ChannelSuite) TestParse(c *tc.C) {
 	ch, err := ParseChannel("22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "22.04"})
 	ch, err = ParseChannel("22.04/edge")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04", Risk: "edge"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "22.04", Risk: "edge"})
 	ch, err = ParseChannel("all")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "all"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "all"})
 }
 
-func (s *ChannelSuite) TestParseError(c *gc.C) {
+func (s *ChannelSuite) TestParseError(c *tc.C) {
 	_, err := ParseChannel("22.04/edge/foo")
-	c.Assert(err, gc.ErrorMatches, `channel is malformed and has too many components "22.04/edge/foo"`)
+	c.Assert(err, tc.ErrorMatches, `channel is malformed and has too many components "22.04/edge/foo"`)
 	_, err = ParseChannel("22.04/foo")
-	c.Assert(err, gc.ErrorMatches, `risk in channel "22.04/foo" not valid`)
+	c.Assert(err, tc.ErrorMatches, `risk in channel "22.04/foo" not valid`)
 }
 
-func (s *ChannelSuite) TestParseNormalise(c *gc.C) {
+func (s *ChannelSuite) TestParseNormalise(c *tc.C) {
 	ch, err := ParseChannelNormalize("22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04", Risk: "stable"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "22.04", Risk: "stable"})
 	ch, err = ParseChannelNormalize("22.04/edge")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04", Risk: "edge"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "22.04", Risk: "edge"})
 }
 
-func (s *ChannelSuite) TestMakeDefaultChannel(c *gc.C) {
+func (s *ChannelSuite) TestMakeDefaultChannel(c *tc.C) {
 	ch := MakeDefaultChannel("22.04")
-	c.Assert(ch, jc.DeepEquals, Channel{Track: "22.04", Risk: "stable"})
+	c.Assert(ch, tc.DeepEquals, Channel{Track: "22.04", Risk: "stable"})
 }
 
-func (s *ChannelSuite) TestString(c *gc.C) {
-	c.Assert(Channel{Track: "22.04"}.String(), gc.Equals, "22.04")
-	c.Assert(Channel{Track: "22.04", Risk: "edge"}.String(), gc.Equals, "22.04/edge")
+func (s *ChannelSuite) TestString(c *tc.C) {
+	c.Assert(Channel{Track: "22.04"}.String(), tc.Equals, "22.04")
+	c.Assert(Channel{Track: "22.04", Risk: "edge"}.String(), tc.Equals, "22.04/edge")
 }
 
-func (s *ChannelSuite) TestDisplayString(c *gc.C) {
-	c.Assert(Channel{Track: "18.04"}.DisplayString(), gc.Equals, "18.04")
-	c.Assert(Channel{Track: "20.04", Risk: "stable"}.DisplayString(), gc.Equals, "20.04")
-	c.Assert(Channel{Track: "22.04", Risk: "edge"}.DisplayString(), gc.Equals, "22.04/edge")
+func (s *ChannelSuite) TestDisplayString(c *tc.C) {
+	c.Assert(Channel{Track: "18.04"}.DisplayString(), tc.Equals, "18.04")
+	c.Assert(Channel{Track: "20.04", Risk: "stable"}.DisplayString(), tc.Equals, "20.04")
+	c.Assert(Channel{Track: "22.04", Risk: "edge"}.DisplayString(), tc.Equals, "22.04/edge")
 }

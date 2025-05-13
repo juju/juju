@@ -10,20 +10,19 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type prompterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&prompterSuite{})
+var _ = tc.Suite(&prompterSuite{})
 
-func (*prompterSuite) TestPrompter(c *gc.C) {
+func (*prompterSuite) TestPrompter(c *tc.C) {
 	noPrompt := func(p string) (string, error) {
 		c.Fatalf("unpexected prompt (text %q)", p)
 		panic("unreachable")
@@ -38,46 +37,46 @@ func (*prompterSuite) TestPrompter(c *gc.C) {
 
 	fmt.Fprint(p, promptText)
 	promptFn = func(p string) (string, error) {
-		c.Assert(p, gc.Equals, promptText)
+		c.Assert(p, tc.Equals, promptText)
 		return promptReply, nil
 	}
-	c.Assert(readStr(c, p, 20), gc.Equals, promptReply)
+	c.Assert(readStr(c, p, 20), tc.Equals, promptReply)
 
 	promptText = "some text\ngoodbye: "
 	promptReply = "again\n"
 	fmt.Fprint(p, promptText[0:10])
 	fmt.Fprint(p, promptText[10:])
 
-	c.Assert(readStr(c, p, 3), gc.Equals, promptReply[0:3])
-	c.Assert(readStr(c, p, 20), gc.Equals, promptReply[3:])
+	c.Assert(readStr(c, p, 3), tc.Equals, promptReply[0:3])
+	c.Assert(readStr(c, p, 20), tc.Equals, promptReply[3:])
 
 	fmt.Fprint(p, "final text\n")
 
-	c.Assert(p.Tail(), gc.Equals, "final text\n")
-	c.Assert(p.HasUnread(), gc.Equals, false)
+	c.Assert(p.Tail(), tc.Equals, "final text\n")
+	c.Assert(p.HasUnread(), tc.Equals, false)
 }
 
-func (*prompterSuite) TestUnreadInput(c *gc.C) {
+func (*prompterSuite) TestUnreadInput(c *tc.C) {
 	p := cmdtesting.NewPrompter(func(s string) (string, error) {
 		return "hello world", nil
 	})
-	c.Assert(readStr(c, p, 3), gc.Equals, "hel")
+	c.Assert(readStr(c, p, 3), tc.Equals, "hel")
 
-	c.Assert(p.HasUnread(), gc.Equals, true)
+	c.Assert(p.HasUnread(), tc.Equals, true)
 }
 
-func (*prompterSuite) TestError(c *gc.C) {
+func (*prompterSuite) TestError(c *tc.C) {
 	expectErr := errors.New("something")
 	p := cmdtesting.NewPrompter(func(s string) (string, error) {
 		return "", expectErr
 	})
 	buf := make([]byte, 3)
 	n, err := p.Read(buf)
-	c.Assert(n, gc.Equals, 0)
-	c.Assert(err, gc.Equals, expectErr)
+	c.Assert(n, tc.Equals, 0)
+	c.Assert(err, tc.Equals, expectErr)
 }
 
-func (*prompterSuite) TestSeqPrompter(c *gc.C) {
+func (*prompterSuite) TestSeqPrompter(c *tc.C) {
 	p := cmdtesting.NewSeqPrompter(c, "»", `
 hello: »reply
 some text
@@ -85,29 +84,29 @@ goodbye: »again
 final
 `[1:])
 	fmt.Fprint(p, "hello: ")
-	c.Assert(readStr(c, p, 1), gc.Equals, "r")
-	c.Assert(readStr(c, p, 20), gc.Equals, "eply\n")
+	c.Assert(readStr(c, p, 1), tc.Equals, "r")
+	c.Assert(readStr(c, p, 20), tc.Equals, "eply\n")
 	fmt.Fprint(p, "some text\n")
 	fmt.Fprint(p, "goodbye: ")
-	c.Assert(readStr(c, p, 20), gc.Equals, "again\n")
+	c.Assert(readStr(c, p, 20), tc.Equals, "again\n")
 	fmt.Fprint(p, "final\n")
 	p.AssertDone()
 }
 
-func (*prompterSuite) TestSeqPrompterEOF(c *gc.C) {
+func (*prompterSuite) TestSeqPrompterEOF(c *tc.C) {
 	p := cmdtesting.NewSeqPrompter(c, "»", `
 hello: »»
 final
 `[1:])
 	fmt.Fprint(p, "hello: ")
 	n, err := p.Read(make([]byte, 10))
-	c.Assert(n, gc.Equals, 0)
-	c.Assert(err, gc.Equals, io.EOF)
+	c.Assert(n, tc.Equals, 0)
+	c.Assert(err, tc.Equals, io.EOF)
 	fmt.Fprint(p, "final\n")
 	p.AssertDone()
 }
 
-func (*prompterSuite) TestNewIOChecker(c *gc.C) {
+func (*prompterSuite) TestNewIOChecker(c *tc.C) {
 	checker := cmdtesting.NewSeqPrompter(c, "»", `What is your name: »Bob
 »more
 And your age: »148
@@ -121,16 +120,16 @@ more!
 	fmt.Fprintf(checker, "And your age: ")
 	n, _ = checker.Read(buf)
 	age, err := strconv.Atoi(strings.TrimSpace(string(buf[0:n])))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	if age > 90 {
 		fmt.Fprintf(checker, "You're very old, %s!\n", name)
 	}
 	checker.CheckDone()
 }
 
-func readStr(c *gc.C, r io.Reader, nb int) string {
+func readStr(c *tc.C, r io.Reader, nb int) string {
 	buf := make([]byte, nb)
 	n, err := r.Read(buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return string(buf[0:n])
 }

@@ -14,24 +14,24 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
 	coretesting "github.com/juju/juju/core/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/socketlistener"
+	"github.com/juju/juju/juju/sockets"
 )
 
 type socketListenerSuite struct {
 	logger logger.Logger
 }
 
-var _ = gc.Suite(&socketListenerSuite{})
+var _ = tc.Suite(&socketListenerSuite{})
 
-func (s *socketListenerSuite) SetUpTest(c *gc.C) {
+func (s *socketListenerSuite) SetUpTest(c *tc.C) {
 	s.logger = loggertesting.WrapCheckLog(c)
 }
 
@@ -44,7 +44,7 @@ func registerTestHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 }
 
-func (s *socketListenerSuite) TestStartStopWorker(c *gc.C) {
+func (s *socketListenerSuite) TestStartStopWorker(c *tc.C) {
 	tmpDir := c.MkDir()
 	socket := path.Join(tmpDir, "test.socket")
 
@@ -54,38 +54,38 @@ func (s *socketListenerSuite) TestStartStopWorker(c *gc.C) {
 		RegisterHandlers: registerTestHandlers,
 		ShutdownTimeout:  coretesting.LongWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check socket is created with correct permissions.
 	fi, err := os.Stat(socket)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fi.Mode(), gc.Equals, fs.ModeSocket|0700)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fi.Mode(), tc.Equals, fs.ModeSocket|0700)
 
 	// Check server is up.
 	cl := client(socket)
 	resp, err := cl.Get("http://localhost:8080/foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 
 	// Check server is serving.
 	cl = client(socket)
 	resp, err = cl.Get("http://localhost:8080/test-endpoint")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 
 	sl.Kill()
 	err = sl.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check server has stopped.
 	_, err = cl.Get("http://localhost:8080/foo")
-	c.Assert(err, gc.ErrorMatches, ".*connection refused")
+	c.Assert(err, tc.ErrorMatches, ".*(connection refused|no such file or directory)")
 }
 
 // TestEnsureShutdown checks that a slow handler will not prevent a clean
 // shutdown. An example of this, would be running a db query, that isn't letting
 // the handler return immediately.
-func (s *socketListenerSuite) TestEnsureShutdown(c *gc.C) {
+func (s *socketListenerSuite) TestEnsureShutdown(c *tc.C) {
 	for i := 0; i < 100; i++ {
 		tmpDir := c.MkDir()
 		socket := path.Join(tmpDir, "test.socket")
@@ -103,7 +103,7 @@ func (s *socketListenerSuite) TestEnsureShutdown(c *gc.C) {
 			},
 			ShutdownTimeout: coretesting.LongWait,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer workertest.DirtyKill(c, sl)
 		var tomb tomb.Tomb
 		tomb.Go(func() error {
@@ -127,7 +127,7 @@ func (s *socketListenerSuite) TestEnsureShutdown(c *gc.C) {
 		// Wait for server to cleanly shutdown
 		select {
 		case <-tomb.Dead():
-			c.Assert(tomb.Err(), gc.IsNil)
+			c.Assert(tomb.Err(), tc.IsNil)
 		case <-time.After(coretesting.LongWait):
 			tomb.Kill(fmt.Errorf("took too long to finish"))
 			c.Errorf("took too long to finish")
@@ -141,7 +141,10 @@ func client(socketPath string) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (conn net.Conn, err error) {
-				return net.Dial("unix", socketPath)
+				return sockets.Dialer(sockets.Socket{
+					Network: "unix",
+					Address: socketPath,
+				})
 			},
 		},
 	}

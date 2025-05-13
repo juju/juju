@@ -4,7 +4,7 @@
 package watcher_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -12,11 +12,11 @@ import (
 
 type todoWatcherSuite struct{}
 
-var _ = gc.Suite(&todoWatcherSuite{})
+var _ = tc.Suite(&todoWatcherSuite{})
 
-func (s *todoWatcherSuite) TestStringsWatcher(c *gc.C) {
+func (s *todoWatcherSuite) TestStringsWatcher(c *tc.C) {
 	sw := watcher.TODO[[]string]()
-	c.Assert(sw, gc.NotNil)
+	c.Assert(sw, tc.NotNil)
 
 	swC := watchertest.NewStringsWatcherC(c, sw)
 	swC.AssertOneChange()
@@ -24,9 +24,9 @@ func (s *todoWatcherSuite) TestStringsWatcher(c *gc.C) {
 	swC.AssertKilled()
 }
 
-func (s *todoWatcherSuite) TestNotifyWatcher(c *gc.C) {
+func (s *todoWatcherSuite) TestNotifyWatcher(c *tc.C) {
 	nw := watcher.TODO[struct{}]()
-	c.Assert(nw, gc.NotNil)
+	c.Assert(nw, tc.NotNil)
 
 	nwC := watchertest.NewNotifyWatcherC(c, nw)
 	nwC.AssertOneChange()

@@ -8,8 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	jujuversion "github.com/juju/juju/core/version"
@@ -27,11 +26,11 @@ import (
 const adminSecret = "admin-secret"
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 func init() {
-	gc.Suite(&suite{
+	tc.Suite(&suite{
 		Tests: jujutest.Tests{
 			TestConfig: testing.FakeConfig(),
 		},
@@ -43,23 +42,23 @@ type suite struct {
 	jujutest.Tests
 }
 
-func (s *suite) SetUpSuite(c *gc.C) {
+func (s *suite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
-func (s *suite) SetUpTest(c *gc.C) {
+func (s *suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.Tests.SetUpTest(c)
 }
 
-func (s *suite) TearDownTest(c *gc.C) {
+func (s *suite) TearDownTest(c *tc.C) {
 	s.Tests.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
+func (s *suite) bootstrapTestEnviron(c *tc.C) environs.NetworkingEnviron {
 	e, err := bootstrap.PrepareController(
 		false,
 		envtesting.BootstrapContext(context.Background(), c),
@@ -72,11 +71,11 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 			AdminSecret:      adminSecret,
 		},
 	)
-	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
-	c.Assert(e, gc.NotNil)
+	c.Assert(err, tc.IsNil, tc.Commentf("preparing environ %#v", s.TestConfig))
+	c.Assert(e, tc.NotNil)
 	env := e.(environs.Environ)
 	netenv, supported := environs.SupportsNetworking(env)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(context.Background(), c), netenv,
 		bootstrap.BootstrapParams{
@@ -90,72 +89,72 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 			CAPrivateKey:            testing.CAKey,
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return netenv
 }
 
-func (s *suite) TestAvailabilityZone(c *gc.C) {
+func (s *suite) TestAvailabilityZone(c *tc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	inst, hwc := jujutesting.AssertStartInstance(c, e, s.ControllerUUID, "0")
-	c.Assert(inst, gc.NotNil)
-	c.Check(hwc.Arch, gc.NotNil)
+	c.Assert(inst, tc.NotNil)
+	c.Check(hwc.Arch, tc.NotNil)
 }
 
-func (s *suite) TestSupportsSpaces(c *gc.C) {
+func (s *suite) TestSupportsSpaces(c *tc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	// Without change spaces are supported.
 	ok, err := e.SupportsSpaces()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now turn it off.
 	isEnabled := dummy.SetSupportsSpaces(false)
-	c.Assert(isEnabled, jc.IsTrue)
+	c.Assert(isEnabled, tc.IsTrue)
 	ok, err = e.SupportsSpaces()
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 
 	// And finally turn it on again.
 	isEnabled = dummy.SetSupportsSpaces(true)
-	c.Assert(isEnabled, jc.IsFalse)
+	c.Assert(isEnabled, tc.IsFalse)
 	ok, err = e.SupportsSpaces()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *suite) TestSupportsSpaceDiscovery(c *gc.C) {
+func (s *suite) TestSupportsSpaceDiscovery(c *tc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	// Without change space discovery is not supported.
 	ok, err := e.SupportsSpaceDiscovery()
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now turn it on.
 	isEnabled := dummy.SetSupportsSpaceDiscovery(true)
-	c.Assert(isEnabled, jc.IsFalse)
+	c.Assert(isEnabled, tc.IsFalse)
 	ok, err = e.SupportsSpaceDiscovery()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// And finally turn it off again.
 	isEnabled = dummy.SetSupportsSpaceDiscovery(false)
-	c.Assert(isEnabled, jc.IsTrue)
+	c.Assert(isEnabled, tc.IsTrue)
 	ok, err = e.SupportsSpaceDiscovery()
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
 }

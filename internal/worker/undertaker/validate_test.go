@@ -9,46 +9,45 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/undertaker"
 )
 
 type ValidateSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ValidateSuite{})
+var _ = tc.Suite(&ValidateSuite{})
 
-func (*ValidateSuite) TestNilFacade(c *gc.C) {
+func (*ValidateSuite) TestNilFacade(c *tc.C) {
 	config := validConfig(c)
 	config.Facade = nil
 	checkInvalid(c, config, "nil Facade not valid")
 }
 
-func (*ValidateSuite) TestNilLogger(c *gc.C) {
+func (*ValidateSuite) TestNilLogger(c *tc.C) {
 	config := validConfig(c)
 	config.Logger = nil
 	checkInvalid(c, config, "nil Logger not valid")
 }
 
-func (*ValidateSuite) TestNilNewCloudDestroyerFunc(c *gc.C) {
+func (*ValidateSuite) TestNilNewCloudDestroyerFunc(c *tc.C) {
 	config := validConfig(c)
 	config.NewCloudDestroyerFunc = nil
 	checkInvalid(c, config, "nil NewCloudDestroyerFunc not valid")
 }
 
-func (*ValidateSuite) TestNilClock(c *gc.C) {
+func (*ValidateSuite) TestNilClock(c *tc.C) {
 	config := validConfig(c)
 	config.Clock = nil
 	checkInvalid(c, config, "nil Clock not valid")
 }
 
-func validConfig(c *gc.C) undertaker.Config {
+func validConfig(c *tc.C) undertaker.Config {
 	return undertaker.Config{
 		Facade: &fakeFacade{},
 		Logger: loggertesting.WrapCheckLog(c),
@@ -59,15 +58,15 @@ func validConfig(c *gc.C) undertaker.Config {
 	}
 }
 
-func checkInvalid(c *gc.C, config undertaker.Config, message string) {
+func checkInvalid(c *tc.C, config undertaker.Config, message string) {
 	check := func(err error) {
-		c.Check(err, jc.ErrorIs, errors.NotValid)
-		c.Check(err, gc.ErrorMatches, message)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
+		c.Check(err, tc.ErrorMatches, message)
 	}
 	err := config.Validate()
 	check(err)
 
 	worker, err := undertaker.NewUndertaker(config)
-	c.Check(worker, gc.IsNil)
+	c.Check(worker, tc.IsNil)
 	check(err)
 }

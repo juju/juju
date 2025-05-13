@@ -8,46 +8,45 @@ import (
 	"net/http"
 	"net/url"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
 )
 
 type metadataSuite struct{}
 
-var _ = gc.Suite(&metadataSuite{})
+var _ = tc.Suite(&metadataSuite{})
 
-func (s *metadataSuite) TestCannedRoundTripper(c *gc.C) {
+func (s *metadataSuite) TestCannedRoundTripper(c *tc.C) {
 	aContent := "a-content"
 	vrt := testing.NewCannedRoundTripper(map[string]string{
 		"a": aContent,
 		"b": "b-content",
 	}, nil)
-	c.Assert(vrt, gc.NotNil)
+	c.Assert(vrt, tc.NotNil)
 	req := &http.Request{URL: &url.URL{Path: "a"}}
 	resp, err := vrt.RoundTrip(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp, tc.NotNil)
 	content, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, aContent)
-	c.Assert(resp.ContentLength, gc.Equals, int64(len(aContent)))
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Assert(resp.Status, gc.Equals, "200 OK")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(content), tc.Equals, aContent)
+	c.Assert(resp.ContentLength, tc.Equals, int64(len(aContent)))
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
+	c.Assert(resp.Status, tc.Equals, "200 OK")
 }
 
-func (s *metadataSuite) TestCannedRoundTripperMissing(c *gc.C) {
+func (s *metadataSuite) TestCannedRoundTripperMissing(c *tc.C) {
 	vrt := testing.NewCannedRoundTripper(map[string]string{"a": "a-content"}, nil)
-	c.Assert(vrt, gc.NotNil)
+	c.Assert(vrt, tc.NotNil)
 	req := &http.Request{URL: &url.URL{Path: "no-such-file"}}
 	resp, err := vrt.RoundTrip(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp, tc.NotNil)
 	content, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, "")
-	c.Assert(resp.ContentLength, gc.Equals, int64(0))
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
-	c.Assert(resp.Status, gc.Equals, "404 Not Found")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(content), tc.Equals, "")
+	c.Assert(resp.ContentLength, tc.Equals, int64(0))
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
+	c.Assert(resp.Status, tc.Equals, "404 Not Found")
 }

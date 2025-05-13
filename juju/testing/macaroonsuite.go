@@ -13,8 +13,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -41,7 +40,7 @@ type MacaroonSuite struct {
 	DischargerLogin func() string
 }
 
-func (s *MacaroonSuite) SetUpTest(c *gc.C) {
+func (s *MacaroonSuite) SetUpTest(c *tc.C) {
 	s.DischargerLogin = nil
 	s.discharger = bakerytest.NewDischarger(nil)
 	s.discharger.CheckerP = httpbakery.ThirdPartyCaveatCheckerPFunc(func(ctx context.Context, p httpbakery.ThirdPartyCaveatCheckerParams) ([]checkers.Caveat, error) {
@@ -73,10 +72,10 @@ func (s *MacaroonSuite) SetUpTest(c *gc.C) {
 		"",
 		s.AdminUserUUID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MacaroonSuite) TearDownTest(c *gc.C) {
+func (s *MacaroonSuite) TearDownTest(c *tc.C) {
 	s.discharger.Close()
 	s.ApiServerSuite.TearDownTest(c)
 }
@@ -90,7 +89,7 @@ func (s *MacaroonSuite) DischargerLocation() string {
 // AddModelUser is a convenience function that adds an external
 // user to the current model.
 // It will panic if the user is local.
-func (s *MacaroonSuite) AddModelUser(c *gc.C, username user.Name) {
+func (s *MacaroonSuite) AddModelUser(c *tc.C, username user.Name) {
 	if username.IsLocal() {
 		panic("cannot use MacaroonSuite.AddModelUser to add a local name")
 	}
@@ -107,12 +106,12 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username user.Name) {
 			Access: permission.WriteAccess,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // AddControllerUser is a convenience function that adds
 // a controller user with the specified access.
-func (s *MacaroonSuite) AddControllerUser(c *gc.C, username user.Name, accessLevel permission.Access) {
+func (s *MacaroonSuite) AddControllerUser(c *tc.C, username user.Name, accessLevel permission.Access) {
 	accessService := s.ControllerDomainServices(c).Access()
 	perm := permission.AccessSpec{
 		Access: accessLevel,
@@ -128,14 +127,14 @@ func (s *MacaroonSuite) AddControllerUser(c *gc.C, username user.Name, accessLev
 		AccessSpec: perm,
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // OpenAPI opens a connection to the API using the given information.
 // and empty DialOpts. If info is nil, s.APIInfo(c) is used.
 // If jar is non-nil, it will be used as the store for the cookies created
 // as a result of API interaction.
-func (s *MacaroonSuite) OpenAPI(c *gc.C, info *api.Info, jar http.CookieJar) api.Connection {
+func (s *MacaroonSuite) OpenAPI(c *tc.C, info *api.Info, jar http.CookieJar) api.Connection {
 	if info == nil {
 		info = s.APIInfo(c)
 	}
@@ -146,20 +145,20 @@ func (s *MacaroonSuite) OpenAPI(c *gc.C, info *api.Info, jar http.CookieJar) api
 	conn, err := api.Open(context.Background(), info, api.DialOpts{
 		BakeryClient: bakeryClient,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return conn
 }
 
 // APIInfo returns API connection info suitable for
 // connecting to the API using macaroon authentication.
-func (s *MacaroonSuite) APIInfo(c *gc.C) *api.Info {
+func (s *MacaroonSuite) APIInfo(c *tc.C) *api.Info {
 	info := s.ApiServerSuite.ControllerModelApiInfo()
 	info.Tag = nil
 	info.Password = ""
 	// Fill in any old macaroon to ensure we don't attempt
 	// an anonymous login.
 	mac, err := NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	info.Macaroons = []macaroon.Slice{{mac}}
 	return info
 }
@@ -202,7 +201,7 @@ func (jar *ClearableCookieJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	jar.jar.SetCookies(u, cookies)
 }
 
-func MacaroonsEqual(c *gc.C, ms1, ms2 []macaroon.Slice) error {
+func MacaroonsEqual(c *tc.C, ms1, ms2 []macaroon.Slice) error {
 	if len(ms1) != len(ms2) {
 		return errors.Errorf("length mismatch, %d vs %d", len(ms1), len(ms2))
 	}
@@ -220,10 +219,10 @@ func MacaroonsEqual(c *gc.C, ms1, ms2 []macaroon.Slice) error {
 	return nil
 }
 
-func MacaroonEquals(c *gc.C, m1, m2 *macaroon.Macaroon) {
-	c.Assert(m1.Id(), jc.DeepEquals, m2.Id())
-	c.Assert(m1.Signature(), jc.DeepEquals, m2.Signature())
-	c.Assert(m1.Location(), gc.Equals, m2.Location())
+func MacaroonEquals(c *tc.C, m1, m2 *macaroon.Macaroon) {
+	c.Assert(m1.Id(), tc.DeepEquals, m2.Id())
+	c.Assert(m1.Signature(), tc.DeepEquals, m2.Signature())
+	c.Assert(m1.Location(), tc.Equals, m2.Location())
 }
 
 func NewMacaroon(id string) (*macaroon.Macaroon, error) {

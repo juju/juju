@@ -8,27 +8,26 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/unit"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type agentAuthenticatorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	agentPasswordService *MockAgentPasswordService
 }
 
-var _ = gc.Suite(&agentAuthenticatorSuite{})
+var _ = tc.Suite(&agentAuthenticatorSuite{})
 
-func (s *agentAuthenticatorSuite) TestStub(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Valid machine login.
 - Invalid login for machine not provisioned.
@@ -36,7 +35,7 @@ func (s *agentAuthenticatorSuite) TestStub(c *gc.C) {
 `)
 }
 
-func (s *agentAuthenticatorSuite) TestUserLogin(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestUserLogin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	authTag := names.NewUserTag("joeblogs")
@@ -45,10 +44,10 @@ func (s *agentAuthenticatorSuite) TestUserLogin(c *gc.C) {
 	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag: authTag,
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrBadRequest)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrBadRequest)
 }
 
-func (s *agentAuthenticatorSuite) TestUnitLogin(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestUnitLogin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "password").Return(true, nil)
@@ -60,11 +59,11 @@ func (s *agentAuthenticatorSuite) TestUnitLogin(c *gc.C) {
 		AuthTag:     authTag,
 		Credentials: "password",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(entity.Tag(), gc.DeepEquals, authTag)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entity.Tag(), tc.DeepEquals, authTag)
 }
 
-func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, agentpassworderrors.EmptyPassword)
@@ -76,10 +75,10 @@ func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *gc.C) {
 		AuthTag:     authTag,
 		Credentials: "",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrBadRequest)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrBadRequest)
 }
 
-func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, agentpassworderrors.InvalidPassword)
@@ -91,10 +90,10 @@ func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *gc.C) {
 		AuthTag:     authTag,
 		Credentials: "",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
-func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, agentpassworderrors.UnitNotFound)
@@ -106,10 +105,10 @@ func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *gc.C) {
 		AuthTag:     authTag,
 		Credentials: "",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
-func (s *agentAuthenticatorSuite) TestUnitLoginUnitError(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestUnitLoginUnitError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, errors.Errorf("boom"))
@@ -121,10 +120,10 @@ func (s *agentAuthenticatorSuite) TestUnitLoginUnitError(c *gc.C) {
 		AuthTag:     authTag,
 		Credentials: "",
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *agentAuthenticatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)

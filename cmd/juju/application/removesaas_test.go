@@ -8,40 +8,39 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/client/application"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 
 type RemoveSaasSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockAPI *mockRemoveSaasAPI
 }
 
-var _ = gc.Suite(&RemoveSaasSuite{})
+var _ = tc.Suite(&RemoveSaasSuite{})
 
-func (s *RemoveSaasSuite) SetUpTest(c *gc.C) {
+func (s *RemoveSaasSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockRemoveSaasAPI{Stub: &testing.Stub{}}
+	s.mockAPI = &mockRemoveSaasAPI{Stub: &testhelpers.Stub{}}
 }
 
-func (s *RemoveSaasSuite) runRemoveSaas(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *RemoveSaasSuite) runRemoveSaas(c *tc.C, args ...string) (*cmd.Context, error) {
 	store := jujuclienttesting.MinimalStore()
 	return cmdtesting.RunCommand(c, NewRemoveSaasCommandForTest(s.mockAPI, store), args...)
 }
 
-func (s *RemoveSaasSuite) TestRemove(c *gc.C) {
+func (s *RemoveSaasSuite) TestRemove(c *tc.C) {
 	_, err := s.runRemoveSaas(c, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	destroyParams := application.DestroyConsumedApplicationParams{
 		SaasNames: []string{"foo"},
 		Force:     false,
@@ -51,7 +50,7 @@ func (s *RemoveSaasSuite) TestRemove(c *gc.C) {
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
-func (s *RemoveSaasSuite) TestBlockRemoveSaas(c *gc.C) {
+func (s *RemoveSaasSuite) TestBlockRemoveSaas(c *tc.C) {
 	s.mockAPI.SetErrors(apiservererrors.OperationBlockedError("TestRemoveSaasBlocked"))
 	_, err := s.runRemoveSaas(c, "foo")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestRemoveSaasBlocked.*")
@@ -64,27 +63,27 @@ func (s *RemoveSaasSuite) TestBlockRemoveSaas(c *gc.C) {
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
-func (s *RemoveSaasSuite) TestFailure(c *gc.C) {
+func (s *RemoveSaasSuite) TestFailure(c *tc.C) {
 	s.mockAPI.err = errors.New("an error")
 	// Destroy an application that does not exist.
 	ctx, err := s.runRemoveSaas(c, "gargleblaster")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
 
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `
+	c.Assert(stderr, tc.Equals, `
 removing SAAS application gargleblaster failed: an error
 `[1:])
 }
 
-func (s *RemoveSaasSuite) TestInvalidArgs(c *gc.C) {
+func (s *RemoveSaasSuite) TestInvalidArgs(c *tc.C) {
 	_, err := s.runRemoveSaas(c)
-	c.Assert(err, gc.ErrorMatches, `no SAAS application names specified`)
+	c.Assert(err, tc.ErrorMatches, `no SAAS application names specified`)
 	_, err = s.runRemoveSaas(c, "invalid:name")
-	c.Assert(err, gc.ErrorMatches, `invalid SAAS application name "invalid:name"`)
+	c.Assert(err, tc.ErrorMatches, `invalid SAAS application name "invalid:name"`)
 }
 
 type mockRemoveSaasAPI struct {
-	*testing.Stub
+	*testhelpers.Stub
 	err error
 }
 

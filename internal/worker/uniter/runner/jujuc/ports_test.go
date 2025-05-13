@@ -5,8 +5,7 @@
 package jujuc_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cmd"
@@ -18,7 +17,7 @@ type PortsSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&PortsSuite{})
+var _ = tc.Suite(&PortsSuite{})
 
 var portsTests = []struct {
 	cmd    []string
@@ -71,16 +70,16 @@ func makeAllEndpointsRanges(stringRanges ...string) network.GroupedPortRanges {
 	}
 }
 
-func (s *PortsSuite) TestOpenClose(c *gc.C) {
+func (s *PortsSuite) TestOpenClose(c *tc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsTests {
 		com, err := jujuc.NewCommand(hctx, t.cmd[0])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])
-		c.Check(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Check(code, tc.Equals, 0)
+		c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 		hctx.info.CheckPortRanges(c, t.expect)
 	}
 }
@@ -94,16 +93,16 @@ var portsFormatDeprecationTests = []struct {
 	{[]string{"close-port", "--format", "foo", "80/TCP"}},
 }
 
-func (s *PortsSuite) TestOpenCloseDeprecation(c *gc.C) {
+func (s *PortsSuite) TestOpenCloseDeprecation(c *tc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsFormatDeprecationTests {
 		name := t.cmd[0]
 		com, err := jujuc.NewCommand(hctx, name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-		c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \""+name+"\"")
+		c.Assert(code, tc.Equals, 0)
+		c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
+		c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "--format flag deprecated for command \""+name+"\"")
 	}
 }

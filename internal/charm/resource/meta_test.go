@@ -5,17 +5,16 @@ package resource_test
 
 import (
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/resource"
 )
 
-var _ = gc.Suite(&MetaSuite{})
+var _ = tc.Suite(&MetaSuite{})
 
 type MetaSuite struct{}
 
-func (s *MetaSuite) TestValidateFull(c *gc.C) {
+func (s *MetaSuite) TestValidateFull(c *tc.C) {
 	res := resource.Meta{
 		Name:        "my-resource",
 		Type:        resource.TypeFile,
@@ -24,17 +23,17 @@ func (s *MetaSuite) TestValidateFull(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *MetaSuite) TestValidateZeroValue(c *gc.C) {
+func (s *MetaSuite) TestValidateZeroValue(c *tc.C) {
 	var res resource.Meta
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *MetaSuite) TestValidateMissingName(c *gc.C) {
+func (s *MetaSuite) TestValidateMissingName(c *tc.C) {
 	res := resource.Meta{
 		Type:        resource.TypeFile,
 		Path:        "filename.tgz",
@@ -42,11 +41,11 @@ func (s *MetaSuite) TestValidateMissingName(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `resource missing name`)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, `resource missing name`)
 }
 
-func (s *MetaSuite) TestValidateMissingType(c *gc.C) {
+func (s *MetaSuite) TestValidateMissingType(c *tc.C) {
 	res := resource.Meta{
 		Name:        "my-resource",
 		Path:        "filename.tgz",
@@ -54,11 +53,11 @@ func (s *MetaSuite) TestValidateMissingType(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `resource missing type`)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, `resource missing type`)
 }
 
-func (s *MetaSuite) TestValidateMissingPath(c *gc.C) {
+func (s *MetaSuite) TestValidateMissingPath(c *tc.C) {
 	res := resource.Meta{
 		Name:        "my-resource",
 		Type:        resource.TypeFile,
@@ -66,11 +65,11 @@ func (s *MetaSuite) TestValidateMissingPath(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `resource missing filename`)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, `resource missing filename`)
 }
 
-func (s *MetaSuite) TestValidateNestedPath(c *gc.C) {
+func (s *MetaSuite) TestValidateNestedPath(c *tc.C) {
 	res := resource.Meta{
 		Name: "my-resource",
 		Type: resource.TypeFile,
@@ -78,11 +77,11 @@ func (s *MetaSuite) TestValidateNestedPath(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `.*filename cannot contain "/" .*`)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
-func (s *MetaSuite) TestValidateAbsolutePath(c *gc.C) {
+func (s *MetaSuite) TestValidateAbsolutePath(c *tc.C) {
 	res := resource.Meta{
 		Name: "my-resource",
 		Type: resource.TypeFile,
@@ -90,11 +89,11 @@ func (s *MetaSuite) TestValidateAbsolutePath(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `.*filename cannot contain "/" .*`)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
-func (s *MetaSuite) TestValidateSuspectPath(c *gc.C) {
+func (s *MetaSuite) TestValidateSuspectPath(c *tc.C) {
 	res := resource.Meta{
 		Name: "my-resource",
 		Type: resource.TypeFile,
@@ -102,11 +101,11 @@ func (s *MetaSuite) TestValidateSuspectPath(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `.*filename cannot contain "/" .*`)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
-func (s *MetaSuite) TestValidateMissingComment(c *gc.C) {
+func (s *MetaSuite) TestValidateMissingComment(c *tc.C) {
 	res := resource.Meta{
 		Name: "my-resource",
 		Type: resource.TypeFile,
@@ -114,5 +113,5 @@ func (s *MetaSuite) TestValidateMissingComment(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }

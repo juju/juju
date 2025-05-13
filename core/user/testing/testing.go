@@ -4,24 +4,23 @@
 package testing
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreuser "github.com/juju/juju/core/user"
 )
 
 // GenUserUUID can be used in testing for generating a user uuid that is
 // checked for subsequent errors using the test suits go check instance.
-func GenUserUUID(c *gc.C) coreuser.UUID {
+func GenUserUUID(c *tc.C) coreuser.UUID {
 	uuid, err := coreuser.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }
 
 // GenNewName returns a new username object. It asserts that the username is
 // valid.
-func GenNewName(c *gc.C, name string) coreuser.Name {
+func GenNewName(c *tc.C, name string) coreuser.Name {
 	un, err := coreuser.NewName(name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return un
 }

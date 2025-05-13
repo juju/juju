@@ -10,9 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/names/v6"
-	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/arch"
@@ -32,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/container/broker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -42,17 +41,17 @@ type brokerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&brokerSuite{})
+var _ = tc.Suite(&brokerSuite{})
 
-func (s *brokerSuite) SetUpSuite(c *gc.C) {
+func (s *brokerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	broker.PatchNewMachineInitReader(s, newFakeMachineInitReader)
 }
 
-func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
+func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *tc.C) {
 	obtained, err := broker.CombinedCloudInitData(nil, "ca-certs,apt-primary",
 		corebase.MakeDefaultBase("ubuntu", "16.04"), loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertCloudInitUserData(obtained, map[string]interface{}{
 		"apt": map[string]interface{}{
@@ -70,11 +69,11 @@ func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
 	}, c)
 }
 
-func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *gc.C) {
+func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *tc.C) {
 	containerConfig := fakeContainerConfig()
 	obtained, err := broker.CombinedCloudInitData(containerConfig.CloudInitUserData, "",
 		corebase.MakeDefaultBase("ubuntu", "16.04"), loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCloudInitUserData(obtained, containerConfig.CloudInitUserData, c)
 }
 
@@ -92,7 +91,7 @@ func (f *fakeAddr) String() string {
 var _ net.Addr = (*fakeAddr)(nil)
 
 type fakeAPI struct {
-	*jtesting.Stub
+	*testhelpers.Stub
 
 	fakeContainerConfig params.ContainerConfig
 	fakeInterfaceInfo   corenetwork.InterfaceInfo
@@ -134,7 +133,7 @@ func fakeContainerConfig() params.ContainerConfig {
 
 func NewFakeAPI() *fakeAPI {
 	return &fakeAPI{
-		Stub:                &jtesting.Stub{},
+		Stub:                &testhelpers.Stub{},
 		fakeContainerConfig: fakeContainerConfig(),
 		fakeInterfaceInfo:   fakeInterfaceInfo,
 	}
@@ -211,7 +210,7 @@ func (f *fakeAPI) GetContainerProfileInfo(ctx context.Context, containerTag name
 }
 
 type fakeContainerManager struct {
-	jtesting.Stub
+	testhelpers.Stub
 }
 
 func (m *fakeContainerManager) CreateContainer(_ context.Context,
@@ -280,7 +279,7 @@ type patcher interface {
 	PatchValue(destination, source interface{})
 }
 
-func patchResolvConf(s patcher, c *gc.C) {
+func patchResolvConf(s patcher, c *tc.C) {
 	const fakeConf = `
 nameserver ns1.dummy
 search dummy invalid
@@ -289,18 +288,18 @@ nameserver ns2.dummy
 
 	fakeResolvConf := filepath.Join(c.MkDir(), "fakeresolv.conf")
 	err := os.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.PatchValue(broker.ResolvConfFiles, []string{fakeResolvConf})
 }
 
-func makeInstanceConfig(c *gc.C, s patcher, machineId string) *instancecfg.InstanceConfig {
+func makeInstanceConfig(c *tc.C, s patcher, machineId string) *instancecfg.InstanceConfig {
 	machineNonce := "fake-nonce"
 	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce,
 		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return instanceConfig
 }
 
@@ -321,7 +320,7 @@ func makeNoOpStatusCallback() func(ctx context.Context, settableStatus status.St
 	}
 }
 
-func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
+func callStartInstance(c *tc.C, s patcher, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
 	return broker.StartInstance(context.Background(), environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          makePossibleTools(),
@@ -330,18 +329,18 @@ func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machi
 	})
 }
 
-func assertCloudInitUserData(obtained, expected map[string]interface{}, c *gc.C) {
-	c.Assert(obtained, gc.HasLen, len(expected))
+func assertCloudInitUserData(obtained, expected map[string]interface{}, c *tc.C) {
+	c.Assert(obtained, tc.HasLen, len(expected))
 	for obtainedK, obtainedV := range obtained {
 		expectedV, ok := expected[obtainedK]
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		switch obtainedK {
 		case "package_upgrade":
-			c.Assert(obtainedV, gc.Equals, expectedV)
+			c.Assert(obtainedV, tc.Equals, expectedV)
 		case "apt", "ca-certs":
-			c.Assert(obtainedV, jc.DeepEquals, expectedV)
+			c.Assert(obtainedV, tc.DeepEquals, expectedV)
 		default:
-			c.Assert(obtainedV, jc.SameContents, expectedV)
+			c.Assert(obtainedV, tc.SameContents, expectedV)
 		}
 	}
 }

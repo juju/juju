@@ -9,8 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -26,9 +25,9 @@ type connectionSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&connectionSuite{})
+var _ = tc.Suite(&connectionSuite{})
 
-func (s *connectionSuite) TestCloseMultipleOk(c *gc.C) {
+func (s *connectionSuite) TestCloseMultipleOk(c *tc.C) {
 	conn := newRPCConnection()
 	broken := make(chan struct{})
 	close(broken)
@@ -39,12 +38,12 @@ func (s *connectionSuite) TestCloseMultipleOk(c *gc.C) {
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
-	c.Assert(apiConn.Close(), gc.IsNil)
-	c.Assert(apiConn.Close(), gc.IsNil)
-	c.Assert(apiConn.Close(), gc.IsNil)
+	c.Assert(apiConn.Close(), tc.IsNil)
+	c.Assert(apiConn.Close(), tc.IsNil)
+	c.Assert(apiConn.Close(), tc.IsNil)
 }
 
-func (s *connectionSuite) apiConnection(c *gc.C) api.Connection {
+func (s *connectionSuite) apiConnection(c *tc.C) api.Connection {
 	conn := newRPCConnection()
 	conn.response = &params.LoginResult{
 		ControllerTag: coretesting.ControllerTag.String(),
@@ -81,28 +80,28 @@ func (s *connectionSuite) apiConnection(c *gc.C) api.Connection {
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
-	s.AddCleanup(func(c *gc.C) {
-		c.Assert(apiConn.Close(), jc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) {
+		c.Assert(apiConn.Close(), tc.ErrorIsNil)
 	})
 	return apiConn
 }
 
-func (s *connectionSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
+func (s *connectionSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *tc.C) {
 	apiConn := s.apiConnection(c)
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hostPortList := apiConn.APIHostPorts()
-	c.Assert(len(hostPortList), gc.Equals, 2)
-	c.Assert(len(hostPortList[0]), gc.Equals, 1)
-	c.Assert(hostPortList[0][0].NetPort, gc.Equals, network.NetPort(1234))
-	c.Assert(hostPortList[0][0].MachineAddress.Value, gc.Equals, "localhost")
-	c.Assert(len(hostPortList[1]), gc.Equals, 1)
-	c.Assert(hostPortList[1][0].NetPort, gc.Equals, network.NetPort(1234))
-	c.Assert(hostPortList[1][0].MachineAddress.Value, gc.Equals, "fe80:abcd::1")
+	c.Assert(len(hostPortList), tc.Equals, 2)
+	c.Assert(len(hostPortList[0]), tc.Equals, 1)
+	c.Assert(hostPortList[0][0].NetPort, tc.Equals, network.NetPort(1234))
+	c.Assert(hostPortList[0][0].MachineAddress.Value, tc.Equals, "localhost")
+	c.Assert(len(hostPortList[1]), tc.Equals, 1)
+	c.Assert(hostPortList[1][0].NetPort, tc.Equals, network.NetPort(1234))
+	c.Assert(hostPortList[1][0].MachineAddress.Value, tc.Equals, "fe80:abcd::1")
 }
 
-func (s *connectionSuite) TestAPIHostPortsExcludesAddressesWithPath(c *gc.C) {
+func (s *connectionSuite) TestAPIHostPortsExcludesAddressesWithPath(c *tc.C) {
 	conn := newRPCConnection()
 	conn.response = &params.LoginResult{
 		ControllerTag: coretesting.ControllerTag.String(),
@@ -132,16 +131,16 @@ func (s *connectionSuite) TestAPIHostPortsExcludesAddressesWithPath(c *gc.C) {
 		Closed:        make(chan struct{}),
 	})
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hostPortList := apiConn.APIHostPorts()
-	c.Assert(len(hostPortList), gc.Equals, 1)
-	c.Assert(len(hostPortList[0]), gc.Equals, 1)
-	c.Assert(hostPortList[0][0].NetPort, gc.Equals, network.NetPort(1234))
-	c.Assert(hostPortList[0][0].MachineAddress.Value, gc.Equals, "fe80:abcd::1")
+	c.Assert(len(hostPortList), tc.Equals, 1)
+	c.Assert(len(hostPortList[0]), tc.Equals, 1)
+	c.Assert(hostPortList[0][0].NetPort, tc.Equals, network.NetPort(1234))
+	c.Assert(hostPortList[0][0].MachineAddress.Value, tc.Equals, "fe80:abcd::1")
 }
 
-func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
+func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *tc.C) {
 	conn := newRPCConnection()
 	conn.response = &params.LoginResult{
 		ControllerTag: coretesting.ControllerTag.String(),
@@ -172,37 +171,37 @@ func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C)
 		Proxier:       proxytest.NewMockTunnelProxier(),
 	})
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hostPortList := apiConn.APIHostPorts()
-	c.Assert(len(hostPortList), gc.Equals, 1)
-	c.Assert(len(hostPortList[0]), gc.Equals, 1)
-	c.Assert(hostPortList[0][0].NetPort, gc.Equals, network.NetPort(1234))
-	c.Assert(hostPortList[0][0].MachineAddress.Value, gc.Equals, "fe80:abcd::1")
+	c.Assert(len(hostPortList), tc.Equals, 1)
+	c.Assert(len(hostPortList[0]), tc.Equals, 1)
+	c.Assert(hostPortList[0][0].NetPort, tc.Equals, network.NetPort(1234))
+	c.Assert(hostPortList[0][0].MachineAddress.Value, tc.Equals, "fe80:abcd::1")
 }
 
-func (s *connectionSuite) TestTags(c *gc.C) {
+func (s *connectionSuite) TestTags(c *tc.C) {
 	apiConn := s.apiConnection(c)
 	// Even though we haven't called Login, the model tag should
 	// still be set.
 	modelTag, ok := apiConn.ModelTag()
-	c.Check(ok, jc.IsTrue)
-	c.Assert(modelTag, jc.DeepEquals, coretesting.ModelTag)
+	c.Check(ok, tc.IsTrue)
+	c.Assert(modelTag, tc.DeepEquals, coretesting.ModelTag)
 	err := apiConn.Login(context.Background(), jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Now that we've logged in, ModelTag should still be the same.
 	modelTag, ok = apiConn.ModelTag()
-	c.Check(ok, jc.IsTrue)
-	c.Check(modelTag, jc.DeepEquals, coretesting.ModelTag)
+	c.Check(ok, tc.IsTrue)
+	c.Check(modelTag, tc.DeepEquals, coretesting.ModelTag)
 	controllerTag := apiConn.ControllerTag()
-	c.Check(controllerTag, gc.Equals, coretesting.ControllerTag)
+	c.Check(controllerTag, tc.Equals, coretesting.ControllerTag)
 }
 
-func (s *connectionSuite) TestLoginSetsControllerAccess(c *gc.C) {
+func (s *connectionSuite) TestLoginSetsControllerAccess(c *tc.C) {
 	apiConn := s.apiConnection(c)
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiConn.ControllerAccess(), gc.Equals, "superuser")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apiConn.ControllerAccess(), tc.Equals, "superuser")
 }
 
 func asMap(v interface{}) map[string]interface{} {
@@ -221,7 +220,7 @@ var sampleRedirectError = func() *apiservererrors.RedirectError {
 	}
 }()
 
-func (s *connectionSuite) TestLoginToMigratedModel(c *gc.C) {
+func (s *connectionSuite) TestLoginToMigratedModel(c *tc.C) {
 	conn := newRPCConnection()
 	conn.stub.SetErrors(&rpc.RequestError{
 		Code: params.CodeRedirect,
@@ -244,25 +243,25 @@ func (s *connectionSuite) TestLoginToMigratedModel(c *gc.C) {
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 
 	redirErr, ok := errors.Cause(err).(*api.RedirectError)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
-	c.Assert(redirErr.Servers, jc.DeepEquals, []network.MachineHostPorts{{
+	c.Assert(redirErr.Servers, tc.DeepEquals, []network.MachineHostPorts{{
 		network.NewMachineHostPorts(12345, "1.1.1.1")[0],
 		network.NewMachineHostPorts(7337, "2.2.2.2")[0],
 	}})
-	c.Assert(redirErr.CACert, gc.Equals, coretesting.ServerCert)
-	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
-	c.Assert(redirErr.ControllerTag.String(), gc.Equals, coretesting.ControllerTag.String())
+	c.Assert(redirErr.CACert, tc.Equals, coretesting.ServerCert)
+	c.Assert(redirErr.FollowRedirect, tc.Equals, false)
+	c.Assert(redirErr.ControllerTag.String(), tc.Equals, coretesting.ControllerTag.String())
 }
 
-func (s *connectionSuite) TestBestFacadeVersion(c *gc.C) {
+func (s *connectionSuite) TestBestFacadeVersion(c *tc.C) {
 	apiConn := s.apiConnection(c)
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(apiConn.BestFacadeVersion("Client"), gc.Equals, 8)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiConn.BestFacadeVersion("Client"), tc.Equals, 8)
 }
 
-func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
+func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *tc.C) {
 	goodAddress := network.MachineHostPort{
 		MachineAddress: network.NewMachineAddress("localhost", network.WithScope(network.ScopeMachineLocal)),
 		NetPort:        1234,
@@ -334,7 +333,7 @@ func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 		Closed:        make(chan struct{}),
 	})
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hostPorts := apiConn.APIHostPorts()
 	// We should have rotate the server we connected to as the first item,
 	// and the address of that server as the first address
@@ -342,14 +341,14 @@ func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 		goodAddress, extraAddress, extraAddress2,
 	}
 	expected := []network.MachineHostPorts{sortedServer, badServer}
-	c.Check(hostPorts, gc.DeepEquals, expected)
+	c.Check(hostPorts, tc.DeepEquals, expected)
 }
 
 type slideSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&slideSuite{})
+var _ = tc.Suite(&slideSuite{})
 
 var exampleHostPorts = []network.MachineHostPort{
 	{MachineAddress: network.NewMachineAddress("0.1.2.3"), NetPort: 1234},
@@ -358,7 +357,7 @@ var exampleHostPorts = []network.MachineHostPort{
 	{MachineAddress: network.NewMachineAddress("0.1.9.1"), NetPort: 8888},
 }
 
-func (s *slideSuite) TestSlideToFrontNoOp(c *gc.C) {
+func (s *slideSuite) TestSlideToFrontNoOp(c *tc.C) {
 	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0]},
 		{exampleHostPorts[1]},
@@ -369,10 +368,10 @@ func (s *slideSuite) TestSlideToFrontNoOp(c *gc.C) {
 		{exampleHostPorts[1]},
 	}
 	api.SlideAddressToFront(servers, 0, 0)
-	c.Check(servers, gc.DeepEquals, expected)
+	c.Check(servers, tc.DeepEquals, expected)
 }
 
-func (s *slideSuite) TestSlideToFrontAddress(c *gc.C) {
+func (s *slideSuite) TestSlideToFrontAddress(c *tc.C) {
 	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0], exampleHostPorts[1], exampleHostPorts[2]},
 		{exampleHostPorts[3]},
@@ -383,10 +382,10 @@ func (s *slideSuite) TestSlideToFrontAddress(c *gc.C) {
 		{exampleHostPorts[3]},
 	}
 	api.SlideAddressToFront(servers, 0, 1)
-	c.Check(servers, gc.DeepEquals, expected)
+	c.Check(servers, tc.DeepEquals, expected)
 }
 
-func (s *slideSuite) TestSlideToFrontServer(c *gc.C) {
+func (s *slideSuite) TestSlideToFrontServer(c *tc.C) {
 	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0], exampleHostPorts[1]},
 		{exampleHostPorts[2]},
@@ -399,10 +398,10 @@ func (s *slideSuite) TestSlideToFrontServer(c *gc.C) {
 		{exampleHostPorts[3]},
 	}
 	api.SlideAddressToFront(servers, 1, 0)
-	c.Check(servers, gc.DeepEquals, expected)
+	c.Check(servers, tc.DeepEquals, expected)
 }
 
-func (s *slideSuite) TestSlideToFrontBoth(c *gc.C) {
+func (s *slideSuite) TestSlideToFrontBoth(c *tc.C) {
 	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0]},
 		{exampleHostPorts[1], exampleHostPorts[2]},
@@ -415,5 +414,5 @@ func (s *slideSuite) TestSlideToFrontBoth(c *gc.C) {
 		{exampleHostPorts[3]},
 	}
 	api.SlideAddressToFront(servers, 1, 1)
-	c.Check(servers, gc.DeepEquals, expected)
+	c.Check(servers, tc.DeepEquals, expected)
 }

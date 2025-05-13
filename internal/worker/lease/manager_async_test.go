@@ -10,12 +10,11 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/lease"
 )
@@ -25,12 +24,12 @@ type leaseMap = map[corelease.Key]corelease.Info
 // AsyncSuite checks that expiries and claims that block don't prevent
 // subsequent updates.
 type AsyncSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&AsyncSuite{})
+var _ = tc.Suite(&AsyncSuite{})
 
-func (s *AsyncSuite) SetUpTest(c *gc.C) {
+func (s *AsyncSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	logger := loggo.GetLogger("juju.worker.lease")
 	logger.SetLogLevel(loggo.TRACE)
@@ -38,7 +37,7 @@ func (s *AsyncSuite) SetUpTest(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 }
 
-func (s *AsyncSuite) TestRevokeTimeout(c *gc.C) {
+func (s *AsyncSuite) TestRevokeTimeout(c *tc.C) {
 	// When a timeout happens on revoke we retry.
 	revokeCalls := make(chan struct{})
 	fix := Fixture{
@@ -70,7 +69,7 @@ func (s *AsyncSuite) TestRevokeTimeout(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		revoker, err := manager.Revoker("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		result := make(chan error)
 		go func() {
@@ -87,18 +86,18 @@ func (s *AsyncSuite) TestRevokeTimeout(c *gc.C) {
 		// - one is the nextTick timer, set for 1 minute in the future
 		// - two is the claim retry timer
 		err = clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		select {
 		case err := <-result:
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for response")
 		}
 	})
 }
 
-func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *gc.C) {
+func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *tc.C) {
 	// When a timeout happens on revoke we retry - if we hit the retry
 	// limit we should kill the manager.
 	revokeCalls := make(chan struct{})
@@ -131,7 +130,7 @@ func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *gc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		result := make(chan error)
 		revoker, err := manager.Revoker("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		go func() {
 			result <- revoker.Revoke("requiem", "verdi")
 		}()
@@ -150,7 +149,7 @@ func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *gc.C) {
 			// There should be 2 waiters:
 			//  - nextTick has a timer once things expire
 			//  - retryingClaim has an attempt timer
-			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), jc.ErrorIsNil)
+			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), tc.ErrorIsNil)
 			duration = time.Duration(float64(duration)*lease.RetryBackoffFactor + 1)
 		}
 
@@ -162,7 +161,7 @@ func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *gc.C) {
 
 		select {
 		case err := <-result:
-			c.Assert(errors.Cause(err), gc.Equals, corelease.ErrTimeout)
+			c.Assert(errors.Cause(err), tc.Equals, corelease.ErrTimeout)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for result")
 		}
@@ -171,7 +170,7 @@ func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *gc.C) {
 	})
 }
 
-func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
+func (s *AsyncSuite) TestClaimSlow(c *tc.C) {
 	slowStarted := make(chan struct{})
 	slowFinish := make(chan struct{})
 
@@ -223,7 +222,7 @@ func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		response1 := make(chan error)
 		go func() {
@@ -242,13 +241,13 @@ func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
 
 		// response1 should have failed its claim, and now be waiting to retry
 		// only 1 waiter, which is the 'when should we expire next' timer.
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 1), tc.ErrorIsNil)
 
 		// We should be able to get the response for the second claim
 		// even though the first hasn't come back yet.
 		select {
 		case err := <-response2:
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		case <-response1:
 			c.Fatalf("response1 was ready")
 		case <-time.After(coretesting.LongWait):
@@ -257,19 +256,19 @@ func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
 
 		close(slowFinish)
 
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, testing.LongWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 1), tc.ErrorIsNil)
 
 		// Now response1 should come back.
 		select {
 		case err := <-response1:
-			c.Assert(errors.Cause(err), gc.Equals, corelease.ErrClaimDenied)
+			c.Assert(errors.Cause(err), tc.Equals, corelease.ErrClaimDenied)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for response1")
 		}
 	})
 }
 
-func (s *AsyncSuite) TestClaimTwoErrors(c *gc.C) {
+func (s *AsyncSuite) TestClaimTwoErrors(c *tc.C) {
 	oneStarted := make(chan struct{})
 	oneFinish := make(chan struct{})
 	twoStarted := make(chan struct{})
@@ -311,7 +310,7 @@ func (s *AsyncSuite) TestClaimTwoErrors(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		response1 := make(chan error)
 		go func() {
@@ -341,7 +340,7 @@ func (s *AsyncSuite) TestClaimTwoErrors(c *gc.C) {
 		// We should be able to get error responses from both of them.
 		select {
 		case err1 := <-response1:
-			c.Check(err1, gc.ErrorMatches, "lease manager stopped")
+			c.Check(err1, tc.ErrorMatches, "lease manager stopped")
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for response2")
 		}
@@ -349,7 +348,7 @@ func (s *AsyncSuite) TestClaimTwoErrors(c *gc.C) {
 		close(twoFinish)
 		select {
 		case err2 := <-response2:
-			c.Check(err2, gc.ErrorMatches, "lease manager stopped")
+			c.Check(err2, tc.ErrorMatches, "lease manager stopped")
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for response2")
 		}
@@ -357,11 +356,11 @@ func (s *AsyncSuite) TestClaimTwoErrors(c *gc.C) {
 		// Since we unblock one before two, we know the error from
 		// the manager is bad terry
 		err = workertest.CheckKilled(c, manager)
-		c.Assert(err, gc.ErrorMatches, "terry is bad")
+		c.Assert(err, tc.ErrorMatches, "terry is bad")
 	})
 }
 
-func (s *AsyncSuite) TestClaimTimeout(c *gc.C) {
+func (s *AsyncSuite) TestClaimTimeout(c *tc.C) {
 	// When a claim times out we retry.
 	claimCalls := make(chan struct{})
 	fix := Fixture{
@@ -396,7 +395,7 @@ func (s *AsyncSuite) TestClaimTimeout(c *gc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		go func() {
 			result <- claimer.Claim("icecream", "rosie", time.Minute)
 		}()
@@ -411,18 +410,18 @@ func (s *AsyncSuite) TestClaimTimeout(c *gc.C) {
 		// - one is the nextTick timer, set for 1 minute in the future
 		// - two is the claim retry timer
 		err = clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 2)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		select {
 		case err := <-result:
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for response")
 		}
 	})
 }
 
-func (s *AsyncSuite) TestClaimNoticesEarlyExpiry(c *gc.C) {
+func (s *AsyncSuite) TestClaimNoticesEarlyExpiry(c *tc.C) {
 	fix := Fixture{
 		leases: leaseMap{
 			key("dmdc"): {
@@ -462,26 +461,26 @@ func (s *AsyncSuite) TestClaimNoticesEarlyExpiry(c *gc.C) {
 		// will create an entry that expires in only 1 minute, so we should
 		// reset our expire timeout
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = claimer.Claim("icecream", "rosie", time.Minute)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		// We sleep for 30s which *shouldn't* trigger any Expiry. And then we get
 		// another claim that also wants 1 minute duration. But that should not cause the
 		// timer to wake up in 1minute, but the 30s that are remaining.
-		c.Assert(clock.WaitAdvance(30*time.Second, testing.LongWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(30*time.Second, testhelpers.LongWait, 1), tc.ErrorIsNil)
 		// The second claim tries to set a timeout of another minute, but that should
 		// not cause the timer to get reset any later than it already is.
 		// Chocolate is also given a slightly longer timeout (2min after epoch)
 		err = claimer.Claim("fudge", "chocolate", time.Minute)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		// Now when we advance the clock another 30s, it should wake up and
 		// expire "icecream", and then queue up that we should expire "fudge"
 		// 1m later
-		c.Assert(clock.WaitAdvance(30*time.Second, testing.LongWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(30*time.Second, testhelpers.LongWait, 1), tc.ErrorIsNil)
 	})
 }
 
-func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
+func (s *AsyncSuite) TestClaimRepeatedTimeout(c *tc.C) {
 	// When a claim times out too many times we give up.
 	claimCalls := make(chan struct{})
 	var calls []call
@@ -509,7 +508,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		go func() {
 			result <- claimer.Claim("icecream", "rosie", time.Minute)
 		}()
@@ -528,7 +527,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 			// There should be 2 waiters:
 			//  - nextTick has a timer once things expire
 			//  - retryingClaim has an attempt timer
-			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), jc.ErrorIsNil)
+			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), tc.ErrorIsNil)
 			duration = time.Duration(float64(duration)*lease.RetryBackoffFactor + 1)
 		}
 
@@ -540,7 +539,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 
 		select {
 		case err := <-result:
-			c.Assert(errors.Cause(err), gc.Equals, corelease.ErrTimeout)
+			c.Assert(errors.Cause(err), tc.Equals, corelease.ErrTimeout)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for result")
 		}
@@ -549,7 +548,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 	})
 }
 
-func (s *AsyncSuite) TestClaimRepeatedInvalid(c *gc.C) {
+func (s *AsyncSuite) TestClaimRepeatedInvalid(c *tc.C) {
 	// When a claim is invalid for too long, we give up
 	claimCalls := make(chan struct{})
 	var calls []call
@@ -577,7 +576,7 @@ func (s *AsyncSuite) TestClaimRepeatedInvalid(c *gc.C) {
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		go func() {
 			result <- claimer.Claim("icecream", "rosie", time.Minute)
 		}()
@@ -596,7 +595,7 @@ func (s *AsyncSuite) TestClaimRepeatedInvalid(c *gc.C) {
 			// There should be 2 waiters:
 			//  - nextTick has a timer once things expire
 			//  - retryingClaim has an attempt timer
-			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), jc.ErrorIsNil)
+			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), tc.ErrorIsNil)
 			duration = time.Duration(float64(duration)*lease.RetryBackoffFactor + 1)
 		}
 
@@ -608,7 +607,7 @@ func (s *AsyncSuite) TestClaimRepeatedInvalid(c *gc.C) {
 
 		select {
 		case err := <-result:
-			c.Assert(errors.Cause(err), gc.Equals, corelease.ErrClaimDenied)
+			c.Assert(errors.Cause(err), tc.Equals, corelease.ErrClaimDenied)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for result")
 		}
@@ -617,7 +616,7 @@ func (s *AsyncSuite) TestClaimRepeatedInvalid(c *gc.C) {
 	})
 }
 
-func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
+func (s *AsyncSuite) TestWaitsForGoroutines(c *tc.C) {
 	// The manager should wait for all of its child expire and claim
 	// goroutines to be finished before it stops.
 	claimStarted := make(chan struct{})
@@ -645,7 +644,7 @@ func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
 
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		go func() {
 			result <- claimer.Claim("blooadoath", "hand", time.Minute)
 		}()
@@ -669,12 +668,12 @@ func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
 
 		select {
 		case err := <-result:
-			c.Assert(err, gc.ErrorMatches, "lease manager stopped")
+			c.Assert(err, tc.ErrorMatches, "lease manager stopped")
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for result")
 		}
 
 		err = workertest.CheckKilled(c, manager)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 }

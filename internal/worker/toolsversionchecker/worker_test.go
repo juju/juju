@@ -7,14 +7,13 @@ import (
 	"context"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
 )
 
-var _ = gc.Suite(&ToolsCheckerSuite{})
+var _ = tc.Suite(&ToolsCheckerSuite{})
 
 type ToolsCheckerSuite struct {
 	coretesting.BaseSuite
@@ -36,7 +35,7 @@ func newFacade() *facade {
 	return f
 }
 
-func (s *ToolsCheckerSuite) TestWorker(c *gc.C) {
+func (s *ToolsCheckerSuite) TestWorker(c *tc.C) {
 	f := newFacade()
 	params := &toolsversionchecker.VersionCheckerParams{
 		CheckInterval: coretesting.ShortWait,
@@ -46,14 +45,14 @@ func (s *ToolsCheckerSuite) TestWorker(c *gc.C) {
 		f,
 		params,
 	)
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		checker.Kill()
-		c.Assert(checker.Wait(), jc.ErrorIsNil)
+		c.Assert(checker.Wait(), tc.ErrorIsNil)
 	})
 
 	select {
 	case called := <-f.called:
-		c.Assert(called, gc.Equals, "UpdateToolsVersion")
+		c.Assert(called, tc.Equals, "UpdateToolsVersion")
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting worker to seek new agent binaries versions")
 	}

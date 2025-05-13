@@ -6,12 +6,12 @@ package logsink
 import (
 	"testing"
 
+	"github.com/juju/tc"
 	"go.uber.org/goleak"
-	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

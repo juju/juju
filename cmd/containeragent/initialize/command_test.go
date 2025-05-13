@@ -11,9 +11,8 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/agent/caasapplication"
@@ -35,7 +34,7 @@ type initCommandSuit struct {
 	clock            testclock.AdvanceableClock
 }
 
-var _ = gc.Suite(&initCommandSuit{})
+var _ = tc.Suite(&initCommandSuit{})
 
 var podEnv = map[string]string{
 	"JUJU_K8S_APPLICATION":          "gitlab",
@@ -48,22 +47,22 @@ var podEnv = map[string]string{
 	"JUJU_K8S_POD_UUID": "gitlab-uuid",
 }
 
-func (s *initCommandSuit) SetUpTest(c *gc.C) {
+func (s *initCommandSuit) SetUpTest(c *tc.C) {
 	for k, v := range podEnv {
-		c.Assert(os.Setenv(k, v), jc.ErrorIsNil)
+		c.Assert(os.Setenv(k, v), tc.ErrorIsNil)
 	}
 }
 
-func (s *initCommandSuit) TearDownTest(c *gc.C) {
+func (s *initCommandSuit) TearDownTest(c *tc.C) {
 	for k := range podEnv {
-		c.Assert(os.Unsetenv(k), jc.ErrorIsNil)
+		c.Assert(os.Unsetenv(k), tc.ErrorIsNil)
 	}
 
 	s.applicationAPI = nil
 	s.cmd = nil
 }
 
-func (s *initCommandSuit) setupCommand(c *gc.C) *gomock.Controller {
+func (s *initCommandSuit) setupCommand(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.applicationAPI = mocks.NewMockApplicationAPI(ctrl)
 	s.fileReaderWriter = utilsmocks.NewMockFileReaderWriter(ctrl)
@@ -73,7 +72,7 @@ func (s *initCommandSuit) setupCommand(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *initCommandSuit) TestRun(c *gc.C) {
+func (s *initCommandSuit) TestRun(c *tc.C) {
 	ctrl := s.setupCommand(c)
 	defer ctrl.Finish()
 
@@ -127,7 +126,7 @@ checks:
 `
 	var y any
 	err := yaml.Unmarshal([]byte(expectedCAPebbleService), &y)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	pebbleWritten := bytes.NewBuffer(nil)
 	containerAgentWritten := bytes.NewBuffer(nil)
@@ -157,7 +156,7 @@ checks:
 		s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil),
 		s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).
 			DoAndReturn(func(_ string, data []byte, _ os.FileMode) error {
-				c.Check(string(data), gc.Equals, expectedCAPebbleService)
+				c.Check(string(data), tc.Equals, expectedCAPebbleService)
 				return nil
 			}),
 	)
@@ -167,14 +166,14 @@ checks:
 		"--data-dir", "/var/lib/juju",
 		"--bin-dir", "/charm/bin",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
-	c.Assert(containerAgentWritten.Bytes(), jc.SameContents, expectedContainerAgent)
-	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
+	c.Assert(pebbleWritten.Bytes(), tc.SameContents, expectedPebble)
+	c.Assert(containerAgentWritten.Bytes(), tc.SameContents, expectedContainerAgent)
+	c.Assert(jujucWritten.Bytes(), tc.SameContents, expectedJujuc)
 }
 
-func (s *initCommandSuit) TestRunController(c *gc.C) {
+func (s *initCommandSuit) TestRunController(c *tc.C) {
 	ctrl := s.setupCommand(c)
 	defer ctrl.Finish()
 
@@ -234,7 +233,7 @@ checks:
 		s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0775)).Return(nil),
 		s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", gomock.Any(), os.FileMode(0664)).
 			DoAndReturn(func(_ string, data []byte, _ os.FileMode) error {
-				c.Check(string(data), gc.Equals, expectedCAPebbleService)
+				c.Check(string(data), tc.Equals, expectedCAPebbleService)
 				return nil
 			}),
 	)
@@ -245,14 +244,14 @@ checks:
 		"--bin-dir", "/charm/bin",
 		"--controller",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
-	c.Assert(containerAgentWritten.Bytes(), jc.SameContents, expectedContainerAgent)
-	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
+	c.Assert(pebbleWritten.Bytes(), tc.SameContents, expectedPebble)
+	c.Assert(containerAgentWritten.Bytes(), tc.SameContents, expectedContainerAgent)
+	c.Assert(jujucWritten.Bytes(), tc.SameContents, expectedJujuc)
 }
 
-func (s *initCommandSuit) TestRunConfExists(c *gc.C) {
+func (s *initCommandSuit) TestRunConfExists(c *tc.C) {
 	ctrl := s.setupCommand(c)
 	defer ctrl.Finish()
 
@@ -280,14 +279,14 @@ func (s *initCommandSuit) TestRunConfExists(c *gc.C) {
 		"--data-dir", "/var/lib/juju",
 		"--bin-dir", "/charm/bin",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
-	c.Assert(containerAgentWritten.Bytes(), jc.SameContents, expectedContainerAgent)
-	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
+	c.Assert(pebbleWritten.Bytes(), tc.SameContents, expectedPebble)
+	c.Assert(containerAgentWritten.Bytes(), tc.SameContents, expectedContainerAgent)
+	c.Assert(jujucWritten.Bytes(), tc.SameContents, expectedJujuc)
 }
 
-func (s *initCommandSuit) TestInstallProfileFunctions(c *gc.C) {
+func (s *initCommandSuit) TestInstallProfileFunctions(c *tc.C) {
 	ctrl := s.setupCommand(c)
 	defer ctrl.Finish()
 
@@ -319,11 +318,11 @@ func (s *initCommandSuit) TestInstallProfileFunctions(c *gc.C) {
 		"--bin-dir", "/charm/bin",
 		"--profile-dir", "/etc/profile.d/",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
-	c.Assert(containerAgentWritten.Bytes(), jc.SameContents, expectedContainerAgent)
-	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
+	c.Assert(pebbleWritten.Bytes(), tc.SameContents, expectedPebble)
+	c.Assert(containerAgentWritten.Bytes(), tc.SameContents, expectedContainerAgent)
+	c.Assert(jujucWritten.Bytes(), tc.SameContents, expectedJujuc)
 }
 
 type nopWriterCloser struct {

@@ -4,17 +4,18 @@
 package azureauth_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type DiscoverySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&DiscoverySuite{})
+var _ = tc.Suite(&DiscoverySuite{})
 
-//func (*DiscoverySuite) TestDiscoverAuthorizationURI(c *gc.C) {
+//func (*DiscoverySuite) TestDiscoverAuthorizationURI(c *tc.C) {
 //	sender := mocks.NewSender()
 //	resp := mocks.NewResponseWithStatus("", http.StatusUnauthorized)
 //	mocks.SetResponseHeaderValues(resp, "WWW-Authenticate", []string{
@@ -26,15 +27,15 @@ var _ = gc.Suite(&DiscoverySuite{})
 //	sdkCtx := context.Background()
 //	client.Sender = sender
 //	authURI, err := azureauth.DiscoverTenantID(sdkCtx, client, "subscription_id")
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(authURI, jc.DeepEquals, &url.URL{
+//	c.Assert(err, tc.ErrorIsNil)
+//	c.Assert(authURI, tc.DeepEquals, &url.URL{
 //		Scheme: "https",
 //		Host:   "testing.invalid",
 //		Path:   "/meep",
 //	})
 //}
 //
-//func (*DiscoverySuite) TestDiscoverAuthorizationURIMissingHeader(c *gc.C) {
+//func (*DiscoverySuite) TestDiscoverAuthorizationURIMissingHeader(c *tc.C) {
 //	sender := mocks.NewSender()
 //	resp := mocks.NewResponseWithStatus("", http.StatusUnauthorized)
 //	sender.AppendResponse(resp)
@@ -43,10 +44,10 @@ var _ = gc.Suite(&DiscoverySuite{})
 //	client.Sender = sender
 //	sdkCtx := context.Background()
 //	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
-//	c.Assert(err, gc.ErrorMatches, `WWW-Authenticate header not found`)
+//	c.Assert(err, tc.ErrorMatches, `WWW-Authenticate header not found`)
 //}
 //
-//func (*DiscoverySuite) TestDiscoverAuthorizationURIHeaderMismatch(c *gc.C) {
+//func (*DiscoverySuite) TestDiscoverAuthorizationURIHeaderMismatch(c *tc.C) {
 //	sender := mocks.NewSender()
 //	resp := mocks.NewResponseWithStatus("", http.StatusUnauthorized)
 //	mocks.SetResponseHeaderValues(resp, "WWW-Authenticate", []string{`foo bar baz`})
@@ -56,10 +57,10 @@ var _ = gc.Suite(&DiscoverySuite{})
 //	client.Sender = sender
 //	sdkCtx := context.Background()
 //	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
-//	c.Assert(err, gc.ErrorMatches, `authorization_uri not found in WWW-Authenticate header \("foo bar baz"\)`)
+//	c.Assert(err, tc.ErrorMatches, `authorization_uri not found in WWW-Authenticate header \("foo bar baz"\)`)
 //}
 //
-//func (*DiscoverySuite) TestDiscoverAuthorizationURIUnexpectedSuccess(c *gc.C) {
+//func (*DiscoverySuite) TestDiscoverAuthorizationURIUnexpectedSuccess(c *tc.C) {
 //	sender := mocks.NewSender()
 //	resp := mocks.NewResponseWithStatus("", http.StatusOK)
 //	sender.AppendResponse(resp)
@@ -68,10 +69,10 @@ var _ = gc.Suite(&DiscoverySuite{})
 //	client.Sender = sender
 //	sdkCtx := context.Background()
 //	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
-//	c.Assert(err, gc.ErrorMatches, "expected unauthorized error response")
+//	c.Assert(err, tc.ErrorMatches, "expected unauthorized error response")
 //}
 //
-//func (*DiscoverySuite) TestDiscoverAuthorizationURIUnexpectedStatusCode(c *gc.C) {
+//func (*DiscoverySuite) TestDiscoverAuthorizationURIUnexpectedStatusCode(c *tc.C) {
 //	sender := mocks.NewSender()
 //	resp := mocks.NewResponseWithStatus("", http.StatusNotFound)
 //	sender.AppendResponse(resp)
@@ -80,18 +81,18 @@ var _ = gc.Suite(&DiscoverySuite{})
 //	client.Sender = sender
 //	sdkCtx := context.Background()
 //	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
-//	c.Assert(err, gc.ErrorMatches, "expected unauthorized error response, got 404: .*")
+//	c.Assert(err, tc.ErrorMatches, "expected unauthorized error response, got 404: .*")
 //}
 //
-//func (*DiscoverySuite) TestAuthorizationURITenantID(c *gc.C) {
+//func (*DiscoverySuite) TestAuthorizationURITenantID(c *tc.C) {
 //	tenantId, err := azureauth.AuthorizationURITenantID(&url.URL{Path: "/3671f5a9-c0d0-472b-a80c-48135cf5a9f1"})
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(tenantId, gc.Equals, "3671f5a9-c0d0-472b-a80c-48135cf5a9f1")
+//	c.Assert(err, tc.ErrorIsNil)
+//	c.Assert(tenantId, tc.Equals, "3671f5a9-c0d0-472b-a80c-48135cf5a9f1")
 //}
 //
-//func (*DiscoverySuite) TestAuthorizationURITenantIDError(c *gc.C) {
+//func (*DiscoverySuite) TestAuthorizationURITenantIDError(c *tc.C) {
 //	url, err := url.Parse("https://testing.invalid/foo")
-//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(err, tc.ErrorIsNil)
 //	_, err = azureauth.AuthorizationURITenantID(url)
-//	c.Assert(err, gc.ErrorMatches, `authorization_uri "https://testing.invalid/foo" not valid`)
+//	c.Assert(err, tc.ErrorMatches, `authorization_uri "https://testing.invalid/foo" not valid`)
 //}

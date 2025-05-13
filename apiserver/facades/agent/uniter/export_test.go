@@ -5,7 +5,7 @@ package uniter
 
 import (
 	"github.com/juju/clock"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -34,7 +34,7 @@ type (
 )
 
 func NewTestAPI(
-	c *gc.C,
+	c *tc.C,
 	authorizer facade.Authorizer,
 	leadership leadership.Checker,
 	secretService SecretService,

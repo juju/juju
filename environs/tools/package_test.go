@@ -4,13 +4,21 @@
 package tools_test
 
 import (
+	"os"
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 func Test(t *testing.T) {
 	setupToolsTests()
 	setupSimpleStreamsTests(t)
-	gc.TestingT(t)
+	tc.TestingT(t)
+}
+
+func TestMain(m *testing.M) {
+	testhelpers.ExecHelperProcess()
+	os.Exit(m.Run())
 }

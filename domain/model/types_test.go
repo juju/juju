@@ -4,9 +4,7 @@
 package model
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
@@ -15,13 +13,14 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type typesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&typesSuite{})
+var _ = tc.Suite(&typesSuite{})
 
 // ptr returns a reference to a copied value of type T.
 func ptr[T any](i T) *T {
@@ -30,7 +29,7 @@ func ptr[T any](i T) *T {
 
 // TestModelCreationArgsValidation is aserting all the validation cases that the
 // [GlobalModelCreationArgs.Validate] function checks for.
-func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
+func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 	userUUID := usertesting.GenUserUUID(c)
 
 	tests := []struct {
@@ -123,16 +122,16 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 
 		err := test.Args.Validate()
 		if test.ErrTest == nil {
-			c.Check(err, jc.ErrorIsNil, gc.Commentf("%s", test.Name))
+			c.Check(err, tc.ErrorIsNil, tc.Commentf("%s", test.Name))
 		} else {
-			c.Check(err, jc.ErrorIs, test.ErrTest, gc.Commentf("%s", test.Name))
+			c.Check(err, tc.ErrorIs, test.ErrTest, tc.Commentf("%s", test.Name))
 		}
 	}
 }
 
 // TestModelImportArgsValidation is aserting all the validation cases that the
 // [ModelImportArgs.Validate] function checks for.
-func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
+func (*typesSuite) TestModelImportArgsValidation(c *tc.C) {
 	userUUID := usertesting.GenUserUUID(c)
 
 	tests := []struct {
@@ -182,9 +181,9 @@ func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
 
 		err := test.Args.Validate()
 		if test.ErrTest == nil {
-			c.Check(err, jc.ErrorIsNil, gc.Commentf("%s", test.Name))
+			c.Check(err, tc.ErrorIsNil, tc.Commentf("%s", test.Name))
 		} else {
-			c.Check(err, jc.ErrorIs, test.ErrTest, gc.Commentf("%s", test.Name))
+			c.Check(err, tc.ErrorIs, test.ErrTest, tc.Commentf("%s", test.Name))
 		}
 	}
 }
@@ -193,7 +192,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
 // [coreconstraints.Value] to a [Constraints] object. Specifically the main thing we
 // care about in this test is that spaces are either included or excluded
 // correctly and that the rest of the values are set verbatim.
-func (*typesSuite) TestFromCoreConstraints(c *gc.C) {
+func (*typesSuite) TestFromCoreConstraints(c *tc.C) {
 	tests := []struct {
 		Comment string
 		In      coreconstraints.Value
@@ -279,7 +278,7 @@ func (*typesSuite) TestFromCoreConstraints(c *gc.C) {
 
 	for _, test := range tests {
 		rval := constraints.DecodeConstraints(test.In)
-		c.Check(rval, jc.DeepEquals, test.Out, gc.Commentf(test.Comment))
+		c.Check(rval, tc.DeepEquals, test.Out, tc.Commentf(test.Comment))
 	}
 }
 
@@ -287,7 +286,7 @@ func (*typesSuite) TestFromCoreConstraints(c *gc.C) {
 // [Constraints] object to a [coreconstraints.Value]. Specifically the main thing we
 // care about in this test is that spaces are either included or excluded
 // correctly and that the rest of the values are set verbatim.
-func (*typesSuite) TestToCoreConstraints(c *gc.C) {
+func (*typesSuite) TestToCoreConstraints(c *tc.C) {
 	tests := []struct {
 		Comment string
 		Out     coreconstraints.Value
@@ -373,6 +372,6 @@ func (*typesSuite) TestToCoreConstraints(c *gc.C) {
 
 	for _, test := range tests {
 		rval := constraints.EncodeConstraints(test.In)
-		c.Check(rval, jc.DeepEquals, test.Out, gc.Commentf(test.Comment))
+		c.Check(rval, tc.DeepEquals, test.Out, tc.Commentf(test.Comment))
 	}
 }

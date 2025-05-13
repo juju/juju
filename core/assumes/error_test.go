@@ -6,14 +6,14 @@ package assumes
 import (
 	"fmt"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
 )
 
 type errorSuite struct{}
 
-var _ = gc.Suite(&errorSuite{})
+var _ = tc.Suite(&errorSuite{})
 
 var errorTests = []struct {
 	description string
@@ -41,11 +41,11 @@ var errorTests = []struct {
 	expectedErr: "(?s).*charm requires Kubernetes version >= 1.30.*",
 }}
 
-func (*errorSuite) TestErrorMessages(c *gc.C) {
+func (*errorSuite) TestErrorMessages(c *tc.C) {
 	for _, test := range errorTests {
 		fmt.Println(test.description)
 		assumesTree := mustParseAssumesExpr(c, test.assumes)
 		err := test.featureSet.Satisfies(assumesTree)
-		c.Check(err, gc.ErrorMatches, test.expectedErr)
+		c.Check(err, tc.ErrorMatches, test.expectedErr)
 	}
 }

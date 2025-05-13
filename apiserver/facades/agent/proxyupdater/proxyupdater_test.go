@@ -8,11 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/proxyupdater"
@@ -20,6 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -38,16 +37,16 @@ type ProxyUpdaterSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-var _ = gc.Suite(&ProxyUpdaterSuite{})
+var _ = tc.Suite(&ProxyUpdaterSuite{})
 
-func (s *ProxyUpdaterSuite) SetUpSuite(c *gc.C) {
+func (s *ProxyUpdaterSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
+func (s *ProxyUpdaterSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
@@ -55,18 +54,18 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.tag = names.NewMachineTag("1")
 	s.state = &stubBackend{}
 	s.state.SetUp(c)
-	s.AddCleanup(func(_ *gc.C) { s.state.Kill() })
+	s.AddCleanup(func(_ *tc.C) { s.state.Kill() })
 }
 
-func (s *ProxyUpdaterSuite) setupAPI(c *gc.C) *gomock.Controller {
+func (s *ProxyUpdaterSuite) setupAPI(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 
 	api, err := proxyupdater.NewAPIV2(s.state, s.controllerConfigService, s.modelConfigService, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(api, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(api, tc.NotNil)
 	s.facade = api
 
 	// Shouldn't have any calls yet
@@ -75,7 +74,7 @@ func (s *ProxyUpdaterSuite) setupAPI(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -90,18 +89,18 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 	s.modelConfigService.EXPECT().Watch().Return(modelConfigWatcher, nil)
 
 	result := s.facade.WatchForProxyConfigAndAPIHostPortChanges(context.Background(), s.oneEntity())
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 
 	s.state.Stub.CheckCallNames(c,
 		"WatchAPIHostPortsForAgents",
 	)
 
 	// Verify the watcher resource was registered.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(s.resources.Count(), tc.Equals, 1)
 	resource := s.resources.Get(result.Results[0].NotifyWatcherId)
 	watcher, ok := resource.(state.NotifyWatcher)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	// Verify the initial event was consumed.
 	select {
@@ -119,7 +118,7 @@ func (s *ProxyUpdaterSuite) oneEntity() params.Entities {
 	return entities
 }
 
-func (s *ProxyUpdaterSuite) TestMirrorConfig(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestMirrorConfig(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -137,11 +136,11 @@ func (s *ProxyUpdaterSuite) TestMirrorConfig(c *gc.C) {
 		"APIHostPortsForAgents",
 	)
 
-	c.Assert(cfg.Results, gc.HasLen, 1)
-	c.Assert(cfg.Results[0].AptMirror, gc.Equals, "http://mirror")
+	c.Assert(cfg.Results, tc.HasLen, 1)
+	c.Assert(cfg.Results[0].AptMirror, tc.Equals, "http://mirror")
 }
 
-func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestProxyConfig(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -172,10 +171,10 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 		APTProxySettings: params.ProxyConfig{
 			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
 	}
-	c.Assert(cfg.Results[0], jc.DeepEquals, r)
+	c.Assert(cfg.Results[0], tc.DeepEquals, r)
 }
 
-func (s *ProxyUpdaterSuite) TestProxyConfigJujuProxy(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestProxyConfigJujuProxy(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -208,10 +207,10 @@ func (s *ProxyUpdaterSuite) TestProxyConfigJujuProxy(c *gc.C) {
 		APTProxySettings: params.ProxyConfig{
 			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
 	}
-	c.Assert(cfg.Results[0], jc.DeepEquals, r)
+	c.Assert(cfg.Results[0], tc.DeepEquals, r)
 }
 
-func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -235,7 +234,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5,9.9.9.9"
 	expectedAptNoProxy := "9.9.9.9"
 
-	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
+	c.Assert(cfg.Results[0], tc.DeepEquals, params.ProxyConfigResult{
 		LegacyProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedNoProxy},
 		APTProxySettings: params.ProxyConfig{
@@ -243,7 +242,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 	})
 }
 
-func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -267,7 +266,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
 	expectedAptNoProxy := "0.1.2.3"
 
-	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
+	c.Assert(cfg.Results[0], tc.DeepEquals, params.ProxyConfigResult{
 		LegacyProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedNoProxy},
 		APTProxySettings: params.ProxyConfig{
@@ -275,7 +274,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 	})
 }
 
-func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -296,7 +295,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *gc.C) {
 
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
 
-	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
+	c.Assert(cfg.Results[0], tc.DeepEquals, params.ProxyConfigResult{
 		LegacyProxySettings: params.ProxyConfig{NoProxy: expectedNoProxy},
 		SnapProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy"},
@@ -306,13 +305,13 @@ func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *gc.C) {
 }
 
 type stubBackend struct {
-	*testing.Stub
-	c         *gc.C
+	*testhelpers.Stub
+	c         *tc.C
 	hpWatcher workertest.NotAWatcher
 }
 
-func (sb *stubBackend) SetUp(c *gc.C) {
-	sb.Stub = &testing.Stub{}
+func (sb *stubBackend) SetUp(c *tc.C) {
+	sb.Stub = &testhelpers.Stub{}
 	sb.c = c
 	sb.hpWatcher = workertest.NewFakeWatcher(1, 1)
 }

@@ -7,44 +7,43 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/internal/provider/lxd"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type upgradesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&upgradesSuite{})
+var _ = tc.Suite(&upgradesSuite{})
 
-func (s *upgradesSuite) TestReadLegacyCloudCredentials(c *gc.C) {
+func (s *upgradesSuite) TestReadLegacyCloudCredentials(c *tc.C) {
 	var paths []string
 	readFile := func(path string) ([]byte, error) {
 		paths = append(paths, path)
 		return []byte("content: " + path), nil
 	}
 	cred, err := lxd.ReadLegacyCloudCredentials(readFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cred, jc.DeepEquals, cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cred, tc.DeepEquals, cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": "content: /etc/juju/lxd-client.crt",
 		"client-key":  "content: /etc/juju/lxd-client.key",
 		"server-cert": "content: /etc/juju/lxd-server.crt",
 	}))
-	c.Assert(paths, jc.DeepEquals, []string{
+	c.Assert(paths, tc.DeepEquals, []string{
 		"/etc/juju/lxd-client.crt",
 		"/etc/juju/lxd-client.key",
 		"/etc/juju/lxd-server.crt",
 	})
 }
 
-func (s *upgradesSuite) TestReadLegacyCloudCredentialsFileNotExist(c *gc.C) {
+func (s *upgradesSuite) TestReadLegacyCloudCredentialsFileNotExist(c *tc.C) {
 	readFile := func(path string) ([]byte, error) {
 		return nil, os.ErrNotExist
 	}
 	_, err := lxd.ReadLegacyCloudCredentials(readFile)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

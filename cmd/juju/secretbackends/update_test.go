@@ -8,26 +8,25 @@ import (
 	"path/filepath"
 	"time"
 
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type UpdateSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	store                   *jujuclient.MemStore
 	updateSecretBackendsAPI *secretbackends.MockUpdateSecretBackendsAPI
 }
 
-var _ = gc.Suite(&UpdateSuite{})
+var _ = tc.Suite(&UpdateSuite{})
 
-func (s *UpdateSuite) SetUpTest(c *gc.C) {
+func (s *UpdateSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
@@ -35,7 +34,7 @@ func (s *UpdateSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *UpdateSuite) setup(c *gc.C) *gomock.Controller {
+func (s *UpdateSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.updateSecretBackendsAPI = secretbackends.NewMockUpdateSecretBackendsAPI(ctrl)
@@ -43,7 +42,7 @@ func (s *UpdateSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *UpdateSuite) TestUpdateInitError(c *gc.C) {
+func (s *UpdateSuite) TestUpdateInitError(c *tc.C) {
 	for _, t := range []struct {
 		args []string
 		err  string
@@ -61,11 +60,11 @@ func (s *UpdateSuite) TestUpdateInitError(c *gc.C) {
 		err:  `open /path/to/nowhere: no such file or directory`,
 	}} {
 		_, err := cmdtesting.RunCommand(c, secretbackends.NewUpdateCommandForTest(s.store, s.updateSecretBackendsAPI), t.args...)
-		c.Check(err, gc.ErrorMatches, t.err)
+		c.Check(err, tc.ErrorMatches, t.err)
 	}
 }
 
-func (s *UpdateSuite) TestUpdate(c *gc.C) {
+func (s *UpdateSuite) TestUpdate(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
@@ -80,10 +79,10 @@ func (s *UpdateSuite) TestUpdate(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewUpdateCommandForTest(s.store, s.updateSecretBackendsAPI),
 		"myvault", "endpoint=http://vault", "token-rotate=666m", "--force",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *UpdateSuite) TestUpdateName(c *gc.C) {
+func (s *UpdateSuite) TestUpdateName(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
@@ -98,10 +97,10 @@ func (s *UpdateSuite) TestUpdateName(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewUpdateCommandForTest(s.store, s.updateSecretBackendsAPI),
 		"myvault", "endpoint=http://vault", "name=myvault2",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *UpdateSuite) TestUpdateResetTokenRotate(c *gc.C) {
+func (s *UpdateSuite) TestUpdateResetTokenRotate(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
@@ -116,15 +115,15 @@ func (s *UpdateSuite) TestUpdateResetTokenRotate(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewUpdateCommandForTest(s.store, s.updateSecretBackendsAPI),
 		"myvault", "endpoint=http://vault", "token-rotate=0",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *UpdateSuite) TestUpdateFromFile(c *gc.C) {
+func (s *UpdateSuite) TestUpdateFromFile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	fname := filepath.Join(c.MkDir(), "cfg.yaml")
 	err := os.WriteFile(fname, []byte("endpoint: http://vault"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.updateSecretBackendsAPI.EXPECT().UpdateSecretBackend(
 		gomock.Any(),
 		apisecretbackends.UpdateSecretBackend{
@@ -140,5 +139,5 @@ func (s *UpdateSuite) TestUpdateFromFile(c *gc.C) {
 	_, err = cmdtesting.RunCommand(c, secretbackends.NewUpdateCommandForTest(s.store, s.updateSecretBackendsAPI),
 		"myvault", "token=s.666", "token-rotate=666m", "--config", fname,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

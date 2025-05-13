@@ -9,9 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -24,12 +23,12 @@ type JujuLogSuite struct {
 	relationSuite
 }
 
-var _ = gc.Suite(&JujuLogSuite{})
+var _ = tc.Suite(&JujuLogSuite{})
 
-func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
+func (s *JujuLogSuite) newJujuLogCommand(c *tc.C) cmd.Command {
 	ctx, _ := s.newHookContext(-1, "", "")
 	cmd, err := jujuc.NewJujuLogCommand(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return jujuc.NewJujucCommandWrappedForTest(cmd)
 }
 
@@ -47,38 +46,38 @@ func (s *JujuLogSuite) newJujuLogCommandWithMocks(ctrl *gomock.Controller, name 
 	return jujuc.NewJujucCommandWrappedForTest(cmd), ctx, testWriter
 }
 
-func (s *JujuLogSuite) TestRequiresMessage(c *gc.C) {
+func (s *JujuLogSuite) TestRequiresMessage(c *tc.C) {
 	cmd := s.newJujuLogCommand(c)
 	err := cmdtesting.InitCommand(cmd, []string{})
-	c.Assert(err, gc.ErrorMatches, "no message specified")
+	c.Assert(err, tc.ErrorMatches, "no message specified")
 }
 
-func (s *JujuLogSuite) TestLogInitMissingLevel(c *gc.C) {
+func (s *JujuLogSuite) TestLogInitMissingLevel(c *tc.C) {
 	cmd := s.newJujuLogCommand(c)
 	err := cmdtesting.InitCommand(cmd, []string{"-l"})
-	c.Assert(err, gc.ErrorMatches, "option needs an argument.*")
+	c.Assert(err, tc.ErrorMatches, "option needs an argument.*")
 
 	err = cmdtesting.InitCommand(cmd, []string{"--log-level"})
-	c.Assert(err, gc.ErrorMatches, "option needs an argument.*")
+	c.Assert(err, tc.ErrorMatches, "option needs an argument.*")
 }
 
-func (s *JujuLogSuite) TestLogInitMissingMessage(c *gc.C) {
+func (s *JujuLogSuite) TestLogInitMissingMessage(c *tc.C) {
 	cmd := s.newJujuLogCommand(c)
 	err := cmdtesting.InitCommand(cmd, []string{"-l", "FATAL"})
-	c.Assert(err, gc.ErrorMatches, "no message specified")
+	c.Assert(err, tc.ErrorMatches, "no message specified")
 
 	err = cmdtesting.InitCommand(cmd, []string{"--log-level", "FATAL"})
-	c.Assert(err, gc.ErrorMatches, "no message specified")
+	c.Assert(err, tc.ErrorMatches, "no message specified")
 }
 
-func (s *JujuLogSuite) TestLogDeprecation(c *gc.C) {
+func (s *JujuLogSuite) TestLogDeprecation(c *tc.C) {
 	cmd := s.newJujuLogCommand(c)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "foo", "msg")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"juju-log\"")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "--format flag deprecated for command \"juju-log\"")
 }
 
-func (s *JujuLogSuite) TestRunWithNoErrorsLogsOnRun(c *gc.C) {
+func (s *JujuLogSuite) TestRunWithNoErrorsLogsOnRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -92,12 +91,12 @@ func (s *JujuLogSuite) TestRunWithNoErrorsLogsOnRun(c *gc.C) {
 	context.EXPECT().UnitName().Return("")
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
 
-func (s *JujuLogSuite) TestRunWithErrorIsNotImplementedLogsOnRun(c *gc.C) {
+func (s *JujuLogSuite) TestRunWithErrorIsNotImplementedLogsOnRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -108,12 +107,12 @@ func (s *JujuLogSuite) TestRunWithErrorIsNotImplementedLogsOnRun(c *gc.C) {
 	context.EXPECT().UnitName().Return("")
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
 
-func (s *JujuLogSuite) TestRunWithErrorIsNotFoundLogsOnRun(c *gc.C) {
+func (s *JujuLogSuite) TestRunWithErrorIsNotFoundLogsOnRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -124,12 +123,12 @@ func (s *JujuLogSuite) TestRunWithErrorIsNotFoundLogsOnRun(c *gc.C) {
 	context.EXPECT().UnitName().Return("")
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
 
-func (s *JujuLogSuite) TestRunWithErrorDoesNotLogOnRun(c *gc.C) {
+func (s *JujuLogSuite) TestRunWithErrorDoesNotLogOnRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -141,7 +140,7 @@ func (s *JujuLogSuite) TestRunWithErrorDoesNotLogOnRun(c *gc.C) {
 	context.EXPECT().UnitName().Return("")
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "bad")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(errors.Cause(err), tc.ErrorMatches, "bad")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 }

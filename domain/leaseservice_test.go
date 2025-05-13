@@ -7,25 +7,24 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type leaseServiceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelLeaseManager *MockModelLeaseManagerGetter
 	leaseChecker      *MockChecker
 	token             *MockToken
 }
 
-var _ = gc.Suite(&leaseServiceSuite{})
+var _ = tc.Suite(&leaseServiceSuite{})
 
-func (s *leaseServiceSuite) TestWithLeader(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Done is triggered when the lease function is done.
@@ -39,7 +38,7 @@ func (s *leaseServiceSuite) TestWithLeader(c *gc.C) {
 			// Don't return until the lease function is done.
 			select {
 			case <-done:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("lease function not done")
 			}
 			return nil
@@ -58,13 +57,13 @@ func (s *leaseServiceSuite) TestWithLeader(c *gc.C) {
 		called = true
 		return ctx.Err()
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(called, tc.IsTrue)
 }
 
 // TestWithLeaderWaitReturnsError checks that if WaitUntilExpired returns an
 // error, the context is always cancelled.
-func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
@@ -80,11 +79,11 @@ func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *gc.C) {
 		called = true
 		return ctx.Err()
 	})
-	c.Assert(err, jc.ErrorIs, context.Canceled)
-	c.Check(called, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+	c.Check(called, tc.IsFalse)
 }
 
-func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -98,7 +97,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *gc.C) {
 
 			select {
 			case <-running:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 				c.Fatalf("lease function not running")
 			}
 
@@ -130,7 +129,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *gc.C) {
 
 		select {
 		case <-done:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("lease function not done")
 		}
 		select {
@@ -140,11 +139,11 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *gc.C) {
 
 		return ctx.Err()
 	})
-	c.Assert(err, jc.ErrorIs, context.Canceled)
-	c.Check(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+	c.Check(called, tc.IsTrue)
 }
 
-func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *gc.C) {
+func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
@@ -158,7 +157,7 @@ func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *gc.C) {
 
 			select {
 			case <-done:
-			case <-time.After(testing.LongWait):
+			case <-time.After(testhelpers.LongWait):
 			}
 
 			return nil
@@ -178,11 +177,11 @@ func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *gc.C) {
 		called = true
 		return nil
 	})
-	c.Assert(err, gc.ErrorMatches, "checking lease token: not holding lease")
-	c.Check(called, jc.IsFalse)
+	c.Assert(err, tc.ErrorMatches, "checking lease token: not holding lease")
+	c.Check(called, tc.IsFalse)
 }
 
-func (s *leaseServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *leaseServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelLeaseManager = NewMockModelLeaseManagerGetter(ctrl)

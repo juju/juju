@@ -8,9 +8,8 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/retrystrategy"
@@ -20,7 +19,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&retryStrategySuite{})
+var _ = tc.Suite(&retryStrategySuite{})
 
 type retryStrategySuite struct {
 	strategy           retrystrategy.RetryStrategy
@@ -39,7 +38,7 @@ var tagsTests = []struct {
 	{"machine-5", "permission denied"},
 }
 
-func (s *retryStrategySuite) SetUpTest(c *gc.C) {
+func (s *retryStrategySuite) SetUpTest(c *tc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -47,7 +46,7 @@ func (s *retryStrategySuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *retryStrategySuite) setupAPI(c *gc.C) *gomock.Controller {
+func (s *retryStrategySuite) setupAPI(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
@@ -58,13 +57,13 @@ func (s *retryStrategySuite) setupAPI(c *gc.C) *gomock.Controller {
 		s.modelConfigService,
 		s.watcherRegistry,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.strategy = strategy
 
 	return ctrl
 }
 
-func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *gc.C) {
+func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -79,13 +78,13 @@ func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *gc.C) {
 		}),
 	)
 	res, err := s.strategy.RetryStrategy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.ErrorMatches, "permission denied")
-	c.Assert(res.Results[0].Result, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.ErrorMatches, "permission denied")
+	c.Assert(res.Results[0].Result, tc.IsNil)
 }
 
-func (s *retryStrategySuite) TestRetryStrategyBadTag(c *gc.C) {
+func (s *retryStrategySuite) TestRetryStrategyBadTag(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -103,23 +102,23 @@ func (s *retryStrategySuite) TestRetryStrategyBadTag(c *gc.C) {
 		}),
 	)
 	res, err := s.strategy.RetryStrategy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, len(tagsTests))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, len(tagsTests))
 	for i, r := range res.Results {
 		c.Logf("result %d", i)
-		c.Assert(r.Error, gc.ErrorMatches, tagsTests[i].expectedErr)
-		c.Assert(res.Results[i].Result, gc.IsNil)
+		c.Assert(r.Error, tc.ErrorMatches, tagsTests[i].expectedErr)
+		c.Assert(res.Results[i].Result, tc.IsNil)
 	}
 }
 
-func (s *retryStrategySuite) TestRetryStrategyUnit(c *gc.C) {
+func (s *retryStrategySuite) TestRetryStrategyUnit(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
 	s.assertRetryStrategy(c, "unit-mysql-0")
 }
 
-func (s *retryStrategySuite) TestRetryStrategyApplication(c *gc.C) {
+func (s *retryStrategySuite) TestRetryStrategyApplication(c *tc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("app"),
 	}
@@ -129,7 +128,7 @@ func (s *retryStrategySuite) TestRetryStrategyApplication(c *gc.C) {
 	s.assertRetryStrategy(c, "application-app")
 }
 
-func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
+func (s *retryStrategySuite) assertRetryStrategy(c *tc.C, tag string) {
 	expected := &params.RetryStrategy{
 		ShouldRetry:     true,
 		MinRetryTime:    retrystrategy.MinRetryTime,
@@ -148,10 +147,10 @@ func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
 		}),
 	)
 	r, err := s.strategy.RetryStrategy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, 1)
-	c.Assert(r.Results[0].Error, gc.IsNil)
-	c.Assert(r.Results[0].Result, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Results, tc.HasLen, 1)
+	c.Assert(r.Results[0].Error, tc.IsNil)
+	c.Assert(r.Results[0].Result, tc.DeepEquals, expected)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(
 		config.New(false, map[string]any{
@@ -164,25 +163,25 @@ func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
 	expected.ShouldRetry = false
 
 	r, err = s.strategy.RetryStrategy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, 1)
-	c.Assert(r.Results[0].Error, gc.IsNil)
-	c.Assert(r.Results[0].Result, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Results, tc.HasLen, 1)
+	c.Assert(r.Results[0].Error, tc.IsNil)
+	c.Assert(r.Results[0].Result, tc.DeepEquals, expected)
 }
 
-func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *gc.C) {
+func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
 	args := params.Entities{Entities: []params.Entity{{"unit-mysql-1"}}}
 	res, err := s.strategy.WatchRetryStrategy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.ErrorMatches, "permission denied")
-	c.Assert(res.Results[0].NotifyWatcherId, gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.ErrorMatches, "permission denied")
+	c.Assert(res.Results[0].NotifyWatcherId, tc.Equals, "")
 }
 
-func (s *retryStrategySuite) TestWatchRetryStrategyBadTag(c *gc.C) {
+func (s *retryStrategySuite) TestWatchRetryStrategyBadTag(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -191,16 +190,16 @@ func (s *retryStrategySuite) TestWatchRetryStrategyBadTag(c *gc.C) {
 		args.Entities[i] = params.Entity{Tag: t.tag}
 	}
 	res, err := s.strategy.WatchRetryStrategy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, len(tagsTests))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, len(tagsTests))
 	for i, r := range res.Results {
 		c.Logf("result %d", i)
-		c.Assert(r.Error, gc.ErrorMatches, tagsTests[i].expectedErr)
-		c.Assert(res.Results[i].NotifyWatcherId, gc.Equals, "")
+		c.Assert(r.Error, tc.ErrorMatches, tagsTests[i].expectedErr)
+		c.Assert(res.Results[i].NotifyWatcherId, tc.Equals, "")
 	}
 }
 
-func (s *retryStrategySuite) TestWatchRetryStrategy(c *gc.C) {
+func (s *retryStrategySuite) TestWatchRetryStrategy(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
@@ -215,8 +214,8 @@ func (s *retryStrategySuite) TestWatchRetryStrategy(c *gc.C) {
 		{Tag: "unit-foo-42"},
 	}}
 	r, err := s.strategy.WatchRetryStrategy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r, gc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
 			{Error: apiservertesting.ErrUnauthorized},

@@ -14,8 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
@@ -24,13 +23,14 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 // mockState implements StateInterface and allows inspection of called
 // methods.
 type mockState struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	mu sync.Mutex
 
@@ -43,7 +43,7 @@ type mockState struct {
 
 func NewMockState() *mockState {
 	return &mockState{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		machines: make(map[string]*mockMachine),
 	}
 }
@@ -52,19 +52,19 @@ var _ instancepoller.StateInterface = (*mockState)(nil)
 
 // CheckFindEntityCall is a helper wrapper around
 // testing.Stub.CheckCall for FindEntity.
-func (m *mockState) CheckFindEntityCall(c *gc.C, index int, machineId string) {
+func (m *mockState) CheckFindEntityCall(c *tc.C, index int, machineId string) {
 	m.CheckCall(c, index, "FindEntity", interface{}(names.NewMachineTag(machineId)))
 }
 
 // CheckMachineCall is a helper wrapper around
 // testing.Stub.CheckCall for Machine.
-func (m *mockState) CheckMachineCall(c *gc.C, index int, machineId string) {
+func (m *mockState) CheckMachineCall(c *tc.C, index int, machineId string) {
 	m.CheckCall(c, index, "Machine", machineId)
 }
 
 // CheckSetProviderAddressesCall is a helper wrapper around
 // testing.Stub.CheckCall for SetProviderAddresses.
-func (m *mockState) CheckSetProviderAddressesCall(c *gc.C, index int, addrs []network.SpaceAddress) {
+func (m *mockState) CheckSetProviderAddressesCall(c *tc.C, index int, addrs []network.SpaceAddress) {
 	args := make([]interface{}, len(addrs))
 	for i, addr := range addrs {
 		args[i] = addr
@@ -74,7 +74,7 @@ func (m *mockState) CheckSetProviderAddressesCall(c *gc.C, index int, addrs []ne
 
 // SetConfig updates the model config stored internally. Triggers a
 // change event for all created config watchers.
-func (m *mockState) SetConfig(c *gc.C, newConfig *config.Config) {
+func (m *mockState) SetConfig(c *tc.C, newConfig *config.Config) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -146,11 +146,11 @@ func (m *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 
 // SetMachineInfo adds a new or updates existing mockMachine info.
 // Triggers any created mock machines watchers to return a change.
-func (m *mockState) SetMachineInfo(c *gc.C, args machineInfo) {
+func (m *mockState) SetMachineInfo(c *tc.C, args machineInfo) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	c.Assert(args.id, gc.Not(gc.Equals), "")
+	c.Assert(args.id, tc.Not(tc.Equals), "")
 
 	machine, found := m.machines[args.id]
 	if !found {
@@ -173,7 +173,7 @@ func (m *mockState) SetMachineInfo(c *gc.C, args machineInfo) {
 // RemoveMachine removes an existing mockMachine with the given id.
 // Triggers the machines watchers on success. If the id is not found
 // no error occurs and no change is reported by the watchers.
-func (m *mockState) RemoveMachine(c *gc.C, id string) {
+func (m *mockState) RemoveMachine(c *tc.C, id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -232,7 +232,7 @@ type machineInfo struct {
 }
 
 type mockMachine struct {
-	*testing.Stub
+	*testhelpers.Stub
 	instancepoller.StateMachine
 
 	mu sync.Mutex

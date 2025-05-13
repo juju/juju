@@ -7,13 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -24,9 +23,9 @@ type DumpDBCommandSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&DumpDBCommandSuite{})
+var _ = tc.Suite(&DumpDBCommandSuite{})
 
-func (s *DumpDBCommandSuite) SetUpTest(c *gc.C) {
+func (s *DumpDBCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake.ResetCalls()
 	s.store = jujuclient.NewMemStore()
@@ -39,20 +38,20 @@ func (s *DumpDBCommandSuite) SetUpTest(c *gc.C) {
 		ModelUUID: testing.ModelTag.Id(),
 		ModelType: coremodel.IAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 }
 
-func (s *DumpDBCommandSuite) TestDumpDB(c *gc.C) {
+func (s *DumpDBCommandSuite) TestDumpDB(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewDumpDBCommandForTest(&s.fake, s.store))
-	c.Assert(err, jc.ErrorIsNil)
-	s.fake.CheckCalls(c, []jujutesting.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	s.fake.CheckCalls(c, []testhelpers.StubCall{
 		{"DumpModelDB", []interface{}{testing.ModelTag}},
 		{"Close", nil},
 	})
 
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `all-others: heaps of data
+	c.Assert(out, tc.Equals, `all-others: heaps of data
 models:
   name: testing
   uuid: fake-uuid
@@ -60,7 +59,7 @@ models:
 }
 
 type fakeDumpDBClient struct {
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (f *fakeDumpDBClient) Close() error {

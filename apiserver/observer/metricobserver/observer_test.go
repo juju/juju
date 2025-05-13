@@ -9,42 +9,41 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/metricobserver"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc"
 )
 
 type observerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	clock *testclock.Clock
 }
 
-var _ = gc.Suite(&observerSuite{})
+var _ = tc.Suite(&observerSuite{})
 
-func (s *observerSuite) SetUpTest(c *gc.C) {
+func (s *observerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Time{})
 }
 
-func (s *observerSuite) TestObserver(c *gc.C) {
+func (s *observerSuite) TestObserver(c *tc.C) {
 	factory, finish := s.createFactory(c)
 	defer finish()
 
 	o := factory()
-	c.Assert(o, gc.NotNil)
+	c.Assert(o, tc.NotNil)
 }
 
-func (s *observerSuite) TestRPCObserver(c *gc.C) {
+func (s *observerSuite) TestRPCObserver(c *tc.C) {
 	factory, finish := s.createFactory(c)
 	defer finish()
 
 	o := factory().RPCObserver()
-	c.Assert(o, gc.NotNil)
+	c.Assert(o, tc.NotNil)
 
 	latencies := []time.Duration{
 		1000 * time.Millisecond,
@@ -63,7 +62,7 @@ func (s *observerSuite) TestRPCObserver(c *gc.C) {
 	}
 }
 
-func (s *observerSuite) createFactory(c *gc.C) (observer.ObserverFactory, func()) {
+func (s *observerSuite) createFactory(c *tc.C) (observer.ObserverFactory, func()) {
 	metricsCollector, finish := createMockMetrics(c, prometheus.Labels{
 		metricobserver.MetricLabelFacade:    "api-facade",
 		metricobserver.MetricLabelVersion:   strconv.Itoa(42),
@@ -75,6 +74,6 @@ func (s *observerSuite) createFactory(c *gc.C) (observer.ObserverFactory, func()
 		Clock:            s.clock,
 		MetricsCollector: metricsCollector,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return factory, finish
 }

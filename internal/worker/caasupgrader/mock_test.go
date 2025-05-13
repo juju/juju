@@ -6,14 +6,13 @@ package caasupgrader_test
 import (
 	"context"
 
-	"github.com/juju/testing"
-
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type mockUpgraderClient struct {
-	testing.Stub
+	testhelpers.Stub
 
 	desired semversion.Number
 	actual  semversion.Binary
@@ -36,7 +35,7 @@ func (m *mockUpgraderClient) WatchAPIVersion(_ context.Context, agentTag string)
 }
 
 type mockOperatorUpgrader struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockOperatorUpgrader) Upgrade(_ context.Context, appName string, vers semversion.Number) error {

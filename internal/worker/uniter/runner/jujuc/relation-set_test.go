@@ -10,8 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -23,23 +22,23 @@ type RelationSetSuite struct {
 	relationSuite
 }
 
-var _ = gc.Suite(&RelationSetSuite{})
+var _ = tc.Suite(&RelationSetSuite{})
 
 var helpTests = []struct {
 	relid  int
 	expect string
 }{{-1, ""}, {0, "peer0:0"}}
 
-func (s *RelationSetSuite) TestHelp(c *gc.C) {
+func (s *RelationSetSuite) TestHelp(c *tc.C) {
 	for i, t := range helpTests {
 		c.Logf("test %d", i)
 		hctx, _ := s.newHookContext(t.relid, "", "")
 		com, err := jujuc.NewCommand(hctx, "relation-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(strings.Contains(bufferString(ctx.Stdout), t.expect), jc.IsTrue)
+		c.Assert(code, tc.Equals, 0)
+		c.Assert(strings.Contains(bufferString(ctx.Stdout), t.expect), tc.IsTrue)
 	}
 }
 
@@ -54,7 +53,7 @@ type relationSetInitTest struct {
 	application bool
 }
 
-func (t relationSetInitTest) log(c *gc.C, i int) {
+func (t relationSetInitTest) log(c *tc.C, i int) {
 	var summary string
 	if t.summary != "" {
 		summary = " - " + t.summary
@@ -72,13 +71,13 @@ func (t relationSetInitTest) filename() (string, int) {
 	return "", -1
 }
 
-func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []string, *cmd.Context) {
+func (t relationSetInitTest) init(c *tc.C, s *RelationSetSuite) (cmd.Command, []string, *cmd.Context) {
 	args := make([]string, len(t.args))
 	copy(args, t.args)
 
 	hctx, _ := s.newHookContext(t.ctxrelid, "", "")
 	com, err := jujuc.NewCommand(hctx, "relation-set")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 
@@ -90,30 +89,30 @@ func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []
 		filename = filepath.Join(c.MkDir(), filename)
 		args[i] = filename
 		err := os.WriteFile(filename, []byte(t.content), 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	return com, args, ctx
 }
 
-func (t relationSetInitTest) check(c *gc.C, com cmd.Command, err error) {
+func (t relationSetInitTest) check(c *tc.C, com cmd.Command, err error) {
 	if t.err == "" {
-		if !c.Check(err, jc.ErrorIsNil) {
+		if !c.Check(err, tc.ErrorIsNil) {
 			return
 		}
 
 		rset := com.(*jujuc.RelationSetCommand)
-		c.Check(rset.RelationId, gc.Equals, t.relid)
-		c.Check(rset.Application, gc.Equals, t.application)
+		c.Check(rset.RelationId, tc.Equals, t.relid)
+		c.Check(rset.Application, tc.Equals, t.application)
 
 		settings := t.settings
 		if settings == nil {
 			settings = map[string]string{}
 		}
-		c.Check(rset.Settings, jc.DeepEquals, settings)
+		c.Check(rset.Settings, tc.DeepEquals, settings)
 	} else {
 		c.Logf("%#v", com.(*jujuc.RelationSetCommand).Settings)
-		c.Check(err, gc.ErrorMatches, t.err)
+		c.Check(err, tc.ErrorMatches, t.err)
 	}
 }
 
@@ -297,7 +296,7 @@ var relationSetInitTests = []relationSetInitTest{
 	},
 }
 
-func (s *RelationSetSuite) TestInit(c *gc.C) {
+func (s *RelationSetSuite) TestInit(c *tc.C) {
 	for i, t := range relationSetInitTests {
 		t.log(c, i)
 		com, args, ctx := t.init(c, s)
@@ -327,7 +326,7 @@ var relationSetRunTests = []struct {
 	},
 }
 
-func (s *RelationSetSuite) TestRun(c *gc.C) {
+func (s *RelationSetSuite) TestRun(c *tc.C) {
 	hctx, info := s.newHookContext(0, "", "")
 	for i, t := range relationSetRunTests {
 		c.Logf("test %d", i)
@@ -339,28 +338,28 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 
 		// Run the command.
 		com, err := jujuc.NewCommand(hctx, "relation-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		rset := com.(*jujuc.RelationSetCommand)
 		rset.RelationId = 1
 		rset.Settings = t.change
 		ctx := cmdtesting.Context(c)
 		err = com.Run(ctx)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Check changes.
-		c.Assert(info.rels[0].Units["u/0"], gc.DeepEquals, pristine)
-		c.Assert(info.rels[1].Units["u/0"], gc.DeepEquals, t.expect)
+		c.Assert(info.rels[0].Units["u/0"], tc.DeepEquals, pristine)
+		c.Assert(info.rels[1].Units["u/0"], tc.DeepEquals, t.expect)
 	}
 }
 
-func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
+func (s *RelationSetSuite) TestRunDeprecationWarning(c *tc.C) {
 	hctx, _ := s.newHookContext(0, "", "")
 	com, _ := jujuc.NewCommand(hctx, "relation-set")
 	com = jujuc.NewJujucCommandWrappedForTest(com)
 	// The rel= is needed to make this a valid command.
 	ctx, err := cmdtesting.RunCommand(c, com, "--format", "foo", "rel=")
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"relation-set\"")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "--format flag deprecated for command \"relation-set\"")
 }

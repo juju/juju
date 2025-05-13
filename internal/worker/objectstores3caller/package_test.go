@@ -7,9 +7,9 @@ import (
 	"testing"
 	time "time"
 
+	"github.com/juju/tc"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	controller "github.com/juju/juju/controller"
 	corehttp "github.com/juju/juju/core/http"
@@ -30,7 +30,7 @@ import (
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
@@ -47,7 +47,7 @@ type baseSuite struct {
 	logger logger.Logger
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)
@@ -79,15 +79,15 @@ func (s *baseSuite) expectTimeAfter() {
 	}).AnyTimes()
 }
 
-func (s *baseSuite) expectHTTPClient(c *gc.C) {
+func (s *baseSuite) expectHTTPClient(c *tc.C) {
 	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.S3Purpose).Return(s.httpClient, nil)
 }
 
-func (s *baseSuite) expectControllerConfig(c *gc.C, config controller.Config) {
+func (s *baseSuite) expectControllerConfig(c *tc.C, config controller.Config) {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(config, nil)
 }
 
-func (s *baseSuite) expectControllerConfigWatch(c *gc.C) {
+func (s *baseSuite) expectControllerConfigWatch(c *tc.C) {
 	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
 		ch := make(chan []string)
 		go func() {
@@ -101,22 +101,22 @@ func (s *baseSuite) expectControllerConfigWatch(c *gc.C) {
 	})
 }
 
-func (s *baseSuite) expectControllerConfigWatchWithChanges(c *gc.C, changes <-chan []string) {
+func (s *baseSuite) expectControllerConfigWatchWithChanges(c *tc.C, changes <-chan []string) {
 	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(changes), nil
 	})
 }
 
-func (s *baseSuite) ensureStartup(c *gc.C) {
+func (s *baseSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, tc.Equals, stateStarted)
 	case <-time.After(coretesting.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func (s *baseSuite) sendInitialChange(c *gc.C, changes chan<- []string) {
+func (s *baseSuite) sendInitialChange(c *tc.C, changes chan<- []string) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)

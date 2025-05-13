@@ -6,12 +6,12 @@ package modelconfig
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -37,22 +37,20 @@ import (
 )
 
 type modelConfigSuite struct {
-	changestreamtesting.ControllerSuite
-	changestreamtesting.ModelSuite
+	changestreamtesting.ControllerModelSuite
 
 	modelID model.UUID
 }
 
-var _ = gc.Suite(&modelConfigSuite{})
+var _ = tc.Suite(&modelConfigSuite{})
 
-func (s *modelConfigSuite) SetUpTest(c *gc.C) {
-	s.ControllerSuite.SetUpTest(c)
-	s.ModelSuite.SetUpTest(c)
+func (s *modelConfigSuite) SetUpTest(c *tc.C) {
+	s.ControllerModelSuite.SetUpTest(c)
 
 	controllerUUID := s.SeedControllerUUID(c)
 
 	userID, err := coreuser.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = accessState.AddUserWithPermission(
 		context.Background(), userID,
@@ -68,7 +66,7 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cloudName := "test"
 	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
@@ -78,7 +76,7 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 	})
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credentialName := "test"
 	fn = credentialbootstrap.InsertCredential(credential.Key{
@@ -90,7 +88,7 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 	)
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
@@ -108,14 +106,14 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 	s.modelID = modelUUID
 
 	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
-		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelConfigSuite) TestWatchModelConfig(c *gc.C) {
+func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 	ctx, cancel := jujutesting.LongWaitContext()
 	defer cancel()
 
@@ -134,17 +132,23 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *gc.C) {
 		"logging-config": "<root>=ERROR",
 	}
 
-	st := state.NewState(s.ModelSuite.TxnRunnerFactory())
+	modelTxnRunnerFactory := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(c, string(s.modelID)), nil
+	}
+
+	_, idler := s.InitWatchableDB(c, s.modelID.String())
+
+	st := state.NewState(modelTxnRunnerFactory)
 	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.ModelSuite.GetWatchableDB, s.modelID.String()),
+		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelID.String()),
 		loggertesting.WrapCheckLog(c))
 	svc := service.NewWatchableService(defaults, config.ModelValidator(), st, factory)
 
 	watcher, err := svc.Watch()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	err = bootstrap.SetModelConfig(s.modelID, attrs, defaults)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	err = bootstrap.SetModelConfig(s.modelID, attrs, defaults)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.modelID.String()))
+	c.Assert(err, tc.ErrorIsNil)
 
 	w := watchertest.NewStringsWatcherC(c, watcher)
 
@@ -153,15 +157,15 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *gc.C) {
 	w.AssertChange("name", "uuid", "type", "foo", "logging-config")
 
 	// Ensure that the changestream is idle.
-	s.ModelSuite.AssertChangeStreamIdle(c)
+	idler.AssertChangeStreamIdle(c)
 
 	// Now insert the change and watch it come through.
 	attrs["logging-config"] = "<root>=WARNING"
 
 	err = svc.SetModelConfig(ctx, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	s.ModelSuite.AssertChangeStreamIdle(c)
+	idler.AssertChangeStreamIdle(c)
 
 	w.AssertChange("logging-config")
 }

@@ -4,18 +4,18 @@
 package user
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type userSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&userSuite{})
+var _ = tc.Suite(&userSuite{})
 
-func (s *userSuite) TestIsValidUser(c *gc.C) {
+func (s *userSuite) TestIsValidUser(c *tc.C) {
 	for i, t := range []struct {
 		string string
 		expect bool
@@ -58,11 +58,11 @@ func (s *userSuite) TestIsValidUser(c *gc.C) {
 		{"not/valid", false},
 	} {
 		c.Logf("test %d: %s", i, t.string)
-		c.Assert(IsValidName(t.string), gc.Equals, t.expect, gc.Commentf("%s", t.string))
+		c.Assert(IsValidName(t.string), tc.Equals, t.expect, tc.Commentf("%s", t.string))
 	}
 }
 
-func (s *userSuite) TestNewName(c *gc.C) {
+func (s *userSuite) TestNewName(c *tc.C) {
 	for i, t := range []struct {
 		input   string
 		name    string
@@ -87,13 +87,13 @@ func (s *userSuite) TestNewName(c *gc.C) {
 		}} {
 		c.Logf("test %d: %s", i, t.input)
 		name, err := NewName(t.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(name.Name(), gc.Equals, t.name)
-		c.Check(name.IsLocal(), gc.Equals, t.isLocal)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(name.Name(), tc.Equals, t.name)
+		c.Check(name.IsLocal(), tc.Equals, t.isLocal)
 	}
 }
 
-func (s *userSuite) TestNewError(c *gc.C) {
+func (s *userSuite) TestNewError(c *tc.C) {
 	for i, t := range []struct {
 		input string
 		err   string
@@ -110,6 +110,6 @@ func (s *userSuite) TestNewError(c *gc.C) {
 		}} {
 		c.Logf("test %d: %s", i, t.input)
 		_, err := NewName(t.input)
-		c.Assert(err, gc.ErrorMatches, t.err)
+		c.Assert(err, tc.ErrorMatches, t.err)
 	}
 }

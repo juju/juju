@@ -6,12 +6,12 @@ package modelmigration
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/keymanager/modelmigration Coordinator,ImportService
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination service_mock_test.go github.com/juju/juju/domain/keymanager/modelmigration UserService
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }

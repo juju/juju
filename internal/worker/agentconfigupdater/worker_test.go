@@ -9,24 +9,24 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/objectstore"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	agent  *mockAgent
 	config agentconfigupdater.WorkerConfig
 
@@ -34,9 +34,9 @@ type WorkerSuite struct {
 	controllerConifgService *MockControllerConfigService
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = tc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) TestWorkerConfig(c *gc.C) {
+func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	for i, test := range []struct {
 		name      string
 		config    func() agentconfigupdater.WorkerConfig
@@ -75,23 +75,23 @@ func (s *WorkerSuite) TestWorkerConfig(c *gc.C) {
 		config := test.config()
 		err := config.Validate()
 		if test.expectErr == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, jc.ErrorIs, errors.NotValid)
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Check(err, tc.ErrorIs, errors.NotValid)
+			c.Check(err, tc.ErrorMatches, test.expectErr)
 		}
 	}
 }
 
-func (s *WorkerSuite) TestNewWorkerValidatesConfig(c *gc.C) {
+func (s *WorkerSuite) TestNewWorkerValidatesConfig(c *tc.C) {
 	config := s.config
 	config.Agent = nil
 	w, err := agentconfigupdater.NewWorker(config)
-	c.Assert(w, gc.IsNil)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(w, tc.IsNil)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *WorkerSuite) TestNormalStart(c *gc.C) {
+func (s *WorkerSuite) TestNormalStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	start := make(chan struct{})
@@ -104,8 +104,8 @@ func (s *WorkerSuite) TestNormalStart(c *gc.C) {
 	})
 
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(w, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(w, tc.NotNil)
 
 	defer workertest.CleanKill(c, w)
 
@@ -116,7 +116,7 @@ func (s *WorkerSuite) TestNormalStart(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
+func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newConfig := maps.Clone(s.controllerConfig)
@@ -153,10 +153,10 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrRestartAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *gc.C) {
+func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newConfig := maps.Clone(s.controllerConfig)
@@ -193,10 +193,10 @@ func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrRestartAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *gc.C) {
+func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newConfig := maps.Clone(s.controllerConfig)
@@ -234,10 +234,10 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrRestartAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newConfig := maps.Clone(s.controllerConfig)
@@ -274,10 +274,10 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrRestartAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newConfig := maps.Clone(s.controllerConfig)
@@ -314,10 +314,10 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrRestartAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newConfig := maps.Clone(s.controllerConfig)
@@ -354,10 +354,10 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrRestartAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newConfig := maps.Clone(s.controllerConfig)
@@ -394,10 +394,10 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrRestartAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newConfig := maps.Clone(s.controllerConfig)
@@ -434,10 +434,10 @@ func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrRestartAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *gc.C) {
+func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newConfig := maps.Clone(s.controllerConfig)
@@ -475,10 +475,10 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrRestartAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateObjectStoreType(c *gc.C) {
+func (s *WorkerSuite) TestUpdateObjectStoreType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newConfig := maps.Clone(s.controllerConfig)
@@ -515,10 +515,10 @@ func (s *WorkerSuite) TestUpdateObjectStoreType(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, jworker.ErrRestartAgent)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConifgService = NewMockControllerConfigService(ctrl)
@@ -564,7 +564,7 @@ func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *WorkerSuite) runScenario(c *gc.C, newConfig controller.Config) (worker.Worker, chan []string, chan struct{}, chan struct{}) {
+func (s *WorkerSuite) runScenario(c *tc.C, newConfig controller.Config) (worker.Worker, chan []string, chan struct{}, chan struct{}) {
 	start := make(chan struct{})
 
 	ch := make(chan []string)
@@ -587,8 +587,8 @@ func (s *WorkerSuite) runScenario(c *gc.C, newConfig controller.Config) (worker.
 	)
 
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(w, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(w, tc.NotNil)
 
 	select {
 	case <-start:

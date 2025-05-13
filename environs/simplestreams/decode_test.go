@@ -6,42 +6,41 @@ package simplestreams_test
 import (
 	"bytes"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/simplestreams"
 )
 
 type decodeSuite struct{}
 
-var _ = gc.Suite(&decodeSuite{})
+var _ = tc.Suite(&decodeSuite{})
 
-func (s *decodeSuite) TestDecodeCheckValidSignature(c *gc.C) {
+func (s *decodeSuite) TestDecodeCheckValidSignature(c *tc.C) {
 	r := bytes.NewReader([]byte(signedData))
 	txt, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(txt, gc.DeepEquals, []byte(unsignedData[1:]))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(txt, tc.DeepEquals, []byte(unsignedData[1:]))
 }
 
-func (s *decodeSuite) TestDecodeCheckInvalidSignature(c *gc.C) {
+func (s *decodeSuite) TestDecodeCheckInvalidSignature(c *tc.C) {
 	r := bytes.NewReader([]byte(invalidClearsignInput + signSuffix))
 	_, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
-	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err, tc.Not(tc.IsNil))
 	_, ok := err.(*simplestreams.NotPGPSignedError)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
-func (s *decodeSuite) TestDecodeCheckMissingSignature(c *gc.C) {
+func (s *decodeSuite) TestDecodeCheckMissingSignature(c *tc.C) {
 	r := bytes.NewReader([]byte("foo"))
 	_, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
 	_, ok := err.(*simplestreams.NotPGPSignedError)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s *decodeSuite) TestDecodeCheckMissingKey(c *gc.C) {
+func (s *decodeSuite) TestDecodeCheckMissingKey(c *tc.C) {
 	r := bytes.NewReader([]byte(signedData))
 	_, err := simplestreams.DecodeCheckSignature(r, "")
-	c.Assert(err, gc.ErrorMatches, "failed to parse public key: openpgp: invalid argument: no armored data found")
+	c.Assert(err, tc.ErrorMatches, "failed to parse public key: openpgp: invalid argument: no armored data found")
 }
 
 const (

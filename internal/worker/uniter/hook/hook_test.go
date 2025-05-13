@@ -4,8 +4,7 @@
 package hook_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/testing"
@@ -16,7 +15,7 @@ type InfoSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&InfoSuite{})
+var _ = tc.Suite(&InfoSuite{})
 
 var validateTests = []struct {
 	info hook.Info
@@ -92,14 +91,14 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.PebbleReady, WorkloadName: "gitlab"}, ""},
 }
 
-func (s *InfoSuite) TestValidate(c *gc.C) {
+func (s *InfoSuite) TestValidate(c *tc.C) {
 	for i, t := range validateTests {
 		c.Logf("test %d", i)
 		err := t.info.Validate()
 		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
-			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Assert(err, tc.ErrorMatches, t.err)
 		}
 	}
 }

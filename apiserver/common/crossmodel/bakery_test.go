@@ -14,28 +14,27 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/crossmodel/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
 type bakerySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockRoundTripper           *mocks.MockRoundTripper
 	mockExpirableStorageBakery *mocks.MockExpirableStorageBakery
 }
 
-var _ = gc.Suite(&bakerySuite{})
+var _ = tc.Suite(&bakerySuite{})
 
-func (s *bakerySuite) getLocalOfferBakery(c *gc.C) (*crossmodel.OfferBakery, *gomock.Controller) {
+func (s *bakerySuite) getLocalOfferBakery(c *tc.C) (*crossmodel.OfferBakery, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
@@ -45,23 +44,23 @@ func (s *bakerySuite) getLocalOfferBakery(c *gc.C) (*crossmodel.OfferBakery, *go
 	s.mockExpirableStorageBakery = mocks.NewMockExpirableStorageBakery(ctrl)
 
 	key, err := bakery.GenerateKey()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	mockFirstPartyCaveatChecker.EXPECT().Namespace().Return(nil)
 
 	b, err := crossmodel.NewLocalOfferBakery("", key, mockExpirableStorage, mockFirstPartyCaveatChecker, clock.WallClock)
-	c.Assert(err, gc.IsNil)
-	c.Assert(b, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(b, tc.NotNil)
 	url, err := b.RefreshDischargeURL(context.Background(), "https://example.com/offeraccess")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "https://example.com/offeraccess")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(url, tc.Equals, "https://example.com/offeraccess")
 	return b, ctrl
 }
 
-func (s *bakerySuite) setMockRoundTripperRoundTrip(c *gc.C, expectedUrl string) {
+func (s *bakerySuite) setMockRoundTripperRoundTrip(c *tc.C, expectedUrl string) {
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			req.Header.Set("Content-Type", "application/json")
-			c.Assert(req.URL.String(), gc.Equals, expectedUrl)
+			c.Assert(req.URL.String(), tc.Equals, expectedUrl)
 			resp := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -77,7 +76,7 @@ func (s *bakerySuite) setMockRoundTripperRoundTrip(c *gc.C, expectedUrl string) 
 	).Times(1)
 }
 
-func (s *bakerySuite) getJaaSOfferBakery(c *gc.C) (*crossmodel.JaaSOfferBakery, *gomock.Controller) {
+func (s *bakerySuite) getJaaSOfferBakery(c *tc.C) (*crossmodel.JaaSOfferBakery, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	s.mockRoundTripper = mocks.NewMockRoundTripper(ctrl)
@@ -87,14 +86,14 @@ func (s *bakerySuite) getJaaSOfferBakery(c *gc.C) (*crossmodel.JaaSOfferBakery, 
 	mockFirstPartyCaveatChecker := mocks.NewMockFirstPartyCaveatChecker(ctrl)
 
 	key, err := bakery.GenerateKey()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	mockBakeryConfig.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(key, nil).AnyTimes()
 	mockFirstPartyCaveatChecker.EXPECT().Namespace().Return(nil).AnyTimes()
 
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			req.Header.Set("Content-Type", "application/json")
-			c.Assert(req.URL.String(), gc.Equals, `https://example.com/macaroons/discharge/info`)
+			c.Assert(req.URL.String(), tc.Equals, `https://example.com/macaroons/discharge/info`)
 			resp := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -116,75 +115,75 @@ func (s *bakerySuite) getJaaSOfferBakery(c *gc.C) (*crossmodel.JaaSOfferBakery, 
 		mockBakeryConfig, mockExpirableStorage, mockFirstPartyCaveatChecker,
 	)
 
-	c.Assert(err, gc.IsNil)
-	c.Assert(b, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(b, tc.NotNil)
 	return b, ctrl
 }
 
-func (s *bakerySuite) TestRefreshDischargeURL(c *gc.C) {
+func (s *bakerySuite) TestRefreshDischargeURL(c *tc.C) {
 	offerBakery, ctrl := s.getLocalOfferBakery(c)
 	defer ctrl.Finish()
 
 	result, err := offerBakery.RefreshDischargeURL(context.Background(), "https://example-1.com/offeraccess")
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, "https://example-1.com/offeraccess")
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.Equals, "https://example-1.com/offeraccess")
 }
 
-func (s *bakerySuite) TestRefreshDischargeURLJaaS(c *gc.C) {
+func (s *bakerySuite) TestRefreshDischargeURLJaaS(c *tc.C) {
 	offerBakery, ctrl := s.getJaaSOfferBakery(c)
 	defer ctrl.Finish()
 
 	// Test with no prefixed path segments
 	s.setMockRoundTripperRoundTrip(c, `https://example-1.com/macaroons/discharge/info`)
 	result, err := offerBakery.RefreshDischargeURL(context.Background(), "https://example-1.com/.well-known/jwks.json")
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, "https://example-1.com/macaroons")
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.Equals, "https://example-1.com/macaroons")
 
 	// Test with prefixed path segments and assert they're maintained (i.e., ingress rule defines /my-prefix/)
 	s.setMockRoundTripperRoundTrip(c, `https://example-2.com/my-prefix/macaroons/discharge/info`)
 	result, err = offerBakery.RefreshDischargeURL(context.Background(), "https://example-2.com/my-prefix/.well-known/jwks.json")
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, "https://example-2.com/my-prefix/macaroons")
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.Equals, "https://example-2.com/my-prefix/macaroons")
 }
 
-func (s *bakerySuite) TestGetConsumeOfferCaveats(c *gc.C) {
+func (s *bakerySuite) TestGetConsumeOfferCaveats(c *tc.C) {
 	offerBakery, ctrl := s.getLocalOfferBakery(c)
 	defer ctrl.Finish()
 
 	caveats := offerBakery.GetConsumeOfferCaveats(
 		"offer-uuid", "model-uuid", "mary",
 	)
-	c.Assert(caveats, gc.HasLen, 4)
-	c.Assert(strings.HasPrefix(caveats[0].Condition, "time-before"), jc.IsTrue)
-	c.Assert(caveats[1], jc.DeepEquals, checkers.Caveat{
+	c.Assert(caveats, tc.HasLen, 4)
+	c.Assert(strings.HasPrefix(caveats[0].Condition, "time-before"), tc.IsTrue)
+	c.Assert(caveats[1], tc.DeepEquals, checkers.Caveat{
 		Condition: "declared source-model-uuid model-uuid", Namespace: "std",
 	})
-	c.Assert(caveats[2], jc.DeepEquals, checkers.Caveat{
+	c.Assert(caveats[2], tc.DeepEquals, checkers.Caveat{
 		Condition: "declared username mary", Namespace: "std",
 	})
-	c.Assert(caveats[3], jc.DeepEquals, checkers.Caveat{
+	c.Assert(caveats[3], tc.DeepEquals, checkers.Caveat{
 		Condition: "declared offer-uuid offer-uuid", Namespace: "std",
 	})
 }
 
-func (s *bakerySuite) TestGetConsumeOfferCaveatsJaaS(c *gc.C) {
+func (s *bakerySuite) TestGetConsumeOfferCaveatsJaaS(c *tc.C) {
 	offerBakery, ctrl := s.getJaaSOfferBakery(c)
 	defer ctrl.Finish()
 
 	caveats := offerBakery.GetConsumeOfferCaveats(
 		"offer-uuid", "model-uuid", "mary",
 	)
-	c.Assert(caveats, gc.HasLen, 3)
-	c.Assert(strings.HasPrefix(caveats[0].Condition, "time-before"), jc.IsTrue)
-	c.Assert(caveats[1], jc.DeepEquals, checkers.Caveat{
+	c.Assert(caveats, tc.HasLen, 3)
+	c.Assert(strings.HasPrefix(caveats[0].Condition, "time-before"), tc.IsTrue)
+	c.Assert(caveats[1], tc.DeepEquals, checkers.Caveat{
 		Condition: "declared source-model-uuid model-uuid", Namespace: "std",
 	})
-	c.Assert(caveats[2], jc.DeepEquals, checkers.Caveat{
+	c.Assert(caveats[2], tc.DeepEquals, checkers.Caveat{
 		Condition: "declared username mary", Namespace: "std",
 	})
 }
 
-func (s *bakerySuite) TestInferDeclaredFromMacaroon(c *gc.C) {
+func (s *bakerySuite) TestInferDeclaredFromMacaroon(c *tc.C) {
 	offerBakery, ctrl := s.getLocalOfferBakery(c)
 	defer ctrl.Finish()
 
@@ -192,10 +191,10 @@ func (s *bakerySuite) TestInferDeclaredFromMacaroon(c *gc.C) {
 	declared := offerBakery.InferDeclaredFromMacaroon(
 		macaroon.Slice{mac}, map[string]string{"relation-key": "mediawiki:db mysql:server"},
 	)
-	c.Assert(declared, gc.DeepEquals, map[string]string{})
+	c.Assert(declared, tc.DeepEquals, map[string]string{})
 }
 
-func (s *bakerySuite) TestInferDeclaredFromMacaroonJaaS(c *gc.C) {
+func (s *bakerySuite) TestInferDeclaredFromMacaroonJaaS(c *tc.C) {
 	offerBakery, ctrl := s.getJaaSOfferBakery(c)
 	defer ctrl.Finish()
 
@@ -203,10 +202,10 @@ func (s *bakerySuite) TestInferDeclaredFromMacaroonJaaS(c *gc.C) {
 	declared := offerBakery.InferDeclaredFromMacaroon(
 		macaroon.Slice{mac}, map[string]string{"relation-key": "mediawiki:db mysql:server"},
 	)
-	c.Assert(declared, gc.DeepEquals, map[string]string{"relation-key": "mediawiki:db mysql:server"})
+	c.Assert(declared, tc.DeepEquals, map[string]string{"relation-key": "mediawiki:db mysql:server"})
 }
 
-func (s *bakerySuite) TestCreateDischargeMacaroon(c *gc.C) {
+func (s *bakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
 	offerBakery, ctrl := s.getLocalOfferBakery(c)
 	defer ctrl.Finish()
 
@@ -218,7 +217,7 @@ func (s *bakerySuite) TestCreateDischargeMacaroon(c *gc.C) {
 			sort.Slice(caveats, func(i, j int) bool {
 				return caveats[i].Condition < caveats[j].Condition
 			})
-			c.Assert(caveats, gc.HasLen, 2)
+			c.Assert(caveats, tc.HasLen, 2)
 			cavCondition := fmt.Sprintf(`
 need-declared offer-uuid,relation-key,source-model-uuid,username,username has-offer-permission source-model-uuid: %s
 username: mary
@@ -226,13 +225,13 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], coretesting.ModelTag.Id())
-			c.Assert(caveats[0], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats[0], tc.DeepEquals, checkers.Caveat{
 				Condition: cavCondition,
 				Location:  "https://example.com/offeraccess",
 			})
-			c.Assert(strings.HasPrefix(caveats[1].Condition, "time-before"), jc.IsTrue)
-			c.Assert(ops, gc.HasLen, 1)
-			c.Assert(ops[0], jc.DeepEquals, bakery.Op{Action: "consume", Entity: "mysql-uuid"})
+			c.Assert(strings.HasPrefix(caveats[1].Condition, "time-before"), tc.IsTrue)
+			c.Assert(ops, tc.HasLen, 1)
+			c.Assert(ops[0], tc.DeepEquals, bakery.Op{Action: "consume", Entity: "mysql-uuid"})
 			return bakery.NewLegacyMacaroon(jujutesting.MustNewMacaroon("test"))
 		},
 	)
@@ -252,10 +251,10 @@ permission: consume
 		bakery.Op{Action: "consume", Entity: "mysql-uuid"},
 		bakery.LatestVersion,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *gc.C) {
+func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *tc.C) {
 	offerBakery, ctrl := s.getJaaSOfferBakery(c)
 	s.mockExpirableStorageBakery = mocks.NewMockExpirableStorageBakery(ctrl)
 	defer ctrl.Finish()
@@ -268,20 +267,20 @@ func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *gc.C) {
 			sort.Slice(caveats, func(i, j int) bool {
 				return caveats[i].Condition < caveats[j].Condition
 			})
-			c.Assert(caveats, gc.HasLen, 5)
-			c.Assert(caveats[0], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats, tc.HasLen, 5)
+			c.Assert(caveats[0], tc.DeepEquals, checkers.Caveat{
 				Condition: "declared relation-key mediawiki:db mysql:server", Namespace: "std",
 			})
-			c.Assert(caveats[1], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats[1], tc.DeepEquals, checkers.Caveat{
 				Condition: "declared source-model-uuid " + coretesting.ModelTag.Id(), Namespace: "std",
 			})
-			c.Assert(caveats[2], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats[2], tc.DeepEquals, checkers.Caveat{
 				Condition: "declared username mary", Namespace: "std",
 			})
-			c.Assert(caveats[3], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats[3], tc.DeepEquals, checkers.Caveat{
 				Location: "https://example.com/macaroons", Condition: "is-consumer user-mary mysql-uuid",
 			})
-			c.Assert(strings.HasPrefix(caveats[4].Condition, "time-before"), jc.IsTrue)
+			c.Assert(strings.HasPrefix(caveats[4].Condition, "time-before"), tc.IsTrue)
 			return bakery.NewLegacyMacaroon(jujutesting.MustNewMacaroon("test"))
 		},
 	)
@@ -301,5 +300,5 @@ func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *gc.C) {
 		bakery.Op{Action: "consume", Entity: "mysql-uuid"},
 		bakery.LatestVersion,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }

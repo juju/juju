@@ -7,34 +7,34 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type BootstrapSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&BootstrapSuite{})
+var _ = tc.Suite(&BootstrapSuite{})
 
-func (s *BootstrapSuite) TestBootstrapParamsPath(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapParamsPath(c *tc.C) {
 	// Note: I'm hard coding the path here, because I don't know the
 	// consequences of changing the params file name. So recording it
 	// here should be enough warning to be careful about changing it.
 	path := BootstrapParamsPath("/var/lib/juju")
-	c.Assert(path, gc.Equals, "/var/lib/juju/bootstrap-params")
+	c.Assert(path, tc.Equals, "/var/lib/juju/bootstrap-params")
 }
 
-func (s *BootstrapSuite) TestIsBootstrapController(c *gc.C) {
+func (s *BootstrapSuite) TestIsBootstrapController(c *tc.C) {
 	dir := c.MkDir()
 	_, err := os.Create(filepath.Join(dir, "bootstrap-params"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(IsBootstrapController(dir), gc.Equals, true)
+	c.Assert(IsBootstrapController(dir), tc.Equals, true)
 }
 
-func (s *BootstrapSuite) TestIsBootstrapControllerIsFalse(c *gc.C) {
+func (s *BootstrapSuite) TestIsBootstrapControllerIsFalse(c *tc.C) {
 	dir := c.MkDir()
-	c.Assert(IsBootstrapController(dir), gc.Equals, false)
+	c.Assert(IsBootstrapController(dir), tc.Equals, false)
 }

@@ -8,8 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -33,9 +32,9 @@ type showSuite struct {
 	mockAPI *mockShowAPI
 }
 
-var _ = gc.Suite(&showSuite{})
+var _ = tc.Suite(&showSuite{})
 
-func (s *showSuite) SetUpTest(c *gc.C) {
+func (s *showSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 
 	s.mockAPI = &mockShowAPI{
@@ -44,45 +43,45 @@ func (s *showSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *showSuite) runShow(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *showSuite) runShow(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, newShowEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
-func (s *showSuite) TestShowNoUrl(c *gc.C) {
+func (s *showSuite) TestShowNoUrl(c *tc.C) {
 	s.assertShowError(c, nil, ".*must specify endpoint URL.*")
 }
 
-func (s *showSuite) TestShowApiError(c *gc.C) {
+func (s *showSuite) TestShowApiError(c *tc.C) {
 	s.mockAPI.msg = "fail"
 	s.assertShowError(c, []string{"fred/model.db2"}, ".*fail.*")
 }
 
-func (s *showSuite) TestShowURLError(c *gc.C) {
+func (s *showSuite) TestShowURLError(c *tc.C) {
 	s.assertShowError(c, []string{"fred/model.foo/db2"}, "application offer URL has invalid form.*")
 }
 
-func (s *showSuite) TestShowWrongModelError(c *gc.C) {
+func (s *showSuite) TestShowWrongModelError(c *tc.C) {
 	s.assertShowError(c, []string{"db2"}, `application offer "fred/test.db2" not found`)
 }
 
-func (s *showSuite) TestShowNameOnly(c *gc.C) {
+func (s *showSuite) TestShowNameOnly(c *tc.C) {
 	// CurrentModel is fred/test, so ensure api believes offer is in this model
 	s.mockAPI.offerURL = "fred/test.db2"
 	s.assertShowYaml(c, "db2")
 }
 
-func (s *showSuite) TestShowNameAndEnvvarOnly(c *gc.C) {
+func (s *showSuite) TestShowNameAndEnvvarOnly(c *tc.C) {
 	// Ensure envvar (fred/model) overrides CurrentModel (fred/test)
 	os.Setenv(osenv.JujuModelEnvKey, "fred/model")
 	defer func() { _ = os.Unsetenv(osenv.JujuModelEnvKey) }()
 	s.assertShowYaml(c, "db2")
 }
 
-func (s *showSuite) TestShowYaml(c *gc.C) {
+func (s *showSuite) TestShowYaml(c *tc.C) {
 	s.assertShowYaml(c, "fred/model.db2")
 }
 
-func (s *showSuite) assertShowYaml(c *gc.C, arg string) {
+func (s *showSuite) assertShowYaml(c *tc.C, arg string) {
 	s.assertShow(
 		c,
 		[]string{arg, "--format", "yaml"},
@@ -105,7 +104,7 @@ test-master:`[1:]+s.mockAPI.offerURL+`:
 	)
 }
 
-func (s *showSuite) TestShowTabular(c *gc.C) {
+func (s *showSuite) TestShowTabular(c *tc.C) {
 	s.assertShow(
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
@@ -117,7 +116,7 @@ test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry
 	)
 }
 
-func (s *showSuite) TestShowDifferentController(c *gc.C) {
+func (s *showSuite) TestShowDifferentController(c *tc.C) {
 	s.mockAPI.controllerName = "different"
 	s.assertShow(
 		c,
@@ -130,7 +129,7 @@ different  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  
 	)
 }
 
-func (s *showSuite) TestShowTabularExactly180Desc(c *gc.C) {
+func (s *showSuite) TestShowTabularExactly180Desc(c *tc.C) {
 	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc + s.mockAPI.desc[:52]
 	s.assertShow(
 		c,
@@ -146,7 +145,7 @@ test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry
 	)
 }
 
-func (s *showSuite) TestShowTabularMoreThan180Desc(c *gc.C) {
+func (s *showSuite) TestShowTabularMoreThan180Desc(c *tc.C) {
 	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc + s.mockAPI.desc
 	s.assertShow(
 		c,
@@ -162,17 +161,17 @@ test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry
 	)
 }
 
-func (s *showSuite) assertShow(c *gc.C, args []string, expected string) {
+func (s *showSuite) assertShow(c *tc.C, args []string, expected string) {
 	context, err := s.runShow(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := cmdtesting.Stdout(context)
-	c.Assert(obtained, gc.Matches, expected)
+	c.Assert(obtained, tc.Matches, expected)
 }
 
-func (s *showSuite) assertShowError(c *gc.C, args []string, expected string) {
+func (s *showSuite) assertShowError(c *tc.C, args []string, expected string) {
 	_, err := s.runShow(c, args...)
-	c.Assert(err, gc.ErrorMatches, expected)
+	c.Assert(err, tc.ErrorMatches, expected)
 }
 
 type mockShowAPI struct {

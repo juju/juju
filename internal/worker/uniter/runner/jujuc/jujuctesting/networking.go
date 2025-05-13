@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
@@ -23,8 +22,8 @@ type NetworkInterface struct {
 }
 
 // CheckPorts checks the current ports.
-func (ni *NetworkInterface) CheckPortRanges(c *gc.C, expected network.GroupedPortRanges) {
-	c.Check(ni.PortRangesByEndpoint, jc.DeepEquals, expected)
+func (ni *NetworkInterface) CheckPortRanges(c *tc.C, expected network.GroupedPortRanges) {
+	c.Check(ni.PortRangesByEndpoint, tc.DeepEquals, expected)
 }
 
 // AddPortRanges adds the specified port range.

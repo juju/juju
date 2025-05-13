@@ -6,21 +6,20 @@ package model_test
 import (
 	"regexp"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type NamingSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&NamingSuite{})
+var _ = tc.Suite(&NamingSuite{})
 
-func (*NamingSuite) TestDisambiguateName(c *gc.C) {
+func (*NamingSuite) TestDisambiguateName(c *tc.C) {
 	for _, t := range []struct {
 		name      string
 		result    string
@@ -33,15 +32,15 @@ func (*NamingSuite) TestDisambiguateName(c *gc.C) {
 	} {
 		result, err := model.DisambiguateResourceName(coretesting.ModelTag.Id(), t.name, t.maxLength)
 		if t.err != "" {
-			c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(t.err))
+			c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(t.err))
 		} else {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(result, gc.Equals, t.result)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(result, tc.Equals, t.result)
 		}
 	}
 }
 
-func (*NamingSuite) TestDisambiguateNameWithSuffixLength(c *gc.C) {
+func (*NamingSuite) TestDisambiguateNameWithSuffixLength(c *tc.C) {
 	for _, t := range []struct {
 		name         string
 		result       string
@@ -56,10 +55,10 @@ func (*NamingSuite) TestDisambiguateNameWithSuffixLength(c *gc.C) {
 	} {
 		result, err := model.DisambiguateResourceNameWithSuffixLength(coretesting.ModelTag.Id(), t.name, t.maxLength, t.suffixLength)
 		if t.err != "" {
-			c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(t.err))
+			c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(t.err))
 		} else {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(result, gc.Equals, t.result)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(result, tc.Equals, t.result)
 		}
 	}
 }

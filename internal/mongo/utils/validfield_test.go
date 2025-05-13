@@ -4,39 +4,38 @@
 package utils_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/mongo/utils"
 )
 
 type ValidFieldSuite struct{}
 
-var _ = gc.Suite(&ValidFieldSuite{})
+var _ = tc.Suite(&ValidFieldSuite{})
 
-func (s *ValidFieldSuite) TestOk(c *gc.C) {
-	c.Check(utils.IsValidFieldName("foo"), jc.IsTrue)
+func (s *ValidFieldSuite) TestOk(c *tc.C) {
+	c.Check(utils.IsValidFieldName("foo"), tc.IsTrue)
 }
 
-func (s *ValidFieldSuite) TestEmpty(c *gc.C) {
-	c.Check(utils.IsValidFieldName(""), jc.IsFalse)
+func (s *ValidFieldSuite) TestEmpty(c *tc.C) {
+	c.Check(utils.IsValidFieldName(""), tc.IsFalse)
 }
 
-func (s *ValidFieldSuite) TestDollarPrefix(c *gc.C) {
-	c.Check(utils.IsValidFieldName("$foo"), jc.IsFalse)
+func (s *ValidFieldSuite) TestDollarPrefix(c *tc.C) {
+	c.Check(utils.IsValidFieldName("$foo"), tc.IsFalse)
 }
 
-func (s *ValidFieldSuite) TestEmbeddedDollar(c *gc.C) {
-	c.Check(utils.IsValidFieldName("foo$bar"), jc.IsTrue)
+func (s *ValidFieldSuite) TestEmbeddedDollar(c *tc.C) {
+	c.Check(utils.IsValidFieldName("foo$bar"), tc.IsTrue)
 }
 
-func (s *ValidFieldSuite) TestDot(c *gc.C) {
-	c.Check(utils.IsValidFieldName(".foo"), jc.IsFalse)
-	c.Check(utils.IsValidFieldName("foo.bar"), jc.IsFalse)
-	c.Check(utils.IsValidFieldName("bar."), jc.IsFalse)
+func (s *ValidFieldSuite) TestDot(c *tc.C) {
+	c.Check(utils.IsValidFieldName(".foo"), tc.IsFalse)
+	c.Check(utils.IsValidFieldName("foo.bar"), tc.IsFalse)
+	c.Check(utils.IsValidFieldName("bar."), tc.IsFalse)
 }
 
-func (s *ValidFieldSuite) TestCheckStorableOk(c *gc.C) {
+func (s *ValidFieldSuite) TestCheckStorableOk(c *tc.C) {
 	type Doc struct {
 		A string            `bson:"a"`
 		B map[string]string `bson:"b"`
@@ -48,19 +47,19 @@ func (s *ValidFieldSuite) TestCheckStorableOk(c *gc.C) {
 			"some":  "thing",
 			"other": "thing",
 		},
-	}), jc.ErrorIsNil)
+	}), tc.ErrorIsNil)
 }
 
-func (s *ValidFieldSuite) TestCheckStorableBad(c *gc.C) {
+func (s *ValidFieldSuite) TestCheckStorableBad(c *tc.C) {
 	type Doc struct {
 		A string `bson:"$a"`
 	}
 	c.Check(utils.CheckStorable(Doc{
 		A: "hi",
-	}), gc.ErrorMatches, `"\$a" is not a valid field name`)
+	}), tc.ErrorMatches, `"\$a" is not a valid field name`)
 }
 
-func (s *ValidFieldSuite) TestCheckStorableBadNested(c *gc.C) {
+func (s *ValidFieldSuite) TestCheckStorableBadNested(c *tc.C) {
 	type Doc struct {
 		A map[string]string `bson:"a"`
 	}
@@ -70,10 +69,10 @@ func (s *ValidFieldSuite) TestCheckStorableBadNested(c *gc.C) {
 			"some": "thing",
 			"$foo": "thing",
 		},
-	}), gc.ErrorMatches, `"\$foo" is not a valid field name`)
+	}), tc.ErrorMatches, `"\$foo" is not a valid field name`)
 }
 
-func (s *ValidFieldSuite) TestCheckStorableBadDeepNested(c *gc.C) {
+func (s *ValidFieldSuite) TestCheckStorableBadDeepNested(c *tc.C) {
 	type SubDoc struct {
 		A int               `bson:"a"`
 		B map[string]string `bson:"b"`
@@ -94,5 +93,5 @@ func (s *ValidFieldSuite) TestCheckStorableBadDeepNested(c *gc.C) {
 				},
 			},
 		},
-	}), gc.ErrorMatches, `"foo.bar" is not a valid field name`)
+	}), tc.ErrorMatches, `"foo.bar" is not a valid field name`)
 }

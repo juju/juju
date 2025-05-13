@@ -8,10 +8,9 @@ import (
 	"errors"
 
 	"github.com/juju/clock"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -29,19 +28,19 @@ type MachineWatcherSuite struct {
 	watcherRegistry        facade.WatcherRegistry
 }
 
-var _ = gc.Suite(&MachineWatcherSuite{})
+var _ = tc.Suite(&MachineWatcherSuite{})
 
-func (s *MachineWatcherSuite) setup(c *gc.C) *gomock.Controller {
+func (s *MachineWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	var err error
 	ctrl := gomock.NewController(c)
 	s.mockWatchRebootService = mocks.NewMockWatchableMachineService(ctrl)
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 	return ctrl
 }
 
-func (s *MachineWatcherSuite) TestWatchForRebootEventCannotGetUUID(c *gc.C) {
+func (s *MachineWatcherSuite) TestWatchForRebootEventCannotGetUUID(c *tc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
 	errMachineNotFound := errors.New("machine not found")
@@ -54,11 +53,11 @@ func (s *MachineWatcherSuite) TestWatchForRebootEventCannotGetUUID(c *gc.C) {
 	_, err := rebootWatcher.WatchForRebootEvent(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errMachineNotFound)
-	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIs, errMachineNotFound)
+	c.Assert(s.watcherRegistry.Count(), tc.Equals, 0)
 }
 
-func (s *MachineWatcherSuite) TestWatchForRebootEventErrorStartWatcher(c *gc.C) {
+func (s *MachineWatcherSuite) TestWatchForRebootEventErrorStartWatcher(c *tc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
 	getMachineUUID := func(ctx context.Context) (machine.UUID, error) {
@@ -72,11 +71,11 @@ func (s *MachineWatcherSuite) TestWatchForRebootEventErrorStartWatcher(c *gc.C) 
 	_, err := rebootWatcher.WatchForRebootEvent(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, errStartWatcher)
-	c.Assert(s.watcherRegistry.Count(), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIs, errStartWatcher)
+	c.Assert(s.watcherRegistry.Count(), tc.Equals, 0)
 }
 
-func (s *MachineWatcherSuite) TestWatchForRebootEvent(c *gc.C) {
+func (s *MachineWatcherSuite) TestWatchForRebootEvent(c *tc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
 	getMachineUUID := func(ctx context.Context) (machine.UUID, error) {
@@ -89,9 +88,9 @@ func (s *MachineWatcherSuite) TestWatchForRebootEvent(c *gc.C) {
 	result, err := rebootWatcher.WatchForRebootEvent(context.Background())
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.watcherRegistry.Count(), gc.Equals, 1)
-	c.Assert(result, gc.Equals, params.NotifyWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.watcherRegistry.Count(), tc.Equals, 1)
+	c.Assert(result, tc.Equals, params.NotifyWatchResult{
 		NotifyWatcherId: registry.DefaultNamespace + "-1",
 		Error:           nil,
 	})

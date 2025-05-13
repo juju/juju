@@ -9,9 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/model"
@@ -41,9 +40,9 @@ type modelStatusSuite struct {
 	statusService  *MockStatusService
 }
 
-var _ = gc.Suite(&modelStatusSuite{})
+var _ = tc.Suite(&modelStatusSuite{})
 
-func (s *modelStatusSuite) SetUpTest(c *gc.C) {
+func (s *modelStatusSuite) SetUpTest(c *tc.C) {
 	// Initial config needs to be set before the StateSuite SetUpTest.
 	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
 		"name": "controller",
@@ -54,7 +53,7 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
@@ -62,14 +61,14 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *modelStatusSuite) TestStub(c *gc.C) {
+func (s *modelStatusSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Full multi-model status success case for IAAS.
 - Full multi-model status success case for CAAS.
 `)
 }
 
-func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
+func (s *modelStatusSuite) TestModelStatusNonAuth(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Set up the user making the call.
@@ -91,11 +90,11 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 		Entities: []params.Entity{{Tag: controllerModelTag}},
 	}
 	result, err := api.ModelStatus(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, "permission denied")
 }
 
-func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
+func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Set up the user making the call.
@@ -115,15 +114,15 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	)
 
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: model.ModelTag().String()}},
 	}
 	_, err = api.ModelStatus(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
+func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.statusService.EXPECT().GetApplicationAndUnitModelStatuses(gomock.Any()).Return(
@@ -160,8 +159,8 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 		s.authorizer.GetAuthTag().(names.UserTag),
 	)
 	result, err := modelStatusAPI.ModelStatus(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expected)
 }
 
 func (s *modelStatusSuite) machineServiceGetter(ctx context.Context, uuid coremodel.UUID) (model.MachineService, error) {
@@ -172,7 +171,7 @@ func (s *modelStatusSuite) statusServiceGetter(ctx context.Context, uuid coremod
 	return s.statusService, nil
 }
 
-func (s *modelStatusSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *modelStatusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.machineService = NewMockMachineService(ctrl)

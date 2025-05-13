@@ -3,42 +3,39 @@
 
 package ostype
 
-import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-)
+import "github.com/juju/tc"
 
 type osTypeSuite struct{}
 
-var _ = gc.Suite(&osTypeSuite{})
+var _ = tc.Suite(&osTypeSuite{})
 
-func (s *osTypeSuite) TestEquivalentTo(c *gc.C) {
-	c.Check(Ubuntu.EquivalentTo(CentOS), jc.IsTrue)
-	c.Check(Ubuntu.EquivalentTo(GenericLinux), jc.IsTrue)
-	c.Check(GenericLinux.EquivalentTo(Ubuntu), jc.IsTrue)
-	c.Check(CentOS.EquivalentTo(CentOS), jc.IsTrue)
+func (s *osTypeSuite) TestEquivalentTo(c *tc.C) {
+	c.Check(Ubuntu.EquivalentTo(CentOS), tc.IsTrue)
+	c.Check(Ubuntu.EquivalentTo(GenericLinux), tc.IsTrue)
+	c.Check(GenericLinux.EquivalentTo(Ubuntu), tc.IsTrue)
+	c.Check(CentOS.EquivalentTo(CentOS), tc.IsTrue)
 }
 
-func (s *osTypeSuite) TestIsLinux(c *gc.C) {
-	c.Check(Ubuntu.IsLinux(), jc.IsTrue)
-	c.Check(CentOS.IsLinux(), jc.IsTrue)
-	c.Check(GenericLinux.IsLinux(), jc.IsTrue)
+func (s *osTypeSuite) TestIsLinux(c *tc.C) {
+	c.Check(Ubuntu.IsLinux(), tc.IsTrue)
+	c.Check(CentOS.IsLinux(), tc.IsTrue)
+	c.Check(GenericLinux.IsLinux(), tc.IsTrue)
 
-	c.Check(Windows.IsLinux(), jc.IsFalse)
-	c.Check(Unknown.IsLinux(), jc.IsFalse)
+	c.Check(Windows.IsLinux(), tc.IsFalse)
+	c.Check(Unknown.IsLinux(), tc.IsFalse)
 
-	c.Check(OSX.EquivalentTo(Ubuntu), jc.IsFalse)
-	c.Check(OSX.EquivalentTo(Windows), jc.IsFalse)
-	c.Check(GenericLinux.EquivalentTo(OSX), jc.IsFalse)
+	c.Check(OSX.EquivalentTo(Ubuntu), tc.IsFalse)
+	c.Check(OSX.EquivalentTo(Windows), tc.IsFalse)
+	c.Check(GenericLinux.EquivalentTo(OSX), tc.IsFalse)
 }
 
-func (s *osTypeSuite) TestString(c *gc.C) {
-	c.Check(Ubuntu.String(), gc.Equals, "Ubuntu")
-	c.Check(Windows.String(), gc.Equals, "Windows")
-	c.Check(Unknown.String(), gc.Equals, "Unknown")
+func (s *osTypeSuite) TestString(c *tc.C) {
+	c.Check(Ubuntu.String(), tc.Equals, "Ubuntu")
+	c.Check(Windows.String(), tc.Equals, "Windows")
+	c.Check(Unknown.String(), tc.Equals, "Unknown")
 }
 
-func (s *osTypeSuite) TestParseOSType(c *gc.C) {
+func (s *osTypeSuite) TestParseOSType(c *tc.C) {
 	tests := []struct {
 		str string
 		t   OSType
@@ -53,7 +50,7 @@ func (s *osTypeSuite) TestParseOSType(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d", i)
 		t, err := ParseOSType(test.str)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(t, gc.Equals, test.t)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(t, tc.Equals, test.t)
 	}
 }

@@ -7,27 +7,26 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/relation"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type importSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	service *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) TestImport(c *gc.C) {
+func (s *importSuite) TestImport(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -45,10 +44,10 @@ func (s *importSuite) TestImport(c *gc.C) {
 	err := importOp.Execute(context.Background(), model)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *importSuite) TestImportNoRelations(c *gc.C) {
+func (s *importSuite) TestImportNoRelations(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c)
 
@@ -65,10 +64,10 @@ func (s *importSuite) TestImportNoRelations(c *gc.C) {
 	err := importOp.Execute(context.Background(), model)
 
 	// Assert
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *importSuite) TestImportBadKey(c *gc.C) {
+func (s *importSuite) TestImportBadKey(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c)
 
@@ -89,16 +88,16 @@ func (s *importSuite) TestImportBadKey(c *gc.C) {
 	err := importOp.Execute(context.Background(), model)
 
 	// Assert
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.service = NewMockImportService(ctrl)
 	return ctrl
 }
 
-func (s *importSuite) expectImportRelations(c *gc.C, data map[int]corerelation.Key) description.Model {
+func (s *importSuite) expectImportRelations(c *tc.C, data map[int]corerelation.Key) description.Model {
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.IAAS.String(),
 	})
@@ -136,7 +135,7 @@ func (s *importSuite) expectImportRelations(c *gc.C, data map[int]corerelation.K
 }
 
 type relationArgMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected relation.ImportRelationsArgs
 }
 
@@ -145,7 +144,7 @@ func (m relationArgMatcher) Matches(x interface{}) bool {
 	if !ok {
 		return false
 	}
-	return m.c.Check(obtained, jc.SameContents, m.expected)
+	return m.c.Check(obtained, tc.SameContents, m.expected)
 }
 
 func (relationArgMatcher) String() string {

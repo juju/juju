@@ -4,29 +4,28 @@
 package os
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type macOSXSeriesSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
-var _ = gc.Suite(&macOSXSeriesSuite{})
+var _ = tc.Suite(&macOSXSeriesSuite{})
 
-func (*macOSXSeriesSuite) TestGetSysctlVersionPlatform(c *gc.C) {
+func (*macOSXSeriesSuite) TestGetSysctlVersionPlatform(c *tc.C) {
 	// Test that sysctlVersion returns something that looks like a dotted revision number
 	releaseVersion, err := sysctlVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(releaseVersion, gc.Matches, `\d+\..*`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(releaseVersion, tc.Matches, `\d+\..*`)
 }
 
-func (s *macOSXSeriesSuite) TestOSVersion(c *gc.C) {
+func (s *macOSXSeriesSuite) TestOSVersion(c *tc.C) {
 	s.PatchValue(&sysctlVersion, func() (string, error) { return "23.1.0", nil })
 	b, err := readBase()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(b, gc.Equals, corebase.MustParseBaseFromString("osx@23.1.0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(b, tc.Equals, corebase.MustParseBaseFromString("osx@23.1.0"))
 }

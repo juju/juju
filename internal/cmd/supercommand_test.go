@@ -12,11 +12,11 @@ import (
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
-	gitjujutesting "github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
@@ -26,7 +26,7 @@ func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
 	return jc, tc, cmdtesting.InitCommand(jc, args)
 }
 
-func initDefenestrateWithAliases(c *gc.C, args []string) (*cmd.SuperCommand, *TestCommand, error) {
+func initDefenestrateWithAliases(c *tc.C, args []string) (*cmd.SuperCommand, *TestCommand, error) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "aliases")
 	err := ioutil.WriteFile(filename, []byte(`
@@ -34,7 +34,7 @@ def = defenestrate
 be-firm = defenestrate --option firmly
 other = missing 
 		`), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", UserAliasesFilename: filename})
 	tc := &TestCommand{Name: "defenestrate"}
 	jc.Register(tc)
@@ -42,12 +42,12 @@ other = missing
 }
 
 type SuperCommandSuite struct {
-	gitjujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	ctx *cmd.Context
 }
 
-var _ = gc.Suite(&SuperCommandSuite{})
+var _ = tc.Suite(&SuperCommandSuite{})
 
 func baseSubcommandsPlus(newCommands map[string]string) map[string]string {
 	subcommands := map[string]string{
@@ -60,115 +60,115 @@ func baseSubcommandsPlus(newCommands map[string]string) map[string]string {
 	return subcommands
 }
 
-func (s *SuperCommandSuite) SetUpTest(c *gc.C) {
+func (s *SuperCommandSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.ctx = cmdtesting.Context(c)
 	loggo.ReplaceDefaultWriter(cmd.NewWarningWriter(s.ctx.Stderr))
 }
 
-func (s *SuperCommandSuite) TestDispatch(c *gc.C) {
+func (s *SuperCommandSuite) TestDispatch(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
 	info := jc.Info()
-	c.Assert(info.Name, gc.Equals, "jujutest")
-	c.Assert(info.Args, gc.Equals, "<command> ...")
-	c.Assert(info.Doc, gc.Equals, "")
-	c.Assert(info.Subcommands, gc.DeepEquals, baseSubcommandsPlus(nil))
+	c.Assert(info.Name, tc.Equals, "jujutest")
+	c.Assert(info.Args, tc.Equals, "<command> ...")
+	c.Assert(info.Doc, tc.Equals, "")
+	c.Assert(info.Subcommands, tc.DeepEquals, baseSubcommandsPlus(nil))
 
 	jc, _, err := initDefenestrate([]string{"discombobulate"})
-	c.Assert(err, gc.ErrorMatches, "unrecognized command: jujutest discombobulate")
+	c.Assert(err, tc.ErrorMatches, "unrecognized command: jujutest discombobulate")
 	info = jc.Info()
-	c.Assert(info.Name, gc.Equals, "jujutest")
-	c.Assert(info.Args, gc.Equals, "<command> ...")
-	c.Assert(info.Doc, gc.Equals, "")
-	c.Assert(info.Subcommands, gc.DeepEquals, baseSubcommandsPlus(map[string]string{
+	c.Assert(info.Name, tc.Equals, "jujutest")
+	c.Assert(info.Args, tc.Equals, "<command> ...")
+	c.Assert(info.Doc, tc.Equals, "")
+	c.Assert(info.Subcommands, tc.DeepEquals, baseSubcommandsPlus(map[string]string{
 		"defenestrate": "defenestrate the juju",
 	}))
 
-	jc, tc, err := initDefenestrate([]string{"defenestrate"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(tc.Option, gc.Equals, "")
+	jc, testCommand, err := initDefenestrate([]string{"defenestrate"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(testCommand.Option, tc.Equals, "")
 	info = jc.Info()
-	c.Assert(info.Name, gc.Equals, "jujutest defenestrate")
-	c.Assert(info.Args, gc.Equals, "<something>")
-	c.Assert(info.Doc, gc.Equals, "defenestrate-doc")
+	c.Assert(info.Name, tc.Equals, "jujutest defenestrate")
+	c.Assert(info.Args, tc.Equals, "<something>")
+	c.Assert(info.Doc, tc.Equals, "defenestrate-doc")
 
-	_, tc, err = initDefenestrate([]string{"defenestrate", "--option", "firmly"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(tc.Option, gc.Equals, "firmly")
+	_, testCommand, err = initDefenestrate([]string{"defenestrate", "--option", "firmly"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(testCommand.Option, tc.Equals, "firmly")
 
-	_, tc, err = initDefenestrate([]string{"defenestrate", "gibberish"})
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["gibberish"\]`)
+	_, testCommand, err = initDefenestrate([]string{"defenestrate", "gibberish"})
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["gibberish"\]`)
 
 	// --description must be used on it's own.
 	_, _, err = initDefenestrate([]string{"--description", "defenestrate"})
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["defenestrate"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["defenestrate"\]`)
 
 	// --no-alias is not a valid option if there is no alias file speciifed
 	_, _, err = initDefenestrate([]string{"--no-alias", "defenestrate"})
-	c.Assert(err, gc.ErrorMatches, `flag provided but not defined: --no-alias`)
+	c.Assert(err, tc.ErrorMatches, `flag provided but not defined: --no-alias`)
 }
 
-func (s *SuperCommandSuite) TestUserAliasDispatch(c *gc.C) {
+func (s *SuperCommandSuite) TestUserAliasDispatch(c *tc.C) {
 	// Can still use the full name.
-	jc, tc, err := initDefenestrateWithAliases(c, []string{"defenestrate"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(tc.Option, gc.Equals, "")
+	jc, testCommand, err := initDefenestrateWithAliases(c, []string{"defenestrate"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(testCommand.Option, tc.Equals, "")
 	info := jc.Info()
-	c.Assert(info.Name, gc.Equals, "jujutest defenestrate")
-	c.Assert(info.Args, gc.Equals, "<something>")
-	c.Assert(info.Doc, gc.Equals, "defenestrate-doc")
+	c.Assert(info.Name, tc.Equals, "jujutest defenestrate")
+	c.Assert(info.Args, tc.Equals, "<something>")
+	c.Assert(info.Doc, tc.Equals, "defenestrate-doc")
 
-	jc, tc, err = initDefenestrateWithAliases(c, []string{"def"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(tc.Option, gc.Equals, "")
+	jc, testCommand, err = initDefenestrateWithAliases(c, []string{"def"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(testCommand.Option, tc.Equals, "")
 	info = jc.Info()
-	c.Assert(info.Name, gc.Equals, "jujutest defenestrate")
+	c.Assert(info.Name, tc.Equals, "jujutest defenestrate")
 
-	jc, tc, err = initDefenestrateWithAliases(c, []string{"be-firm"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(tc.Option, gc.Equals, "firmly")
+	jc, testCommand, err = initDefenestrateWithAliases(c, []string{"be-firm"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(testCommand.Option, tc.Equals, "firmly")
 	info = jc.Info()
-	c.Assert(info.Name, gc.Equals, "jujutest defenestrate")
+	c.Assert(info.Name, tc.Equals, "jujutest defenestrate")
 
 	_, _, err = initDefenestrateWithAliases(c, []string{"--no-alias", "def"})
-	c.Assert(err, gc.ErrorMatches, "unrecognized command: jujutest def")
+	c.Assert(err, tc.ErrorMatches, "unrecognized command: jujutest def")
 
 	// Aliases to missing values are converted before lookup.
 	_, _, err = initDefenestrateWithAliases(c, []string{"other"})
-	c.Assert(err, gc.ErrorMatches, "unrecognized command: jujutest missing")
+	c.Assert(err, tc.ErrorMatches, "unrecognized command: jujutest missing")
 }
 
-func (s *SuperCommandSuite) TestRegister(c *gc.C) {
+func (s *SuperCommandSuite) TestRegister(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flap"})
 	badCall := func() { jc.Register(&TestCommand{Name: "flap"}) }
-	c.Assert(badCall, gc.PanicMatches, `command already registered: "flap"`)
+	c.Assert(badCall, tc.PanicMatches, `command already registered: "flap"`)
 }
 
-func (s *SuperCommandSuite) TestAliasesRegistered(c *gc.C) {
+func (s *SuperCommandSuite) TestAliasesRegistered(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
 	jc.Register(&TestCommand{Name: "flip", Aliases: []string{"flap", "flop"}})
 
 	info := jc.Info()
-	c.Assert(info.Subcommands, gc.DeepEquals, baseSubcommandsPlus(map[string]string{
+	c.Assert(info.Subcommands, tc.DeepEquals, baseSubcommandsPlus(map[string]string{
 		"flap": "Alias for 'flip'.",
 		"flip": "flip the juju",
 		"flop": "Alias for 'flip'.",
 	}))
 }
 
-func (s *SuperCommandSuite) TestInfo(c *gc.C) {
+func (s *SuperCommandSuite) TestInfo(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
 		Purpose: "to be purposeful",
 		Doc:     "doc\nblah\ndoc",
 	})
 	info := jc.Info()
-	c.Assert(info.Name, gc.Equals, "jujutest")
-	c.Assert(info.Purpose, gc.Equals, "to be purposeful")
-	c.Assert(info.Doc, gc.Matches, jc.Doc)
-	c.Assert(info.Subcommands, gc.DeepEquals, baseSubcommandsPlus(nil))
+	c.Assert(info.Name, tc.Equals, "jujutest")
+	c.Assert(info.Purpose, tc.Equals, "to be purposeful")
+	c.Assert(info.Doc, tc.Matches, jc.Doc)
+	c.Assert(info.Subcommands, tc.DeepEquals, baseSubcommandsPlus(nil))
 
 	subcommands := baseSubcommandsPlus(map[string]string{
 		"flapbabble": "flapbabble the juju",
@@ -177,13 +177,13 @@ func (s *SuperCommandSuite) TestInfo(c *gc.C) {
 	jc.Register(&TestCommand{Name: "flip"})
 	jc.Register(&TestCommand{Name: "flapbabble"})
 	info = jc.Info()
-	c.Assert(info.Doc, gc.Matches, jc.Doc)
-	c.Assert(info.Subcommands, gc.DeepEquals, subcommands)
+	c.Assert(info.Doc, tc.Matches, jc.Doc)
+	c.Assert(info.Subcommands, tc.DeepEquals, subcommands)
 
 	jc.Doc = ""
 	info = jc.Info()
-	c.Assert(info.Doc, gc.Equals, "")
-	c.Assert(info.Subcommands, gc.DeepEquals, subcommands)
+	c.Assert(info.Doc, tc.Equals, "")
+	c.Assert(info.Subcommands, tc.DeepEquals, subcommands)
 }
 
 type testVersionFlagCommand struct {
@@ -203,15 +203,15 @@ func (c *testVersionFlagCommand) Run(_ *cmd.Context) error {
 	return nil
 }
 
-func (s *SuperCommandSuite) TestVersionVerb(c *gc.C) {
+func (s *SuperCommandSuite) TestVersionVerb(c *tc.C) {
 	s.testVersion(c, []string{"version"})
 }
 
-func (s *SuperCommandSuite) TestVersionFlag(c *gc.C) {
+func (s *SuperCommandSuite) TestVersionFlag(c *tc.C) {
 	s.testVersion(c, []string{"--version"})
 }
 
-func (s *SuperCommandSuite) testVersion(c *gc.C, params []string) {
+func (s *SuperCommandSuite) testVersion(c *tc.C, params []string) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
 		Purpose: "to be purposeful",
@@ -222,12 +222,12 @@ func (s *SuperCommandSuite) testVersion(c *gc.C, params []string) {
 	jc.Register(testVersionFlagCommand)
 
 	code := cmd.Main(jc, s.ctx, params)
-	c.Check(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stderr(s.ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(s.ctx), gc.Equals, "111.222.333\n")
+	c.Check(code, tc.Equals, 0)
+	c.Assert(cmdtesting.Stderr(s.ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stdout(s.ctx), tc.Equals, "111.222.333\n")
 }
 
-func (s *SuperCommandSuite) TestVersionFlagSpecific(c *gc.C) {
+func (s *SuperCommandSuite) TestVersionFlagSpecific(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
 		Purpose: "to be purposeful",
@@ -241,13 +241,13 @@ func (s *SuperCommandSuite) TestVersionFlagSpecific(c *gc.C) {
 	// and there should be no output. The --version flag on the 'test'
 	// subcommand has a different type to the "juju --version" flag.
 	code := cmd.Main(jc, s.ctx, []string{"test", "--version=abc.123"})
-	c.Check(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stderr(s.ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(s.ctx), gc.Equals, "")
-	c.Assert(testVersionFlagCommand.version, gc.Equals, "abc.123")
+	c.Check(code, tc.Equals, 0)
+	c.Assert(cmdtesting.Stderr(s.ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stdout(s.ctx), tc.Equals, "")
+	c.Assert(testVersionFlagCommand.version, tc.Equals, "abc.123")
 }
 
-func (s *SuperCommandSuite) TestVersionNotProvidedVerb(c *gc.C) {
+func (s *SuperCommandSuite) TestVersionNotProvidedVerb(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
 		Purpose: "to be purposeful",
@@ -255,11 +255,11 @@ func (s *SuperCommandSuite) TestVersionNotProvidedVerb(c *gc.C) {
 	})
 	// juju version
 	code := cmd.Main(jc, s.ctx, []string{"version"})
-	c.Check(code, gc.Not(gc.Equals), 0)
-	c.Assert(cmdtesting.Stderr(s.ctx), gc.Equals, "ERROR unrecognized command: jujutest version\n")
+	c.Check(code, tc.Not(tc.Equals), 0)
+	c.Assert(cmdtesting.Stderr(s.ctx), tc.Equals, "ERROR unrecognized command: jujutest version\n")
 }
 
-func (s *SuperCommandSuite) TestVersionNotProvidedFlag(c *gc.C) {
+func (s *SuperCommandSuite) TestVersionNotProvidedFlag(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
 		Purpose: "to be purposeful",
@@ -267,11 +267,11 @@ func (s *SuperCommandSuite) TestVersionNotProvidedFlag(c *gc.C) {
 	})
 	// juju --version
 	code := cmd.Main(jc, s.ctx, []string{"--version"})
-	c.Check(code, gc.Not(gc.Equals), 0)
-	c.Assert(cmdtesting.Stderr(s.ctx), gc.Equals, "ERROR flag provided but not defined: --version\n")
+	c.Check(code, tc.Not(tc.Equals), 0)
+	c.Assert(cmdtesting.Stderr(s.ctx), tc.Equals, "ERROR flag provided but not defined: --version\n")
 }
 
-func (s *SuperCommandSuite) TestVersionNotProvidedOption(c *gc.C) {
+func (s *SuperCommandSuite) TestVersionNotProvidedOption(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
 		Purpose: "to be purposeful",
@@ -280,11 +280,11 @@ func (s *SuperCommandSuite) TestVersionNotProvidedOption(c *gc.C) {
 	// juju --version where flags are known as options
 	jc.FlagKnownAs = "option"
 	code := cmd.Main(jc, s.ctx, []string{"--version"})
-	c.Check(code, gc.Not(gc.Equals), 0)
-	c.Assert(cmdtesting.Stderr(s.ctx), gc.Equals, "ERROR option provided but not defined: --version\n")
+	c.Check(code, tc.Not(tc.Equals), 0)
+	c.Assert(cmdtesting.Stderr(s.ctx), tc.Equals, "ERROR option provided but not defined: --version\n")
 }
 
-func (s *SuperCommandSuite) TestLogging(c *gc.C) {
+func (s *SuperCommandSuite) TestLogging(c *tc.C) {
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
 		Name:        "command",
@@ -292,8 +292,8 @@ func (s *SuperCommandSuite) TestLogging(c *gc.C) {
 	})
 	sc.Register(&TestCommand{Name: "blah"})
 	code := cmd.Main(sc, s.ctx, []string{"blah", "--option", "error", "--debug"})
-	c.Assert(code, gc.Equals, 1)
-	c.Assert(cmdtesting.Stderr(s.ctx), gc.Matches, `(?m)ERROR BAM!\n.* DEBUG .* error stack: \n.*`)
+	c.Assert(code, tc.Equals, 1)
+	c.Assert(cmdtesting.Stderr(s.ctx), tc.Matches, `(?m)ERROR BAM!\n.* DEBUG .* error stack: \n.*`)
 }
 
 type notifyTest struct {
@@ -302,20 +302,20 @@ type notifyTest struct {
 	expectName  string
 }
 
-func (s *SuperCommandSuite) TestNotifyRunJujuJuju(c *gc.C) {
+func (s *SuperCommandSuite) TestNotifyRunJujuJuju(c *tc.C) {
 	s.testNotifyRun(c, notifyTest{"juju", "juju", "juju"})
 }
-func (s *SuperCommandSuite) TestNotifyRunSomethingElse(c *gc.C) {
+func (s *SuperCommandSuite) TestNotifyRunSomethingElse(c *tc.C) {
 	s.testNotifyRun(c, notifyTest{"something", "else", "something else"})
 }
-func (s *SuperCommandSuite) TestNotifyRunJuju(c *gc.C) {
+func (s *SuperCommandSuite) TestNotifyRunJuju(c *tc.C) {
 	s.testNotifyRun(c, notifyTest{"", "juju", "juju"})
 }
-func (s *SuperCommandSuite) TestNotifyRunMyApp(c *gc.C) {
+func (s *SuperCommandSuite) TestNotifyRunMyApp(c *tc.C) {
 	s.testNotifyRun(c, notifyTest{"", "myapp", "myapp"})
 }
 
-func (s *SuperCommandSuite) testNotifyRun(c *gc.C, test notifyTest) {
+func (s *SuperCommandSuite) testNotifyRun(c *tc.C, test notifyTest) {
 	notifyName := ""
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: test.usagePrefix,
@@ -327,17 +327,17 @@ func (s *SuperCommandSuite) testNotifyRun(c *gc.C, test notifyTest) {
 	})
 	sc.Register(&TestCommand{Name: "blah"})
 	code := cmd.Main(sc, s.ctx, []string{"blah", "--option", "error"})
-	c.Assert(cmdtesting.Stderr(s.ctx), gc.Matches, "ERROR BAM!\n")
-	c.Assert(code, gc.Equals, 1)
-	c.Assert(notifyName, gc.Equals, test.expectName)
+	c.Assert(cmdtesting.Stderr(s.ctx), tc.Matches, "ERROR BAM!\n")
+	c.Assert(code, tc.Equals, 1)
+	c.Assert(notifyName, tc.Equals, test.expectName)
 }
 
-func (s *SuperCommandSuite) TestDescription(c *gc.C) {
+func (s *SuperCommandSuite) TestDescription(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Purpose: "blow up the death star"})
 	jc.Register(&TestCommand{Name: "blah"})
 	code := cmd.Main(jc, s.ctx, []string{"blah", "--description"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stdout(s.ctx), gc.Equals, "blow up the death star\n")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(cmdtesting.Stdout(s.ctx), tc.Equals, "blow up the death star\n")
 }
 
 func NewSuperWithCallback(callback func(*cmd.Context, string, []string) error) cmd.Command {
@@ -348,7 +348,7 @@ func NewSuperWithCallback(callback func(*cmd.Context, string, []string) error) c
 	})
 }
 
-func (s *SuperCommandSuite) TestMissingCallback(c *gc.C) {
+func (s *SuperCommandSuite) TestMissingCallback(c *tc.C) {
 	var calledName string
 	var calledArgs []string
 
@@ -362,23 +362,23 @@ func (s *SuperCommandSuite) TestMissingCallback(c *gc.C) {
 		NewSuperWithCallback(callback),
 		cmdtesting.Context(c),
 		[]string{"foo", "bar", "baz", "--debug"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(calledName, gc.Equals, "foo")
-	c.Assert(calledArgs, gc.DeepEquals, []string{"bar", "baz", "--debug"})
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(calledName, tc.Equals, "foo")
+	c.Assert(calledArgs, tc.DeepEquals, []string{"bar", "baz", "--debug"})
 }
 
-func (s *SuperCommandSuite) TestMissingCallbackErrors(c *gc.C) {
+func (s *SuperCommandSuite) TestMissingCallbackErrors(c *tc.C) {
 	callback := func(ctx *cmd.Context, subcommand string, args []string) error {
 		return fmt.Errorf("command not found %q", subcommand)
 	}
 
 	code := cmd.Main(NewSuperWithCallback(callback), s.ctx, []string{"foo"})
-	c.Assert(code, gc.Equals, 1)
-	c.Assert(cmdtesting.Stdout(s.ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(s.ctx), gc.Equals, "ERROR command not found \"foo\"\n")
+	c.Assert(code, tc.Equals, 1)
+	c.Assert(cmdtesting.Stdout(s.ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stderr(s.ctx), tc.Equals, "ERROR command not found \"foo\"\n")
 }
 
-func (s *SuperCommandSuite) TestMissingCallbackContextWiredIn(c *gc.C) {
+func (s *SuperCommandSuite) TestMissingCallbackContextWiredIn(c *tc.C) {
 	callback := func(ctx *cmd.Context, subcommand string, args []string) error {
 		fmt.Fprintf(ctx.Stdout, "this is std out")
 		fmt.Fprintf(ctx.Stderr, "this is std err")
@@ -386,9 +386,9 @@ func (s *SuperCommandSuite) TestMissingCallbackContextWiredIn(c *gc.C) {
 	}
 
 	code := cmd.Main(NewSuperWithCallback(callback), s.ctx, []string{"foo", "bar", "baz", "--debug"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stdout(s.ctx), gc.Equals, "this is std out")
-	c.Assert(cmdtesting.Stderr(s.ctx), gc.Equals, "this is std err")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(cmdtesting.Stdout(s.ctx), tc.Equals, "this is std out")
+	c.Assert(cmdtesting.Stderr(s.ctx), tc.Equals, "this is std err")
 }
 
 type simpleWithInitError struct {
@@ -411,7 +411,7 @@ func (s *simpleWithInitError) Run(_ *cmd.Context) error {
 	return errors.New("unexpected-error")
 }
 
-func (s *SuperCommandSuite) TestMissingCallbackSetOnError(c *gc.C) {
+func (s *SuperCommandSuite) TestMissingCallbackSetOnError(c *tc.C) {
 	callback := func(ctx *cmd.Context, subcommand string, args []string) error {
 		fmt.Fprint(ctx.Stdout, "reached callback: "+strings.Join(args, " "))
 		return nil
@@ -426,18 +426,18 @@ func (s *SuperCommandSuite) TestMissingCallbackSetOnError(c *gc.C) {
 	jc.Register(&simpleWithInitError{name: "bar", initError: errors.New("my-fake-error")})
 
 	code := cmd.Main(jc, s.ctx, []string{"bar"})
-	c.Assert(code, gc.Equals, 2)
-	c.Assert(cmdtesting.Stderr(s.ctx), gc.Equals, "ERROR my-fake-error\n")
+	c.Assert(code, tc.Equals, 2)
+	c.Assert(cmdtesting.Stderr(s.ctx), tc.Equals, "ERROR my-fake-error\n")
 
 	// Verify that a call to foo, which returns a ErrCommandMissing error
 	// triggers the command missing callback and ensure all expected
 	// args were correctly sent to the callback.
 	code = cmd.Main(jc, s.ctx, []string{"foo", "bar", "baz", "--debug"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stdout(s.ctx), gc.Equals, "reached callback: bar baz --debug")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(cmdtesting.Stdout(s.ctx), tc.Equals, "reached callback: bar baz --debug")
 }
 
-func (s *SuperCommandSuite) TestSupercommandAliases(c *gc.C) {
+func (s *SuperCommandSuite) TestSupercommandAliases(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "jujutest",
 		UsagePrefix: "juju",
@@ -448,15 +448,15 @@ func (s *SuperCommandSuite) TestSupercommandAliases(c *gc.C) {
 		Aliases:     []string{"jubaz", "jubing"},
 	})
 	info := sub.Info()
-	c.Check(info.Aliases, gc.DeepEquals, []string{"jubaz", "jubing"})
+	c.Check(info.Aliases, tc.DeepEquals, []string{"jubaz", "jubing"})
 	jc.Register(sub)
 	for _, name := range []string{"jubar", "jubaz", "jubing"} {
 		c.Logf("testing command name %q", name)
 		s.SetUpTest(c)
 		code := cmd.Main(jc, s.ctx, []string{name, "--help"})
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(cmdtesting.Stdout(s.ctx), gc.Matches, "(?s).*Usage: juju jujutest jubar.*")
-		c.Assert(cmdtesting.Stdout(s.ctx), gc.Matches, "(?s).*Aliases: jubaz, jubing.*")
+		c.Assert(code, tc.Equals, 0)
+		c.Assert(cmdtesting.Stdout(s.ctx), tc.Matches, "(?s).*Usage: juju jujutest jubar.*")
+		c.Assert(cmdtesting.Stdout(s.ctx), tc.Matches, "(?s).*Aliases: jubaz, jubing.*")
 		s.TearDownTest(c)
 	}
 }
@@ -498,7 +498,7 @@ func (d deprecate) Obsolete() bool {
 	return d.obsolete
 }
 
-func (s *SuperCommandSuite) TestRegisterAlias(c *gc.C) {
+func (s *SuperCommandSuite) TestRegisterAlias(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujutest",
 	})
@@ -509,12 +509,12 @@ func (s *SuperCommandSuite) TestRegisterAlias(c *gc.C) {
 
 	c.Assert(
 		func() { jc.RegisterAlias("omg", "unknown", nil) },
-		gc.PanicMatches, `"unknown" not found when registering alias`)
+		tc.PanicMatches, `"unknown" not found when registering alias`)
 
 	info := jc.Info()
 	// NOTE: deprecated `bar` not shown in commands.
-	c.Assert(info.Doc, gc.Equals, "")
-	c.Assert(info.Subcommands, gc.DeepEquals, baseSubcommandsPlus(map[string]string{
+	c.Assert(info.Doc, tc.Equals, "")
+	c.Assert(info.Subcommands, tc.DeepEquals, baseSubcommandsPlus(map[string]string{
 		"foo":  "Alias for 'test'.",
 		"test": "to be simple",
 	}))
@@ -543,14 +543,14 @@ func (s *SuperCommandSuite) TestRegisterAlias(c *gc.C) {
 	} {
 		s.SetUpTest(c)
 		code := cmd.Main(jc, s.ctx, []string{test.name, "arg"})
-		c.Check(code, gc.Equals, test.code)
-		c.Check(cmdtesting.Stdout(s.ctx), gc.Equals, test.stdout)
-		c.Check(cmdtesting.Stderr(s.ctx), gc.Equals, test.stderr)
+		c.Check(code, tc.Equals, test.code)
+		c.Check(cmdtesting.Stdout(s.ctx), tc.Equals, test.stdout)
+		c.Check(cmdtesting.Stderr(s.ctx), tc.Equals, test.stderr)
 		s.TearDownTest(c)
 	}
 }
 
-func (s *SuperCommandSuite) TestRegisterSuperAlias(c *gc.C) {
+func (s *SuperCommandSuite) TestRegisterSuperAlias(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujutest",
 	})
@@ -565,13 +565,13 @@ func (s *SuperCommandSuite) TestRegisterSuperAlias(c *gc.C) {
 
 	c.Assert(
 		func() { jc.RegisterSuperAlias("bar-foo", "unknown", "foo", nil) },
-		gc.PanicMatches, `"unknown" not found when registering alias`)
+		tc.PanicMatches, `"unknown" not found when registering alias`)
 	c.Assert(
 		func() { jc.RegisterSuperAlias("bar-foo", "test", "foo", nil) },
-		gc.PanicMatches, `"test" is not a SuperCommand`)
+		tc.PanicMatches, `"test" is not a SuperCommand`)
 	c.Assert(
 		func() { jc.RegisterSuperAlias("bar-foo", "bar", "unknown", nil) },
-		gc.PanicMatches, `"unknown" not found as a command in "bar"`)
+		tc.PanicMatches, `"unknown" not found as a command in "bar"`)
 
 	jc.RegisterSuperAlias("bar-foo", "bar", "foo", nil)
 	jc.RegisterSuperAlias("bar-dep", "bar", "foo", deprecate{replacement: "bar foo"})
@@ -579,7 +579,7 @@ func (s *SuperCommandSuite) TestRegisterSuperAlias(c *gc.C) {
 
 	info := jc.Info()
 	// NOTE: deprecated `bar` not shown in commands.
-	c.Assert(info.Subcommands, gc.DeepEquals, baseSubcommandsPlus(map[string]string{
+	c.Assert(info.Subcommands, tc.DeepEquals, baseSubcommandsPlus(map[string]string{
 		"bar":     "bar functions",
 		"bar-foo": "Alias for 'bar foo'.",
 		"test":    "to be simple",
@@ -609,9 +609,9 @@ func (s *SuperCommandSuite) TestRegisterSuperAlias(c *gc.C) {
 	} {
 		s.SetUpTest(c)
 		code := cmd.Main(jc, s.ctx, test.args)
-		c.Check(code, gc.Equals, test.code)
-		c.Check(cmdtesting.Stdout(s.ctx), gc.Equals, test.stdout)
-		c.Check(cmdtesting.Stderr(s.ctx), gc.Equals, test.stderr)
+		c.Check(code, tc.Equals, test.code)
+		c.Check(cmdtesting.Stdout(s.ctx), tc.Equals, test.stdout)
+		c.Check(cmdtesting.Stderr(s.ctx), tc.Equals, test.stderr)
 		s.TearDownTest(c)
 	}
 }
@@ -625,7 +625,7 @@ func (s *simpleAlias) Info() *cmd.Info {
 		Aliases: []string{s.name + "-alias"}}
 }
 
-func (s *SuperCommandSuite) TestRegisterDeprecated(c *gc.C) {
+func (s *SuperCommandSuite) TestRegisterDeprecated(c *tc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujutest",
 	})
@@ -640,7 +640,7 @@ func (s *SuperCommandSuite) TestRegisterDeprecated(c *gc.C) {
 	badCall := func() {
 		jc.RegisterDeprecated(&simpleAlias{simple{name: "test-dep"}}, deprecate{replacement: "test-dep-new"})
 	}
-	c.Assert(badCall, gc.PanicMatches, `command already registered: "test-dep"`)
+	c.Assert(badCall, tc.PanicMatches, `command already registered: "test-dep"`)
 
 	for _, test := range []struct {
 		args   []string
@@ -674,14 +674,14 @@ func (s *SuperCommandSuite) TestRegisterDeprecated(c *gc.C) {
 	} {
 		s.SetUpTest(c)
 		code := cmd.Main(jc, s.ctx, test.args)
-		c.Check(code, gc.Equals, test.code)
-		c.Check(cmdtesting.Stderr(s.ctx), gc.Equals, test.stderr)
-		c.Check(cmdtesting.Stdout(s.ctx), gc.Equals, test.stdout)
+		c.Check(code, tc.Equals, test.code)
+		c.Check(cmdtesting.Stderr(s.ctx), tc.Equals, test.stderr)
+		c.Check(cmdtesting.Stdout(s.ctx), tc.Equals, test.stdout)
 		s.TearDownTest(c)
 	}
 }
 
-func (s *SuperCommandSuite) TestGlobalFlagsBeforeCommand(c *gc.C) {
+func (s *SuperCommandSuite) TestGlobalFlagsBeforeCommand(c *tc.C) {
 	flag := ""
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
@@ -697,12 +697,12 @@ func (s *SuperCommandSuite) TestGlobalFlagsBeforeCommand(c *gc.C) {
 		"blah",
 		"--option=testoption",
 	})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(flag, gc.Equals, "something")
-	c.Check(cmdtesting.Stdout(s.ctx), gc.Equals, "testoption\n")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(flag, tc.Equals, "something")
+	c.Check(cmdtesting.Stdout(s.ctx), tc.Equals, "testoption\n")
 }
 
-func (s *SuperCommandSuite) TestGlobalFlagsAfterCommand(c *gc.C) {
+func (s *SuperCommandSuite) TestGlobalFlagsAfterCommand(c *tc.C) {
 	flag := ""
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
@@ -718,12 +718,12 @@ func (s *SuperCommandSuite) TestGlobalFlagsAfterCommand(c *gc.C) {
 		"--option=testoption",
 		"--testflag=something",
 	})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(flag, gc.Equals, "something")
-	c.Check(cmdtesting.Stdout(s.ctx), gc.Equals, "testoption\n")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(flag, tc.Equals, "something")
+	c.Check(cmdtesting.Stdout(s.ctx), tc.Equals, "testoption\n")
 }
 
-func (s *SuperCommandSuite) TestSuperSetFlags(c *gc.C) {
+func (s *SuperCommandSuite) TestSuperSetFlags(c *tc.C) {
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
 		Name:        "command",
@@ -733,7 +733,7 @@ func (s *SuperCommandSuite) TestSuperSetFlags(c *gc.C) {
 	s.assertFlagsAlias(c, sc, "option")
 }
 
-func (s *SuperCommandSuite) TestSuperSetFlagsDefault(c *gc.C) {
+func (s *SuperCommandSuite) TestSuperSetFlagsDefault(c *tc.C) {
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
 		Name:        "command",
@@ -742,19 +742,19 @@ func (s *SuperCommandSuite) TestSuperSetFlagsDefault(c *gc.C) {
 	s.assertFlagsAlias(c, sc, "flag")
 }
 
-func (s *SuperCommandSuite) assertFlagsAlias(c *gc.C, sc *cmd.SuperCommand, expectedAlias string) {
+func (s *SuperCommandSuite) assertFlagsAlias(c *tc.C, sc *cmd.SuperCommand, expectedAlias string) {
 	sc.Register(&TestCommand{Name: "blah"})
 	code := cmd.Main(sc, s.ctx, []string{
 		"blah",
 		"--fluffs",
 	})
-	c.Assert(code, gc.Equals, 2)
-	c.Check(s.ctx.IsSerial(), gc.Equals, false)
-	c.Check(cmdtesting.Stdout(s.ctx), gc.Equals, "")
-	c.Check(cmdtesting.Stderr(s.ctx), gc.Equals, fmt.Sprintf("ERROR %v provided but not defined: --fluffs\n", expectedAlias))
+	c.Assert(code, tc.Equals, 2)
+	c.Check(s.ctx.IsSerial(), tc.Equals, false)
+	c.Check(cmdtesting.Stdout(s.ctx), tc.Equals, "")
+	c.Check(cmdtesting.Stderr(s.ctx), tc.Equals, fmt.Sprintf("ERROR %v provided but not defined: --fluffs\n", expectedAlias))
 }
 
-func (s *SuperCommandSuite) TestErrInJson(c *gc.C) {
+func (s *SuperCommandSuite) TestErrInJson(c *tc.C) {
 	output := cmd.Output{}
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
@@ -767,7 +767,7 @@ func (s *SuperCommandSuite) TestErrInJson(c *gc.C) {
 	s.assertFormattingErr(c, sc, "json")
 }
 
-func (s *SuperCommandSuite) TestErrInYaml(c *gc.C) {
+func (s *SuperCommandSuite) TestErrInYaml(c *tc.C) {
 	output := cmd.Output{}
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
@@ -780,7 +780,7 @@ func (s *SuperCommandSuite) TestErrInYaml(c *gc.C) {
 	s.assertFormattingErr(c, sc, "yaml")
 }
 
-func (s *SuperCommandSuite) TestErrInJsonWithOutput(c *gc.C) {
+func (s *SuperCommandSuite) TestErrInJsonWithOutput(c *tc.C) {
 	output := cmd.Output{}
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
@@ -807,13 +807,13 @@ func (s *SuperCommandSuite) TestErrInJsonWithOutput(c *gc.C) {
 		"--format=json",
 		"--option=error",
 	})
-	c.Assert(code, gc.Equals, 1)
-	c.Check(s.ctx.IsSerial(), gc.Equals, true)
-	c.Check(cmdtesting.Stderr(s.ctx), gc.Matches, "ERROR BAM!\n")
-	c.Check(cmdtesting.Stdout(s.ctx), gc.Equals, "{\"name\":\"test\"}\n")
+	c.Assert(code, tc.Equals, 1)
+	c.Check(s.ctx.IsSerial(), tc.Equals, true)
+	c.Check(cmdtesting.Stderr(s.ctx), tc.Matches, "ERROR BAM!\n")
+	c.Check(cmdtesting.Stdout(s.ctx), tc.Equals, "{\"name\":\"test\"}\n")
 }
 
-func (s *SuperCommandSuite) assertFormattingErr(c *gc.C, sc *cmd.SuperCommand, format string) {
+func (s *SuperCommandSuite) assertFormattingErr(c *tc.C, sc *cmd.SuperCommand, format string) {
 	// This command will throw an error during the run
 	testCmd := &TestCommand{Name: "blah", Option: "error"}
 	sc.Register(testCmd)
@@ -823,10 +823,10 @@ func (s *SuperCommandSuite) assertFormattingErr(c *gc.C, sc *cmd.SuperCommand, f
 		formatting,
 		"--option=error",
 	})
-	c.Assert(code, gc.Equals, 1)
-	c.Check(s.ctx.IsSerial(), gc.Equals, true)
-	c.Check(cmdtesting.Stderr(s.ctx), gc.Matches, "ERROR BAM!\n")
-	c.Check(cmdtesting.Stdout(s.ctx), gc.Equals, "{}\n")
+	c.Assert(code, tc.Equals, 1)
+	c.Check(s.ctx.IsSerial(), tc.Equals, true)
+	c.Check(cmdtesting.Stderr(s.ctx), tc.Matches, "ERROR BAM!\n")
+	c.Check(cmdtesting.Stdout(s.ctx), tc.Equals, "{}\n")
 }
 
 type flagAdderFunc func(*gnuflag.FlagSet)
@@ -835,72 +835,72 @@ func (f flagAdderFunc) AddFlags(fset *gnuflag.FlagSet) {
 	f(fset)
 }
 
-func (s *SuperCommandSuite) TestFindClosestSubCommand(c *gc.C) {
+func (s *SuperCommandSuite) TestFindClosestSubCommand(c *tc.C) {
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
 		Name:        "command",
 		Log:         &cmd.Log{},
 	})
 	name, _, ok := sc.FindClosestSubCommand("halp") //nolint:misspell
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(name, gc.Equals, "help")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(name, tc.Equals, "help")
 }
 
-func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsExactMatch(c *gc.C) {
+func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsExactMatch(c *tc.C) {
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
 		Name:        "command",
 		Log:         &cmd.Log{},
 	})
 	name, _, ok := sc.FindClosestSubCommand("help")
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(name, gc.Equals, "help")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(name, tc.Equals, "help")
 }
 
-func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsNonExactMatch(c *gc.C) {
+func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsNonExactMatch(c *tc.C) {
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
 		Name:        "command",
 		Log:         &cmd.Log{},
 	})
 	_, _, ok := sc.FindClosestSubCommand("sillycommand")
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, tc.Equals, false)
 }
 
-func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsWithPartialName(c *gc.C) {
+func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsWithPartialName(c *tc.C) {
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
 		Name:        "command",
 		Log:         &cmd.Log{},
 	})
 	name, _, ok := sc.FindClosestSubCommand("hel")
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(name, gc.Equals, "help")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(name, tc.Equals, "help")
 }
 
-func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsWithLessMisspeltName(c *gc.C) {
+func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsWithLessMisspeltName(c *tc.C) {
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
 		Name:        "command",
 		Log:         &cmd.Log{},
 	})
 	name, _, ok := sc.FindClosestSubCommand("hlp")
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(name, gc.Equals, "help")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(name, tc.Equals, "help")
 }
 
-func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsWithMoreName(c *gc.C) {
+func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsWithMoreName(c *tc.C) {
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
 		Name:        "command",
 		Log:         &cmd.Log{},
 	})
 	name, _, ok := sc.FindClosestSubCommand("helper")
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(name, gc.Equals, "help")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(name, tc.Equals, "help")
 }
 
-func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsConsistentResults(c *gc.C) {
+func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsConsistentResults(c *tc.C) {
 	sc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		UsagePrefix: "juju",
 		Name:        "command",
@@ -917,6 +917,6 @@ func (s *SuperCommandSuite) TestFindClosestSubCommandReturnsConsistentResults(c 
 		Log:         &cmd.Log{},
 	}))
 	name, _, ok := sc.FindClosestSubCommand("helper")
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(name, gc.Equals, "help")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(name, tc.Equals, "help")
 }

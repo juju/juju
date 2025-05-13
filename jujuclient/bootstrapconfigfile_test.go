@@ -6,8 +6,7 @@ package jujuclient_test
 import (
 	"os"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/testing"
@@ -19,7 +18,7 @@ type BootstrapConfigFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&BootstrapConfigFileSuite{})
+var _ = tc.Suite(&BootstrapConfigFileSuite{})
 
 const testBootstrapConfigYAML = `
 controllers:
@@ -124,53 +123,53 @@ var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 	},
 }
 
-func (s *BootstrapConfigFileSuite) TestWriteFile(c *gc.C) {
+func (s *BootstrapConfigFileSuite) TestWriteFile(c *tc.C) {
 	writeTestBootstrapConfigFile(c)
 	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("bootstrap-config.yaml"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, testBootstrapConfigYAML[1:])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, testBootstrapConfigYAML[1:])
 }
 
-func (s *BootstrapConfigFileSuite) TestReadNoFile(c *gc.C) {
+func (s *BootstrapConfigFileSuite) TestReadNoFile(c *tc.C) {
 	controllers, err := jujuclient.ReadBootstrapConfigFile("nohere.yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllers, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controllers, tc.IsNil)
 }
 
-func (s *BootstrapConfigFileSuite) TestReadEmptyFile(c *gc.C) {
+func (s *BootstrapConfigFileSuite) TestReadEmptyFile(c *tc.C) {
 	path := osenv.JujuXDGDataHomePath("bootstrap-config.yaml")
 	err := os.WriteFile(path, []byte(""), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	configs, err := jujuclient.ReadBootstrapConfigFile(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(configs, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(configs, tc.HasLen, 0)
 }
 
-func parseBootstrapConfig(c *gc.C) map[string]jujuclient.BootstrapConfig {
+func parseBootstrapConfig(c *tc.C) map[string]jujuclient.BootstrapConfig {
 	configs, err := jujuclient.ParseBootstrapConfig([]byte(testBootstrapConfigYAML))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return configs
 }
 
-func writeTestBootstrapConfigFile(c *gc.C) map[string]jujuclient.BootstrapConfig {
+func writeTestBootstrapConfigFile(c *tc.C) map[string]jujuclient.BootstrapConfig {
 	configs := parseBootstrapConfig(c)
 	err := jujuclient.WriteBootstrapConfigFile(configs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return configs
 }
 
-func (s *BootstrapConfigFileSuite) TestParseControllerMetadata(c *gc.C) {
+func (s *BootstrapConfigFileSuite) TestParseControllerMetadata(c *tc.C) {
 	controllers := parseBootstrapConfig(c)
 	var names []string
 	for name := range controllers {
 		names = append(names, name)
 	}
-	c.Assert(names, jc.SameContents, []string{"mallards", "aws-test"})
+	c.Assert(names, tc.SameContents, []string{"mallards", "aws-test"})
 }
 
-func (s *BootstrapConfigFileSuite) TestParseControllerMetadataError(c *gc.C) {
+func (s *BootstrapConfigFileSuite) TestParseControllerMetadataError(c *tc.C) {
 	controllers, err := jujuclient.ParseBootstrapConfig([]byte("fail me now"))
-	c.Assert(err, gc.ErrorMatches, "cannot unmarshal bootstrap config: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.bootstrapConfigCollection")
-	c.Assert(controllers, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "cannot unmarshal bootstrap config: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.bootstrapConfigCollection")
+	c.Assert(controllers, tc.IsNil)
 }

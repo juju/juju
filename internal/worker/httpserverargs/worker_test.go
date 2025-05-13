@@ -9,32 +9,31 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
 type workerConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config workerConfig
 }
 
-var _ = gc.Suite(&workerConfigSuite{})
+var _ = tc.Suite(&workerConfigSuite{})
 
-func (s *workerConfigSuite) SetUpTest(c *gc.C) {
+func (s *workerConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = workerConfig{
 		statePool:               &state.StatePool{},
@@ -48,11 +47,11 @@ func (s *workerConfigSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *workerConfigSuite) TestConfigValid(c *gc.C) {
-	c.Assert(s.config.Validate(), jc.ErrorIsNil)
+func (s *workerConfigSuite) TestConfigValid(c *tc.C) {
+	c.Assert(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *workerConfigSuite) TestMissing(c *gc.C) {
+func (s *workerConfigSuite) TestMissing(c *tc.C) {
 	tests := []struct {
 		fn       func(workerConfig) workerConfig
 		expected string
@@ -66,7 +65,7 @@ func (s *workerConfigSuite) TestMissing(c *gc.C) {
 	for _, test := range tests {
 		cfg := test.fn(s.config)
 		err := cfg.Validate()
-		c.Assert(err, jc.ErrorIs, errors.NotValid)
+		c.Assert(err, tc.ErrorIs, errors.NotValid)
 	}
 }
 
@@ -80,7 +79,7 @@ type workerSuite struct {
 	stateAuthFunc NewStateAuthenticatorFunc
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
 func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
 	return func(
@@ -99,7 +98,7 @@ func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
 	}
 }
 
-func (s *workerSuite) TestWorkerStarted(c *gc.C) {
+func (s *workerSuite) TestWorkerStarted(c *tc.C) {
 	started := make(chan struct{})
 	s.stateAuthFunc = startedAuthFunc(started)
 
@@ -115,7 +114,7 @@ func (s *workerSuite) TestWorkerStarted(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerControllerConfigContext(c *gc.C) {
+func (s *workerSuite) TestWorkerControllerConfigContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
@@ -133,13 +132,13 @@ func (s *workerSuite) TestWorkerControllerConfigContext(c *gc.C) {
 	}
 
 	config, err := w.(*argsWorker).managedServices.ControllerConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(config, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(config, tc.NotNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerControllerConfigContextDeadline(c *gc.C) {
+func (s *workerSuite) TestWorkerControllerConfigContextDeadline(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (controller.Config, error) {
@@ -161,10 +160,10 @@ func (s *workerSuite) TestWorkerControllerConfigContextDeadline(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	_, err := w.(*argsWorker).managedServices.ControllerConfig(context.Background())
-	c.Assert(err, gc.Equals, context.Canceled)
+	c.Assert(err, tc.Equals, context.Canceled)
 }
 
-func (s *workerSuite) TestWorkerServicesForModelContext(c *gc.C) {
+func (s *workerSuite) TestWorkerServicesForModelContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	type svc struct {
@@ -186,13 +185,13 @@ func (s *workerSuite) TestWorkerServicesForModelContext(c *gc.C) {
 	}
 
 	config, err := w.(*argsWorker).managedServices.ServicesForModel(context.Background(), "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(config, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(config, tc.NotNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerServicesForModelContextDeadline(c *gc.C) {
+func (s *workerSuite) TestWorkerServicesForModelContextDeadline(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, u model.UUID) (services.DomainServices, error) {
@@ -214,16 +213,16 @@ func (s *workerSuite) TestWorkerServicesForModelContextDeadline(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	_, err := w.(*argsWorker).managedServices.ServicesForModel(context.Background(), "")
-	c.Assert(err, gc.Equals, context.Canceled)
+	c.Assert(err, tc.Equals, context.Canceled)
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(s.newWorkerConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
-func (s *workerSuite) newWorkerConfig(c *gc.C) workerConfig {
+func (s *workerSuite) newWorkerConfig(c *tc.C) workerConfig {
 	services := &managedServices{
 		domainServicesGetter:    s.domainServicesGetter,
 		controllerConfigService: s.controllerConfigService,
@@ -240,7 +239,7 @@ func (s *workerSuite) newWorkerConfig(c *gc.C) workerConfig {
 	}
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)

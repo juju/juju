@@ -6,9 +6,8 @@ package backups
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	backupstesting "github.com/juju/juju/core/backups/testing"
 	"github.com/juju/juju/rpc/params"
@@ -18,9 +17,9 @@ type createSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&createSuite{})
+var _ = tc.Suite(&createSuite{})
 
-func (s *createSuite) TestCreate(c *gc.C) {
+func (s *createSuite) TestCreate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	arg := params.BackupsCreateArgs{
@@ -35,7 +34,7 @@ func (s *createSuite) TestCreate(c *gc.C) {
 
 	client := s.newClient()
 	got, err := client.Create(context.Background(), "important", true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Log(got)
 	resultMeta := backupstesting.UpdateNotes(meta, "important")
 	s.checkMetadataResult(c, got, resultMeta)

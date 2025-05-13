@@ -4,8 +4,7 @@
 package jujuc_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -16,9 +15,9 @@ type SecretRemoveSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&SecretRemoveSuite{})
+var _ = tc.Suite(&SecretRemoveSuite{})
 
-func (s *SecretRemoveSuite) TestRemoveSecretInvalidArgs(c *gc.C) {
+func (s *SecretRemoveSuite) TestRemoveSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	for _, t := range []struct {
@@ -34,47 +33,47 @@ func (s *SecretRemoveSuite) TestRemoveSecretInvalidArgs(c *gc.C) {
 		},
 	} {
 		com, err := jujuc.NewCommand(hctx, "secret-remove")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 
-		c.Assert(code, gc.Equals, 2)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, t.err+"\n")
+		c.Assert(code, tc.Equals, 2)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, t.err+"\n")
 	}
 }
 
-func (s *SecretRemoveSuite) TestRemoveSecret(c *gc.C) {
+func (s *SecretRemoveSuite) TestRemoveSecret(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-remove")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
 		"secret:9m4e2mr0ui3e8a215n4g",
 	})
 
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	s.Stub.CheckCallNames(c, "RemoveSecret")
 	call := s.Stub.Calls()[0]
-	c.Assert(call.Args, gc.HasLen, 2)
-	c.Assert(call.Args[0], gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
-	c.Assert(call.Args[1], gc.IsNil)
+	c.Assert(call.Args, tc.HasLen, 2)
+	c.Assert(call.Args[0], tc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
+	c.Assert(call.Args[1], tc.IsNil)
 }
 
-func (s *SecretRemoveSuite) TestRemoveSecretRevision(c *gc.C) {
+func (s *SecretRemoveSuite) TestRemoveSecretRevision(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-remove")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
 		"secret:9m4e2mr0ui3e8a215n4g", "--revision", "666",
 	})
 
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	s.Stub.CheckCallNames(c, "RemoveSecret")
 	call := s.Stub.Calls()[0]
-	c.Assert(call.Args, gc.HasLen, 2)
-	c.Assert(call.Args[0], gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
-	c.Assert(*(call.Args[1].(*int)), gc.Equals, 666)
+	c.Assert(call.Args, tc.HasLen, 2)
+	c.Assert(call.Args[0], tc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
+	c.Assert(*(call.Args[1].(*int)), tc.Equals, 666)
 }

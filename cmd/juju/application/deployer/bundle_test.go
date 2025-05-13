@@ -4,8 +4,7 @@
 package deployer
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/charm"
@@ -14,9 +13,9 @@ import (
 type bundleSuite struct {
 }
 
-var _ = gc.Suite(&bundleSuite{})
+var _ = tc.Suite(&bundleSuite{})
 
-func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
+func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 	explicitBaseErrorUbuntu := "base must be explicitly provided for \"ch:ubuntu\" when image-id constraint is used"
 	explicitBaseError := "base must be explicitly provided for(.)*"
 
@@ -491,9 +490,9 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 		err := test.deployBundle.checkExplicitBase(test.bundleData)
 
 		if test.expectedError != "" {
-			c.Check(err, gc.ErrorMatches, test.expectedError)
+			c.Check(err, tc.ErrorMatches, test.expectedError)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 }

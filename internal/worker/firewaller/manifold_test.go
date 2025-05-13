@@ -7,11 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -19,17 +17,18 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/firewaller"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *gc.C) {
+func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *tc.C) {
 	ctx := &mockDependencyGetter{
 		env: &mockEnviron{
 			config: coretesting.CustomModelConfig(c, coretesting.Attrs{
@@ -40,7 +39,7 @@ func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *gc.C) {
 
 	manifold := firewaller.Manifold(validConfig(c))
 	_, err := manifold.Start(context.Background(), ctx)
-	c.Assert(err, gc.Equals, dependency.ErrUninstall)
+	c.Assert(err, tc.Equals, dependency.ErrUninstall)
 }
 
 type mockDependencyGetter struct {
@@ -65,18 +64,18 @@ func (e *mockEnviron) Config() *config.Config {
 }
 
 type ManifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	config firewaller.ManifoldConfig
 }
 
-var _ = gc.Suite(&ManifoldConfigSuite{})
+var _ = tc.Suite(&ManifoldConfigSuite{})
 
-func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = validConfig(c)
 }
 
-func validConfig(c *gc.C) firewaller.ManifoldConfig {
+func validConfig(c *tc.C) firewaller.ManifoldConfig {
 	return firewaller.ManifoldConfig{
 		AgentName:                "agent",
 		APICallerName:            "api-caller",
@@ -89,52 +88,52 @@ func validConfig(c *gc.C) firewaller.ManifoldConfig {
 	}
 }
 
-func (s *ManifoldConfigSuite) TestValid(c *gc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *ManifoldConfigSuite) TestMissingAgentName(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingAgentName(c *tc.C) {
 	s.config.AgentName = ""
 	s.checkNotValid(c, "empty AgentName not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "empty APICallerName not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingEnvironName(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingEnvironName(c *tc.C) {
 	s.config.EnvironName = ""
 	s.checkNotValid(c, "empty EnvironName not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewFirewallerFacade(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingNewFirewallerFacade(c *tc.C) {
 	s.config.NewFirewallerFacade = nil
 	s.checkNotValid(c, "nil NewFirewallerFacade not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewFirewallerWorker(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingNewFirewallerWorker(c *tc.C) {
 	s.config.NewFirewallerWorker = nil
 	s.checkNotValid(c, "nil NewFirewallerWorker not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewControllerConnection(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingNewControllerConnection(c *tc.C) {
 	s.config.NewControllerConnection = nil
 	s.checkNotValid(c, "nil NewControllerConnection not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewRemoteRelationsFacade(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingNewRemoteRelationsFacade(c *tc.C) {
 	s.config.NewRemoteRelationsFacade = nil
 	s.checkNotValid(c, "nil NewRemoteRelationsFacade not valid")
 }
 
-func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {
+func (s *ManifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }

@@ -8,9 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	domainresource "github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
@@ -23,9 +22,9 @@ type importSuite struct {
 	resourceService *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -40,7 +39,7 @@ func (s *importSuite) newImportOperation() *importOperation {
 	}
 }
 
-func (s *importSuite) TestRegisterImport(c *gc.C) {
+func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -48,7 +47,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 	RegisterImport(s.coordinator, nil, loggertesting.WrapCheckLog(c))
 }
 
-func (s *importSuite) TestEmptyImport(c *gc.C) {
+func (s *importSuite) TestEmptyImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange: Empty model.
@@ -59,10 +58,10 @@ func (s *importSuite) TestEmptyImport(c *gc.C) {
 	// Act:
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImport(c *gc.C) {
+func (s *importSuite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "app-name"
@@ -155,12 +154,12 @@ func (s *importSuite) TestImport(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestImportRevisionOriginUpload checks that when a resource with origin upload
 // is imported, the revision is set to -1.
-func (s *importSuite) TestImportRevisionOriginUpload(c *gc.C) {
+func (s *importSuite) TestImportRevisionOriginUpload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "app-name"
@@ -193,13 +192,13 @@ func (s *importSuite) TestImportRevisionOriginUpload(c *gc.C) {
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestImportRevisionNotValidOriginStore checks that an error is thrown when a
 // revision is found that is incompatible with a resource with the origin:
 // store.
-func (s *importSuite) TestImportRevisionNotValidOriginStore(c *gc.C) {
+func (s *importSuite) TestImportRevisionNotValidOriginStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "app-name"
@@ -222,10 +221,10 @@ func (s *importSuite) TestImportRevisionNotValidOriginStore(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceRevisionNotValid)
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceRevisionNotValid)
 }
 
-func (s *importSuite) TestImportOriginNotValid(c *gc.C) {
+func (s *importSuite) TestImportOriginNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "app-name"
@@ -245,10 +244,10 @@ func (s *importSuite) TestImportOriginNotValid(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, resourceerrors.OriginNotValid)
+	c.Assert(err, tc.ErrorIs, resourceerrors.OriginNotValid)
 }
 
-func (s *importSuite) TestImportResourceNameNotValid(c *gc.C) {
+func (s *importSuite) TestImportResourceNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "app-name"
@@ -266,5 +265,5 @@ func (s *importSuite) TestImportResourceNameNotValid(c *gc.C) {
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNameNotValid)
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }

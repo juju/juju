@@ -6,9 +6,8 @@ package service
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -22,9 +21,9 @@ type migrationServiceSuite struct {
 	state *MockMigrationState
 }
 
-var _ = gc.Suite(&migrationServiceSuite{})
+var _ = tc.Suite(&migrationServiceSuite{})
 
-func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
+func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hashes := agentpassword.UnitPasswordHashes{
@@ -35,11 +34,11 @@ func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
 
 	service := NewMigrationService(s.state)
 	result, err := service.GetAllUnitPasswordHashes(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, hashes)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, hashes)
 }
 
-func (s *migrationServiceSuite) TestGetAllUnitPasswordHashesError(c *gc.C) {
+func (s *migrationServiceSuite) TestGetAllUnitPasswordHashesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hashes := agentpassword.UnitPasswordHashes{
@@ -50,17 +49,17 @@ func (s *migrationServiceSuite) TestGetAllUnitPasswordHashesError(c *gc.C) {
 
 	service := NewMigrationService(s.state)
 	_, err := service.GetAllUnitPasswordHashes(context.Background())
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *migrationServiceSuite) TestSetUnitPasswordHash(c *gc.C) {
+func (s *migrationServiceSuite) TestSetUnitPasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	unitName := unit.Name("unit/0")
 	rand, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := agentpassword.PasswordHash(rand)
 
@@ -69,17 +68,17 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHash(c *gc.C) {
 
 	service := NewMigrationService(s.state)
 	err = service.SetUnitPasswordHash(context.Background(), unitName, passwordHash)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *gc.C) {
+func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	unitName := unit.Name("unit/0")
 	rand, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := agentpassword.PasswordHash(rand)
 
@@ -87,17 +86,17 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *gc.C) {
 
 	service := NewMigrationService(s.state)
 	err = service.SetUnitPasswordHash(context.Background(), unitName, passwordHash)
-	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
-func (s *migrationServiceSuite) TestSetUnitPasswordHashSettingError(c *gc.C) {
+func (s *migrationServiceSuite) TestSetUnitPasswordHashSettingError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	unitName := unit.Name("unit/0")
 	rand, err := internalpassword.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := agentpassword.PasswordHash(rand)
 
@@ -106,10 +105,10 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashSettingError(c *gc.C) {
 
 	service := NewMigrationService(s.state)
 	err = service.SetUnitPasswordHash(context.Background(), unitName, passwordHash)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *migrationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *migrationServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockMigrationState(ctrl)

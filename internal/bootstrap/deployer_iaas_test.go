@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	corebase "github.com/juju/juju/core/base"
@@ -25,54 +24,54 @@ type deployerIAASSuite struct {
 	machineGetter *MockMachineGetter
 }
 
-var _ = gc.Suite(&deployerIAASSuite{})
+var _ = tc.Suite(&deployerIAASSuite{})
 
-func (s *deployerIAASSuite) TestValidate(c *gc.C) {
+func (s *deployerIAASSuite) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
 	err := cfg.Validate()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	cfg = s.newConfig(c)
 	cfg.MachineGetter = nil
 	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *deployerIAASSuite) TestControllerAddress(c *gc.C) {
+func (s *deployerIAASSuite) TestControllerAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.machine.EXPECT().PublicAddress().Return(network.NewSpaceAddress("10.0.0.1"), nil)
 
 	deployer := s.newDeployer(c)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "10.0.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.Equals, "10.0.0.1")
 }
 
-func (s *deployerIAASSuite) TestControllerAddressWithNoAddress(c *gc.C) {
+func (s *deployerIAASSuite) TestControllerAddressWithNoAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.machine.EXPECT().PublicAddress().Return(network.NewSpaceAddress(""), network.NoAddressError("private"))
 
 	deployer := s.newDeployer(c)
 	address, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.Equals, "")
 }
 
-func (s *deployerIAASSuite) TestControllerAddressWithErr(c *gc.C) {
+func (s *deployerIAASSuite) TestControllerAddressWithErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.machine.EXPECT().PublicAddress().Return(network.NewSpaceAddress(""), errors.Errorf("boom"))
 
 	deployer := s.newDeployer(c)
 	_, err := deployer.ControllerAddress(context.Background())
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *deployerIAASSuite) TestControllerCharmBase(c *gc.C) {
+func (s *deployerIAASSuite) TestControllerCharmBase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.machine.EXPECT().Base().Return(state.Base{
@@ -82,11 +81,11 @@ func (s *deployerIAASSuite) TestControllerCharmBase(c *gc.C) {
 
 	deployer := s.newDeployer(c)
 	base, err := deployer.ControllerCharmBase()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, gc.Equals, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(base, tc.Equals, corebase.MakeDefaultBase("ubuntu", "22.04"))
 }
 
-func (s *deployerIAASSuite) TestCompleteProcess(c *gc.C) {
+func (s *deployerIAASSuite) TestCompleteProcess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// There should be no expectations, as the CompleteProcess method doesn't
@@ -94,16 +93,16 @@ func (s *deployerIAASSuite) TestCompleteProcess(c *gc.C) {
 
 	deployer := s.newDeployer(c)
 	err := deployer.CompleteProcess(context.Background(), coreunit.Name("controller/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *deployerIAASSuite) newDeployer(c *gc.C) *IAASDeployer {
+func (s *deployerIAASSuite) newDeployer(c *tc.C) *IAASDeployer {
 	deployer, err := NewIAASDeployer(s.newConfig(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	return deployer
 }
 
-func (s *deployerIAASSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *deployerIAASSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.machine = NewMockMachine(ctrl)
@@ -114,7 +113,7 @@ func (s *deployerIAASSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *deployerIAASSuite) newConfig(c *gc.C) IAASDeployerConfig {
+func (s *deployerIAASSuite) newConfig(c *tc.C) IAASDeployerConfig {
 	return IAASDeployerConfig{
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
 		MachineGetter:      s.machineGetter,

@@ -9,20 +9,20 @@ code should be identified when requesting a review to show that there is already
 test coverage, and that the refactoring didn't break anything.
 
 
-## go test and gocheck
+## go test and tc
 
-The `go test` command is used to run the tests.  Juju uses the `gocheck` package
-("gopkg.in/check.v1") to provide a checkers and assert methods for the test
-writers.  The use of gocheck replaces the standard `testing` library.
+The `go test` command is used to run the tests.  Juju uses the `tc` package
+("github.com/juju/tc") to provide a checkers and assert methods for the test
+writers.  The use of tc replaces the standard `testing` library.
 
-Across all of the tests in juju-core, the gocheck package is imported
+Across all of the tests in juju-core, the tc package is imported
 with a shorter alias, because it is used a lot.
 
 ```go
 import (
 	// system packages
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	// juju packages
 )
@@ -36,7 +36,7 @@ called "magic" that lives at "github.com/juju/juju/internal/provider/magic".  Th
 general approach for testing in juju is to have the tests in a separate package.
 Continuing with this example the tests would be in a package called "magic_test".
 
-A common idiom that has occurred in juju is to setup to gocheck hooks in a special
+A common idiom that has occurred in juju is to setup to tc hooks in a special
 file called `package_test.go` that would look like this:
 
 
@@ -49,11 +49,11 @@ package magic_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 ```
 
@@ -105,9 +105,9 @@ Here is an annotated extract from `provider/local/export_test.go`
 package local
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -132,7 +132,7 @@ func ConfigNamespace(cfg *config.Config) string {
 
 ## Suites and Juju base suites
 
-With gocheck tests are grouped into Suites. Each suite has distinct
+With tc tests are grouped into Suites. Each suite has distinct
 set-up and tear-down logic.  Suites are often composed of other suites
 that provide specific set-up and tear-down behaviour.
 
@@ -148,7 +148,7 @@ composition.  The BaseSuite isolates a user's home directory from accidental
 modification (by setting $HOME to "") and errors if there is an attempt to do
 outgoing http access. It also clears the relevant $JUJU_* environment variables.
 The BaseSuite is also composed of the core LoggingSuite, and also LoggingSuite
-from  github.com/juju/testing, which brings in the CleanupSuite from the same.
+from  github.com/juju/juju/internal/testhelpers, which brings in the CleanupSuite from the same.
 The CleanupSuite has the functionality around patching environment variables
 and normal variables for the duration of a test. It also provides a clean-up
 stack that gets called when the test teardown happens.
@@ -170,11 +170,11 @@ something like:
 
 ```go
 type ToolsSuite struct {
-	testing.BaseSuite
+	testhelpers.BaseSuite
 	dataDir string
 }
 
-var _ = gc.Suite(&ToolsSuite{})
+var _ = tc.Suite(&ToolsSuite{})
 
 ```
 
@@ -186,7 +186,7 @@ If you did want to do something, say, create a directory and save it in
 the dataDir, you would do something like this:
 
 ```go
-func (t *ToolsSuite) SetUpTest(c *gc.C) {
+func (t *ToolsSuite) SetUpTest(c *tc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.dataDir = c.MkDir()
 }
@@ -214,7 +214,7 @@ in the composition tree, there are a few very helpful functions.
 
 var foo int
 
-func (s *someTest) TestFubar(c *gc.C) {
+func (s *someTest) TestFubar(c *tc.C) {
 	// The TEST_OMG environment value will have "new value" for the duration
 	// of the test.
 	s.PatchEnvironment("TEST_OMG", "new value")
@@ -229,13 +229,13 @@ PatchValue works with any matching type. This includes function variables.
 
 ## Checkers
 
-Checkers are a core concept of `gocheck` and will feel familiar to anyone
-who has used the python testtools.  Assertions are made on the gocheck.C
+Checkers are a core concept of `tc` and will feel familiar to anyone
+who has used the python testtools.  Assertions are made on the tc.C
 methods.
 
 ```go
-c.Check(err, jc.ErrorIsNil)
-c.Assert(something, gc.Equals, somethingElse)
+c.Check(err, tc.ErrorIsNil)
+c.Assert(something, tc.Equals, somethingElse)
 ```
 
 The `Check` method will cause the test to fail if the checker returns
@@ -247,31 +247,21 @@ For the purpose of further discussion, we have the following parts:
 
 	`c.Assert(observed, checker, args...)`
 
-The key checkers in the `gocheck` module that juju uses most frequently are:
+The key checkers in the `tc` module that juju uses most frequently are:
 
 	* `IsNil` - the observed value must be `nil`
 	* `NotNil` - the observed value must not be `nil`
 	* `Equals` - the observed value must be the same type and value as the arg,
 	  which is the expected value
 	* `DeepEquals` - checks for equality for more complex types like slices,
-	  maps, or structures. This is DEPRECATED in favour of the DeepEquals from
-	  the `github.com/juju/testing/checkers` covered below
+	  maps, or structures.
 	* `ErrorMatches` - the observed value is expected to be an `error`, and
 	  the arg is a string that is a regular expression, and used to match the
 	  error string
 	* `Matches` - a regular expression match where the observed value is a string
     * `HasLen` - the expected value is an integer, and works happily on nil
       slices or maps
-
-
-Over time in the juju project there were repeated patterns of testing that
-were then encoded into new and more complicated checkers.  These are found
-in `github.com/juju/testing/checkers`, and are normally imported with the
-alias `jc`.
-
-The matchers there include (not an exclusive list):
-
-	* `IsTrue` - just an easier way to say `gc.Equals, true`
+	* `IsTrue` - just an easier way to say `tc.Equals, true`
 	* `IsFalse` - observed value must be false
 	* `GreaterThan` - for integer or float types
 	* `LessThan` - for integer or float types
@@ -281,8 +271,6 @@ The matchers there include (not an exclusive list):
 	* `Contains` - obtained is a string or `Stringer` and expected needs to be
 	  a string. The checker passes if the expected string is a substring of the
 	  obtained value.
-	* `DeepEquals` - works the same way as the `gocheck.DeepEquals` except
-	  gives better errors when the values do not match
 	* `SameContents` - obtained and expected are slices of the same type,
 	  the checker makes sure that the values in one are in the other. They do
 	  not have the be in the same order.

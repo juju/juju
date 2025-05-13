@@ -8,32 +8,32 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	jujuhttp "github.com/juju/juju/internal/http"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type httpSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&httpSuite{})
+var _ = tc.Suite(&httpSuite{})
 
-func (s *httpSuite) TestBasicAuthHeader(c *gc.C) {
+func (s *httpSuite) TestBasicAuthHeader(c *tc.C) {
 	header := jujuhttp.BasicAuthHeader("eric", "sekrit")
-	c.Assert(len(header), gc.Equals, 1)
+	c.Assert(len(header), tc.Equals, 1)
 	auth := header.Get("Authorization")
 	fields := strings.Fields(auth)
-	c.Assert(len(fields), gc.Equals, 2)
+	c.Assert(len(fields), tc.Equals, 2)
 	basic, encoded := fields[0], fields[1]
-	c.Assert(basic, gc.Equals, "Basic")
+	c.Assert(basic, tc.Equals, "Basic")
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(decoded), gc.Equals, "eric:sekrit")
+	c.Assert(err, tc.IsNil)
+	c.Assert(string(decoded), tc.Equals, "eric:sekrit")
 }
 
-func (s *httpSuite) TestParseBasicAuthHeader(c *gc.C) {
+func (s *httpSuite) TestParseBasicAuthHeader(c *tc.C) {
 	tests := []struct {
 		about          string
 		h              http.Header
@@ -79,12 +79,12 @@ func (s *httpSuite) TestParseBasicAuthHeader(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 		u, p, err := jujuhttp.ParseBasicAuthHeader(test.h)
-		c.Assert(u, gc.Equals, test.expectUserid)
-		c.Assert(p, gc.Equals, test.expectPassword)
+		c.Assert(u, tc.Equals, test.expectUserid)
+		c.Assert(p, tc.Equals, test.expectPassword)
 		if test.expectError != "" {
-			c.Assert(err.Error(), gc.Equals, test.expectError)
+			c.Assert(err.Error(), tc.Equals, test.expectError)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, tc.IsNil)
 		}
 	}
 }

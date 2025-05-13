@@ -8,27 +8,26 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type agentSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	passwordService *MockAgentPasswordService
 }
 
-var _ = gc.Suite(&agentSuite{})
+var _ = tc.Suite(&agentSuite{})
 
-func (s *agentSuite) TestSetUnitPassword(c *gc.C) {
+func (s *agentSuite) TestSetUnitPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.passwordService.EXPECT().
@@ -47,8 +46,8 @@ func (s *agentSuite) TestSetUnitPassword(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: nil,
@@ -57,7 +56,7 @@ func (s *agentSuite) TestSetUnitPassword(c *gc.C) {
 	})
 }
 
-func (s *agentSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
+func (s *agentSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.passwordService.EXPECT().
@@ -76,8 +75,8 @@ func (s *agentSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: apiservererrors.ServerError(errors.NotFoundf(`unit "foo/1"`)),
@@ -86,7 +85,7 @@ func (s *agentSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 	})
 }
 
-func (s *agentSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *agentSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.passwordService = NewMockAgentPasswordService(ctrl)

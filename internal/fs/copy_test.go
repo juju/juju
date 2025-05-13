@@ -6,61 +6,62 @@ package fs
 import (
 	"path/filepath"
 
-	ft "github.com/juju/testing/filetesting"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers/filetesting"
 )
 
 type copySuite struct{}
 
-var _ = gc.Suite(&copySuite{})
+var _ = tc.Suite(&copySuite{})
 
 var copyTests = []struct {
 	about string
-	src   ft.Entries
-	dst   ft.Entries
+	src   filetesting.Entries
+	dst   filetesting.Entries
 	err   string
 }{{
 	about: "one file",
-	src: []ft.Entry{
-		ft.File{Path: "file", Data: "data", Perm: 0756},
+	src: []filetesting.Entry{
+		filetesting.File{Path: "file", Data: "data", Perm: 0756},
 	},
 }, {
 	about: "one directory",
-	src: []ft.Entry{
-		ft.Dir{Path: "dir", Perm: 0777},
+	src: []filetesting.Entry{
+		filetesting.Dir{Path: "dir", Perm: 0777},
 	},
 }, {
 	about: "one symlink",
-	src: []ft.Entry{
-		ft.Symlink{Path: "link", Link: "/foo"},
+	src: []filetesting.Entry{
+		filetesting.Symlink{Path: "link", Link: "/foo"},
 	},
 }, {
 	about: "several entries",
-	src: []ft.Entry{
-		ft.Dir{Path: "top", Perm: 0755},
-		ft.File{Path: "top/foo", Data: "foodata", Perm: 0644},
-		ft.File{Path: "top/bar", Data: "bardata", Perm: 0633},
-		ft.Dir{Path: "top/next", Perm: 0721},
-		ft.Symlink{Path: "top/next/link", Link: "../foo"},
-		ft.File{Path: "top/next/another", Data: "anotherdata", Perm: 0644},
+	src: []filetesting.Entry{
+		filetesting.Dir{Path: "top", Perm: 0755},
+		filetesting.File{Path: "top/foo", Data: "foodata", Perm: 0644},
+		filetesting.File{Path: "top/bar", Data: "bardata", Perm: 0633},
+		filetesting.Dir{Path: "top/next", Perm: 0721},
+		filetesting.Symlink{Path: "top/next/link", Link: "../foo"},
+		filetesting.File{Path: "top/next/another", Data: "anotherdata", Perm: 0644},
 	},
 }, {
 	about: "destination already exists",
-	src: []ft.Entry{
-		ft.Dir{Path: "dir", Perm: 0777},
+	src: []filetesting.Entry{
+		filetesting.Dir{Path: "dir", Perm: 0777},
 	},
-	dst: []ft.Entry{
-		ft.Dir{Path: "dir", Perm: 0777},
+	dst: []filetesting.Entry{
+		filetesting.Dir{Path: "dir", Perm: 0777},
 	},
 	err: `will not overwrite ".+dir"`,
 }, {
 	about: "source with unwritable directory",
-	src: []ft.Entry{
-		ft.Dir{Path: "dir", Perm: 0555},
+	src: []filetesting.Entry{
+		filetesting.Dir{Path: "dir", Perm: 0555},
 	},
 }}
 
-func (*copySuite) TestCopy(c *gc.C) {
+func (*copySuite) TestCopy(c *tc.C) {
 	for i, test := range copyTests {
 		c.Logf("test %d: %v", i, test.about)
 		src, dst := c.MkDir(), c.MkDir()
@@ -72,9 +73,9 @@ func (*copySuite) TestCopy(c *gc.C) {
 			filepath.Join(dst, path),
 		)
 		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, tc.IsNil)
 			test.src.Check(c, dst)
 		}
 	}

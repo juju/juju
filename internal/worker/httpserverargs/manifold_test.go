@@ -10,13 +10,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
@@ -26,6 +24,7 @@ import (
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -42,12 +41,12 @@ type ManifoldSuite struct {
 	authenticator  mockLocalMacaroonAuthenticator
 	domainServices stubDomainServices
 
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Time{})
@@ -99,31 +98,31 @@ func (s *ManifoldSuite) newStateAuthenticator(
 
 var expectedInputs = []string{"state", "clock", "domain-services"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		getter := s.newGetter(map[string]any{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context.Background(), getter)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestMuxOutput(c *gc.C) {
+func (s *ManifoldSuite) TestMuxOutput(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
 	var mux *apiserverhttp.Mux
 	err := s.manifold.Output(w, &mux)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mux, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mux, tc.NotNil)
 }
 
-func (s *ManifoldSuite) TestAuthenticatorOutput(c *gc.C) {
+func (s *ManifoldSuite) TestAuthenticatorOutput(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
@@ -131,20 +130,20 @@ func (s *ManifoldSuite) TestAuthenticatorOutput(c *gc.C) {
 	var auth2 macaroon.LocalMacaroonAuthenticator
 	for _, out := range []any{&auth1, &auth2} {
 		err := s.manifold.Output(w, out)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
-	c.Assert(auth1, gc.NotNil)
-	c.Assert(auth1, gc.Equals, auth2)
+	c.Assert(auth1, tc.NotNil)
+	c.Assert(auth1, tc.Equals, auth2)
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(context.Background(), s.getter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }
 
-func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
@@ -154,11 +153,11 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
-func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *gc.C) {
+func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *tc.C) {
 	w := s.startWorkerClean(c)
 	s.stub.CheckCallNames(c, "NewStateAuthenticator")
 	authArgs := s.stub.Calls()[0].Args
-	c.Assert(authArgs, gc.HasLen, 2)
+	c.Assert(authArgs, tc.HasLen, 2)
 	ctx := authArgs[0].(context.Context)
 
 	// abort should still be open at this point.
@@ -176,7 +175,7 @@ func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) TestValidate(c *gc.C) {
+func (s *ManifoldSuite) TestValidate(c *tc.C) {
 	type test struct {
 		f      func(*httpserverargs.ManifoldConfig)
 		expect string
@@ -204,7 +203,7 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		manifold := httpserverargs.Manifold(config)
 		w, err := manifold.Start(context.Background(), s.getter)
 		workertest.CheckNilOrKill(c, w)
-		c.Check(err, gc.ErrorMatches, test.expect)
+		c.Check(err, tc.ErrorMatches, test.expect)
 	}
 }
 
@@ -213,7 +212,7 @@ type mockLocalMacaroonAuthenticator struct {
 }
 
 type stubStateTracker struct {
-	testing.Stub
+	testhelpers.Stub
 	pool  *state.StatePool
 	state *state.State
 }
@@ -234,7 +233,7 @@ func (s *stubStateTracker) Report() map[string]any {
 }
 
 type stubDomainServices struct {
-	testing.Stub
+	testhelpers.Stub
 	services.ControllerDomainServices
 	services.DomainServicesGetter
 }

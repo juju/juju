@@ -10,8 +10,7 @@ import (
 	"runtime"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -24,7 +23,7 @@ type formatSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&formatSuite{})
+var _ = tc.Suite(&formatSuite{})
 
 // The agentParams are used by the specific formatter whitebox tests, and is
 // located here for easy reuse.
@@ -40,31 +39,31 @@ var agentParams = AgentConfigParams{
 	Controller:        testing.ControllerTag,
 }
 
-func newTestConfig(c *gc.C) *configInternal {
+func newTestConfig(c *tc.C) *configInternal {
 	params := agentParams
 	params.Paths.DataDir = c.MkDir()
 	params.Paths.LogDir = c.MkDir()
 	config, err := NewAgentConfig(params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return config.(*configInternal)
 }
 
-func (*formatSuite) TestWriteCommands(c *gc.C) {
+func (*formatSuite) TestWriteCommands(c *tc.C) {
 	cloudcfg, err := cloudinit.New("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	config := newTestConfig(c)
 	commands, err := config.WriteCommands(cloudcfg.ShellRenderer())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(commands, gc.HasLen, 3)
-	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/machine-1'`)
-	c.Assert(commands[1], gc.Matches, `cat > '\S+/agents/machine-1/agent.conf' << 'EOF'\n(.|\n)*\nEOF`)
-	c.Assert(commands[2], gc.Matches, `chmod 0600 '\S+/agents/machine-1/agent.conf'`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(commands, tc.HasLen, 3)
+	c.Assert(commands[0], tc.Matches, `mkdir -p '\S+/agents/machine-1'`)
+	c.Assert(commands[1], tc.Matches, `cat > '\S+/agents/machine-1/agent.conf' << 'EOF'\n(.|\n)*\nEOF`)
+	c.Assert(commands[2], tc.Matches, `chmod 0600 '\S+/agents/machine-1/agent.conf'`)
 }
 
-func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
+func (*formatSuite) TestWriteAgentConfig(c *tc.C) {
 	config := newTestConfig(c)
 	err := config.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	configPath := ConfigPath(config.DataDir(), config.Tag())
 	formatPath := filepath.Join(config.Dir(), "format")
@@ -72,12 +71,12 @@ func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
 	assertFileNotExist(c, formatPath)
 }
 
-func (*formatSuite) TestRead(c *gc.C) {
+func (*formatSuite) TestRead(c *tc.C) {
 	config := newTestConfig(c)
 	assertWriteAndRead(c, config)
 }
 
-func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
+func (*formatSuite) TestReadWriteStateConfig(c *tc.C) {
 	servingInfo := controller.StateServingInfo{
 		Cert:         "some special cert",
 		PrivateKey:   "a special key",
@@ -89,36 +88,36 @@ func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
 	params.Paths.DataDir = c.MkDir()
 	params.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
 	configInterface, err := NewStateMachineConfig(params, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	config, ok := configInterface.(*configInternal)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	assertWriteAndRead(c, config)
 }
 
-func assertWriteAndRead(c *gc.C, config *configInternal) {
+func assertWriteAndRead(c *tc.C, config *configInternal) {
 	err := config.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	configPath := ConfigPath(config.DataDir(), config.Tag())
 	readConfig, err := ReadConfig(configPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(readConfig, jc.DeepEquals, config)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(readConfig, tc.DeepEquals, config)
 }
 
-func assertFileExists(c *gc.C, path string) {
+func assertFileExists(c *tc.C, path string) {
 	fileInfo, err := os.Stat(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fileInfo.Mode().IsRegular(), tc.IsTrue)
 
 	// Windows is not fully POSIX compliant. Chmod() and Chown() have unexpected behavior
 	// compared to linux/unix
 	if runtime.GOOS != "windows" {
-		c.Assert(fileInfo.Mode().Perm(), gc.Equals, os.FileMode(0600))
+		c.Assert(fileInfo.Mode().Perm(), tc.Equals, os.FileMode(0600))
 	}
-	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
+	c.Assert(fileInfo.Size(), tc.GreaterThan, 0)
 }
 
-func assertFileNotExist(c *gc.C, path string) {
+func assertFileNotExist(c *tc.C, path string) {
 	_, err := os.Stat(path)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 }

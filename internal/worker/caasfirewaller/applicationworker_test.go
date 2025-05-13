@@ -7,11 +7,10 @@ import (
 	"context"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
@@ -45,9 +44,9 @@ type appWorkerSuite struct {
 	portsWatcher watcher.NotifyWatcher
 }
 
-var _ = gc.Suite(&appWorkerSuite{})
+var _ = tc.Suite(&appWorkerSuite{})
 
-func (s *appWorkerSuite) SetUpTest(c *gc.C) {
+func (s *appWorkerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.appName = "app1"
@@ -56,7 +55,7 @@ func (s *appWorkerSuite) SetUpTest(c *gc.C) {
 	s.portsChanges = make(chan struct{})
 }
 
-func (s *appWorkerSuite) getController(c *gc.C) *gomock.Controller {
+func (s *appWorkerSuite) getController(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.appsWatcher = watchertest.NewMockNotifyWatcher(s.applicationChanges)
@@ -72,7 +71,7 @@ func (s *appWorkerSuite) getController(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *appWorkerSuite) getWorker(c *gc.C) worker.Worker {
+func (s *appWorkerSuite) getWorker(c *tc.C) worker.Worker {
 	w, err := caasfirewaller.NewApplicationWorker(
 		testing.ControllerTag.Id(),
 		testing.ModelTag.Id(),
@@ -84,11 +83,11 @@ func (s *appWorkerSuite) getWorker(c *gc.C) worker.Worker {
 		s.lifeGetter,
 		loggertesting.WrapCheckLog(c),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
-func (s *appWorkerSuite) TestWorker(c *gc.C) {
+func (s *appWorkerSuite) TestWorker(c *tc.C) {
 	ctrl := s.getController(c)
 	defer ctrl.Finish()
 

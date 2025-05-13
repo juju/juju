@@ -7,13 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -26,20 +25,20 @@ type AddRemoteRelationSuiteNewAPI struct {
 	baseAddRemoteRelationSuite
 }
 
-var _ = gc.Suite(&AddRemoteRelationSuiteNewAPI{})
+var _ = tc.Suite(&AddRemoteRelationSuiteNewAPI{})
 
-func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationNoRemoteApplications(c *gc.C) {
+func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationNoRemoteApplications(c *tc.C) {
 	err := s.runAddRelation(c, "applicationname2", "applicationname")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCallNames(c, "AddRelation", "Close")
 	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"applicationname2", "applicationname"}, []string(nil))
 }
 
-func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationRemoteApplications(c *gc.C) {
+func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationRemoteApplications(c *tc.C) {
 	s.assertFailAddRelationTwoRemoteApplications(c)
 }
 
-func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *gc.C) {
+func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *tc.C) {
 	s.assertAddedRelation(c, "applicationname", "othermodel.applicationname2")
 	s.mockAPI.CheckCall(c, 0, "GetConsumeDetails", "othermodel.applicationname2")
 	s.mockAPI.CheckCall(c, 1, "Consume",
@@ -60,7 +59,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *
 	s.mockAPI.CheckCall(c, 3, "AddRelation", []string{"applicationname", "applicationname2"}, []string(nil))
 }
 
-func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc.C) {
+func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *tc.C) {
 	s.assertAddedRelation(c, "othermodel.applicationname2", "applicationname")
 	s.mockAPI.CheckCall(c, 0, "GetConsumeDetails", "othermodel.applicationname2")
 	s.mockAPI.CheckCall(c, 1, "Consume",
@@ -81,54 +80,54 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc
 	s.mockAPI.CheckCall(c, 3, "AddRelation", []string{"applicationname2", "applicationname"}, []string(nil))
 }
 
-func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
+func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *tc.C) {
 	msg := "add relation failure"
 	s.mockAPI.addRelation = func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 		return nil, errors.New(msg)
 	}
 
 	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname")
-	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorMatches, msg)
 	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
 }
 
-func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationTerminated(c *gc.C) {
+func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationTerminated(c *tc.C) {
 	msg := "remote offer applicationname is terminated"
 	s.mockAPI.addRelation = func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 		return nil, errors.New(msg)
 	}
 
 	err := s.runAddRelation(c, "kontroll:bob/prod.hosted-mysql", "applicationname")
-	c.Assert(err, gc.ErrorMatches, `
+	c.Assert(err, tc.ErrorMatches, `
 Offer "applicationname" has been removed from the remote model.
 To integrate with a new offer with the same name, first run
 'juju remove-saas applicationname' to remove the SAAS record from this model.`[1:])
 }
 
-func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationDying(c *gc.C) {
+func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationDying(c *tc.C) {
 	msg := "applicationname is not alive"
 	s.mockAPI.addRelation = func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 		return nil, errors.New(msg)
 	}
 
 	err := s.runAddRelation(c, "applicationname2", "kontroll:bob/prod.hosted-mysql")
-	c.Assert(err, gc.ErrorMatches, `
+	c.Assert(err, tc.ErrorMatches, `
 SAAS application "hosted-mysql" has been removed but termination has not completed.
 To integrate with a new offer with the same name, first run
 'juju remove-saas hosted-mysql --force' to remove the SAAS record from this model.`[1:])
 }
 
-func (s *AddRemoteRelationSuiteNewAPI) TestAddedRelationVia(c *gc.C) {
+func (s *AddRemoteRelationSuiteNewAPI) TestAddedRelationVia(c *tc.C) {
 	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname", "--via", "192.168.1.0/16, 10.0.0.0/16")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
 	s.mockAPI.CheckCall(c, 3, "AddRelation",
 		[]string{"applicationname2", "applicationname"}, []string{"192.168.1.0/16", "10.0.0.0/16"})
 }
 
-func (s *AddRemoteRelationSuiteNewAPI) assertAddedRelation(c *gc.C, args ...string) {
+func (s *AddRemoteRelationSuiteNewAPI) assertAddedRelation(c *tc.C, args ...string) {
 	err := s.runAddRelation(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "AddRelation", "Close")
 }
 
@@ -137,35 +136,35 @@ type AddRelationValidationSuite struct {
 	baseAddRemoteRelationSuite
 }
 
-var _ = gc.Suite(&AddRelationValidationSuite{})
+var _ = tc.Suite(&AddRelationValidationSuite{})
 
-func (s *AddRelationValidationSuite) TestAddRelationInvalidEndpoint(c *gc.C) {
+func (s *AddRelationValidationSuite) TestAddRelationInvalidEndpoint(c *tc.C) {
 	s.assertInvalidEndpoint(c, "applicationname:inva#lid", `endpoint "applicationname:inva#lid" not valid`)
 }
 
-func (s *AddRelationValidationSuite) TestAddRelationSeparatorFirst(c *gc.C) {
+func (s *AddRelationValidationSuite) TestAddRelationSeparatorFirst(c *tc.C) {
 	s.assertInvalidEndpoint(c, ":applicationname", `endpoint ":applicationname" not valid`)
 }
 
-func (s *AddRelationValidationSuite) TestAddRelationSeparatorLast(c *gc.C) {
+func (s *AddRelationValidationSuite) TestAddRelationSeparatorLast(c *tc.C) {
 	s.assertInvalidEndpoint(c, "applicationname:", `endpoint "applicationname:" not valid`)
 }
 
-func (s *AddRelationValidationSuite) TestAddRelationMoreThanOneSeparator(c *gc.C) {
+func (s *AddRelationValidationSuite) TestAddRelationMoreThanOneSeparator(c *tc.C) {
 	s.assertInvalidEndpoint(c, "serv:ice:name", `endpoint "serv:ice:name" not valid`)
 }
 
-func (s *AddRelationValidationSuite) TestAddRelationInvalidApplication(c *gc.C) {
+func (s *AddRelationValidationSuite) TestAddRelationInvalidApplication(c *tc.C) {
 	s.assertInvalidEndpoint(c, "applicat@ionname", `application name "applicat@ionname" not valid`)
 }
 
-func (s *AddRelationValidationSuite) TestAddRelationInvalidEndpointApplication(c *gc.C) {
+func (s *AddRelationValidationSuite) TestAddRelationInvalidEndpointApplication(c *tc.C) {
 	s.assertInvalidEndpoint(c, "applicat@ionname:endpoint", `application name "applicat@ionname" not valid`)
 }
 
-func (s *AddRelationValidationSuite) assertInvalidEndpoint(c *gc.C, endpoint, msg string) {
+func (s *AddRelationValidationSuite) assertInvalidEndpoint(c *tc.C, endpoint, msg string) {
 	err := validateLocalEndpoint(endpoint, endpointSeparator)
-	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorMatches, msg)
 }
 
 // baseAddRemoteRelationSuite contains common functionality for integrate cmd tests
@@ -176,11 +175,11 @@ type baseAddRemoteRelationSuite struct {
 	mac     *macaroon.Macaroon
 }
 
-func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
+func (s *baseAddRemoteRelationSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	var err error
 	s.mac, err = jujutesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI = &mockAddRelationAPI{
 		addRelation: func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 			return nil, nil
@@ -189,21 +188,21 @@ func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *baseAddRemoteRelationSuite) runAddRelation(c *gc.C, args ...string) error {
+func (s *baseAddRemoteRelationSuite) runAddRelation(c *tc.C, args ...string) error {
 	cmd := NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
 }
 
-func (s *baseAddRemoteRelationSuite) assertFailAddRelationTwoRemoteApplications(c *gc.C) {
+func (s *baseAddRemoteRelationSuite) assertFailAddRelationTwoRemoteApplications(c *tc.C) {
 	err := s.runAddRelation(c, "othermodel.applicationname1", "othermodel.applicationname2")
-	c.Assert(err, gc.ErrorMatches, "providing more than one remote endpoints not supported")
+	c.Assert(err, tc.ErrorMatches, "providing more than one remote endpoints not supported")
 }
 
 // mockAddRelationAPI contains a stub api used for integrate cmd tests.
 type mockAddRelationAPI struct {
-	jtesting.Stub
+	testhelpers.Stub
 
 	// addRelation can be defined by tests to test different integrate outcomes.
 	addRelation func(endpoints, viaCidrs []string) (*params.AddRelationResults, error)

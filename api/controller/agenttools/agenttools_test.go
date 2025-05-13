@@ -6,8 +6,7 @@ package agenttools_test
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/agenttools"
@@ -18,9 +17,9 @@ type AgentToolsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&AgentToolsSuite{})
+var _ = tc.Suite(&AgentToolsSuite{})
 
-func (s *AgentToolsSuite) TestUpdateToolsVersion(c *gc.C) {
+func (s *AgentToolsSuite) TestUpdateToolsVersion(c *tc.C) {
 	called := false
 	apiCaller := testing.APICallerFunc(
 		func(objType string,
@@ -29,15 +28,15 @@ func (s *AgentToolsSuite) TestUpdateToolsVersion(c *gc.C) {
 			a, result interface{},
 		) error {
 			called = true
-			c.Check(objType, gc.Equals, "AgentTools")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "UpdateToolsAvailable")
+			c.Check(objType, tc.Equals, "AgentTools")
+			c.Check(id, tc.Equals, "")
+			c.Check(request, tc.Equals, "UpdateToolsAvailable")
 
-			c.Assert(a, gc.IsNil)
+			c.Assert(a, tc.IsNil)
 			return nil
 		})
 	client := agenttools.NewFacade(apiCaller)
 	err := client.UpdateToolsVersion(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }

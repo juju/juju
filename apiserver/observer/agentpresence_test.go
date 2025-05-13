@@ -7,28 +7,28 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ Observer = (*AgentPresence)(nil)
 
 type AgentPresenceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	domainServicesGetter *MockDomainServicesGetter
 	modelService         *MockModelService
 	statusService        *MockStatusService
 }
 
-var _ = gc.Suite(&AgentPresenceSuite{})
+var _ = tc.Suite(&AgentPresenceSuite{})
 
-func (s *AgentPresenceSuite) TestLoginForUnit(c *gc.C) {
+func (s *AgentPresenceSuite) TestLoginForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -41,7 +41,7 @@ func (s *AgentPresenceSuite) TestLoginForUnit(c *gc.C) {
 	observer.Login(context.Background(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
 }
 
-func (s *AgentPresenceSuite) TestLoginForMachine(c *gc.C) {
+func (s *AgentPresenceSuite) TestLoginForMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -55,7 +55,7 @@ func (s *AgentPresenceSuite) TestLoginForMachine(c *gc.C) {
 	observer.Login(context.Background(), names.NewMachineTag("0"), names.NewModelTag("bar"), uuid, false, "user data")
 }
 
-func (s *AgentPresenceSuite) TestLoginForUser(c *gc.C) {
+func (s *AgentPresenceSuite) TestLoginForUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -64,7 +64,7 @@ func (s *AgentPresenceSuite) TestLoginForUser(c *gc.C) {
 	observer.Login(context.Background(), names.NewUserTag("bob"), names.NewModelTag("bar"), uuid, false, "user data")
 }
 
-func (s *AgentPresenceSuite) TestLeaveForUnit(c *gc.C) {
+func (s *AgentPresenceSuite) TestLeaveForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -79,7 +79,7 @@ func (s *AgentPresenceSuite) TestLeaveForUnit(c *gc.C) {
 	observer.Leave(context.Background())
 }
 
-func (s *AgentPresenceSuite) TestLeaveForUser(c *gc.C) {
+func (s *AgentPresenceSuite) TestLeaveForUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -89,21 +89,21 @@ func (s *AgentPresenceSuite) TestLeaveForUser(c *gc.C) {
 	observer.Leave(context.Background())
 }
 
-func (s *AgentPresenceSuite) TestLeaveWithoutLogin(c *gc.C) {
+func (s *AgentPresenceSuite) TestLeaveWithoutLogin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	observer := s.newObserver(c)
 	observer.Leave(context.Background())
 }
 
-func (s *AgentPresenceSuite) newObserver(c *gc.C) *AgentPresence {
+func (s *AgentPresenceSuite) newObserver(c *tc.C) *AgentPresence {
 	return NewAgentPresence(AgentPresenceConfig{
 		DomainServicesGetter: s.domainServicesGetter,
 		Logger:               loggertesting.WrapCheckLog(c),
 	})
 }
 
-func (s *AgentPresenceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *AgentPresenceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)

@@ -4,8 +4,7 @@
 package network_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/testing"
@@ -15,9 +14,9 @@ type PortRangeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&PortRangeSuite{})
+var _ = tc.Suite(&PortRangeSuite{})
 
-func (*PortRangeSuite) TestConflictsWith(c *gc.C) {
+func (*PortRangeSuite) TestConflictsWith(c *tc.C) {
 	var testCases = []struct {
 		about          string
 		first          network.PortRange
@@ -67,40 +66,40 @@ func (*PortRangeSuite) TestConflictsWith(c *gc.C) {
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(t.first.ConflictsWith(t.second), gc.Equals, t.expectConflict)
-		c.Check(t.second.ConflictsWith(t.first), gc.Equals, t.expectConflict)
+		c.Check(t.first.ConflictsWith(t.second), tc.Equals, t.expectConflict)
+		c.Check(t.second.ConflictsWith(t.first), tc.Equals, t.expectConflict)
 	}
 }
 
-func (*PortRangeSuite) TestStrings(c *gc.C) {
+func (*PortRangeSuite) TestStrings(c *tc.C) {
 	c.Assert(
 		network.PortRange{80, 80, "TCP"}.String(),
-		gc.Equals,
+		tc.Equals,
 		"80/tcp",
 	)
 	c.Assert(
 		network.PortRange{80, 80, "TCP"}.GoString(),
-		gc.Equals,
+		tc.Equals,
 		"80/tcp",
 	)
 	c.Assert(
 		network.PortRange{80, 100, "TCP"}.String(),
-		gc.Equals,
+		tc.Equals,
 		"80-100/tcp",
 	)
 	c.Assert(
 		network.PortRange{80, 100, "TCP"}.GoString(),
-		gc.Equals,
+		tc.Equals,
 		"80-100/tcp",
 	)
 	c.Assert(
 		network.PortRange{-1, -1, "ICMP"}.String(),
-		gc.Equals,
+		tc.Equals,
 		"icmp",
 	)
 }
 
-func (*PortRangeSuite) TestValidate(c *gc.C) {
+func (*PortRangeSuite) TestValidate(c *tc.C) {
 	testCases := []struct {
 		about    string
 		ports    network.PortRange
@@ -150,14 +149,14 @@ func (*PortRangeSuite) TestValidate(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		if t.expected == "" {
-			c.Check(t.ports.Validate(), gc.IsNil)
+			c.Check(t.ports.Validate(), tc.IsNil)
 		} else {
-			c.Check(t.ports.Validate(), gc.ErrorMatches, t.expected)
+			c.Check(t.ports.Validate(), tc.ErrorMatches, t.expected)
 		}
 	}
 }
 
-func (*PortRangeSuite) TestSortPortRanges(c *gc.C) {
+func (*PortRangeSuite) TestSortPortRanges(c *tc.C) {
 	ranges := []network.PortRange{
 		{10, 100, "udp"},
 		{80, 90, "tcp"},
@@ -169,90 +168,90 @@ func (*PortRangeSuite) TestSortPortRanges(c *gc.C) {
 		{10, 100, "udp"},
 	}
 	network.SortPortRanges(ranges)
-	c.Assert(ranges, gc.DeepEquals, expected)
+	c.Assert(ranges, tc.DeepEquals, expected)
 }
 
-func (*PortRangeSuite) TestParsePortRange(c *gc.C) {
+func (*PortRangeSuite) TestParsePortRange(c *tc.C) {
 	portRange, err := network.ParsePortRange("8000-8099/tcp")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(portRange.Protocol, gc.Equals, "tcp")
-	c.Check(portRange.FromPort, gc.Equals, 8000)
-	c.Check(portRange.ToPort, gc.Equals, 8099)
+	c.Check(portRange.Protocol, tc.Equals, "tcp")
+	c.Check(portRange.FromPort, tc.Equals, 8000)
+	c.Check(portRange.ToPort, tc.Equals, 8099)
 }
 
-func (*PortRangeSuite) TestParsePortRangeSingle(c *gc.C) {
+func (*PortRangeSuite) TestParsePortRangeSingle(c *tc.C) {
 	portRange, err := network.ParsePortRange("80/tcp")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(portRange.Protocol, gc.Equals, "tcp")
-	c.Check(portRange.FromPort, gc.Equals, 80)
-	c.Check(portRange.ToPort, gc.Equals, 80)
+	c.Check(portRange.Protocol, tc.Equals, "tcp")
+	c.Check(portRange.FromPort, tc.Equals, 80)
+	c.Check(portRange.ToPort, tc.Equals, 80)
 }
 
-func (*PortRangeSuite) TestParsePortRangeDefaultProtocol(c *gc.C) {
+func (*PortRangeSuite) TestParsePortRangeDefaultProtocol(c *tc.C) {
 	portRange, err := network.ParsePortRange("80")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(portRange.Protocol, gc.Equals, "tcp")
-	c.Check(portRange.FromPort, gc.Equals, 80)
-	c.Check(portRange.ToPort, gc.Equals, 80)
+	c.Check(portRange.Protocol, tc.Equals, "tcp")
+	c.Check(portRange.FromPort, tc.Equals, 80)
+	c.Check(portRange.ToPort, tc.Equals, 80)
 }
 
-func (*PortRangeSuite) TestParseIcmpProtocol(c *gc.C) {
+func (*PortRangeSuite) TestParseIcmpProtocol(c *tc.C) {
 	portRange, err := network.ParsePortRange("icmp")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(portRange.Protocol, gc.Equals, "icmp")
-	c.Check(portRange.FromPort, gc.Equals, -1)
-	c.Check(portRange.ToPort, gc.Equals, -1)
+	c.Check(portRange.Protocol, tc.Equals, "icmp")
+	c.Check(portRange.FromPort, tc.Equals, -1)
+	c.Check(portRange.ToPort, tc.Equals, -1)
 }
 
-func (*PortRangeSuite) TestParseIcmpProtocolRoundTrip(c *gc.C) {
+func (*PortRangeSuite) TestParseIcmpProtocolRoundTrip(c *tc.C) {
 	portRange, err := network.ParsePortRange("icmp")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	portRangeStr := portRange.String()
 
-	c.Check(portRangeStr, gc.Equals, "icmp")
+	c.Check(portRangeStr, tc.Equals, "icmp")
 }
 
-func (*PortRangeSuite) TestParsePortRangeRoundTrip(c *gc.C) {
+func (*PortRangeSuite) TestParsePortRangeRoundTrip(c *tc.C) {
 	portRange, err := network.ParsePortRange("8000-8099/tcp")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	portRangeStr := portRange.String()
 
-	c.Check(portRangeStr, gc.Equals, "8000-8099/tcp")
+	c.Check(portRangeStr, tc.Equals, "8000-8099/tcp")
 }
 
-func (*PortRangeSuite) TestParsePortRangeMultiRange(c *gc.C) {
+func (*PortRangeSuite) TestParsePortRangeMultiRange(c *tc.C) {
 	_, err := network.ParsePortRange("10-55-100")
 
-	c.Check(err, gc.ErrorMatches, `invalid port range "10-55-100".*`)
+	c.Check(err, tc.ErrorMatches, `invalid port range "10-55-100".*`)
 }
 
-func (*PortRangeSuite) TestParsePortRangeNonIntPort(c *gc.C) {
+func (*PortRangeSuite) TestParsePortRangeNonIntPort(c *tc.C) {
 	_, err := network.ParsePortRange("spam-100")
 
-	c.Check(err, gc.ErrorMatches, `invalid port "spam".*`)
+	c.Check(err, tc.ErrorMatches, `invalid port "spam".*`)
 }
 
-func (*PortRangeSuite) TestMustParsePortRange(c *gc.C) {
+func (*PortRangeSuite) TestMustParsePortRange(c *tc.C) {
 	portRange := network.MustParsePortRange("8000-8099/tcp")
 
-	c.Check(portRange.Protocol, gc.Equals, "tcp")
-	c.Check(portRange.FromPort, gc.Equals, 8000)
-	c.Check(portRange.ToPort, gc.Equals, 8099)
+	c.Check(portRange.Protocol, tc.Equals, "tcp")
+	c.Check(portRange.FromPort, tc.Equals, 8000)
+	c.Check(portRange.ToPort, tc.Equals, 8099)
 }
 
-func (*PortRangeSuite) TestMustParsePortRangeInvalid(c *gc.C) {
+func (*PortRangeSuite) TestMustParsePortRangeInvalid(c *tc.C) {
 	f := func() {
 		network.MustParsePortRange("10-55-100")
 	}
 
-	c.Check(f, gc.PanicMatches, `invalid port range "10-55-100".*`)
+	c.Check(f, tc.PanicMatches, `invalid port range "10-55-100".*`)
 }
 
-func (*PortRangeSuite) TestCombinePortRanges(c *gc.C) {
+func (*PortRangeSuite) TestCombinePortRanges(c *tc.C) {
 	testCases := []struct {
 		in       []network.PortRange
 		expected []network.PortRange
@@ -286,11 +285,11 @@ func (*PortRangeSuite) TestCombinePortRanges(c *gc.C) {
 	}}
 	for i, t := range testCases {
 		c.Logf("test %d", i)
-		c.Check(network.CombinePortRanges(t.in...), jc.DeepEquals, t.expected)
+		c.Check(network.CombinePortRanges(t.in...), tc.DeepEquals, t.expected)
 	}
 }
 
-func (p *PortRangeSuite) TestPortRangeLength(c *gc.C) {
+func (p *PortRangeSuite) TestPortRangeLength(c *tc.C) {
 	testCases := []struct {
 		about        string
 		ports        network.PortRange
@@ -319,11 +318,11 @@ func (p *PortRangeSuite) TestPortRangeLength(c *gc.C) {
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(t.ports.Length(), gc.Equals, t.expectLength)
+		c.Check(t.ports.Length(), tc.Equals, t.expectLength)
 	}
 }
 
-func (p *PortRangeSuite) TestSanitizeBounds(c *gc.C) {
+func (p *PortRangeSuite) TestSanitizeBounds(c *tc.C) {
 	tests := []struct {
 		about  string
 		input  network.PortRange
@@ -383,11 +382,11 @@ func (p *PortRangeSuite) TestSanitizeBounds(c *gc.C) {
 	}}
 	for i, t := range tests {
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(t.input.SanitizeBounds(), jc.DeepEquals, t.output)
+		c.Check(t.input.SanitizeBounds(), tc.DeepEquals, t.output)
 	}
 }
 
-func (p *PortRangeSuite) TestUniquePortRanges(c *gc.C) {
+func (p *PortRangeSuite) TestUniquePortRanges(c *tc.C) {
 	in := []network.PortRange{
 		network.MustParsePortRange("123/tcp"),
 		network.MustParsePortRange("123/tcp"),
@@ -401,10 +400,10 @@ func (p *PortRangeSuite) TestUniquePortRanges(c *gc.C) {
 	}
 
 	got := network.UniquePortRanges(in)
-	c.Assert(got, gc.DeepEquals, exp, gc.Commentf("expected duplicate port ranges to be removed"))
+	c.Assert(got, tc.DeepEquals, exp, tc.Commentf("expected duplicate port ranges to be removed"))
 }
 
-func (p *PortRangeSuite) TestUniquePortRangesInGroup(c *gc.C) {
+func (p *PortRangeSuite) TestUniquePortRangesInGroup(c *tc.C) {
 	in := network.GroupedPortRanges{
 		"foxtrot": []network.PortRange{
 			network.MustParsePortRange("123/tcp"),
@@ -422,10 +421,10 @@ func (p *PortRangeSuite) TestUniquePortRangesInGroup(c *gc.C) {
 	}
 
 	got := in.UniquePortRanges()
-	c.Assert(got, gc.DeepEquals, exp, gc.Commentf("expected duplicate port ranges to be removed"))
+	c.Assert(got, tc.DeepEquals, exp, tc.Commentf("expected duplicate port ranges to be removed"))
 }
 
-func (p *PortRangeSuite) TestGroupedPortRangesEquality(c *gc.C) {
+func (p *PortRangeSuite) TestGroupedPortRangesEquality(c *tc.C) {
 	specs := []struct {
 		descr    string
 		a, b     network.GroupedPortRanges
@@ -488,6 +487,6 @@ func (p *PortRangeSuite) TestGroupedPortRangesEquality(c *gc.C) {
 	for i, spec := range specs {
 		c.Logf("test %d: %s", i, spec.descr)
 		got := spec.a.EqualTo(spec.b)
-		c.Assert(got, gc.Equals, spec.expEqual)
+		c.Assert(got, tc.Equals, spec.expEqual)
 	}
 }

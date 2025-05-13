@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/application/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -18,7 +17,7 @@ type configSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&configSuite{})
+var _ = tc.Suite(&configSuite{})
 
 var configTestCases = [...]struct {
 	name   string
@@ -152,29 +151,29 @@ var configTestCases = [...]struct {
 	},
 }
 
-func (s *configSuite) TestDecodeConfig(c *gc.C) {
-	for _, tc := range configTestCases {
-		c.Logf("Running test case %q", tc.name)
+func (s *configSuite) TestDecodeConfig(c *tc.C) {
+	for _, testCase := range configTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeConfig(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, tc.output)
+		result, err := decodeConfig(testCase.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, testCase.output)
 	}
 }
 
-func (s *configSuite) TestDecodeConfigType(c *gc.C) {
+func (s *configSuite) TestDecodeConfigType(c *tc.C) {
 	_, err := decodeConfigType("invalid")
-	c.Assert(err, gc.ErrorMatches, `unknown config type "invalid"`)
+	c.Assert(err, tc.ErrorMatches, `unknown config type "invalid"`)
 }
 
-func (s *configSuite) TestEncodeConfigType(c *gc.C) {
+func (s *configSuite) TestEncodeConfigType(c *tc.C) {
 	_, err := decodeConfigType("invalid")
-	c.Assert(err, gc.ErrorMatches, `unknown config type "invalid"`)
+	c.Assert(err, tc.ErrorMatches, `unknown config type "invalid"`)
 }
 
-func (s *configSuite) TestEncodeConfigDefaultValue(c *gc.C) {
+func (s *configSuite) TestEncodeConfigDefaultValue(c *tc.C) {
 	_, err := encodeConfigDefaultValue(int32(0))
-	c.Assert(err, gc.ErrorMatches, `unknown config default value type int32`)
+	c.Assert(err, tc.ErrorMatches, `unknown config default value type int32`)
 }
 
 var configTypeTestCases = [...]struct {
@@ -220,17 +219,17 @@ var configTypeTestCases = [...]struct {
 	},
 }
 
-func (s *configSuite) TestDecodeThenEncodeDefaultValue(c *gc.C) {
-	for _, tc := range configTypeTestCases {
-		c.Logf("Running test case %q", tc.name)
+func (s *configSuite) TestDecodeThenEncodeDefaultValue(c *tc.C) {
+	for _, testCase := range configTypeTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		decoded, err := decodeConfigDefaultValue(tc.kind, tc.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(decoded, gc.DeepEquals, tc.output)
+		decoded, err := decodeConfigDefaultValue(testCase.kind, testCase.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(decoded, tc.DeepEquals, testCase.output)
 
 		encoded, err := encodeConfigDefaultValue(decoded)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(encoded, gc.DeepEquals, tc.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(encoded, tc.DeepEquals, testCase.input)
 	}
 }
 
@@ -281,28 +280,28 @@ var encodeConfigTypeTestCases = [...]struct {
 	},
 }
 
-func (s *configSuite) TestEncodeDefaultValue(c *gc.C) {
-	for _, tc := range encodeConfigTypeTestCases {
-		c.Logf("Running test case %q", tc.name)
+func (s *configSuite) TestEncodeDefaultValue(c *tc.C) {
+	for _, testCase := range encodeConfigTypeTestCases {
+		c.Logf("Running test case %q", testCase.name)
 
-		encoded, err := encodeConfigDefaultValue(tc.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(encoded, gc.DeepEquals, tc.output)
+		encoded, err := encodeConfigDefaultValue(testCase.input)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(encoded, tc.DeepEquals, testCase.output)
 	}
 }
 
-func (s *configSuite) TestDecodeConfigTypeError(c *gc.C) {
+func (s *configSuite) TestDecodeConfigTypeError(c *tc.C) {
 	_, err := decodeConfigDefaultValue(charm.OptionType("invalid"), ptr(""))
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
 type configStateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&configStateSuite{})
+var _ = tc.Suite(&configStateSuite{})
 
-func (s *configStateSuite) TestConfigType(c *gc.C) {
+func (s *configStateSuite) TestConfigType(c *tc.C) {
 	type charmConfigType struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
@@ -316,8 +315,8 @@ SELECT charm_config_type.* AS &charmConfigType.* FROM charm_config_type ORDER BY
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 5)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 5)
 
 	m := []charm.OptionType{
 		charm.OptionString,
@@ -330,7 +329,7 @@ SELECT charm_config_type.* AS &charmConfigType.* FROM charm_config_type ORDER BY
 	for i, value := range m {
 		c.Logf("result %d: %#v", i, value)
 		result, err := encodeConfigType(value)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.DeepEquals, results[i].ID)
 	}
 }

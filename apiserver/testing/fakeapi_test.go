@@ -7,29 +7,28 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/testhelpers"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&fakeAPISuite{})
+var _ = tc.Suite(&fakeAPISuite{})
 
 type fakeAPISuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 const fakeUUID = "f47ac10b-58cc-dead-beef-0e02b2c3d479"
 
-func (*fakeAPISuite) TestFakeAPI(c *gc.C) {
+func (*fakeAPISuite) TestFakeAPI(c *tc.C) {
 	var r root
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
-		c.Check(modelUUID, gc.Equals, fakeUUID)
+		c.Check(modelUUID, tc.Equals, fakeUUID)
 		return &r, nil
 	})
 	defer srv.Close()
@@ -39,9 +38,9 @@ func (*fakeAPISuite) TestFakeAPI(c *gc.C) {
 		ModelTag: names.NewModelTag(fakeUUID),
 	}
 	_, err := api.Open(context.Background(), info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(r.calledMethods, jc.DeepEquals, []string{"Login"})
+	c.Assert(r.calledMethods, tc.DeepEquals, []string{"Login"})
 }
 
 type root struct {

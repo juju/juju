@@ -7,9 +7,8 @@ import (
 	"context"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
@@ -20,9 +19,9 @@ type serviceSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestGetAllJobsSuccess(c *gc.C) {
+func (s *serviceSuite) TestGetAllJobsSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbJobs := []removal.Job{
@@ -48,21 +47,21 @@ func (s *serviceSuite) TestGetAllJobsSuccess(c *gc.C) {
 	s.state.EXPECT().GetAllJobs(gomock.Any()).Return(dbJobs, nil)
 
 	jobs, err := s.newService(c).GetAllJobs(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(jobs, jc.DeepEquals, dbJobs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobs, tc.DeepEquals, dbJobs)
 }
 
-func (s *serviceSuite) TestGetAllJobsError(c *gc.C) {
+func (s *serviceSuite) TestGetAllJobsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetAllJobs(gomock.Any()).Return(nil, errors.New("the front fell off"))
 
 	jobs, err := s.newService(c).GetAllJobs(context.Background())
-	c.Assert(err, gc.ErrorMatches, "the front fell off")
-	c.Check(jobs, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "the front fell off")
+	c.Check(jobs, tc.IsNil)
 }
 
-func (s *serviceSuite) TestExecuteJobUnsupportedType(c *gc.C) {
+func (s *serviceSuite) TestExecuteJobUnsupportedType(c *tc.C) {
 	var unsupportedJobType removal.JobType = 500
 
 	job := removal.Job{
@@ -70,5 +69,5 @@ func (s *serviceSuite) TestExecuteJobUnsupportedType(c *gc.C) {
 	}
 
 	err := s.newService(c).ExecuteJob(context.Background(), job)
-	c.Check(err, jc.ErrorIs, removalerrors.RemovalJobTypeNotSupported)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobTypeNotSupported)
 }

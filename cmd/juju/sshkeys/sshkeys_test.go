@@ -6,9 +6,8 @@ package sshkeys
 import (
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
-	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -23,7 +22,7 @@ type SSHKeysSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&SSHKeysSuite{})
+var _ = tc.Suite(&SSHKeysSuite{})
 
 type keySuiteBase struct {
 	coretesting.FakeJujuXDGDataHomeSuite
@@ -33,20 +32,20 @@ type ListKeysSuite struct {
 	keySuiteBase
 }
 
-var _ = gc.Suite(&ListKeysSuite{})
+var _ = tc.Suite(&ListKeysSuite{})
 
-func (s *ListKeysSuite) TestListKeys(c *gc.C) {
+func (s *ListKeysSuite) TestListKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "KeyManager")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "ListKeys")
-		c.Assert(arg, jc.DeepEquals, params.ListSSHKeys{
+		c.Assert(objType, tc.Equals, "KeyManager")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "ListKeys")
+		c.Assert(arg, tc.DeepEquals, params.ListSSHKeys{
 			Mode:     params.SSHListModeFingerprint,
 			Entities: params.Entities{Entities: []params.Entity{{Tag: "admin"}}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsResults{})
 		*(result.(*params.StringsResults)) = params.StringsResults{
 			Results: []params.StringsResult{{
 				Result: []string{key1, key2},
@@ -58,24 +57,24 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 	keysCmd := &listKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	context, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys used in model: king/sword\n.*\\(user@host\\)\n.*\\(another@host\\)")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(output, tc.Matches, "Keys used in model: king/sword\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
-func (s *ListKeysSuite) TestListKeysWithModelUUID(c *gc.C) {
+func (s *ListKeysSuite) TestListKeysWithModelUUID(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "KeyManager")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "ListKeys")
-		c.Assert(arg, jc.DeepEquals, params.ListSSHKeys{
+		c.Assert(objType, tc.Equals, "KeyManager")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "ListKeys")
+		c.Assert(arg, tc.DeepEquals, params.ListSSHKeys{
 			Mode:     params.SSHListModeFingerprint,
 			Entities: params.Entities{Entities: []params.Entity{{Tag: "admin"}}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsResults{})
 		*(result.(*params.StringsResults)) = params.StringsResults{
 			Results: []params.StringsResult{{
 				Result: []string{key1, key2},
@@ -89,24 +88,24 @@ func (s *ListKeysSuite) TestListKeysWithModelUUID(c *gc.C) {
 	store.Models["arthur"].Models["queen/dagger"] = store.Models["arthur"].Models["king/sword"]
 	keysCmd.SetClientStore(store)
 	context, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), "-m", "queen/dagger")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys used in model: queen/dagger\n.*\\(user@host\\)\n.*\\(another@host\\)")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(output, tc.Matches, "Keys used in model: queen/dagger\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
-func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
+func (s *ListKeysSuite) TestListFullKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "KeyManager")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "ListKeys")
-		c.Assert(arg, jc.DeepEquals, params.ListSSHKeys{
+		c.Assert(objType, tc.Equals, "KeyManager")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "ListKeys")
+		c.Assert(arg, tc.DeepEquals, params.ListSSHKeys{
 			Mode:     params.SSHListModeFull,
 			Entities: params.Entities{Entities: []params.Entity{{Tag: "admin"}}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsResults{})
 		*(result.(*params.StringsResults)) = params.StringsResults{
 			Results: []params.StringsResult{{
 				Result: []string{key1, key2},
@@ -118,38 +117,38 @@ func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 	keysCmd := &listKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	context, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), "--full")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys used in model: king/sword\n.*\\(user@host\\)\n.*\\(another@host\\)")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(output, tc.Matches, "Keys used in model: king/sword\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
-func (s *ListKeysSuite) TestTooManyArgs(c *gc.C) {
+func (s *ListKeysSuite) TestTooManyArgs(c *tc.C) {
 	keysCmd := &listKeysCommand{}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), "foo")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["foo"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["foo"\]`)
 }
 
 type AddKeySuite struct {
 	keySuiteBase
 }
 
-var _ = gc.Suite(&AddKeySuite{})
+var _ = tc.Suite(&AddKeySuite{})
 
-func (s *AddKeySuite) TestAddKey(c *gc.C) {
+func (s *AddKeySuite) TestAddKey(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
 	var added []string
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "KeyManager")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "AddKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(objType, tc.Equals, "KeyManager")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "AddKeys")
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -160,22 +159,22 @@ func (s *AddKeySuite) TestAddKey(c *gc.C) {
 	keysCmd := &addKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(added, jc.DeepEquals, []string{key1, key2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(added, tc.DeepEquals, []string{key1, key2})
 }
 
-func (s *AddKeySuite) TestBlockAddKey(c *gc.C) {
+func (s *AddKeySuite) TestBlockAddKey(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "KeyManager")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "AddKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(objType, tc.Equals, "KeyManager")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "AddKeys")
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -185,29 +184,29 @@ func (s *AddKeySuite) TestBlockAddKey(c *gc.C) {
 	keysCmd := &addKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
-	c.Assert(err, gc.NotNil)
-	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), tc.IsTrue)
 }
 
 type RemoveKeySuite struct {
 	keySuiteBase
 }
 
-var _ = gc.Suite(&RemoveKeySuite{})
+var _ = tc.Suite(&RemoveKeySuite{})
 
-func (s *RemoveKeySuite) TestRemoveKeys(c *gc.C) {
+func (s *RemoveKeySuite) TestRemoveKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
 	var removed []string
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "KeyManager")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "DeleteKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(objType, tc.Equals, "KeyManager")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "DeleteKeys")
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -218,22 +217,22 @@ func (s *RemoveKeySuite) TestRemoveKeys(c *gc.C) {
 	keysCmd := &removeKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.DeepEquals, []string{key1, key2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(removed, tc.DeepEquals, []string{key1, key2})
 }
 
-func (s *RemoveKeySuite) TestBlockRemoveKeys(c *gc.C) {
+func (s *RemoveKeySuite) TestBlockRemoveKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "KeyManager")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "DeleteKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(objType, tc.Equals, "KeyManager")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "DeleteKeys")
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -243,29 +242,29 @@ func (s *RemoveKeySuite) TestBlockRemoveKeys(c *gc.C) {
 	keysCmd := &removeKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
-	c.Assert(err, gc.NotNil)
-	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), tc.IsTrue)
 }
 
 type ImportKeySuite struct {
 	keySuiteBase
 }
 
-var _ = gc.Suite(&ImportKeySuite{})
+var _ = tc.Suite(&ImportKeySuite{})
 
-func (s *ImportKeySuite) TestImportKeys(c *gc.C) {
+func (s *ImportKeySuite) TestImportKeys(c *tc.C) {
 	key1 := "lp:user1"
 	key2 := "gh:user2"
 	var imported []string
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "KeyManager")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "ImportKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(objType, tc.Equals, "KeyManager")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "ImportKeys")
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -276,22 +275,22 @@ func (s *ImportKeySuite) TestImportKeys(c *gc.C) {
 	keysCmd := &importKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imported, jc.DeepEquals, []string{key1, key2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(imported, tc.DeepEquals, []string{key1, key2})
 }
 
-func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
+func (s *ImportKeySuite) TestBlockImportKeys(c *tc.C) {
 	key1 := "lp:user1"
 	key2 := "gh:user2"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "KeyManager")
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "ImportKeys")
-		c.Assert(arg, jc.DeepEquals, params.ModifyUserSSHKeys{
+		c.Assert(objType, tc.Equals, "KeyManager")
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "ImportKeys")
+		c.Assert(arg, tc.DeepEquals, params.ModifyUserSSHKeys{
 			User: "admin",
 			Keys: []string{key1, key2},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -301,6 +300,6 @@ func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
 	keysCmd := &importKeysCommand{SSHKeysBase: SSHKeysBase{apiRoot: apiCaller}}
 	keysCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(keysCmd), key1, key2)
-	c.Assert(err, gc.NotNil)
-	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(strings.Contains(err.Error(), "All operations that change model have been disabled for the current model"), tc.IsTrue)
 }

@@ -8,8 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -31,7 +30,7 @@ var (
 
 type Suite struct{}
 
-var _ = gc.Suite(&Suite{})
+var _ = tc.Suite(&Suite{})
 
 type RootDiskTest struct {
 	series         string
@@ -55,7 +54,7 @@ var commonInstanceStoreDisks = []types.BlockDeviceMapping{{
 	VirtualName: aws.String("ephemeral3"),
 }}
 
-func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
+func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 	var rootDiskTests = []RootDiskTest{{
 		"jammy",
 		"nil constraint ubuntu",
@@ -139,9 +138,9 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 		c.Logf("Test %s", t.name)
 		cons := constraints.Value{RootDisk: t.constraint}
 		mappings, err := getBlockDeviceMappings(cons, t.series, false, t.rootDiskParams)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := append([]types.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
-		c.Assert(mappings, gc.DeepEquals, expected)
+		c.Assert(mappings, tc.DeepEquals, expected)
 	}
 }
 
@@ -149,7 +148,7 @@ func pInt(i uint64) *uint64 {
 	return &i
 }
 
-func (*Suite) TestPortsToIPPerms(c *gc.C) {
+func (*Suite) TestPortsToIPPerms(c *tc.C) {
 	testCases := []struct {
 		about    string
 		rules    firewall.IngressRules
@@ -229,46 +228,46 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		ipperms := rulesToIPPerms(t.rules)
-		c.Assert(ipperms, gc.DeepEquals, t.expected)
+		c.Assert(ipperms, tc.DeepEquals, t.expected)
 	}
 }
 
 // These Support checks are currently valid with a 'nil' environ pointer. If
 // that changes, the tests will need to be updated. (we know statically what is
 // supported.)
-func (*Suite) TestSupportsNetworking(c *gc.C) {
+func (*Suite) TestSupportsNetworking(c *tc.C) {
 	var env *environ
 	_, supported := environs.SupportsNetworking(env)
-	c.Assert(supported, jc.IsTrue)
+	c.Assert(supported, tc.IsTrue)
 }
 
-func (*Suite) TestSupportsSpaces(c *gc.C) {
+func (*Suite) TestSupportsSpaces(c *tc.C) {
 	var env *environ
 	supported, err := env.SupportsSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.IsTrue)
-	c.Check(environs.SupportsSpaces(env), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supported, tc.IsTrue)
+	c.Check(environs.SupportsSpaces(env), tc.IsTrue)
 }
 
-func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
+func (*Suite) TestSupportsSpaceDiscovery(c *tc.C) {
 	supported, err := (&environ{}).SupportsSpaceDiscovery()
 	// TODO(jam): 2016-02-01 the comment on the interface says the error should
 	// conform to IsNotSupported, but all of the implementations just return
 	// nil for error and 'false' for supported.
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supported, tc.IsFalse)
 }
 
-func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
+func (*Suite) TestSupportsContainerAddresses(c *tc.C) {
 	callCtx := context.Background()
 	env := new(environ)
 	supported, err := env.SupportsContainerAddresses(callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.IsFalse)
-	c.Check(environs.SupportsContainerAddresses(callCtx, env), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supported, tc.IsFalse)
+	c.Check(environs.SupportsContainerAddresses(callCtx, env), tc.IsFalse)
 }
 
-func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *gc.C) {
+func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *tc.C) {
 	allSubnetZones := []map[network.Id][]string{
 		{network.Id("sub-1"): {"az-1"}},
 	}
@@ -279,11 +278,11 @@ func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *gc.C) {
 	}
 
 	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnetZones, gc.DeepEquals, allSubnetZones[0])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnetZones, tc.DeepEquals, allSubnetZones[0])
 }
 
-func (*Suite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *gc.C) {
+func (*Suite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *tc.C) {
 	allSubnetZones := []map[network.Id][]string{{
 		network.Id("sub-1"):       {"az-1"},
 		network.Id("sub-INFAN-2"): {"az-2"},
@@ -299,13 +298,13 @@ func (*Suite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *gc.C) {
 	}
 
 	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnetZones, gc.DeepEquals, map[network.Id][]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnetZones, tc.DeepEquals, map[network.Id][]string{
 		"sub-1": {"az-1"},
 	})
 }
 
-func (*Suite) TestGetValidSubnetZoneMapNoIntersectionError(c *gc.C) {
+func (*Suite) TestGetValidSubnetZoneMapNoIntersectionError(c *tc.C) {
 	allSubnetZones := []map[network.Id][]string{
 		{network.Id("sub-1"): {"az-1"}},
 		{network.Id("sub-2"): {"az-2"}},
@@ -322,11 +321,11 @@ func (*Suite) TestGetValidSubnetZoneMapNoIntersectionError(c *gc.C) {
 	}
 
 	_, err := getValidSubnetZoneMap(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`unable to satisfy supplied space requirements; spaces: \[admin\], bindings: \[space-1\]`)
 }
 
-func (*Suite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *gc.C) {
+func (*Suite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *tc.C) {
 	allSubnetZones := []map[network.Id][]string{
 		{network.Id("sub-1"): {"az-1"}},
 		{network.Id("sub-2"): {"az-2"}},
@@ -349,22 +348,22 @@ func (*Suite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *gc.C) 
 	// subnets-to-zones map.
 
 	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnetZones, gc.DeepEquals, allSubnetZones[1])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnetZones, tc.DeepEquals, allSubnetZones[1])
 }
 
-func (*Suite) TestGatherNilAZ(c *gc.C) {
+func (*Suite) TestGatherNilAZ(c *tc.C) {
 	az := gatherAvailabilityZones(nil)
-	c.Assert(az, gc.HasLen, 0)
+	c.Assert(az, tc.HasLen, 0)
 }
 
-func (*Suite) TestGatherEmptyAZ(c *gc.C) {
+func (*Suite) TestGatherEmptyAZ(c *tc.C) {
 	instances := []instances.Instance{}
 	az := gatherAvailabilityZones(instances)
-	c.Assert(az, gc.HasLen, 0)
+	c.Assert(az, tc.HasLen, 0)
 }
 
-func (*Suite) TestGatherAZ(c *gc.C) {
+func (*Suite) TestGatherAZ(c *tc.C) {
 	instances := []instances.Instance{
 		&sdkInstance{
 			i: types.Instance{
@@ -389,7 +388,7 @@ func (*Suite) TestGatherAZ(c *gc.C) {
 		},
 	}
 	az := gatherAvailabilityZones(instances)
-	c.Assert(az, gc.DeepEquals, map[instance.Id]string{
+	c.Assert(az, tc.DeepEquals, map[instance.Id]string{
 		"id1": "aaa",
 		"id2": "bbb",
 	})

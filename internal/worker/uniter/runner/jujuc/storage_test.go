@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/jujuctesting"
 )
@@ -23,7 +23,7 @@ type storageSuite struct {
 	location    string
 }
 
-func (s *storageSuite) SetUpTest(c *gc.C) {
+func (s *storageSuite) SetUpTest(c *tc.C) {
 	s.ContextSuite.SetUpTest(c)
 
 	s.storageName = "data/0"

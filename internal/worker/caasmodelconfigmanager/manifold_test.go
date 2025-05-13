@@ -10,33 +10,32 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
 )
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
 type manifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	config caasmodelconfigmanager.ManifoldConfig
 }
 
-func (s *manifoldSuite) SetUpTest(c *gc.C) {
+func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = s.validConfig(c)
 }
 
-func (s *manifoldSuite) validConfig(c *gc.C) caasmodelconfigmanager.ManifoldConfig {
+func (s *manifoldSuite) validConfig(c *tc.C) caasmodelconfigmanager.ManifoldConfig {
 	return caasmodelconfigmanager.ManifoldConfig{
 		APICallerName: "api-caller",
 		BrokerName:    "broker",
@@ -51,47 +50,47 @@ func (s *manifoldSuite) validConfig(c *gc.C) caasmodelconfigmanager.ManifoldConf
 	}
 }
 
-func (s *manifoldSuite) TestValid(c *gc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+func (s *manifoldSuite) TestValid(c *tc.C) {
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *manifoldSuite) TestMissingAPICallerName(c *gc.C) {
+func (s *manifoldSuite) TestMissingAPICallerName(c *tc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "empty APICallerName not valid")
 }
 
-func (s *manifoldSuite) TestMissingBrokerName(c *gc.C) {
+func (s *manifoldSuite) TestMissingBrokerName(c *tc.C) {
 	s.config.BrokerName = ""
 	s.checkNotValid(c, "empty BrokerName not valid")
 }
 
-func (s *manifoldSuite) TestMissingNewFacade(c *gc.C) {
+func (s *manifoldSuite) TestMissingNewFacade(c *tc.C) {
 	s.config.NewFacade = nil
 	s.checkNotValid(c, "nil NewFacade not valid")
 }
 
-func (s *manifoldSuite) TestMissingNewWorker(c *gc.C) {
+func (s *manifoldSuite) TestMissingNewWorker(c *tc.C) {
 	s.config.NewWorker = nil
 	s.checkNotValid(c, "nil NewWorker not valid")
 }
 
-func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
+func (s *manifoldSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
 }
 
-func (s *manifoldSuite) TestMissingClock(c *gc.C) {
+func (s *manifoldSuite) TestMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	s.checkNotValid(c, "nil Clock not valid")
 }
 
-func (s *manifoldSuite) checkNotValid(c *gc.C, expect string) {
+func (s *manifoldSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -101,12 +100,12 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	}
 	s.config.NewWorker = func(config caasmodelconfigmanager.Config) (worker.Worker, error) {
 		called = true
-		mc := jc.NewMultiChecker()
-		mc.AddExpr(`_.Facade`, gc.NotNil)
-		mc.AddExpr(`_.Broker`, gc.NotNil)
-		mc.AddExpr(`_.Logger`, gc.NotNil)
-		mc.AddExpr(`_.RegistryFunc`, gc.NotNil)
-		mc.AddExpr(`_.Clock`, gc.NotNil)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(`_.Facade`, tc.NotNil)
+		mc.AddExpr(`_.Broker`, tc.NotNil)
+		mc.AddExpr(`_.Logger`, tc.NotNil)
+		mc.AddExpr(`_.RegistryFunc`, tc.NotNil)
+		mc.AddExpr(`_.Clock`, tc.NotNil)
 		c.Check(config, mc, caasmodelconfigmanager.Config{
 			ModelTag: names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		})
@@ -117,9 +116,9 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		"api-caller": struct{ base.APICaller }{APICaller: &mockAPICaller{}},
 		"broker":     struct{ caas.Broker }{},
 	}))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(w, tc.IsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 type mockAPICaller struct {

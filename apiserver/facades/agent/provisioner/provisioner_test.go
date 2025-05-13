@@ -6,9 +6,8 @@ package provisioner
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -54,11 +53,11 @@ type provisionerMockSuite struct {
 	application *MockApplication
 }
 
-var _ = gc.Suite(&provisionerMockSuite{})
+var _ = tc.Suite(&provisionerMockSuite{})
 
 // Even when the provider supports container addresses, manually provisioned
 // machines should fall back to DHCP.
-func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(c *gc.C) {
+func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectManuallyProvisionedHostsUseDHCPForContainers()
@@ -70,13 +69,13 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 
 	// ProviderCallContext is not required by this logical path and can be nil
 	err := ctx.ProcessOneContainer(context.Background(), s.environ, s.policy, 0, s.host, s.container, "", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results[0].Config, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results[0].Config, tc.HasLen, 1)
 
 	cfg := res.Results[0].Config[0]
-	c.Check(cfg.ConfigType, gc.Equals, "dhcp")
-	c.Check(cfg.ProviderSubnetId, gc.Equals, "")
-	c.Check(cfg.VLANTag, gc.Equals, 0)
+	c.Check(cfg.ConfigType, tc.Equals, "dhcp")
+	c.Check(cfg.ProviderSubnetId, tc.Equals, "")
+	c.Check(cfg.VLANTag, tc.Equals, 0)
 }
 
 func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainers() {
@@ -107,7 +106,7 @@ func (s *provisionerMockSuite) expectNetworkingEnviron() {
 	eExp.SupportsContainerAddresses(gomock.Any()).Return(true, nil).AnyTimes()
 }
 
-func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
+func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	exp := s.container.EXPECT()
@@ -124,13 +123,13 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
 	err := ctx.ProcessOneContainer(context.Background(), s.environ, nil, 0, s.host, s.container, "", instance.Id("juju-8ebd6c-0"), nil)
-	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
+	c.Assert(err, tc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
 }
 
 // TODO: this is not a great test name, this test does not even call
 //
 //	ProvisionerAPI.GetContainerProfileInfo.
-func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
+func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 	s.expectCharmLXDProfiles(ctrl)
@@ -162,13 +161,13 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
 	err := ctx.ProcessOneContainer(context.Background(), s.environ, nil, 0, s.host, s.container, "", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[0].LXDProfiles, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
+	c.Assert(res.Results[0].LXDProfiles, tc.HasLen, 1)
 	profile := res.Results[0].LXDProfiles[0]
-	c.Check(profile.Name, gc.Equals, "juju-testme-application-3")
-	c.Check(profile.Profile.Config, gc.DeepEquals,
+	c.Check(profile.Name, tc.Equals, "juju-testme-application-3")
+	c.Check(profile.Profile.Config, tc.DeepEquals,
 		map[string]string{
 			"security.nesting":    "true",
 			"security.privileged": "true",
@@ -176,7 +175,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
 	)
 }
 
-func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
+func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 	s.expectCharmLXDProfiles(ctrl)
@@ -204,10 +203,10 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
 	err := ctx.ProcessOneContainer(context.Background(), s.environ, nil, 0, s.host, s.container, "", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[0].LXDProfiles, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
+	c.Assert(res.Results[0].LXDProfiles, tc.HasLen, 0)
 }
 
 func (s *provisionerMockSuite) expectCharmLXDProfiles(ctrl *gomock.Controller) {
@@ -215,7 +214,7 @@ func (s *provisionerMockSuite) expectCharmLXDProfiles(ctrl *gomock.Controller) {
 	s.unit.EXPECT().Application().Return(s.application, nil)
 }
 
-func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
+func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.environ = environtesting.NewMockNetworkingEnviron(ctrl)

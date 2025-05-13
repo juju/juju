@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -31,13 +30,13 @@ type unitStateSuite struct {
 	unitStateService       *mocks.MockUnitStateService
 }
 
-var _ = gc.Suite(&unitStateSuite{})
+var _ = tc.Suite(&unitStateSuite{})
 
-func (s *unitStateSuite) SetUpTest(c *gc.C) {
+func (s *unitStateSuite) SetUpTest(c *tc.C) {
 	s.unitTag1 = names.NewUnitTag("wordpress/0")
 }
 
-func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
+func (s *unitStateSuite) assertBackendApi(c *tc.C) *gomock.Controller {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.unitTag1,
@@ -67,7 +66,7 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *unitStateSuite) expectGetState(c *gc.C, name string) (map[string]string, string, map[int]string, string, string) {
+func (s *unitStateSuite) expectGetState(c *tc.C, name string) (map[string]string, string, map[int]string, string, string) {
 	expCharmState := map[string]string{
 		"foo.bar":  "baz",
 		"payload$": "enc0d3d",
@@ -93,7 +92,7 @@ func (s *unitStateSuite) expectGetState(c *gc.C, name string) (map[string]string
 	return expCharmState, expUniterState, expRelationState, expStorageState, expSecretState
 }
 
-func (s *unitStateSuite) TestState(c *gc.C) {
+func (s *unitStateSuite) TestState(c *tc.C) {
 	defer s.assertBackendApi(c).Finish()
 	expCharmState, expUniterState, expRelationState, expStorageState, expSecretState := s.expectGetState(c, "wordpress/0")
 
@@ -106,8 +105,8 @@ func (s *unitStateSuite) TestState(c *gc.C) {
 		},
 	}
 	result, err := s.api.State(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.UnitStateResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.UnitStateResults{
 		Results: []params.UnitStateResult{
 			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
 			{
@@ -124,7 +123,7 @@ func (s *unitStateSuite) TestState(c *gc.C) {
 	})
 }
 
-func (s *unitStateSuite) TestSetStateUniterState(c *gc.C) {
+func (s *unitStateSuite) TestSetStateUniterState(c *tc.C) {
 	defer s.assertBackendApi(c).Finish()
 	expUniterState := "testing"
 
@@ -144,8 +143,8 @@ func (s *unitStateSuite) TestSetStateUniterState(c *gc.C) {
 	s.unitStateService.EXPECT().SetState(gomock.Any(), expectedState).Return(nil)
 
 	result, err := s.api.SetState(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
 			{Error: nil},

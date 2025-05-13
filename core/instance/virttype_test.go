@@ -3,16 +3,13 @@
 
 package instance
 
-import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-)
+import "github.com/juju/tc"
 
 type VirtTypeSuite struct{}
 
-var _ = gc.Suite(&VirtTypeSuite{})
+var _ = tc.Suite(&VirtTypeSuite{})
 
-func (s *VirtTypeSuite) TestParseVirtType(c *gc.C) {
+func (s *VirtTypeSuite) TestParseVirtType(c *tc.C) {
 	parseVirtTypeTests := []struct {
 		arg   string
 		value VirtType
@@ -34,10 +31,10 @@ func (s *VirtTypeSuite) TestParseVirtType(c *gc.C) {
 		c.Logf("test %d: %s", i, t.arg)
 		v, err := ParseVirtType(t.arg)
 		if t.err == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(v, gc.Equals, t.value)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(v, tc.Equals, t.value)
 		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
+			c.Check(err, tc.ErrorMatches, t.err)
 		}
 	}
 }

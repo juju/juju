@@ -8,9 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/usermanager"
@@ -20,9 +19,9 @@ import (
 
 type usermanagerSuite struct{}
 
-var _ = gc.Suite(&usermanagerSuite{})
+var _ = tc.Suite(&usermanagerSuite{})
 
-func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
+func (s *usermanagerSuite) TestAddExistingUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -45,10 +44,10 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, _, err := client.AddUser(context.Background(), "foobar", "Foo Bar", "password")
-	c.Assert(err, gc.ErrorMatches, "failed to create user: user foobar already exists")
+	c.Assert(err, tc.ErrorMatches, "failed to create user: user foobar already exists")
 }
 
-func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {
+func (s *usermanagerSuite) TestAddUserResponseError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -65,10 +64,10 @@ func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, _, err := client.AddUser(context.Background(), "foobar", "Foo Bar", "password")
-	c.Assert(err, gc.ErrorMatches, "call error")
+	c.Assert(err, tc.ErrorMatches, "call error")
 }
 
-func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
+func (s *usermanagerSuite) TestAddUserResultCount(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -85,10 +84,10 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, _, err := client.AddUser(context.Background(), "foobar", "Foo Bar", "password")
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
+func (s *usermanagerSuite) TestRemoveUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -104,10 +103,10 @@ func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	// Delete the user.
 	err := client.RemoveUser(context.Background(), "jjam")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *usermanagerSuite) TestDisableUser(c *gc.C) {
+func (s *usermanagerSuite) TestDisableUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -124,10 +123,10 @@ func (s *usermanagerSuite) TestDisableUser(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.DisableUser(context.Background(), user.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
+func (s *usermanagerSuite) TestEnableUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -139,10 +138,10 @@ func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnableUser", args, result).SetArg(3, results).Return(nil)
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.EnableUser(context.Background(), user.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
+func (s *usermanagerSuite) TestCantRemoveAdminUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -159,10 +158,10 @@ func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.DisableUser(context.Background(), admin.Name())
-	c.Assert(err, gc.ErrorMatches, "failed to disable user: cannot disable controller model owner")
+	c.Assert(err, tc.ErrorMatches, "failed to disable user: cannot disable controller model owner")
 }
 
-func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
+func (s *usermanagerSuite) TestUserInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -189,7 +188,7 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := client.UserInfo(context.Background(), []string{"foobar"}, usermanager.AllUsers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []params.UserInfo{
 		{
 			Username:    "foobar",
@@ -199,10 +198,10 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 		},
 	}
 
-	c.Assert(obtained, jc.DeepEquals, expected)
+	c.Assert(obtained, tc.DeepEquals, expected)
 }
 
-func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
+func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -221,17 +220,17 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := client.UserInfo(context.Background(), nil, usermanager.AllUsers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := []params.UserInfo{
 		{Username: "first"},
 		{Username: "second"},
 	}
 
-	c.Assert(obtained, jc.DeepEquals, expected)
+	c.Assert(obtained, tc.DeepEquals, expected)
 }
 
-func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *gc.C) {
+func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -251,10 +250,10 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.UserInfo(context.Background(), []string{"foo", "bar"}, usermanager.AllUsers)
-	c.Assert(err, gc.ErrorMatches, "foo: first error, bar: second error")
+	c.Assert(err, tc.ErrorMatches, "foo: first error, bar: second error")
 }
 
-func (s *usermanagerSuite) TestModelUserInfo(c *gc.C) {
+func (s *usermanagerSuite) TestModelUserInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -274,15 +273,15 @@ func (s *usermanagerSuite) TestModelUserInfo(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := client.ModelUserInfo(context.Background(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, jc.DeepEquals, []params.ModelUserInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.DeepEquals, []params.ModelUserInfo{
 		{UserName: "one"},
 		{UserName: "two"},
 		{UserName: "three"},
 	})
 }
 
-func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
+func (s *usermanagerSuite) TestSetUserPassword(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -297,10 +296,10 @@ func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetPassword(context.Background(), tag.Name(), "new-password")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *gc.C) {
+func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -313,10 +312,10 @@ func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetPassword(context.Background(), tag.Id(), "new-password")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *usermanagerSuite) TestSetUserPasswordBadName(c *gc.C) {
+func (s *usermanagerSuite) TestSetUserPasswordBadName(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -324,10 +323,10 @@ func (s *usermanagerSuite) TestSetUserPasswordBadName(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetPassword(context.Background(), "not!good", "new-password")
-	c.Assert(err, gc.ErrorMatches, `"not!good" is not a valid username`)
+	c.Assert(err, tc.ErrorMatches, `"not!good" is not a valid username`)
 }
 
-func (s *usermanagerSuite) TestResetPasswordResponseError(c *gc.C) {
+func (s *usermanagerSuite) TestResetPasswordResponseError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -341,10 +340,10 @@ func (s *usermanagerSuite) TestResetPasswordResponseError(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.ResetPassword(context.Background(), "foobar")
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *usermanagerSuite) TestResetPassword(c *gc.C) {
+func (s *usermanagerSuite) TestResetPassword(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -359,21 +358,21 @@ func (s *usermanagerSuite) TestResetPassword(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.ResetPassword(context.Background(), "foobar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, key)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, key)
 }
 
-func (s *usermanagerSuite) TestResetPasswordInvalidUsername(c *gc.C) {
+func (s *usermanagerSuite) TestResetPasswordInvalidUsername(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.ResetPassword(context.Background(), "not/valid")
-	c.Assert(err, gc.ErrorMatches, `invalid user name "not/valid"`)
+	c.Assert(err, tc.ErrorMatches, `invalid user name "not/valid"`)
 }
 
-func (s *usermanagerSuite) TestResetPasswordResultCount(c *gc.C) {
+func (s *usermanagerSuite) TestResetPasswordResultCount(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -385,5 +384,5 @@ func (s *usermanagerSuite) TestResetPasswordResultCount(c *gc.C) {
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.ResetPassword(context.Background(), "foobar")
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }

@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -25,9 +24,9 @@ type watcherSuite struct {
 	changestreamtesting.ModelSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
+func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "subnet")
 
 	svc := service.NewWatchableService(
@@ -39,7 +38,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
 	// Initial event.
 	watcherC.AssertOneChange()
@@ -52,13 +51,13 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 		ProviderNetworkId: "subnet-provider-network-id",
 	}
 	createdSubnetID, err := svc.AddSubnet(context.Background(), subnet)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
 	watcherC.AssertChange(createdSubnetID.String())
 }
 
-func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
+func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "subnet")
 
 	svc := service.NewWatchableService(
@@ -70,7 +69,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
 	// Initial event.
 	watcherC.AssertOneChange()
@@ -83,10 +82,10 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 		ProviderNetworkId: "subnet-provider-network-id",
 	}
 	createdSubnetID, err := svc.AddSubnet(context.Background(), subnet)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Delete the subnet.
 	err = svc.RemoveSubnet(context.Background(), createdSubnetID.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
 	watcherC.AssertChange(createdSubnetID.String())

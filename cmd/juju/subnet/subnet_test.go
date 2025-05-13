@@ -6,8 +6,7 @@ package subnet_test
 import (
 	"errors"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/subnet"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -17,7 +16,7 @@ type SubnetCommandSuite struct {
 	BaseSubnetSuite
 }
 
-var _ = gc.Suite(&SubnetCommandSuite{})
+var _ = tc.Suite(&SubnetCommandSuite{})
 
 type SubnetCommandBaseSuite struct {
 	coretesting.BaseSuite
@@ -25,14 +24,14 @@ type SubnetCommandBaseSuite struct {
 	baseCmd *subnet.SubnetCommandBase
 }
 
-func (s *SubnetCommandBaseSuite) SetUpTest(c *gc.C) {
+func (s *SubnetCommandBaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.baseCmd = &subnet.SubnetCommandBase{}
 }
 
-var _ = gc.Suite(&SubnetCommandBaseSuite{})
+var _ = tc.Suite(&SubnetCommandBaseSuite{})
 
-func (s *SubnetCommandBaseSuite) TestCheckNumArgs(c *gc.C) {
+func (s *SubnetCommandBaseSuite) TestCheckNumArgs(c *tc.C) {
 	threeErrors := []error{
 		errors.New("first"),
 		errors.New("second"),
@@ -56,15 +55,15 @@ func (s *SubnetCommandBaseSuite) TestCheckNumArgs(c *gc.C) {
 			c.Logf("test #%d: args: %v, errors: %v -> %q", i*4+j, args, errs, expectErr)
 			err := s.baseCmd.CheckNumArgs(args, errs)
 			if expectErr != "" {
-				c.Check(err, gc.ErrorMatches, expectErr)
+				c.Check(err, tc.ErrorMatches, expectErr)
 			} else {
-				c.Check(err, jc.ErrorIsNil)
+				c.Check(err, tc.ErrorIsNil)
 			}
 		}
 	}
 }
 
-func (s *SubnetCommandBaseSuite) TestValidateCIDR(c *gc.C) {
+func (s *SubnetCommandBaseSuite) TestValidateCIDR(c *tc.C) {
 	// We only validate the subset of accepted CIDR formats which we
 	// need to support.
 	for i, test := range []struct {
@@ -127,15 +126,15 @@ func (s *SubnetCommandBaseSuite) TestValidateCIDR(c *gc.C) {
 		c.Logf("test #%d: %s -> %s", i, test.about, test.expectErr)
 		validated, err := s.baseCmd.ValidateCIDR(test.input, test.strict)
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
-		c.Check(validated, gc.Equals, test.output)
+		c.Check(validated, tc.Equals, test.output)
 	}
 }
 
-func (s *SubnetCommandBaseSuite) TestValidateSpace(c *gc.C) {
+func (s *SubnetCommandBaseSuite) TestValidateSpace(c *tc.C) {
 	// We only validate a few more common invalid cases as
 	// names.IsValidSpace() is separately and more extensively tested.
 	for i, test := range []struct {
@@ -174,12 +173,12 @@ func (s *SubnetCommandBaseSuite) TestValidateSpace(c *gc.C) {
 		c.Logf("test #%d: %s -> %s", i, test.about, test.expectErr)
 		validated, err := s.baseCmd.ValidateSpace(test.input)
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
-			c.Check(validated.Id(), gc.Equals, "")
+			c.Check(err, tc.ErrorMatches, test.expectErr)
+			c.Check(validated.Id(), tc.Equals, "")
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			// When the input is valid it should stay the same.
-			c.Check(validated.Id(), gc.Equals, test.input)
+			c.Check(validated.Id(), tc.Equals, test.input)
 		}
 	}
 }

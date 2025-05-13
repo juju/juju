@@ -7,10 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -42,9 +41,9 @@ type firewallerSuite struct {
 	modelTag names.ModelTag
 }
 
-var _ = gc.Suite(&firewallerSuite{})
+var _ = tc.Suite(&firewallerSuite{})
 
-func (s *firewallerSuite) SetUpTest(c *gc.C) {
+func (s *firewallerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.modelTag = coretesting.ModelTag
@@ -60,8 +59,8 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		applicationsWatcher: watchertest.NewMockStringsWatcher(s.applicationsChanges),
 		appExposedWatcher:   appExposedWatcher,
 	}
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.appExposedWatcher) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.st.appExposedWatcher) })
 
 	s.resources = common.NewResources()
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -70,7 +69,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *firewallerSuite) TestPermission(c *gc.C) {
+func (s *firewallerSuite) TestPermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -78,9 +77,9 @@ func (s *firewallerSuite) TestPermission(c *gc.C) {
 	}
 
 	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(s.modelTag, s.charmService, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(s.modelTag, nil, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = caasfirewaller.NewFacade(
 		s.resources,
@@ -91,22 +90,22 @@ func (s *firewallerSuite) TestPermission(c *gc.C) {
 		appCharmInfoAPI,
 		s.appService,
 	)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *firewallerSuite) TestWatchApplications(c *gc.C) {
+func (s *firewallerSuite) TestWatchApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	applicationNames := []string{"db2", "hadoop"}
 	s.applicationsChanges <- applicationNames
 	result, err := s.facade.WatchApplications(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Changes, jc.DeepEquals, applicationNames)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.StringsWatcherId, tc.Equals, "1")
+	c.Assert(result.Changes, tc.DeepEquals, applicationNames)
 }
 
-func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
+func (s *firewallerSuite) TestWatchApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.appExposedChanges <- struct{}{}
@@ -119,18 +118,18 @@ func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: "permission denied",
 		Code:    "unauthorized access",
 	})
 
-	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
+	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "1")
 }
 
-func (s *firewallerSuite) TestIsExposed(c *gc.C) {
+func (s *firewallerSuite) TestIsExposed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.appService.EXPECT().IsApplicationExposed(gomock.Any(), "gitlab").Return(true, nil)
@@ -142,8 +141,8 @@ func (s *firewallerSuite) TestIsExposed(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.BoolResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{{
 			Result: true,
 		}, {
@@ -154,7 +153,7 @@ func (s *firewallerSuite) TestIsExposed(c *gc.C) {
 	})
 }
 
-func (s *firewallerSuite) TestLife(c *gc.C) {
+func (s *firewallerSuite) TestLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.appService.EXPECT().GetApplicationLife(gomock.Any(), "gitlab").Return(life.Alive, nil)
@@ -165,8 +164,8 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 			{Tag: "machine-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{{
 			Life: life.Alive,
 		}, {
@@ -178,7 +177,7 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 	})
 }
 
-func (s *firewallerSuite) TestApplicationConfig(c *gc.C) {
+func (s *firewallerSuite) TestApplicationConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	results, err := s.facade.ApplicationsConfig(context.Background(), params.Entities{
@@ -187,16 +186,16 @@ func (s *firewallerSuite) TestApplicationConfig(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
-	c.Assert(results.Results[0].Config, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(results.Results[0].Config, tc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
-func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *firewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
@@ -205,9 +204,9 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.appService = NewMockApplicationService(ctrl)
 
 	commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(s.modelTag, s.charmService, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(s.modelTag, nil, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	facade, err := caasfirewaller.NewFacade(
 		s.resources,
@@ -218,7 +217,7 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		appCharmInfoAPI,
 		s.appService,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.facade = facade
 

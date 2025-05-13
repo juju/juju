@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -28,9 +27,9 @@ type watcherSuite struct {
 	svc *service.WatchableService
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) SetUpTest(c *gc.C) {
+func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "machine")
@@ -45,17 +44,17 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *watcherSuite) TestWatchModelMachines(c *gc.C) {
+func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	_, err := s.svc.CreateMachine(context.Background(), "0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	_, err = s.svc.CreateMachine(context.Background(), "0/lxd/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	s.AssertChangeStreamIdle(c)
 
 	watcher, err := s.svc.WatchModelMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	defer watchertest.CleanKill(c, watcher)
 
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
@@ -66,30 +65,30 @@ func (s *watcherSuite) TestWatchModelMachines(c *gc.C) {
 
 	// A new machine triggers an emission.
 	_, err = s.svc.CreateMachine(context.Background(), "1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	watcherC.AssertChange("1")
 
 	// An update triggers an emission.
 	err = s.svc.SetMachineLife(context.Background(), "1", life.Dying)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	watcherC.AssertChange("1")
 
 	// A deletion is ignored.
 	err = s.svc.DeleteMachine(context.Background(), "1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	// As is a container creation.
 	_, err = s.svc.CreateMachine(context.Background(), "0/lxd/1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	s.AssertChangeStreamIdle(c)
 	watcherC.AssertNoChange()
 }
 
-func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *gc.C) {
+func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
 	machineUUID, err := s.svc.CreateMachine(context.Background(), "machine-1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	hc := &instance.HardwareCharacteristics{
 		Mem:      uintptr(1024),
 		RootDisk: uintptr(256),
@@ -97,13 +96,13 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *gc.C) {
 		CpuPower: uintptr(75),
 	}
 	watcher, err := s.svc.WatchMachineCloudInstances(context.Background(), machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Should notify when the machine cloud instance is set.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = s.svc.SetMachineCloudInstance(context.Background(), machineUUID, "42", "", hc)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -111,10 +110,10 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *gc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *gc.C) {
+func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
 	machineUUID, err := s.svc.CreateMachine(context.Background(), "machine-1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	hc := &instance.HardwareCharacteristics{
 		Mem:      uintptr(1024),
 		RootDisk: uintptr(256),
@@ -122,16 +121,16 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *gc.C) {
 		CpuPower: uintptr(75),
 	}
 	err = s.svc.SetMachineCloudInstance(context.Background(), machineUUID, "42", "", hc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	watcher, err := s.svc.WatchMachineCloudInstances(context.Background(), machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Should notify when the machine cloud instance is deleted.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err = s.svc.DeleteMachineCloudInstance(context.Background(), machineUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
@@ -139,41 +138,41 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *gc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchLXDProfiles(c *gc.C) {
+func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 	machineUUIDm0, err := s.svc.CreateMachine(context.Background(), "machine-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.svc.SetMachineCloudInstance(context.Background(), machineUUIDm0, instance.Id("123"), "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machineUUIDm1, err := s.svc.CreateMachine(context.Background(), "machine-2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.svc.SetMachineCloudInstance(context.Background(), machineUUIDm1, instance.Id("456"), "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := s.svc.WatchLXDProfiles(context.Background(), machineUUIDm0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Should notify when a new profile is added.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.svc.SetAppliedLXDProfileNames(context.Background(), machineUUIDm0, []string{"profile-0"})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
 	// Should notify when profiles are overwritten.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.svc.SetAppliedLXDProfileNames(context.Background(), machineUUIDm0, []string{"profile-0", "profile-1", "profile-2"})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
 	// Nothing to notify when the lxd profiles are set on the other (non
 	// watched) machine.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.svc.SetAppliedLXDProfileNames(context.Background(), machineUUIDm1, []string{"profile-0"})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
@@ -188,65 +187,65 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *gc.C) {
 // - The watcher is notified when the child is directly asked for reboot.
 // - The watcher is notified when the parent is required for reboot.
 // The tests are run using the watchertest harness.
-func (s *watcherSuite) TestWatchMachineForReboot(c *gc.C) {
+func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Create machine hierarchy to reboot from parent, with a child (which will be watched) and a control child
 	parentUUID, err := s.svc.CreateMachine(context.Background(), "parent")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	childUUID, err := s.svc.CreateMachineWithParent(context.Background(), "child", "parent")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controlUUID, err := s.svc.CreateMachineWithParent(context.Background(), "control", "parent")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create watcher for child
 	watcher, err := s.svc.WatchMachineReboot(context.Background(), childUUID)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Ensure that the watcher is not notified when a sibling is asked for reboot
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.svc.RequireMachineReboot(context.Background(), controlUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	// Ensure that the watcher is notified when the child is directly asked for reboot
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.svc.RequireMachineReboot(context.Background(), childUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
 	// Ensure that the watcher is notified when the parent is required for reboot
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.svc.RequireMachineReboot(context.Background(), parentUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
 	// Ensure that the watcher is not notified when a sibling is cleared from reboot
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.svc.ClearMachineReboot(context.Background(), controlUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	// Ensure that the watcher is notified when the child is directly cleared from reboot
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.svc.ClearMachineReboot(context.Background(), childUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
 	// Ensure that the watcher is notified when the parent is cleared from reboot
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.svc.ClearMachineReboot(context.Background(), parentUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})

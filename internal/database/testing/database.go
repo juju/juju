@@ -12,21 +12,20 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 // DumpTable dumps the contents of the given table to stdout.
 // This is useful for debugging tests. It is not intended for use
 // in production code.
-func DumpTable(c *gc.C, db *sql.DB, table string, extraTables ...string) {
+func DumpTable(c *tc.C, db *sql.DB, table string, extraTables ...string) {
 	for _, t := range append([]string{table}, extraTables...) {
 		rows, err := db.Query(fmt.Sprintf("SELECT * FROM %q", t))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer rows.Close()
 
 		cols, err := rows.Columns()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		buffer := new(bytes.Buffer)
 		writer := tabwriter.NewWriter(buffer, 0, 8, 4, ' ', 0)
@@ -43,7 +42,7 @@ func DumpTable(c *gc.C, db *sql.DB, table string, extraTables ...string) {
 
 		for rows.Next() {
 			err = rows.Scan(vals...)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			for _, val := range vals {
 				fmt.Fprintf(writer, "%v\t", *val.(*any))
@@ -51,7 +50,7 @@ func DumpTable(c *gc.C, db *sql.DB, table string, extraTables ...string) {
 			fmt.Fprintln(writer)
 		}
 		err = rows.Err()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		writer.Flush()
 
 		fmt.Fprintf(os.Stdout, "Table - %s:\n", t)

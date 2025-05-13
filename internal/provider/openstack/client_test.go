@@ -7,9 +7,8 @@ import (
 	"github.com/go-goose/goose/v5/client"
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -20,57 +19,57 @@ type clientSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&clientSuite{})
+var _ = tc.Suite(&clientSuite{})
 
-func (s *clientSuite) TestFactoryInit(c *gc.C) {
+func (s *clientSuite) TestFactoryInit(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	factory := s.setupMockFactory(ctrl, 1)
 
 	err := factory.Init()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *clientSuite) TestFactoryNova(c *gc.C) {
+func (s *clientSuite) TestFactoryNova(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	factory := s.setupMockFactory(ctrl, 1)
 
 	err := factory.Init()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nova, err := factory.Nova()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nova, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(nova, tc.NotNil)
 }
 
-func (s *clientSuite) TestFactoryNeutron(c *gc.C) {
+func (s *clientSuite) TestFactoryNeutron(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	factory := s.setupMockFactory(ctrl, 2)
 
 	err := factory.Init()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nova, err := factory.Neutron()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nova, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(nova, tc.NotNil)
 }
 
-func (s *clientSuite) TestFactoryAuthFallbackSuccess(c *gc.C) {
+func (s *clientSuite) TestFactoryAuthFallbackSuccess(c *tc.C) {
 	err := s.testFactoryAuthFallback(c, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *clientSuite) TestFactoryAuthFallbackError(c *gc.C) {
+func (s *clientSuite) TestFactoryAuthFallbackError(c *tc.C) {
 	err := s.testFactoryAuthFallback(c, errors.New("bad auth"))
-	c.Assert(err, gc.ErrorMatches, "bad auth")
+	c.Assert(err, tc.ErrorMatches, "bad auth")
 }
 
-func (s *clientSuite) testFactoryAuthFallback(c *gc.C, authErr error) error {
+func (s *clientSuite) testFactoryAuthFallback(c *tc.C, authErr error) error {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

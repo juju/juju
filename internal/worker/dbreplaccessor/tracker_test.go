@@ -10,10 +10,9 @@ import (
 	time "time"
 
 	sqlair "github.com/canonical/sqlair"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/testing"
 )
@@ -24,9 +23,9 @@ type trackedDBReplWorkerSuite struct {
 	states chan string
 }
 
-var _ = gc.Suite(&trackedDBReplWorkerSuite{})
+var _ = tc.Suite(&trackedDBReplWorkerSuite{})
 
-func (s *trackedDBReplWorkerSuite) TestWorkerStartup(c *gc.C) {
+func (s *trackedDBReplWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -34,12 +33,12 @@ func (s *trackedDBReplWorkerSuite) TestWorkerStartup(c *gc.C) {
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
 	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBReplWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
+func (s *trackedDBReplWorkerSuite) TestWorkerDBIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -47,7 +46,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
 	w, err := s.newTrackedDBWorker()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	err = w.StdTxn(context.Background(), func(_ context.Context, tx *sql.Tx) error {
@@ -56,12 +55,12 @@ func (s *trackedDBReplWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBReplWorkerSuite) TestWorkerStdTxnIsNotNil(c *gc.C) {
+func (s *trackedDBReplWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -69,7 +68,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerStdTxnIsNotNil(c *gc.C) {
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
 	w, err := s.newTrackedDBWorker()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	done := make(chan struct{})
@@ -81,7 +80,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerStdTxnIsNotNil(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
@@ -92,7 +91,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerStdTxnIsNotNil(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBReplWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
+func (s *trackedDBReplWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -100,7 +99,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
 	w, err := s.newTrackedDBWorker()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	done := make(chan struct{})
@@ -112,7 +111,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:

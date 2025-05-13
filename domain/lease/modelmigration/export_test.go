@@ -7,26 +7,25 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type exportSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	coordinator *MockCoordinator
 	service     *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) TestRegisterExport(c *gc.C) {
+func (s *exportSuite) TestRegisterExport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -34,7 +33,7 @@ func (s *exportSuite) TestRegisterExport(c *gc.C) {
 	RegisterExport(s.coordinator, loggertesting.WrapCheckLog(c))
 }
 
-func (s *exportSuite) TestExportLeader(c *gc.C) {
+func (s *exportSuite) TestExportLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.service.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), model.UUID("model-uuid")).Return(map[string]string{
@@ -56,13 +55,13 @@ func (s *exportSuite) TestExportLeader(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	leader := application.Leader()
-	c.Assert(leader, gc.Equals, "prometheus/0")
+	c.Assert(leader, tc.Equals, "prometheus/0")
 }
 
-func (s *exportSuite) TestExportLeaderNoModel(c *gc.C) {
+func (s *exportSuite) TestExportLeaderNoModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.service.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), model.UUID("model-uuid")).Return(nil, errors.Errorf("boom"))
@@ -82,10 +81,10 @@ func (s *exportSuite) TestExportLeaderNoModel(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, gc.ErrorMatches, `getting application leadership: boom`)
+	c.Assert(err, tc.ErrorMatches, `getting application leadership: boom`)
 }
 
-func (s *exportSuite) TestExportLeaderNoApplications(c *gc.C) {
+func (s *exportSuite) TestExportLeaderNoApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.service.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), model.UUID("model-uuid")).Return(map[string]string{}, nil)
@@ -105,10 +104,10 @@ func (s *exportSuite) TestExportLeaderNoApplications(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)

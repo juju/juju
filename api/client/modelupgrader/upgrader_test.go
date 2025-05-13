@@ -10,9 +10,8 @@ import (
 	"net/http"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/client/modelupgrader"
@@ -27,9 +26,9 @@ type UpgradeModelSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&UpgradeModelSuite{})
+var _ = tc.Suite(&UpgradeModelSuite{})
 
-func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *gc.C) {
+func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
@@ -45,10 +44,10 @@ func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *gc.C) {
 
 	client := modelupgrader.NewClient(apiCaller)
 	err := client.AbortModelUpgrade(context.Background(), coretesting.ModelTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
+func (s *UpgradeModelSuite) TestUpgradeModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
@@ -76,11 +75,11 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 		semversion.MustParse("2.9.1"),
 		"", true, true,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chosenVersion, gc.DeepEquals, semversion.MustParse("2.9.99"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(chosenVersion, tc.DeepEquals, semversion.MustParse("2.9.99"))
 }
 
-func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
+func (s *UpgradeModelSuite) TestUploadTools(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
@@ -94,7 +93,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 			semversion.MustParseBinary("2.9.100-ubuntu-amd64"),
 		), nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/x-tar-gz")
 	req = req.WithContext(ctx)
 
@@ -116,8 +115,8 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 		context.Background(),
 		nil, semversion.MustParseBinary("2.9.100-ubuntu-amd64"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, coretools.List{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, coretools.List{
 		{Version: semversion.MustParseBinary("2.9.100-ubuntu-amd64")},
 	})
 }

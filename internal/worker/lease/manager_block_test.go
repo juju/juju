@@ -10,21 +10,20 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lease"
 )
 
 type WaitUntilExpiredSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&WaitUntilExpiredSuite{})
+var _ = tc.Suite(&WaitUntilExpiredSuite{})
 
-func (s *WaitUntilExpiredSuite) SetUpTest(c *gc.C) {
+func (s *WaitUntilExpiredSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	logger := loggo.GetLogger("juju.worker.lease")
 	logger.SetLogLevel(loggo.TRACE)
@@ -32,7 +31,7 @@ func (s *WaitUntilExpiredSuite) SetUpTest(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 }
 
-func (s *WaitUntilExpiredSuite) TestLeadershipNoLeaseBlockEvaluatedNextTick(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestLeadershipNoLeaseBlockEvaluatedNextTick(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("postgresql"): {
@@ -47,13 +46,13 @@ func (s *WaitUntilExpiredSuite) TestLeadershipNoLeaseBlockEvaluatedNextTick(c *g
 
 		// Check that *another* lease expiry causes the unassociated block to
 		// be checked and in the absence of its lease, get unblocked.
-		c.Assert(clock.WaitAdvance(2*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(2*time.Second, testhelpers.ShortWait, 1), tc.ErrorIsNil)
 		err := blockTest.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
-func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -67,13 +66,13 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 		blockTest.assertBlocked(c)
 
 		// Trigger expiry.
-		c.Assert(clock.WaitAdvance(2*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(2*time.Second, testhelpers.ShortWait, 1), tc.ErrorIsNil)
 		err := blockTest.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
-func (s *WaitUntilExpiredSuite) TestBlockChecksRescheduled(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestBlockChecksRescheduled(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("postgresql"): {
@@ -95,22 +94,22 @@ func (s *WaitUntilExpiredSuite) TestBlockChecksRescheduled(c *gc.C) {
 		blockTest.assertBlocked(c)
 
 		// Advance past the first expiry.
-		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(3*time.Second, testhelpers.ShortWait, 1), tc.ErrorIsNil)
 		blockTest.assertBlocked(c)
 
 		// Advance past the second expiry. We should have had a check scheduled.
-		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(3*time.Second, testhelpers.ShortWait, 1), tc.ErrorIsNil)
 		blockTest.assertBlocked(c)
 
 		// Advance past the last expiry. We should have had a check scheduled
 		// that causes the redis lease to be unblocked.
-		c.Assert(clock.WaitAdvance(3*time.Second, testing.ShortWait, 1), jc.ErrorIsNil)
+		c.Assert(clock.WaitAdvance(3*time.Second, testhelpers.ShortWait, 1), tc.ErrorIsNil)
 		err := blockTest.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
-func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -129,7 +128,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 	})
 }
 
-func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			// The lease is held by an entity other than the checker.
@@ -146,24 +145,24 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 		// Induce a scheduled block check by making an unexpected check;
 		// it turns out the lease had already been expired by someone else.
 		checker, err := manager.Checker("namespace", "model")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = checker.Token("redis", "redis/99").Check()
-		c.Assert(err, gc.ErrorMatches, "lease not held")
+		c.Assert(err, tc.ErrorMatches, "lease not held")
 
 		// Simulate the delayed synchronisation by removing the lease.
 		delete(fix.leases, key("redis"))
 
 		// When we notice that we are out of sync, we should queue up an
 		// expiration and update of blockers after a very short timeout.
-		err = clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		err = clock.WaitAdvance(time.Second, testhelpers.ShortWait, 1)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = blockTest.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
-func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestMultiple(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -188,29 +187,29 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 
 		// Induce a scheduled block check by making an unexpected check.
 		checker, err := manager.Checker("namespace", "model")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = checker.Token("redis", "redis/99").Check()
-		c.Assert(err, gc.ErrorMatches, "lease not held")
+		c.Assert(err, tc.ErrorMatches, "lease not held")
 
 		// Deleting the redis lease should cause unblocks for the redis
 		// blockers, but the store blocks should remain.
 		delete(fix.leases, key("redis"))
 
-		err = clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		err = clock.WaitAdvance(time.Second, testhelpers.ShortWait, 1)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = redisTest2.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 
 		err = redisTest1.assertUnblocked(c)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 
 		storeTest2.assertBlocked(c)
 		storeTest1.assertBlocked(c)
 	})
 }
 
-func (s *WaitUntilExpiredSuite) TestKillManager(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestKillManager(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -225,11 +224,11 @@ func (s *WaitUntilExpiredSuite) TestKillManager(c *gc.C) {
 
 		manager.Kill()
 		err := blockTest.assertUnblocked(c)
-		c.Check(err, gc.ErrorMatches, "lease manager stopped")
+		c.Check(err, tc.ErrorMatches, "lease manager stopped")
 	})
 }
 
-func (s *WaitUntilExpiredSuite) TestCancelWait(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestCancelWait(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
@@ -244,8 +243,8 @@ func (s *WaitUntilExpiredSuite) TestCancelWait(c *gc.C) {
 		blockTest.cancelWait()
 
 		err := blockTest.assertUnblocked(c)
-		c.Check(err, gc.Equals, corelease.ErrWaitCancelled)
-		c.Check(err, gc.ErrorMatches, "waiting for lease cancelled by client")
+		c.Check(err, tc.Equals, corelease.ErrWaitCancelled)
+		c.Check(err, tc.ErrorMatches, "waiting for lease cancelled by client")
 	})
 }
 
@@ -260,7 +259,7 @@ type blockTest struct {
 
 // newBlockTest starts a test goroutine blocking until the manager confirms
 // expiry of the named lease.
-func newBlockTest(c *gc.C, manager *lease.Manager, key corelease.Key) *blockTest {
+func newBlockTest(c *tc.C, manager *lease.Manager, key corelease.Key) *blockTest {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	bt := &blockTest{
@@ -278,8 +277,8 @@ func newBlockTest(c *gc.C, manager *lease.Manager, key corelease.Key) *blockTest
 		select {
 		case <-bt.abort:
 		case bt.done <- claimer.WaitUntilExpired(ctx, key.Lease, started):
-		case <-time.After(testing.LongWait):
-			c.Errorf("block not aborted or expired after %v", testing.LongWait)
+		case <-time.After(testhelpers.LongWait):
+			c.Errorf("block not aborted or expired after %v", testhelpers.LongWait)
 		}
 	}()
 	select {
@@ -294,16 +293,16 @@ func (bt *blockTest) cancelWait() {
 	bt.cancel()
 }
 
-func (bt *blockTest) assertBlocked(c *gc.C) {
+func (bt *blockTest) assertBlocked(c *tc.C) {
 	select {
 	case err := <-bt.done:
 		c.Errorf("unblocked unexpectedly with %v", err)
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		// Happy that we are still blocked; success.
 	}
 }
 
-func (bt *blockTest) assertUnblocked(c *gc.C) error {
+func (bt *blockTest) assertUnblocked(c *tc.C) error {
 	lease.ManagerStore(bt.manager).(*Store).expireLeases()
 	select {
 	case err := <-bt.done:

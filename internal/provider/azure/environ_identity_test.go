@@ -9,23 +9,22 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/testing"
 )
 
-func (s *environSuite) TestSupportsInstanceRole(c *gc.C) {
+func (s *environSuite) TestSupportsInstanceRole(c *tc.C) {
 	env, ok := s.openEnviron(c).(environs.InstanceRole)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(env.SupportsInstanceRoles(context.Background()), jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(env.SupportsInstanceRoles(context.Background()), tc.IsTrue)
 }
 
-func (s *environSuite) TestCreateAutoInstanceRole(c *gc.C) {
+func (s *environSuite) TestCreateAutoInstanceRole(c *tc.C) {
 	env, ok := s.openEnviron(c).(environs.InstanceRole)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 
@@ -47,6 +46,6 @@ func (s *environSuite) TestCreateAutoInstanceRole(c *gc.C) {
 		},
 	}
 	res, err := env.CreateAutoInstanceRole(context.Background(), p)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.Equals, fmt.Sprintf("%s/%s", resourceGroupName, "juju-controller-"+testing.ControllerTag.Id()))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.Equals, fmt.Sprintf("%s/%s", resourceGroupName, "juju-controller-"+testing.ControllerTag.Id()))
 }

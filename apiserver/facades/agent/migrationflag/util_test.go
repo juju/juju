@@ -4,10 +4,9 @@
 package migrationflag_test
 
 import (
-	"github.com/juju/testing"
-
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -39,7 +38,7 @@ func (auth agentAuth) AuthApplicationAgent() bool {
 // newMockBackend returns a mock Backend that will add calls to the
 // supplied testing.Stub, and return errors in the sequence it
 // specifies.
-func newMockBackend(stub *testing.Stub) *mockBackend {
+func newMockBackend(stub *testhelpers.Stub) *mockBackend {
 	return &mockBackend{
 		stub: stub,
 	}
@@ -47,7 +46,7 @@ func newMockBackend(stub *testing.Stub) *mockBackend {
 
 // mockBackend implements migrationflag.Backend for use in the tests.
 type mockBackend struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 // ModelUUID is part of the migrationflag.Backend interface.
@@ -73,7 +72,7 @@ func (mock *mockBackend) WatchMigrationPhase() state.NotifyWatcher {
 // newMockWatcher consumes an error from the supplied testing.Stub, and
 // returns a state.NotifyWatcher that either works or doesn't depending
 // on whether the error was nil.
-func newMockWatcher(stub *testing.Stub) *mockWatcher {
+func newMockWatcher(stub *testhelpers.Stub) *mockWatcher {
 	changes := make(chan struct{}, 1)
 	err := stub.NextErr()
 	if err == nil {

@@ -4,16 +4,15 @@
 package testing
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corecredential "github.com/juju/juju/core/credential"
 )
 
 // GenCredentialUUID can be used in testing for generating a credential uuid
 // that is checked for subsequent errors using the test suits go check instance.
-func GenCredentialUUID(c *gc.C) corecredential.UUID {
+func GenCredentialUUID(c *tc.C) corecredential.UUID {
 	uuid, err := corecredential.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

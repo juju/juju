@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -19,7 +18,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,Constraints,Address,Bindings,NetworkService,ControllerConfigService,ApplicationService
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 // APISuite is used to test API calls using mocked model operations.
@@ -40,13 +39,13 @@ type APISuite struct {
 	ApplicationService      *MockApplicationService
 }
 
-var _ = gc.Suite(&APISuite{})
+var _ = tc.Suite(&APISuite{})
 
-func (s *APISuite) TearDownTest(_ *gc.C) {
+func (s *APISuite) TearDownTest(_ *tc.C) {
 	s.API = nil
 }
 
-func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) *gomock.Controller {
+func (s *APISuite) SetupMocks(c *tc.C, supportSpaces bool, providerSpaces bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.resource = facademocks.NewMockResources(ctrl)
@@ -80,7 +79,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		ApplicationService:      s.ApplicationService,
 		logger:                  loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }

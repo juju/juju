@@ -7,23 +7,22 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/agentpassword"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type exportSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	exportService *MockExportService
 }
 
-var _ = gc.Suite(&exportSuite{})
+var _ = tc.Suite(&exportSuite{})
 
-func (s *exportSuite) TestExportUnitPasswordHashes(c *gc.C) {
+func (s *exportSuite) TestExportUnitPasswordHashes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hashes := agentpassword.UnitPasswordHashes{
@@ -45,12 +44,12 @@ func (s *exportSuite) TestExportUnitPasswordHashes(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unit.PasswordHash(), gc.Equals, "hash")
+	c.Check(unit.PasswordHash(), tc.Equals, "hash")
 }
 
-func (s *exportSuite) TestExportUnitPasswordHashesNoPasswords(c *gc.C) {
+func (s *exportSuite) TestExportUnitPasswordHashesNoPasswords(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hashes := agentpassword.UnitPasswordHashes{}
@@ -70,12 +69,12 @@ func (s *exportSuite) TestExportUnitPasswordHashesNoPasswords(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unit.PasswordHash(), gc.Equals, "")
+	c.Check(unit.PasswordHash(), tc.Equals, "")
 }
 
-func (s *exportSuite) TestExportUnitPasswordHashesNoPasswordForUnit(c *gc.C) {
+func (s *exportSuite) TestExportUnitPasswordHashesNoPasswordForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hashes := agentpassword.UnitPasswordHashes{
@@ -97,12 +96,12 @@ func (s *exportSuite) TestExportUnitPasswordHashesNoPasswordForUnit(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unit.PasswordHash(), gc.Equals, "")
+	c.Check(unit.PasswordHash(), tc.Equals, "")
 }
 
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.exportService = NewMockExportService(ctrl)

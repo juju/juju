@@ -9,12 +9,10 @@ import (
 	"time"
 
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -23,36 +21,37 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	modelService *MockModelService
 
 	modelUUID model.UUID
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestValidateConfig(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), gc.IsNil)
+	c.Check(cfg.Validate(), tc.IsNil)
 
 	cfg = s.getConfig()
 	cfg.ModelUUID = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Result = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.ModelService = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, jujuerrors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 }
 
-func (s *workerSuite) TestStartAlive(c *gc.C) {
+func (s *workerSuite) TestStartAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Alive, nil)
@@ -68,16 +67,16 @@ func (s *workerSuite) TestStartAlive(c *gc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
-	c.Assert(w.Check(), jc.IsTrue)
+	c.Assert(w.Check(), tc.IsTrue)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestStartDead(c *gc.C) {
+func (s *workerSuite) TestStartDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Dead, nil)
@@ -93,16 +92,16 @@ func (s *workerSuite) TestStartDead(c *gc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
-	c.Assert(w.Check(), jc.IsFalse)
+	c.Assert(w.Check(), tc.IsFalse)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestStartError(c *gc.C) {
+func (s *workerSuite) TestStartError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Alive, modelerrors.NotFound)
@@ -110,10 +109,10 @@ func (s *workerSuite) TestStartError(c *gc.C) {
 	cfg := s.getConfig()
 
 	_, err := NewWorker(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *workerSuite) TestWatchModelError(c *gc.C) {
+func (s *workerSuite) TestWatchModelError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Alive, nil)
@@ -130,15 +129,15 @@ func (s *workerSuite) TestWatchModelError(c *gc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *workerSuite) TestWatchModelStillAlive(c *gc.C) {
+func (s *workerSuite) TestWatchModelStillAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Alive, nil)
@@ -159,22 +158,22 @@ func (s *workerSuite) TestWatchModelStillAlive(c *gc.C) {
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
-	c.Assert(w.Check(), jc.IsTrue)
+	c.Assert(w.Check(), tc.IsTrue)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWatchModelTransitionAliveToDying(c *gc.C) {
+func (s *workerSuite) TestWatchModelTransitionAliveToDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Alive, nil)
@@ -195,23 +194,23 @@ func (s *workerSuite) TestWatchModelTransitionAliveToDying(c *gc.C) {
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
-	c.Assert(w.Check(), jc.IsTrue)
+	c.Assert(w.Check(), tc.IsTrue)
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
+	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *workerSuite) TestWatchModelTransitionDyingToDead(c *gc.C) {
+func (s *workerSuite) TestWatchModelTransitionDyingToDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).Return(life.Dying, nil)
@@ -237,18 +236,18 @@ func (s *workerSuite) TestWatchModelTransitionDyingToDead(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		select {
 		case ch <- struct{}{}:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatal("timed out waiting for worker to start")
 		}
 	}
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to start")
 	}
 
-	c.Assert(w.Check(), jc.IsFalse)
+	c.Assert(w.Check(), tc.IsFalse)
 
 	workertest.CleanKill(c, w)
 }
@@ -261,16 +260,16 @@ func (s *workerSuite) getConfig() Config {
 	}
 }
 
-func (s *workerSuite) newWorker(c *gc.C) *Worker {
+func (s *workerSuite) newWorker(c *tc.C) *Worker {
 	cfg := s.getConfig()
 
 	w, err := NewWorker(context.Background(), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return w.(*Worker)
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelUUID = modeltesting.GenModelUUID(c)

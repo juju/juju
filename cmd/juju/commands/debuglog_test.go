@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo/v2"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/client/highavailability"
 	"github.com/juju/juju/api/common"
@@ -24,9 +23,9 @@ type DebugLogSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&DebugLogSuite{})
+var _ = tc.Suite(&DebugLogSuite{})
 
-func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
+func (s *DebugLogSuite) TestArgParsing(c *tc.C) {
 	for i, test := range []struct {
 		args     []string
 		expected common.DebugLogParams
@@ -181,15 +180,15 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 		command.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(modelcmd.Wrap(command), test.args)
 		if test.errMatch == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(command.params, jc.DeepEquals, test.expected)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(command.params, tc.DeepEquals, test.expected)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.errMatch)
+			c.Check(err, tc.ErrorMatches, test.errMatch)
 		}
 	}
 }
 
-func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
+func (s *DebugLogSuite) TestParamsPassed(c *tc.C) {
 	fake := &fakeDebugLogAPI{}
 	s.PatchValue(&getDebugLogAPI, func(ctx context.Context, _ *debugLogCommand, _ []string) (DebugLogAPI, error) {
 		return fake, nil
@@ -200,8 +199,8 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		"--lines=500",
 		"--level=WARNING",
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fake.params, gc.DeepEquals, common.DebugLogParams{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fake.params, tc.DeepEquals, common.DebugLogParams{
 		IncludeEntity: []string{"machine-1*"},
 		IncludeModule: []string{"juju.provisioner"},
 		ExcludeEntity: []string{"machine-1-lxd-1"},
@@ -210,7 +209,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 	})
 }
 
-func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
+func (s *DebugLogSuite) TestLogOutput(c *tc.C) {
 	// test timezone is 6 hours east of UTC
 	tz := time.FixedZone("test", 6*60*60)
 	s.PatchValue(&getDebugLogAPI, func(_ context.Context, _ *debugLogCommand, _ []string) (DebugLogAPI, error) {
@@ -230,8 +229,8 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
 		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), tz), args...)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 
 	}
 	checkOutput(
@@ -256,11 +255,11 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 		`{"model-uuid":"model-uuid","timestamp":"2016-10-09T08:15:23.345Z","entity":"machine-0","level":"INFO","module":"test.module","location":"somefile.go:123","message":"this is the log output"}`+"\n")
 }
 
-func (s *DebugLogSuite) TestSpecifiedController(c *gc.C) {
+func (s *DebugLogSuite) TestSpecifiedController(c *tc.C) {
 	// test timezone is 6 hours east of UTC
 	tz := time.FixedZone("test", 6*60*60)
 	s.PatchValue(&getDebugLogAPI, func(_ context.Context, _ *debugLogCommand, addr []string) (DebugLogAPI, error) {
-		c.Assert(addr, jc.SameContents, []string{"address-666"})
+		c.Assert(addr, tc.SameContents, []string{"address-666"})
 		return &fakeDebugLogAPI{log: []common.LogMessage{
 			{
 				Entity:    "machine-0",
@@ -279,8 +278,8 @@ func (s *DebugLogSuite) TestSpecifiedController(c *gc.C) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
 		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), tz), args...)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 
 	}
 	checkOutput(
@@ -288,15 +287,15 @@ func (s *DebugLogSuite) TestSpecifiedController(c *gc.C) {
 		"machine-0: 14:15:23 INFO test.module this is the log output\n")
 }
 
-func (s *DebugLogSuite) TestSpecifiedControllerNotFound(c *gc.C) {
+func (s *DebugLogSuite) TestSpecifiedControllerNotFound(c *tc.C) {
 	s.PatchValue(&getControllerDetailsClient, func(_ context.Context, _ *debugLogCommand) (ControllerDetailsAPI, error) {
 		return &fakeControllerDetailsAPI{}, nil
 	})
 	_, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), time.UTC), "--controller", "999")
-	c.Check(err, gc.ErrorMatches, `controller "999" not found`)
+	c.Check(err, tc.ErrorMatches, `controller "999" not found`)
 }
 
-func (s *DebugLogSuite) TestAllControllers(c *gc.C) {
+func (s *DebugLogSuite) TestAllControllers(c *tc.C) {
 	// test timezone is 6 hours east of UTC
 	tz := time.FixedZone("test", 6*60*60)
 	debugStreams := map[string]DebugLogAPI{
@@ -322,9 +321,9 @@ func (s *DebugLogSuite) TestAllControllers(c *gc.C) {
 		}},
 	}
 	s.PatchValue(&getDebugLogAPI, func(_ context.Context, _ *debugLogCommand, addr []string) (DebugLogAPI, error) {
-		c.Assert(addr, gc.HasLen, 1)
+		c.Assert(addr, tc.HasLen, 1)
 		api, ok := debugStreams[addr[0]]
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		return api, nil
 	})
 	s.PatchValue(&getControllerDetailsClient, func(_ context.Context, _ *debugLogCommand) (ControllerDetailsAPI, error) {
@@ -334,15 +333,15 @@ func (s *DebugLogSuite) TestAllControllers(c *gc.C) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
 		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), tz), args...)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		out := cmdtesting.Stdout(ctx)
 		lines := strings.Split(out, "\n")
-		c.Assert(lines, gc.Not(gc.HasLen), 0)
+		c.Assert(lines, tc.Not(tc.HasLen), 0)
 		expectedLines := strings.Split(expected, "\n")
-		c.Check(lines[0], gc.Equals, expectedLines[0])
+		c.Check(lines[0], tc.Equals, expectedLines[0])
 		// Depending on the exact moment the log stream was stopped, we may miss the last line.
 		if len(lines) > 1 && lines[1] != "" {
-			c.Check(lines[1], gc.Equals, expectedLines[1])
+			c.Check(lines[1], tc.Equals, expectedLines[1])
 		}
 	}
 	checkOutput(
@@ -350,7 +349,7 @@ func (s *DebugLogSuite) TestAllControllers(c *gc.C) {
 		"machine-1: 14:15:20 INFO test.module this is the log output for 1\nmachine-0: 14:15:23 INFO test.module this is the log output for 0\n")
 }
 
-func (s *DebugLogSuite) TestLogOutputWithLogs(c *gc.C) {
+func (s *DebugLogSuite) TestLogOutputWithLogs(c *tc.C) {
 	// test timezone is 6 hours east of UTC
 	tz := time.FixedZone("test", 6*60*60)
 	s.PatchValue(&getDebugLogAPI, func(_ context.Context, _ *debugLogCommand, _ []string) (DebugLogAPI, error) {
@@ -370,8 +369,8 @@ func (s *DebugLogSuite) TestLogOutputWithLogs(c *gc.C) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
 		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), tz), args...)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 
 	}
 	checkOutput(

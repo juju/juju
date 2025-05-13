@@ -11,10 +11,8 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
@@ -32,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -58,14 +57,14 @@ type AddMachineManagerSuite struct {
 	agentBinaryService      *MockAgentBinaryService
 }
 
-var _ = gc.Suite(&AddMachineManagerSuite{})
+var _ = tc.Suite(&AddMachineManagerSuite{})
 
-func (s *AddMachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *AddMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.modelUUID = modeltesting.GenModelUUID(c)
 }
 
-func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.pool = NewMockPool(ctrl)
@@ -112,7 +111,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
+func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -169,11 +168,11 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	machines, err := s.api.AddMachines(context.Background(), params.AddMachines{MachineParams: apiParams})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines.Machines, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines.Machines, tc.HasLen, 2)
 }
 
-func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
+func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().AddOneMachine(gomock.Any()).Return(nil, errors.New("boom"))
@@ -184,8 +183,8 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.AddMachinesResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.AddMachinesResults{
 		Machines: []params.AddMachinesResult{{
 			Error: &params.Error{Message: "boom", Code: ""},
 		}},
@@ -193,7 +192,7 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 }
 
 type DestroyMachineManagerSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 	authorizer    *apiservertesting.FakeAuthorizer
 	st            *MockBackend
 	storageAccess *MockStorageInterface
@@ -212,16 +211,16 @@ type DestroyMachineManagerSuite struct {
 	agentBinaryService      *MockAgentBinaryService
 }
 
-var _ = gc.Suite(&DestroyMachineManagerSuite{})
+var _ = tc.Suite(&DestroyMachineManagerSuite{})
 
-func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *DestroyMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.PatchValue(&ClassifyDetachedStorage, mockedClassifyDetachedStorage)
 	s.modelUUID = modeltesting.GenModelUUID(c)
 }
 
-func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockBackend(ctrl)
@@ -335,7 +334,7 @@ func (s *DestroyMachineManagerSuite) expectDestroyStorage(ctrl *gomock.Controlle
 	return storageAttachment
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -351,15 +350,15 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
 		}},
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -375,15 +374,15 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetr
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
 		}},
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMachines(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMachines(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -401,9 +400,9 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{
 			{Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
 			{Info: &params.DestroyMachineInfo{
@@ -413,7 +412,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -434,9 +433,9 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{
 			{Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -460,7 +459,7 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -471,9 +470,9 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *gc.C) {
 		MachineTags: []string{"machine-0"},
 		DryRun:      true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -493,7 +492,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *gc.C) {
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -506,8 +505,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *g
 		MachineTags: []string{"machine-0"},
 		DryRun:      true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -543,7 +542,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *g
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -560,8 +559,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C)
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -581,7 +580,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C)
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -597,8 +596,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C
 		MachineTags: []string{"machine-0"},
 		// This will use max wait of system default for delay between cleanup operations.
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -618,7 +617,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -631,15 +630,15 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
 		Force:       false,
 		MachineTags: []string{"machine-0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Error: apiservererrors.ServerError(stateerrors.NewHasContainersError("0", []string{"0/lxd/0"})),
 		}},
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -656,8 +655,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c
 		Force:       true,
 		MachineTags: []string{"machine-0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -732,13 +731,13 @@ type ProvisioningMachineManagerSuite struct {
 	agentBinaryService      *MockAgentBinaryService
 }
 
-var _ = gc.Suite(&ProvisioningMachineManagerSuite{})
+var _ = tc.Suite(&ProvisioningMachineManagerSuite{})
 
-func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 }
 
-func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelUUID = modeltesting.GenModelUUID(c)
@@ -818,7 +817,7 @@ func (s *ProvisioningMachineManagerSuite) expectProvisioningStorageCloser(ctrl *
 	return storageCloser
 }
 
-func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -827,7 +826,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 		"enable-os-upgrade":        true,
 		"enable-os-refresh-update": true,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
 
@@ -852,19 +851,19 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scriptLines := strings.Split(result.Script, "\n")
 	provisioningScriptLines := strings.Split(result.Script, "\n")
-	c.Assert(scriptLines, gc.HasLen, len(provisioningScriptLines))
+	c.Assert(scriptLines, tc.HasLen, len(provisioningScriptLines))
 	for i, line := range scriptLines {
 		if strings.Contains(line, "oldpassword") {
 			continue
 		}
-		c.Assert(line, gc.Equals, provisioningScriptLines[i])
+		c.Assert(line, tc.Equals, provisioningScriptLines[i])
 	}
 }
 
-func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -873,7 +872,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *gc.C) 
 		"enable-os-upgrade":        false,
 		"enable-os-refresh-update": false,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
@@ -883,10 +882,10 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *gc.C) 
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
-	c.Assert(err, gc.ErrorMatches, `getting instance config: arch is not set for "machine-0"`)
+	c.Assert(err, tc.ErrorMatches, `getting instance config: arch is not set for "machine-0"`)
 }
 
-func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -895,7 +894,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 		"enable-os-upgrade":        false,
 		"enable-os-refresh-update": false,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
 
@@ -919,26 +918,26 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Script, gc.Not(jc.Contains), "apt-get update")
-	c.Assert(result.Script, gc.Not(jc.Contains), "apt-get upgrade")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Script, tc.Not(tc.Contains), "apt-get update")
+	c.Assert(result.Script, tc.Not(tc.Contains), "apt-get upgrade")
 }
 
 type statusMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected status.StatusInfo
 }
 
 func (m statusMatcher) Matches(x interface{}) bool {
 	obtained, ok := x.(status.StatusInfo)
-	m.c.Assert(ok, jc.IsTrue)
+	m.c.Assert(ok, tc.IsTrue)
 	if !ok {
 		return false
 	}
 
-	m.c.Assert(obtained.Since, gc.NotNil)
+	m.c.Assert(obtained.Since, tc.NotNil)
 	obtained.Since = nil
-	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	m.c.Assert(obtained, tc.DeepEquals, m.expected)
 	return true
 }
 
@@ -946,7 +945,7 @@ func (m statusMatcher) String() string {
 	return "Match the status.StatusInfo value"
 }
 
-func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -964,11 +963,11 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
 	results, err := s.api.RetryProvisioning(context.Background(), params.RetryProvisioningArgs{
 		Machines: []string{"machine-0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -985,6 +984,6 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
 	results, err := s.api.RetryProvisioning(context.Background(), params.RetryProvisioningArgs{
 		All: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }

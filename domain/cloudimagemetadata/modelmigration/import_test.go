@@ -10,9 +10,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/internal/errors"
@@ -25,9 +24,9 @@ type importSuite struct {
 	clock       clock.Clock
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -37,7 +36,7 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
+func (s *importSuite) newImportOperation(c *tc.C) *importOperation {
 	return &importOperation{
 		service: s.service,
 		logger:  loggertesting.WrapCheckLog(c),
@@ -46,7 +45,7 @@ func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
 }
 
 // TestRegisterImport  tests the registration of import operations with the coordinator.
-func (s *importSuite) TestRegisterImport(c *gc.C) {
+func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -56,7 +55,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 // TestImport tests the import operation by verifying the SaveMetadata call with transformed metadata against the service.
 // It creates several different metadata into the model and check that SaveMetadata is called with the right arguments
-func (s *importSuite) TestImport(c *gc.C) {
+func (s *importSuite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -90,14 +89,14 @@ func (s *importSuite) TestImport(c *gc.C) {
 	err := op.Execute(context.Background(), dst)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Most validation is done through the mock, checking that the given parameters are correct.
 }
 
 // TestImportWithNonCustomSource verifies the behavior of the import operation when encountering metadata with non-custom sources.
 // It creates several different metadata into the model and check that SaveMetadata is called with the right arguments,
 // ie, including only custom sourced metadata.
-func (s *importSuite) TestImportWithNonCustomSource(c *gc.C) {
+func (s *importSuite) TestImportWithNonCustomSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -131,13 +130,13 @@ func (s *importSuite) TestImportWithNonCustomSource(c *gc.C) {
 	err := op.Execute(context.Background(), dst)
 
 	// Assert
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Most validation is done through the mock, checking that the given parameters are correct.
 }
 
 // TestImportFailureWhenSaveMetadata verifies that the import operation handles failure when saving cloud image metadata,
 // returning the underlying failure.
-func (s *importSuite) TestImportFailureWhenSaveMetadata(c *gc.C) {
+func (s *importSuite) TestImportFailureWhenSaveMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -154,7 +153,7 @@ func (s *importSuite) TestImportFailureWhenSaveMetadata(c *gc.C) {
 	err := op.Execute(context.Background(), dst)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, expectedError)
+	c.Assert(err, tc.ErrorIs, expectedError)
 }
 
 // argsOpts is a type alias for a function that takes and returns a CloudImageMetadataArgs struct, enabling functional options.

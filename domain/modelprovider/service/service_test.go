@@ -6,10 +6,8 @@ package service
 import (
 	"context"
 
-	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -18,13 +16,14 @@ import (
 	"github.com/juju/juju/domain/modelprovider"
 	"github.com/juju/juju/environs/cloudspec"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type serviceSuite struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
 var (
 	testCloud = cloud.Cloud{
@@ -50,7 +49,7 @@ var (
 	}
 )
 
-func (s *serviceSuite) TestGetCloudSpec(c *gc.C) {
+func (s *serviceSuite) TestGetCloudSpec(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -60,9 +59,9 @@ func (s *serviceSuite) TestGetCloudSpec(c *gc.C) {
 
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), nil)
 	spec, err := svc.GetCloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cred := cloud.NewCredential(testCredential.AuthType, testCredential.Attributes)
-	c.Assert(spec, jc.DeepEquals, cloudspec.CloudSpec{
+	c.Assert(spec, tc.DeepEquals, cloudspec.CloudSpec{
 		Type:              "ec2",
 		Name:              "test",
 		Region:            "test-region",
@@ -76,7 +75,7 @@ func (s *serviceSuite) TestGetCloudSpec(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetCloudSpecNoCredential(c *gc.C) {
+func (s *serviceSuite) TestGetCloudSpecNoCredential(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -86,8 +85,8 @@ func (s *serviceSuite) TestGetCloudSpecNoCredential(c *gc.C) {
 
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), nil)
 	spec, err := svc.GetCloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, jc.DeepEquals, cloudspec.CloudSpec{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec, tc.DeepEquals, cloudspec.CloudSpec{
 		Type:              "ec2",
 		Name:              "test",
 		Region:            "test-region",
@@ -100,7 +99,7 @@ func (s *serviceSuite) TestGetCloudSpecNoCredential(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetCloudSpecModelNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetCloudSpecModelNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -110,10 +109,10 @@ func (s *serviceSuite) TestGetCloudSpecModelNotFound(c *gc.C) {
 
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), nil)
 	_, err := svc.GetCloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
-func (s *serviceSuite) TestGetCloudSpecForSSH(c *gc.C) {
+func (s *serviceSuite) TestGetCloudSpecForSSH(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -128,12 +127,12 @@ func (s *serviceSuite) TestGetCloudSpecForSSH(c *gc.C) {
 		return provider, nil
 	})
 	spec, err := svc.GetCloudSpecForSSH(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testCredential.Attributes["Token"] = "secret"
 	testCredential.Attributes["username"] = ""
 	testCredential.Attributes["password"] = ""
 	cred := cloud.NewCredential(testCredential.AuthType, testCredential.Attributes)
-	c.Assert(spec, jc.DeepEquals, cloudspec.CloudSpec{
+	c.Assert(spec, tc.DeepEquals, cloudspec.CloudSpec{
 		Type:              "ec2",
 		Name:              "test",
 		Region:            "test-region",
@@ -147,7 +146,7 @@ func (s *serviceSuite) TestGetCloudSpecForSSH(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetCloudSpecForSSHNotSupported(c *gc.C) {
+func (s *serviceSuite) TestGetCloudSpecForSSHNotSupported(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -158,5 +157,5 @@ func (s *serviceSuite) TestGetCloudSpecForSSHNotSupported(c *gc.C) {
 		return nil, coreerrors.NotSupported
 	})
 	_, err := svc.GetCloudSpecForSSH(context.Background())
-	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }

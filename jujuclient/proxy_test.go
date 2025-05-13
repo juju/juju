@@ -4,23 +4,22 @@
 package jujuclient_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type proxyWrapperSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&proxyWrapperSuite{})
+var _ = tc.Suite(&proxyWrapperSuite{})
 
-func (p *proxyWrapperSuite) TestMarshalling(c *gc.C) {
+func (p *proxyWrapperSuite) TestMarshalling(c *tc.C) {
 	config := proxy.ProxierConfig{
 		APIHost:             "https://127.0.0.1:443",
 		CAData:              "cadata====",
@@ -32,8 +31,8 @@ func (p *proxyWrapperSuite) TestMarshalling(c *gc.C) {
 	proxier := proxy.NewProxier(config)
 	wrapper := &jujuclient.ProxyConfWrapper{proxier}
 	data, err := yaml.Marshal(wrapper)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, `
 type: kubernetes-port-forward
 config:
     api-host: https://127.0.0.1:443
@@ -45,7 +44,7 @@ config:
 `[1:])
 }
 
-func (p *proxyWrapperSuite) TestUnmarshalling(c *gc.C) {
+func (p *proxyWrapperSuite) TestUnmarshalling(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -81,9 +80,9 @@ config:
     service: test
     service-account-token: token====
 `[1:]), &wrapper)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wrapper.Proxier.Type(), gc.Equals, "kubernetes-port-forward")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(wrapper.Proxier.Type(), tc.Equals, "kubernetes-port-forward")
 	rCfg, err := wrapper.Proxier.RawConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rCfg, gc.DeepEquals, rawConfig)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rCfg, tc.DeepEquals, rawConfig)
 }

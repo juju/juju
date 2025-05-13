@@ -4,27 +4,27 @@
 package provider_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type providerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&providerSuite{})
+var _ = tc.Suite(&providerSuite{})
 
-func (*providerSuite) TestRevisionMetaSlice(c *gc.C) {
+func (*providerSuite) TestRevisionMetaSlice(c *tc.C) {
 	nameMeta := provider.SecretRevisions{}
 	nameMeta.Add(&secrets.URI{ID: "a"}, "a-1")
 	nameMeta.Add(&secrets.URI{ID: "b"}, "b-1", "b-2")
 	nameMeta.Add(&secrets.URI{ID: "c"}, "c-1", "c-2", "c-3")
 	nameMeta.Add(&secrets.URI{ID: "d"}, "d-1", "d-2", "d-3")
 	nameMeta.Add(&secrets.URI{ID: "d"}, "d-4")
-	c.Assert(nameMeta.RevisionIDs(), gc.DeepEquals, []string{
+	c.Assert(nameMeta.RevisionIDs(), tc.DeepEquals, []string{
 		"a-1",
 		"b-1", "b-2",
 		"c-1", "c-2", "c-3",

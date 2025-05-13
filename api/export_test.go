@@ -10,7 +10,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/internal/proxy"
@@ -65,21 +65,21 @@ type TestingConnectionParams struct {
 }
 
 // NewTestingConnection creates an api.Connection object that can be used for testing.
-func NewTestingConnection(c *gc.C, params TestingConnectionParams) Connection {
+func NewTestingConnection(c *tc.C, params TestingConnectionParams) Connection {
 	var modelTag names.ModelTag
 	if params.ModelTag != "" {
 		t, err := names.ParseModelTag(params.ModelTag)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		modelTag = t
 	}
 	url := &url.URL{}
 	if params.Address != "" {
 		var err error
 		url, err = url.Parse(params.Address)
-		c.Assert(err, gc.IsNil)
-		c.Assert(url.Scheme, gc.Not(gc.Equals), "")
-		c.Assert(url.Host, gc.Not(gc.Equals), "")
-		c.Assert(url.Port(), gc.Not(gc.Equals), "")
+		c.Assert(err, tc.IsNil)
+		c.Assert(url.Scheme, tc.Not(tc.Equals), "")
+		c.Assert(url.Host, tc.Not(tc.Equals), "")
+		c.Assert(url.Port(), tc.Not(tc.Equals), "")
 	}
 	conn := &conn{
 		client:         params.RPCConnection,

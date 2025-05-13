@@ -10,31 +10,30 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/caas/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type gkeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&gkeSuite{})
+var _ = tc.Suite(&gkeSuite{})
 
-func (s *gkeSuite) SetUpTest(c *gc.C) {
+func (s *gkeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := os.Setenv("PATH", "/path/to/here")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *gkeSuite) TestInteractiveParams(c *gc.C) {
+func (s *gkeSuite) TestInteractiveParams(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -93,9 +92,9 @@ Select cluster [mycluster in asia-southeast1]:
 `[1:]
 
 	outParams, err := gke.interactiveParams(ctx, &clusterParams{})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		project:    "myproject",
 		name:       "mycluster",
 		region:     "asia-southeast1",
@@ -104,7 +103,7 @@ Select cluster [mycluster in asia-southeast1]:
 	})
 }
 
-func (s *gkeSuite) TestInteractiveParamsProjectSpecified(c *gc.C) {
+func (s *gkeSuite) TestInteractiveParamsProjectSpecified(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -141,9 +140,9 @@ Select cluster [mycluster in asia-southeast1]:
 		project:    "myproject",
 		credential: "mysecret",
 	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		project:    "myproject",
 		name:       "mycluster",
 		region:     "asia-southeast1",
@@ -152,7 +151,7 @@ Select cluster [mycluster in asia-southeast1]:
 	})
 }
 
-func (s *gkeSuite) TestInteractiveParamsProjectAndRegionSpecified(c *gc.C) {
+func (s *gkeSuite) TestInteractiveParamsProjectAndRegionSpecified(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -190,9 +189,9 @@ Select cluster [mycluster in asia-southeast1]:
 		region:     "asia-southeast1",
 		credential: "mysecret",
 	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
-	c.Assert(outParams, jc.DeepEquals, &clusterParams{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
+	c.Assert(outParams, tc.DeepEquals, &clusterParams{
 		project:    "myproject",
 		name:       "mycluster",
 		region:     "asia-southeast1",
@@ -209,17 +208,17 @@ func (osFilesystem) Open(name string) (modelcmd.ReadSeekCloser, error) {
 	return os.Open(name)
 }
 
-func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
+func (s *gkeSuite) TestGetKubeConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockRunner := mocks.NewMockCommandRunner(ctrl)
 	configFile := filepath.Join(c.MkDir(), "config")
 	err := os.Setenv("KUBECONFIG", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	gke := &gke{CommandRunner: mockRunner}
 	err = os.WriteFile(configFile, []byte("data"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
@@ -238,16 +237,16 @@ func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
 		name:       "mycluster",
 		credential: "mysecret",
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	defer rdr.Close()
 
-	c.Assert(clusterName, gc.Equals, "gke_myproject_asia-southeast1-a_mycluster")
+	c.Assert(clusterName, tc.Equals, "gke_myproject_asia-southeast1-a_mycluster")
 	data, err := io.ReadAll(rdr)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.DeepEquals, "data")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.DeepEquals, "data")
 }
 
-func (s *gkeSuite) TestEnsureExecutableGcloudFound(c *gc.C) {
+func (s *gkeSuite) TestEnsureExecutableGcloudFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -264,10 +263,10 @@ func (s *gkeSuite) TestEnsureExecutableGcloudFound(c *gc.C) {
 			}, nil),
 	)
 	err := gke.ensureExecutable()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *gkeSuite) TestEnsureExecutableGcloudNotFound(c *gc.C) {
+func (s *gkeSuite) TestEnsureExecutableGcloudNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -284,5 +283,5 @@ func (s *gkeSuite) TestEnsureExecutableGcloudNotFound(c *gc.C) {
 			}, nil),
 	)
 	err := gke.ensureExecutable()
-	c.Assert(err, gc.ErrorMatches, "gcloud command not found, please 'snap install google-cloud-sdk --classic' then try again: ")
+	c.Assert(err, tc.ErrorMatches, "gcloud command not found, please 'snap install google-cloud-sdk --classic' then try again: ")
 }

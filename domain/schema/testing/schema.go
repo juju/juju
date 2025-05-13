@@ -7,8 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/database/schema"
@@ -21,7 +20,7 @@ type SchemaApplier struct {
 }
 
 // Apply applies the schema to the database.
-func (s *SchemaApplier) Apply(c *gc.C, ctx context.Context, runner database.TxnRunner) {
+func (s *SchemaApplier) Apply(c *tc.C, ctx context.Context, runner database.TxnRunner) {
 	if s.Verbose {
 		s.Schema.Hook(func(i int, statement string) error {
 			c.Logf("-- Applying schema change %d\n%s\n", i, statement)
@@ -30,12 +29,12 @@ func (s *SchemaApplier) Apply(c *gc.C, ctx context.Context, runner database.TxnR
 	}
 
 	changeSet, err := s.Schema.Ensure(ctx, runner)
-	c.Assert(err, gc.IsNil)
-	c.Check(changeSet.Post, gc.Equals, s.Schema.Len())
+	c.Assert(err, tc.IsNil)
+	c.Check(changeSet.Post, tc.Equals, s.Schema.Len())
 }
 
 // DumpChangeLogState dumps the change log to the test log.
-func DumpChangeLogState(c *gc.C, runner database.TxnRunner) {
+func DumpChangeLogState(c *tc.C, runner database.TxnRunner) {
 	var (
 		logs    []changeLogRow
 		witness changeLogWitnessRow
@@ -65,7 +64,7 @@ func DumpChangeLogState(c *gc.C, runner database.TxnRunner) {
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Logf("Change log witness: %v", witness)
 	c.Logf("Change log entries:")

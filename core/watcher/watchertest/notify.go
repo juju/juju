@@ -6,8 +6,7 @@ package watchertest
 import (
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/testing"
@@ -55,7 +54,7 @@ func (w *MockNotifyWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func NewNotifyWatcherC(c *gc.C, watcher watcher.NotifyWatcher) NotifyWatcherC {
+func NewNotifyWatcherC(c *tc.C, watcher watcher.NotifyWatcher) NotifyWatcherC {
 	return NotifyWatcherC{
 		C:       c,
 		Watcher: watcher,
@@ -63,7 +62,7 @@ func NewNotifyWatcherC(c *gc.C, watcher watcher.NotifyWatcher) NotifyWatcherC {
 }
 
 type NotifyWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher watcher.NotifyWatcher
 }
 
@@ -73,7 +72,7 @@ type NotifyWatcherC struct {
 func (c NotifyWatcherC) AssertOneChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -85,7 +84,7 @@ func (c NotifyWatcherC) AssertOneChange() {
 func (c NotifyWatcherC) AssertAtLeastOneChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -103,7 +102,7 @@ func (c NotifyWatcherC) AssertChanges(duration time.Duration) {
 	for {
 		select {
 		case _, ok := <-c.Watcher.Changes():
-			c.Check(ok, jc.IsTrue)
+			c.Check(ok, tc.IsTrue)
 		case <-done:
 			// Ensure we have no more changes after we've waited
 			// for a given time.
@@ -124,7 +123,7 @@ func (c NotifyWatcherC) AssertNChanges(n int) {
 	for {
 		select {
 		case _, ok := <-c.Watcher.Changes():
-			c.Check(ok, jc.IsTrue)
+			c.Check(ok, tc.IsTrue)
 			received++
 
 			if received < n {
@@ -163,7 +162,7 @@ func (c NotifyWatcherC) assertStops(changesClosed bool) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher never stopped")
 	case err := <-wait:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	select {

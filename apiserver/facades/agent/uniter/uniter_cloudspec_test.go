@@ -3,16 +3,14 @@
 
 package uniter_test
 
-import (
-	gc "gopkg.in/check.v1"
-)
+import "github.com/juju/tc"
 
 type cloudSpecUniterSuite struct {
 }
 
-var _ = gc.Suite(&cloudSpecUniterSuite{})
+var _ = tc.Suite(&cloudSpecUniterSuite{})
 
-func (s *cloudSpecUniterSuite) TestStub(c *gc.C) {
+func (s *cloudSpecUniterSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - TestGetCloudSpecReturnsSpecWhenTrusted: A test returning a correct cloud spec
 for the given model when request is authorized.

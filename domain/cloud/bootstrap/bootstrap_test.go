@@ -6,8 +6,7 @@ package bootstrap
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	coreuser "github.com/juju/juju/core/user"
@@ -18,15 +17,15 @@ type bootstrapSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+var _ = tc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) TestInsertCloud(c *gc.C) {
+func (s *bootstrapSuite) TestInsertCloud(c *tc.C) {
 	cld := cloud.Cloud{Name: "cirrus", Type: "ec2", AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType}}
 	err := InsertCloud(coreuser.AdminUserName, cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var name string
 	row := s.DB().QueryRow("SELECT name FROM cloud where cloud_type_id = ?", 5) // 5 = ec2
-	c.Assert(row.Scan(&name), jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "cirrus")
+	c.Assert(row.Scan(&name), tc.ErrorIsNil)
+	c.Assert(name, tc.Equals, "cirrus")
 }

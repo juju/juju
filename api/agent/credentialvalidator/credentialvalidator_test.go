@@ -8,28 +8,27 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/credentialvalidator"
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&CredentialValidatorSuite{})
+var _ = tc.Suite(&CredentialValidatorSuite{})
 
 type CredentialValidatorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
+func (s *CredentialValidatorSuite) TestModelCredential(c *tc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CredentialValidator")
-		c.Check(request, gc.Equals, "ModelCredential")
-		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.ModelCredential{})
+		c.Check(objType, tc.Equals, "CredentialValidator")
+		c.Check(request, tc.Equals, "ModelCredential")
+		c.Check(arg, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.ModelCredential{})
 		*(result.(*params.ModelCredential)) = params.ModelCredential{
 			Model:           modelTag.String(),
 			CloudCredential: credentialTag.String(),
@@ -41,12 +40,12 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
 
 	client := credentialvalidator.NewFacade(apiCaller)
 	found, exists, err := client.ModelCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.IsTrue)
-	c.Assert(found, gc.DeepEquals, base.StoredCredential{CloudCredential: "cloud/user/credential", Valid: true})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.IsTrue)
+	c.Assert(found, tc.DeepEquals, base.StoredCredential{CloudCredential: "cloud/user/credential", Valid: true})
 }
 
-func (s *CredentialValidatorSuite) TestModelCredentialIsNotNeeded(c *gc.C) {
+func (s *CredentialValidatorSuite) TestModelCredentialIsNotNeeded(c *tc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ModelCredential)) = params.ModelCredential{
 			Model:  modelTag.String(),
@@ -57,11 +56,11 @@ func (s *CredentialValidatorSuite) TestModelCredentialIsNotNeeded(c *gc.C) {
 
 	client := credentialvalidator.NewFacade(apiCaller)
 	_, exists, err := client.ModelCredential(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.IsFalse)
 }
 
-func (s *CredentialValidatorSuite) TestModelCredentialInvalidCredentialTag(c *gc.C) {
+func (s *CredentialValidatorSuite) TestModelCredentialInvalidCredentialTag(c *tc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ModelCredential)) = params.ModelCredential{
 			Model:           modelTag.String(),
@@ -73,18 +72,18 @@ func (s *CredentialValidatorSuite) TestModelCredentialInvalidCredentialTag(c *gc
 
 	client := credentialvalidator.NewFacade(apiCaller)
 	_, exists, err := client.ModelCredential(context.Background())
-	c.Assert(err, gc.ErrorMatches, `"some-invalid-cloud-credential-tag-as-string" is not a valid tag`)
-	c.Assert(exists, jc.IsFalse)
+	c.Assert(err, tc.ErrorMatches, `"some-invalid-cloud-credential-tag-as-string" is not a valid tag`)
+	c.Assert(exists, tc.IsFalse)
 }
 
-func (s *CredentialValidatorSuite) TestModelCredentialCallError(c *gc.C) {
+func (s *CredentialValidatorSuite) TestModelCredentialCallError(c *tc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("foo")
 	})
 
 	client := credentialvalidator.NewFacade(apiCaller)
 	_, _, err := client.ModelCredential(context.Background())
-	c.Assert(err, gc.ErrorMatches, "foo")
+	c.Assert(err, tc.ErrorMatches, "foo")
 }
 
 var (
@@ -95,22 +94,22 @@ var (
 	credentialTag = names.NewCloudCredentialTag(credentialID)
 )
 
-func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *gc.C) {
+func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *tc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{Error: &params.Error{Message: "foo"}}
 		return nil
 	})
 	client := credentialvalidator.NewFacade(apitesting.BestVersionCaller{apiCaller, 2})
 	_, err := client.WatchModelCredential(context.Background())
-	c.Assert(err, gc.ErrorMatches, "foo")
+	c.Assert(err, tc.ErrorMatches, "foo")
 }
 
-func (s *CredentialValidatorSuite) TestWatchModelCredentialCallError(c *gc.C) {
+func (s *CredentialValidatorSuite) TestWatchModelCredentialCallError(c *tc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("foo")
 	})
 
 	client := credentialvalidator.NewFacade(apitesting.BestVersionCaller{apiCaller, 2})
 	_, err := client.WatchModelCredential(context.Background())
-	c.Assert(err, gc.ErrorMatches, "foo")
+	c.Assert(err, tc.ErrorMatches, "foo")
 }

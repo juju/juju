@@ -6,16 +6,16 @@ package model
 import (
 	"context"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type contextSuite struct{}
 
-var _ = gc.Suite(&contextSuite{})
+var _ = tc.Suite(&contextSuite{})
 
-func (s *contextSuite) TestContextModelUUIDIsPassed(c *gc.C) {
+func (s *contextSuite) TestContextModelUUIDIsPassed(c *tc.C) {
 	ctx := WithContextModelUUID(context.Background(), UUID("model-uuid"))
 	modelUUID, ok := ModelUUIDFromContext(ctx)
-	c.Assert(ok, gc.Equals, true)
-	c.Check(modelUUID, gc.Equals, UUID("model-uuid"))
+	c.Assert(ok, tc.Equals, true)
+	c.Check(modelUUID, tc.Equals, UUID("model-uuid"))
 }

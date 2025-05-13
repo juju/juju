@@ -6,15 +6,14 @@ package common_test
 import (
 	"sync"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 )
 
 type resourceSuite struct{}
 
-var _ = gc.Suite(resourceSuite{})
+var _ = tc.Suite(resourceSuite{})
 
 type fakeResource struct {
 	stopped bool
@@ -28,66 +27,66 @@ func (r *fakeResource) Wait() error {
 	return nil
 }
 
-func (resourceSuite) TestRegisterGetCount(c *gc.C) {
+func (resourceSuite) TestRegisterGetCount(c *tc.C) {
 	rs := common.NewResources()
 	r1 := &fakeResource{}
 	id := rs.Register(r1)
-	c.Assert(id, gc.Equals, "1")
-	c.Assert(rs.Get("1"), gc.Equals, r1)
-	c.Assert(rs.Count(), gc.Equals, 1)
+	c.Assert(id, tc.Equals, "1")
+	c.Assert(rs.Get("1"), tc.Equals, r1)
+	c.Assert(rs.Count(), tc.Equals, 1)
 
 	r2 := &fakeResource{}
 	id = rs.Register(r2)
-	c.Assert(id, gc.Equals, "2")
-	c.Assert(rs.Get("2"), gc.Equals, r2)
-	c.Assert(rs.Count(), gc.Equals, 2)
+	c.Assert(id, tc.Equals, "2")
+	c.Assert(rs.Get("2"), tc.Equals, r2)
+	c.Assert(rs.Count(), tc.Equals, 2)
 }
 
-func (resourceSuite) TestRegisterNamedGetCount(c *gc.C) {
+func (resourceSuite) TestRegisterNamedGetCount(c *tc.C) {
 	rs := common.NewResources()
 	defer rs.StopAll()
 	r1 := &fakeResource{}
 	err := rs.RegisterNamed("fake1", r1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(rs.Count(), gc.Equals, 1)
-	c.Check(rs.Get("fake1"), gc.Equals, r1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rs.Count(), tc.Equals, 1)
+	c.Check(rs.Get("fake1"), tc.Equals, r1)
 }
 
-func (resourceSuite) TestRegisterNamedRepeatedName(c *gc.C) {
+func (resourceSuite) TestRegisterNamedRepeatedName(c *tc.C) {
 	rs := common.NewResources()
 	defer rs.StopAll()
 	r1 := &fakeResource{}
 	r2 := &fakeResource{}
 	err := rs.RegisterNamed("fake1", r1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(rs.Count(), gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rs.Count(), tc.Equals, 1)
 	err = rs.RegisterNamed("fake1", r2)
-	c.Check(err, gc.ErrorMatches, `resource "fake1" already registered`)
-	c.Check(rs.Count(), gc.Equals, 1)
-	c.Check(rs.Get("fake1"), gc.Equals, r1)
+	c.Check(err, tc.ErrorMatches, `resource "fake1" already registered`)
+	c.Check(rs.Count(), tc.Equals, 1)
+	c.Check(rs.Get("fake1"), tc.Equals, r1)
 }
 
-func (resourceSuite) TestRegisterNamedIntegerName(c *gc.C) {
+func (resourceSuite) TestRegisterNamedIntegerName(c *tc.C) {
 	rs := common.NewResources()
 	defer rs.StopAll()
 	r1 := &fakeResource{}
 	err := rs.RegisterNamed("1", r1)
-	c.Check(err, gc.ErrorMatches, `RegisterNamed does not allow integer names: "1"`)
-	c.Check(rs.Count(), gc.Equals, 0)
-	c.Check(rs.Get("fake1"), gc.IsNil)
+	c.Check(err, tc.ErrorMatches, `RegisterNamed does not allow integer names: "1"`)
+	c.Check(rs.Count(), tc.Equals, 0)
+	c.Check(rs.Get("fake1"), tc.IsNil)
 }
 
-func (resourceSuite) TestRegisterNamedIntegerStart(c *gc.C) {
+func (resourceSuite) TestRegisterNamedIntegerStart(c *tc.C) {
 	rs := common.NewResources()
 	defer rs.StopAll()
 	r1 := &fakeResource{}
 	err := rs.RegisterNamed("1fake", r1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(rs.Count(), gc.Equals, 1)
-	c.Check(rs.Get("1fake"), gc.Equals, r1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rs.Count(), tc.Equals, 1)
+	c.Check(rs.Get("1fake"), tc.Equals, r1)
 }
 
-func (resourceSuite) TestConcurrency(c *gc.C) {
+func (resourceSuite) TestConcurrency(c *tc.C) {
 	// This test is designed to cause the race detector
 	// to fail if the locking is not done correctly.
 	var wg sync.WaitGroup
@@ -125,21 +124,21 @@ func (resourceSuite) TestConcurrency(c *gc.C) {
 	wg.Wait()
 }
 
-func (resourceSuite) TestStop(c *gc.C) {
+func (resourceSuite) TestStop(c *tc.C) {
 	rs := common.NewResources()
 	r1 := &fakeResource{}
 	rs.Register(r1)
 	r2 := &fakeResource{}
 	rs.Register(r2)
 	rs.Stop("1")
-	c.Assert(r1.stopped, jc.IsTrue)
-	c.Assert(rs.Get("1"), gc.IsNil)
-	c.Assert(r2.stopped, jc.IsFalse)
-	c.Assert(rs.Get("2"), gc.Equals, r2)
-	c.Assert(rs.Count(), gc.Equals, 1)
+	c.Assert(r1.stopped, tc.IsTrue)
+	c.Assert(rs.Get("1"), tc.IsNil)
+	c.Assert(r2.stopped, tc.IsFalse)
+	c.Assert(rs.Get("2"), tc.Equals, r2)
+	c.Assert(rs.Count(), tc.Equals, 1)
 }
 
-func (resourceSuite) TestStopAll(c *gc.C) {
+func (resourceSuite) TestStopAll(c *tc.C) {
 	rs := common.NewResources()
 	r1 := &fakeResource{}
 	rs.Register(r1)
@@ -147,10 +146,10 @@ func (resourceSuite) TestStopAll(c *gc.C) {
 	rs.Register(r2)
 	rs.StopAll()
 
-	c.Assert(r1.stopped, jc.IsTrue)
-	c.Assert(rs.Get("1"), gc.IsNil)
-	c.Assert(r2.stopped, jc.IsTrue)
-	c.Assert(rs.Get("2"), gc.IsNil)
+	c.Assert(r1.stopped, tc.IsTrue)
+	c.Assert(rs.Get("1"), tc.IsNil)
+	c.Assert(r2.stopped, tc.IsTrue)
+	c.Assert(rs.Get("2"), tc.IsNil)
 
-	c.Assert(rs.Count(), gc.Equals, 0)
+	c.Assert(rs.Count(), tc.Equals, 0)
 }

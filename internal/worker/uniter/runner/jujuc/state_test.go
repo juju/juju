@@ -5,8 +5,8 @@ package jujuc_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/mocks"
 )
@@ -15,7 +15,7 @@ type stateSuite struct {
 	mockContext *mocks.MockContext
 }
 
-func (s *stateSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *stateSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockContext = mocks.NewMockContext(ctrl)
 	return ctrl

@@ -8,13 +8,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
 
@@ -22,9 +21,9 @@ type SecretAddSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&SecretAddSuite{})
+var _ = tc.Suite(&SecretAddSuite{})
 
-func (s *SecretAddSuite) TestAddSecretInvalidArgs(c *gc.C) {
+func (s *SecretAddSuite) TestAddSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	for _, t := range []struct {
@@ -52,12 +51,12 @@ func (s *SecretAddSuite) TestAddSecretInvalidArgs(c *gc.C) {
 		},
 	} {
 		com, err := jujuc.NewCommand(hctx, "secret-add")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 
-		c.Assert(code, gc.Equals, 2)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, t.err+"\n")
+		c.Assert(code, tc.Equals, 2)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, t.err+"\n")
 	}
 }
 
@@ -65,11 +64,11 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretAddSuite) TestAddSecretExpireDuration(c *gc.C) {
+func (s *SecretAddSuite) TestAddSecretExpireDuration(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-add")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedExpiry := time.Now().Add(time.Hour)
 	ctx := cmdtesting.Context(c)
@@ -80,7 +79,7 @@ func (s *SecretAddSuite) TestAddSecretExpireDuration(c *gc.C) {
 		"data=secret",
 	})
 
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
 	expectedArgs := &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
@@ -93,21 +92,21 @@ func (s *SecretAddSuite) TestAddSecretExpireDuration(c *gc.C) {
 	}
 	s.Stub.CheckCallNames(c, "UnitName", "CreateSecret")
 	call := s.Stub.Calls()[1]
-	c.Assert(call.Args, gc.HasLen, 1)
+	c.Assert(call.Args, tc.HasLen, 1)
 	args, ok := call.Args[0].(*jujuc.SecretCreateArgs)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(args.ExpireTime, gc.NotNil)
-	c.Assert(args.ExpireTime.After(expectedExpiry), jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(args.ExpireTime, tc.NotNil)
+	c.Assert(args.ExpireTime.After(expectedExpiry), tc.IsTrue)
 	args.ExpireTime = nil
-	c.Assert(args, jc.DeepEquals, expectedArgs)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
+	c.Assert(args, tc.DeepEquals, expectedArgs)
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
 }
 
-func (s *SecretAddSuite) TestAddSecretExpireTimestamp(c *gc.C) {
+func (s *SecretAddSuite) TestAddSecretExpireTimestamp(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-add")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
@@ -117,10 +116,10 @@ func (s *SecretAddSuite) TestAddSecretExpireTimestamp(c *gc.C) {
 		"data=secret",
 	})
 
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
 	expectedExpiry, err := time.Parse("2006-01-02T15:04:05", "2022-03-04T06:06:06")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value:        val,
@@ -131,19 +130,19 @@ func (s *SecretAddSuite) TestAddSecretExpireTimestamp(c *gc.C) {
 		},
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "u"},
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
 }
 
-func (s *SecretAddSuite) TestAddSecretBase64(c *gc.C) {
+func (s *SecretAddSuite) TestAddSecretBase64(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	com, err := jujuc.NewCommand(hctx, "secret-add")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"token#base64=key=", "--owner", "unit"})
 
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
 	args := &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
@@ -151,11 +150,11 @@ func (s *SecretAddSuite) TestAddSecretBase64(c *gc.C) {
 		},
 		Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "u/0"},
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
 }
 
-func (s *SecretAddSuite) TestAddSecretFromFile(c *gc.C) {
+func (s *SecretAddSuite) TestAddSecretFromFile(c *tc.C) {
 	data := `
     key: |-
       secret
@@ -168,15 +167,15 @@ func (s *SecretAddSuite) TestAddSecretFromFile(c *gc.C) {
 	dir := c.MkDir()
 	fileName := filepath.Join(dir, "secret.yaml")
 	err := os.WriteFile(fileName, []byte(data), os.FileMode(0644))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hctx, _ := s.ContextSuite.NewHookContext()
 	com, err := jujuc.NewCommand(hctx, "secret-add")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"token#base64=key=", "--file", fileName})
 
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{
 		"token":       "key=",
 		"key":         "c2VjcmV0",
@@ -188,6 +187,6 @@ func (s *SecretAddSuite) TestAddSecretFromFile(c *gc.C) {
 		},
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "u"},
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "UnitName"}, {FuncName: "CreateSecret", Args: []interface{}{args}}})
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
 }

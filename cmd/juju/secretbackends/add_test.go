@@ -8,26 +8,25 @@ import (
 	"path/filepath"
 	"time"
 
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/jujuclient"
 )
 
 type AddSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	store                *jujuclient.MemStore
 	addSecretBackendsAPI *secretbackends.MockAddSecretBackendsAPI
 }
 
-var _ = gc.Suite(&AddSuite{})
+var _ = tc.Suite(&AddSuite{})
 
-func (s *AddSuite) SetUpTest(c *gc.C) {
+func (s *AddSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
@@ -35,7 +34,7 @@ func (s *AddSuite) SetUpTest(c *gc.C) {
 	s.store = store
 }
 
-func (s *AddSuite) setup(c *gc.C) *gomock.Controller {
+func (s *AddSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.addSecretBackendsAPI = secretbackends.NewMockAddSecretBackendsAPI(ctrl)
@@ -43,7 +42,7 @@ func (s *AddSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *AddSuite) TestAddInitError(c *gc.C) {
+func (s *AddSuite) TestAddInitError(c *tc.C) {
 	for _, t := range []struct {
 		args []string
 		err  string
@@ -70,11 +69,11 @@ func (s *AddSuite) TestAddInitError(c *gc.C) {
 		err:  `open /path/to/nowhere: no such file or directory`,
 	}} {
 		_, err := cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI), t.args...)
-		c.Check(err, gc.ErrorMatches, t.err)
+		c.Check(err, tc.ErrorMatches, t.err)
 	}
 }
 
-func (s *AddSuite) TestAdd(c *gc.C) {
+func (s *AddSuite) TestAdd(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.addSecretBackendsAPI.EXPECT().AddSecretBackend(
@@ -90,10 +89,10 @@ func (s *AddSuite) TestAdd(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI),
 		"myvault", "vault", "endpoint=http://vault", "token-rotate=666m",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *AddSuite) TestAddWithID(c *gc.C) {
+func (s *AddSuite) TestAddWithID(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.addSecretBackendsAPI.EXPECT().AddSecretBackend(
@@ -109,15 +108,15 @@ func (s *AddSuite) TestAddWithID(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI),
 		"myvault", "vault", "endpoint=http://vault", "--import-id", "backend-id",
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *AddSuite) TestAddFromFile(c *gc.C) {
+func (s *AddSuite) TestAddFromFile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	fname := filepath.Join(c.MkDir(), "cfg.yaml")
 	err := os.WriteFile(fname, []byte("endpoint: http://vault"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.addSecretBackendsAPI.EXPECT().AddSecretBackend(
 		gomock.Any(),
 		apisecretbackends.CreateSecretBackend{
@@ -134,5 +133,5 @@ func (s *AddSuite) TestAddFromFile(c *gc.C) {
 	_, err = cmdtesting.RunCommand(c, secretbackends.NewAddCommandForTest(s.store, s.addSecretBackendsAPI),
 		"myvault", "vault", "token=s.666", "token-rotate=666m", "--config", fname,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

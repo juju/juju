@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
@@ -20,15 +19,15 @@ type importSuite struct {
 	service *MockImportService
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.service = NewMockImportService(ctrl)
 	return ctrl
 }
 
-func (s *importSuite) TestImport(c *gc.C) {
+func (s *importSuite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -63,10 +62,10 @@ func (s *importSuite) TestImport(c *gc.C) {
 
 	importOp := importOperation{service: s.service}
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportPartial(c *gc.C) {
+func (s *importSuite) TestImportPartial(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -89,10 +88,10 @@ func (s *importSuite) TestImportPartial(c *gc.C) {
 
 	importOp := importOperation{service: s.service}
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportError(c *gc.C) {
+func (s *importSuite) TestImportError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
@@ -115,7 +114,7 @@ func (s *importSuite) TestImportError(c *gc.C) {
 
 	importOp := importOperation{service: s.service}
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
 func ptr[T any](v T) *T {

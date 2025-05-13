@@ -10,11 +10,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -34,9 +33,9 @@ type workerSuite struct {
 	called                     int64
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestKilledGetObjectStoreErrDying(c *gc.C) {
+func (s *workerSuite) TestKilledGetObjectStoreErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
@@ -48,10 +47,10 @@ func (s *workerSuite) TestKilledGetObjectStoreErrDying(c *gc.C) {
 
 	worker := w.(*objectStoreWorker)
 	_, err := worker.GetObjectStore(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, objectstore.ErrObjectStoreDying)
+	c.Assert(err, tc.ErrorIs, objectstore.ErrObjectStoreDying)
 }
 
-func (s *workerSuite) TestGetObjectStore(c *gc.C) {
+func (s *workerSuite) TestGetObjectStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -70,15 +69,15 @@ func (s *workerSuite) TestGetObjectStore(c *gc.C) {
 
 	worker := w.(*objectStoreWorker)
 	objectStore, err := worker.GetObjectStore(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(objectStore, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(objectStore, tc.NotNil)
 
 	close(done)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestGetObjectStoreIsCached(c *gc.C) {
+func (s *workerSuite) TestGetObjectStoreIsCached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -99,17 +98,17 @@ func (s *workerSuite) TestGetObjectStoreIsCached(c *gc.C) {
 	for i := 0; i < 10; i++ {
 
 		_, err := worker.GetObjectStore(context.Background(), "foo")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	close(done)
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
 }
 
-func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *gc.C) {
+func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -131,17 +130,17 @@ func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *gc.
 		name := fmt.Sprintf("anything-%d", i)
 
 		_, err := worker.GetObjectStore(context.Background(), name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	close(done)
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(10))
 }
 
-func (s *workerSuite) TestGetObjectStoreConcurrently(c *gc.C) {
+func (s *workerSuite) TestGetObjectStoreConcurrently(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -169,19 +168,19 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *gc.C) {
 			name := fmt.Sprintf("anything-%d", i)
 
 			_, err := worker.GetObjectStore(context.Background(), name)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}
 
 	assertWait(c, wg.Wait)
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(10))
 
 	close(done)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		Clock:        s.clock,
 		Logger:       s.logger,
@@ -197,11 +196,11 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		RootDir:                    c.MkDir(),
 		RootBucket:                 uuid.MustNewUUID().String(),
 	}, s.states)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)
@@ -222,16 +221,16 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) ensureStartup(c *gc.C) {
+func (s *workerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, tc.Equals, stateStarted)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func assertWait(c *gc.C, wait func()) {
+func assertWait(c *tc.C, wait func()) {
 	done := make(chan struct{})
 
 	go func() {

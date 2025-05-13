@@ -4,18 +4,18 @@
 package resource
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type StateSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&StateSuite{})
+var _ = tc.Suite(&StateSuite{})
 
-func (StateSuite) TestParseStateKnown(c *gc.C) {
+func (s *StateSuite) TestParseStateKnown(c *tc.C) {
 	recognized := map[string]State{
 		"potential": StatePotential,
 		"available": StateAvailable,
@@ -23,18 +23,18 @@ func (StateSuite) TestParseStateKnown(c *gc.C) {
 	for value, expected := range recognized {
 		state, err := ParseState(value)
 
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(state, gc.Equals, expected)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(state, tc.Equals, expected)
 	}
 }
 
-func (StateSuite) TestParseStateUnknown(c *gc.C) {
+func (s *StateSuite) TestParseStateUnknown(c *tc.C) {
 	_, err := ParseState("<invalid>")
 
-	c.Check(err, gc.ErrorMatches, `.*state "<invalid>" invalid.*`)
+	c.Check(err, tc.ErrorMatches, `.*state "<invalid>" invalid.*`)
 }
 
-func (StateSuite) TestValidateKnown(c *gc.C) {
+func (s *StateSuite) TestValidateKnown(c *tc.C) {
 	recognized := []State{
 		StatePotential,
 		StateAvailable,
@@ -42,13 +42,13 @@ func (StateSuite) TestValidateKnown(c *gc.C) {
 	for _, state := range recognized {
 		err := state.Validate()
 
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
-func (StateSuite) TestValidateUnknown(c *gc.C) {
+func (s *StateSuite) TestValidateUnknown(c *tc.C) {
 	var state State
 	err := state.Validate()
 
-	c.Check(err, gc.ErrorMatches, `.*state "" invalid.*`)
+	c.Check(err, tc.ErrorMatches, `.*state "" invalid.*`)
 }

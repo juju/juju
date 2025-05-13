@@ -2,8 +2,8 @@
 # Util suite
 <!--TODO:
 - Include more base test suites. E.g., LoggingCleanupSuite, OsEnvSuite:
-https://github.com/juju/testing
-- 
+github.com/juju/juju/internal/testhelpers
+-
 -->
 
 
@@ -20,7 +20,7 @@ There are several util suites, among which:
 The last three have the BaseSuite functionality included through composition. The BaseSuite isolates a user's home
 directory from accidental modification (by setting `$HOME to ""`) and errors if there is an attempt to do outgoing HTTP
 access. It also clears the relevant `$JUJU_* environment variables`. The `BaseSuite` is also composed of the core
-`LoggingSuite`, and also `LoggingSuite` from `github.com/juju/testing`, which brings in the `CleanupSuite` from the
+`LoggingSuite`, and also `LoggingSuite` from `github.com/juju/juju/internal/testhelpers`, which brings in the `CleanupSuite` from the
 same. The `CleanupSuite` has functionality around patching environment variables and normal variables for the duration
 of a test. It also provides a clean-up stack called when the test teardown happens.
 

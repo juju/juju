@@ -7,9 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/modeldefaults"
@@ -23,9 +22,9 @@ type importSuite struct {
 	modelDefaultsProvider *MockModelDefaultsProvider
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = tc.Suite(&importSuite{})
 
-func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.coordinator = NewMockCoordinator(ctrl)
@@ -35,7 +34,7 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) TestRegisterImport(c *gc.C) {
+func (s *importSuite) TestRegisterImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
@@ -43,7 +42,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 	RegisterImport(s.coordinator, s.modelDefaultsProvider, loggertesting.WrapCheckLog(c))
 }
 
-func (s *importSuite) TestEmptyModelConfig(c *gc.C) {
+func (s *importSuite) TestEmptyModelConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Empty model.
@@ -51,10 +50,10 @@ func (s *importSuite) TestEmptyModelConfig(c *gc.C) {
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestModelConfig(c *gc.C) {
+func (s *importSuite) TestModelConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	config, err := config.New(config.NoDefaults, map[string]any{
@@ -64,7 +63,7 @@ func (s *importSuite) TestModelConfig(c *gc.C) {
 		"workload-storage": "mystorage",
 		"operator-storage": "otherstorage",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	importedCOnfig := map[string]any{
 		"logging-config":   "<root>=INFO",
 		"workload-storage": "mystorage",
@@ -82,10 +81,10 @@ func (s *importSuite) TestModelConfig(c *gc.C) {
 
 	op := s.newImportOperation(c)
 	err = op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
+func (s *importSuite) newImportOperation(c *tc.C) *importOperation {
 	return &importOperation{
 		service:          s.service,
 		defaultsProvider: s.modelDefaultsProvider,

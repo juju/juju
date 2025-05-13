@@ -13,28 +13,27 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type storeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	objectStore       *MockObjectStore
 	objectStoreGetter *MockModelObjectStoreGetter
 }
 
-var _ = gc.Suite(&storeSuite{})
+var _ = tc.Suite(&storeSuite{})
 
-func (s *storeSuite) TestStore(c *gc.C) {
+func (s *storeSuite) TestStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
@@ -52,7 +51,7 @@ func (s *storeSuite) TestStore(c *gc.C) {
 			uniqueName = name
 
 			data, err := io.ReadAll(reader)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			contents = string(data)
 
 			return uuid, nil
@@ -60,16 +59,16 @@ func (s *storeSuite) TestStore(c *gc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	storeResult, err := storage.Store(context.Background(), path, contentDigest.Size, contentDigest.SHA384)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(storeResult.ObjectStoreUUID, gc.DeepEquals, uuid)
-	c.Check(storeResult.UniqueName, gc.Equals, uniqueName)
+	c.Check(storeResult.ObjectStoreUUID, tc.DeepEquals, uuid)
+	c.Check(storeResult.UniqueName, tc.Equals, uniqueName)
 
 	// Make sure the contents are the same and it's not been tampered with.
-	c.Check(contents, gc.Equals, "hello world")
+	c.Check(contents, tc.Equals, "hello world")
 }
 
-func (s *storeSuite) TestStoreFileClosed(c *gc.C) {
+func (s *storeSuite) TestStoreFileClosed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
@@ -88,25 +87,25 @@ func (s *storeSuite) TestStoreFileClosed(c *gc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.Store(context.Background(), path, contentDigest.Size, contentDigest.SHA384)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Attempt to read the contents of the read after it's been closed.
 	_, err = io.ReadAll(reader)
 
-	c.Assert(err, gc.ErrorMatches, ".*file already closed")
+	c.Assert(err, tc.ErrorMatches, ".*file already closed")
 }
 
-func (s *storeSuite) TestStoreFileNotFound(c *gc.C) {
+func (s *storeSuite) TestStoreFileNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.Store(context.Background(), filepath.Join(dir, "foo"), 12, "hash")
-	c.Assert(err, jc.ErrorIs, ErrNotFound)
+	c.Assert(err, tc.ErrorIs, ErrNotFound)
 }
 
-func (s *storeSuite) TestStoreFailed(c *gc.C) {
+func (s *storeSuite) TestStoreFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
@@ -118,16 +117,16 @@ func (s *storeSuite) TestStoreFailed(c *gc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.Store(context.Background(), path, contentDigest.Size, contentDigest.SHA384)
-	c.Assert(err, gc.ErrorMatches, ".*boom")
+	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
-func (s *storeSuite) TestStoreFromReader(c *gc.C) {
+func (s *storeSuite) TestStoreFromReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
 	path, contentDigest := s.createTempFile(c, dir, "hello world")
 	reader, err := os.Open(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
@@ -141,7 +140,7 @@ func (s *storeSuite) TestStoreFromReader(c *gc.C) {
 			uniqueName = name
 
 			data, err := io.ReadAll(reader)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			contents = string(data)
 
 			return uuid, nil
@@ -149,18 +148,18 @@ func (s *storeSuite) TestStoreFromReader(c *gc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	storeResult, digest, err := storage.StoreFromReader(context.Background(), reader, contentDigest.SHA256[:7])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(storeResult.ObjectStoreUUID, gc.DeepEquals, uuid)
-	c.Check(storeResult.UniqueName, gc.Equals, uniqueName)
+	c.Check(storeResult.ObjectStoreUUID, tc.DeepEquals, uuid)
+	c.Check(storeResult.UniqueName, tc.Equals, uniqueName)
 
-	c.Check(digest, gc.DeepEquals, contentDigest)
+	c.Check(digest, tc.DeepEquals, contentDigest)
 
 	// Make sure the contents are the same and it's not been tampered with.
-	c.Check(contents, gc.Equals, "hello world")
+	c.Check(contents, tc.Equals, "hello world")
 }
 
-func (s *storeSuite) TestStoreFromReaderEmptyReader(c *gc.C) {
+func (s *storeSuite) TestStoreFromReaderEmptyReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
@@ -169,23 +168,23 @@ func (s *storeSuite) TestStoreFromReaderEmptyReader(c *gc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, _, err := storage.StoreFromReader(context.Background(), reader, contentDigest.SHA256[:7])
-	c.Assert(err, jc.ErrorIs, ErrCharmHashMismatch)
+	c.Assert(err, tc.ErrorIs, ErrCharmHashMismatch)
 }
 
-func (s *storeSuite) TestStoreFromReaderInvalidHash(c *gc.C) {
+func (s *storeSuite) TestStoreFromReaderInvalidHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dir := c.MkDir()
 	path, _ := s.createTempFile(c, dir, "hello world")
 	reader, err := os.Open(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, _, err = storage.StoreFromReader(context.Background(), reader, "blah")
-	c.Assert(err, jc.ErrorIs, ErrCharmHashMismatch)
+	c.Assert(err, tc.ErrorIs, ErrCharmHashMismatch)
 }
 
-func (s *storeSuite) TestGet(c *gc.C) {
+func (s *storeSuite) TestGet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	archive := io.NopCloser(strings.NewReader("archive-content"))
@@ -193,14 +192,14 @@ func (s *storeSuite) TestGet(c *gc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	reader, err := storage.Get(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	content, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(content), gc.Equals, "archive-content")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(content), tc.Equals, "archive-content")
 }
 
-func (s *storeSuite) TestGetFailed(c *gc.C) {
+func (s *storeSuite) TestGetFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(nil, 0, errors.Errorf("boom"))
@@ -208,20 +207,20 @@ func (s *storeSuite) TestGetFailed(c *gc.C) {
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 
 	_, err := storage.Get(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, ".*boom")
+	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
-func (s *storeSuite) TestGetNotFound(c *gc.C) {
+func (s *storeSuite) TestGetNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(nil, 0, objectstoreerrors.ObjectNotFound)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.Get(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, ErrNotFound)
+	c.Assert(err, tc.ErrorIs, ErrNotFound)
 }
 
-func (s *storeSuite) TestGetBySHA256Prefix(c *gc.C) {
+func (s *storeSuite) TestGetBySHA256Prefix(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	archive := io.NopCloser(strings.NewReader("archive-content"))
@@ -229,33 +228,33 @@ func (s *storeSuite) TestGetBySHA256Prefix(c *gc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	reader, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	content, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(content), gc.Equals, "archive-content")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(content), tc.Equals, "archive-content")
 }
 
-func (s *storeSuite) TestGetBySHA256PrefixFailed(c *gc.C) {
+func (s *storeSuite) TestGetBySHA256PrefixFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(nil, 0, errors.Errorf("boom"))
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
-	c.Assert(err, gc.ErrorMatches, ".*boom")
+	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
-func (s *storeSuite) TestGetBySHA256NotFound(c *gc.C) {
+func (s *storeSuite) TestGetBySHA256NotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(nil, 0, objectstoreerrors.ObjectNotFound)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
-	c.Assert(err, jc.ErrorIs, ErrNotFound)
+	c.Assert(err, tc.ErrorIs, ErrNotFound)
 }
 
-func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *storeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.objectStore = NewMockObjectStore(ctrl)
@@ -266,13 +265,13 @@ func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *storeSuite) createTempFile(c *gc.C, dir, content string) (string, Digest) {
+func (s *storeSuite) createTempFile(c *tc.C, dir, content string) (string, Digest) {
 	path := filepath.Join(dir, "test")
 	err := os.WriteFile(path, []byte(content), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := os.Stat(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return path, Digest{
 		SHA256: calculateSHA256(c, content),
@@ -281,16 +280,16 @@ func (s *storeSuite) createTempFile(c *gc.C, dir, content string) (string, Diges
 	}
 }
 
-func calculateSHA384(c *gc.C, content string) string {
+func calculateSHA384(c *tc.C, content string) string {
 	hash := sha512.New384()
 	_, err := hash.Write([]byte(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func calculateSHA256(c *gc.C, content string) string {
+func calculateSHA256(c *tc.C, content string) string {
 	hash := sha256.New()
 	_, err := hash.Write([]byte(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return hex.EncodeToString(hash.Sum(nil))
 }

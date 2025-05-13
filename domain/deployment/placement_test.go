@@ -4,20 +4,19 @@
 package deployment
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type PlacementSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&PlacementSuite{})
+var _ = tc.Suite(&PlacementSuite{})
 
-func (s *PlacementSuite) TestPlacement(c *gc.C) {
+func (s *PlacementSuite) TestPlacement(c *tc.C) {
 	tests := []struct {
 		input  *instance.Placement
 		output Placement
@@ -113,11 +112,11 @@ func (s *PlacementSuite) TestPlacement(c *gc.C) {
 
 		result, err := ParsePlacement(test.input)
 		if test.err != nil {
-			c.Assert(err, gc.ErrorMatches, *test.err)
+			c.Assert(err, tc.ErrorMatches, *test.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
-		c.Check(result, gc.Equals, test.output)
+		c.Check(result, tc.Equals, test.output)
 	}
 }
 

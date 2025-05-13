@@ -12,9 +12,8 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -34,7 +33,7 @@ type legacyLoginProviderSuite struct {
 	mockAdminAPI *MockAdminAPI
 }
 
-var _ = gc.Suite(&legacyLoginProviderSuite{})
+var _ = tc.Suite(&legacyLoginProviderSuite{})
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package api_test -destination api_mock_test.go -source legacyloginprovider_test.go RootAPI,AdminAPI
 
@@ -46,7 +45,7 @@ type AdminAPI interface {
 	Login(req params.LoginRequest) (params.LoginResult, error)
 }
 
-func (s *legacyLoginProviderSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *legacyLoginProviderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.mockRootAPI = NewMockRootAPI(ctrl)
@@ -64,7 +63,7 @@ func (s *legacyLoginProviderSuite) APIInfo() *api.Info {
 		}
 		return s.mockRootAPI, err
 	})
-	s.AddCleanup(func(_ *gc.C) { srv.Close() })
+	s.AddCleanup(func(_ *tc.C) { srv.Close() })
 	info := &api.Info{
 		Addrs:          srv.Addrs,
 		CACert:         testing.CACert,
@@ -76,13 +75,13 @@ func (s *legacyLoginProviderSuite) APIInfo() *api.Info {
 
 // TestLegacyProviderLogin verifies that the legacy login provider
 // works for login and returns the password as the token.
-func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
+func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.mockAdminAPI.EXPECT().Login(gomock.Any()).DoAndReturn(func(lr params.LoginRequest) (params.LoginResult, error) {
-		mc := jc.NewMultiChecker()
-		mc.AddExpr("_.CLIArgs", jc.Ignore)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr("_.CLIArgs", tc.Ignore)
 		c.Check(lr, mc, params.LoginRequest{
 			AuthTag:       "user-admin",
 			Credentials:   "dummy-secret",
@@ -112,18 +111,18 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer apiState.Close()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *gc.C) {
+func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.mockAdminAPI.EXPECT().Login(gomock.Any()).DoAndReturn(func(lr params.LoginRequest) (params.LoginResult, error) {
-		mc := jc.NewMultiChecker()
-		mc.AddExpr("_.CLIArgs", jc.Ignore)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr("_.CLIArgs", tc.Ignore)
 		c.Check(lr, mc, params.LoginRequest{
 			AuthTag:       "",
 			Credentials:   "dummy-secret",
@@ -145,7 +144,7 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *gc.C) {
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})
-	c.Assert(err, gc.ErrorMatches, `failed to authenticate request: unauthorized \(unauthorized access\)`)
+	c.Assert(err, tc.ErrorMatches, `failed to authenticate request: unauthorized \(unauthorized access\)`)
 }
 
 // A separate suite for tests that don't need to connect to a controller.
@@ -153,9 +152,9 @@ type legacyLoginProviderBasicSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&legacyLoginProviderBasicSuite{})
+var _ = tc.Suite(&legacyLoginProviderBasicSuite{})
 
-func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *gc.C) {
+func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *tc.C) {
 	userTag := names.NewUserTag("bob")
 	password := "test-password"
 	nonce := "test-nonce"
@@ -171,11 +170,11 @@ func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *gc.C) {
 		nil,
 	)
 	got, err := lp.AuthHeader()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, gc.DeepEquals, header)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, header)
 }
 
-func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeaderWithNilTag(c *gc.C) {
+func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeaderWithNilTag(c *tc.C) {
 	password := "test-password"
 	nonce := "test-nonce"
 	header := http.Header{}
@@ -190,6 +189,6 @@ func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeaderWithNilTag(c
 		nil,
 	)
 	got, err := lp.AuthHeader()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, gc.DeepEquals, header)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, header)
 }

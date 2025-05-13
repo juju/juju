@@ -11,9 +11,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/objectstore"
@@ -27,9 +26,9 @@ type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&ConfigSuite{})
+var _ = tc.Suite(&ConfigSuite{})
 
-func (s *ConfigSuite) SetUpTest(c *gc.C) {
+func (s *ConfigSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING
@@ -58,7 +57,7 @@ var validateTests = []struct {
 	expectError: `controller-uuid: expected UUID, got string\("xxx"\)`,
 }}
 
-func (s *ConfigSuite) TestValidate(c *gc.C) {
+func (s *ConfigSuite) TestValidate(c *tc.C) {
 	// Normally Validate is only called as part of the NewConfig call, which
 	// also does schema coercing. The NewConfig method takes the controller uuid
 	// and cacert as separate args, so to get invalid ones, we skip that part.
@@ -66,9 +65,9 @@ func (s *ConfigSuite) TestValidate(c *gc.C) {
 		c.Logf("test %d: %v", i, test.about)
 		err := test.config.Validate()
 		if test.expectError != "" {
-			c.Check(err, gc.ErrorMatches, test.expectError)
+			c.Check(err, tc.ErrorMatches, test.expectError)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 }
@@ -462,25 +461,25 @@ var newConfigTests = []struct {
 	expectError: `ssh-server-port matching controller-api-port not valid`,
 }}
 
-func (s *ConfigSuite) TestNewConfig(c *gc.C) {
+func (s *ConfigSuite) TestNewConfig(c *tc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %v", i, test.about)
 		_, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, test.config)
 		if test.expectError != "" {
-			c.Check(err, gc.ErrorMatches, test.expectError)
+			c.Check(err, tc.ErrorMatches, test.expectError)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 }
 
-func (s *ConfigSuite) TestAPIPortDefaults(c *gc.C) {
+func (s *ConfigSuite) TestAPIPortDefaults(c *tc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.APIPortOpenDelay(), gc.Equals, 2*time.Second)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.APIPortOpenDelay(), tc.Equals, 2*time.Second)
 }
 
-func (s *ConfigSuite) TestResourceDownloadLimits(c *gc.C) {
+func (s *ConfigSuite) TestResourceDownloadLimits(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -489,18 +488,18 @@ func (s *ConfigSuite) TestResourceDownloadLimits(c *gc.C) {
 			"controller-resource-download-limit":  "666",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ApplicationResourceDownloadLimit(), gc.Equals, 42)
-	c.Assert(cfg.ControllerResourceDownloadLimit(), gc.Equals, 666)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.ApplicationResourceDownloadLimit(), tc.Equals, 42)
+	c.Assert(cfg.ControllerResourceDownloadLimit(), tc.Equals, 666)
 }
 
-func (s *ConfigSuite) TestTxnLogConfigDefault(c *gc.C) {
+func (s *ConfigSuite) TestTxnLogConfigDefault(c *tc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.MaxTxnLogSizeMB(), gc.Equals, 10)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.MaxTxnLogSizeMB(), tc.Equals, 10)
 }
 
-func (s *ConfigSuite) TestTxnLogConfigValue(c *gc.C) {
+func (s *ConfigSuite) TestTxnLogConfigValue(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -508,18 +507,18 @@ func (s *ConfigSuite) TestTxnLogConfigValue(c *gc.C) {
 			"max-txn-log-size": "8G",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.MaxTxnLogSizeMB(), gc.Equals, 8192)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.MaxTxnLogSizeMB(), tc.Equals, 8192)
 }
 
-func (s *ConfigSuite) TestMaxPruneTxnConfigDefault(c *gc.C) {
+func (s *ConfigSuite) TestMaxPruneTxnConfigDefault(c *tc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.MaxPruneTxnBatchSize(), gc.Equals, 1*1000*1000)
-	c.Check(cfg.MaxPruneTxnPasses(), gc.Equals, 100)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.MaxPruneTxnBatchSize(), tc.Equals, 1*1000*1000)
+	c.Check(cfg.MaxPruneTxnPasses(), tc.Equals, 100)
 }
 
-func (s *ConfigSuite) TestMaxPruneTxnConfigValue(c *gc.C) {
+func (s *ConfigSuite) TestMaxPruneTxnConfigValue(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -528,12 +527,12 @@ func (s *ConfigSuite) TestMaxPruneTxnConfigValue(c *gc.C) {
 			"max-prune-txn-passes":     "10",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.MaxPruneTxnBatchSize(), gc.Equals, 12345678)
-	c.Check(cfg.MaxPruneTxnPasses(), gc.Equals, 10)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.MaxPruneTxnBatchSize(), tc.Equals, 12345678)
+	c.Check(cfg.MaxPruneTxnPasses(), tc.Equals, 10)
 }
 
-func (s *ConfigSuite) TestPruneTxnQueryCount(c *gc.C) {
+func (s *ConfigSuite) TestPruneTxnQueryCount(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -542,12 +541,12 @@ func (s *ConfigSuite) TestPruneTxnQueryCount(c *gc.C) {
 			"prune-txn-sleep-time":  "5ms",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.PruneTxnQueryCount(), gc.Equals, 500)
-	c.Check(cfg.PruneTxnSleepTime(), gc.Equals, 5*time.Millisecond)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.PruneTxnQueryCount(), tc.Equals, 500)
+	c.Check(cfg.PruneTxnSleepTime(), tc.Equals, 5*time.Millisecond)
 }
 
-func (s *ConfigSuite) TestPublicDNSAddressConfigValue(c *gc.C) {
+func (s *ConfigSuite) TestPublicDNSAddressConfigValue(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -555,11 +554,11 @@ func (s *ConfigSuite) TestPublicDNSAddressConfigValue(c *gc.C) {
 			"public-dns-address": "controller.test.com:12345",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.PublicDNSAddress(), gc.Equals, "controller.test.com:12345")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.PublicDNSAddress(), tc.Equals, "controller.test.com:12345")
 }
 
-func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *gc.C) {
+func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *tc.C) {
 	haSpace := "space1"
 	managementSpace := "space2"
 
@@ -571,34 +570,34 @@ func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *gc.C) {
 			controller.JujuManagementSpace: managementSpace,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.JujuHASpace(), gc.Equals, haSpace)
-	c.Assert(cfg.JujuManagementSpace(), gc.Equals, managementSpace)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.JujuHASpace(), tc.Equals, haSpace)
+	c.Assert(cfg.JujuManagementSpace(), tc.Equals, managementSpace)
 }
 
-func (s *ConfigSuite) TestNetworkSpaceConfigDefaults(c *gc.C) {
+func (s *ConfigSuite) TestNetworkSpaceConfigDefaults(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.JujuHASpace(), gc.Equals, "")
-	c.Assert(cfg.JujuManagementSpace(), gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.JujuHASpace(), tc.Equals, "")
+	c.Assert(cfg.JujuManagementSpace(), tc.Equals, "")
 }
 
-func (s *ConfigSuite) TestAuditLogDefaults(c *gc.C) {
+func (s *ConfigSuite) TestAuditLogDefaults(c *tc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuditingEnabled(), gc.Equals, true)
-	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, false)
-	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 300)
-	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
-	c.Assert(cfg.AuditLogExcludeMethods(), gc.DeepEquals,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.AuditingEnabled(), tc.Equals, true)
+	c.Assert(cfg.AuditLogCaptureArgs(), tc.Equals, false)
+	c.Assert(cfg.AuditLogMaxSizeMB(), tc.Equals, 300)
+	c.Assert(cfg.AuditLogMaxBackups(), tc.Equals, 10)
+	c.Assert(cfg.AuditLogExcludeMethods(), tc.DeepEquals,
 		set.NewStrings(controller.DefaultAuditLogExcludeMethods))
 }
 
-func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
+func (s *ConfigSuite) TestAuditLogValues(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -610,19 +609,19 @@ func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
 			"audit-log-exclude-methods": "Fleet.Foxes,King.Gizzard,ReadOnlyMethods",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuditingEnabled(), gc.Equals, false)
-	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, true)
-	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 100)
-	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
-	c.Assert(cfg.AuditLogExcludeMethods(), gc.DeepEquals, set.NewStrings(
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.AuditingEnabled(), tc.Equals, false)
+	c.Assert(cfg.AuditLogCaptureArgs(), tc.Equals, true)
+	c.Assert(cfg.AuditLogMaxSizeMB(), tc.Equals, 100)
+	c.Assert(cfg.AuditLogMaxBackups(), tc.Equals, 10)
+	c.Assert(cfg.AuditLogExcludeMethods(), tc.DeepEquals, set.NewStrings(
 		"Fleet.Foxes",
 		"King.Gizzard",
 		"ReadOnlyMethods",
 	))
 }
 
-func (s *ConfigSuite) TestAuditLogExcludeMethodsType(c *gc.C) {
+func (s *ConfigSuite) TestAuditLogExcludeMethodsType(c *tc.C) {
 	_, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -630,40 +629,40 @@ func (s *ConfigSuite) TestAuditLogExcludeMethodsType(c *gc.C) {
 			"audit-log-exclude-methods": []int{2, 3, 4},
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods: expected string, got .*`)
+	c.Assert(err, tc.ErrorMatches, `audit-log-exclude-methods: expected string, got .*`)
 }
 
-func (s *ConfigSuite) TestAuditLogFloatBackupsLoadedDirectly(c *gc.C) {
+func (s *ConfigSuite) TestAuditLogFloatBackupsLoadedDirectly(c *tc.C) {
 	// We still need to be able to handle floats in data loaded from the DB.
 	cfg := controller.Config{
 		controller.AuditLogMaxBackups: 10.0,
 	}
-	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
+	c.Assert(cfg.AuditLogMaxBackups(), tc.Equals, 10)
 }
 
-func (s *ConfigSuite) TestConfigManagementSpaceAsConstraint(c *gc.C) {
+func (s *ConfigSuite) TestConfigManagementSpaceAsConstraint(c *tc.C) {
 	managementSpace := "management-space"
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{controller.JujuHASpace: managementSpace},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*cfg.AsSpaceConstraints(nil), gc.DeepEquals, []string{managementSpace})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*cfg.AsSpaceConstraints(nil), tc.DeepEquals, []string{managementSpace})
 }
 
-func (s *ConfigSuite) TestConfigHASpaceAsConstraint(c *gc.C) {
+func (s *ConfigSuite) TestConfigHASpaceAsConstraint(c *tc.C) {
 	haSpace := "ha-space"
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{controller.JujuHASpace: haSpace},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*cfg.AsSpaceConstraints(nil), gc.DeepEquals, []string{haSpace})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*cfg.AsSpaceConstraints(nil), tc.DeepEquals, []string{haSpace})
 }
 
-func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *gc.C) {
+func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *tc.C) {
 	haSpace := "ha-space"
 	managementSpace := "management-space"
 	constraintSpace := "constraint-space"
@@ -676,23 +675,23 @@ func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *gc.C) {
 			controller.JujuManagementSpace: managementSpace,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	got := *cfg.AsSpaceConstraints(&[]string{constraintSpace})
-	c.Check(got, gc.DeepEquals, []string{constraintSpace, haSpace, managementSpace})
+	c.Check(got, tc.DeepEquals, []string{constraintSpace, haSpace, managementSpace})
 }
 
-func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
+func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.AsSpaceConstraints(nil), gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.AsSpaceConstraints(nil), tc.IsNil)
 }
 
-func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
+func (s *ConfigSuite) TestCAASImageRepo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -700,11 +699,11 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
 	s.PatchValue(&registry.DefaultTransport, mockRoundTripper)
 
-	type tc struct {
+	type test struct {
 		content  string
 		expected string
 	}
-	for _, imageRepo := range []tc{
+	for _, imageRepo := range []test{
 		//used to reset since we don't have a --reset option
 		{content: "", expected: ""},
 		{content: "docker.io/juju-operator-repo", expected: ""},
@@ -731,19 +730,19 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 				controller.CAASImageRepo: imageRepo.content,
 			},
 		)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(imageRepoDetails.Repository, gc.Equals, imageRepo.expected)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(imageRepoDetails.Repository, tc.Equals, imageRepo.expected)
 	}
 }
 
-func (s *ConfigSuite) TestControllerNameDefault(c *gc.C) {
+func (s *ConfigSuite) TestControllerNameDefault(c *tc.C) {
 	cfg := controller.Config{}
-	c.Check(cfg.ControllerName(), gc.Equals, "")
+	c.Check(cfg.ControllerName(), tc.Equals, "")
 }
 
-func (s *ConfigSuite) TestControllerNameSetGet(c *gc.C) {
+func (s *ConfigSuite) TestControllerNameSetGet(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -751,11 +750,11 @@ func (s *ConfigSuite) TestControllerNameSetGet(c *gc.C) {
 			controller.ControllerName: "test",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.ControllerName(), gc.Equals, "test")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.ControllerName(), tc.Equals, "test")
 }
 
-func (s *ConfigSuite) TestMaxDebugLogDuration(c *gc.C) {
+func (s *ConfigSuite) TestMaxDebugLogDuration(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -763,11 +762,11 @@ func (s *ConfigSuite) TestMaxDebugLogDuration(c *gc.C) {
 			"max-debug-log-duration": "90m",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.MaxDebugLogDuration(), gc.Equals, 90*time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.MaxDebugLogDuration(), tc.Equals, 90*time.Minute)
 }
 
-func (s *ConfigSuite) TestMaxDebugLogDurationSchemaCoerce(c *gc.C) {
+func (s *ConfigSuite) TestMaxDebugLogDurationSchemaCoerce(c *tc.C) {
 	_, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -775,10 +774,10 @@ func (s *ConfigSuite) TestMaxDebugLogDurationSchemaCoerce(c *gc.C) {
 			"max-debug-log-duration": "12",
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, `max-debug-log-duration: conversion to duration: time: missing unit in duration "?12"?`)
+	c.Assert(err, tc.ErrorMatches, `max-debug-log-duration: conversion to duration: time: missing unit in duration "?12"?`)
 }
 
-func (s *ConfigSuite) TestFeatureFlags(c *gc.C) {
+func (s *ConfigSuite) TestFeatureFlags(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -786,33 +785,33 @@ func (s *ConfigSuite) TestFeatureFlags(c *gc.C) {
 			controller.Features: "foo,bar",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.Features().Values(), jc.SameContents, []string{"foo", "bar"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.Features().Values(), tc.SameContents, []string{"foo", "bar"})
 }
 
-func (s *ConfigSuite) TestDefaults(c *gc.C) {
+func (s *ConfigSuite) TestDefaults(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AgentRateLimitMax(), gc.Equals, controller.DefaultAgentRateLimitMax)
-	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, controller.DefaultAgentRateLimitRate)
-	c.Assert(cfg.MaxDebugLogDuration(), gc.Equals, controller.DefaultMaxDebugLogDuration)
-	c.Assert(cfg.AgentLogfileMaxBackups(), gc.Equals, controller.DefaultAgentLogfileMaxBackups)
-	c.Assert(cfg.AgentLogfileMaxSizeMB(), gc.Equals, controller.DefaultAgentLogfileMaxSize)
-	c.Assert(cfg.ModelLogfileMaxBackups(), gc.Equals, controller.DefaultModelLogfileMaxBackups)
-	c.Assert(cfg.ModelLogfileMaxSizeMB(), gc.Equals, controller.DefaultModelLogfileMaxSize)
-	c.Assert(cfg.ApplicationResourceDownloadLimit(), gc.Equals, controller.DefaultApplicationResourceDownloadLimit)
-	c.Assert(cfg.ControllerResourceDownloadLimit(), gc.Equals, controller.DefaultControllerResourceDownloadLimit)
-	c.Assert(cfg.QueryTracingEnabled(), gc.Equals, controller.DefaultQueryTracingEnabled)
-	c.Assert(cfg.QueryTracingThreshold(), gc.Equals, controller.DefaultQueryTracingThreshold)
-	c.Assert(cfg.SSHServerPort(), gc.Equals, controller.DefaultSSHServerPort)
-	c.Assert(cfg.SSHMaxConcurrentConnections(), gc.Equals, controller.DefaultSSHMaxConcurrentConnections)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.AgentRateLimitMax(), tc.Equals, controller.DefaultAgentRateLimitMax)
+	c.Assert(cfg.AgentRateLimitRate(), tc.Equals, controller.DefaultAgentRateLimitRate)
+	c.Assert(cfg.MaxDebugLogDuration(), tc.Equals, controller.DefaultMaxDebugLogDuration)
+	c.Assert(cfg.AgentLogfileMaxBackups(), tc.Equals, controller.DefaultAgentLogfileMaxBackups)
+	c.Assert(cfg.AgentLogfileMaxSizeMB(), tc.Equals, controller.DefaultAgentLogfileMaxSize)
+	c.Assert(cfg.ModelLogfileMaxBackups(), tc.Equals, controller.DefaultModelLogfileMaxBackups)
+	c.Assert(cfg.ModelLogfileMaxSizeMB(), tc.Equals, controller.DefaultModelLogfileMaxSize)
+	c.Assert(cfg.ApplicationResourceDownloadLimit(), tc.Equals, controller.DefaultApplicationResourceDownloadLimit)
+	c.Assert(cfg.ControllerResourceDownloadLimit(), tc.Equals, controller.DefaultControllerResourceDownloadLimit)
+	c.Assert(cfg.QueryTracingEnabled(), tc.Equals, controller.DefaultQueryTracingEnabled)
+	c.Assert(cfg.QueryTracingThreshold(), tc.Equals, controller.DefaultQueryTracingThreshold)
+	c.Assert(cfg.SSHServerPort(), tc.Equals, controller.DefaultSSHServerPort)
+	c.Assert(cfg.SSHMaxConcurrentConnections(), tc.Equals, controller.DefaultSSHMaxConcurrentConnections)
 }
 
-func (s *ConfigSuite) TestAgentLogfile(c *gc.C) {
+func (s *ConfigSuite) TestAgentLogfile(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -821,12 +820,12 @@ func (s *ConfigSuite) TestAgentLogfile(c *gc.C) {
 			"agent-logfile-max-backups": "17",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AgentLogfileMaxBackups(), gc.Equals, 17)
-	c.Assert(cfg.AgentLogfileMaxSizeMB(), gc.Equals, 35)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.AgentLogfileMaxBackups(), tc.Equals, 17)
+	c.Assert(cfg.AgentLogfileMaxSizeMB(), tc.Equals, 35)
 }
 
-func (s *ConfigSuite) TestAgentLogfileBackupErr(c *gc.C) {
+func (s *ConfigSuite) TestAgentLogfileBackupErr(c *tc.C) {
 	_, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -834,10 +833,10 @@ func (s *ConfigSuite) TestAgentLogfileBackupErr(c *gc.C) {
 			"agent-logfile-max-backups": "two",
 		},
 	)
-	c.Assert(err.Error(), gc.Equals, `agent-logfile-max-backups: expected number, got string("two")`)
+	c.Assert(err.Error(), tc.Equals, `agent-logfile-max-backups: expected number, got string("two")`)
 }
 
-func (s *ConfigSuite) TestModelLogfile(c *gc.C) {
+func (s *ConfigSuite) TestModelLogfile(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -846,12 +845,12 @@ func (s *ConfigSuite) TestModelLogfile(c *gc.C) {
 			"model-logfile-max-backups": "15",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ModelLogfileMaxBackups(), gc.Equals, 15)
-	c.Assert(cfg.ModelLogfileMaxSizeMB(), gc.Equals, 25)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.ModelLogfileMaxBackups(), tc.Equals, 15)
+	c.Assert(cfg.ModelLogfileMaxSizeMB(), tc.Equals, 25)
 }
 
-func (s *ConfigSuite) TestModelLogfileBackupErr(c *gc.C) {
+func (s *ConfigSuite) TestModelLogfileBackupErr(c *tc.C) {
 	_, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -859,10 +858,10 @@ func (s *ConfigSuite) TestModelLogfileBackupErr(c *gc.C) {
 			"model-logfile-max-backups": "two",
 		},
 	)
-	c.Assert(err.Error(), gc.Equals, `model-logfile-max-backups: expected number, got string("two")`)
+	c.Assert(err.Error(), tc.Equals, `model-logfile-max-backups: expected number, got string("two")`)
 }
 
-func (s *ConfigSuite) TestAgentRateLimitMax(c *gc.C) {
+func (s *ConfigSuite) TestAgentRateLimitMax(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -870,32 +869,32 @@ func (s *ConfigSuite) TestAgentRateLimitMax(c *gc.C) {
 			"agent-ratelimit-max": "0",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AgentRateLimitMax(), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.AgentRateLimitMax(), tc.Equals, 0)
 }
 
-func (s *ConfigSuite) TestAgentRateLimitRate(c *gc.C) {
+func (s *ConfigSuite) TestAgentRateLimitRate(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, controller.DefaultAgentRateLimitRate)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.AgentRateLimitRate(), tc.Equals, controller.DefaultAgentRateLimitRate)
 
 	cfg[controller.AgentRateLimitRate] = time.Second
-	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, time.Second)
+	c.Assert(cfg.AgentRateLimitRate(), tc.Equals, time.Second)
 
 	cfg[controller.AgentRateLimitRate] = "500ms"
-	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, 500*time.Millisecond)
+	c.Assert(cfg.AgentRateLimitRate(), tc.Equals, 500*time.Millisecond)
 }
 
-func (s *ConfigSuite) TestJujuDBSnapChannel(c *gc.C) {
+func (s *ConfigSuite) TestJujuDBSnapChannel(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.JujuDBSnapChannel(), gc.Equals, controller.DefaultJujuDBSnapChannel)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.JujuDBSnapChannel(), tc.Equals, controller.DefaultJujuDBSnapChannel)
 
 	cfg, err = controller.NewConfig(
 		testing.ControllerTag.Id(),
@@ -904,95 +903,95 @@ func (s *ConfigSuite) TestJujuDBSnapChannel(c *gc.C) {
 			"juju-db-snap-channel": "latest/candidate",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.JujuDBSnapChannel(), gc.Equals, "latest/candidate")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.JujuDBSnapChannel(), tc.Equals, "latest/candidate")
 }
 
-func (s *ConfigSuite) TestMigrationMinionWaitMax(c *gc.C) {
+func (s *ConfigSuite) TestMigrationMinionWaitMax(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfg.MigrationMinionWaitMax(), gc.Equals, controller.DefaultMigrationMinionWaitMax)
+	c.Assert(cfg.MigrationMinionWaitMax(), tc.Equals, controller.DefaultMigrationMinionWaitMax)
 
 	cfg[controller.MigrationMinionWaitMax] = "500ms"
-	c.Assert(cfg.MigrationMinionWaitMax(), gc.Equals, 500*time.Millisecond)
+	c.Assert(cfg.MigrationMinionWaitMax(), tc.Equals, 500*time.Millisecond)
 }
 
-func (s *ConfigSuite) TestQueryTraceEnabled(c *gc.C) {
+func (s *ConfigSuite) TestQueryTraceEnabled(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfg.QueryTracingEnabled(), gc.Equals, controller.DefaultQueryTracingEnabled)
+	c.Assert(cfg.QueryTracingEnabled(), tc.Equals, controller.DefaultQueryTracingEnabled)
 
 	cfg[controller.QueryTracingEnabled] = true
-	c.Assert(cfg.QueryTracingEnabled(), gc.Equals, true)
+	c.Assert(cfg.QueryTracingEnabled(), tc.Equals, true)
 }
 
-func (s *ConfigSuite) TestQueryTraceThreshold(c *gc.C) {
+func (s *ConfigSuite) TestQueryTraceThreshold(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfg.QueryTracingThreshold(), gc.Equals, controller.DefaultQueryTracingThreshold)
+	c.Assert(cfg.QueryTracingThreshold(), tc.Equals, controller.DefaultQueryTracingThreshold)
 
 	cfg[controller.QueryTracingThreshold] = time.Second * 10
-	c.Assert(cfg.QueryTracingThreshold(), gc.Equals, time.Second*10)
+	c.Assert(cfg.QueryTracingThreshold(), tc.Equals, time.Second*10)
 
 	d := time.Second * 10
 	cfg[controller.QueryTracingThreshold] = d.String()
 
 	bytes, err := json.Marshal(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var cfg2 controller.Config
 	err = json.Unmarshal(bytes, &cfg2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfg2.QueryTracingThreshold(), gc.Equals, time.Second*10)
+	c.Assert(cfg2.QueryTracingThreshold(), tc.Equals, time.Second*10)
 }
 
-func (s *ConfigSuite) TestOpenTelemetryEnabled(c *gc.C) {
+func (s *ConfigSuite) TestOpenTelemetryEnabled(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfg.OpenTelemetryEnabled(), gc.Equals, controller.DefaultOpenTelemetryEnabled)
+	c.Assert(cfg.OpenTelemetryEnabled(), tc.Equals, controller.DefaultOpenTelemetryEnabled)
 
 	cfg[controller.OpenTelemetryEnabled] = true
-	c.Assert(cfg.OpenTelemetryEnabled(), gc.Equals, true)
+	c.Assert(cfg.OpenTelemetryEnabled(), tc.Equals, true)
 }
 
-func (s *ConfigSuite) TestOpenTelemetryInsecure(c *gc.C) {
+func (s *ConfigSuite) TestOpenTelemetryInsecure(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfg.OpenTelemetryInsecure(), gc.Equals, controller.DefaultOpenTelemetryInsecure)
+	c.Assert(cfg.OpenTelemetryInsecure(), tc.Equals, controller.DefaultOpenTelemetryInsecure)
 
 	cfg[controller.OpenTelemetryInsecure] = true
-	c.Assert(cfg.OpenTelemetryInsecure(), gc.Equals, true)
+	c.Assert(cfg.OpenTelemetryInsecure(), tc.Equals, true)
 }
 
-func (s *ConfigSuite) TestOpenTelemetryStackTraces(c *gc.C) {
+func (s *ConfigSuite) TestOpenTelemetryStackTraces(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfg.OpenTelemetryStackTraces(), gc.Equals, controller.DefaultOpenTelemetryStackTraces)
+	c.Assert(cfg.OpenTelemetryStackTraces(), tc.Equals, controller.DefaultOpenTelemetryStackTraces)
 
 	cfg[controller.OpenTelemetryStackTraces] = true
-	c.Assert(cfg.OpenTelemetryStackTraces(), gc.Equals, true)
+	c.Assert(cfg.OpenTelemetryStackTraces(), tc.Equals, true)
 }
 
-func (s *ConfigSuite) TestOpenTelemetryEndpointSettingValue(c *gc.C) {
+func (s *ConfigSuite) TestOpenTelemetryEndpointSettingValue(c *tc.C) {
 	mURL := "http://meshuggah.com/endpoint"
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
@@ -1001,35 +1000,35 @@ func (s *ConfigSuite) TestOpenTelemetryEndpointSettingValue(c *gc.C) {
 			controller.OpenTelemetryEndpoint: mURL,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.OpenTelemetryEndpoint(), gc.Equals, mURL)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.OpenTelemetryEndpoint(), tc.Equals, mURL)
 }
 
-func (s *ConfigSuite) TestOpenTelemetrySampleRatio(c *gc.C) {
+func (s *ConfigSuite) TestOpenTelemetrySampleRatio(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfg.OpenTelemetrySampleRatio(), gc.Equals, controller.DefaultOpenTelemetrySampleRatio)
+	c.Assert(cfg.OpenTelemetrySampleRatio(), tc.Equals, controller.DefaultOpenTelemetrySampleRatio)
 
 	cfg[controller.OpenTelemetrySampleRatio] = 0.42
-	c.Assert(cfg.OpenTelemetrySampleRatio(), gc.Equals, 0.42)
+	c.Assert(cfg.OpenTelemetrySampleRatio(), tc.Equals, 0.42)
 }
 
-func (s *ConfigSuite) TestOpenTelemetryTailSamplingThreshold(c *gc.C) {
+func (s *ConfigSuite) TestOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), gc.Equals, controller.DefaultOpenTelemetryTailSamplingThreshold)
+	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), tc.Equals, controller.DefaultOpenTelemetryTailSamplingThreshold)
 
 	cfg[controller.OpenTelemetryTailSamplingThreshold] = "1s"
-	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), gc.Equals, time.Second)
+	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), tc.Equals, time.Second)
 }
 
-func (s *ConfigSuite) TestSSHServerPort(c *gc.C) {
+func (s *ConfigSuite) TestSSHServerPort(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -1037,11 +1036,11 @@ func (s *ConfigSuite) TestSSHServerPort(c *gc.C) {
 			controller.SSHServerPort: 10,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.SSHServerPort(), gc.Equals, 10)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.SSHServerPort(), tc.Equals, 10)
 }
 
-func (s *ConfigSuite) TestSSHServerConcurrentConnections(c *gc.C) {
+func (s *ConfigSuite) TestSSHServerConcurrentConnections(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -1049,11 +1048,11 @@ func (s *ConfigSuite) TestSSHServerConcurrentConnections(c *gc.C) {
 			controller.SSHMaxConcurrentConnections: 10,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.SSHMaxConcurrentConnections(), gc.Equals, 10)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.SSHMaxConcurrentConnections(), tc.Equals, 10)
 }
 
-func (s *ConfigSuite) TestObjectStoreType(c *gc.C) {
+func (s *ConfigSuite) TestObjectStoreType(c *tc.C) {
 	backendType := "file"
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
@@ -1062,11 +1061,11 @@ func (s *ConfigSuite) TestObjectStoreType(c *gc.C) {
 			controller.ObjectStoreType: backendType,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreType(), gc.Equals, objectstore.FileBackend)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.ObjectStoreType(), tc.Equals, objectstore.FileBackend)
 }
 
-func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *gc.C) {
+func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -1074,11 +1073,11 @@ func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *gc.C) {
 			controller.ObjectStoreS3Endpoint: "http://localhost:9000",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreS3Endpoint(), gc.Equals, "http://localhost:9000")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.ObjectStoreS3Endpoint(), tc.Equals, "http://localhost:9000")
 }
 
-func (s *ConfigSuite) TestObjectStoreS3Credentials(c *gc.C) {
+func (s *ConfigSuite) TestObjectStoreS3Credentials(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -1088,8 +1087,8 @@ func (s *ConfigSuite) TestObjectStoreS3Credentials(c *gc.C) {
 			controller.ObjectStoreS3StaticSession: "session",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreS3StaticKey(), gc.Equals, "key")
-	c.Assert(cfg.ObjectStoreS3StaticSecret(), gc.Equals, "secret")
-	c.Assert(cfg.ObjectStoreS3StaticSession(), gc.Equals, "session")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.ObjectStoreS3StaticKey(), tc.Equals, "key")
+	c.Assert(cfg.ObjectStoreS3StaticSecret(), tc.Equals, "secret")
+	c.Assert(cfg.ObjectStoreS3StaticSession(), tc.Equals, "session")
 }

@@ -9,8 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/subnet"
 )
@@ -19,14 +18,14 @@ type ListSuite struct {
 	BaseSubnetSuite
 }
 
-var _ = gc.Suite(&ListSuite{})
+var _ = tc.Suite(&ListSuite{})
 
-func (s *ListSuite) SetUpTest(c *gc.C) {
+func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.BaseSubnetSuite.SetUpTest(c)
 	s.newCommand = subnet.NewListCommand
 }
 
-func (s *ListSuite) TestInit(c *gc.C) {
+func (s *ListSuite) TestInit(c *tc.C) {
 	for i, test := range []struct {
 		about        string
 		args         []string
@@ -82,13 +81,13 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		c.Logf("test #%d: %s", i, test.about)
 		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			command := command.(*subnet.ListCommand)
-			c.Check(command.SpaceName, gc.Equals, test.expectSpace)
-			c.Check(command.ZoneName, gc.Equals, test.expectZone)
-			c.Check(command.Out.Name(), gc.Equals, test.expectFormat)
+			c.Check(command.SpaceName, tc.Equals, test.expectSpace)
+			c.Check(command.ZoneName, tc.Equals, test.expectZone)
+			c.Check(command.Out.Name(), tc.Equals, test.expectFormat)
 		}
 
 		// No API calls should be recorded at this stage.
@@ -96,7 +95,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *ListSuite) TestOutputFormats(c *gc.C) {
+func (s *ListSuite) TestOutputFormats(c *tc.C) {
 	outDir := c.MkDir()
 	expectedYAML := `
 subnets:
@@ -158,7 +157,7 @@ subnets:
 	}
 	assertOutput := func(format, expected string) {
 		outFile := filepath.Join(outDir, "output")
-		c.Assert(outFile, jc.DoesNotExist)
+		c.Assert(outFile, tc.DoesNotExist)
 		defer os.Remove(outFile)
 		// Check -o works.
 		args := makeArgs(format, "-o", outFile)
@@ -166,31 +165,31 @@ subnets:
 		assertAPICalls()
 
 		data, err := os.ReadFile(outFile)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(data), gc.Equals, expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(string(data), tc.Equals, expected)
 
 		// Check the last output argument takes precedence when both
 		// -o and --output are given (and also that --output works the
 		// same as -o).
 		outFile1 := filepath.Join(outDir, "output1")
-		c.Assert(outFile1, jc.DoesNotExist)
+		c.Assert(outFile1, tc.DoesNotExist)
 		defer os.Remove(outFile1)
 		outFile2 := filepath.Join(outDir, "output2")
-		c.Assert(outFile2, jc.DoesNotExist)
+		c.Assert(outFile2, tc.DoesNotExist)
 		defer os.Remove(outFile2)
 		// Write something in outFile2 to verify its contents are
 		// overwritten.
 		err = os.WriteFile(outFile2, []byte("some contents"), 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		args = makeArgs(format, "-o", outFile1, "--output", outFile2)
 		s.AssertRunSucceeds(c, "", "", args...)
 		// Check only the last output file was used, and the output
 		// file was overwritten.
-		c.Assert(outFile1, jc.DoesNotExist)
+		c.Assert(outFile1, tc.DoesNotExist)
 		data, err = os.ReadFile(outFile2)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(data), gc.Equals, expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(string(data), tc.Equals, expected)
 		assertAPICalls()
 
 		// Finally, check without --output.
@@ -212,7 +211,7 @@ subnets:
 	}
 }
 
-func (s *ListSuite) TestRunWhenNoneMatchSucceeds(c *gc.C) {
+func (s *ListSuite) TestRunWhenNoneMatchSucceeds(c *tc.C) {
 	// Simulate no subnets are using the "default" space.
 	s.api.Subnets = s.api.Subnets[0:0]
 
@@ -227,7 +226,7 @@ func (s *ListSuite) TestRunWhenNoneMatchSucceeds(c *gc.C) {
 	s.api.CheckCall(c, 0, "ListSubnets", &tag, "")
 }
 
-func (s *ListSuite) TestRunWhenNoSubnetsExistSucceeds(c *gc.C) {
+func (s *ListSuite) TestRunWhenNoSubnetsExistSucceeds(c *tc.C) {
 	s.api.Subnets = s.api.Subnets[0:0]
 
 	s.AssertRunSucceeds(c,
@@ -239,7 +238,7 @@ func (s *ListSuite) TestRunWhenNoSubnetsExistSucceeds(c *gc.C) {
 	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }
 
-func (s *ListSuite) TestRunWithFilteringSucceeds(c *gc.C) {
+func (s *ListSuite) TestRunWithFilteringSucceeds(c *tc.C) {
 	// Simulate one subnet is using the "public" space or "zone1".
 	s.api.Subnets = s.api.Subnets[0:1]
 
@@ -290,18 +289,18 @@ subnets:
 	s.api.CheckCall(c, 0, "ListSubnets", &tag, "zone1")
 }
 
-func (s *ListSuite) TestRunWhenListSubnetFails(c *gc.C) {
+func (s *ListSuite) TestRunWhenListSubnetFails(c *tc.C) {
 	s.api.SetErrors(errors.NotSupportedf("foo"))
 
 	// Ensure the error cause is preserved.
 	err := s.AssertRunFails(c, "cannot list subnets: foo not supported")
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 
 	s.api.CheckCallNames(c, "ListSubnets", "Close")
 	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }
 
-func (s *ListSuite) TestRunWhenASubnetHasInvalidCIDRFails(c *gc.C) {
+func (s *ListSuite) TestRunWhenASubnetHasInvalidCIDRFails(c *tc.C) {
 	// This cannot happen in practice, as CIDRs are validated before
 	// adding a subnet, but this test ensures 100% coverage.
 	s.api.Subnets = s.api.Subnets[0:1]
@@ -313,7 +312,7 @@ func (s *ListSuite) TestRunWhenASubnetHasInvalidCIDRFails(c *gc.C) {
 	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }
 
-func (s *ListSuite) TestRunWhenASubnetHasInvalidSpaceFails(c *gc.C) {
+func (s *ListSuite) TestRunWhenASubnetHasInvalidSpaceFails(c *tc.C) {
 	// This cannot happen in practice, as space names are validated
 	// before adding a subnet, but this test ensures 100% coverage.
 	s.api.Subnets = s.api.Subnets[0:1]
@@ -325,7 +324,7 @@ func (s *ListSuite) TestRunWhenASubnetHasInvalidSpaceFails(c *gc.C) {
 	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }
 
-func (s *ListSuite) TestRunWhenSubnetHasBlankSpace(c *gc.C) {
+func (s *ListSuite) TestRunWhenSubnetHasBlankSpace(c *tc.C) {
 	s.api.Subnets = s.api.Subnets[0:1]
 	s.api.Subnets[0].SpaceTag = ""
 

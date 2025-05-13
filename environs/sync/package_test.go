@@ -4,13 +4,21 @@
 package sync
 
 import (
+	"os"
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package sync_test -destination simplestreams_mock_test.go github.com/juju/juju/environs/tools SimplestreamsFetcher
+
+func TestMain(m *testing.M) {
+	testhelpers.ExecHelperProcess()
+	os.Exit(m.Run())
+}

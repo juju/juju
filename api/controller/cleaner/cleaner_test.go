@@ -8,8 +8,7 @@ import (
 	"errors"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -22,7 +21,7 @@ type CleanerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&CleanerSuite{})
+var _ = tc.Suite(&CleanerSuite{})
 
 type TestCommon struct {
 	apiCaller base.APICaller
@@ -31,7 +30,7 @@ type TestCommon struct {
 }
 
 // Init returns a new, initialised instance of TestCommon.
-func Init(c *gc.C, facade, method string, expectArgs, useResults interface{}, err error) (t *TestCommon) {
+func Init(c *tc.C, facade, method string, expectArgs, useResults interface{}, err error) (t *TestCommon) {
 	t = &TestCommon{}
 	caller := apitesting.APICallChecker(c, apitesting.APICall{
 		Facade:        facade,
@@ -46,13 +45,13 @@ func Init(c *gc.C, facade, method string, expectArgs, useResults interface{}, er
 	t.apiCaller = apitesting.NotifyingAPICaller(c, t.called, caller)
 	t.api = cleaner.NewAPI(t.apiCaller)
 
-	c.Check(t.api, gc.NotNil)
+	c.Check(t.api, tc.NotNil)
 	return
 }
 
 // AssertNumReceives checks that the watched channel receives "expected" messages
 // within a LongWait, but returns as soon as possible.
-func AssertNumReceives(c *gc.C, watched chan struct{}, expected uint32) {
+func AssertNumReceives(c *tc.C, watched chan struct{}, expected uint32) {
 	var receives uint32
 
 	for receives < expected {
@@ -70,35 +69,35 @@ func AssertNumReceives(c *gc.C, watched chan struct{}, expected uint32) {
 	}
 }
 
-func (s *CleanerSuite) TestNewAPI(c *gc.C) {
+func (s *CleanerSuite) TestNewAPI(c *tc.C) {
 	Init(c, "Cleaner", "", nil, nil, nil)
 }
 
-func (s *CleanerSuite) TestWatchCleanups(c *gc.C) {
+func (s *CleanerSuite) TestWatchCleanups(c *tc.C) {
 	// Multiple facades are called, so pass an empty string for the facade.
 	t := Init(c, "", "", nil, nil, nil)
 	m, err := t.api.WatchCleanups(context.Background())
 	AssertNumReceives(c, t.called, 2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.NotNil)
 }
 
-func (s *CleanerSuite) TestCleanup(c *gc.C) {
+func (s *CleanerSuite) TestCleanup(c *tc.C) {
 	t := Init(c, "Cleaner", "Cleanup", nil, nil, nil)
 	err := t.api.Cleanup(context.Background())
 	AssertNumReceives(c, t.called, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *CleanerSuite) TestWatchCleanupsFailFacadeCall(c *gc.C) {
+func (s *CleanerSuite) TestWatchCleanupsFailFacadeCall(c *tc.C) {
 	t := Init(c, "Cleaner", "WatchCleanups", nil, nil, errors.New("client error!"))
 	m, err := t.api.WatchCleanups(context.Background())
-	c.Assert(err, gc.ErrorMatches, "client error!")
+	c.Assert(err, tc.ErrorMatches, "client error!")
 	AssertNumReceives(c, t.called, 1)
-	c.Assert(m, gc.IsNil)
+	c.Assert(m, tc.IsNil)
 }
 
-func (s *CleanerSuite) TestWatchCleanupsFailFacadeResult(c *gc.C) {
+func (s *CleanerSuite) TestWatchCleanupsFailFacadeResult(c *tc.C) {
 	e := params.Error{
 		Message: "Server Error",
 	}
@@ -108,6 +107,6 @@ func (s *CleanerSuite) TestWatchCleanupsFailFacadeResult(c *gc.C) {
 	t := Init(c, "Cleaner", "WatchCleanups", nil, p, nil)
 	m, err := t.api.WatchCleanups(context.Background())
 	AssertNumReceives(c, t.called, 1)
-	c.Assert(err, gc.ErrorMatches, e.Message)
-	c.Assert(m, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, e.Message)
+	c.Assert(m, tc.IsNil)
 }

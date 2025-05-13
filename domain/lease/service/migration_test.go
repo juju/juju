@@ -6,24 +6,23 @@ package service
 import (
 	"context"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type migrationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state *MockMigrationState
 }
 
-var _ = gc.Suite(&migrationSuite{})
+var _ = tc.Suite(&migrationSuite{})
 
-func (s *migrationSuite) TestMigrationService(c *gc.C) {
+func (s *migrationSuite) TestMigrationService(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -34,13 +33,13 @@ func (s *migrationSuite) TestMigrationService(c *gc.C) {
 
 	leadershipService := NewMigrationService(s.state)
 	leaders, err := leadershipService.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(leaders, jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(leaders, tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
 }
 
-func (s *migrationSuite) TestMigrationServiceError(c *gc.C) {
+func (s *migrationSuite) TestMigrationServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -51,11 +50,11 @@ func (s *migrationSuite) TestMigrationServiceError(c *gc.C) {
 
 	leadershipService := NewMigrationService(s.state)
 	_, err := leadershipService.GetApplicationLeadershipForModel(context.Background(), modelUUID)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 
 }
 
-func (s *migrationSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *migrationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockMigrationState(ctrl)

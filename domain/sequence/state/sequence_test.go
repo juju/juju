@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/domain"
@@ -24,52 +23,52 @@ type sequenceSuite struct {
 	state *domain.StateBase
 }
 
-var _ = gc.Suite(&sequenceSuite{})
+var _ = tc.Suite(&sequenceSuite{})
 
-func (s *sequenceSuite) SetUpTest(c *gc.C) {
+func (s *sequenceSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 	s.state = domain.NewStateBase(s.TxnRunnerFactory())
 }
 
-func (s *sequenceSuite) TestSequenceStaticNamespace(c *gc.C) {
+func (s *sequenceSuite) TestSequenceStaticNamespace(c *tc.C) {
 	var next uint64
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		next, err = NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("foo"))
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next, gc.Equals, uint64(0))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(next, tc.Equals, uint64(0))
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		next, err = NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("foo"))
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next, gc.Equals, uint64(1))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(next, tc.Equals, uint64(1))
 }
 
-func (s *sequenceSuite) TestSequencePrefixNamespace(c *gc.C) {
+func (s *sequenceSuite) TestSequencePrefixNamespace(c *tc.C) {
 	var next uint64
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		next, err = NextValue(ctx, s.state, tx, domainsequence.MakePrefixNamespace(domainsequence.StaticNamespace("foo"), "bar"))
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next, gc.Equals, uint64(0))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(next, tc.Equals, uint64(0))
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		next, err = NextValue(ctx, s.state, tx, domainsequence.MakePrefixNamespace(domainsequence.StaticNamespace("foo"), "bar"))
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next, gc.Equals, uint64(1))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(next, tc.Equals, uint64(1))
 }
 
-func (s *sequenceSuite) TestSequenceMultiple(c *gc.C) {
+func (s *sequenceSuite) TestSequenceMultiple(c *tc.C) {
 	got := sync.Map{}
 	wg := sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
@@ -83,7 +82,7 @@ func (s *sequenceSuite) TestSequenceMultiple(c *gc.C) {
 				next, err = NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("foo"))
 				return err
 			})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			got.Store(int(next), true)
 		}()
 	}
@@ -101,6 +100,6 @@ func (s *sequenceSuite) TestSequenceMultiple(c *gc.C) {
 
 	for i := 0; i < 100; i++ {
 		_, ok := got.Load(i)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	}
 }

@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/watcher"
@@ -16,7 +15,7 @@ import (
 
 // NewRelationUnitsWatcherC returns a RelationUnitsWatcherC that
 // checks for aggressive event coalescence.
-func NewRelationUnitsWatcherC(c *gc.C, w watcher.RelationUnitsWatcher) RelationUnitsWatcherC {
+func NewRelationUnitsWatcherC(c *tc.C, w watcher.RelationUnitsWatcher) RelationUnitsWatcherC {
 	return RelationUnitsWatcherC{
 		C:                   c,
 		Watcher:             w,
@@ -26,7 +25,7 @@ func NewRelationUnitsWatcherC(c *gc.C, w watcher.RelationUnitsWatcher) RelationU
 }
 
 type RelationUnitsWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher             watcher.RelationUnitsWatcher
 	PreAssert           func()
 	settingsVersions    map[string]int64
@@ -51,13 +50,13 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Logf("got change %v", actual)
-		c.Assert(ok, jc.IsTrue)
-		c.Check(actual.Changed, gc.HasLen, len(changed))
-		c.Check(actual.AppChanged, gc.HasLen, len(appChanged))
+		c.Assert(ok, tc.IsTrue)
+		c.Check(actual.Changed, tc.HasLen, len(changed))
+		c.Check(actual.AppChanged, tc.HasLen, len(appChanged))
 		// Because the versions can change, we only need to make sure
 		// the keys match, not the contents (UnitSettings == txnRevno).
 		for k, settings := range actual.Changed {
-			c.Check(changedNames.Contains(k), jc.IsTrue)
+			c.Check(changedNames.Contains(k), tc.IsTrue)
 			oldVer, ok := c.settingsVersions[k]
 			if !ok {
 				// This is the first time we see this unit, so
@@ -65,23 +64,23 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 				c.settingsVersions[k] = settings.Version
 			} else {
 				// Already seen; make sure the version increased.
-				c.Assert(settings.Version, jc.GreaterThan, oldVer,
-					gc.Commentf("expected unit settings to increase got %d had %d",
+				c.Assert(settings.Version, tc.GreaterThan, oldVer,
+					tc.Commentf("expected unit settings to increase got %d had %d",
 						settings.Version, oldVer))
 			}
 		}
 		for k, version := range actual.AppChanged {
-			c.Assert(appChangedNames.Contains(k), jc.IsTrue)
+			c.Assert(appChangedNames.Contains(k), tc.IsTrue)
 			oldVer, ok := c.appSettingsVersions[k]
 			if ok {
 				// Make sure if we've seen this setting before, it has been updated
-				c.Assert(version, jc.GreaterThan, oldVer,
-					gc.Commentf("expected app settings to increase got %d had %d",
+				c.Assert(version, tc.GreaterThan, oldVer,
+					tc.Commentf("expected app settings to increase got %d had %d",
 						version, oldVer))
 			}
 			c.appSettingsVersions[k] = version
 		}
-		c.Assert(actual.Departed, jc.SameContents, departed)
+		c.Assert(actual.Departed, tc.SameContents, departed)
 	case <-timeout:
 		c.Fatalf("watcher did not send change")
 	}
@@ -100,7 +99,7 @@ func (c RelationUnitsWatcherC) AssertStops() {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher never stopped")
 	case err := <-wait:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	select {

@@ -8,9 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -34,18 +33,18 @@ type SubnetsSuite struct {
 	facade *API
 }
 
-var _ = gc.Suite(&SubnetsSuite{})
+var _ = tc.Suite(&SubnetsSuite{})
 
-func (s *SubnetsSuite) TestAuthDenied(c *gc.C) {
+func (s *SubnetsSuite) TestAuthDenied(c *tc.C) {
 	_, err := newAPI(facadetest.ModelContext{
 		Auth_: apiservertesting.FakeAuthorizer{
 			Tag: names.NewMachineTag("1"),
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *SubnetsSuite) TestSubnetsByCIDR(c *gc.C) {
+func (s *SubnetsSuite) TestSubnetsByCIDR(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -69,17 +68,17 @@ func (s *SubnetsSuite) TestSubnetsByCIDR(c *gc.C) {
 
 	arg := params.CIDRParams{CIDRS: cidrs}
 	res, err := s.facade.SubnetsByCIDR(context.Background(), arg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results := res.Results
-	c.Assert(results, gc.HasLen, 3)
+	c.Assert(results, tc.HasLen, 3)
 
-	c.Check(results[0].Error.Message, gc.Equals, "bad-mongo")
-	c.Check(results[1].Subnets, gc.HasLen, 1)
-	c.Check(results[2].Error.Message, gc.Equals, `CIDR "not-a-cidr" not valid`)
+	c.Check(results[0].Error.Message, tc.Equals, "bad-mongo")
+	c.Check(results[1].Subnets, tc.HasLen, 1)
+	c.Check(results[2].Error.Message, tc.Equals, `CIDR "not-a-cidr" not valid`)
 }
 
-func (s *SubnetsSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *SubnetsSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.mockResource = facademocks.NewMockResources(ctrl)
@@ -120,23 +119,23 @@ var zoneResults = network.AvailabilityZones{
 }
 
 // GoString implements fmt.GoStringer.
-func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
+func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	s.mockNetworkService.EXPECT().GetProviderAvailabilityZones(gomock.Any()).Return(zoneResults, nil)
 
 	results, err := s.facade.AllZones(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := make([]params.ZoneResult, len(zoneResults))
 	for i, zone := range zoneResults {
 		expected[i].Name = zone.Name()
 		expected[i].Available = zone.Available()
 	}
-	c.Assert(results, jc.DeepEquals, params.ZoneResults{Results: expected})
+	c.Assert(results, tc.DeepEquals, params.ZoneResults{Results: expected})
 }
 
-func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
+func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	expected := []params.Subnet{{
 		CIDR:              "10.10.0.0/24",
@@ -178,42 +177,42 @@ func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
 			},
 		}, nil).Times(4)
 	subnets, err := s.facade.ListSubnets(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected)
 
 	// Filter by space only.
 	args.SpaceTag = "space-dmz"
 	subnets, err = s.facade.ListSubnets(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected[1:])
 
 	// Filter by zone only.
 	args.SpaceTag = ""
 	args.Zone = "zone3"
 	subnets, err = s.facade.ListSubnets(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected[1:])
 
 	// Filter by both space and zone.
 	args.SpaceTag = "space-private"
 	args.Zone = "zone1"
 	subnets, err = s.facade.ListSubnets(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected[:1])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected[:1])
 }
 
-func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *gc.C) {
+func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	args := params.SubnetsFilters{SpaceTag: "invalid"}
 	s.mockNetworkService.EXPECT().GetAllSubnets(gomock.Any())
 	_, err := s.facade.ListSubnets(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
+	c.Assert(err, tc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
-func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *gc.C) {
+func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	boom := errors.New("no subnets for you")
 	s.mockNetworkService.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, boom)
 	_, err := s.facade.ListSubnets(context.Background(), params.SubnetsFilters{})
-	c.Assert(err, gc.ErrorMatches, "no subnets for you")
+	c.Assert(err, tc.ErrorMatches, "no subnets for you")
 }

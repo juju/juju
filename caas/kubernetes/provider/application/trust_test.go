@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,7 +15,7 @@ import (
 	"github.com/juju/juju/caas"
 )
 
-func (s *applicationSuite) TestTrust(c *gc.C) {
+func (s *applicationSuite) TestTrust(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
@@ -26,19 +25,19 @@ func (s *applicationSuite) TestTrust(c *gc.C) {
 			Namespace: s.namespace,
 		},
 	}, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.client.RbacV1().ClusterRoles().Create(context.Background(), &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: s.namespace + "-" + s.appName,
 		},
 	}, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = app.Trust(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	role, err := s.client.RbacV1().Roles(s.namespace).Get(context.Background(), s.appName, metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(role.Rules, jc.DeepEquals, []rbacv1.PolicyRule{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(role.Rules, tc.DeepEquals, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{"*"},
 			Resources: []string{"*"},
@@ -46,8 +45,8 @@ func (s *applicationSuite) TestTrust(c *gc.C) {
 		},
 	})
 	clusterRole, err := s.client.RbacV1().ClusterRoles().Get(context.Background(), s.namespace+"-"+s.appName, metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clusterRole.Rules, jc.DeepEquals, []rbacv1.PolicyRule{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(clusterRole.Rules, tc.DeepEquals, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{"*"},
 			Resources: []string{"*"},
@@ -56,15 +55,15 @@ func (s *applicationSuite) TestTrust(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestTrustRoleNotFound(c *gc.C) {
+func (s *applicationSuite) TestTrustRoleNotFound(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
 	err := app.Trust(true)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *applicationSuite) TestTrustClusterRoleNotFound(c *gc.C) {
+func (s *applicationSuite) TestTrustClusterRoleNotFound(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
@@ -74,18 +73,18 @@ func (s *applicationSuite) TestTrustClusterRoleNotFound(c *gc.C) {
 			Namespace: s.namespace,
 		},
 	}, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = app.Trust(true)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	role, err := s.client.RbacV1().Roles(s.namespace).Get(context.Background(), s.appName, metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(role.Rules, jc.DeepEquals, []rbacv1.PolicyRule(nil))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(role.Rules, tc.DeepEquals, []rbacv1.PolicyRule(nil))
 	_, err = s.client.RbacV1().ClusterRoles().Get(context.Background(), s.namespace+"-"+s.appName, metav1.GetOptions{})
-	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
-func (s *applicationSuite) TestRemoveTrust(c *gc.C) {
+func (s *applicationSuite) TestRemoveTrust(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
@@ -95,19 +94,19 @@ func (s *applicationSuite) TestRemoveTrust(c *gc.C) {
 			Namespace: s.namespace,
 		},
 	}, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.client.RbacV1().ClusterRoles().Create(context.Background(), &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: s.namespace + "-" + s.appName,
 		},
 	}, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = app.Trust(false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	role, err := s.client.RbacV1().Roles(s.namespace).Get(context.Background(), s.appName, metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(role.Rules, jc.DeepEquals, []rbacv1.PolicyRule{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(role.Rules, tc.DeepEquals, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{""},
 			Resources: []string{"namespaces"},
@@ -128,8 +127,8 @@ func (s *applicationSuite) TestRemoveTrust(c *gc.C) {
 		},
 	})
 	clusterRole, err := s.client.RbacV1().ClusterRoles().Get(context.Background(), s.namespace+"-"+s.appName, metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clusterRole.Rules, jc.DeepEquals, []rbacv1.PolicyRule{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(clusterRole.Rules, tc.DeepEquals, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{""},
 			Resources: []string{"namespaces"},

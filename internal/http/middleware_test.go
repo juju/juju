@@ -8,18 +8,18 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type DialContextMiddlewareSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&DialContextMiddlewareSuite{})
+var _ = tc.Suite(&DialContextMiddlewareSuite{})
 
 var isLocalAddrTests = []struct {
 	addr    string
@@ -36,14 +36,14 @@ var isLocalAddrTests = []struct {
 	{addr: "12xz4.5.6", isLocal: false},
 }
 
-func (s *DialContextMiddlewareSuite) TestIsLocalAddr(c *gc.C) {
+func (s *DialContextMiddlewareSuite) TestIsLocalAddr(c *tc.C) {
 	for i, test := range isLocalAddrTests {
 		c.Logf("test %d: %v", i, test.addr)
-		c.Assert(isLocalAddr(test.addr), gc.Equals, test.isLocal)
+		c.Assert(isLocalAddr(test.addr), tc.Equals, test.isLocal)
 	}
 }
 
-func (s *DialContextMiddlewareSuite) TestInsecureClientNoAccess(c *gc.C) {
+func (s *DialContextMiddlewareSuite) TestInsecureClientNoAccess(c *tc.C) {
 	client := NewClient(
 		WithTransportMiddlewares(
 			DialContextMiddleware(NewLocalDialBreaker(false)),
@@ -51,57 +51,57 @@ func (s *DialContextMiddlewareSuite) TestInsecureClientNoAccess(c *gc.C) {
 		WithSkipHostnameVerification(true),
 	)
 	_, err := client.Get(context.TODO(), "http://0.1.2.3:1234")
-	c.Assert(err, gc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
+	c.Assert(err, tc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
 }
 
-func (s *DialContextMiddlewareSuite) TestSecureClientNoAccess(c *gc.C) {
+func (s *DialContextMiddlewareSuite) TestSecureClientNoAccess(c *tc.C) {
 	client := NewClient(
 		WithTransportMiddlewares(
 			DialContextMiddleware(NewLocalDialBreaker(false)),
 		),
 	)
 	_, err := client.Get(context.TODO(), "http://0.1.2.3:1234")
-	c.Assert(err, gc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
+	c.Assert(err, tc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
 }
 
 type LocalDialBreakerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&LocalDialBreakerSuite{})
+var _ = tc.Suite(&LocalDialBreakerSuite{})
 
-func (s *LocalDialBreakerSuite) TestAllowed(c *gc.C) {
+func (s *LocalDialBreakerSuite) TestAllowed(c *tc.C) {
 	breaker := NewLocalDialBreaker(true)
 
 	for i, test := range isLocalAddrTests {
 		c.Logf("test %d: %v", i, test.addr)
 		allowed := breaker.Allowed(test.addr)
-		c.Assert(allowed, gc.Equals, true)
+		c.Assert(allowed, tc.Equals, true)
 	}
 }
 
-func (s *LocalDialBreakerSuite) TestLocalAllowed(c *gc.C) {
+func (s *LocalDialBreakerSuite) TestLocalAllowed(c *tc.C) {
 	breaker := NewLocalDialBreaker(false)
 
 	for i, test := range isLocalAddrTests {
 		c.Logf("test %d: %v", i, test.addr)
 		allowed := breaker.Allowed(test.addr)
-		c.Assert(allowed, gc.Equals, test.isLocal)
+		c.Assert(allowed, tc.Equals, test.isLocal)
 	}
 }
 
-func (s *LocalDialBreakerSuite) TestLocalAllowedAfterTrip(c *gc.C) {
+func (s *LocalDialBreakerSuite) TestLocalAllowedAfterTrip(c *tc.C) {
 	breaker := NewLocalDialBreaker(true)
 
 	for i, test := range isLocalAddrTests {
 		c.Logf("test %d: %v", i, test.addr)
 		allowed := breaker.Allowed(test.addr)
-		c.Assert(allowed, gc.Equals, true)
+		c.Assert(allowed, tc.Equals, true)
 
 		breaker.Trip()
 
 		allowed = breaker.Allowed(test.addr)
-		c.Assert(allowed, gc.Equals, test.isLocal)
+		c.Assert(allowed, tc.Equals, test.isLocal)
 
 		// Reset the breaker.
 		breaker.Trip()
@@ -109,17 +109,17 @@ func (s *LocalDialBreakerSuite) TestLocalAllowedAfterTrip(c *gc.C) {
 }
 
 type RetrySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&RetrySuite{})
+var _ = tc.Suite(&RetrySuite{})
 
-func (s *RetrySuite) TestRetryNotRequired(c *gc.C) {
+func (s *RetrySuite) TestRetryNotRequired(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	req, err := http.NewRequest("GET", "http://meshuggah.rocks", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	transport := NewMockRoundTripper(ctrl)
 	transport.EXPECT().RoundTrip(req).Return(&http.Response{
@@ -133,16 +133,16 @@ func (s *RetrySuite) TestRetryNotRequired(c *gc.C) {
 	}, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	resp, err := middleware.RoundTrip(req)
-	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.IsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *RetrySuite) TestRetryRequired(c *gc.C) {
+func (s *RetrySuite) TestRetryRequired(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	req, err := http.NewRequest("GET", "http://meshuggah.rocks", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	transport := NewMockRoundTripper(ctrl)
 	transport.EXPECT().RoundTrip(req).Return(&http.Response{
@@ -172,16 +172,16 @@ func (s *RetrySuite) TestRetryRequired(c *gc.C) {
 	}, clock, loggertesting.WrapCheckLog(c))
 
 	resp, err := middleware.RoundTrip(req)
-	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.IsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *RetrySuite) TestRetryRequiredUsingBackoff(c *gc.C) {
+func (s *RetrySuite) TestRetryRequiredUsingBackoff(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	req, err := http.NewRequest("GET", "http://meshuggah.rocks", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	header := make(http.Header)
 	header.Add("Retry-After", "42")
@@ -215,16 +215,16 @@ func (s *RetrySuite) TestRetryRequiredUsingBackoff(c *gc.C) {
 	}, clock, loggertesting.WrapCheckLog(c))
 
 	resp, err := middleware.RoundTrip(req)
-	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.IsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *RetrySuite) TestRetryRequiredUsingBackoffFailure(c *gc.C) {
+func (s *RetrySuite) TestRetryRequiredUsingBackoffFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	req, err := http.NewRequest("GET", "http://meshuggah.rocks", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	header := make(http.Header)
 	header.Add("Retry-After", "2520")
@@ -253,15 +253,15 @@ func (s *RetrySuite) TestRetryRequiredUsingBackoffFailure(c *gc.C) {
 	}, clock, loggertesting.WrapCheckLog(c))
 
 	_, err = middleware.RoundTrip(req)
-	c.Assert(err, gc.ErrorMatches, `API request retry is not accepting further requests until .*`)
+	c.Assert(err, tc.ErrorMatches, `API request retry is not accepting further requests until .*`)
 }
 
-func (s *RetrySuite) TestRetryRequiredUsingBackoffError(c *gc.C) {
+func (s *RetrySuite) TestRetryRequiredUsingBackoffError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	req, err := http.NewRequest("GET", "http://meshuggah.rocks", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	header := make(http.Header)
 	header.Add("Retry-After", "!@1234391asd--\\123")
@@ -290,15 +290,15 @@ func (s *RetrySuite) TestRetryRequiredUsingBackoffError(c *gc.C) {
 	}, clock, loggertesting.WrapCheckLog(c))
 
 	_, err = middleware.RoundTrip(req)
-	c.Assert(err, gc.ErrorMatches, `API request retry is not accepting further requests until .*`)
+	c.Assert(err, tc.ErrorMatches, `API request retry is not accepting further requests until .*`)
 }
 
-func (s *RetrySuite) TestRetryRequiredAndExceeded(c *gc.C) {
+func (s *RetrySuite) TestRetryRequiredAndExceeded(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	req, err := http.NewRequest("GET", "http://meshuggah.rocks", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	transport := NewMockRoundTripper(ctrl)
 	transport.EXPECT().RoundTrip(req).Return(&http.Response{
@@ -325,17 +325,17 @@ func (s *RetrySuite) TestRetryRequiredAndExceeded(c *gc.C) {
 	}, clock, loggertesting.WrapCheckLog(c))
 
 	_, err = middleware.RoundTrip(req)
-	c.Assert(err, gc.ErrorMatches, `attempt count exceeded: retryable error`)
+	c.Assert(err, tc.ErrorMatches, `attempt count exceeded: retryable error`)
 }
 
-func (s *RetrySuite) TestRetryRequiredContextKilled(c *gc.C) {
+func (s *RetrySuite) TestRetryRequiredContextKilled(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "http://meshuggah.rocks", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	transport := NewMockRoundTripper(ctrl)
 
@@ -351,5 +351,5 @@ func (s *RetrySuite) TestRetryRequiredContextKilled(c *gc.C) {
 	cancel()
 
 	_, err = middleware.RoundTrip(req)
-	c.Assert(err, gc.ErrorMatches, `context canceled`)
+	c.Assert(err, tc.ErrorMatches, `context canceled`)
 }

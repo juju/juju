@@ -6,8 +6,7 @@ package jujuclient_test
 import (
 	"os"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
@@ -19,7 +18,7 @@ type ModelsFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&ModelsFileSuite{})
+var _ = tc.Suite(&ModelsFileSuite{})
 
 const testModelsYAML = `
 controllers:
@@ -82,59 +81,59 @@ var ctrlAdminModelDetails = jujuclient.ModelDetails{
 	ModelType: model.IAAS,
 }
 
-func (s *ModelsFileSuite) TestWriteFile(c *gc.C) {
+func (s *ModelsFileSuite) TestWriteFile(c *tc.C) {
 	writeTestModelsFile(c)
 	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("models.yaml"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, testModelsYAML[1:])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, testModelsYAML[1:])
 }
 
-func (s *ModelsFileSuite) TestReadNoFile(c *gc.C) {
+func (s *ModelsFileSuite) TestReadNoFile(c *tc.C) {
 	models, err := jujuclient.ReadModelsFile("nowhere.yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(models, tc.IsNil)
 }
 
-func (s *ModelsFileSuite) TestReadEmptyFile(c *gc.C) {
+func (s *ModelsFileSuite) TestReadEmptyFile(c *tc.C) {
 	err := os.WriteFile(osenv.JujuXDGDataHomePath("models.yaml"), []byte(""), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(models, tc.HasLen, 0)
 }
 
-func (s *ModelsFileSuite) TestMigrateLegacyLocal(c *gc.C) {
+func (s *ModelsFileSuite) TestMigrateLegacyLocal(c *tc.C) {
 	err := os.WriteFile(jujuclient.JujuModelsPath(), []byte(testLegacyModelsYAML), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	migratedData, err := os.ReadFile(jujuclient.JujuModelsPath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	migratedModels, err := jujuclient.ParseModels(migratedData)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(migratedData), jc.DeepEquals, testModelsYAML[1:])
-	c.Assert(migratedModels, jc.DeepEquals, models)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(migratedData), tc.DeepEquals, testModelsYAML[1:])
+	c.Assert(migratedModels, tc.DeepEquals, models)
 }
 
-func writeTestModelsFile(c *gc.C) {
+func writeTestModelsFile(c *tc.C) {
 	err := jujuclient.WriteModelsFile(testControllerModels)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ModelsFileSuite) TestParseModels(c *gc.C) {
+func (s *ModelsFileSuite) TestParseModels(c *tc.C) {
 	models, err := jujuclient.ParseModels([]byte(testModelsYAML))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.DeepEquals, testControllerModels)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(models, tc.DeepEquals, testControllerModels)
 }
 
-func (s *ModelsFileSuite) TestParseModelMetadataError(c *gc.C) {
+func (s *ModelsFileSuite) TestParseModelMetadataError(c *tc.C) {
 	models, err := jujuclient.ParseModels([]byte("fail me now"))
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"cannot unmarshal models: yaml: unmarshal errors:"+
 			"\n  line 1: cannot unmarshal !!str `fail me...` into "+
 			"jujuclient.modelsCollection",
 	)
-	c.Assert(models, gc.IsNil)
+	c.Assert(models, tc.IsNil)
 }

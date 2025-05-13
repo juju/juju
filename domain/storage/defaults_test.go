@@ -4,21 +4,20 @@
 package storage_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type defaultsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&defaultsSuite{})
+var _ = tc.Suite(&defaultsSuite{})
 
 func makeStorageDefaults(b, f string) domainstorage.StorageDefaults {
 	var result domainstorage.StorageDefaults
@@ -31,7 +30,7 @@ func makeStorageDefaults(b, f string) domainstorage.StorageDefaults {
 	return result
 }
 
-func (s *defaultsSuite) assertAddApplicationStorageDirectivesDefaults(c *gc.C, pool string, cons, expect map[string]storage.Directive) {
+func (s *defaultsSuite) assertAddApplicationStorageDirectivesDefaults(c *tc.C, pool string, cons, expect map[string]storage.Directive) {
 	result, err := domainstorage.StorageDirectivesWithDefaults(
 		map[string]charm.Storage{
 			"data":    {Name: "data", Type: charm.StorageBlock, CountMin: 1, CountMax: -1},
@@ -41,11 +40,11 @@ func (s *defaultsSuite) assertAddApplicationStorageDirectivesDefaults(c *gc.C, p
 		makeStorageDefaults(pool, ""),
 		cons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expect)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageDirectivesNoConstraintsUsed(c *gc.C) {
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesNoConstraintsUsed(c *tc.C) {
 	storageCons := map[string]storage.Directive{
 		"data": makeStorageDirective("", 0, 0),
 	}
@@ -56,7 +55,7 @@ func (s *defaultsSuite) TestAddApplicationStorageDirectivesNoConstraintsUsed(c *
 	s.assertAddApplicationStorageDirectivesDefaults(c, "loop-pool", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageDirectivesJustCount(c *gc.C) {
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesJustCount(c *tc.C) {
 	storageCons := map[string]storage.Directive{
 		"data": makeStorageDirective("", 0, 1),
 	}
@@ -67,7 +66,7 @@ func (s *defaultsSuite) TestAddApplicationStorageDirectivesJustCount(c *gc.C) {
 	s.assertAddApplicationStorageDirectivesDefaults(c, "loop-pool", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultPool(c *gc.C) {
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultPool(c *tc.C) {
 	storageCons := map[string]storage.Directive{
 		"data": makeStorageDirective("", 2048, 1),
 	}
@@ -78,7 +77,7 @@ func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultPool(c *gc.C) 
 	s.assertAddApplicationStorageDirectivesDefaults(c, "loop-pool", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageDirectivesConstraintPool(c *gc.C) {
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesConstraintPool(c *tc.C) {
 	storageCons := map[string]storage.Directive{
 		"data": makeStorageDirective("loop-pool", 2048, 1),
 	}
@@ -89,7 +88,7 @@ func (s *defaultsSuite) TestAddApplicationStorageDirectivesConstraintPool(c *gc.
 	s.assertAddApplicationStorageDirectivesDefaults(c, "", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageDirectivesNoUserDefaultPool(c *gc.C) {
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesNoUserDefaultPool(c *tc.C) {
 	storageCons := map[string]storage.Directive{
 		"data": makeStorageDirective("", 2048, 1),
 	}
@@ -100,7 +99,7 @@ func (s *defaultsSuite) TestAddApplicationStorageDirectivesNoUserDefaultPool(c *
 	s.assertAddApplicationStorageDirectivesDefaults(c, "", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFallback(c *gc.C) {
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFallback(c *tc.C) {
 	storageCons := map[string]storage.Directive{
 		"data": makeStorageDirective("loop-pool", 0, 1),
 	}
@@ -111,7 +110,7 @@ func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFallback(c
 	s.assertAddApplicationStorageDirectivesDefaults(c, "loop-pool", storageCons, expectedCons)
 }
 
-func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFromCharm(c *gc.C) {
+func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFromCharm(c *tc.C) {
 	storageCons := map[string]storage.Directive{
 		"multi1to10": makeStorageDirective("loop", 0, 3),
 	}
@@ -128,11 +127,11 @@ func (s *defaultsSuite) TestAddApplicationStorageDirectivesDefaultSizeFromCharm(
 		makeStorageDefaults("", ""),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
-func (s *defaultsSuite) TestProviderFallbackToType(c *gc.C) {
+func (s *defaultsSuite) TestProviderFallbackToType(c *tc.C) {
 	storageCons := map[string]storage.Directive{}
 	expectedCons := map[string]storage.Directive{
 		"data":  makeStorageDirective("loop", 1024, 1),
@@ -147,11 +146,11 @@ func (s *defaultsSuite) TestProviderFallbackToType(c *gc.C) {
 		makeStorageDefaults("", ""),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
-func (s *defaultsSuite) TestProviderFallbackToTypeCaas(c *gc.C) {
+func (s *defaultsSuite) TestProviderFallbackToTypeCaas(c *tc.C) {
 	storageCons := map[string]storage.Directive{}
 	expectedCons := map[string]storage.Directive{
 		"files": makeStorageDirective("kubernetes", 1024, 1),
@@ -164,11 +163,11 @@ func (s *defaultsSuite) TestProviderFallbackToTypeCaas(c *gc.C) {
 		makeStorageDefaults("", ""),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
-func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraints(c *gc.C) {
+func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraints(c *tc.C) {
 	storageCons := map[string]storage.Directive{}
 	expectedCons := map[string]storage.Directive{
 		"data":  makeStorageDirective("loop", 1024, 1),
@@ -183,11 +182,11 @@ func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraints(c *gc.C) {
 		makeStorageDefaults("ebs", "tmpfs"),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
-func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraintsCaas(c *gc.C) {
+func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraintsCaas(c *tc.C) {
 	storageCons := map[string]storage.Directive{}
 	expectedCons := map[string]storage.Directive{
 		"files": makeStorageDirective("kubernetes", 1024, 1),
@@ -200,11 +199,11 @@ func (s *defaultsSuite) TestProviderFallbackToTypeWithoutConstraintsCaas(c *gc.C
 		makeStorageDefaults("", "tmpfs"),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
-func (s *defaultsSuite) TestProviderFallbackToDefaults(c *gc.C) {
+func (s *defaultsSuite) TestProviderFallbackToDefaults(c *tc.C) {
 	storageCons := map[string]storage.Directive{
 		"data":  makeStorageDirective("", 2048, 1),
 		"files": makeStorageDirective("", 4096, 2),
@@ -222,11 +221,11 @@ func (s *defaultsSuite) TestProviderFallbackToDefaults(c *gc.C) {
 		makeStorageDefaults("ebs", "tmpfs"),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }
 
-func (s *defaultsSuite) TestProviderFallbackToDefaultsCaas(c *gc.C) {
+func (s *defaultsSuite) TestProviderFallbackToDefaultsCaas(c *tc.C) {
 	storageCons := map[string]storage.Directive{
 		"files": makeStorageDirective("", 4096, 2),
 	}
@@ -241,6 +240,6 @@ func (s *defaultsSuite) TestProviderFallbackToDefaultsCaas(c *gc.C) {
 		makeStorageDefaults("", "tmpfs"),
 		storageCons,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expectedCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expectedCons)
 }

@@ -9,10 +9,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
@@ -28,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/machine/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -51,7 +50,7 @@ var (
 )
 
 type rebootSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 	jujutesting.ApiServerSuite
 	changestreamtesting.ModelSuite
 
@@ -59,23 +58,23 @@ type rebootSuite struct {
 	machineService  *service.WatchableService
 }
 
-var _ = gc.Suite(&rebootSuite{})
+var _ = tc.Suite(&rebootSuite{})
 
-func (s *rebootSuite) createMachine(c *gc.C, tag names.MachineTag) *testMachine {
+func (s *rebootSuite) createMachine(c *tc.C, tag names.MachineTag) *testMachine {
 	uuid, err := s.machineService.CreateMachine(context.Background(), coremachine.Name(tag.Id()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return s.setupMachine(c, tag, err, uuid)
 }
 
-func (s *rebootSuite) createMachineWithParent(c *gc.C, tag names.MachineTag, parent *testMachine) *testMachine {
+func (s *rebootSuite) createMachineWithParent(c *tc.C, tag names.MachineTag, parent *testMachine) *testMachine {
 	uuid, err := s.machineService.CreateMachineWithParent(context.Background(), coremachine.Name(tag.Id()), coremachine.Name(parent.tag.Id()))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return s.setupMachine(c, tag, err, uuid)
 }
 
-func (s *rebootSuite) setupMachine(c *gc.C, tag names.MachineTag, err error, uuid coremachine.UUID) *testMachine {
+func (s *rebootSuite) setupMachine(c *tc.C, tag names.MachineTag, err error, uuid coremachine.UUID) *testMachine {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as a machine agent.
 	authorizer := apiservertesting.FakeAuthorizer{
@@ -83,26 +82,26 @@ func (s *rebootSuite) setupMachine(c *gc.C, tag names.MachineTag, err error, uui
 	}
 
 	rebootAPI, err := reboot.NewRebootAPI(authorizer, s.watcherRegistry, s.machineService)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: tag.String()},
 	}}
 
 	watcherResult, err := rebootAPI.WatchForRebootEvent(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(watcherResult.NotifyWatcherId, gc.Not(gc.Equals), "")
-	c.Check(watcherResult.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(watcherResult.NotifyWatcherId, tc.Not(tc.Equals), "")
+	c.Check(watcherResult.Error, tc.IsNil)
 
 	rebootWatcher, err := s.watcherRegistry.Get(watcherResult.NotifyWatcherId)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(rebootWatcher, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rebootWatcher, tc.NotNil)
 
 	w := rebootWatcher.(watcher.NotifyWatcher)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		wc.AssertKilled()
 	})
 
@@ -116,21 +115,21 @@ func (s *rebootSuite) setupMachine(c *gc.C, tag names.MachineTag, err error, uui
 	}
 }
 
-func (s *rebootSuite) SetUpSuite(c *gc.C) {
+func (s *rebootSuite) SetUpSuite(c *tc.C) {
 	s.CleanupSuite.SetUpSuite(c)
 	s.ModelSuite.SetUpSuite(c)
 	s.ApiServerSuite.SetUpSuite(c)
 }
 
-func (s *rebootSuite) SetUpTest(c *gc.C) {
+func (s *rebootSuite) SetUpTest(c *tc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.ModelSuite.SetUpTest(c)
 	s.ApiServerSuite.SetUpTest(c)
 
 	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) {
 		workertest.DirtyKill(c, s.watcherRegistry)
 	})
 
@@ -146,14 +145,14 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *rebootSuite) TearDownTest(c *gc.C) {
+func (s *rebootSuite) TearDownTest(c *tc.C) {
 
 	s.CleanupSuite.TearDownTest(c)
 	s.ApiServerSuite.TearDownTest(c)
 	s.ModelSuite.TearDownTest(c)
 }
 
-func (s *rebootSuite) TearDownSuite(c *gc.C) {
+func (s *rebootSuite) TearDownSuite(c *tc.C) {
 	s.CleanupSuite.TearDownSuite(c)
 	s.ApiServerSuite.TearDownSuite(c)
 	s.ModelSuite.TearDownSuite(c)
@@ -162,12 +161,12 @@ func (s *rebootSuite) TearDownSuite(c *gc.C) {
 // TestWatchForRebootEventFromChild tests the functionality of watching for a reboot event from a child machine.
 // It creates a parent machine and a child machine, sends a reboot request to the child machine,
 // and asserts that the child machine receives the reboot event while the parent machine does not.
-func (s *rebootSuite) TestWatchForRebootEventFromChild(c *gc.C) {
+func (s *rebootSuite) TestWatchForRebootEventFromChild(c *tc.C) {
 	parent := s.createMachine(c, parentTag)
 	child := s.createMachineWithParent(c, childTag, parent)
 
 	_, err := child.rebootAPI.RequestReboot(context.Background(), child.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	child.wc.AssertOneChange()
 	parent.wc.AssertNoChange()
@@ -176,12 +175,12 @@ func (s *rebootSuite) TestWatchForRebootEventFromChild(c *gc.C) {
 // TestWatchForRebootEventFromParent tests the functionality of watching for a reboot event from a parent machine.
 // It creates a parent machine and a child machine, sends a reboot request to the parent machine,
 // and asserts that both the parent machine and child receives a reboot event.
-func (s *rebootSuite) TestWatchForRebootEventFromParent(c *gc.C) {
+func (s *rebootSuite) TestWatchForRebootEventFromParent(c *tc.C) {
 	parent := s.createMachine(c, parentTag)
 	child := s.createMachineWithParent(c, childTag, parent)
 
 	_, err := parent.rebootAPI.RequestReboot(context.Background(), parent.args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	parent.wc.AssertOneChange()
 	child.wc.AssertOneChange()
@@ -190,12 +189,12 @@ func (s *rebootSuite) TestWatchForRebootEventFromParent(c *gc.C) {
 // TestRequestReboot tests the functionality of requesting a reboot for a machine.
 // It creates a machine, sends a reboot request, and asserts that the request is successful and the appropriate changes are made.
 // Additionally, it verifies the reboot action after the request.
-func (s *rebootSuite) TestRequestReboot(c *gc.C) {
+func (s *rebootSuite) TestRequestReboot(c *tc.C) {
 	machine := s.createMachine(c, parentTag)
 
 	errResult, err := machine.rebootAPI.RequestReboot(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		}})
@@ -203,8 +202,8 @@ func (s *rebootSuite) TestRequestReboot(c *gc.C) {
 	machine.wc.AssertOneChange()
 
 	res, err := machine.rebootAPI.GetRebootAction(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
@@ -214,12 +213,12 @@ func (s *rebootSuite) TestRequestReboot(c *gc.C) {
 // It creates a machine, sends a reboot request, and then clears the reboot request.
 // It asserts that the request and clearing are successful and the appropriate changes are made.
 // Additionally, it verifies the reboot action after the clearing.
-func (s *rebootSuite) TestClearReboot(c *gc.C) {
+func (s *rebootSuite) TestClearReboot(c *tc.C) {
 	machine := s.createMachine(c, parentTag)
 
 	errResult, err := machine.rebootAPI.RequestReboot(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},
@@ -228,23 +227,23 @@ func (s *rebootSuite) TestClearReboot(c *gc.C) {
 	machine.wc.AssertOneChange()
 
 	res, err := machine.rebootAPI.GetRebootAction(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
 	errResult, err = machine.rebootAPI.ClearReboot(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},
 	})
 
 	res, err = machine.rebootAPI.GetRebootAction(context.Background(), machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
 		}})
@@ -255,15 +254,15 @@ func (s *rebootSuite) TestClearReboot(c *gc.C) {
 // It asserts that the reboot action for parent machine is reboot and the reboot action for child is
 // to shut down.
 // It also verifies that the proper rebootEvent are sent.
-func (s *rebootSuite) TestRebootRequestFromParent(c *gc.C) {
+func (s *rebootSuite) TestRebootRequestFromParent(c *tc.C) {
 	parent := s.createMachine(c, parentTag)
 	child := s.createMachineWithParent(c, childTag, parent)
 	// Request reboot on the root machine: all machines should see it
 	// parent should reboot
 	// child should shutdown
 	errResult, err := parent.rebootAPI.RequestReboot(context.Background(), parent.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		}})
@@ -272,22 +271,22 @@ func (s *rebootSuite) TestRebootRequestFromParent(c *gc.C) {
 	child.wc.AssertOneChange()
 
 	res, err := parent.rebootAPI.GetRebootAction(context.Background(), parent.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
 	res, err = child.rebootAPI.GetRebootAction(context.Background(), child.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldShutdown},
 		}})
 
 	errResult, err = parent.rebootAPI.ClearReboot(context.Background(), parent.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},
@@ -302,7 +301,7 @@ func (s *rebootSuite) TestRebootRequestFromParent(c *gc.C) {
 // The parent machine should do nothing, while the child machine should reboot.
 // It asserts that the appropriate changes are made and the expected reboot action is received.
 // It also check that the correct events are sent.
-func (s *rebootSuite) TestRebootRequestFromChild(c *gc.C) {
+func (s *rebootSuite) TestRebootRequestFromChild(c *tc.C) {
 	parent := s.createMachine(c, parentTag)
 	child := s.createMachineWithParent(c, childTag, parent)
 
@@ -310,8 +309,8 @@ func (s *rebootSuite) TestRebootRequestFromChild(c *gc.C) {
 	// parent should do nothing
 	// child should reboot
 	errResult, err := child.rebootAPI.RequestReboot(context.Background(), child.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		}})
@@ -320,22 +319,22 @@ func (s *rebootSuite) TestRebootRequestFromChild(c *gc.C) {
 	parent.wc.AssertNoChange()
 
 	res, err := parent.rebootAPI.GetRebootAction(context.Background(), parent.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
 		}})
 
 	res, err = child.rebootAPI.GetRebootAction(context.Background(), child.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
 	errResult, err = child.rebootAPI.ClearReboot(context.Background(), child.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},

@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base/testing"
@@ -20,14 +19,14 @@ type cloudNativeUniterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&cloudNativeUniterSuite{})
+var _ = tc.Suite(&cloudNativeUniterSuite{})
 
-func (s *cloudNativeUniterSuite) TestCloudSpec(c *gc.C) {
+func (s *cloudNativeUniterSuite) TestCloudSpec(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "CloudSpec")
-		c.Assert(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.CloudSpecResult{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "CloudSpec")
+		c.Assert(arg, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.CloudSpecResult{})
 		*(result.(*params.CloudSpecResult)) = params.CloudSpecResult{
 			Result: &params.CloudSpec{
 				Name: "dummy",
@@ -44,9 +43,9 @@ func (s *cloudNativeUniterSuite) TestCloudSpec(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("wordpress/0"))
 
 	result, err := client.CloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Name, gc.Equals, "dummy")
-	c.Assert(result.Credential.Attributes, gc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Name, tc.Equals, "dummy")
+	c.Assert(result.Credential.Attributes, tc.DeepEquals, map[string]string{
 		"username": "dummy",
 		"password": "secret",
 	})

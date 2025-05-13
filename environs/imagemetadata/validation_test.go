@@ -8,9 +8,8 @@ import (
 	"path"
 	"path/filepath"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/filestorage"
@@ -25,9 +24,9 @@ type ValidateSuite struct {
 	metadataDir string
 }
 
-var _ = gc.Suite(&ValidateSuite{})
+var _ = tc.Suite(&ValidateSuite{})
 
-func (s *ValidateSuite) makeLocalMetadata(c *gc.C, ss *simplestreams.Simplestreams, id, region string, base corebase.Base, endpoint, stream string) {
+func (s *ValidateSuite) makeLocalMetadata(c *tc.C, ss *simplestreams.Simplestreams, id, region string, base corebase.Base, endpoint, stream string) {
 	metadata := []*imagemetadata.ImageMetadata{
 		{
 			Id:     id,
@@ -40,17 +39,17 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, ss *simplestreams.Simplestrea
 		Endpoint: endpoint,
 	}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = imagemetadata.MergeAndWriteMetadata(context.Background(), ss, base, metadata, &cloudSpec, targetStorage)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ValidateSuite) SetUpTest(c *gc.C) {
+func (s *ValidateSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 }
 
-func (s *ValidateSuite) assertMatch(c *gc.C, ss *simplestreams.Simplestreams, stream string) {
+func (s *ValidateSuite) assertMatch(c *tc.C, ss *simplestreams.Simplestreams, stream string) {
 	base := corebase.MustParseBaseFromString("ubuntu@13.04")
 	s.makeLocalMetadata(c, ss, "1234", "region-2", base, "some-auth-url", stream)
 	metadataPath := filepath.Join(s.metadataDir, "images")
@@ -64,9 +63,9 @@ func (s *ValidateSuite) assertMatch(c *gc.C, ss *simplestreams.Simplestreams, st
 			sstesting.VerifyDefaultCloudDataSource("test", utils.MakeFileURL(metadataPath))},
 	}
 	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(context.Background(), ss, params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imageIds, gc.DeepEquals, []string{"1234"})
-	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(imageIds, tc.DeepEquals, []string{"1234"})
+	c.Check(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
 		IndexURL:  utils.MakeFileURL(path.Join(metadataPath, "streams/v1/index.json")),
@@ -74,14 +73,14 @@ func (s *ValidateSuite) assertMatch(c *gc.C, ss *simplestreams.Simplestreams, st
 	})
 }
 
-func (s *ValidateSuite) TestMatch(c *gc.C) {
+func (s *ValidateSuite) TestMatch(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	s.assertMatch(c, ss, "")
 	s.assertMatch(c, ss, imagemetadata.ReleasedStream)
 	s.assertMatch(c, ss, "daily")
 }
 
-func (s *ValidateSuite) assertNoMatch(c *gc.C, ss *simplestreams.Simplestreams, stream string) {
+func (s *ValidateSuite) assertNoMatch(c *tc.C, ss *simplestreams.Simplestreams, stream string) {
 	base := corebase.MustParseBaseFromString("ubuntu@13.04")
 	s.makeLocalMetadata(c, ss, "1234", "region-2", base, "some-auth-url", stream)
 	params := &simplestreams.MetadataLookupParams{
@@ -94,10 +93,10 @@ func (s *ValidateSuite) assertNoMatch(c *gc.C, ss *simplestreams.Simplestreams, 
 			sstesting.VerifyDefaultCloudDataSource("test", "file://"+s.metadataDir)},
 	}
 	_, _, err := imagemetadata.ValidateImageMetadata(context.Background(), ss, params)
-	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err, tc.Not(tc.IsNil))
 }
 
-func (s *ValidateSuite) TestNoMatch(c *gc.C) {
+func (s *ValidateSuite) TestNoMatch(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	s.assertNoMatch(c, ss, "")
 	s.assertNoMatch(c, ss, imagemetadata.ReleasedStream)

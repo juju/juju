@@ -6,9 +6,8 @@ package provider_test
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,13 +16,13 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&ResourcesSuite{})
+var _ = tc.Suite(&ResourcesSuite{})
 
 type ResourcesSuite struct {
 	BaseSuite
 }
 
-func (s *ResourcesSuite) TestAdoptResources(c *gc.C) {
+func (s *ResourcesSuite) TestAdoptResources(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -72,5 +71,5 @@ func (s *ResourcesSuite) TestAdoptResources(c *gc.C) {
 	)
 
 	err := s.broker.AdoptResources(context.Background(), "uuid", semversion.MustParse("1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

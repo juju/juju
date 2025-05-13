@@ -4,8 +4,7 @@
 package filesystem
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -14,14 +13,14 @@ type filesystemtypeSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&filesystemtypeSuite{})
+var _ = tc.Suite(&filesystemtypeSuite{})
 
 // TestFilesystemTypeDBValues ensures there's no skew between what's in the
 // database table for filesystem type and the typed consts used in the state packages.
-func (s *filesystemtypeSuite) TestFilesystemTypeDBValues(c *gc.C) {
+func (s *filesystemtypeSuite) TestFilesystemTypeDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, name FROM filesystem_type")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
 	dbValues := make(map[FilesystemType]string)
@@ -31,10 +30,10 @@ func (s *filesystemtypeSuite) TestFilesystemTypeDBValues(c *gc.C) {
 			value string
 		)
 		err := rows.Scan(&id, &value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		dbValues[FilesystemType(id)] = value
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[FilesystemType]string{
+	c.Assert(dbValues, tc.DeepEquals, map[FilesystemType]string{
 		Unspecified: "unspecified",
 		Vfat:        "vfat",
 		Ext4:        "ext4",

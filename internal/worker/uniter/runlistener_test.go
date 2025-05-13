@@ -6,9 +6,8 @@ package uniter_test
 import (
 	"path/filepath"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
-	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -22,41 +21,37 @@ type ListenerSuite struct {
 	socketPath sockets.Socket
 }
 
-var _ = gc.Suite(&ListenerSuite{})
+var _ = tc.Suite(&ListenerSuite{})
 
-func sockPath(c *gc.C) sockets.Socket {
-	sockPath := filepath.Join(c.MkDir(), "test.listener")
-	return sockets.Socket{Address: sockPath, Network: "unix"}
-}
-
-func (s *ListenerSuite) SetUpTest(c *gc.C) {
+func (s *ListenerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.socketPath = sockPath(c)
+	sockPath := filepath.Join(c.MkDir(), "test.listener")
+	s.socketPath = sockets.Socket{Address: sockPath, Network: "unix"}
 }
 
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.
-func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
+func (s *ListenerSuite) NewRunListener(c *tc.C) *uniter.RunListener {
 	listener, err := uniter.NewRunListener(s.socketPath, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	listener.RegisterRunner("test/0", &mockCommandRunner{
 		c: c,
 	})
-	s.AddCleanup(func(c *gc.C) {
-		c.Assert(listener.Close(), jc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) {
+		c.Assert(listener.Close(), tc.ErrorIsNil)
 	})
 	return listener
 }
 
-func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c *gc.C) {
+func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c *tc.C) {
 	s.NewRunListener(c)
 	s.NewRunListener(c)
 }
 
-func (s *ListenerSuite) TestClientCall(c *gc.C) {
+func (s *ListenerSuite) TestClientCall(c *tc.C) {
 	s.NewRunListener(c)
 
 	client, err := sockets.Dial(s.socketPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer client.Close()
 
 	var result exec.ExecResponse
@@ -68,19 +63,19 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 		UnitName:        "test/0",
 	}
 	err = client.Call(uniter.JujuExecEndpoint, args, &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
-	c.Assert(string(result.Stderr), gc.Equals, "some-command stderr")
-	c.Assert(result.Code, gc.Equals, 42)
+	c.Assert(string(result.Stdout), tc.Equals, "some-command stdout")
+	c.Assert(string(result.Stderr), tc.Equals, "some-command stderr")
+	c.Assert(result.Code, tc.Equals, 42)
 }
 
-func (s *ListenerSuite) TestUnregisterRunner(c *gc.C) {
+func (s *ListenerSuite) TestUnregisterRunner(c *tc.C) {
 	listener := s.NewRunListener(c)
 	listener.UnregisterRunner("test/0")
 
 	client, err := sockets.Dial(s.socketPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer client.Close()
 
 	var result exec.ExecResponse
@@ -92,7 +87,7 @@ func (s *ListenerSuite) TestUnregisterRunner(c *gc.C) {
 		UnitName:        "test/0",
 	}
 	err = client.Call(uniter.JujuExecEndpoint, args, &result)
-	c.Assert(err, gc.ErrorMatches, ".*no runner is registered for unit test/0")
+	c.Assert(err, tc.ErrorMatches, ".*no runner is registered for unit test/0")
 }
 
 type ChannelCommandRunnerSuite struct {
@@ -103,9 +98,9 @@ type ChannelCommandRunnerSuite struct {
 	runner         *uniter.ChannelCommandRunner
 }
 
-var _ = gc.Suite(&ChannelCommandRunnerSuite{})
+var _ = tc.Suite(&ChannelCommandRunnerSuite{})
 
-func (s *ChannelCommandRunnerSuite) SetUpTest(c *gc.C) {
+func (s *ChannelCommandRunnerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.abort = make(chan struct{}, 1)
 	s.commands = runcommands.NewCommands()
@@ -115,20 +110,20 @@ func (s *ChannelCommandRunnerSuite) SetUpTest(c *gc.C) {
 		Commands:       s.commands,
 		CommandChannel: s.commandChannel,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.runner = runner
 }
 
-func (s *ChannelCommandRunnerSuite) TestCommandsAborted(c *gc.C) {
+func (s *ChannelCommandRunnerSuite) TestCommandsAborted(c *tc.C) {
 	close(s.abort)
 	_, err := s.runner.RunCommands(uniter.RunCommandsArgs{
 		Commands: "some-command",
 	})
-	c.Assert(err, gc.ErrorMatches, "command execution aborted")
+	c.Assert(err, tc.ErrorMatches, "command execution aborted")
 }
 
 type mockCommandRunner struct {
-	c *gc.C
+	c *tc.C
 }
 
 var _ uniter.CommandRunner = (*mockCommandRunner)(nil)

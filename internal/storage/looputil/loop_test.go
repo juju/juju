@@ -7,8 +7,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/storage/looputil"
 	"github.com/juju/juju/internal/testing"
@@ -18,49 +17,49 @@ type LoopUtilSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&LoopUtilSuite{})
+var _ = tc.Suite(&LoopUtilSuite{})
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesNone(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesNone(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a")
 
 	m := looputil.NewTestLoopDeviceManager(commands.run, nil, nil)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesListError(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesListError(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond("", errors.New("badness"))
 
 	m := looputil.NewTestLoopDeviceManager(commands.run, nil, nil)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, gc.ErrorMatches, "listing loop devices: badness")
+	c.Assert(err, tc.ErrorMatches, "listing loop devices: badness")
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesListBadOutput(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesListBadOutput(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond("bad output", nil)
 
 	m := looputil.NewTestLoopDeviceManager(commands.run, nil, nil)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, gc.ErrorMatches, `listing loop devices: cannot parse loop device info from "bad output"`)
+	c.Assert(err, tc.ErrorMatches, `listing loop devices: cannot parse loop device info from "bad output"`)
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesListBadInode(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesListBadInode(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond("/dev/loop0: [0]:99999999999999999999999 (woop)", nil)
 
 	m := looputil.NewTestLoopDeviceManager(commands.run, nil, nil)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, gc.ErrorMatches, `listing loop devices: parsing inode: strconv.ParseUint: parsing "99999999999999999999999": value out of range`)
+	c.Assert(err, tc.ErrorMatches, `listing loop devices: parsing inode: strconv.ParseUint: parsing "99999999999999999999999": value out of range`)
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesNotFound(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesNotFound(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond("/dev/loop0: [0021]:7504142 (/tmp/test.dat)", nil)
@@ -69,10 +68,10 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesNotFound(c *gc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, nil)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesStatError(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesStatError(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond("/dev/loop0: [0021]:7504142 (/tmp/test.dat)", nil)
@@ -81,10 +80,10 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesStatError(c *gc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, nil)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, gc.ErrorMatches, `querying backing file: stat fails for "/tmp/test.dat"`)
+	c.Assert(err, tc.ErrorMatches, `querying backing file: stat fails for "/tmp/test.dat"`)
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesInodeMismatch(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesInodeMismatch(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond("/dev/loop0: [0021]:7504142 (/tmp/test.dat)", nil)
@@ -93,10 +92,10 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesInodeMismatch(c *gc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesInodeMatch(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesInodeMatch(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond("/dev/loop0: [0021]:7504142 (/tmp/test.dat)", nil)
@@ -106,10 +105,10 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesInodeMatch(c *gc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesDetachError(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesDetachError(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond("/dev/loop0: [0021]:7504142 (/tmp/test.dat)", nil)
@@ -119,10 +118,10 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesDetachError(c *gc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, gc.ErrorMatches, `detaching loop device "/dev/loop0": oh noes`)
+	c.Assert(err, tc.ErrorMatches, `detaching loop device "/dev/loop0": oh noes`)
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesMultiple(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesMultiple(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond(
@@ -146,11 +145,11 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesMultiple(c *gc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statted, jc.DeepEquals, []string{"/tmp/test1.dat", "/tmp/test2.dat", "/tmp/test3.dat"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statted, tc.DeepEquals, []string{"/tmp/test1.dat", "/tmp/test2.dat", "/tmp/test3.dat"})
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesAlternativeRoot(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesAlternativeRoot(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond("/dev/loop0: [0021]:7504142 (/tmp/test.dat)", nil)
@@ -161,11 +160,11 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesAlternativeRoot(c *gc.C) {
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("/var/lib/lxc/mycontainer/rootfs", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statted, gc.Equals, "/var/lib/lxc/mycontainer/rootfs/tmp/test.dat")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statted, tc.Equals, "/var/lib/lxc/mycontainer/rootfs/tmp/test.dat")
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesAlternativeRootWithPrefix(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesAlternativeRootWithPrefix(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond(
@@ -181,19 +180,19 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesAlternativeRootWithPrefix(c *gc.C) 
 	}
 	m := looputil.NewTestLoopDeviceManager(commands.run, stat, mockFileInfoInode)
 	err := m.DetachLoopDevices("/var/lib/lxc/mycontainer/rootfs", "/var/lib/juju")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statted, jc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statted, tc.DeepEquals, []string{
 		"/var/lib/lxc/mycontainer/rootfs/var/lib/juju/storage/loop/volume-0-0",
 	})
 }
 
-func (s *LoopUtilSuite) TestDetachLoopDevicesListEmptyInodeOK(c *gc.C) {
+func (s *LoopUtilSuite) TestDetachLoopDevicesListEmptyInodeOK(c *tc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
 	commands.expect("losetup", "-a").respond("/dev/loop0: []: (/var/lib/lxc-btrfs.img)", nil)
 	m := looputil.NewTestLoopDeviceManager(commands.run, nil, nil)
 	err := m.DetachLoopDevices("", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type mockFileInfo struct {

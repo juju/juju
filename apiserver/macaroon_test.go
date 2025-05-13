@@ -13,8 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -28,19 +27,19 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&macaroonLoginSuite{})
+var _ = tc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
 	remoteUser user.Name
 	jujutesting.MacaroonSuite
 }
 
-func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
+func (s *macaroonLoginSuite) SetUpTest(c *tc.C) {
 	s.remoteUser = usertesting.GenNewName(c, "testuser@somewhere")
 	s.MacaroonSuite.SetUpTest(c)
 }
 
-func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
+func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *tc.C) {
 	s.AddModelUser(c, s.remoteUser)
 	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
 	s.DischargerLogin = func() string {
@@ -55,22 +54,22 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 	s.PatchValue(&http.DefaultTransport, failingTransport)
 	info := s.ControllerModelApiInfo()
 	_, err := s.login(c, info)
-	c.Assert(err, gc.ErrorMatches, `.*: some error .*`)
+	c.Assert(err, tc.ErrorMatches, `.*: some error .*`)
 
 	http.DefaultTransport = workingTransport
 
 	// The error doesn't stick around.
 	_, err = s.login(c, info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Once we've succeeded, we shouldn't try again.
 	http.DefaultTransport = failingTransport
 
 	_, err = s.login(c, info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult, error) {
+func (s *macaroonLoginSuite) login(c *tc.C, info *api.Info) (params.LoginResult, error) {
 	cookieJar := jujutesting.NewClearableCookieJar()
 
 	infoSkipLogin := *info
@@ -100,7 +99,7 @@ func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult,
 	if mac == nil {
 		var err error
 		mac, err = bakery.NewLegacyMacaroon(result.DischargeRequired)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	err = bakeryClient.HandleError(context.Background(), cookieURL, &httpbakery.Error{
 		Message: result.DischargeRequiredReason,
@@ -110,7 +109,7 @@ func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult,
 			MacaroonPath: "/",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Add the macaroons that have been saved by HandleError to our login request.
 	request.Macaroons = httpbakery.MacaroonsForURL(bakeryClient.Client.Jar, cookieURL)
 
@@ -118,7 +117,7 @@ func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult,
 	return result, err
 }
 
-func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *tc.C) {
 	s.DischargerLogin = func() string {
 		return s.remoteUser.Name()
 	}
@@ -130,7 +129,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
 	assertPermissionDenied(c, err)
 }
 
-func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *tc.C) {
 	s.AddControllerUser(c, permission.EveryoneUserName, permission.LoginAccess)
 
 	s.DischargerLogin = func() string {
@@ -141,25 +140,25 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C)
 	info.ModelTag = names.ModelTag{}
 
 	result, err := s.login(c, info)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
-	c.Check(result.UserInfo.Identity, gc.Equals, names.NewUserTag(s.remoteUser.Name()).String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
-	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
-	c.Check(result.Servers, gc.DeepEquals, params.FromProviderHostsPorts(parseHostPortsFromAddress(c, info.Addrs...)))
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(result.UserInfo, tc.NotNil)
+	c.Check(result.UserInfo.Identity, tc.Equals, names.NewUserTag(s.remoteUser.Name()).String())
+	c.Check(result.UserInfo.ControllerAccess, tc.Equals, "login")
+	c.Check(result.UserInfo.ModelAccess, tc.Equals, "")
+	c.Check(result.Servers, tc.DeepEquals, params.FromProviderHostsPorts(parseHostPortsFromAddress(c, info.Addrs...)))
 }
 
-func parseHostPortsFromAddress(c *gc.C, addresses ...string) []network.ProviderHostPorts {
+func parseHostPortsFromAddress(c *tc.C, addresses ...string) []network.ProviderHostPorts {
 	hps := make([]network.ProviderHostPorts, len(addresses))
 	for i, add := range addresses {
 		hp, err := network.ParseProviderHostPorts(add)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		hps[i] = hp
 	}
 	return hps
 }
 
-func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerSuperuserAccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerSuperuserAccess(c *tc.C) {
 	s.AddControllerUser(c, permission.EveryoneUserName, permission.SuperuserAccess)
 	var remoteUserTag = names.NewUserTag(s.remoteUser.Name())
 
@@ -171,14 +170,14 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerSuperuserAccess(c *g
 	info.ModelTag = names.ModelTag{}
 
 	result, err := s.login(c, info)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
-	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "superuser")
-	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(result.UserInfo, tc.NotNil)
+	c.Check(result.UserInfo.Identity, tc.Equals, remoteUserTag.String())
+	c.Check(result.UserInfo.ControllerAccess, tc.Equals, "superuser")
+	c.Check(result.UserInfo.ModelAccess, tc.Equals, "")
 }
 
-func (s *macaroonLoginSuite) TestRemoteUserLoginToModelNoExplicitAccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestRemoteUserLoginToModelNoExplicitAccess(c *tc.C) {
 	// If we have a remote user which the controller knows nothing about,
 	// and the macaroon is discharged successfully, and the user is attempting
 	// to log into a model, that is permission denied.
@@ -192,15 +191,15 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelNoExplicitAccess(c *gc.C)
 	assertPermissionDenied(c, err)
 }
 
-func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccess(c *tc.C) {
 	s.testRemoteUserLoginToModelWithExplicitAccess(c, false)
 }
 
-func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllowModelAccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllowModelAccess(c *tc.C) {
 	s.testRemoteUserLoginToModelWithExplicitAccess(c, true)
 }
 
-func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.C, allowModelAccess bool) {
+func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *tc.C, allowModelAccess bool) {
 	apiserver.SetAllowModelAccess(s.Server, allowModelAccess)
 
 	accessService := s.ControllerDomainServices(c).Access()
@@ -215,7 +214,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 			Access: permission.WriteAccess,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.DischargerLogin = func() string {
 		return s.remoteUser.Name()
@@ -223,13 +222,13 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 
 	_, err = s.login(c, s.ControllerModelApiInfo())
 	if allowModelAccess {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
 		assertPermissionDenied(c, err)
 	}
 }
 
-func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *tc.C) {
 	s.AddModelUser(c, s.remoteUser)
 	s.AddControllerUser(c, s.remoteUser, permission.SuperuserAccess)
 
@@ -239,14 +238,14 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *g
 	info := s.APIInfo(c)
 
 	result, err := s.login(c, info)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
-	c.Check(result.UserInfo.Identity, gc.Equals, names.NewUserTag(s.remoteUser.Name()).String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "superuser")
-	c.Check(result.UserInfo.ModelAccess, gc.Equals, "write")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.UserInfo, tc.NotNil)
+	c.Check(result.UserInfo.Identity, tc.Equals, names.NewUserTag(s.remoteUser.Name()).String())
+	c.Check(result.UserInfo.ControllerAccess, tc.Equals, "superuser")
+	c.Check(result.UserInfo.ModelAccess, tc.Equals, "write")
 }
 
-func (s *macaroonLoginSuite) TestLoginToModelSuccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestLoginToModelSuccess(c *tc.C) {
 	s.AddModelUser(c, s.remoteUser)
 	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
 	s.DischargerLogin = func() string {
@@ -254,23 +253,23 @@ func (s *macaroonLoginSuite) TestLoginToModelSuccess(c *gc.C) {
 	}
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	client, err := api.Open(context.Background(), s.APIInfo(c), api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer client.Close()
 
 	// The auth tag has been correctly returned by the server.
-	c.Assert(client.AuthTag(), gc.Equals, names.NewUserTag(s.remoteUser.Name()))
+	c.Assert(client.AuthTag(), tc.Equals, names.NewUserTag(s.remoteUser.Name()))
 }
 
-func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
+func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *tc.C) {
 	s.DischargerLogin = func() string {
 		return ""
 	}
 	client, err := api.Open(context.Background(), s.APIInfo(c), api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
-	c.Assert(client, gc.Equals, nil)
+	c.Assert(err, tc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(client, tc.Equals, nil)
 }
 
-func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
+func (s *macaroonLoginSuite) TestConnectStream(c *tc.C) {
 	s.AddModelUser(c, s.remoteUser)
 	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
 
@@ -285,22 +284,22 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 
 	// First log into the regular API.
 	client, err := api.Open(context.Background(), s.APIInfo(c), api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dischargeCount, gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dischargeCount, tc.Equals, 1)
 
 	// Then check that ConnectStream works OK and that it doesn't need
 	// to discharge again.
 	conn, err := client.ConnectStream(context.Background(), "/path", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	defer conn.Close()
 
 	connectURL, err := url.Parse(catcher.Location())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(connectURL.Path, gc.Equals, "/model/"+s.ControllerModelUUID()+"/path")
-	c.Check(dischargeCount, gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(connectURL.Path, tc.Equals, "/model/"+s.ControllerModelUUID()+"/path")
+	c.Check(dischargeCount, tc.Equals, 1)
 }
 
-func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
+func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *tc.C) {
 	s.AddModelUser(c, s.remoteUser)
 	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
 
@@ -328,8 +327,8 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	dischargeError = true
 	logArgs := url.Values{"noTail": []string{"true"}}
 	conn, err := client.ConnectStream(context.Background(), "/log", logArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conn, tc.NotNil)
 	conn.Close()
 
 	// Then delete all the cookies by deleting the cookie jar
@@ -337,11 +336,11 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	jar.Clear()
 
 	conn, err = client.ConnectStream(context.Background(), "/log", logArgs)
-	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
-	c.Assert(conn, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(conn, tc.IsNil)
 }
 
-func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
+func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *tc.C) {
 	s.AddModelUser(c, s.remoteUser)
 	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
 
@@ -353,7 +352,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	mac, err := macaroon.New([]byte("abc-123"), []byte("aurora gone"), "shankil butchers", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.DischargerLogin = func() string {
 		return s.remoteUser.Name()
@@ -369,9 +368,9 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	}
 
 	bClient, ok := client.BakeryClient().(*httpbakery.Client)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	dischargedMacaroons := httpbakery.MacaroonsForURL(bClient.Jar, api.CookieURLFromHost(host))
-	c.Assert(len(dischargedMacaroons), gc.Equals, 1)
+	c.Assert(len(dischargedMacaroons), tc.Equals, 1)
 
 	// Mirror the situation in migration logtransfer - the macaroon is
 	// now stored in the auth service (so no further discharge is
@@ -388,20 +387,20 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 
 	client2 := s.OpenAPI(c, info2, nil)
 	conn, err := client2.ConnectStream(context.Background(), "/path", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	defer conn.Close()
 
 	headers := catcher.Headers()
-	c.Assert(headers.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
-	c.Assert(headers.Get("Cookie"), jc.HasPrefix, "macaroon-")
+	c.Assert(headers.Get(httpbakery.BakeryProtocolHeader), tc.Equals, "3")
+	c.Assert(headers.Get("Cookie"), tc.HasPrefix, "macaroon-")
 	assertHeaderMatchesMacaroon(c, headers, dischargedMacaroons[0])
 }
 
-func assertHeaderMatchesMacaroon(c *gc.C, header http.Header, macaroon macaroon.Slice) {
+func assertHeaderMatchesMacaroon(c *tc.C, header http.Header, macaroon macaroon.Slice) {
 	req := http.Request{Header: header}
 	actualCookie := req.Cookies()[0]
 	expectedCookie, err := httpbakery.NewCookie(nil, macaroon)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actualCookie.Name, gc.Equals, expectedCookie.Name)
-	c.Assert(actualCookie.Value, gc.Equals, expectedCookie.Value)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(actualCookie.Name, tc.Equals, expectedCookie.Name)
+	c.Assert(actualCookie.Value, tc.Equals, expectedCookie.Value)
 }

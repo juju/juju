@@ -6,8 +6,7 @@ package utils_test
 import (
 	"context"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -21,13 +20,13 @@ type LabelSuite struct {
 	client *fake.Clientset
 }
 
-var _ = gc.Suite(&LabelSuite{})
+var _ = tc.Suite(&LabelSuite{})
 
-func (l *LabelSuite) SetUpTest(c *gc.C) {
+func (l *LabelSuite) SetUpTest(c *tc.C) {
 	l.client = fake.NewSimpleClientset()
 }
 
-func (l *LabelSuite) TestHasLabels(c *gc.C) {
+func (l *LabelSuite) TestHasLabels(c *tc.C) {
 	tests := []struct {
 		Src    labels.Set
 		Has    labels.Set
@@ -57,11 +56,11 @@ func (l *LabelSuite) TestHasLabels(c *gc.C) {
 
 	for _, test := range tests {
 		res := utils.HasLabels(test.Src, test.Has)
-		c.Assert(res, gc.Equals, test.Result)
+		c.Assert(res, tc.Equals, test.Result)
 	}
 }
 
-func (l *LabelSuite) TestDectectModelLabelVersion(c *gc.C) {
+func (l *LabelSuite) TestDectectModelLabelVersion(c *tc.C) {
 	tests := []struct {
 		LabelVersion   constants.LabelVersion
 		ModelName      string
@@ -135,19 +134,19 @@ func (l *LabelSuite) TestDectectModelLabelVersion(c *gc.C) {
 
 	for t, test := range tests {
 		_, err := l.client.CoreV1().Namespaces().Create(context.Background(), test.Namespace, meta.CreateOptions{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		labelVersion, err := utils.DetectModelLabelVersion(context.Background(), test.Namespace.Name, test.ModelName, test.ModelUUID, test.ControllerUUID, l.client.CoreV1().Namespaces())
 		if test.ErrorString != "" {
-			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
+			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
 		} else {
-			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", t))
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf("test %d", t))
 		}
-		c.Check(labelVersion, gc.Equals, test.LabelVersion, gc.Commentf("test %d", t))
+		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
 	}
 }
 
-func (l *LabelSuite) TestLabelsToSelector(c *gc.C) {
+func (l *LabelSuite) TestLabelsToSelector(c *tc.C) {
 	tests := []struct {
 		Labels   labels.Set
 		Selector string
@@ -169,11 +168,11 @@ func (l *LabelSuite) TestLabelsToSelector(c *gc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelsToSelector(test.Labels)
-		c.Assert(test.Selector, gc.Equals, rval.String())
+		c.Assert(test.Selector, tc.Equals, rval.String())
 	}
 }
 
-func (l *LabelSuite) TestSelectorLabelsForApp(c *gc.C) {
+func (l *LabelSuite) TestSelectorLabelsForApp(c *tc.C) {
 	tests := []struct {
 		AppName        string
 		ExpectedLabels labels.Set
@@ -197,11 +196,11 @@ func (l *LabelSuite) TestSelectorLabelsForApp(c *gc.C) {
 
 	for _, test := range tests {
 		rval := utils.SelectorLabelsForApp(test.AppName, test.LabelVersion)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
-func (l *LabelSuite) TestLabelsForApp(c *gc.C) {
+func (l *LabelSuite) TestLabelsForApp(c *tc.C) {
 	tests := []struct {
 		AppName        string
 		ExpectedLabels labels.Set
@@ -226,11 +225,11 @@ func (l *LabelSuite) TestLabelsForApp(c *gc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelsForApp(test.AppName, test.LabelVersion)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
-func (l *LabelSuite) TestLabelsForStorage(c *gc.C) {
+func (l *LabelSuite) TestLabelsForStorage(c *tc.C) {
 	tests := []struct {
 		AppName        string
 		ExpectedLabels labels.Set
@@ -254,11 +253,11 @@ func (l *LabelSuite) TestLabelsForStorage(c *gc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelsForStorage(test.AppName, test.LabelVersion)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
-func (l *LabelSuite) TestLabelsForModel(c *gc.C) {
+func (l *LabelSuite) TestLabelsForModel(c *tc.C) {
 	tests := []struct {
 		ModelName      string
 		ModelUUID      string
@@ -288,11 +287,11 @@ func (l *LabelSuite) TestLabelsForModel(c *gc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelsForModel(test.ModelName, test.ModelUUID, test.ControllerUUID, test.LabelVersion)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
-func (l *LabelSuite) TestLabelsForOperator(c *gc.C) {
+func (l *LabelSuite) TestLabelsForOperator(c *tc.C) {
 	tests := []struct {
 		AppName        string
 		Target         string
@@ -319,11 +318,11 @@ func (l *LabelSuite) TestLabelsForOperator(c *gc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelsForOperator(test.AppName, test.Target, test.LabelVersion)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
-func (l *LabelSuite) TestLabelForKeyValue(c *gc.C) {
+func (l *LabelSuite) TestLabelForKeyValue(c *tc.C) {
 	tests := []struct {
 		Key            string
 		Value          string
@@ -340,21 +339,21 @@ func (l *LabelSuite) TestLabelForKeyValue(c *gc.C) {
 
 	for _, test := range tests {
 		rval := utils.LabelForKeyValue(test.Key, test.Value)
-		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+		c.Assert(rval, tc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
-func (l *LabelSuite) TestLabelsMerge(c *gc.C) {
+func (l *LabelSuite) TestLabelsMerge(c *tc.C) {
 	one := labels.Set{"foo": "bar"}
 	two := labels.Set{"foo": "baz", "up": "down"}
 	result := utils.LabelsMerge(one, two)
-	c.Assert(result, jc.DeepEquals, labels.Set{
+	c.Assert(result, tc.DeepEquals, labels.Set{
 		"foo": "baz",
 		"up":  "down",
 	})
 }
 
-func (l *LabelSuite) TestStorageNameFromLabels(c *gc.C) {
+func (l *LabelSuite) TestStorageNameFromLabels(c *tc.C) {
 	tests := []struct {
 		Labels   labels.Set
 		Expected string
@@ -374,6 +373,6 @@ func (l *LabelSuite) TestStorageNameFromLabels(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		c.Assert(utils.StorageNameFromLabels(test.Labels), gc.Equals, test.Expected)
+		c.Assert(utils.StorageNameFromLabels(test.Labels), tc.Equals, test.Expected)
 	}
 }

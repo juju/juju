@@ -10,21 +10,20 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	agent       *MockAgent
 	agentConfig *MockConfig
@@ -33,37 +32,37 @@ type ManifoldSuite struct {
 	modelTag names.ModelTag
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = tc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.modelTag = names.NewModelTag(uuid.MustNewUUID().String())
 }
 
-func (s *ManifoldSuite) TestValidate(c *gc.C) {
+func (s *ManifoldSuite) TestValidate(c *tc.C) {
 	config := s.newConfig()
-	c.Assert(config.Validate(), jc.ErrorIsNil)
+	c.Assert(config.Validate(), tc.ErrorIsNil)
 
 	config = s.newConfig()
 	config.AgentName = ""
-	c.Assert(config.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 
 	config = s.newConfig()
 	config.LeaseManagerName = ""
-	c.Assert(config.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 
 	config = s.newConfig()
 	config.Clock = nil
-	c.Assert(config.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 
 	config = s.newConfig()
 	config.NewWorker = nil
-	c.Assert(config.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 
 	config = s.newConfig()
 	config.Claimant = names.NewUserTag("bob")
-	c.Assert(config.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *ManifoldSuite) newConfig() ManifoldConfig {
@@ -90,21 +89,21 @@ func (s *ManifoldSuite) newGetter() dependency.Getter {
 
 var expectedInputs = []string{"agent", "lease-manager"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(Manifold(s.newConfig()).Inputs, jc.SameContents, expectedInputs)
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(Manifold(s.newConfig()).Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAgentConfig(c)
 
 	w, err := Manifold(s.newConfig()).Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
-func (s *ManifoldSuite) TestWorkerBounceOnStart(c *gc.C) {
+func (s *ManifoldSuite) TestWorkerBounceOnStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAgentConfig(c)
@@ -122,15 +121,15 @@ func (s *ManifoldSuite) TestWorkerBounceOnStart(c *gc.C) {
 	}
 
 	_, err := Manifold(config).Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
+	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *ManifoldSuite) expectAgentConfig(c *gc.C) {
+func (s *ManifoldSuite) expectAgentConfig(c *tc.C) {
 	s.agentConfig.EXPECT().Model().Return(s.modelTag)
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 }
 
-func (s *ManifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.agent = NewMockAgent(ctrl)

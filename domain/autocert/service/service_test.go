@@ -6,26 +6,25 @@ package service
 import (
 	"context"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 	"golang.org/x/crypto/acme/autocert"
-	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type serviceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	state *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = tc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
@@ -33,7 +32,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) TestCheckCacheMiss(c *gc.C) {
+func (s *serviceSuite) TestCheckCacheMiss(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	certName := "test-cert-name"
@@ -42,11 +41,11 @@ func (s *serviceSuite) TestCheckCacheMiss(c *gc.C) {
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	certbytes, err := svc.Get(context.Background(), certName)
-	c.Assert(certbytes, gc.IsNil)
-	c.Assert(err, jc.ErrorIs, autocert.ErrCacheMiss)
+	c.Assert(certbytes, tc.IsNil)
+	c.Assert(err, tc.ErrorIs, autocert.ErrCacheMiss)
 }
 
-func (s *serviceSuite) TestCheckAnyError(c *gc.C) {
+func (s *serviceSuite) TestCheckAnyError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	certName := "test-cert-name"
@@ -55,6 +54,6 @@ func (s *serviceSuite) TestCheckAnyError(c *gc.C) {
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	certbytes, err := svc.Get(context.Background(), certName)
-	c.Assert(certbytes, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "state error")
+	c.Assert(certbytes, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "state error")
 }

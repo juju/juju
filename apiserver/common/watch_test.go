@@ -8,9 +8,8 @@ import (
 	"fmt"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/mocks"
@@ -23,7 +22,7 @@ type agentEntityWatcherSuite struct {
 	watcherRegistry *mocks.MockWatcherRegistry
 }
 
-var _ = gc.Suite(&agentEntityWatcherSuite{})
+var _ = tc.Suite(&agentEntityWatcherSuite{})
 
 type fakeAgentEntityWatcher struct {
 	state.Entity
@@ -34,13 +33,13 @@ func (a *fakeAgentEntityWatcher) Watch() state.NotifyWatcher {
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
-func (s *agentEntityWatcherSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *agentEntityWatcherSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.watcherRegistry = mocks.NewMockWatcherRegistry(ctrl)
 	return ctrl
 }
 
-func (s *agentEntityWatcherSuite) TestWatch(c *gc.C) {
+func (s *agentEntityWatcherSuite) TestWatch(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
@@ -63,8 +62,8 @@ func (s *agentEntityWatcherSuite) TestWatch(c *gc.C) {
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"},
 	}}
 	result, err := a.Watch(context.Background(), entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{Error: &params.Error{Message: "x0 fails"}},
 			{NotifyWatcherId: "1", Error: nil},
@@ -74,7 +73,7 @@ func (s *agentEntityWatcherSuite) TestWatch(c *gc.C) {
 	})
 }
 
-func (*agentEntityWatcherSuite) TestWatchError(c *gc.C) {
+func (*agentEntityWatcherSuite) TestWatchError(c *tc.C) {
 	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
@@ -84,10 +83,10 @@ func (*agentEntityWatcherSuite) TestWatchError(c *gc.C) {
 		getCanWatch,
 	)
 	_, err := a.Watch(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
-func (*agentEntityWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
+func (*agentEntityWatcherSuite) TestWatchNoArgsNoError(c *tc.C) {
 	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
@@ -97,6 +96,6 @@ func (*agentEntityWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
 		getCanWatch,
 	)
 	result, err := a.Watch(context.Background(), params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 0)
 }

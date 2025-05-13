@@ -8,27 +8,27 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancemutater/mocks"
 )
 
 type modelManifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&modelManifoldConfigSuite{})
+var _ = tc.Suite(&modelManifoldConfigSuite{})
 
-func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
+func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -110,11 +110,11 @@ func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 	for i, test := range testcases {
 		c.Logf("%d %s", i, test.description)
 		err := test.config.Validate()
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Assert(err, tc.ErrorMatches, test.err)
 	}
 }
 
-func (s *modelManifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
+func (s *modelManifoldConfigSuite) TestValidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -131,11 +131,11 @@ func (s *modelManifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 		APICallerName: "api-caller",
 	}
 	err := config.Validate()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
 type environAPIManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	getter    *mocks.MockGetter
 	agent     *mocks.MockAgent
@@ -144,9 +144,9 @@ type environAPIManifoldSuite struct {
 	worker    *mocks.MockWorker
 }
 
-var _ = gc.Suite(&environAPIManifoldSuite{})
+var _ = tc.Suite(&environAPIManifoldSuite{})
 
-func (s *environAPIManifoldSuite) setup(c *gc.C) *gomock.Controller {
+func (s *environAPIManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.getter = mocks.NewMockGetter(ctrl)
@@ -158,7 +158,7 @@ func (s *environAPIManifoldSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *environAPIManifoldSuite) TestStartReturnsWorker(c *gc.C) {
+func (s *environAPIManifoldSuite) TestStartReturnsWorker(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cExp := s.getter.EXPECT()
@@ -172,18 +172,18 @@ func (s *environAPIManifoldSuite) TestStartReturnsWorker(c *gc.C) {
 		AgentName:     "moon",
 	}
 	manifold := instancemutater.EnvironAPIManifold(config, func(_ context.Context, environ environs.Environ, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
-		c.Assert(environ, gc.Equals, s.environ)
-		c.Assert(apiCaller, gc.Equals, s.apiCaller)
-		c.Assert(agent, gc.Equals, s.agent)
+		c.Assert(environ, tc.Equals, s.environ)
+		c.Assert(apiCaller, tc.Equals, s.apiCaller)
+		c.Assert(agent, tc.Equals, s.agent)
 
 		return s.worker, nil
 	})
 	result, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, s.worker)
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.Equals, s.worker)
 }
 
-func (s *environAPIManifoldSuite) TestMissingEnvironFromContext(c *gc.C) {
+func (s *environAPIManifoldSuite) TestMissingEnvironFromContext(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cExp := s.getter.EXPECT()
@@ -200,10 +200,10 @@ func (s *environAPIManifoldSuite) TestMissingEnvironFromContext(c *gc.C) {
 		return nil, nil
 	})
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "missing")
+	c.Assert(err, tc.ErrorMatches, "missing")
 }
 
-func (s *environAPIManifoldSuite) TestMissingAPICallerFromContext(c *gc.C) {
+func (s *environAPIManifoldSuite) TestMissingAPICallerFromContext(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cExp := s.getter.EXPECT()
@@ -221,11 +221,11 @@ func (s *environAPIManifoldSuite) TestMissingAPICallerFromContext(c *gc.C) {
 		return nil, nil
 	})
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "missing")
+	c.Assert(err, tc.ErrorMatches, "missing")
 }
 
 type modelManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	getter      *mocks.MockGetter
 	agent       *mocks.MockAgent
@@ -236,9 +236,9 @@ type modelManifoldSuite struct {
 	api         *mocks.MockInstanceMutaterAPI
 }
 
-var _ = gc.Suite(&modelManifoldSuite{})
+var _ = tc.Suite(&modelManifoldSuite{})
 
-func (s *modelManifoldSuite) setup(c *gc.C) *gomock.Controller {
+func (s *modelManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.getter = mocks.NewMockGetter(ctrl)
@@ -255,7 +255,7 @@ func (s *modelManifoldSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *modelManifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
+func (s *modelManifoldSuite) TestNewWorkerIsCalled(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -275,11 +275,11 @@ func (s *modelManifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
 	}
 	manifold := instancemutater.ModelManifold(config)
 	result, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, s.worker)
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.Equals, s.worker)
 }
 
-func (s *modelManifoldSuite) TestNewWorkerFromK8sController(c *gc.C) {
+func (s *modelManifoldSuite) TestNewWorkerFromK8sController(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -299,11 +299,11 @@ func (s *modelManifoldSuite) TestNewWorkerFromK8sController(c *gc.C) {
 	}
 	manifold := instancemutater.ModelManifold(config)
 	result, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, s.worker)
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.Equals, s.worker)
 }
 
-func (s *modelManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
+func (s *modelManifoldSuite) TestNewWorkerReturnsError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -323,10 +323,10 @@ func (s *modelManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 	}
 	manifold := instancemutater.ModelManifold(config)
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "cannot start model instance-mutater worker: errored")
+	c.Assert(err, tc.ErrorMatches, "cannot start model instance-mutater worker: errored")
 }
 
-func (s *modelManifoldSuite) TestConfigValidatesForMissingWorker(c *gc.C) {
+func (s *modelManifoldSuite) TestConfigValidatesForMissingWorker(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -339,10 +339,10 @@ func (s *modelManifoldSuite) TestConfigValidatesForMissingWorker(c *gc.C) {
 	}
 	manifold := instancemutater.ModelManifold(config)
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "nil NewWorker not valid")
+	c.Assert(err, tc.ErrorMatches, "nil NewWorker not valid")
 }
 
-func (s *modelManifoldSuite) TestConfigValidatesForMissingClient(c *gc.C) {
+func (s *modelManifoldSuite) TestConfigValidatesForMissingClient(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -358,7 +358,7 @@ func (s *modelManifoldSuite) TestConfigValidatesForMissingClient(c *gc.C) {
 	}
 	manifold := instancemutater.ModelManifold(config)
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "nil NewClient not valid")
+	c.Assert(err, tc.ErrorMatches, "nil NewClient not valid")
 }
 
 func (s *modelManifoldSuite) behaviourContext() {
@@ -390,12 +390,12 @@ type environShim struct {
 }
 
 type machineManifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&machineManifoldConfigSuite{})
+var _ = tc.Suite(&machineManifoldConfigSuite{})
 
-func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
+func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -477,11 +477,11 @@ func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 	for i, test := range testcases {
 		c.Logf("%d %s", i, test.description)
 		err := test.config.Validate()
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Assert(err, tc.ErrorMatches, test.err)
 	}
 }
 
-func (s *machineManifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
+func (s *machineManifoldConfigSuite) TestValidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -498,11 +498,11 @@ func (s *machineManifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 		APICallerName: "api-caller",
 	}
 	err := config.Validate()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
 type brokerAPIManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	getter    *mocks.MockGetter
 	agent     *mocks.MockAgent
@@ -511,9 +511,9 @@ type brokerAPIManifoldSuite struct {
 	worker    *mocks.MockWorker
 }
 
-var _ = gc.Suite(&brokerAPIManifoldSuite{})
+var _ = tc.Suite(&brokerAPIManifoldSuite{})
 
-func (s *brokerAPIManifoldSuite) setup(c *gc.C) *gomock.Controller {
+func (s *brokerAPIManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.getter = mocks.NewMockGetter(ctrl)
@@ -525,7 +525,7 @@ func (s *brokerAPIManifoldSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *brokerAPIManifoldSuite) TestStartReturnsWorker(c *gc.C) {
+func (s *brokerAPIManifoldSuite) TestStartReturnsWorker(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cExp := s.getter.EXPECT()
@@ -539,18 +539,18 @@ func (s *brokerAPIManifoldSuite) TestStartReturnsWorker(c *gc.C) {
 		AgentName:     "moon",
 	}
 	manifold := instancemutater.BrokerAPIManifold(config, func(_ context.Context, broker environs.InstanceBroker, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
-		c.Assert(broker, gc.Equals, s.broker)
-		c.Assert(apiCaller, gc.Equals, s.apiCaller)
-		c.Assert(agent, gc.Equals, s.agent)
+		c.Assert(broker, tc.Equals, s.broker)
+		c.Assert(apiCaller, tc.Equals, s.apiCaller)
+		c.Assert(agent, tc.Equals, s.agent)
 
 		return s.worker, nil
 	})
 	result, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, s.worker)
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.Equals, s.worker)
 }
 
-func (s *brokerAPIManifoldSuite) TestMissingBrokerFromContext(c *gc.C) {
+func (s *brokerAPIManifoldSuite) TestMissingBrokerFromContext(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cExp := s.getter.EXPECT()
@@ -567,10 +567,10 @@ func (s *brokerAPIManifoldSuite) TestMissingBrokerFromContext(c *gc.C) {
 		return nil, nil
 	})
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "missing")
+	c.Assert(err, tc.ErrorMatches, "missing")
 }
 
-func (s *brokerAPIManifoldSuite) TestMissingAPICallerFromContext(c *gc.C) {
+func (s *brokerAPIManifoldSuite) TestMissingAPICallerFromContext(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	cExp := s.getter.EXPECT()
@@ -588,11 +588,11 @@ func (s *brokerAPIManifoldSuite) TestMissingAPICallerFromContext(c *gc.C) {
 		return nil, nil
 	})
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "missing")
+	c.Assert(err, tc.ErrorMatches, "missing")
 }
 
 type machineManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	getter      *mocks.MockGetter
 	agent       *mocks.MockAgent
@@ -603,9 +603,9 @@ type machineManifoldSuite struct {
 	api         *mocks.MockInstanceMutaterAPI
 }
 
-var _ = gc.Suite(&machineManifoldSuite{})
+var _ = tc.Suite(&machineManifoldSuite{})
 
-func (s *machineManifoldSuite) setup(c *gc.C) *gomock.Controller {
+func (s *machineManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.getter = mocks.NewMockGetter(ctrl)
@@ -622,7 +622,7 @@ func (s *machineManifoldSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *machineManifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
+func (s *machineManifoldSuite) TestNewWorkerIsCalled(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -642,11 +642,11 @@ func (s *machineManifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
 	}
 	manifold := instancemutater.MachineManifold(config)
 	result, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, s.worker)
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.Equals, s.worker)
 }
 
-func (s *machineManifoldSuite) TestNewWorkerIsRejectedForK8sController(c *gc.C) {
+func (s *machineManifoldSuite) TestNewWorkerIsRejectedForK8sController(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -666,11 +666,11 @@ func (s *machineManifoldSuite) TestNewWorkerIsRejectedForK8sController(c *gc.C) 
 	}
 	manifold := instancemutater.MachineManifold(config)
 	result, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.Equals, dependency.ErrUninstall)
-	c.Assert(result, gc.IsNil)
+	c.Assert(err, tc.Equals, dependency.ErrUninstall)
+	c.Assert(result, tc.IsNil)
 }
 
-func (s *machineManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
+func (s *machineManifoldSuite) TestNewWorkerReturnsError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -690,10 +690,10 @@ func (s *machineManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 	}
 	manifold := instancemutater.MachineManifold(config)
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "cannot start machine instancemutater worker: errored")
+	c.Assert(err, tc.ErrorMatches, "cannot start machine instancemutater worker: errored")
 }
 
-func (s *machineManifoldSuite) TestConfigValidatesForMissingWorker(c *gc.C) {
+func (s *machineManifoldSuite) TestConfigValidatesForMissingWorker(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -706,10 +706,10 @@ func (s *machineManifoldSuite) TestConfigValidatesForMissingWorker(c *gc.C) {
 	}
 	manifold := instancemutater.MachineManifold(config)
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "nil NewWorker not valid")
+	c.Assert(err, tc.ErrorMatches, "nil NewWorker not valid")
 }
 
-func (s *machineManifoldSuite) TestConfigValidatesForMissingClient(c *gc.C) {
+func (s *machineManifoldSuite) TestConfigValidatesForMissingClient(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -725,7 +725,7 @@ func (s *machineManifoldSuite) TestConfigValidatesForMissingClient(c *gc.C) {
 	}
 	manifold := instancemutater.MachineManifold(config)
 	_, err := manifold.Start(context.Background(), s.getter)
-	c.Assert(err, gc.ErrorMatches, "nil NewClient not valid")
+	c.Assert(err, tc.ErrorMatches, "nil NewClient not valid")
 }
 
 func (s *machineManifoldSuite) behaviourContext() {

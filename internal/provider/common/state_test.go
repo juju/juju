@@ -8,8 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/instance"
@@ -24,122 +23,122 @@ type StateSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&StateSuite{})
+var _ = tc.Suite(&StateSuite{})
 
-func (suite *StateSuite) newStorageWithDataDir(c *gc.C) (storage.Storage, string) {
+func (suite *StateSuite) newStorageWithDataDir(c *tc.C) (storage.Storage, string) {
 	closer, stor, dataDir := envtesting.CreateLocalTestStorage(c)
-	suite.AddCleanup(func(*gc.C) { closer.Close() })
+	suite.AddCleanup(func(*tc.C) { closer.Close() })
 	envtesting.UploadFakeTools(c, stor, "released")
 	return stor, dataDir
 }
 
-func (suite *StateSuite) newStorage(c *gc.C) storage.Storage {
+func (suite *StateSuite) newStorage(c *tc.C) storage.Storage {
 	stor, _ := suite.newStorageWithDataDir(c)
 	return stor
 }
 
-func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
+func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *tc.C) {
 	stor := suite.newStorage(c)
 
 	url, err := common.CreateStateFile(stor)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	reader, err := storage.Get(stor, common.StateFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(data), gc.Equals, "")
-	c.Assert(url, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(data), tc.Equals, "")
+	c.Assert(url, tc.NotNil)
 	expectedURL, err := stor.URL(common.StateFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(url, gc.Equals, expectedURL)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(url, tc.Equals, expectedURL)
 }
 
-func (suite *StateSuite) TestDeleteStateFile(c *gc.C) {
+func (suite *StateSuite) TestDeleteStateFile(c *tc.C) {
 	closer, stor, dataDir := envtesting.CreateLocalTestStorage(c)
 	defer closer.Close()
 
 	err := common.DeleteStateFile(stor)
-	c.Assert(err, jc.ErrorIsNil) // doesn't exist, juju don't care
+	c.Assert(err, tc.ErrorIsNil) // doesn't exist, juju don't care
 
 	_, err = common.CreateStateFile(stor)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = os.Stat(filepath.Join(dataDir, common.StateFile))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = common.DeleteStateFile(stor)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = os.Stat(filepath.Join(dataDir, common.StateFile))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 }
 
-func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
+func (suite *StateSuite) TestSaveStateWritesStateFile(c *tc.C) {
 	stor := suite.newStorage(c)
 	state := common.BootstrapState{
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
 	marshaledState, err := goyaml.Marshal(state)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = common.SaveState(stor, &state)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	loadedState, err := storage.Get(stor, common.StateFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	content, err := io.ReadAll(loadedState)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(content, gc.DeepEquals, marshaledState)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(content, tc.DeepEquals, marshaledState)
 }
 
-func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) common.BootstrapState {
+func (suite *StateSuite) setUpSavedState(c *tc.C, dataDir string) common.BootstrapState {
 	state := common.BootstrapState{
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
 	content, err := goyaml.Marshal(state)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(dataDir, common.StateFile), content, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return state
 }
 
-func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
+func (suite *StateSuite) TestLoadStateReadsStateFile(c *tc.C) {
 	storage, dataDir := suite.newStorageWithDataDir(c)
 	state := suite.setUpSavedState(c, dataDir)
 	storedState, err := common.LoadState(storage)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*storedState, gc.DeepEquals, state)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*storedState, tc.DeepEquals, state)
 }
 
-func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
+func (suite *StateSuite) TestLoadStateMissingFile(c *tc.C) {
 	stor := suite.newStorage(c)
 	_, err := common.LoadState(stor)
-	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
+	c.Check(err, tc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
+func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *tc.C) {
 	storage := suite.newStorage(c)
 	state := common.BootstrapState{
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
 	err := common.SaveState(storage, &state)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	storedState, err := common.LoadState(storage)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(*storedState, gc.DeepEquals, state)
+	c.Check(*storedState, tc.DeepEquals, state)
 }
 
-func (suite *StateSuite) TestAddStateInstance(c *gc.C) {
+func (suite *StateSuite) TestAddStateInstance(c *tc.C) {
 	storage := suite.newStorage(c)
 	for _, str := range []string{"a", "b", "c"} {
 		id := instance.Id(str)
 		err := common.AddStateInstance(storage, id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	storedState, err := common.LoadState(storage)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(storedState, gc.DeepEquals, &common.BootstrapState{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storedState, tc.DeepEquals, &common.BootstrapState{
 		StateInstances: []instance.Id{
 			instance.Id("a"),
 			instance.Id("b"),
@@ -148,7 +147,7 @@ func (suite *StateSuite) TestAddStateInstance(c *gc.C) {
 	})
 }
 
-func (suite *StateSuite) TestRemoveStateInstancesPartial(c *gc.C) {
+func (suite *StateSuite) TestRemoveStateInstancesPartial(c *tc.C) {
 	storage := suite.newStorage(c)
 	state := common.BootstrapState{
 		StateInstances: []instance.Id{
@@ -158,7 +157,7 @@ func (suite *StateSuite) TestRemoveStateInstancesPartial(c *gc.C) {
 		},
 	}
 	err := common.SaveState(storage, &state)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = common.RemoveStateInstances(
 		storage,
@@ -166,41 +165,41 @@ func (suite *StateSuite) TestRemoveStateInstancesPartial(c *gc.C) {
 		instance.Id("not-there"),
 		state.StateInstances[2],
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	storedState, err := common.LoadState(storage)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storedState, gc.DeepEquals, &common.BootstrapState{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storedState, tc.DeepEquals, &common.BootstrapState{
 		StateInstances: []instance.Id{
 			state.StateInstances[1],
 		},
 	})
 }
 
-func (suite *StateSuite) TestRemoveStateInstancesNone(c *gc.C) {
+func (suite *StateSuite) TestRemoveStateInstancesNone(c *tc.C) {
 	storage := suite.newStorage(c)
 	state := common.BootstrapState{
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
 	err := common.SaveState(storage, &state)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = common.RemoveStateInstances(
 		storage,
 		instance.Id("not-there"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	storedState, err := common.LoadState(storage)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storedState, gc.DeepEquals, &state)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storedState, tc.DeepEquals, &state)
 }
 
-func (suite *StateSuite) TestRemoveStateInstancesNoProviderState(c *gc.C) {
+func (suite *StateSuite) TestRemoveStateInstancesNoProviderState(c *tc.C) {
 	storage := suite.newStorage(c)
 	err := common.RemoveStateInstances(storage, instance.Id("id"))
 	// No error if the id is missing, so no error if the entire
 	// provider-state file is missing. This is the case if
 	// bootstrap failed.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

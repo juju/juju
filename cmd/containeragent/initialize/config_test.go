@@ -5,27 +5,26 @@ package initialize_test
 
 import (
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/containeragent/initialize"
 )
 
-func (s *initCommandSuit) TestConfigFromEnv(c *gc.C) {
+func (s *initCommandSuit) TestConfigFromEnv(c *tc.C) {
 	cfg := initialize.ConfigFromEnv{}
-	c.Assert(cfg.Tag(), gc.DeepEquals, names.NewApplicationTag("gitlab"))
-	c.Assert(cfg.CACert(), gc.DeepEquals, `ca-cert`)
+	c.Assert(cfg.Tag(), tc.DeepEquals, names.NewApplicationTag("gitlab"))
+	c.Assert(cfg.CACert(), tc.DeepEquals, `ca-cert`)
 
 	addrs, err := cfg.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addrs, tc.DeepEquals, []string{
 		`1.1.1.1`, `2.2.2.2`,
 	})
 
 	apiInfo, ok := cfg.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiInfo, gc.DeepEquals, &api.Info{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(apiInfo, tc.DeepEquals, &api.Info{
 		Addrs: []string{
 			`1.1.1.1`, `2.2.2.2`,
 		},
@@ -37,9 +36,9 @@ func (s *initCommandSuit) TestConfigFromEnv(c *gc.C) {
 
 }
 
-func (s *initCommandSuit) TestDefaultIdentityOnK8S(c *gc.C) {
+func (s *initCommandSuit) TestDefaultIdentityOnK8S(c *tc.C) {
 	id, err := initialize.Identity()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id.PodName, gc.DeepEquals, `gitlab-0`)
-	c.Assert(id.PodUUID, gc.DeepEquals, `gitlab-uuid`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(id.PodName, tc.DeepEquals, `gitlab-0`)
+	c.Assert(id.PodUUID, tc.DeepEquals, `gitlab-uuid`)
 }

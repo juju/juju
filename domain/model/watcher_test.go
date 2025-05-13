@@ -7,8 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -42,9 +41,9 @@ type watcherSuite struct {
 	userUUID user.UUID
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = tc.Suite(&watcherSuite{})
 
-func insertModelDependencies(c *gc.C, dbTxnRunnerFactory database.TxnRunnerFactory,
+func insertModelDependencies(c *tc.C, dbTxnRunnerFactory database.TxnRunnerFactory,
 	dbTxnRunner database.TxnRunner, userUUID user.UUID, userName user.Name) {
 	accessState := accessstate.NewState(dbTxnRunnerFactory, loggertesting.WrapCheckLog(c))
 
@@ -57,7 +56,7 @@ func insertModelDependencies(c *gc.C, dbTxnRunnerFactory database.TxnRunnerFacto
 		false,
 		userUUID,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a cloud so we can set the model cloud.
 	cloudSt := cloudstate.NewState(dbTxnRunnerFactory)
@@ -73,7 +72,7 @@ func insertModelDependencies(c *gc.C, dbTxnRunnerFactory database.TxnRunnerFacto
 			},
 		})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a cloud credential so we can set the model cloud credential.
 	cred := credential.CloudCredentialInfo{
@@ -93,20 +92,20 @@ func insertModelDependencies(c *gc.C, dbTxnRunnerFactory database.TxnRunnerFacto
 		},
 		cred,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = bootstrap.CreateDefaultBackends(coremodel.IAAS)(context.Background(), dbTxnRunner, dbTxnRunner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *watcherSuite) SetUpTest(c *gc.C) {
+func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.userUUID = usertesting.GenUserUUID(c)
 	s.userName = usertesting.GenNewName(c, "test-user")
 	insertModelDependencies(c, s.TxnRunnerFactory(), s.TxnRunner(), s.userUUID, s.userName)
 }
 
-func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
+func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 	ctx := context.Background()
 
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
@@ -117,7 +116,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 
 	// Create a controller service watcher.
 	watcher, err := modelService.WatchActivatedModels(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelName := "test-model"
 	var modelUUID coremodel.UUID
@@ -127,7 +126,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Verifies that watchers do not receive any changes when newly unactivated models are created.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Create a new unactivated model named test-model.
 		modelUUID, activateModel, err = modelService.CreateModel(ctx, domainmodel.GlobalModelCreationArgs{
 			Cloud:       "my-cloud",
@@ -141,7 +140,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 			Owner:         s.userUUID,
 			SecretBackend: juju.BackendName,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		modelUUIDStr = modelUUID.String()
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Get the change.
@@ -149,9 +148,9 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 	})
 
 	// Verifies that watchers receive changes when models are activated.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := activateModel(ctx)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -162,7 +161,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 
 	// Verifies that watchers do not receive changes when entities other than
 	// models are updated.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		cloudState := cloudstate.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 		cloudService := cloudservice.NewWatchableService(cloudState, watcherFactory)
 		err := cloudService.UpdateCloud(ctx, cloud.Cloud{
@@ -174,16 +173,16 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 					Name: "my-region",
 				},
 			}})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Verifies that watchers do not receive changes when models are deleted.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Deletes model from table. This should not trigger a change event.
 		err := modelService.DeleteModel(ctx, modelUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -191,7 +190,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchModel(c *gc.C) {
+func (s *watcherSuite) TestWatchModel(c *tc.C) {
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
 
@@ -213,16 +212,16 @@ func (s *watcherSuite) TestWatchModel(c *gc.C) {
 		Owner:         s.userUUID,
 		SecretBackend: juju.BackendName,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := modelService.WatchModel(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Verifies that watchers do not receive any changes when newly unactivated
 	// models are created.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		activateModel(context.Background())
 	}, func(w watchertest.WatcherC[struct{}]) {
 		// Get the change.
@@ -230,10 +229,10 @@ func (s *watcherSuite) TestWatchModel(c *gc.C) {
 	})
 
 	// Verifies that watchers do not receive changes when models are deleted.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		// Deletes model from table. This should not trigger a change event.
 		err := modelService.DeleteModel(context.Background(), modelUUID)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -241,7 +240,7 @@ func (s *watcherSuite) TestWatchModel(c *gc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
+func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
 	st := state.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
@@ -259,7 +258,7 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 		},
 	}
 	err := credSt.UpsertCloudCredential(context.Background(), anotherKey, credInfo2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	originalKey := corecredential.Key{
 		Cloud: "my-cloud",
@@ -279,18 +278,18 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 			SecretBackend: juju.BackendName,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.Activate(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
 	watcher, err := modelService.WatchModelCloudCredential(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Test that updating the credential content triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		credInfo := credential.CloudCredentialInfo{
 			AuthType: string(cloud.AccessKeyAuthType),
 			Attributes: map[string]string{
@@ -299,20 +298,20 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 			},
 		}
 		err := credSt.UpsertCloudCredential(context.Background(), originalKey, credInfo)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 	// Test that updating the model credential reference triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := st.UpdateCredential(context.Background(), modelUUID, anotherKey)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 	// Test that updating the old original credential after a reference update
 	// does not trigger the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		credInfo := credential.CloudCredentialInfo{
 			AuthType: string(cloud.AccessKeyAuthType),
 			Attributes: map[string]string{
@@ -321,12 +320,12 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 			},
 		}
 		err := credSt.UpsertCloudCredential(context.Background(), originalKey, credInfo)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 	// Test that updating the new credential triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		credInfo := credential.CloudCredentialInfo{
 			AuthType: string(cloud.AccessKeyAuthType),
 			Attributes: map[string]string{
@@ -335,13 +334,13 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 			},
 		}
 		err := credSt.UpsertCloudCredential(context.Background(), anotherKey, credInfo)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 	// Test that updating the cloud endpoint triggers the watcher.
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		cld := cloud.Cloud{
 			Name:      "my-cloud",
 			Type:      "ec2",
@@ -349,12 +348,12 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 			Endpoint:  "endpoint",
 		}
 		err := cloudSt.UpdateCloud(context.Background(), cld)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 	// Test that updating the cloud CA cert triggers the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		cld := cloud.Cloud{
 			Name:           "my-cloud",
 			Type:           "ec2",
@@ -363,23 +362,23 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 			CACertificates: []string{testing.CACert},
 		}
 		err := cloudSt.UpdateCloud(context.Background(), cld)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 	// Test that updating the model life does not trigger the watcher.
-	harness.AddTest(func(c *gc.C) {
+	harness.AddTest(func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 1 WHERE uuid = ?", modelUUID)
 			return err
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 

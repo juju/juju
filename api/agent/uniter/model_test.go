@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -21,16 +20,16 @@ type modelSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&modelSuite{})
+var _ = tc.Suite(&modelSuite{})
 
-func (s *modelSuite) TestModel(c *gc.C) {
+func (s *modelSuite) TestModel(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(id, gc.Equals, "")
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(id, tc.Equals, "")
 		switch request {
 		case "CurrentModel":
-			c.Assert(arg, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.ModelResult{})
+			c.Assert(arg, tc.IsNil)
+			c.Assert(result, tc.FitsTypeOf, &params.ModelResult{})
 			*(result.(*params.ModelResult)) = params.ModelResult{
 				Name: "mary",
 				UUID: "deadbeaf",
@@ -43,8 +42,8 @@ func (s *modelSuite) TestModel(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	m, err := client.Model(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, &types.Model{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.DeepEquals, &types.Model{
 		Name:      "mary",
 		UUID:      "deadbeaf",
 		ModelType: types.CAAS,

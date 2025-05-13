@@ -17,14 +17,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	exttest "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/names"
 )
@@ -34,12 +33,11 @@ type buildSuite struct {
 	restore  func()
 	cwd      string
 	filePath string
-	exttest.PatchExecHelper
 }
 
-var _ = gc.Suite(&buildSuite{})
+var _ = tc.Suite(&buildSuite{})
 
-func (b *buildSuite) SetUpTest(c *gc.C) {
+func (b *buildSuite) SetUpTest(c *tc.C) {
 	b.BaseSuite.SetUpTest(c)
 	dir1 := c.MkDir()
 	dir2 := c.MkDir()
@@ -59,14 +57,14 @@ func (b *buildSuite) SetUpTest(c *gc.C) {
 		b.filePath,
 		[]byte("doesn't matter, we don't execute it"),
 		0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cwd, err := os.Getwd()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	b.cwd = c.MkDir()
 	err = os.Chdir(b.cwd)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	b.restore = func() {
 		os.Setenv("PATH", path)
@@ -74,12 +72,12 @@ func (b *buildSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (b *buildSuite) TearDownTest(c *gc.C) {
+func (b *buildSuite) TearDownTest(c *tc.C) {
 	b.restore()
 	b.BaseSuite.TearDownTest(c)
 }
 
-func (b *buildSuite) TestFindExecutable(c *gc.C) {
+func (b *buildSuite) TestFindExecutable(c *tc.C) {
 	for _, test := range []struct {
 		execFile   string
 		expected   string
@@ -99,46 +97,46 @@ func (b *buildSuite) TestFindExecutable(c *gc.C) {
 	}} {
 		result, err := tools.FindExecutable(context.Background(), test.execFile)
 		if test.errorMatch == "" {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(result, gc.Equals, test.expected)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(result, tc.Equals, test.expected)
 		} else {
-			c.Assert(err, gc.ErrorMatches, test.errorMatch)
-			c.Assert(result, gc.Equals, "")
+			c.Assert(err, tc.ErrorMatches, test.errorMatch)
+			c.Assert(result, tc.Equals, "")
 		}
 	}
 }
 
-func (b *buildSuite) TestEmptyArchive(c *gc.C) {
+func (b *buildSuite) TestEmptyArchive(c *tc.C) {
 	var buf bytes.Buffer
 	dir := c.MkDir()
 	err := tools.Archive(&buf, dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gzr, err := gzip.NewReader(&buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r := tar.NewReader(gzr)
 	_, err = r.Next()
-	c.Assert(err, gc.Equals, io.EOF)
+	c.Assert(err, tc.Equals, io.EOF)
 }
 
-func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
+func (b *buildSuite) TestArchiveAndSHA256(c *tc.C) {
 	var buf bytes.Buffer
 	dir := c.MkDir()
 	sha256hash, err := tools.ArchiveAndSHA256(&buf, dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	h := sha256.New()
 	h.Write(buf.Bytes())
-	c.Assert(sha256hash, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
+	c.Assert(sha256hash, tc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
 
 	gzr, err := gzip.NewReader(&buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r := tar.NewReader(gzr)
 	_, err = r.Next()
-	c.Assert(err, gc.Equals, io.EOF)
+	c.Assert(err, tc.Equals, io.EOF)
 }
 
-func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
+func (b *buildSuite) TestGetVersionFromJujud(c *tc.C) {
 	ver := semversion.Binary{
 		Number: semversion.Number{
 			Major: 1,
@@ -151,7 +149,7 @@ func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
 	}
 
 	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := testhelpers.ExecCommand(testhelpers.PatchExecConfig{
 		Stderr: "hey, here's some logging you should ignore",
 		Stdout: ver.String(),
 		Args:   argsCh,
@@ -162,22 +160,22 @@ func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
 	dir := c.MkDir()
 	cmd := filepath.Join(dir, names.Jujud)
 	err := os.WriteFile(cmd, []byte{}, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	v, err := tools.GetVersionFromJujud(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(v, gc.Equals, ver)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(v, tc.Equals, ver)
 
 	select {
 	case args := <-argsCh:
-		c.Assert(args, gc.DeepEquals, []string{cmd, "version"})
+		c.Assert(args, tc.DeepEquals, []string{cmd, "version"})
 	default:
 		c.Fatalf("Failed to get args sent to executable.")
 	}
 }
 
-func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *gc.C) {
+func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *tc.C) {
 	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := testhelpers.ExecCommand(testhelpers.PatchExecConfig{
 		Stderr: "hey, here's some logging",
 		Stdout: "oops, not a valid version",
 		Args:   argsCh,
@@ -188,21 +186,21 @@ func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *gc.C) {
 	dir := c.MkDir()
 	cmd := filepath.Join(dir, names.Jujud)
 	err := os.WriteFile(cmd, []byte{}, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = tools.GetVersionFromJujud(dir)
-	c.Assert(err, gc.ErrorMatches, `invalid version "oops, not a valid version" printed by jujud`)
+	c.Assert(err, tc.ErrorMatches, `invalid version "oops, not a valid version" printed by jujud`)
 
 	select {
 	case args := <-argsCh:
-		c.Assert(args, gc.DeepEquals, []string{cmd, "version"})
+		c.Assert(args, tc.DeepEquals, []string{cmd, "version"})
 	default:
 		c.Fatalf("Failed to get args sent to executable.")
 	}
 }
 
-func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *gc.C) {
+func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *tc.C) {
 	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := testhelpers.ExecCommand(testhelpers.PatchExecConfig{
 		Stderr:   "the stderr",
 		Stdout:   "the stdout",
 		ExitCode: 1,
@@ -214,42 +212,42 @@ func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *gc.C) {
 	dir := c.MkDir()
 	cmd := filepath.Join(dir, names.Jujud)
 	err := os.WriteFile(cmd, []byte{}, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = tools.GetVersionFromJujud(dir)
 
 	msg := fmt.Sprintf("cannot get version from %q: exit status 1; the stderr\nthe stdout\n", cmd)
 
-	c.Assert(err.Error(), gc.Equals, msg)
+	c.Assert(err.Error(), tc.Equals, msg)
 
 	select {
 	case args := <-argsCh:
-		c.Assert(args, gc.DeepEquals, []string{cmd, "version"})
+		c.Assert(args, tc.DeepEquals, []string{cmd, "version"})
 	default:
 		c.Fatalf("Failed to get args sent to executable.")
 	}
 }
 
-func (b *buildSuite) TestGetVersionFromJujudNoJujud(c *gc.C) {
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+func (b *buildSuite) TestGetVersionFromJujudNoJujud(c *tc.C) {
+	execCommand := testhelpers.ExecCommand(testhelpers.PatchExecConfig{
 		ExitCode: 1,
 	})
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	_, err := tools.GetVersionFromJujud("foo")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
+func (b *buildSuite) setUpFakeBinaries(c *tc.C, versionFile string) string {
 	dir := c.MkDir()
 	err := os.WriteFile(filepath.Join(dir, "juju"), []byte("some data"), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(dir, "jujuc"), []byte(fakeBinary), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(dir, "jujud"), []byte(fakeBinary), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if versionFile != "" {
 		err = os.WriteFile(filepath.Join(dir, "jujud-versions.yaml"), []byte(versionFile), 0755)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	// Mock out args[0] so that copyExistingJujus can find our fake
@@ -263,62 +261,62 @@ func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
 		// Soft link when cross device.
 		err = os.Symlink(oldArg0, testBinary)
 	}
-	c.Assert(err, jc.ErrorIsNil)
-	b.AddCleanup(func(c *gc.C) {
+	c.Assert(err, tc.ErrorIsNil)
+	b.AddCleanup(func(c *tc.C) {
 		os.Args[0] = oldArg0
 	})
 	return dir
 }
 
-func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
+func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *tc.C) {
 	thisArch := arch.HostArch()
 	thisHost := coreos.HostOSTypeName()
 	b.patchExecCommand(c, thisHost, thisArch)
 	dir := b.setUpFakeBinaries(c, "")
 
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resultVersion, forceVersion, official, _, err := tools.BundleTools(false, bundleFile,
 		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultVersion.String(), gc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisHost, thisArch))
-	c.Assert(forceVersion, gc.Equals, semversion.MustParse("1.2.3.1"))
-	c.Assert(official, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resultVersion.String(), tc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisHost, thisArch))
+	c.Assert(forceVersion, tc.Equals, semversion.MustParse("1.2.3.1"))
+	c.Assert(official, tc.IsFalse)
 }
 
-func (b *buildSuite) TestJujudVersion(c *gc.C) {
+func (b *buildSuite) TestJujudVersion(c *tc.C) {
 	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 
 	resultVersion, official, err := tools.JujudVersion(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-amd64")
-	c.Assert(official, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resultVersion.String(), tc.Equals, "1.2.3-ubuntu-amd64")
+	c.Assert(official, tc.IsFalse)
 }
 
-func (b *buildSuite) TestBundleToolsWithNoVersionFile(c *gc.C) {
+func (b *buildSuite) TestBundleToolsWithNoVersionFile(c *tc.C) {
 	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resultVersion, forceVersion, official, sha, err := tools.BundleTools(false, bundleFile,
 		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-amd64")
-	c.Assert(forceVersion, gc.Equals, semversion.MustParse("1.2.3.1"))
-	c.Assert(sha, gc.Not(gc.Equals), "")
-	c.Assert(official, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resultVersion.String(), tc.Equals, "1.2.3-ubuntu-amd64")
+	c.Assert(forceVersion, tc.Equals, semversion.MustParse("1.2.3.1"))
+	c.Assert(sha, tc.Not(tc.Equals), "")
+	c.Assert(official, tc.IsFalse)
 }
 
-func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) {
+func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *tc.C) {
 	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jujudVersion := func(dir string) (semversion.Binary, bool, error) {
 		return semversion.Binary{}, true, nil
@@ -329,15 +327,15 @@ func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) 
 		true, bundleFile,
 		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
 		jujudVersion)
-	c.Assert(err, gc.ErrorMatches, `cannot build agent for official build`)
-	c.Assert(official, jc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, `cannot build agent for official build`)
+	c.Assert(official, tc.IsTrue)
 }
 
-func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
+func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *tc.C) {
 	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jujudVersion := func(dir string) (semversion.Binary, bool, error) {
 		return semversion.Binary{}, true, nil
@@ -348,14 +346,14 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
 		false, bundleFile,
 		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
 		jujudVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(forceVersion, gc.Equals, semversion.MustParse("1.2.3.1"))
-	c.Assert(official, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(forceVersion, tc.Equals, semversion.MustParse("1.2.3.1"))
+	c.Assert(official, tc.IsTrue)
 
 	bundleFile, err = os.Open(bundleFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	gzr, err := gzip.NewReader(bundleFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	tarReader := tar.NewReader(gzr)
 
 	timeout := time.After(testing.ShortWait)
@@ -369,17 +367,17 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
 		if err == io.EOF {
 			c.Fatalf("ForceVersion File is not written as expected")
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		if header.Typeflag == tar.TypeReg && header.Name == "FORCE-VERSION" {
 			forceVersionFile, err := io.ReadAll(tarReader)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(string(forceVersionFile), gc.Equals, `1.2.3.1`)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(string(forceVersionFile), tc.Equals, `1.2.3.1`)
 			break
 		}
 	}
 }
 
-func (b *buildSuite) patchExecCommand(c *gc.C, release, arch string) {
+func (b *buildSuite) patchExecCommand(c *tc.C, release, arch string) {
 	// Patch so that getting the version from our fake binary in the
 	// absence of a version file works.
 	if release == "" {
@@ -397,7 +395,7 @@ func (b *buildSuite) patchExecCommand(c *gc.C, release, arch string) {
 		Release: release,
 		Arch:    arch,
 	}
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := testhelpers.ExecCommand(testhelpers.PatchExecConfig{
 		Stdout: ver.String(),
 		Args:   make(chan []string, 2),
 	})

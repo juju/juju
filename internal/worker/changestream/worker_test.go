@@ -7,10 +7,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -23,42 +22,42 @@ type workerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestValidateConfig(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig(c)
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg.AgentTag = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg.Clock = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.DBGetter = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.FileNotifyWatcher = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.Metrics = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.NewWatchableDB = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-func (s *workerSuite) getConfig(c *gc.C) WorkerConfig {
+func (s *workerSuite) getConfig(c *tc.C) WorkerConfig {
 	return WorkerConfig{
 		AgentTag:          "tag",
 		DBGetter:          s.dbGetter,
@@ -72,7 +71,7 @@ func (s *workerSuite) getConfig(c *gc.C) WorkerConfig {
 	}
 }
 
-func (s *workerSuite) TestKillGetWatchableDBError(c *gc.C) {
+func (s *workerSuite) TestKillGetWatchableDBError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -95,16 +94,16 @@ func (s *workerSuite) TestKillGetWatchableDBError(c *gc.C) {
 	stream, _ := w.(changestream.WatchableDBGetter)
 
 	_, err := stream.GetWatchableDB("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	close(done)
 	workertest.CleanKill(c, w)
 
 	_, err = stream.GetWatchableDB("controller")
-	c.Assert(err, jc.ErrorIs, coredatabase.ErrChangeStreamDying)
+	c.Assert(err, tc.ErrorIs, coredatabase.ErrChangeStreamDying)
 }
 
-func (s *workerSuite) TestEventSource(c *gc.C) {
+func (s *workerSuite) TestEventSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -126,16 +125,16 @@ func (s *workerSuite) TestEventSource(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	stream, ok := w.(changestream.WatchableDBGetter)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
 
 	wdb, err := stream.GetWatchableDB("controller")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(wdb, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(wdb, tc.NotNil)
 
 	close(done)
 }
 
-func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
+func (s *workerSuite) TestEventSourceCalledTwice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -157,19 +156,19 @@ func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	stream, ok := w.(changestream.WatchableDBGetter)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
 
 	// Ensure that the event queue is only created once.
 	_, err := stream.GetWatchableDB("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = stream.GetWatchableDB("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	close(done)
 }
 
-func (s *workerSuite) TestEventSourceCalledWithError(c *gc.C) {
+func (s *workerSuite) TestEventSourceCalledWithError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -184,14 +183,14 @@ func (s *workerSuite) TestEventSourceCalledWithError(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	stream, ok := w.(changestream.WatchableDBGetter)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
 
 	// Ensure that the event queue is only created once.
 	_, err := stream.GetWatchableDB("controller")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C, attempts int) worker.Worker {
 	cfg := WorkerConfig{
 		AgentTag:          "agent-tag",
 		DBGetter:          s.dbGetter,
@@ -209,6 +208,6 @@ func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
 	}
 
 	w, err := newWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }

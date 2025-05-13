@@ -13,11 +13,9 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v4/fs"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/types"
@@ -25,6 +23,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner"
@@ -40,7 +39,7 @@ var (
 )
 
 type ContextSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	paths          runnertesting.RealPaths
 	factory        runner.Factory
@@ -54,14 +53,14 @@ type ContextSuite struct {
 	relunits map[int]*uniterapi.MockRelationUnit
 }
 
-func (s *ContextSuite) SetUpTest(c *gc.C) {
+func (s *ContextSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.relunits = map[int]*uniterapi.MockRelationUnit{}
 	s.secrets = &runnertesting.SecretsContextAccessor{}
 }
 
-func (s *ContextSuite) AddContextRelation(c *gc.C, ctrl *gomock.Controller, name string) {
+func (s *ContextSuite) AddContextRelation(c *tc.C, ctrl *gomock.Controller, name string) {
 	num := len(s.relunits)
 	rel := uniterapi.NewMockRelation(ctrl)
 	rel.EXPECT().Id().Return(num).AnyTimes()
@@ -103,7 +102,7 @@ func (s *ContextSuite) setupUniter(ctrl *gomock.Controller) names.MachineTag {
 	return machineTag
 }
 
-func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
+func (s *ContextSuite) setupFactory(c *tc.C, ctrl *gomock.Controller) {
 	s.setupUniter(ctrl)
 
 	s.unit.EXPECT().PrincipalName(gomock.Any()).Return("", false, nil).AnyTimes()
@@ -128,7 +127,7 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           internallogger.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.contextFactory = contextFactory
 
 	s.paths = runnertesting.NewRealPaths(c)
@@ -144,25 +143,25 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           internallogger.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	factory, err := runner.NewFactory(
 		s.paths,
 		s.contextFactory,
 		runner.NewRunner,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.factory = factory
 
 	s.AddContextRelation(c, ctrl, "db0")
 	s.AddContextRelation(c, ctrl, "db1")
 }
 
-func (s *ContextSuite) setCharm(c *gc.C, name string) {
+func (s *ContextSuite) setCharm(c *tc.C, name string) {
 	err := os.RemoveAll(s.paths.GetCharmDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = fs.Copy(testcharms.Repo.CharmDirPath(name), s.paths.GetCharmDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ContextSuite) getRelationInfos() map[int]*context.RelationInfo {
@@ -202,12 +201,12 @@ type hookSpec struct {
 // with permissions perm and exit code code. If output is non-empty,
 // the charm will write it to stdout and stderr, with each one prefixed
 // by name of the stream.
-func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
+func makeCharm(c *tc.C, spec hookSpec, charmDir string) {
 	dir := charmDir
 	if spec.dir != "" {
 		dir = filepath.Join(dir, spec.dir)
 		err := os.Mkdir(dir, 0755)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	if !spec.charmMissing {
 		makeCharmMetadata(c, charmDir)
@@ -216,14 +215,14 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 	hook, err := os.OpenFile(
 		filepath.Join(dir, spec.name), os.O_CREATE|os.O_WRONLY, spec.perm,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
-		c.Assert(hook.Close(), gc.IsNil)
+		c.Assert(hook.Close(), tc.IsNil)
 	}()
 
 	printf := func(f string, a ...interface{}) {
 		_, err := fmt.Fprintf(hook, f+"\n", a...)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	if !spec.missingShebang {
 		printf("#!/bin/bash")
@@ -246,9 +245,9 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 	printf("exit %d", spec.code)
 }
 
-func makeCharmMetadata(c *gc.C, charmDir string) {
+func makeCharmMetadata(c *tc.C, charmDir string) {
 	err := os.MkdirAll(charmDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(path.Join(charmDir, "metadata.yaml"), nil, 0664)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

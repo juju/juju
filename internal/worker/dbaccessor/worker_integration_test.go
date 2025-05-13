@@ -11,10 +11,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
@@ -31,33 +30,9 @@ import (
 	"github.com/juju/juju/internal/worker/dbaccessor"
 )
 
-// dqliteAppIntegrationSuite defines a base suite for running integration
-// tests against the Dqlite database. It overrides the various methods to
-// prevent the creation of a new database for each test.
-type dqliteAppIntegrationSuite struct {
-	databasetesting.DqliteSuite
-}
-
-func (s *dqliteAppIntegrationSuite) TearDownSuite(c *gc.C) {
-	// We don't call s.DBSuite.TearDownSuite here because
-	// we don't want to double close the dqlite app.
-	s.IsolationSuite.TearDownSuite(c)
-}
-
-func (s *dqliteAppIntegrationSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-
-	if !dqlite.Enabled {
-		c.Skip("This requires a dqlite server to be running")
-	}
-}
-
-func (s *dqliteAppIntegrationSuite) TearDownTest(c *gc.C) {
-	s.IsolationSuite.TearDownTest(c)
-}
-
 type integrationSuite struct {
-	dqliteAppIntegrationSuite
+	//dqliteAppIntegrationSuite
+	databasetesting.DqliteSuite
 
 	db        *sql.DB
 	dbGetter  coredatabase.DBGetter
@@ -65,17 +40,20 @@ type integrationSuite struct {
 	worker    worker.Worker
 }
 
-var _ = gc.Suite(&integrationSuite{})
+var _ = tc.Suite(&integrationSuite{})
 
-func (s *integrationSuite) SetUpSuite(c *gc.C) {
+func (s *integrationSuite) SetUpSuite(c *tc.C) {
+	if !dqlite.Enabled {
+		c.Skip("This requires a dqlite server to be running")
+	}
+
 	// This suite needs Dqlite setup on a tcp port.
 	s.UseTCP = true
-	s.dqliteAppIntegrationSuite.SetUpSuite(c)
+	s.DqliteSuite.SetUpSuite(c)
 }
 
-func (s *integrationSuite) SetUpTest(c *gc.C) {
+func (s *integrationSuite) SetUpTest(c *tc.C) {
 	s.DqliteSuite.SetUpTest(c)
-	s.dqliteAppIntegrationSuite.SetUpTest(c)
 
 	params := agent.AgentConfigParams{
 		Tag:               names.NewMachineTag("1"),
@@ -91,25 +69,25 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 	params.Paths.DataDir = s.RootPath()
 	params.Paths.LogDir = c.MkDir()
 	agentConfig, err := agent.NewAgentConfig(params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	logger := loggertesting.WrapCheckLog(c)
 	nodeManager := database.NewNodeManager(agentConfig, false, logger, coredatabase.NoopSlowQueryLogger{})
 
 	db, err := s.DBApp().Open(context.Background(), coredatabase.ControllerNS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	runner := &txnRunner{db: db}
 
 	err = database.NewDBMigration(
 		runner, logger, schema.ControllerDDL()).Apply(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = database.InsertControllerNodeID(context.Background(), runner, s.DBApp().ID())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w, err := dbaccessor.NewWorker(dbaccessor.WorkerConfig{
 		NewApp: func(string, ...app.Option) (dbaccessor.DBApp, error) {
@@ -124,7 +102,7 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 		ControllerConfigWatcher: controllerConfigWatcher{},
 		ClusterConfig:           clusterConfig{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.db = db
 	s.dbGetter = w
@@ -132,20 +110,19 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 	s.worker = w
 }
 
-func (s *integrationSuite) TearDownTest(c *gc.C) {
+func (s *integrationSuite) TearDownTest(c *tc.C) {
 	if dqlite.Enabled && s.worker != nil {
 		workertest.CleanKill(c, s.worker)
 	}
 	if s.db != nil {
 		s.db.Close()
 	}
-	s.dqliteAppIntegrationSuite.TearDownTest(c)
 	s.DqliteSuite.TearDownTest(c)
 }
 
-func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *gc.C) {
+func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *tc.C) {
 	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var (
 		nodeID uint64
@@ -158,37 +135,37 @@ func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *gc.C) {
 		}
 		return row.Err()
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(nodeID, gc.Not(gc.Equals), uint64(0))
-	c.Check(addr, gc.Equals, "127.0.0.1")
+	c.Check(nodeID, tc.Not(tc.Equals), uint64(0))
+	c.Check(addr, tc.Equals, "127.0.0.1")
 }
 
-func (s *integrationSuite) TestWorkerAccessingControllerDB(c *gc.C) {
+func (s *integrationSuite) TestWorkerAccessingControllerDB(c *tc.C) {
 	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(db, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(db, tc.NotNil)
 }
 
-func (s *integrationSuite) TestWorkerAccessingUnknownDB(c *gc.C) {
+func (s *integrationSuite) TestWorkerAccessingUnknownDB(c *tc.C) {
 	_, err := s.dbGetter.GetDB("foo")
-	c.Assert(err, gc.ErrorMatches, `.*"foo": database not found`)
-	c.Assert(err, jc.ErrorIs, coredatabase.ErrDBNotFound)
+	c.Assert(err, tc.ErrorMatches, `.*"foo": database not found`)
+	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBNotFound)
 }
 
-func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
+func (s *integrationSuite) TestWorkerAccessingKnownDB(c *tc.C) {
 	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO namespace_list (namespace) VALUES ("bar")`)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	db, err = s.dbGetter.GetDB("bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(db, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(db, tc.NotNil)
 
 	// Check that the model schema DDL was applied.
 	type EditType struct {
@@ -199,32 +176,32 @@ func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, q).GetAll(&results)
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 3)
 }
 
-func (s *integrationSuite) TestWorkerDeletingControllerDB(c *gc.C) {
+func (s *integrationSuite) TestWorkerDeletingControllerDB(c *tc.C) {
 	err := s.dbDeleter.DeleteDB(coredatabase.ControllerNS)
-	c.Assert(err, gc.ErrorMatches, `.*cannot delete controller database`)
+	c.Assert(err, tc.ErrorMatches, `.*cannot delete controller database`)
 }
 
-func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *gc.C) {
+func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *tc.C) {
 	err := s.dbDeleter.DeleteDB("foo")
-	c.Assert(err, gc.ErrorMatches, `.*"foo" not found`)
+	c.Assert(err, tc.ErrorMatches, `.*"foo" not found`)
 }
 
-func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
+func (s *integrationSuite) TestWorkerDeletingKnownDB(c *tc.C) {
 	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctrlDB.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO namespace_list (namespace) VALUES ("baz")`)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	db, err := s.dbGetter.GetDB("baz")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(db, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(db, tc.NotNil)
 
 	// We need to unsure that we remove the namespace from the model list.
 	// Otherwise, the db will be recreated on the next call to GetDB.
@@ -232,45 +209,45 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 		_, err := tx.ExecContext(ctx, `DELETE FROM namespace_list WHERE namespace = "baz"`)
 		return errors.Cause(err)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.dbDeleter.DeleteDB("baz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.dbGetter.GetDB("baz")
-	c.Assert(err, gc.ErrorMatches, `.*namespace "baz": database not found`)
-	c.Assert(err, jc.ErrorIs, coredatabase.ErrDBNotFound)
+	c.Assert(err, tc.ErrorMatches, `.*namespace "baz": database not found`)
+	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBNotFound)
 }
 
-func (s *integrationSuite) TestWorkerDeleteKnownDBKillErr(c *gc.C) {
+func (s *integrationSuite) TestWorkerDeleteKnownDBKillErr(c *tc.C) {
 	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctrlDB.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO namespace_list (namespace) VALUES ("baz")`)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// GetDB ensures that we've got it cached.
 	_, err = s.dbGetter.GetDB("baz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.worker.Kill()
 	err = s.dbDeleter.DeleteDB("baz")
-	c.Assert(err, jc.ErrorIs, coredatabase.ErrDBAccessorDying)
+	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBAccessorDying)
 }
 
 // The following ensures that we can delete a db without having to call GetDB
 // first. This ensures that we don't have to have an explicit db worker for
 // each model.
-func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
+func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *tc.C) {
 	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctrlDB.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO namespace_list (namespace) VALUES ("fred")`)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We need to unsure that we remove the namespace from the model list.
 	// Otherwise, the db will be recreated on the next call to GetDB.
@@ -278,14 +255,14 @@ func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
 		_, err := tx.ExecContext(ctx, `DELETE FROM namespace_list WHERE namespace = "fred"`)
 		return err
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.dbDeleter.DeleteDB("fred")
-	c.Assert(err, gc.ErrorMatches, `.*"fred" not found`)
+	c.Assert(err, tc.ErrorMatches, `.*"fred" not found`)
 
 	_, err = s.dbGetter.GetDB("fred")
-	c.Assert(err, gc.ErrorMatches, `.*"fred": database not found`)
-	c.Assert(err, jc.ErrorIs, coredatabase.ErrDBNotFound)
+	c.Assert(err, tc.ErrorMatches, `.*"fred": database not found`)
+	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBNotFound)
 }
 
 type txnRunner struct {

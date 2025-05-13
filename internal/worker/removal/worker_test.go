@@ -10,28 +10,27 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/clock"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/removal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	svc *MockRemovalService
 	clk *MockClock
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestWorkerStartStop(c *gc.C) {
+func (s *workerSuite) TestWorkerStartStop(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -52,11 +51,11 @@ func (s *workerSuite) TestWorkerStartStop(c *gc.C) {
 		Logger:         loggertesting.WrapCheckLog(c),
 	}
 	w, err := NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting for worker to start")
 	}
 
@@ -67,7 +66,7 @@ func (s *workerSuite) TestWorkerStartStop(c *gc.C) {
 // - The watcher fires.
 // - We query for jobs, receive two, but only one is due for execution,
 // - Only the due job is scheduled with the runner.
-func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *gc.C) {
+func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -111,18 +110,18 @@ func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *gc.C) {
 		Logger:         loggertesting.WrapCheckLog(c),
 	}
 	w, err := NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {
 	case ch <- []string{"some-job-uuid"}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting for watcher event consumption")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting for job execution")
 	}
 
@@ -133,7 +132,7 @@ func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *gc.C) {
 // - The timer fires.
 // - We query for jobs, receive two, but one has already been scheduled.
 // - Only the unscheduled job is scheduled with the runner.
-func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *gc.C) {
+func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -178,7 +177,7 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *gc.C) {
 		Logger:         loggertesting.WrapCheckLog(c),
 	}
 	w, err := NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Imitate a worker already scheduled in the runner.
@@ -191,7 +190,7 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *gc.C) {
 		})
 		return &w, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We need to wait until it is actually reported starting.
 	// This is because StartWorker above is not synchronous.
@@ -209,20 +208,20 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *gc.C) {
 
 	select {
 	case ch <- []string{"due-job-uuid"}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting for watcher event consumption")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("timed out waiting for job execution")
 	}
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerReport(c *gc.C) {
+func (s *workerSuite) TestWorkerReport(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	ch := make(chan []string)
@@ -239,7 +238,7 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 		Logger:         loggertesting.WrapCheckLog(c),
 	}
 	w, err := NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Imitate two workers already scheduled in the runner.
@@ -258,7 +257,7 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 		})
 		return &w, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = rw.runner.StartWorker(context.Background(), "job-uuid-2", func(ctx context.Context) (worker.Worker, error) {
 		w := jobWorker{job: removal.Job{
@@ -273,7 +272,7 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 		})
 		return &w, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We need to wait until the workers are actually reported as started.
 	// A worker not yet running will not have the "report" key in its output
@@ -291,16 +290,16 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 
 		if len(rw.runner.WorkerNames()) == 2 {
 			r = rw.Report()
-			c.Assert(r, gc.HasLen, 1)
+			c.Assert(r, tc.HasLen, 1)
 
 			rm, ok := r["workers"].(map[string]any)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 
 			j1, ok := rm["job-uuid-1"]
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 
 			j1m, ok := j1.(map[string]any)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 
 			j1s, ok := j1m["state"].(string)
 			if !(ok && j1s == "started") {
@@ -308,16 +307,16 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 			}
 
 			j1r, ok := j1m["report"].(map[string]any)
-			c.Assert(ok, jc.IsTrue)
-			c.Check(j1r["job-type"], gc.Equals, removal.RelationJob)
-			c.Check(j1r["removal-entity"], gc.Equals, "relation-uuid-1")
-			c.Check(j1r["force"], jc.IsFalse)
+			c.Assert(ok, tc.IsTrue)
+			c.Check(j1r["job-type"], tc.Equals, removal.RelationJob)
+			c.Check(j1r["removal-entity"], tc.Equals, "relation-uuid-1")
+			c.Check(j1r["force"], tc.IsFalse)
 
 			j2, ok := rm["job-uuid-2"]
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 
 			j2m, ok := j2.(map[string]any)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 
 			j2s, ok := j2m["state"].(string)
 			if !(ok && j2s == "started") {
@@ -325,10 +324,10 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 			}
 
 			j2r, ok := j2m["report"].(map[string]any)
-			c.Assert(ok, jc.IsTrue)
-			c.Check(j2r["job-type"], gc.Equals, removal.RelationJob)
-			c.Check(j2r["removal-entity"], gc.Equals, "relation-uuid-2")
-			c.Check(j2r["force"], jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
+			c.Check(j2r["job-type"], tc.Equals, removal.RelationJob)
+			c.Check(j2r["removal-entity"], tc.Equals, "relation-uuid-2")
+			c.Check(j2r["force"], tc.IsTrue)
 
 			break
 		}
@@ -342,7 +341,7 @@ func (s *workerSuite) TestWorkerReport(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.svc = NewMockRemovalService(ctrl)

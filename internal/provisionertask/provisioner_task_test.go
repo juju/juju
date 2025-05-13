@@ -17,13 +17,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
@@ -49,6 +47,7 @@ import (
 	providermocks "github.com/juju/juju/internal/provider/common/mocks"
 	"github.com/juju/juju/internal/provisionertask"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -69,7 +68,7 @@ func machineInstanceInfoSetter(machineProvisionerAPI apiprovisioner.MachineProvi
 }
 
 type ProvisionerTaskSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	setupDone            chan bool
 	modelMachinesChanges chan []string
@@ -85,9 +84,9 @@ type ProvisionerTaskSuite struct {
 	instanceBroker *testInstanceBroker
 }
 
-var _ = gc.Suite(&ProvisionerTaskSuite{})
+var _ = tc.Suite(&ProvisionerTaskSuite{})
 
-func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
+func (s *ProvisionerTaskSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.setupDone = make(chan bool)
@@ -99,7 +98,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 
 	s.instances = []instances.Instance{}
 	s.instanceBroker = &testInstanceBroker{
-		Stub:      &testing.Stub{},
+		Stub:      &testhelpers.Stub{},
 		callsChan: make(chan string, 2),
 		allInstancesFunc: func(ctx context.Context) ([]instances.Instance, error) {
 			return s.instances, s.instanceBroker.NextErr()
@@ -107,7 +106,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestStartStop(c *tc.C) {
 	// We expect no calls to the task API.
 	defer s.setUpMocks(c).Finish()
 
@@ -121,15 +120,15 @@ func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {
 	workertest.CleanKill(c, task)
 
 	err := workertest.CheckKilled(c, task)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.modelMachinesWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.machineErrorRetryWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.instanceBroker.CheckNoCalls(c)
 }
 
-func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	i0 := &testInstance{id: "zero"}
@@ -161,8 +160,8 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 	)
 	defer workertest.CleanKill(c, task)
 
-	c.Assert(m0.markForRemoval, jc.IsFalse)
-	c.Assert(m1.markForRemoval, jc.IsFalse)
+	c.Assert(m0.markForRemoval, tc.IsFalse)
+	c.Assert(m1.markForRemoval, tc.IsFalse)
 
 	s.sendModelMachinesChange(c, "0", "1")
 
@@ -170,15 +169,15 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 
 	workertest.CleanKill(c, task)
 	close(s.instanceBroker.callsChan)
-	s.instanceBroker.CheckCalls(c, []testing.StubCall{
+	s.instanceBroker.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "AllRunningInstances"},
 		{FuncName: "StopInstances", Args: []interface{}{[]instance.Id{"zero"}}},
 	})
-	c.Assert(m0.markForRemoval, jc.IsTrue)
-	c.Assert(m1.markForRemoval, jc.IsTrue)
+	c.Assert(m0.markForRemoval, tc.IsTrue)
+	c.Assert(m1.markForRemoval, tc.IsTrue)
 }
 
-func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	m0 := &testMachine{id: "0"}
@@ -208,11 +207,11 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 
 	workertest.CleanKill(c, task)
 	close(s.instanceBroker.callsChan)
-	c.Assert(m0.password, gc.Not(gc.Equals), "")
+	c.Assert(m0.password, tc.Not(tc.Equals), "")
 	s.instanceBroker.CheckCallNames(c, "StartInstance", "StartInstance")
 }
 
-func (s *ProvisionerTaskSuite) waitForProvisioned(c *gc.C, m *testMachine) {
+func (s *ProvisionerTaskSuite) waitForProvisioned(c *tc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		_, err := m.InstanceId(context.Background())
 		if err == nil {
@@ -225,7 +224,7 @@ func (s *ProvisionerTaskSuite) waitForProvisioned(c *gc.C, m *testMachine) {
 	c.Fatalf("machine %q not started", m.id)
 }
 
-func (s *ProvisionerTaskSuite) waitForRemovalMark(c *gc.C, m *testMachine) {
+func (s *ProvisionerTaskSuite) waitForRemovalMark(c *tc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		if m.GetMarkForRemoval() {
 			return
@@ -234,10 +233,10 @@ func (s *ProvisionerTaskSuite) waitForRemovalMark(c *gc.C, m *testMachine) {
 	c.Fatalf("machine %q not marked for removal", m.id)
 }
 
-func (s *ProvisionerTaskSuite) waitForInstanceStatus(c *gc.C, m *testMachine, status status.Status) string {
+func (s *ProvisionerTaskSuite) waitForInstanceStatus(c *tc.C, m *testMachine, status status.Status) string {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		instStatus, info, err := m.InstanceStatus(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		if instStatus == status {
 			return info
 		}
@@ -263,7 +262,7 @@ var (
 	}}
 )
 
-func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	task := s.newProvisionerTask(c,
@@ -297,16 +296,16 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *gc.C) {
 		},
 	}
 	startInstanceParams, err := provisionertask.SetupToStartMachine(task, m0, &vers, res)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(startInstanceParams.InstanceConfig, gc.NotNil)
-	c.Assert(startInstanceParams.InstanceConfig.APIInfo, gc.NotNil)
-	c.Assert(startInstanceParams.InstanceConfig.APIInfo.Password, gc.Not(gc.Equals), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(startInstanceParams.InstanceConfig, tc.NotNil)
+	c.Assert(startInstanceParams.InstanceConfig.APIInfo, tc.NotNil)
+	c.Assert(startInstanceParams.InstanceConfig.APIInfo.Password, tc.Not(tc.Equals), "")
 	startInstanceParams.InstanceConfig.APIInfo.Password = ""
-	c.Assert(startInstanceParams.InstanceConfig.MachineNonce, gc.Not(gc.Equals), "")
+	c.Assert(startInstanceParams.InstanceConfig.MachineNonce, tc.Not(tc.Equals), "")
 	startInstanceParams.InstanceConfig.MachineNonce = ""
-	c.Assert(startInstanceParams.StatusCallback, gc.NotNil)
+	c.Assert(startInstanceParams.StatusCallback, tc.NotNil)
 	startInstanceParams.StatusCallback = nil
-	c.Assert(startInstanceParams.Abort, gc.NotNil)
+	c.Assert(startInstanceParams.Abort, tc.NotNil)
 	startInstanceParams.Abort = nil
 
 	want := machineStartInstanceArg("0")
@@ -317,10 +316,10 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *gc.C) {
 	want.ImageMetadata = possibleImageMetadata
 	want.EndpointBindings = map[string]network.Id{"endpoint": "space"}
 	want.CharmLXDProfiles = []string{"p1", "p2"}
-	c.Assert(startInstanceParams, jc.DeepEquals, *want)
+	c.Assert(startInstanceParams, tc.DeepEquals, *want)
 }
 
-func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	task := s.newProvisionerTask(c,
@@ -342,10 +341,10 @@ func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvail
 
 	// Ensure machine error status was set, and the error matches
 	msg := s.waitForInstanceStatus(c, m0, status.ProvisioningError)
-	c.Check(msg, gc.Equals, "no matching agent binaries available")
+	c.Check(msg, tc.Equals, "no matching agent binaries available")
 }
 
-func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -398,7 +397,7 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
 		},
 	}
 	err := retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	zoneCounts := make(map[string]int)
 	for _, z := range usedZones {
@@ -410,15 +409,15 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *gc.C) {
 			c.Fatalf("expected either 1 or 2 machines for %v, got %d", z, count)
 		}
 	}
-	c.Assert(set.NewStrings(usedZones...).SortedValues(), jc.DeepEquals, []string{"az1", "az2", "az3"})
+	c.Assert(set.NewStrings(usedZones...).SortedValues(), tc.DeepEquals, []string{"az1", "az2", "az3"})
 
 	for _, m := range machines {
-		c.Assert(m.password, gc.Not(gc.Equals), "")
+		c.Assert(m.password, tc.Not(tc.Equals), "")
 	}
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -480,7 +479,7 @@ func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -501,13 +500,13 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
 
 	// Wait for instance status to be set.
 	msg := s.waitForInstanceStatus(c, m0, status.ProvisioningError)
-	c.Check(msg, gc.Equals, "suitable availability zone for machine 0 not found")
+	c.Check(msg, tc.Equals, "suitable availability zone for machine 0 not found")
 
-	c.Assert(m0.password, gc.Not(gc.Equals), "")
+	c.Assert(m0.password, tc.Not(tc.Equals), "")
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -538,7 +537,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -572,7 +571,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *gc
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -610,7 +609,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -648,7 +647,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGroupRetry(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGroupRetry(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -687,7 +686,7 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -704,10 +703,10 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 	s.waitForWorkerSetup(c)
 
 	err := workertest.CheckKill(c, task)
-	c.Assert(err, gc.ErrorMatches, "processing updated machines: getting all instances from broker: boom")
+	c.Assert(err, tc.ErrorMatches, "processing updated machines: getting all instances from broker: boom")
 }
 
-func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -748,8 +747,8 @@ func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *gc.C) {
 
 	// StopInstances should only be called once for m0.
 	broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ids ...instance.Id) error {
-		c.Assert(len(ids), gc.Equals, 1)
-		c.Assert(ids[0], gc.DeepEquals, instance.Id("0"))
+		c.Assert(len(ids), tc.Equals, 1)
+		c.Assert(ids[0], tc.DeepEquals, instance.Id("0"))
 
 		// While one of the pool workers is executing this code, we
 		// will wait until the machine change event gets processed
@@ -788,7 +787,7 @@ func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *gc.C) {
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -864,8 +863,8 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 			}, nil
 		}),
 		broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ids ...instance.Id) error {
-			c.Assert(len(ids), gc.Equals, 1)
-			c.Assert(ids[0], gc.DeepEquals, instance.Id("0"))
+			c.Assert(len(ids), tc.Equals, 1)
+			c.Assert(ids[0], tc.DeepEquals, instance.Id("0"))
 
 			// Signal the test to shut down the worker.
 			close(doneCh)
@@ -885,11 +884,11 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 	case <-time.After(3 * coretesting.LongWait):
 		c.Errorf("timed out waiting for work to complete")
 	}
-	c.Assert(m0.password, gc.Not(gc.Equals), "")
+	c.Assert(m0.password, tc.Not(tc.Equals), "")
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestResizeWorkerPool(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestResizeWorkerPool(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -910,7 +909,7 @@ func (s *ProvisionerTaskSuite) TestResizeWorkerPool(c *gc.C) {
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -959,7 +958,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 	}, nil).MinTimes(1).Do(func(context.Context, environs.StartInstanceParams) {
 		select {
 		case step <- struct{}{}:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out writing to step channel")
 		}
 	})
@@ -969,7 +968,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 	syncStep := func() {
 		select {
 		case <-step:
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			c.Fatalf("timed out reading from step channel")
 		}
 	}
@@ -979,8 +978,8 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 	// After the first change, there is only one AZ in the tracker.
 	syncStep()
 	azm := provisionertask.GetCopyAvailabilityZoneMachines(task)
-	c.Assert(azm, gc.HasLen, 1)
-	c.Assert(azm[0].ZoneName, gc.Equals, "az1")
+	c.Assert(azm, tc.HasLen, 1)
+	c.Assert(azm[0].ZoneName, tc.Equals, "az1")
 
 	m0.SetUnprovisioned()
 	s.sendModelMachinesChange(c, "0")
@@ -988,8 +987,8 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 	// After the second change, we see all 3 AZs.
 	syncStep()
 	azm = provisionertask.GetCopyAvailabilityZoneMachines(task)
-	c.Assert(azm, gc.HasLen, 3)
-	c.Assert([]string{azm[0].ZoneName, azm[1].ZoneName, azm[2].ZoneName}, jc.SameContents, []string{"az1", "az2", "az3"})
+	c.Assert(azm, tc.HasLen, 3)
+	c.Assert([]string{azm[0].ZoneName, azm[1].ZoneName, azm[2].ZoneName}, tc.SameContents, []string{"az1", "az2", "az3"})
 
 	m0.SetUnprovisioned()
 	s.sendModelMachinesChange(c, "0")
@@ -999,12 +998,12 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 	// but the one we deployed to will not be deleted.
 	syncStep()
 	azm = provisionertask.GetCopyAvailabilityZoneMachines(task)
-	c.Assert(azm, gc.HasLen, 2)
+	c.Assert(azm, tc.HasLen, 2)
 
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestHarvestUnknownReapsOnlyUnknown(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -1029,7 +1028,7 @@ func (s *ProvisionerTaskSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 	s.waitForRemovalMark(c, m0)
 }
 
-func (s *ProvisionerTaskSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -1044,7 +1043,7 @@ func (s *ProvisionerTaskSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
 	exp := broker.EXPECT()
 	exp.AllRunningInstances(gomock.Any()).Return(s.instances, nil).MinTimes(1)
 	// Only stop the dead instance.
-	exp.StopInstances(gomock.Any(), []instance.Id{"0"}).Return(nil)
+	exp.StopInstances(gomock.Any(), []instance.Id{"0"}).Return(nil).AnyTimes()
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestDestroyed)
 	defer workertest.CleanKill(c, task)
@@ -1057,7 +1056,7 @@ func (s *ProvisionerTaskSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
 	s.waitForRemovalMark(c, m0)
 }
 
-func (s *ProvisionerTaskSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestHarvestAllReapsAllTheThings(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -1082,7 +1081,7 @@ func (s *ProvisionerTaskSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 	s.waitForRemovalMark(c, m0)
 }
 
-func (s *ProvisionerTaskSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestProvisionerStopRetryingIfDying(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	m0 := &testMachine{id: "0"}
@@ -1112,21 +1111,21 @@ func (s *ProvisionerTaskSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 
 	workertest.CleanKill(c, task)
 	close(s.instanceBroker.callsChan)
-	c.Assert(m0.password, gc.Not(gc.Equals), "")
+	c.Assert(m0.password, tc.Not(tc.Equals), "")
 	s.instanceBroker.CheckCallNames(c, "StartInstance")
 
 	statusInfo, _, err := m0.Status(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(statusInfo, gc.Equals, status.Pending)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statusInfo, tc.Equals, status.Pending)
 	statusInfo, _, err = m0.InstanceStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if statusInfo != status.Pending && statusInfo != status.Provisioning {
 		c.Errorf("statusInfo.Status was %q not one of %q or %q",
 			statusInfo, status.Pending, status.Provisioning)
 	}
 }
 
-func (s *ProvisionerTaskSuite) TestMachineErrorsRetainInstances(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestMachineErrorsRetainInstances(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -1149,10 +1148,10 @@ func (s *ProvisionerTaskSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 		numProvisionWorkersForTesting,
 	)
 	s.sendModelMachinesChange(c, "0")
-	c.Assert(worker.Stop(task), gc.ErrorMatches, ".*getting machine.*")
+	c.Assert(worker.Stop(task), tc.ErrorMatches, ".*getting machine.*")
 }
 
-func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedRootDisk(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedRootDisk(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -1192,7 +1191,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedRootDisk(c *
 	s.waitForProvisioned(c, m0)
 }
 
-func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -1281,7 +1280,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *g
 	s.waitForProvisioned(c, m0)
 }
 
-func (s *ProvisionerTaskSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -1318,7 +1317,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningDoesNotProvisionTheSameMachineAft
 	}
 }
 
-func (s *ProvisionerTaskSuite) TestDyingMachines(c *gc.C) {
+func (s *ProvisionerTaskSuite) TestDyingMachines(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -1345,7 +1344,7 @@ func (s *ProvisionerTaskSuite) TestDyingMachines(c *gc.C) {
 	s.waitForRemovalMark(c, m1)
 
 	// verify the other one's still fine
-	c.Assert(m0.markForRemoval, jc.IsFalse)
+	c.Assert(m0.markForRemoval, tc.IsFalse)
 }
 
 // setUpZonedEnviron creates a mock broker with instances based on those set
@@ -1384,7 +1383,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 	return broker
 }
 
-func (s *ProvisionerTaskSuite) waitForWorkerSetup(c *gc.C) {
+func (s *ProvisionerTaskSuite) waitForWorkerSetup(c *tc.C) {
 	select {
 	case <-s.setupDone:
 	case <-time.After(coretesting.LongWait):
@@ -1392,7 +1391,7 @@ func (s *ProvisionerTaskSuite) waitForWorkerSetup(c *gc.C) {
 	}
 }
 
-func (s *ProvisionerTaskSuite) waitForTask(c *gc.C, expectedCalls []string) {
+func (s *ProvisionerTaskSuite) waitForTask(c *tc.C, expectedCalls []string) {
 	var calls []string
 	for {
 		select {
@@ -1408,7 +1407,7 @@ func (s *ProvisionerTaskSuite) waitForTask(c *gc.C, expectedCalls []string) {
 	}
 }
 
-func (s *ProvisionerTaskSuite) sendModelMachinesChange(c *gc.C, ids ...string) {
+func (s *ProvisionerTaskSuite) sendModelMachinesChange(c *tc.C, ids ...string) {
 	select {
 	case s.modelMachinesChanges <- ids:
 	case <-time.After(coretesting.LongWait):
@@ -1416,7 +1415,7 @@ func (s *ProvisionerTaskSuite) sendModelMachinesChange(c *gc.C, ids ...string) {
 	}
 }
 
-func (s *ProvisionerTaskSuite) sendMachineErrorRetryChange(c *gc.C) {
+func (s *ProvisionerTaskSuite) sendMachineErrorRetryChange(c *tc.C) {
 	select {
 	case s.machineErrorRetryChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
@@ -1425,7 +1424,7 @@ func (s *ProvisionerTaskSuite) sendMachineErrorRetryChange(c *gc.C) {
 }
 
 func (s *ProvisionerTaskSuite) newProvisionerTask(
-	c *gc.C,
+	c *tc.C,
 	harvestingMethod config.HarvestMode,
 	distributionGroupFinder provisionertask.DistributionGroupFinder,
 	toolsFinder provisionertask.ToolsFinder,
@@ -1444,7 +1443,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTask(
 }
 
 func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
-	c *gc.C,
+	c *tc.C,
 	harvestingMethod config.HarvestMode,
 	distributionGroupFinder provisionertask.DistributionGroupFinder,
 	toolsFinder provisionertask.ToolsFinder,
@@ -1468,12 +1467,12 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 		NumProvisionWorkers:          numProvisionWorkers,
 		GetMachineInstanceInfoSetter: machineInstanceInfoSetter,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
 func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(
-	c *gc.C,
+	c *tc.C,
 	broker environs.InstanceBroker,
 	distributionGroups map[names.MachineTag][]string,
 	numProvisionWorkers int,
@@ -1483,7 +1482,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(
 }
 
 func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
-	c *gc.C,
+	c *tc.C,
 	broker environs.InstanceBroker,
 	distributionGroups map[names.MachineTag][]string,
 	numProvisionWorkers int,
@@ -1511,11 +1510,11 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 		EventProcessedCb:             evtCb,
 		GetMachineInstanceInfoSetter: machineInstanceInfoSetter,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return task
 }
 
-func (s *ProvisionerTaskSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *ProvisionerTaskSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerAPI = NewMockControllerAPI(ctrl)
 	s.machinesAPI = NewMockMachinesAPI(ctrl)
@@ -1567,7 +1566,7 @@ func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) 
 type MachineClassifySuite struct {
 }
 
-var _ = gc.Suite(&MachineClassifySuite{})
+var _ = tc.Suite(&MachineClassifySuite{})
 
 type machineClassificationTest struct {
 	description    string
@@ -1588,7 +1587,7 @@ var machineClassificationTestsNoMaintenance = machineClassificationTest{
 	classification: provisionertask.None,
 }
 
-func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
+func (s *MachineClassifySuite) TestMachineClassification(c *tc.C) {
 	test := func(t machineClassificationTest, id string) {
 		// Run a sub-test from the test table
 		s2e := func(s string) error {
@@ -1611,18 +1610,18 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 		}
 		classification, err := provisionertask.ClassifyMachine(context.Background(), loggertesting.WrapCheckLog(c), &machine)
 		if err != nil {
-			c.Assert(err, gc.ErrorMatches, fmt.Sprintf(t.expectErrFmt, machine.Id()))
+			c.Assert(err, tc.ErrorMatches, fmt.Sprintf(t.expectErrFmt, machine.Id()))
 		} else {
-			c.Assert(err, gc.Equals, s2e(t.expectErrCode))
+			c.Assert(err, tc.Equals, s2e(t.expectErrCode))
 		}
-		c.Assert(classification, gc.Equals, t.classification)
+		c.Assert(classification, tc.Equals, t.classification)
 	}
 
 	test(machineClassificationTestsNoMaintenance, "0")
 }
 
 type testInstanceBroker struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	callsChan        chan string
 	allInstancesFunc func(ctx context.Context) ([]instances.Instance, error)
@@ -1906,7 +1905,7 @@ func machineStartInstanceArg(id string) *environs.StartInstanceParams {
 	return &result
 }
 
-func newDefaultStartInstanceParamsMatcher(c *gc.C, want *environs.StartInstanceParams) *startInstanceParamsMatcher {
+func newDefaultStartInstanceParamsMatcher(c *tc.C, want *environs.StartInstanceParams) *startInstanceParamsMatcher {
 	match := func(p environs.StartInstanceParams) bool {
 		p.Abort = nil
 		p.StatusCallback = nil

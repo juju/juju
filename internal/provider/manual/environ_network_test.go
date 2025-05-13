@@ -4,8 +4,7 @@
 package manual
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
 )
@@ -14,13 +13,13 @@ type environNetworkSuite struct {
 	baseEnvironSuite
 }
 
-var _ = gc.Suite(&environNetworkSuite{})
+var _ = tc.Suite(&environNetworkSuite{})
 
-func (s *environNetworkSuite) TestSupportsSpaces(c *gc.C) {
+func (s *environNetworkSuite) TestSupportsSpaces(c *tc.C) {
 	netEnv, ok := environs.SupportsNetworking(s.env)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	spaceSupport, err := netEnv.SupportsSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaceSupport, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spaceSupport, tc.IsTrue)
 }

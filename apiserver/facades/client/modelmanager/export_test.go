@@ -7,12 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
-func AuthCheck(c *gc.C, mm *ModelManagerAPI, user names.UserTag) bool {
+func AuthCheck(c *tc.C, mm *ModelManagerAPI, user names.UserTag) bool {
 	err := mm.authCheck(context.Background(), user)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return mm.isAdmin
 }
