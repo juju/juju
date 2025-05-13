@@ -1,6 +1,6 @@
 (command-juju-wait-for_application)=
 # `juju wait-for_application`
-> See also: [wait-for model](#command-juju-wait-for_model), [wait-for machine](#command-juju-wait-for_machine), [wait-for unit](#command-juju-wait-for_unit)
+> See also: [wait-for model](#wait-for model), [wait-for machine](#wait-for machine), [wait-for unit](#wait-for unit)
 
 ## Summary
 Wait for an application to reach a specified state.

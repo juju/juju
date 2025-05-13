@@ -53,7 +53,7 @@ See also:
     wait-for unit
 
 ## Subcommands
-- [application](#command-juju-wait-for_application)
-- [machine](#command-juju-wait-for_machine)
-- [model](#command-juju-wait-for_model)
-- [unit](#command-juju-wait-for_unit)
+- [application](#wait-for-application)
+- [machine](#wait-for-machine)
+- [model](#wait-for-model)
+- [unit](#wait-for-unit)
