@@ -23,7 +23,7 @@ var _ = tc.Suite(&stateSuite{})
 func (s *stateSuite) TestGetSequencesForExportNoRows(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
-	seq, err := state.GetSequencesForExport(context.Background())
+	seq, err := state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.HasLen, 0)
 }
@@ -32,14 +32,14 @@ func (s *stateSuite) TestGetSequencesForExport(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	var seqValue uint64
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		seqValue, err = NextValue(ctx, state, tx, domainsequence.StaticNamespace("foo"))
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	seq, err := state.GetSequencesForExport(context.Background())
+	seq, err := state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo": seqValue,
@@ -50,7 +50,7 @@ func (s *stateSuite) TestGetSequencesForExportMultiple(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	var seqValue uint64
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for i := 0; i < 10; i++ {
 			var err error
 			if seqValue, err = NextValue(ctx, state, tx, domainsequence.StaticNamespace("foo")); err != nil {
@@ -62,7 +62,7 @@ func (s *stateSuite) TestGetSequencesForExportMultiple(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seqValue, tc.Equals, uint64(9))
 
-	seq, err := state.GetSequencesForExport(context.Background())
+	seq, err := state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo": seqValue,
@@ -73,14 +73,14 @@ func (s *stateSuite) TestGetSequencesForExportPrefixNamespace(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	var seqValue uint64
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		seqValue, err = NextValue(ctx, state, tx, domainsequence.MakePrefixNamespace(domainsequence.StaticNamespace("foo"), "bar"))
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	seq, err := state.GetSequencesForExport(context.Background())
+	seq, err := state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo_bar": seqValue,
@@ -90,17 +90,17 @@ func (s *stateSuite) TestGetSequencesForExportPrefixNamespace(c *tc.C) {
 func (s *stateSuite) TestImportSequences(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
-	seq, err := state.GetSequencesForExport(context.Background())
+	seq, err := state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.HasLen, 0)
 
-	err = state.ImportSequences(context.Background(), map[string]uint64{
+	err = state.ImportSequences(c.Context(), map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	seq, err = state.GetSequencesForExport(context.Background())
+	seq, err = state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo":     1,
@@ -111,17 +111,17 @@ func (s *stateSuite) TestImportSequences(c *tc.C) {
 func (s *stateSuite) TestImportSequencesTwice(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
-	seq, err := state.GetSequencesForExport(context.Background())
+	seq, err := state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.HasLen, 0)
 
-	err = state.ImportSequences(context.Background(), map[string]uint64{
+	err = state.ImportSequences(c.Context(), map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = state.ImportSequences(context.Background(), map[string]uint64{
+	err = state.ImportSequences(c.Context(), map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
@@ -131,27 +131,27 @@ func (s *stateSuite) TestImportSequencesTwice(c *tc.C) {
 func (s *stateSuite) TestRemoveAllSequences(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
-	seq, err := state.GetSequencesForExport(context.Background())
+	seq, err := state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.HasLen, 0)
 
-	err = state.ImportSequences(context.Background(), map[string]uint64{
+	err = state.ImportSequences(c.Context(), map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	seq, err = state.GetSequencesForExport(context.Background())
+	seq, err = state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.DeepEquals, map[string]uint64{
 		"foo":     1,
 		"foo_bar": 2,
 	})
 
-	err = state.RemoveAllSequences(context.Background())
+	err = state.RemoveAllSequences(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	seq, err = state.GetSequencesForExport(context.Background())
+	seq, err = state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(seq, tc.HasLen, 0)
 }

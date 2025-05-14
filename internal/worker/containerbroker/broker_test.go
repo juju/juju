@@ -4,8 +4,6 @@
 package containerbroker_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -203,7 +201,7 @@ func (s *trackerSuite) withScenario(c *tc.C, expected *broker.Config, behaviours
 	for _, b := range behaviours {
 		b()
 	}
-	return containerbroker.NewTracker(context.Background(), containerbroker.Config{
+	return containerbroker.NewTracker(c.Context(), containerbroker.Config{
 		APICaller:   s.apiCaller,
 		AgentConfig: s.agentConfig,
 		MachineLock: s.machineLock,

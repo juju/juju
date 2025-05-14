@@ -204,7 +204,7 @@ func (s *trackerWorkerSuite) getConfig(c *tc.C, environ environs.Environ) Tracke
 		GetProviderForType: getProviderForType(
 			IAASGetProvider(func(_ context.Context, _ environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
 				c.Assert(invalidator, tc.Not(tc.IsNil))
-				err := invalidator.InvalidateCredentials(context.Background(), "bad")
+				err := invalidator.InvalidateCredentials(c.Context(), "bad")
 				if err != nil {
 					return nil, err
 				}
@@ -315,7 +315,7 @@ func (s *trackerWorkerSuite) expectModelCloudCredentialWatcher(c *tc.C, uuid cor
 }
 
 func (s *trackerWorkerSuite) newWorker(c *tc.C, environ environs.Environ) (*trackerWorker, error) {
-	return newTrackerWorker(context.Background(), s.getConfig(c, environ), s.states)
+	return newTrackerWorker(c.Context(), s.getConfig(c, environ), s.states)
 }
 
 func (s *trackerWorkerSuite) newCloudSpecEnviron() *cloudSpecEnviron {

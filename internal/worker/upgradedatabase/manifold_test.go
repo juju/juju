@@ -4,8 +4,6 @@
 package upgradedatabase
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -94,7 +92,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	s.expectWorker()
 
-	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
+	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }

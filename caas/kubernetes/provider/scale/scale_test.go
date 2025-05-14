@@ -4,8 +4,6 @@
 package scale_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	apps "k8s.io/api/apps/v1"
@@ -26,7 +24,7 @@ var _ = tc.Suite(&ScaleSuite{})
 func (s *ScaleSuite) SetUpTest(c *tc.C) {
 	s.client = fake.NewSimpleClientset()
 	_, err := s.client.CoreV1().Namespaces().Create(
-		context.Background(),
+		c.Context(),
 		&core.Namespace{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "test",
@@ -38,7 +36,7 @@ func (s *ScaleSuite) SetUpTest(c *tc.C) {
 
 func (s *ScaleSuite) TestDeploymentScale(c *tc.C) {
 	_, err := s.client.AppsV1().Deployments("test").Create(
-		context.Background(),
+		c.Context(),
 		&apps.Deployment{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "test",
@@ -51,7 +49,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = scale.PatchReplicasToScale(
-		context.Background(),
+		c.Context(),
 		"test",
 		3,
 		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
@@ -59,7 +57,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	dep, err := s.client.AppsV1().Deployments("test").Get(
-		context.Background(),
+		c.Context(),
 		"test",
 		meta.GetOptions{},
 	)
@@ -67,7 +65,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *tc.C) {
 	c.Assert(*dep.Spec.Replicas, tc.Equals, int32(3))
 
 	err = scale.PatchReplicasToScale(
-		context.Background(),
+		c.Context(),
 		"test",
 		0,
 		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
@@ -75,7 +73,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	dep, err = s.client.AppsV1().Deployments("test").Get(
-		context.Background(),
+		c.Context(),
 		"test",
 		meta.GetOptions{},
 	)
@@ -85,7 +83,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *tc.C) {
 
 func (s *ScaleSuite) TestDeploymentScaleNotFound(c *tc.C) {
 	err := scale.PatchReplicasToScale(
-		context.Background(),
+		c.Context(),
 		"test",
 		3,
 		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
@@ -95,7 +93,7 @@ func (s *ScaleSuite) TestDeploymentScaleNotFound(c *tc.C) {
 
 func (s *ScaleSuite) TestStatefulSetScaleNotFound(c *tc.C) {
 	err := scale.PatchReplicasToScale(
-		context.Background(),
+		c.Context(),
 		"test",
 		3,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
@@ -105,7 +103,7 @@ func (s *ScaleSuite) TestStatefulSetScaleNotFound(c *tc.C) {
 
 func (s *ScaleSuite) TestStatefulSetScale(c *tc.C) {
 	_, err := s.client.AppsV1().StatefulSets("test").Create(
-		context.Background(),
+		c.Context(),
 		&apps.StatefulSet{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "test",
@@ -118,7 +116,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = scale.PatchReplicasToScale(
-		context.Background(),
+		c.Context(),
 		"test",
 		3,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
@@ -126,7 +124,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	ss, err := s.client.AppsV1().StatefulSets("test").Get(
-		context.Background(),
+		c.Context(),
 		"test",
 		meta.GetOptions{},
 	)
@@ -134,7 +132,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *tc.C) {
 	c.Assert(*ss.Spec.Replicas, tc.Equals, int32(3))
 
 	err = scale.PatchReplicasToScale(
-		context.Background(),
+		c.Context(),
 		"test",
 		0,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
@@ -142,7 +140,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	ss, err = s.client.AppsV1().StatefulSets("test").Get(
-		context.Background(),
+		c.Context(),
 		"test",
 		meta.GetOptions{},
 	)
@@ -152,7 +150,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *tc.C) {
 
 func (s *ScaleSuite) TestInvalidScale(c *tc.C) {
 	err := scale.PatchReplicasToScale(
-		context.Background(),
+		c.Context(),
 		"test",
 		-1,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),

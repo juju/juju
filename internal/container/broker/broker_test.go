@@ -321,7 +321,7 @@ func makeNoOpStatusCallback() func(ctx context.Context, settableStatus status.St
 }
 
 func callStartInstance(c *tc.C, s patcher, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
-	return broker.StartInstance(context.Background(), environs.StartInstanceParams{
+	return broker.StartInstance(c.Context(), environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          makePossibleTools(),
 		InstanceConfig: makeInstanceConfig(c, s, machineId),

@@ -132,7 +132,7 @@ For now, we're going to skip these tests.
 	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
 
 	// Ensure the dummy provider is initialised - no need to actually bootstrap.
-	ctx := envtesting.BootstrapContext(context.Background(), c)
+	ctx := envtesting.BootstrapContext(c.Context(), c)
 	err = s.Environ.PrepareForBootstrap(ctx, "controller")
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -143,7 +143,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
-	err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
+	err := controllerConfigService.UpdateControllerConfig(c.Context(), map[string]interface{}{
 		"audit-log-exclude-methods": "Client.FullStatus",
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -156,7 +156,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 			c.Assert(ok, tc.IsTrue)
 			apiInfo.Tag = user
 			apiInfo.Password = password
-			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
+			st, err := api.Open(c.Context(), apiInfo, fastDialOpts)
 			c.Assert(err, tc.ErrorIsNil)
 			defer st.Close()
 			doRequest(apiclient.NewClient(st, loggertesting.WrapCheckLog(c)))
@@ -166,7 +166,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 			c.Assert(ok, tc.IsTrue)
 			apiInfo.Tag = user
 			apiInfo.Password = password
-			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
+			st, err := api.Open(c.Context(), apiInfo, fastDialOpts)
 			c.Assert(err, tc.ErrorIsNil)
 			defer st.Close()
 			doRequest(machinemanager.NewClient(st))
@@ -174,11 +174,11 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 
 		// Make requests in separate API connections so they're separate conversations.
 		makeAPIRequest(func(client *apiclient.Client) {
-			_, err = client.Status(context.Background(), nil)
+			_, err = client.Status(c.Context(), nil)
 			c.Assert(err, tc.ErrorIsNil)
 		})
 		makeMachineAPIRequest(func(client *machinemanager.Client) {
-			_, err = client.AddMachines(context.Background(), []params.AddMachineParams{{
+			_, err = client.AddMachines(c.Context(), []params.AddMachineParams{{
 				Jobs: []coremodel.MachineJob{"JobHostUnits"},
 			}})
 			c.Assert(err, tc.ErrorIsNil)
@@ -193,7 +193,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 		c.Assert(records[1].Request.Method, tc.Equals, "AddMachines")
 
 		// Now update the controller config to remove the exclusion.
-		err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
+		err := controllerConfigService.UpdateControllerConfig(c.Context(), map[string]interface{}{
 			"audit-log-exclude-methods": "",
 		}, nil)
 		c.Assert(err, tc.ErrorIsNil)
@@ -204,7 +204,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *tc.C) {
 		// propagated to the apiserver.
 		for a := coretesting.LongAttempt.Start(); a.Next(); {
 			makeAPIRequest(func(client *apiclient.Client) {
-				_, err = client.Status(context.Background(), nil)
+				_, err = client.Status(c.Context(), nil)
 				c.Assert(err, tc.ErrorIsNil)
 			})
 			// Check to see whether there are more logged requests.
@@ -253,7 +253,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *t
 
 	// invalidate cloud credential for this model
 	domainServices := s.ControllerDomainServices(c)
-	err := domainServices.Credential().InvalidateCredential(context.Background(), testing.DefaultCredentialId, "coz i can")
+	err := domainServices.Credential().InvalidateCredential(c.Context(), testing.DefaultCredentialId, "coz i can")
 	c.Assert(err, tc.ErrorIsNil)
 
 	tracker := agenttest.NewEngineTracker()
@@ -281,7 +281,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *t
 		return &minModelWorkersEnviron{}, nil
 	})
 
-	ctx := context.Background()
+	ctx := c.Context()
 	key := credential.Key{
 		Cloud: "dummy",
 		Owner: user.AdminUserName,
@@ -451,10 +451,10 @@ func (s *MachineLegacySuite) TestManageModelServesAPI(c *tc.C) {
 	s.assertJob(c, state.JobManageModel, nil, func(conf agent.Config, a *MachineAgent) {
 		apiInfo, ok := conf.APIInfo()
 		c.Assert(ok, tc.IsTrue)
-		st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
+		st, err := api.Open(c.Context(), apiInfo, fastDialOpts)
 		c.Assert(err, tc.ErrorIsNil)
 		defer st.Close()
-		m, err := apimachiner.NewClient(st).Machine(context.Background(), conf.Tag().(names.MachineTag))
+		m, err := apimachiner.NewClient(st).Machine(c.Context(), conf.Tag().(names.MachineTag))
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(m.Life(), tc.Equals, life.Alive)
 	})
@@ -470,10 +470,10 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *tc.C) {
 		func(conf agent.Config, a *MachineAgent) {
 			apiInfo, ok := conf.APIInfo()
 			c.Assert(ok, tc.IsTrue)
-			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
+			st, err := api.Open(c.Context(), apiInfo, fastDialOpts)
 			c.Assert(err, tc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
-			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
+			err = a.machineStartup(c.Context(), st, loggertesting.WrapCheckLog(c))
 			c.Assert(err, tc.ErrorIsNil)
 		},
 	)
@@ -489,10 +489,10 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *
 		func(conf agent.Config, a *MachineAgent) {
 			apiInfo, ok := conf.APIInfo()
 			c.Assert(ok, tc.IsTrue)
-			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
+			st, err := api.Open(c.Context(), apiInfo, fastDialOpts)
 			c.Assert(err, tc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
-			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
+			err = a.machineStartup(c.Context(), st, loggertesting.WrapCheckLog(c))
 			c.Assert(err, tc.ErrorMatches, `unknown error`)
 		},
 	)
@@ -508,10 +508,10 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExit
 		func(conf agent.Config, a *MachineAgent) {
 			apiInfo, ok := conf.APIInfo()
 			c.Assert(ok, tc.IsTrue)
-			st, err := api.Open(context.Background(), apiInfo, fastDialOpts)
+			st, err := api.Open(c.Context(), apiInfo, fastDialOpts)
 			c.Assert(err, tc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
-			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
+			err = a.machineStartup(c.Context(), st, loggertesting.WrapCheckLog(c))
 			c.Assert(err, tc.ErrorMatches, `cannot patch /etc/update-manager/release-upgrades: unknown error`)
 		},
 	)
@@ -667,7 +667,7 @@ func (s *MachineLegacySuite) waitStopped(c *tc.C, job state.MachineJob, a *Machi
 
 func (s *MachineLegacySuite) claimSingularLease(c *tc.C) {
 	modelUUID := s.ControllerModelUUID()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		q := `
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES (?, 0, ?, ?, 'machine-999-lxd-99', datetime('now'), datetime('now', '+100 seconds'))`[1:]

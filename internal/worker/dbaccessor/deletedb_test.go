@@ -24,7 +24,7 @@ var _ = tc.Suite(&deleteDBSuite{})
 func (s *deleteDBSuite) TestDeleteDBContentsOnEmptyDB(c *tc.C) {
 	runner := s.TxnRunner()
 
-	err := runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return deleteDBContents(ctx, tx, loggertesting.WrapCheckLog(c))
 	})
 	c.Assert(err, tc.IsNil)
@@ -38,10 +38,10 @@ func (s *deleteDBSuite) TestDeleteDBContentsOnControllerDB(c *tc.C) {
 	// contents, but adds more validation to the function.
 
 	err := database.NewDBMigration(
-		runner, logger, schema.ControllerDDL()).Apply(context.Background())
+		runner, logger, schema.ControllerDDL()).Apply(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return deleteDBContents(ctx, tx, logger)
 	})
 	c.Assert(err, tc.IsNil)
@@ -55,10 +55,10 @@ func (s *deleteDBSuite) TestDeleteDBContentsOnModelDB(c *tc.C) {
 	logger := loggertesting.WrapCheckLog(c)
 
 	err := database.NewDBMigration(
-		runner, logger, schema.ModelDDL()).Apply(context.Background())
+		runner, logger, schema.ModelDDL()).Apply(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return deleteDBContents(ctx, tx, logger)
 	})
 	c.Assert(err, tc.IsNil)

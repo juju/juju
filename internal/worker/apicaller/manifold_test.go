@@ -102,7 +102,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *tc.C) {
 		"agent-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.Equals, dependency.ErrMissing)
 	s.CheckCalls(c, nil)
@@ -111,7 +111,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *tc.C) {
 func (s *ManifoldSuite) TestStartCannotOpenAPI(c *tc.C) {
 	s.SetErrors(errors.New("no api for you"))
 
-	worker, err := s.manifold.Start(context.Background(), s.getter)
+	worker, err := s.manifold.Start(c.Context(), s.getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, `\[deadbe\] "machine-42" cannot open api: no api for you`)
 	s.CheckCalls(c, []testhelpers.StubCall{{
@@ -121,7 +121,7 @@ func (s *ManifoldSuite) TestStartCannotOpenAPI(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
-	worker, err := s.manifold.Start(context.Background(), s.getter)
+	worker, err := s.manifold.Start(c.Context(), s.getter)
 	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, worker)
 	s.CheckCalls(c, []testhelpers.StubCall{{
@@ -131,7 +131,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 }
 
 func (s *ManifoldSuite) setupWorkerTest(c *tc.C) worker.Worker {
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { w.Kill() })
 	return w

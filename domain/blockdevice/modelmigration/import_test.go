@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -51,7 +49,7 @@ func (s *importSuite) TestNoBlockDevices(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	// No import executed.
 	s.service.EXPECT().UpdateBlockDevices(gomock.All(), gomock.Any(), gomock.Any()).Times(0)
@@ -99,6 +97,6 @@ func (s *importSuite) TestImport(c *tc.C) {
 	}).Times(1)
 
 	op := s.newImportOperation()
-	err = op.Execute(context.Background(), model)
+	err = op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }

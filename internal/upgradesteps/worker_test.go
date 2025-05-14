@@ -64,7 +64,7 @@ func (s *baseWorkerSuite) TestRunUpgradeSteps(c *tc.C) {
 	s.expectUpgradeVersion(semversion.MustParse("6.6.6"))
 
 	w := s.newBaseWorker(c, semversion.MustParse("6.6.6"), semversion.MustParse("6.6.6"))
-	fn := w.RunUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
+	fn := w.RunUpgradeSteps(c.Context(), []upgrades.Target{upgrades.Controller})
 	err := fn(s.configSetter)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -84,7 +84,7 @@ func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableTrue(c *tc.C) {
 		return errors.New("boom")
 	}
 
-	fn := w.RunUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
+	fn := w.RunUpgradeSteps(c.Context(), []upgrades.Target{upgrades.Controller})
 	err := fn(s.configSetter)
 	c.Assert(err, tc.ErrorMatches, "API connection lost during upgrade: boom")
 }
@@ -119,7 +119,7 @@ func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableFalse(c *tc.C) {
 		return errors.New("boom")
 	}
 
-	fn := w.RunUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
+	fn := w.RunUpgradeSteps(c.Context(), []upgrades.Target{upgrades.Controller})
 	err := fn(s.configSetter)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }

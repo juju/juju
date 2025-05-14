@@ -64,7 +64,7 @@ func (s *storeSuite) TestAddAgentBinary(c *tc.C) {
 	}).Return(nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err = store.AddAgentBinary(context.Background(), agentBinary,
+	err = store.AddAgentBinary(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.0-beta1"),
 			Arch:   corearch.AMD64,
@@ -81,7 +81,7 @@ func (s *storeSuite) TestAddAgentBinaryFailedInvalidAgentVersion(c *tc.C) {
 	agentBinary := strings.NewReader("test-agent-binary")
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err := store.AddAgentBinary(context.Background(), agentBinary,
+	err := store.AddAgentBinary(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Arch: corearch.AMD64,
 		},
@@ -97,7 +97,7 @@ func (s *storeSuite) TestAddAgentBinaryFailedInvalidArch(c *tc.C) {
 	agentBinary := strings.NewReader("test-agent-binary")
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err := store.AddAgentBinary(context.Background(), agentBinary,
+	err := store.AddAgentBinary(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   "invalid-arch",
@@ -130,7 +130,7 @@ func (s *storeSuite) TestAddAgentBinaryIdempotentSave(c *tc.C) {
 	}).Return(nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err = store.AddAgentBinary(context.Background(), agentBinary,
+	err = store.AddAgentBinary(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
@@ -163,7 +163,7 @@ func (s *storeSuite) TestAddAgentBinaryFailedNotSupportedArchWithBinaryCleanUp(c
 	s.mockObjectStore.EXPECT().Remove(gomock.Any(), "agent-binaries/4.6.8-amd64-test-sha384").Return(nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err = store.AddAgentBinary(context.Background(), agentBinary,
+	err = store.AddAgentBinary(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
@@ -196,7 +196,7 @@ func (s *storeSuite) TestAddAgentBinaryFailedObjectStoreUUIDNotFoundWithBinaryCl
 	s.mockObjectStore.EXPECT().Remove(gomock.Any(), "agent-binaries/4.6.8-amd64-test-sha384").Return(nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err = store.AddAgentBinary(context.Background(), agentBinary,
+	err = store.AddAgentBinary(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
@@ -229,7 +229,7 @@ func (s *storeSuite) TestAddAgentBinaryFailedAgentBinaryImmutableWithBinaryClean
 	s.mockObjectStore.EXPECT().Remove(gomock.Any(), "agent-binaries/4.6.8-amd64-test-sha384").Return(nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err = store.AddAgentBinary(context.Background(), agentBinary,
+	err = store.AddAgentBinary(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
@@ -262,7 +262,7 @@ func (s *storeSuite) TestAddAgentBinaryAlreadyExistsWithNoCleanup(c *tc.C) {
 	}).Return(agentbinaryerrors.AlreadyExists)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err = store.AddAgentBinary(context.Background(), agentBinary,
+	err = store.AddAgentBinary(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
@@ -308,7 +308,7 @@ func (s *storeSuite) TestAddAgentBinaryWithSHA256(c *tc.C) {
 	}).Return(nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err = store.AddAgentBinaryWithSHA256(context.Background(), agentBinary,
+	err = store.AddAgentBinaryWithSHA256(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
@@ -325,7 +325,7 @@ func (s *storeSuite) TestAddAgentBinaryWithSHA256FailedInvalidSHA(c *tc.C) {
 	agentBinary := strings.NewReader("test-agent-binary")
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err := store.AddAgentBinaryWithSHA256(context.Background(), agentBinary,
+	err := store.AddAgentBinaryWithSHA256(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
@@ -338,7 +338,7 @@ func (s *storeSuite) TestAddAgentBinaryWithSHA256FailedInvalidSHA(c *tc.C) {
 	s.mockObjectStore.EXPECT().PutAndCheckHash(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), "invalid-sha",
 	).Return(coreobjectstore.UUID(""), coreobjectstore.ErrHashMismatch)
-	err = store.AddAgentBinary(context.Background(), agentBinary,
+	err = store.AddAgentBinary(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
@@ -356,7 +356,7 @@ func (s *storeSuite) TestAddAgentBinaryWithSHA256FailedInvalidAgentVersion(c *tc
 	sha256Hash, _ := s.calculateSHA(c, "test-agent-binary")
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err := store.AddAgentBinaryWithSHA256(context.Background(), agentBinary,
+	err := store.AddAgentBinaryWithSHA256(c.Context(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.Zero,
 			Arch:   corearch.AMD64,
@@ -388,7 +388,7 @@ func (s *storeSuite) TestGetAgentBinaryForSHA256NoObjectStore(c *tc.C) {
 	).AnyTimes()
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	_, _, err := store.GetAgentBinaryForSHA256(context.Background(), sum)
+	_, _, err := store.GetAgentBinaryForSHA256(c.Context(), sum)
 	c.Check(err, tc.ErrorIs, agentbinaryerrors.NotFound)
 }
 
@@ -404,7 +404,7 @@ func (s *storeSuite) TestGetAgentBinaryForSHA256NotFound(c *tc.C) {
 	s.mockState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(false, nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	_, _, err := store.GetAgentBinaryForSHA256(context.Background(), sum)
+	_, _, err := store.GetAgentBinaryForSHA256(c.Context(), sum)
 	c.Check(err, tc.ErrorIs, agentbinaryerrors.NotFound)
 
 	// This second step tests the not found error via the object store reporting
@@ -414,7 +414,7 @@ func (s *storeSuite) TestGetAgentBinaryForSHA256NotFound(c *tc.C) {
 		nil, 0, intobjectstoreerrors.ObjectNotFound,
 	)
 
-	_, _, err = store.GetAgentBinaryForSHA256(context.Background(), sum)
+	_, _, err = store.GetAgentBinaryForSHA256(c.Context(), sum)
 	c.Check(err, tc.ErrorIs, agentbinaryerrors.NotFound)
 }
 
@@ -428,6 +428,6 @@ func (s *storeSuite) TestGetAgentBinaryForSHA256(c *tc.C) {
 	)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	_, _, err := store.GetAgentBinaryForSHA256(context.Background(), sum)
+	_, _, err := store.GetAgentBinaryForSHA256(c.Context(), sum)
 	c.Check(err, tc.ErrorIsNil)
 }

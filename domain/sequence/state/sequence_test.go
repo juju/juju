@@ -32,7 +32,7 @@ func (s *sequenceSuite) SetUpTest(c *tc.C) {
 
 func (s *sequenceSuite) TestSequenceStaticNamespace(c *tc.C) {
 	var next uint64
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		next, err = NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("foo"))
 		return err
@@ -40,7 +40,7 @@ func (s *sequenceSuite) TestSequenceStaticNamespace(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(next, tc.Equals, uint64(0))
 
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		next, err = NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("foo"))
 		return err
@@ -51,7 +51,7 @@ func (s *sequenceSuite) TestSequenceStaticNamespace(c *tc.C) {
 
 func (s *sequenceSuite) TestSequencePrefixNamespace(c *tc.C) {
 	var next uint64
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		next, err = NextValue(ctx, s.state, tx, domainsequence.MakePrefixNamespace(domainsequence.StaticNamespace("foo"), "bar"))
 		return err
@@ -59,7 +59,7 @@ func (s *sequenceSuite) TestSequencePrefixNamespace(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(next, tc.Equals, uint64(0))
 
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		next, err = NextValue(ctx, s.state, tx, domainsequence.MakePrefixNamespace(domainsequence.StaticNamespace("foo"), "bar"))
 		return err
@@ -77,7 +77,7 @@ func (s *sequenceSuite) TestSequenceMultiple(c *tc.C) {
 			defer wg.Done()
 
 			var next uint64
-			err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+			err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 				var err error
 				next, err = NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("foo"))
 				return err

@@ -4,7 +4,6 @@
 package s3client
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -36,7 +35,7 @@ func (s *s3ClientSuite) TestObjectExists(c *tc.C) {
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = client.ObjectExists(context.Background(), "bucket", "object")
+	err = client.ObjectExists(c.Context(), "bucket", "object")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -52,7 +51,7 @@ func (s *s3ClientSuite) TestObjectExistsNotFound(c *tc.C) {
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = client.ObjectExists(context.Background(), "bucket", "object")
+	err = client.ObjectExists(c.Context(), "bucket", "object")
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -68,7 +67,7 @@ func (s *s3ClientSuite) TestObjectExistsForbidden(c *tc.C) {
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = client.ObjectExists(context.Background(), "bucket", "object")
+	err = client.ObjectExists(c.Context(), "bucket", "object")
 	c.Assert(err, tc.ErrorIs, errors.Forbidden)
 }
 
@@ -85,7 +84,7 @@ func (s *s3ClientSuite) TestGetObject(c *tc.C) {
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	resp, size, hash, err := client.GetObject(context.Background(), "bucket", "object")
+	resp, size, hash, err := client.GetObject(c.Context(), "bucket", "object")
 	c.Assert(err, tc.ErrorIsNil)
 
 	blob, err := io.ReadAll(resp)
@@ -125,7 +124,7 @@ func (s *s3ClientSuite) TestPutObject(c *tc.C) {
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = client.PutObject(context.Background(), "bucket", "object", strings.NewReader("blob"), hash)
+	err = client.PutObject(c.Context(), "bucket", "object", strings.NewReader("blob"), hash)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -142,7 +141,7 @@ func (s *s3ClientSuite) TestDeleteObject(c *tc.C) {
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = client.DeleteObject(context.Background(), "bucket", "object")
+	err = client.DeleteObject(c.Context(), "bucket", "object")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -159,7 +158,7 @@ func (s *s3ClientSuite) TestCreateBucket(c *tc.C) {
 	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = client.CreateBucket(context.Background(), "bucket")
+	err = client.CreateBucket(c.Context(), "bucket")
 	c.Assert(err, tc.ErrorIsNil)
 }
 

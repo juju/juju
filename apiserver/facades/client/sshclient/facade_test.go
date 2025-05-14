@@ -4,7 +4,6 @@
 package sshclient_test
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -111,7 +110,7 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
-	results, err := facade.PublicAddress(context.Background(), args)
+	results, err := facade.PublicAddress(c.Context(), args)
 	// Check this was an error permission
 	c.Assert(err, tc.ErrorMatches, apiservererrors.ErrPerm.Error())
 	c.Assert(results, tc.DeepEquals, params.SSHAddressResults{})
@@ -147,7 +146,7 @@ func (s *facadeSuite) TestSuperUserAuth(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
-	results, err := facade.PublicAddress(context.Background(), args)
+	results, err := facade.PublicAddress(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{{
@@ -189,7 +188,7 @@ func (s *facadeSuite) TestPublicAddress(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}, {names.NewUnitTag("foo/0").String()}},
 	}
-	results, err := facade.PublicAddress(context.Background(), args)
+	results, err := facade.PublicAddress(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{
@@ -231,7 +230,7 @@ func (s *facadeSuite) TestPrivateAddress(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewUnitTag("foo/0").String()}, {names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
-	results, err := facade.PrivateAddress(context.Background(), args)
+	results, err := facade.PrivateAddress(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{
@@ -293,7 +292,7 @@ func (s *facadeSuite) TestAllAddresses(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewUnitTag("foo/0").String()}, {names.NewMachineTag("0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
-	results, err := facade.AllAddresses(context.Background(), args)
+	results, err := facade.AllAddresses(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.SSHAddressesResults{
 		Results: []params.SSHAddressesResult{
@@ -351,7 +350,7 @@ func (s *facadeSuite) TestPublicKeys(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{names.NewMachineTag("0").String()}, {names.NewUnitTag("foo/0").String()}, {names.NewUnitTag("app/0").String()}},
 	}
-	results, err := facade.PublicKeys(context.Background(), args)
+	results, err := facade.PublicKeys(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.SSHPublicKeysResults{
 		Results: []params.SSHPublicKeysResult{
@@ -389,7 +388,7 @@ func (s *facadeSuite) TestProxyTrue(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.Proxy(context.Background())
+	result, err := facade.Proxy(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.UseProxy, tc.IsTrue)
 }
@@ -421,7 +420,7 @@ func (s *facadeSuite) TestProxyFalse(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.Proxy(context.Background())
+	result, err := facade.Proxy(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.UseProxy, tc.IsFalse)
 }
@@ -447,7 +446,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.ModelCredentialForSSH(context.Background())
+	result, err := facade.ModelCredentialForSSH(c.Context())
 	c.Assert(err, tc.Equals, apiservererrors.ErrPerm)
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.Result, tc.IsNil)
@@ -486,7 +485,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.ModelCredentialForSSH(context.Background())
+	result, err := facade.ModelCredentialForSSH(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiservererrors.RestoreError(result.Error), tc.ErrorMatches, `cloud spec "name" has empty credential not valid`)
 	c.Assert(result.Result, tc.IsNil)
@@ -558,7 +557,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.ModelCredentialForSSH(context.Background())
+	result, err := facade.ModelCredentialForSSH(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.Result, tc.DeepEquals, &params.CloudSpec{
@@ -628,7 +627,7 @@ func (s *facadeSuite) TestGetVirtualHostnameForEntity(c *tc.C) {
 		},
 	}
 	for _, t := range tests {
-		ctx := context.Background()
+		ctx := c.Context()
 		s.authorizer.EXPECT().HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).Return(authentication.ErrorEntityMissingPermission).Times(1)
 		s.authorizer.EXPECT().HasPermission(ctx, permission.AdminAccess, names.NewModelTag(s.modelUUID.String())).Return(nil).Times(1)
 		c.Log(t.name)

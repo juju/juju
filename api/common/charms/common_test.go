@@ -4,8 +4,6 @@
 package charms_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -95,7 +93,7 @@ func (s *suite) TestCharmInfo(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CharmInfo", args, info).SetArg(3, params).Return(nil)
 
 	client := apicommoncharms.NewCharmInfoClient(mockFacadeCaller)
-	got, err := client.CharmInfo(context.Background(), url)
+	got, err := client.CharmInfo(c.Context(), url)
 	c.Assert(err, tc.IsNil)
 
 	want := &apicommoncharms.CharmInfo{
@@ -187,7 +185,7 @@ func (s *suite) TestApplicationCharmInfo(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationCharmInfo", args, info).SetArg(3, params).Return(nil)
 
 	client := apicommoncharms.NewApplicationCharmInfoClient(mockFacadeCaller)
-	got, err := client.ApplicationCharmInfo(context.Background(), "foobar")
+	got, err := client.ApplicationCharmInfo(c.Context(), "foobar")
 	c.Assert(err, tc.IsNil)
 
 	want := &apicommoncharms.CharmInfo{

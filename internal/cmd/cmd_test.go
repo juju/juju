@@ -38,7 +38,7 @@ func (s *CmdSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *CmdSuite) TestContext(c *tc.C) {
-	c.Check(s.ctx.Context, tc.DeepEquals, context.Background())
+	c.Check(s.ctx.Context, tc.DeepEquals, c.Context())
 	c.Check(s.ctx.AbsPath("/foo/bar"), tc.Equals, "/foo/bar")
 	c.Check(s.ctx.AbsPath("/foo/../bar"), tc.Equals, "/bar")
 	c.Check(s.ctx.AbsPath("foo/bar"), tc.Equals, filepath.Join(s.ctx.Dir, "foo/bar"))
@@ -47,7 +47,7 @@ func (s *CmdSuite) TestContext(c *tc.C) {
 }
 
 func (s *CmdSuite) TestWith(c *tc.C) {
-	cancelCtx, cancel := context.WithCancel(context.Background())
+	cancelCtx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 	ctx := s.ctx.With(cancelCtx)
 	c.Assert(ctx.Context, tc.DeepEquals, cancelCtx)

@@ -4,7 +4,6 @@
 package context_test
 
 import (
-	stdcontext "context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -63,7 +62,7 @@ func (s *ContextFactorySuite) setupContextFactory(c *tc.C, ctrl *gomock.Controll
 	cfg := coretesting.ModelConfig(c)
 	s.uniter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
-	contextFactory, err := context.NewContextFactory(stdcontext.Background(), context.FactoryConfig{
+	contextFactory, err := context.NewContextFactory(c.Context(), context.FactoryConfig{
 		Uniter:           s.uniter,
 		Unit:             s.unit,
 		Tracker:          &runnertesting.FakeTracker{},
@@ -85,7 +84,7 @@ func (s *ContextFactorySuite) setupCacheMethods(c *tc.C) {
 	// begin with. Creating and discarding a context lets us call updateCache
 	// without panicking. (IMO this is less invasive that making updateCache
 	// responsible for creating missing caches etc.)
-	_, err := s.factory.HookContext(stdcontext.Background(), hook.Info{Kind: hooks.Install})
+	_, err := s.factory.HookContext(c.Context(), hook.Info{Kind: hooks.Install})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -125,7 +124,7 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *tc.C) {
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	}
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hi)
+	ctx, err := s.factory.HookContext(c.Context(), hi)
 	c.Assert(err, tc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
@@ -163,7 +162,7 @@ func (s *ContextFactorySuite) TestWorkloadHookContext(c *tc.C) {
 		},
 	}
 	for _, hi := range infos {
-		ctx, err := s.factory.HookContext(stdcontext.Background(), hi)
+		ctx, err := s.factory.HookContext(c.Context(), hi)
 		c.Assert(err, tc.ErrorIsNil)
 		s.AssertCoreContext(c, ctx)
 		s.AssertNotActionContext(c, ctx)
@@ -193,7 +192,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *tc.C) {
 		Location: "/dev/sdb",
 	}, nil).AnyTimes()
 
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{
+	ctx, err := s.factory.HookContext(c.Context(), hook.Info{
 		Kind:      hooks.StorageAttached,
 		StorageId: "data/0",
 	})
@@ -223,7 +222,7 @@ func (s *ContextFactorySuite) TestSecretHookContext(c *tc.C) {
 		SecretLabel:    "label",
 		SecretRevision: 666,
 	}
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hi)
+	ctx, err := s.factory.HookContext(c.Context(), hi)
 	c.Assert(err, tc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertSecretContext(c, ctx, hi.SecretURI, hi.SecretLabel, hi.SecretRevision)
@@ -239,7 +238,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *tc.C) {
 	s.modelType = types.CAAS
 	s.setupContextFactory(c, ctrl)
 
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{
+	ctx, err := s.factory.HookContext(c.Context(), hook.Info{
 		Kind: hooks.ConfigChanged,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -263,7 +262,7 @@ func (s *ContextFactorySuite) TestActionContext(c *tc.C) {
 		ResultsMap: map[string]interface{}{},
 	}
 
-	ctx, err := s.factory.ActionContext(stdcontext.Background(), actionData)
+	ctx, err := s.factory.ActionContext(c.Context(), actionData)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.AssertCoreContext(c, ctx)
@@ -277,7 +276,7 @@ func (s *ContextFactorySuite) TestCommandContext(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
 
-	ctx, err := s.factory.CommandContext(stdcontext.Background(), context.CommandInfo{RelationId: -1})
+	ctx, err := s.factory.CommandContext(c.Context(), context.CommandInfo{RelationId: -1})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.AssertCoreContext(c, ctx)
@@ -291,7 +290,7 @@ func (s *ContextFactorySuite) TestCommandContextNoRelation(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
 
-	ctx, err := s.factory.CommandContext(stdcontext.Background(), context.CommandInfo{RelationId: -1})
+	ctx, err := s.factory.CommandContext(c.Context(), context.CommandInfo{RelationId: -1})
 	c.Assert(err, tc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
@@ -304,7 +303,7 @@ func (s *ContextFactorySuite) TestNewCommandContextForceNoRemoteUnit(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
 
-	ctx, err := s.factory.CommandContext(stdcontext.Background(), context.CommandInfo{
+	ctx, err := s.factory.CommandContext(c.Context(), context.CommandInfo{
 		RelationId: 0, ForceRemoteUnit: true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -319,7 +318,7 @@ func (s *ContextFactorySuite) TestNewCommandContextForceRemoteUnitMissing(c *tc.
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
 
-	ctx, err := s.factory.CommandContext(stdcontext.Background(), context.CommandInfo{
+	ctx, err := s.factory.CommandContext(c.Context(), context.CommandInfo{
 		// TODO(jam): 2019-10-23 Add RemoteApplicationName
 		RelationId: 0, RemoteUnitName: "blah/123", ForceRemoteUnit: true,
 	})
@@ -337,7 +336,7 @@ func (s *ContextFactorySuite) TestNewCommandContextInferRemoteUnit(c *tc.C) {
 
 	// TODO(jam): 2019-10-23 Add RemoteApplicationName
 	s.membership[0] = []string{"foo/2"}
-	ctx, err := s.factory.CommandContext(stdcontext.Background(), context.CommandInfo{RelationId: 0})
+	ctx, err := s.factory.CommandContext(c.Context(), context.CommandInfo{RelationId: 0})
 	c.Assert(err, tc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
@@ -359,7 +358,7 @@ func (s *ContextFactorySuite) TestNewHookContextPrunesNonMemberCaches(c *tc.C) {
 	s.relunits[0].EXPECT().ReadSettings(gomock.Any(), "rel0/0").Return(nil, nil).AnyTimes()
 	s.relunits[0].EXPECT().ReadSettings(gomock.Any(), "rel0/1").Return(nil, nil).AnyTimes()
 
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{Kind: hooks.Install})
+	ctx, err := s.factory.HookContext(c.Context(), hook.Info{Kind: hooks.Install})
 	c.Assert(err, tc.ErrorIsNil)
 
 	settings0, found := s.getCache(0, "rel0/0")
@@ -376,7 +375,7 @@ func (s *ContextFactorySuite) TestNewHookContextPrunesNonMemberCaches(c *tc.C) {
 
 	// Verify that the settings really were cached by trying to look them up.
 	// Nothing's really in scope, so the call would fail if they weren't.
-	settings0, err = relCtx.ReadSettings(stdcontext.Background(), "rel0/0")
+	settings0, err = relCtx.ReadSettings(c.Context(), "rel0/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings0, tc.DeepEquals, params.Settings{"keep": "me"})
 }
@@ -391,7 +390,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationJoinedUpdatesRelationCon
 	s.membership[1] = []string{"r/0"}
 	s.updateCache(1, "r/0", params.Settings{"foo": "bar"})
 
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{
+	ctx, err := s.factory.HookContext(c.Context(), hook.Info{
 		Kind:              hooks.RelationJoined,
 		RelationId:        1,
 		RemoteUnit:        "r/0",
@@ -421,7 +420,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	s.updateCache(1, "r/4", params.Settings{"baz": "qux"})
 	s.updateAppCache(1, "r", params.Settings{"frob": "nizzle"})
 
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{
+	ctx, err := s.factory.HookContext(c.Context(), hook.Info{
 		Kind:              hooks.RelationChanged,
 		RelationId:        1,
 		RemoteUnit:        "r/4",
@@ -464,7 +463,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	c.Assert(cachedApp, tc.DeepEquals, params.Settings{"baz": "quux"})
 	c.Assert(found, tc.IsTrue)
 
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{
+	ctx, err := s.factory.HookContext(c.Context(), hook.Info{
 		Kind:              hooks.RelationChanged,
 		RelationId:        1,
 		RemoteApplication: "r",
@@ -499,7 +498,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationDepartedUpdatesRelationC
 	s.updateCache(1, "r/0", params.Settings{"foo": "bar"})
 	s.updateCache(1, "r/4", params.Settings{"baz": "qux"})
 
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{
+	ctx, err := s.factory.HookContext(c.Context(), hook.Info{
 		Kind:          hooks.RelationDeparted,
 		RelationId:    1,
 		RemoteUnit:    "r/0",
@@ -535,7 +534,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *t
 	s.updateCache(1, "r/0", params.Settings{"foo": "bar"})
 	s.updateCache(1, "r/4", params.Settings{"baz": "qux"})
 
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{
+	ctx, err := s.factory.HookContext(c.Context(), hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	})
@@ -576,7 +575,7 @@ func (s *ContextFactorySuite) TestRelationIsPeerHookContext(c *tc.C) {
 		Kind:       hooks.RelationBroken,
 		RelationId: relId,
 	}
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hi)
+	ctx, err := s.factory.HookContext(c.Context(), hi)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(context.RelationBroken(ctx, relId), tc.IsFalse)
 

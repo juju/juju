@@ -4,8 +4,6 @@
 package caasapplication_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -79,7 +77,7 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 func (s *CAASApplicationSuite) TestUnitIntroductionMissingName(c *tc.C) {
 	defer s.setupMocks(c, "application-gitlab").Finish()
 
-	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
+	result, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
 		PodUUID: "pod-uuid",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -91,7 +89,7 @@ func (s *CAASApplicationSuite) TestUnitIntroductionMissingName(c *tc.C) {
 func (s *CAASApplicationSuite) TestUnitIntroductionMissingUUID(c *tc.C) {
 	defer s.setupMocks(c, "application-gitlab").Finish()
 
-	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
+	result, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -144,7 +142,7 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 	confBytes, err := expectedConf.Render()
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
+	result, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
@@ -160,7 +158,7 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 func (s *CAASApplicationSuite) TestUnitIntroductionPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c, "unit-gitlab-666").Finish()
 
-	_, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
+	_, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
@@ -174,7 +172,7 @@ func (s *CAASApplicationSuite) TestUnitIntroductionApplicationNotFound(c *tc.C) 
 		ApplicationName: "gitlab",
 		ProviderID:      "gitlab-666",
 	}).Return("", "", applicationerrors.ApplicationNotFound)
-	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
+	result, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
@@ -191,7 +189,7 @@ func (s *CAASApplicationSuite) TestUnitIntroductionApplicationNotAlive(c *tc.C) 
 		ApplicationName: "gitlab",
 		ProviderID:      "gitlab-666",
 	}).Return("", "", applicationerrors.ApplicationNotAlive)
-	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
+	result, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
@@ -208,7 +206,7 @@ func (s *CAASApplicationSuite) TestUnitIntroductionUnitNotAssigned(c *tc.C) {
 		ApplicationName: "gitlab",
 		ProviderID:      "gitlab-666",
 	}).Return("", "", applicationerrors.UnitNotAssigned)
-	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
+	result, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
@@ -225,7 +223,7 @@ func (s *CAASApplicationSuite) TestUnitIntroductionUnitAlreadyExists(c *tc.C) {
 		ApplicationName: "gitlab",
 		ProviderID:      "gitlab-666",
 	}).Return("", "", applicationerrors.UnitAlreadyExists)
-	result, err := s.facade.UnitIntroduction(context.Background(), params.CAASUnitIntroductionArgs{
+	result, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
 		PodName: "gitlab-666",
 		PodUUID: "pod-uuid",
 	})
@@ -240,7 +238,7 @@ func (s *CAASApplicationSuite) TestUnitTerminating(c *tc.C) {
 
 	s.applicationService.EXPECT().CAASUnitTerminating(gomock.Any(), "gitlab/666").Return(true, nil)
 
-	result, err := s.facade.UnitTerminating(context.Background(), params.Entity{
+	result, err := s.facade.UnitTerminating(c.Context(), params.Entity{
 		Tag: "unit-gitlab-666",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -254,7 +252,7 @@ func (s *CAASApplicationSuite) TestUnitTerminatingNotFound(c *tc.C) {
 
 	s.applicationService.EXPECT().CAASUnitTerminating(gomock.Any(), "gitlab/666").Return(false, applicationerrors.UnitNotFound)
 
-	result, err := s.facade.UnitTerminating(context.Background(), params.Entity{
+	result, err := s.facade.UnitTerminating(c.Context(), params.Entity{
 		Tag: "unit-gitlab-666",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -269,7 +267,7 @@ func (s *CAASApplicationSuite) TestUnitTerminatingNotFound(c *tc.C) {
 func (s *CAASApplicationSuite) TestUnitTerminatingPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c, "unit-gitlab-666").Finish()
 
-	_, err := s.facade.UnitTerminating(context.Background(), params.Entity{
+	_, err := s.facade.UnitTerminating(c.Context(), params.Entity{
 		Tag: "unit-mysql-666",
 	})
 	c.Assert(err, tc.ErrorMatches, "permission denied")

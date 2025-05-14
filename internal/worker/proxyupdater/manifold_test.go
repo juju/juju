@@ -4,8 +4,6 @@
 package proxyupdater_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
@@ -64,7 +62,7 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 func (s *ManifoldSuite) TestWorkerFuncMissing(c *tc.C) {
 	s.config.WorkerFunc = nil
 	getter := dt.StubGetter(nil)
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "missing WorkerFunc not valid")
 }
@@ -72,7 +70,7 @@ func (s *ManifoldSuite) TestWorkerFuncMissing(c *tc.C) {
 func (s *ManifoldSuite) TestInProcessUpdateMissing(c *tc.C) {
 	s.config.InProcessUpdate = nil
 	getter := dt.StubGetter(nil)
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "missing InProcessUpdate not valid")
 }
@@ -82,7 +80,7 @@ func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
 		"agent-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -93,7 +91,7 @@ func (s *ManifoldSuite) TestStartAPICallerMissing(c *tc.C) {
 		"api-caller-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -105,7 +103,7 @@ func (s *ManifoldSuite) TestStartError(c *tc.C) {
 		"api-caller-name": &dummyAPICaller{},
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "boom")
 }
@@ -116,7 +114,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 		"api-caller-name": &dummyAPICaller{},
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(err, tc.ErrorIsNil)
 	dummy, ok := worker.(*dummyWorker)
 	c.Assert(ok, tc.IsTrue)

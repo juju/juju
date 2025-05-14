@@ -4,7 +4,6 @@
 package uniter_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -112,7 +111,7 @@ func (s *applicationSuite) apiCallerFunc(c *tc.C) basetesting.APICallerFunc {
 func (s *applicationSuite) TestNameTagAndString(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	tag := names.NewApplicationTag("mysql")
-	app, err := client.Application(context.Background(), tag)
+	app, err := client.Application(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(app.Name(), tc.Equals, "mysql")
 	c.Assert(app.String(), tc.Equals, "mysql")
@@ -122,10 +121,10 @@ func (s *applicationSuite) TestNameTagAndString(c *tc.C) {
 
 func (s *applicationSuite) TestWatch(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
+	app, err := client.Application(c.Context(), names.NewApplicationTag("mysql"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	w, err := app.Watch(context.Background())
+	w, err := app.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
@@ -141,21 +140,21 @@ func (s *applicationSuite) TestWatch(c *tc.C) {
 
 func (s *applicationSuite) TestRefresh(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
+	app, err := client.Application(c.Context(), names.NewApplicationTag("mysql"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.life = life.Dying
-	err = app.Refresh(context.Background())
+	err = app.Refresh(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(app.Life(), tc.Equals, life.Dying)
 }
 
 func (s *applicationSuite) TestCharmURL(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
+	app, err := client.Application(c.Context(), names.NewApplicationTag("mysql"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	curl, force, err := app.CharmURL(context.Background())
+	curl, force, err := app.CharmURL(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(curl, tc.Equals, "ch:mysql")
 	c.Assert(force, tc.IsTrue)
@@ -163,30 +162,30 @@ func (s *applicationSuite) TestCharmURL(c *tc.C) {
 
 func (s *applicationSuite) TestCharmModifiedVersion(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
+	app, err := client.Application(c.Context(), names.NewApplicationTag("mysql"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	ver, err := app.CharmModifiedVersion(context.Background())
+	ver, err := app.CharmModifiedVersion(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ver, tc.Equals, 1)
 }
 
 func (s *applicationSuite) TestSetApplicationStatus(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
+	app, err := client.Application(c.Context(), names.NewApplicationTag("mysql"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = app.SetStatus(context.Background(), "mysql/0", status.Blocked, "app blocked", map[string]interface{}{"foo": "bar"})
+	err = app.SetStatus(c.Context(), "mysql/0", status.Blocked, "app blocked", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.statusSet, tc.IsTrue)
 }
 
 func (s *applicationSuite) TestApplicationStatus(c *tc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
+	app, err := client.Application(c.Context(), names.NewApplicationTag("mysql"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	status, err := app.Status(context.Background(), "mysql/0")
+	status, err := app.Status(c.Context(), "mysql/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status, tc.DeepEquals, params.ApplicationStatusResult{
 		Application: params.StatusResult{Status: "alive"},

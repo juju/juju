@@ -80,7 +80,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *tc.C) {
 		"api-caller": s.fakeCaller,
 	})
 
-	w, err := manifold.Start(context.Background(), getter)
+	w, err := manifold.Start(c.Context(), getter)
 	c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	c.Assert(w, tc.IsNil)
 }
@@ -95,7 +95,7 @@ func (s *ManifoldSuite) TestStartMissingAPI(c *tc.C) {
 		"api-caller": dependency.ErrMissing,
 	})
 
-	w, err := manifold.Start(context.Background(), getter)
+	w, err := manifold.Start(c.Context(), getter)
 	c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	c.Assert(w, tc.IsNil)
 }
@@ -107,7 +107,7 @@ func (s *ManifoldSuite) TestStartFacadeValueError(c *tc.C) {
 		NewFacade:     s.newFacade(&fakeFacadeErr{err: errors.New("blop")}),
 	})
 
-	w, err := manifold.Start(context.Background(), s.getter)
+	w, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "blop")
 	c.Assert(w, tc.IsNil)
 }
@@ -120,7 +120,7 @@ func (s *ManifoldSuite) TestStartWorkerError(c *tc.C) {
 		NewWorker:     s.newWorker(nil, errors.New("blam")),
 	})
 
-	w, err := manifold.Start(context.Background(), s.getter)
+	w, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "blam")
 	c.Assert(w, tc.IsNil)
 }
@@ -134,7 +134,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 		NewWorker:     s.newWorker(fakeWorker, nil),
 	})
 
-	w, err := manifold.Start(context.Background(), s.getter)
+	w, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.Equals, fakeWorker)
 }
@@ -147,7 +147,7 @@ func (s *ManifoldSuite) TestOutputSuccess(c *tc.C) {
 		NewWorker:     retrystrategy.NewRetryStrategyWorker,
 	})
 
-	w, err := manifold.Start(context.Background(), s.getter)
+	w, err := manifold.Start(c.Context(), s.getter)
 	s.AddCleanup(func(c *tc.C) { w.Kill() })
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -165,7 +165,7 @@ func (s *ManifoldSuite) TestOutputBadInput(c *tc.C) {
 		NewWorker:     s.newWorker(&fakeWorker{}, nil),
 	})
 
-	w, err := manifold.Start(context.Background(), s.getter)
+	w, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var out params.RetryStrategy
@@ -182,7 +182,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 		NewWorker:     retrystrategy.NewRetryStrategyWorker,
 	})
 
-	w, err := manifold.Start(context.Background(), s.getter)
+	w, err := manifold.Start(c.Context(), s.getter)
 	s.AddCleanup(func(c *tc.C) { w.Kill() })
 	c.Assert(err, tc.ErrorIsNil)
 

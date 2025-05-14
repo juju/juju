@@ -4,7 +4,6 @@
 package jwt_test
 
 import (
-	"context"
 	"encoding/base64"
 	"net/http"
 
@@ -53,21 +52,21 @@ func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(authInfo.Entity.Tag().String(), tc.Equals, "user-fred")
-	perm, err := authInfo.SubjectPermissions(context.Background(), permission.ID{
+	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.WriteAccess)
 
-	perm, err = authInfo.SubjectPermissions(context.Background(), permission.ID{
+	perm, err = authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        testing.ControllerTag.Id(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.LoginAccess)
 
-	perm, err = authInfo.SubjectPermissions(context.Background(), permission.ID{
+	perm, err = authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Offer,
 		Key:        applicationOfferTag.Id(),
 	})
@@ -117,25 +116,25 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *tc.C) {
 
 	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
-	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
+	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(authInfo.Entity.Tag().String(), tc.Equals, "user-fred")
-	perm, err := authInfo.SubjectPermissions(context.Background(), permission.ID{
+	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.WriteAccess)
 
-	perm, err = authInfo.SubjectPermissions(context.Background(), permission.ID{
+	perm, err = authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        testing.ControllerTag.Id(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.LoginAccess)
 
-	perm, err = authInfo.SubjectPermissions(context.Background(), permission.ID{
+	perm, err = authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Offer,
 		Key:        applicationOfferTag.Id(),
 	})
@@ -166,13 +165,13 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *tc.C) {
 
 	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
-	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
+	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	badUser := jwt.TokenEntity{
 		User: names.NewUserTag("wallyworld"),
 	}
-	perm, err := authInfo.Delegator.SubjectPermissions(context.Background(), badUser.User.Id(), permission.ID{
+	perm, err := authInfo.Delegator.SubjectPermissions(c.Context(), badUser.User.Id(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
 	})
@@ -183,7 +182,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *tc.C) {
 	badUser = jwt.TokenEntity{
 		User: names.NewUserTag(permission.EveryoneUserName.Name()),
 	}
-	perm, err = authInfo.Delegator.SubjectPermissions(context.Background(), badUser.User.Id(), permission.ID{
+	perm, err = authInfo.Delegator.SubjectPermissions(c.Context(), badUser.User.Id(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
 	})
@@ -207,12 +206,12 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *tc.C) {
 
 	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
-	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
+	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(authInfo.Entity.Tag().String(), tc.Equals, "user-fred")
 
-	perm, err := authInfo.SubjectPermissions(context.Background(), permission.ID{
+	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        testing.ControllerTag.Id(),
 	})
@@ -224,7 +223,7 @@ func (s *loginTokenSuite) TestNotAvailableJWTParser(c *tc.C) {
 	authenticator := jwt.NewAuthenticator(&testJWTParser{notReady: true})
 
 	params := authentication.AuthParams{Token: "token"}
-	_, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
+	_, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 
 	req, err := http.NewRequest("", "", nil)

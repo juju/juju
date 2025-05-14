@@ -89,7 +89,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *tc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}},
 	}
-	result, err := api.ModelStatus(context.Background(), req)
+	result, err := api.ModelStatus(c.Context(), req)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, "permission denied")
 }
@@ -118,7 +118,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *tc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: model.ModelTag().String()}},
 	}
-	_, err = api.ModelStatus(context.Background(), req)
+	_, err = api.ModelStatus(c.Context(), req)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -158,7 +158,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 		s.authorizer,
 		s.authorizer.GetAuthTag().(names.UserTag),
 	)
-	result, err := modelStatusAPI.ModelStatus(context.Background(), req)
+	result, err := modelStatusAPI.ModelStatus(c.Context(), req)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, expected)
 }

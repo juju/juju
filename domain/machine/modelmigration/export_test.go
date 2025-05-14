@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -55,7 +53,7 @@ func (s *exportSuite) TestFailGetInstanceIDForExport(c *tc.C) {
 		Return("", errors.New("boom"))
 
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorMatches, "retrieving instance ID for machine \"deadbeef\": boom")
 }
 
@@ -77,7 +75,7 @@ func (s *exportSuite) TestFailGetHardwareCharacteristicsForExport(c *tc.C) {
 		Return(nil, errors.New("boom"))
 
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorMatches, "retrieving hardware characteristics for machine \"deadbeef\": boom")
 }
 
@@ -111,7 +109,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		Return(&hc, nil)
 
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 
 	actualMachines := dst.Machines()

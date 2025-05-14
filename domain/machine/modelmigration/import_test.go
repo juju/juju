@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
@@ -55,7 +53,7 @@ func (s *importSuite) TestNoMachines(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -69,7 +67,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("666")).Times(1)
 
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -85,7 +83,7 @@ func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *tc.C) {
 		Return("", errors.New("boom"))
 
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, "importing machine(.*)boom")
 }
 
@@ -100,7 +98,7 @@ func (s *importSuite) TestImportMachineWithoutCloudInstance(c *tc.C) {
 	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"))
 
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -149,7 +147,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 	).Return(errors.New("boom"))
 
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, "importing machine cloud instance(.*)boom")
 }
 
@@ -198,6 +196,6 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 	).Return(nil)
 
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }

@@ -46,7 +46,7 @@ func (s *leadershipSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -77,14 +77,14 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 	u1 := application.AddUnitArg{}
 	s.createApplication(c, "foo", u1)
 
-	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/0", status.StatusInfo{
+	err := svc.SetApplicationStatusForUnitLeader(c.Context(), "foo/0", status.StatusInfo{
 		Status: status.Active,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	close(done)
 
-	appStatus, err := svc.GetApplicationDisplayStatus(context.Background(), "foo")
+	appStatus, err := svc.GetApplicationDisplayStatus(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(appStatus.Status, tc.Equals, status.Active)
 }
@@ -112,7 +112,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *t
 	u1 := application.AddUnitArg{}
 	s.createApplication(c, "foo", u1)
 
-	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/0", status.StatusInfo{
+	err := svc.SetApplicationStatusForUnitLeader(c.Context(), "foo/0", status.StatusInfo{
 		Status: status.Active,
 	})
 	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotLeader)
@@ -139,7 +139,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 	u1 := application.AddUnitArg{}
 	s.createApplication(c, "foo", u1)
 
-	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/0", status.StatusInfo{
+	err := svc.SetApplicationStatusForUnitLeader(c.Context(), "foo/0", status.StatusInfo{
 		Status: status.Active,
 	})
 	c.Assert(err, tc.ErrorIs, context.Canceled)
@@ -188,7 +188,7 @@ func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...appli
 		Risk:   "stable",
 		Branch: "branch",
 	}
-	ctx := context.Background()
+	ctx := c.Context()
 
 	appID, err := appState.CreateApplication(ctx, name, application.AddApplicationArg{
 		Platform: platform,

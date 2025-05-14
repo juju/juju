@@ -62,7 +62,7 @@ func (s *workerSuite) TestSessionExists(c *tc.C) {
 	s.ensureStartup(c)
 
 	var session objectstore.Session
-	err := worker.Session(context.Background(), func(context.Context, objectstore.Session) error {
+	err := worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
 		session = s.session
 		return nil
 	})
@@ -90,7 +90,7 @@ func (s *workerSuite) TestSessionIsRetried(c *tc.C) {
 
 	var attempt int
 	var session objectstore.Session
-	err := worker.Session(context.Background(), func(context.Context, objectstore.Session) error {
+	err := worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
 		session = s.session
 
 		attempt++
@@ -123,7 +123,7 @@ func (s *workerSuite) TestSessionIsNotRetried(c *tc.C) {
 	s.ensureStartup(c)
 
 	var attempt int
-	err := worker.Session(context.Background(), func(context.Context, objectstore.Session) error {
+	err := worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
 		attempt++
 		return errors.Errorf("boom")
 	})
@@ -178,7 +178,7 @@ func (s *workerSuite) TestSessionIsChanged(c *tc.C) {
 	s.ensureStartup(c)
 
 	var attempt int
-	err := worker.Session(context.Background(), func(ctx context.Context, session objectstore.Session) error {
+	err := worker.Session(c.Context(), func(ctx context.Context, session objectstore.Session) error {
 		attempt++
 		if attempt == 1 {
 			triggerChange()
@@ -249,7 +249,7 @@ func (s *workerSuite) TestSessionIsNotChanged(c *tc.C) {
 	done := make(chan struct{})
 
 	var attempt int
-	err := worker.Session(context.Background(), func(ctx context.Context, session objectstore.Session) error {
+	err := worker.Session(c.Context(), func(ctx context.Context, session objectstore.Session) error {
 		attempt++
 		if attempt == 1 {
 			triggerChange()

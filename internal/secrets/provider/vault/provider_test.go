@@ -4,7 +4,6 @@
 package vault_test
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -106,7 +105,7 @@ func (s *providerSuite) TestBackendConfigBadClient(c *tc.C) {
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
 	}
-	_, err = p.RestrictedConfig(context.Background(), adminCfg, true, false, accessor, nil, nil)
+	_, err = p.RestrictedConfig(c.Context(), adminCfg, true, false, accessor, nil, nil)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -171,7 +170,7 @@ func (s *providerSuite) TestBackendConfigAdmin(c *tc.C) {
 		Kind: secrets.ModelAccessor,
 		ID:   coretesting.ModelTag.Id(),
 	}
-	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, false, accessor, nil, nil)
+	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, false, accessor, nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
 }
@@ -251,7 +250,7 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 		Kind: secrets.UnitAccessor,
 		ID:   "ubuntu/0",
 	}
-	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, false, accessor, ownedRevs, readRevs)
+	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, false, accessor, ownedRevs, readRevs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
 }
@@ -341,7 +340,7 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 		Kind: secrets.ModelAccessor,
 		ID:   coretesting.ModelTag.Id(),
 	}
-	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, true, accessor, ownedRevs, readRevs)
+	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, true, accessor, ownedRevs, readRevs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
 }

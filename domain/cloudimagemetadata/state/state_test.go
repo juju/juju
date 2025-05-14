@@ -47,7 +47,7 @@ func (s *stateSuite) TestArchitectureIDsByName(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var archs []architecture
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, loadArchsStmt).GetAll(&archs)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -78,7 +78,7 @@ func (s *stateSuite) TestSaveMetadata(c *tc.C) {
 	}
 
 	//  Act
-	err := s.state.SaveMetadata(context.Background(), expected)
+	err := s.state.SaveMetadata(c.Context(), expected)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
@@ -109,7 +109,7 @@ func (s *stateSuite) TestSaveMetadataWithDateCreated(c *tc.C) {
 	}
 
 	//  Act
-	err := s.state.SaveMetadata(context.Background(), expected)
+	err := s.state.SaveMetadata(c.Context(), expected)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
@@ -145,7 +145,7 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadata(c *tc.C) {
 	}
 
 	//  Act
-	err := s.state.SaveMetadata(context.Background(), expected)
+	err := s.state.SaveMetadata(c.Context(), expected)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
@@ -174,11 +174,11 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
 	attrs2.RootStorageSize = ptr(uint64(1024)) // Not part of the key, but shouldn't be updated either
 
 	//  Act
-	err := s.state.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{
+	err := s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
 		{MetadataAttributes: attrs1, ImageID: "1"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{
+	err = s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
 		{MetadataAttributes: attrs2, ImageID: "2"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -210,7 +210,7 @@ func (s *stateSuite) TestSaveMetadataWithSameAttributes(c *tc.C) {
 	attrs2.RootStorageSize = ptr(uint64(1024)) // Not part of the key, but shouldn't be updated either
 
 	//  Act
-	err := s.state.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{
+	err := s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
 		{MetadataAttributes: attrs1, ImageID: "1"},
 		{MetadataAttributes: attrs2, ImageID: "2"},
 	})
@@ -246,7 +246,7 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadataWithInvalidArchitecture(c *t
 	}
 
 	//  Act
-	err := s.state.SaveMetadata(context.Background(), inserted)
+	err := s.state.SaveMetadata(c.Context(), inserted)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, ".*unknown architecture.*")
@@ -264,7 +264,7 @@ VALUES
 `)
 
 	//  Act
-	err := s.state.DeleteMetadataWithImageID(context.Background(), "to-delete")
+	err := s.state.DeleteMetadataWithImageID(c.Context(), "to-delete")
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -355,7 +355,7 @@ VALUES
 	} {
 
 		// Act
-		obtained, err := s.state.FindMetadata(context.Background(), testCase.filter)
+		obtained, err := s.state.FindMetadata(c.Context(), testCase.filter)
 		c.Check(err, tc.ErrorIsNil, tc.Commentf("test: %s\n - unexpected error: %s", testCase.description, err))
 
 		// Assert
@@ -375,7 +375,7 @@ VALUES
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	_, err = s.state.FindMetadata(context.Background(), cloudimagemetadata.MetadataFilter{Stream: "unique", Region: "unique"})
+	_, err = s.state.FindMetadata(c.Context(), cloudimagemetadata.MetadataFilter{Stream: "unique", Region: "unique"})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
@@ -395,7 +395,7 @@ VALUES
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	obtained, err := s.state.FindMetadata(context.Background(), cloudimagemetadata.MetadataFilter{})
+	obtained, err := s.state.FindMetadata(c.Context(), cloudimagemetadata.MetadataFilter{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -445,7 +445,7 @@ VALUES
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	obtained, err := s.state.AllCloudImageMetadata(context.Background())
+	obtained, err := s.state.AllCloudImageMetadata(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -495,7 +495,7 @@ VALUES
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	obtained, err := s.state.AllCloudImageMetadata(context.Background())
+	obtained, err := s.state.AllCloudImageMetadata(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -528,7 +528,7 @@ VALUES
 	}
 
 	//  Act
-	err = s.state.SaveMetadata(context.Background(), expected)
+	err = s.state.SaveMetadata(c.Context(), expected)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert

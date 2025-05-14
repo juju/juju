@@ -113,7 +113,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 		return s.bootstrapEnviron, nil
 	}
 
-	icfg, err := InstanceConfig(context.Background(), modelID, providerGetter, s.ctrlSt, s.st, services, "0", "nonce", "")
+	icfg, err := InstanceConfig(c.Context(), modelID, providerGetter, s.ctrlSt, s.st, services, "0", "nonce", "")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(icfg.APIInfo.Addrs, tc.DeepEquals, []string{"1.2.3.4:1"})
 	c.Check(icfg.ToolsList().URLs(), tc.DeepEquals, map[semversion.Binary][]string{

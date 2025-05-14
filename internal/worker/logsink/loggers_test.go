@@ -4,8 +4,6 @@
 package logsink
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -62,7 +60,7 @@ func (s *LoggersSuite) TestLoggerGetLogger(c *tc.C) {
 	fooLogger := logger.GetLogger("foo")
 	c.Assert(fooLogger, tc.NotNil)
 
-	fooLogger.Infof(context.Background(), "message me")
+	fooLogger.Infof(c.Context(), "message me")
 
 	workertest.CheckKill(c, logger)
 
@@ -91,15 +89,15 @@ func (s *LoggersSuite) TestLoggerConfigureLoggers(c *tc.C) {
 	err := logger.ConfigureLoggers("<root>=INFO")
 	c.Assert(err, tc.ErrorIsNil)
 
-	fooLogger.Debugf(context.Background(), "message me")
+	fooLogger.Debugf(c.Context(), "message me")
 
 	// Once we reset this is set to warning, so the debug log should not be
 	// logged. The warning should be though.
 
 	logger.ResetLoggerLevels()
 
-	fooLogger.Debugf(context.Background(), "message again")
-	fooLogger.Warningf(context.Background(), "message again and again")
+	fooLogger.Debugf(c.Context(), "message again")
+	fooLogger.Warningf(c.Context(), "message again and again")
 
 	workertest.CheckKill(c, logger)
 

@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -42,7 +40,7 @@ func (s *providerServiceSuite) TestCloudCredential(c *tc.C) {
 	}
 	s.state.EXPECT().CloudCredential(gomock.Any(), key).Return(cred, nil)
 
-	result, err := s.service().CloudCredential(context.Background(), key)
+	result, err := s.service().CloudCredential(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
 }
@@ -51,7 +49,7 @@ func (s *providerServiceSuite) TestCloudCredentialInvalidKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
-	_, err := s.service().CloudCredential(context.Background(), key)
+	_, err := s.service().CloudCredential(c.Context(), key)
 	c.Assert(err, tc.ErrorMatches, "invalid id getting cloud credential.*")
 }
 
@@ -63,7 +61,7 @@ func (s *providerServiceSuite) TestWatchCredential(c *tc.C) {
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
 	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), key).Return(nw, nil)
 
-	w, err := s.service().WatchCredential(context.Background(), key)
+	w, err := s.service().WatchCredential(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 }
@@ -72,7 +70,7 @@ func (s *providerServiceSuite) TestWatchCredentialInvalidKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
-	_, err := s.service().WatchCredential(context.Background(), key)
+	_, err := s.service().WatchCredential(c.Context(), key)
 	c.Assert(err, tc.ErrorMatches, "watching cloud credential with invalid key.*")
 }
 
@@ -84,7 +82,7 @@ func (s *providerServiceSuite) TestInvalidateCredential(c *tc.C) {
 	s.state.EXPECT().CredentialUUIDForKey(gomock.Any(), key).Return(uuid, nil)
 	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), uuid, "bad")
 
-	err := s.service().InvalidateCredential(context.Background(), key, "bad")
+	err := s.service().InvalidateCredential(c.Context(), key, "bad")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -92,6 +90,6 @@ func (s *providerServiceSuite) TestInvalidateCredentialInvalidKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
-	err := s.service().InvalidateCredential(context.Background(), key, "bad")
+	err := s.service().InvalidateCredential(c.Context(), key, "bad")
 	c.Assert(err, tc.ErrorMatches, "invalidating cloud credential with invalid key.*")
 }

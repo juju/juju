@@ -4,8 +4,6 @@
 package charms_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -62,7 +60,7 @@ func (s *charmInfoSuite) TestCharmInfo(c *tc.C) {
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(internaltesting.ModelTag, s.charmService, s.authorizer)
 	c.Assert(err, tc.IsNil)
-	charmInfo, err := api.CharmInfo(context.Background(), params.CharmURL{URL: "foo-1"})
+	charmInfo, err := api.CharmInfo(c.Context(), params.CharmURL{URL: "foo-1"})
 	c.Assert(err, tc.IsNil)
 
 	c.Check(charmInfo.URL, tc.Equals, "ch:amd64/foo-1")
@@ -91,7 +89,7 @@ func (s *charmInfoSuite) TestCharmInfoMinimal(c *tc.C) {
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(internaltesting.ModelTag, s.charmService, s.authorizer)
 	c.Assert(err, tc.IsNil)
-	charmInfo, err := api.CharmInfo(context.Background(), params.CharmURL{URL: "foo-1"})
+	charmInfo, err := api.CharmInfo(c.Context(), params.CharmURL{URL: "foo-1"})
 	c.Assert(err, tc.IsNil)
 
 	c.Check(charmInfo.URL, tc.Equals, "ch:amd64/foo-1")
@@ -114,7 +112,7 @@ func (s *charmInfoSuite) TestPermissionDenied(c *tc.C) {
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(modelTag, s.charmService, s.authorizer)
 	c.Assert(err, tc.IsNil)
-	_, err = api.CharmInfo(context.Background(), params.CharmURL{URL: "foo"})
+	_, err = api.CharmInfo(c.Context(), params.CharmURL{URL: "foo"})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 

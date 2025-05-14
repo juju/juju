@@ -328,7 +328,7 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *tc.C) {
 	leaderAPI.EXPECT().Leader(gomock.Any(), "loop").Return("loop/1", nil)
 
 	ldr := leaderResolver{leaderAPI: leaderAPI}
-	resolvedUnit, err := ldr.maybeResolveLeaderUnit(context.Background(), "loop/leader")
+	resolvedUnit, err := ldr.maybeResolveLeaderUnit(c.Context(), "loop/leader")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resolvedUnit, tc.Equals, "loop/1", tc.Commentf("expected leader to resolve to loop/1 for principal application"))
 }

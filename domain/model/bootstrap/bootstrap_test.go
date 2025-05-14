@@ -55,7 +55,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = accessState.AddUserWithPermission(
-		context.Background(), s.adminUserUUID,
+		c.Context(), s.adminUserUUID,
 		coreuser.AdminUserName,
 		coreuser.AdminUserName.Name(),
 		false,
@@ -77,7 +77,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
 	})
 
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.credentialName = "test"
@@ -92,7 +92,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 		}),
 	)
 
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
@@ -112,7 +112,7 @@ func (s *bootstrapSuite) TestUUIDIsRespected(c *tc.C) {
 			Owner: s.adminUserUUID,
 		})
 
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -133,18 +133,18 @@ func (s *bootstrapSuite) TestCreateModelDetails(c *tc.C) {
 
 	// Create a model and then create a read-only model from it.
 	fn := CreateGlobalModelRecord(modelUUID, args)
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	fn = CreateLocalModelRecordWithAgentStream(modelUUID, controllerUUID, jujuversion.Current, agentbinary.AgentStreamReleased)
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
 	m := dbReadOnlyModel{}
 	stmt, err := sqlair.Prepare(`SELECT &dbReadOnlyModel.* FROM model`, m)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.ModelTxnRunner(c, modelUUID.String()).Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = s.ModelTxnRunner(c, modelUUID.String()).Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).Get(&m)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -161,7 +161,7 @@ SELECT &M.target_version,
 FROM agent_version`, v)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.ModelTxnRunner(c, modelUUID.String()).Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = s.ModelTxnRunner(c, modelUUID.String()).Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).Get(&v)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -182,7 +182,7 @@ func (s *bootstrapSuite) TestCreateModelUnsupportedCredential(c *tc.C) {
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
 	})
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	args := model.GlobalModelCreationArgs{
@@ -195,7 +195,7 @@ func (s *bootstrapSuite) TestCreateModelUnsupportedCredential(c *tc.C) {
 
 	// Create a model and then create a read-only model from it.
 	fn = CreateGlobalModelRecord(modelUUID, args)
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Check(err, tc.ErrorIs, modelerrors.CredentialNotValid)
 }
 
@@ -209,7 +209,7 @@ func (s *bootstrapSuite) TestCreateModelWithEmptyCredential(c *tc.C) {
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 	})
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	args := model.GlobalModelCreationArgs{
@@ -221,7 +221,7 @@ func (s *bootstrapSuite) TestCreateModelWithEmptyCredential(c *tc.C) {
 	}
 
 	fn = CreateGlobalModelRecord(modelUUID, args)
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -255,11 +255,11 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 
 	// Create a model and then create a read-only model from it.
 	fn := CreateGlobalModelRecord(modelUUID, args)
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	fn = CreateLocalModelRecordWithAgentStream(modelUUID, controllerUUID, jujuversion.Current, agentbinary.AgentStreamReleased)
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := coreconstraints.Value{
@@ -270,7 +270,7 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 		RootDisk:  ptr(uint64(1024)),
 	}
 	fn = SetModelConstraints(cons)
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
 	modelState := modelstate.NewModelState(func() (database.TxnRunner, error) {
@@ -285,7 +285,7 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 		RootDisk:  ptr(uint64(1024)),
 	}
 
-	data, err := modelState.GetModelConstraints(context.Background())
+	data, err := modelState.GetModelConstraints(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(data, tc.DeepEquals, expected)
 }
@@ -298,7 +298,7 @@ func (s *bootstrapSuite) TestSetModelConstraintFailedModelNotFound(c *tc.C) {
 		return s.ModelTxnRunner(c, modeltesting.GenModelUUID(c).String()), nil
 	}, loggertesting.WrapCheckLog(c))
 
-	err := state.SetModelConstraints(context.Background(), constraints.Constraints{
+	err := state.SetModelConstraints(c.Context(), constraints.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 	})
@@ -326,11 +326,11 @@ func (s *bootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 
 	// Create a model and then create a read-only model from it.
 	fn := CreateGlobalModelRecord(modelUUID, args)
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current)
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
 	state := modelstate.NewModelState(func() (database.TxnRunner, error) {
@@ -342,10 +342,10 @@ func (s *bootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 		ImageID:   ptr("image-id"),
 	}
 
-	err = state.SetModelConstraints(context.Background(), cons)
+	err = state.SetModelConstraints(c.Context(), cons)
 	c.Check(err, tc.ErrorIs, machineerrors.InvalidContainerType)
 
-	_, err = state.GetModelConstraints(context.Background())
+	_, err = state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.ConstraintsNotFound)
 }
 
@@ -369,18 +369,18 @@ func (s *bootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) 
 
 	// Create a model and then create a read-only model from it.
 	fn := CreateGlobalModelRecord(modelUUID, args)
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	fn = CreateLocalModelRecordWithAgentStream(modelUUID, controllerUUID, jujuversion.Current, agentbinary.AgentStreamReleased)
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
 	state := modelstate.NewModelState(func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, modelUUID.String()), nil
 	}, loggertesting.WrapCheckLog(c))
 
-	err = state.SetModelConstraints(context.Background(), constraints.Constraints{
+	err = state.SetModelConstraints(c.Context(), constraints.Constraints{
 		Spaces: ptr([]constraints.SpaceConstraint{
 			{
 				SpaceName: "space1",
@@ -391,7 +391,7 @@ func (s *bootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) 
 	})
 	c.Check(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 
-	_, err = state.GetModelConstraints(context.Background())
+	_, err = state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.ConstraintsNotFound)
 }
 

@@ -4,7 +4,6 @@
 package action_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -40,7 +39,7 @@ func (s *actionSuite) TestRunOnAllMachines(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RunOnAllMachines", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
-	result, err := client.RunOnAllMachines(context.Background(), "pwd", time.Millisecond)
+	result, err := client.RunOnAllMachines(c.Context(), "pwd", time.Millisecond)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, action.EnqueuedActions{
 		OperationID: "1",
@@ -77,7 +76,7 @@ func (s *actionSuite) TestRun(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Run", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
-	result, err := client.Run(context.Background(), action.RunParams{
+	result, err := client.Run(c.Context(), action.RunParams{
 		Commands: "pwd",
 		Timeout:  time.Millisecond,
 		Machines: []string{"0"},

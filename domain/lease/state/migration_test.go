@@ -23,7 +23,7 @@ func (s *migrationSuite) TestGetApplicationLeadershipForModelNoLeaders(c *tc.C) 
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	state := NewMigrationState(s.TxnRunnerFactory())
-	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
+	leases, err := state.GetApplicationLeadershipForModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(leases, tc.HasLen, 0)
 }
@@ -33,7 +33,7 @@ func (s *migrationSuite) TestGetApplicationLeadershipForModel(c *tc.C) {
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 
-	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES ('1', 1, ?, 'foo', 'unit', date('now'), date('now', '+1 day'))
@@ -41,7 +41,7 @@ VALUES ('1', 1, ?, 'foo', 'unit', date('now'), date('now', '+1 day'))
 		return err
 	})
 
-	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
+	leases, err := state.GetApplicationLeadershipForModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(leases, tc.DeepEquals, map[string]string{
 		"foo": "unit",
@@ -53,7 +53,7 @@ func (s *migrationSuite) TestGetApplicationLeadershipForModelSingularControllerT
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 
-	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES ('1', 1, ?, 'foo', 'unit', date('now'), date('now', '+1 day'))
@@ -68,7 +68,7 @@ VALUES ('2', 0, ?, 'controller', 'abc', date('now'), date('now', '+1 day'))
 		return err
 	})
 
-	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
+	leases, err := state.GetApplicationLeadershipForModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(leases, tc.DeepEquals, map[string]string{
 		"foo": "unit",
@@ -80,7 +80,7 @@ func (s *migrationSuite) TestGetApplicationLeadershipForModelExpired(c *tc.C) {
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 
-	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES ('1', 1, ?, 'foo', 'unit', date('now', '-2 day'), date('now', '-1 day'))
@@ -88,7 +88,7 @@ VALUES ('1', 1, ?, 'foo', 'unit', date('now', '-2 day'), date('now', '-1 day'))
 		return err
 	})
 
-	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
+	leases, err := state.GetApplicationLeadershipForModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(leases, tc.HasLen, 0)
 }

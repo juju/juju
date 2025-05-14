@@ -115,7 +115,7 @@ func (s *workerSuite) TestSeedAgentBinary(c *tc.C) {
 			Logger:          s.logger,
 		},
 	}
-	cleanup, err := w.seedAgentBinary(context.Background(), c.MkDir())
+	cleanup, err := w.seedAgentBinary(c.Context(), c.MkDir())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
 	c.Assert(cleanup, tc.NotNil)
@@ -144,7 +144,7 @@ func (s *workerSuite) TestSeedAuthorizedNilKeys(c *tc.C) {
 		},
 	}
 
-	err := w.seedInitialAuthorizedKeys(context.Background(), nil)
+	err := w.seedInitialAuthorizedKeys(c.Context(), nil)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -157,15 +157,15 @@ func (s *workerSuite) TestSeedBakeryConfig(c *tc.C) {
 	}
 
 	s.expectInitialiseBakeryConfig(nil)
-	err := w.seedMacaroonConfig(context.Background())
+	err := w.seedMacaroonConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectInitialiseBakeryConfig(macaroonerrors.BakeryConfigAlreadyInitialised)
-	err = w.seedMacaroonConfig(context.Background())
+	err = w.seedMacaroonConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectInitialiseBakeryConfig(errors.Errorf("boom"))
-	err = w.seedMacaroonConfig(context.Background())
+	err = w.seedMacaroonConfig(c.Context())
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
@@ -182,7 +182,7 @@ func (s *workerSuite) TestFilterHostPortsEmptyManagementSpace(c *tc.C) {
 	apiHostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "10.0.0.1"),
 	}
-	filteredHostPorts := w.filterHostPortsForManagementSpace(context.Background(), "", apiHostPorts, network.SpaceInfos{})
+	filteredHostPorts := w.filterHostPortsForManagementSpace(c.Context(), "", apiHostPorts, network.SpaceInfos{})
 	c.Check(filteredHostPorts, tc.SameContents, apiHostPorts)
 }
 
@@ -218,7 +218,7 @@ func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *tc.C) {
 			},
 		},
 	}
-	filteredHostPorts := w.filterHostPortsForManagementSpace(context.Background(), "mgmt-space", apiHostPorts, allSpaces)
+	filteredHostPorts := w.filterHostPortsForManagementSpace(c.Context(), "mgmt-space", apiHostPorts, allSpaces)
 	c.Check(filteredHostPorts, tc.SameContents, apiHostPorts)
 }
 
@@ -281,7 +281,7 @@ func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *tc.C) {
 			},
 		},
 	}
-	filteredHostPorts := w.filterHostPortsForManagementSpace(context.Background(), "mgmt-space", apiHostPorts, allSpaces)
+	filteredHostPorts := w.filterHostPortsForManagementSpace(c.Context(), "mgmt-space", apiHostPorts, allSpaces)
 	c.Check(filteredHostPorts, tc.SameContents, expected)
 }
 
@@ -300,7 +300,7 @@ func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 			Logger:            s.logger,
 		},
 	}
-	err := w.seedStoragePools(context.Background(), map[string]storage.Attrs{
+	err := w.seedStoragePools(c.Context(), map[string]storage.Attrs{
 		"loop-pool": {
 			"name": "loop-pool",
 			"type": "loop",

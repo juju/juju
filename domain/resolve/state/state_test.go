@@ -41,18 +41,18 @@ func (s *stateSuite) TestGetUnitUUID(c *tc.C) {
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	gotUUID, err := s.state.GetUnitUUID(context.Background(), "foo/0")
+	gotUUID, err := s.state.GetUnitUUID(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotUUID, tc.Equals, unitUUID)
 }
 
 func (s *stateSuite) TestGetUnitUUIDNotFound(c *tc.C) {
-	_, err := s.state.GetUnitUUID(context.Background(), "missing-uuid")
+	_, err := s.state.GetUnitUUID(c.Context(), "missing-uuid")
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestUnitResolveModeNoUnit(c *tc.C) {
-	_, err := s.state.UnitResolveMode(context.Background(), "missing-uuid")
+	_, err := s.state.UnitResolveMode(c.Context(), "missing-uuid")
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
 }
 
@@ -61,12 +61,12 @@ func (s *stateSuite) TestUnitResolveModeUnitNotResolved(c *tc.C) {
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	_, err := s.state.UnitResolveMode(context.Background(), unitUUID)
+	_, err := s.state.UnitResolveMode(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
 }
 
 func (s *stateSuite) TestResolveUnitNoUnit(c *tc.C) {
-	err := s.state.ResolveUnit(context.Background(), "missing-uuid", resolve.ResolveModeRetryHooks)
+	err := s.state.ResolveUnit(c.Context(), "missing-uuid", resolve.ResolveModeRetryHooks)
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitAgentStatusNotFound)
 }
 
@@ -75,7 +75,7 @@ func (s *stateSuite) TestResolveUnitNoStatus(c *tc.C) {
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	err := s.state.ResolveUnit(context.Background(), unitUUID, resolve.ResolveModeRetryHooks)
+	err := s.state.ResolveUnit(c.Context(), unitUUID, resolve.ResolveModeRetryHooks)
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitAgentStatusNotFound)
 }
 
@@ -90,7 +90,7 @@ func (s *stateSuite) TestResolveUnitNotInError(c *tc.C) {
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	err := s.state.ResolveUnit(context.Background(), unitUUID, resolve.ResolveModeRetryHooks)
+	err := s.state.ResolveUnit(c.Context(), unitUUID, resolve.ResolveModeRetryHooks)
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotInErrorState)
 }
 
@@ -105,10 +105,10 @@ func (s *stateSuite) TestResolveUnitNoHooks(c *tc.C) {
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	err := s.state.ResolveUnit(context.Background(), unitUUID, resolve.ResolveModeNoHooks)
+	err := s.state.ResolveUnit(c.Context(), unitUUID, resolve.ResolveModeNoHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	mode, err := s.state.UnitResolveMode(context.Background(), unitUUID)
+	mode, err := s.state.UnitResolveMode(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
 }
@@ -124,10 +124,10 @@ func (s *stateSuite) TestResolveUnitRetryHooks(c *tc.C) {
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	err := s.state.ResolveUnit(context.Background(), unitUUID, resolve.ResolveModeRetryHooks)
+	err := s.state.ResolveUnit(c.Context(), unitUUID, resolve.ResolveModeRetryHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	mode, err := s.state.UnitResolveMode(context.Background(), unitUUID)
+	mode, err := s.state.UnitResolveMode(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mode, tc.Equals, resolve.ResolveModeRetryHooks)
 }
@@ -143,19 +143,19 @@ func (s *stateSuite) TestResolveUnitAlreadyResolved(c *tc.C) {
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	err := s.state.ResolveUnit(context.Background(), unitUUID, resolve.ResolveModeRetryHooks)
+	err := s.state.ResolveUnit(c.Context(), unitUUID, resolve.ResolveModeRetryHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.ResolveUnit(context.Background(), unitUUID, resolve.ResolveModeNoHooks)
+	err = s.state.ResolveUnit(c.Context(), unitUUID, resolve.ResolveModeNoHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	mode, err := s.state.UnitResolveMode(context.Background(), unitUUID)
+	mode, err := s.state.UnitResolveMode(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
 }
 
 func (s *stateSuite) TestResolveAllUnitsNoUnits(c *tc.C) {
-	err := s.state.ResolveAllUnits(context.Background(), resolve.ResolveModeRetryHooks)
+	err := s.state.ResolveAllUnits(c.Context(), resolve.ResolveModeRetryHooks)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -176,13 +176,13 @@ func (s *stateSuite) TestResolveAllUnitsNoUnitsInError(c *tc.C) {
 	}
 	unitUUIDs := s.createApplication(c, "foo", u1, u2)
 
-	err := s.state.ResolveAllUnits(context.Background(), resolve.ResolveModeRetryHooks)
+	err := s.state.ResolveAllUnits(c.Context(), resolve.ResolveModeRetryHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.UnitResolveMode(context.Background(), unitUUIDs[0])
+	_, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[0])
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
 
-	_, err = s.state.UnitResolveMode(context.Background(), unitUUIDs[1])
+	_, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[1])
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
 }
 
@@ -210,18 +210,18 @@ func (s *stateSuite) TestResolveAllUnitsRetryHooks(c *tc.C) {
 	}
 	unitUUIDs := s.createApplication(c, "foo", u1, u2, u3)
 
-	err := s.state.ResolveAllUnits(context.Background(), resolve.ResolveModeRetryHooks)
+	err := s.state.ResolveAllUnits(c.Context(), resolve.ResolveModeRetryHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	mode, err := s.state.UnitResolveMode(context.Background(), unitUUIDs[0])
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeRetryHooks)
-
-	mode, err = s.state.UnitResolveMode(context.Background(), unitUUIDs[1])
+	mode, err := s.state.UnitResolveMode(c.Context(), unitUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mode, tc.Equals, resolve.ResolveModeRetryHooks)
 
-	_, err = s.state.UnitResolveMode(context.Background(), unitUUIDs[2])
+	mode, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[1])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mode, tc.Equals, resolve.ResolveModeRetryHooks)
+
+	_, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[2])
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
 }
 
@@ -249,18 +249,18 @@ func (s *stateSuite) TestResolveAllUnitsNoHooks(c *tc.C) {
 	}
 	unitUUIDs := s.createApplication(c, "foo", u1, u2, u3)
 
-	err := s.state.ResolveAllUnits(context.Background(), resolve.ResolveModeNoHooks)
+	err := s.state.ResolveAllUnits(c.Context(), resolve.ResolveModeNoHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	mode, err := s.state.UnitResolveMode(context.Background(), unitUUIDs[0])
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
-
-	mode, err = s.state.UnitResolveMode(context.Background(), unitUUIDs[1])
+	mode, err := s.state.UnitResolveMode(c.Context(), unitUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
 
-	_, err = s.state.UnitResolveMode(context.Background(), unitUUIDs[2])
+	mode, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[1])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
+
+	_, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[2])
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
 }
 
@@ -281,23 +281,23 @@ func (s *stateSuite) TestResolveAllUnitsAlreadyResolved(c *tc.C) {
 	}
 
 	unitUUIDs := s.createApplication(c, "foo", u1, u2)
-	err := s.state.ResolveUnit(context.Background(), unitUUIDs[0], resolve.ResolveModeRetryHooks)
+	err := s.state.ResolveUnit(c.Context(), unitUUIDs[0], resolve.ResolveModeRetryHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.ResolveAllUnits(context.Background(), resolve.ResolveModeNoHooks)
+	err = s.state.ResolveAllUnits(c.Context(), resolve.ResolveModeNoHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	mode, err := s.state.UnitResolveMode(context.Background(), unitUUIDs[0])
+	mode, err := s.state.UnitResolveMode(c.Context(), unitUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
 
-	mode, err = s.state.UnitResolveMode(context.Background(), unitUUIDs[1])
+	mode, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[1])
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
 }
 
 func (s *stateSuite) TestClearResolvedNoUnit(c *tc.C) {
-	err := s.state.ClearResolved(context.Background(), "missing-uuid")
+	err := s.state.ClearResolved(c.Context(), "missing-uuid")
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
 }
 
@@ -306,7 +306,7 @@ func (s *stateSuite) TestClearResolvedUnitNotResolved(c *tc.C) {
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	err := s.state.ClearResolved(context.Background(), unitUUID)
+	err := s.state.ClearResolved(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
 }
 
@@ -321,13 +321,13 @@ func (s *stateSuite) TestClearResolvedRetryHooks(c *tc.C) {
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	err := s.state.ResolveUnit(context.Background(), unitUUID, resolve.ResolveModeRetryHooks)
+	err := s.state.ResolveUnit(c.Context(), unitUUID, resolve.ResolveModeRetryHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.ClearResolved(context.Background(), unitUUID)
+	err = s.state.ClearResolved(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.UnitResolveMode(context.Background(), unitUUID)
+	_, err = s.state.UnitResolveMode(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
 }
 
@@ -342,13 +342,13 @@ func (s *stateSuite) TestClearResolvedNoHooks(c *tc.C) {
 	unitUUIDs := s.createApplication(c, "foo", u1)
 	unitUUID := unitUUIDs[0]
 
-	err := s.state.ResolveUnit(context.Background(), unitUUID, resolve.ResolveModeNoHooks)
+	err := s.state.ResolveUnit(c.Context(), unitUUID, resolve.ResolveModeNoHooks)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.ClearResolved(context.Background(), unitUUID)
+	err = s.state.ClearResolved(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.UnitResolveMode(context.Background(), unitUUID)
+	_, err = s.state.UnitResolveMode(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
 }
 
@@ -365,7 +365,7 @@ func (s *stateSuite) createApplication(c *tc.C, name string, units ...applicatio
 		Risk:   "stable",
 		Branch: "branch",
 	}
-	ctx := context.Background()
+	ctx := c.Context()
 
 	appID, err := appState.CreateApplication(ctx, name, application.AddApplicationArg{
 		Platform: platform,
@@ -406,7 +406,7 @@ func (s *stateSuite) createApplication(c *tc.C, name string, units ...applicatio
 	c.Assert(err, tc.ErrorIsNil)
 
 	var unitUUIDs = make([]coreunit.UUID, len(units))
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for i, unitName := range unitNames {
 			var uuid coreunit.UUID
 			err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&uuid)

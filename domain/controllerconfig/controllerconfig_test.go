@@ -4,7 +4,6 @@
 package controllerconfig
 
 import (
-	ctx "context"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -49,18 +48,18 @@ func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *tc.C) {
 
 	controllerModelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
 
-	err = bootstrap.InsertInitialControllerConfig(cfgIn, controllerModelUUID)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err = bootstrap.InsertInitialControllerConfig(cfgIn, controllerModelUUID)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
-	cfgOut, err := srv.ControllerConfig(ctx.Background())
+	cfgOut, err := srv.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	selected := filterConfig(cfgOut)
 
-	err = srv.UpdateControllerConfig(ctx.Background(), selected, nil)
+	err = srv.UpdateControllerConfig(c.Context(), selected, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	cfgOut, err = srv.ControllerConfig(ctx.Background())
+	cfgOut, err = srv.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfgOut.AuditingEnabled(), tc.IsTrue)

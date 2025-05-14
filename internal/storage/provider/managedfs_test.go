@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -77,7 +76,7 @@ func (s *managedfsSuite) TestCreateFilesystems(c *tc.C) {
 		HardwareId: "weetbix",
 		SizeMiB:    3,
 	}
-	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(c.Context(), []storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
 		Volume: names.NewVolumeTag("0"),
 		Size:   2,
@@ -110,7 +109,7 @@ func (s *managedfsSuite) TestCreateFilesystems(c *tc.C) {
 
 func (s *managedfsSuite) TestCreateFilesystemsNoBlockDevice(c *tc.C) {
 	source := s.initSource(c)
-	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(c.Context(), []storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
 		Volume: names.NewVolumeTag("0"),
 		Size:   2,
@@ -204,7 +203,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *tc.C, readOnly, reattach bool,
 		Volume: names.NewVolumeTag("0"),
 	}
 
-	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("0/0"),
 		FilesystemId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{

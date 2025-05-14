@@ -4,8 +4,6 @@
 package crosscontroller_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base/testing"
@@ -45,7 +43,7 @@ func (s *CrossControllerSuite) TestControllerInfo(c *tc.C) {
 		return nil
 	})
 	client := crosscontroller.NewClient(apiCaller)
-	info, err := client.ControllerInfo(context.Background())
+	info, err := client.ControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, &crosscontroller.ControllerInfo{
 		Addrs:  []string{"foo"},
@@ -63,7 +61,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 		return nil
 	})
 	client := crosscontroller.NewClient(apiCaller)
-	info, err := client.ControllerInfo(context.Background())
+	info, err := client.ControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 	c.Assert(info, tc.IsNil)
 }
@@ -84,7 +82,7 @@ func (s *CrossControllerSuite) TestWatchExternalControllers(c *tc.C) {
 		return nil
 	})
 	client := crosscontroller.NewClient(apiCaller)
-	w, err := client.WatchControllerInfo(context.Background())
+	w, err := client.WatchControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 	c.Assert(w, tc.IsNil)
 }

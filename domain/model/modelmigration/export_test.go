@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -55,7 +53,7 @@ func (e *exportSuite) TestModelEnvironVersionExport(c *tc.C) {
 			},
 		},
 	}
-	_ = exportOp.Execute(context.Background(), model)
+	_ = exportOp.Execute(c.Context(), model)
 	c.Check(model.EnvironVersion(), tc.Equals, 3)
 }
 
@@ -89,7 +87,7 @@ func (e *exportSuite) TestModelConstraintsExport(c *tc.C) {
 			},
 		},
 	}
-	_ = exportOp.Execute(context.Background(), model)
+	_ = exportOp.Execute(c.Context(), model)
 
 	// Test values that we know should be set
 	c.Check(model.Constraints().AllocatePublicIP(), tc.IsTrue)

@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"context"
 	"errors"
 
 	"github.com/juju/collections/set"
@@ -265,7 +264,7 @@ func (s *K8sMetadataSuite) TestListHostCloudRegions(c *tc.C) {
 		clientSet := fake.NewSimpleClientset(v.node)
 
 		metadata, err := provider.GetClusterMetadata(
-			context.Background(),
+			c.Context(),
 			"",
 			clientSet.CoreV1().Nodes(),
 			clientSet.StorageV1().StorageClasses(),
@@ -646,7 +645,7 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *tc.C) {
 		clientSet := fake.NewSimpleClientset(test.InitialObjects...)
 
 		metadata, err := provider.GetClusterMetadata(
-			context.Background(),
+			c.Context(),
 			test.NominatedStorage,
 			clientSet.CoreV1().Nodes(),
 			clientSet.StorageV1().StorageClasses(),
@@ -664,7 +663,7 @@ func (s *K8sMetadataSuite) TestNominatedStorageNotFound(c *tc.C) {
 	)
 
 	_, err := provider.GetClusterMetadata(
-		context.Background(),
+		c.Context(),
 		"my-nominated-storage",
 		clientSet.CoreV1().Nodes(),
 		clientSet.StorageV1().StorageClasses(),
@@ -685,7 +684,7 @@ func (s *K8sMetadataSuite) TestNominatedStorageNotFoundWithNilStorageClasses(c *
 	)
 
 	_, err := provider.GetClusterMetadata(
-		context.Background(),
+		c.Context(),
 		"my-nominated-storage",
 		clientSet.CoreV1().Nodes(),
 		clientSet.StorageV1().StorageClasses(),

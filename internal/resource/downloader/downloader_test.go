@@ -67,7 +67,7 @@ func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 	d := downloader.NewResourceDownloader(s.client, loggertesting.WrapCheckLog(c))
 
 	// Act:
-	result, err := d.Download(context.Background(), resourceURL, hash, size)
+	result, err := d.Download(c.Context(), resourceURL, hash, size)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -107,7 +107,7 @@ func (s *CharmHubSuite) TestGetResourceUnexpectedSize(c *tc.C) {
 	d := downloader.NewResourceDownloader(s.client, loggertesting.WrapCheckLog(c))
 
 	// Act:
-	_, err = d.Download(context.Background(), url, hash, size)
+	_, err = d.Download(c.Context(), url, hash, size)
 	// Assert:
 	c.Assert(err, tc.ErrorIs, downloader.ErrUnexpectedSize)
 }
@@ -136,7 +136,7 @@ func (s *CharmHubSuite) TestGetResourceUnexpectedHash(c *tc.C) {
 	d := downloader.NewResourceDownloader(s.client, loggertesting.WrapCheckLog(c))
 
 	// Act:
-	_, err = d.Download(context.Background(), url, hash, size)
+	_, err = d.Download(c.Context(), url, hash, size)
 	// Assert:
 	c.Assert(err, tc.ErrorIs, downloader.ErrUnexpectedHash)
 }

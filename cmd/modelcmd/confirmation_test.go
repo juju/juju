@@ -4,8 +4,6 @@
 package modelcmd_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -69,7 +67,7 @@ func (s *RemoveConfirmationCommandBaseSuite) TestSimpleFalse(c *tc.C) {
 	s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})
-	c.Assert(commandBase.NeedsConfirmation(context.Background(), s.modelConfigAPI), tc.IsFalse)
+	c.Assert(commandBase.NeedsConfirmation(c.Context(), s.modelConfigAPI), tc.IsFalse)
 }
 
 func (s *RemoveConfirmationCommandBaseSuite) TestSimpleTrue(c *tc.C) {
@@ -79,7 +77,7 @@ func (s *RemoveConfirmationCommandBaseSuite) TestSimpleTrue(c *tc.C) {
 	s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})
-	c.Assert(commandBase.NeedsConfirmation(context.Background(), s.modelConfigAPI), tc.IsTrue)
+	c.Assert(commandBase.NeedsConfirmation(c.Context(), s.modelConfigAPI), tc.IsTrue)
 }
 
 func (s *RemoveConfirmationCommandBaseSuite) TestModelGetError(c *tc.C) {
@@ -88,10 +86,10 @@ func (s *RemoveConfirmationCommandBaseSuite) TestModelGetError(c *tc.C) {
 	s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(nil, errors.Errorf("doink"))
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})
-	c.Assert(commandBase.NeedsConfirmation(context.Background(), s.modelConfigAPI), tc.IsTrue)
+	c.Assert(commandBase.NeedsConfirmation(c.Context(), s.modelConfigAPI), tc.IsTrue)
 }
 
 func (s *RemoveConfirmationCommandBaseSuite) TestNoPromptFlag(c *tc.C) {
 	commandBase := s.getCmdBase([]string{"--no-prompt", "--foo", "bar"})
-	c.Assert(commandBase.NeedsConfirmation(context.Background(), nil), tc.IsFalse)
+	c.Assert(commandBase.NeedsConfirmation(c.Context(), nil), tc.IsFalse)
 }

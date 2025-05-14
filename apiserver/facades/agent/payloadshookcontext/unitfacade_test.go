@@ -4,8 +4,6 @@
 package payloadshookcontext_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -30,7 +28,7 @@ func (s *suite) TestTrack(c *tc.C) {
 		}},
 	}
 
-	res, err := a.Track(context.Background(), args)
+	res, err := a.Track(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
@@ -47,7 +45,7 @@ func (s *suite) TestListOne(c *tc.C) {
 			Tag: names.NewPayloadTag(id).String(),
 		}},
 	}
-	results, err := a.List(context.Background(), args)
+	results, err := a.List(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
@@ -62,7 +60,7 @@ func (s *suite) TestListOne(c *tc.C) {
 func (s *suite) TestListAll(c *tc.C) {
 	a := unitfacade.NewUnitFacadeV1()
 	args := params.Entities{}
-	results, err := a.List(context.Background(), args)
+	results, err := a.List(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.PayloadResults{})
 }
@@ -75,7 +73,7 @@ func (s *suite) TestLookUp(c *tc.C) {
 			ID:   "bar",
 		}},
 	}
-	res, err := a.LookUp(context.Background(), args)
+	res, err := a.LookUp(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
@@ -94,7 +92,7 @@ func (s *suite) TestSetStatus(c *tc.C) {
 			},
 		}},
 	}
-	res, err := a.SetStatus(context.Background(), args)
+	res, err := a.SetStatus(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
@@ -115,7 +113,7 @@ func (s *suite) TestUntrack(c *tc.C) {
 			Tag: names.NewPayloadTag(id).String(),
 		}},
 	}
-	res, err := a.Untrack(context.Background(), args)
+	res, err := a.Untrack(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
@@ -134,7 +132,7 @@ func (s *suite) TestUntrackEmptyID(c *tc.C) {
 			Tag: "",
 		}},
 	}
-	res, err := a.Untrack(context.Background(), args)
+	res, err := a.Untrack(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PayloadResults{
 		Results: []params.PayloadResult{{
@@ -151,7 +149,7 @@ func (s *suite) TestUntrackNoIDs(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{},
 	}
-	res, err := a.Untrack(context.Background(), args)
+	res, err := a.Untrack(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.PayloadResults{})
 }

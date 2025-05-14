@@ -230,7 +230,7 @@ func (ctx *testContext) makeUnit(c *tc.C, unitTag names.UnitTag, l life.Value) *
 
 	u.EXPECT().CanApplyLXDProfile(gomock.Any()).DoAndReturn(func(context.Context) (bool, error) {
 		u.mu.Lock()
-		tag, err := u.AssignedMachine(context.Background())
+		tag, err := u.AssignedMachine(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 		u.mu.Unlock()
 		return tag.ContainerType() == "lxd", nil
@@ -344,7 +344,7 @@ func (ctx *testContext) makeRelationUnit(c *tc.C, rel *relation, u *unit) *relat
 	}
 
 	ru.EXPECT().Relation().Return(rel).AnyTimes()
-	ep, err := rel.Endpoint(context.Background())
+	ep, err := rel.Endpoint(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	ru.EXPECT().Endpoint().Return(*ep).AnyTimes()
 

@@ -42,7 +42,7 @@ func (s *workerSuite) TestKilledGetStorageRegistryErrDying(c *tc.C) {
 	w.Kill()
 
 	worker := w.(*storageRegistryWorker)
-	_, err := worker.GetStorageRegistry(context.Background(), "foo")
+	_, err := worker.GetStorageRegistry(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, corestorage.ErrStorageRegistryDying)
 }
 
@@ -66,7 +66,7 @@ func (s *workerSuite) TestGetStorageRegistry(c *tc.C) {
 	}).AnyTimes()
 
 	worker := w.(*storageRegistryWorker)
-	storageRegistry, err := worker.GetStorageRegistry(context.Background(), "foo")
+	storageRegistry, err := worker.GetStorageRegistry(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(storageRegistry, tc.NotNil)
 
@@ -100,7 +100,7 @@ func (s *workerSuite) TestGetStorageRegistryIsCached(c *tc.C) {
 	worker := w.(*storageRegistryWorker)
 	for i := 0; i < 10; i++ {
 
-		_, err := worker.GetStorageRegistry(context.Background(), "foo")
+		_, err := worker.GetStorageRegistry(c.Context(), "foo")
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -137,7 +137,7 @@ func (s *workerSuite) TestGetStorageRegistryIsNotCachedForDifferentNamespaces(c 
 			return providerTrackerProvider{}, nil
 		})
 
-		_, err := worker.GetStorageRegistry(context.Background(), name)
+		_, err := worker.GetStorageRegistry(c.Context(), name)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -180,7 +180,7 @@ func (s *workerSuite) TestGetStorageRegistryConcurrently(c *tc.C) {
 				return providerTrackerProvider{}, nil
 			})
 
-			_, err := worker.GetStorageRegistry(context.Background(), name)
+			_, err := worker.GetStorageRegistry(c.Context(), name)
 			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}

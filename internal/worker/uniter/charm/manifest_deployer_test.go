@@ -4,7 +4,6 @@
 package charm_test
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -55,7 +54,7 @@ func (s *ManifestDeployerSuite) addCharm(c *tc.C, revision int, content ...filet
 
 func (s *ManifestDeployerSuite) deployCharm(c *tc.C, revision int, content ...filetesting.Entry) charm.BundleInfo {
 	info := s.addCharm(c, revision, content...)
-	err := s.deployer.Stage(context.Background(), info, nil)
+	err := s.deployer.Stage(c.Context(), info, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, tc.ErrorIsNil)
@@ -76,7 +75,7 @@ func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *tc.C) {
 	errors := make(chan error)
 	s.bundles.EnableWaitForAbort()
 	go func() {
-		errors <- s.deployer.Stage(context.Background(), info, abort)
+		errors <- s.deployer.Stage(c.Context(), info, abort)
 	}()
 	close(abort)
 	err := <-errors
@@ -89,7 +88,7 @@ func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *tc.C) {
 	errors := make(chan error)
 	stopWaiting := s.bundles.EnableWaitForAbort()
 	go func() {
-		errors <- s.deployer.Stage(context.Background(), info, abort)
+		errors <- s.deployer.Stage(c.Context(), info, abort)
 	}()
 	close(stopWaiting)
 	err := <-errors
@@ -191,7 +190,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *tc.C
 		},
 	}
 	info := s.addMockCharm(2, mockCharm)
-	err := s.deployer.Stage(context.Background(), info, nil)
+	err := s.deployer.Stage(c.Context(), info, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// ...and see it fail to expand. We're not too bothered about the actual
@@ -234,7 +233,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 		},
 	}
 	badInfo := s.addMockCharm(2, badCharm)
-	err := s.deployer.Stage(context.Background(), badInfo, nil)
+	err := s.deployer.Stage(c.Context(), badInfo, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, tc.Equals, charm.ErrConflict)
@@ -276,7 +275,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *tc.C) {
 		}
 	}()
 
-	_, err := s.rbr.Read(context.Background(), s.bundleInfo, nil)
+	_, err := s.rbr.Read(c.Context(), s.bundleInfo, nil)
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -295,7 +294,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *tc.C) {
 		c.Assert(s.clock.WaitAdvance(10*time.Second, time.Second, 1), tc.ErrorIsNil)
 	}()
 
-	got, err := s.rbr.Read(context.Background(), s.bundleInfo, nil)
+	got, err := s.rbr.Read(c.Context(), s.bundleInfo, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.Equals, s.bundle)
 }

@@ -27,7 +27,7 @@ func (s *contextSuite) TestSourceableErrorIsNilIfErrorIsNotContextError(c *tc.C)
 	// context error. Otherwise you can always check the error with the
 	// source directly.
 
-	ctx := WithSourceableError(context.Background(), &tomb)
+	ctx := WithSourceableError(c.Context(), &tomb)
 	err := ctx.Err()
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -35,7 +35,7 @@ func (s *contextSuite) TestSourceableErrorIsNilIfErrorIsNotContextError(c *tc.C)
 func (s *contextSuite) TestSourceableErrorIsIgnoredIfNotInErrorState(c *tc.C) {
 	var tomb tomb.Tomb
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	ctx = WithSourceableError(ctx, &tomb)
@@ -47,7 +47,7 @@ func (s *contextSuite) TestSourceableErrorIsTombError(c *tc.C) {
 	var tomb tomb.Tomb
 	tomb.Kill(errors.New("boom"))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	ctx = WithSourceableError(ctx, &tomb)
@@ -58,7 +58,7 @@ func (s *contextSuite) TestSourceableErrorIsTombError(c *tc.C) {
 func (s *contextSuite) TestSourceableErrorIsTiedToTheTomb(c *tc.C) {
 	var tomb tomb.Tomb
 
-	ctx := tomb.Context(context.Background())
+	ctx := tomb.Context(c.Context())
 
 	tomb.Kill(errors.New("boom"))
 

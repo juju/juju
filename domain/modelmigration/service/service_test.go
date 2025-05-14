@@ -69,7 +69,7 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.state,
-	).AdoptResources(context.Background(), sourceControllerVersion)
+	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -95,7 +95,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		s.instanceProviderGetter(c),
 		resourceGetter,
 		s.state,
-	).AdoptResources(context.Background(), sourceControllerVersion)
+	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -122,7 +122,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.state,
-	).AdoptResources(context.Background(), sourceControllerVersion)
+	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -141,14 +141,14 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 			},
 		},
 			nil)
-	s.state.EXPECT().GetAllInstanceIDs(context.Background()).
+	s.state.EXPECT().GetAllInstanceIDs(c.Context()).
 		Return(set.NewStrings("instance0"), nil)
 
 	_, err := NewService(
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.state,
-	).CheckMachines(context.Background())
+	).CheckMachines(c.Context())
 	c.Check(err, tc.ErrorMatches, "provider instance IDs.*instance1.*")
 }
 
@@ -165,14 +165,14 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 			},
 		},
 			nil)
-	s.state.EXPECT().GetAllInstanceIDs(context.Background()).
+	s.state.EXPECT().GetAllInstanceIDs(c.Context()).
 		Return(set.NewStrings("instance0", "instance1"), nil)
 
 	_, err := NewService(
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.state,
-	).CheckMachines(context.Background())
+	).CheckMachines(c.Context())
 	c.Check(err, tc.ErrorMatches, "instance IDs.*instance1.*")
 }
 

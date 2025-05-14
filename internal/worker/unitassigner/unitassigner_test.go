@@ -27,12 +27,12 @@ func newHandler(c *tc.C, api UnitAssigner) unitAssignerHandler {
 func (testsuite) TestSetup(c *tc.C) {
 	f := &fakeAPI{}
 	ua := newHandler(c, f)
-	_, err := ua.SetUp(context.Background())
+	_, err := ua.SetUp(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.calledWatch, tc.IsTrue)
 
 	f.err = errors.New("boo")
-	_, err = ua.SetUp(context.Background())
+	_, err = ua.SetUp(c.Context())
 	c.Assert(err, tc.Equals, f.err)
 }
 

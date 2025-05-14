@@ -56,7 +56,7 @@ func (s *suite) TestContainerManagerConfigForType(c *tc.C) {
 	s.state.EXPECT().ModelID(gomock.Any()).Return(modelID, nil)
 
 	service := NewService(s.state, s.providerGetter)
-	cfg, err := service.ContainerManagerConfigForType(context.Background(), instance.LXD)
+	cfg, err := service.ContainerManagerConfigForType(c.Context(), instance.LXD)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg, tc.DeepEquals, containermanager.Config{
 		ImageMetadataURL:         "https://images.linuxcontainers.org/",
@@ -78,7 +78,7 @@ func (s *suite) TestContainerNetworkingMethodUserDefined(c *tc.C) {
 	}, nil)
 
 	service := NewService(s.state, s.providerGetter)
-	method, err := service.ContainerNetworkingMethod(context.Background())
+	method, err := service.ContainerNetworkingMethod(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
@@ -96,7 +96,7 @@ func (s *suite) TestDetermineNetworkingMethodProviderNotSupported(c *tc.C) {
 	}
 
 	service := NewService(s.state, providerGetter)
-	method, err := service.ContainerNetworkingMethod(context.Background())
+	method, err := service.ContainerNetworkingMethod(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
@@ -113,7 +113,7 @@ func (s *suite) TestDetermineNetworkingMethodProviderSupports(c *tc.C) {
 	s.provider.EXPECT().SupportsContainerAddresses(gomock.Any()).Return(true, nil)
 
 	service := NewService(s.state, s.providerGetter)
-	method, err := service.ContainerNetworkingMethod(context.Background())
+	method, err := service.ContainerNetworkingMethod(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodProvider)
 }
@@ -130,7 +130,7 @@ func (s *suite) TestDetermineNetworkingMethodProviderDoesntSupport(c *tc.C) {
 	s.provider.EXPECT().SupportsContainerAddresses(gomock.Any()).Return(false, nil)
 
 	service := NewService(s.state, s.providerGetter)
-	method, err := service.ContainerNetworkingMethod(context.Background())
+	method, err := service.ContainerNetworkingMethod(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
@@ -147,7 +147,7 @@ func (s *suite) TestDetermineNetworkingMethodProviderReturnsNotSupported(c *tc.C
 	s.provider.EXPECT().SupportsContainerAddresses(gomock.Any()).Return(false, errors.Errorf("container addresses %w", coreerrors.NotSupported))
 
 	service := NewService(s.state, s.providerGetter)
-	method, err := service.ContainerNetworkingMethod(context.Background())
+	method, err := service.ContainerNetworkingMethod(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
@@ -183,7 +183,7 @@ func (s *suite) TestContainerConfig(c *tc.C) {
 	}, nil)
 
 	service := NewService(s.state, s.providerGetter)
-	containerConfig, err := service.ContainerConfig(context.Background())
+	containerConfig, err := service.ContainerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(containerConfig, tc.DeepEquals, container.Config{
 		EnableOSRefreshUpdate:   true,

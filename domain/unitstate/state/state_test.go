@@ -38,7 +38,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -70,7 +70,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.unitName = unittesting.GenNewName(c, "app/0")
 	unitArgs := []application.AddUnitArg{{}}
 
-	ctx := context.Background()
+	ctx := c.Context()
 	_, err = appState.CreateApplication(ctx, "app", appArg, unitArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -91,7 +91,7 @@ func (s *stateSuite) TestSetUnitState(c *tc.C) {
 		StorageState:  ptr("some-storage-state-yaml"),
 		SecretState:   ptr("some-secret-state-yaml"),
 	}
-	st.SetUnitState(context.Background(), agentState)
+	st.SetUnitState(c.Context(), agentState)
 
 	expectedAgentState := unitstate.RetrievedUnitState{
 		CharmState:    *agentState.CharmState,
@@ -101,7 +101,7 @@ func (s *stateSuite) TestSetUnitState(c *tc.C) {
 		SecretState:   *agentState.SecretState,
 	}
 
-	state, err := st.GetUnitState(context.Background(), s.unitName)
+	state, err := st.GetUnitState(c.Context(), s.unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(state, tc.DeepEquals, expectedAgentState)
 }
@@ -113,13 +113,13 @@ func (s *stateSuite) TestSetUnitStateJustUniterState(c *tc.C) {
 		Name:        s.unitName,
 		UniterState: ptr("some-uniter-state-yaml"),
 	}
-	st.SetUnitState(context.Background(), agentState)
+	st.SetUnitState(c.Context(), agentState)
 
 	expectedAgentState := unitstate.RetrievedUnitState{
 		UniterState: *agentState.UniterState,
 	}
 
-	state, err := st.GetUnitState(context.Background(), s.unitName)
+	state, err := st.GetUnitState(c.Context(), s.unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(state, tc.DeepEquals, expectedAgentState)
 }
@@ -127,13 +127,13 @@ func (s *stateSuite) TestSetUnitStateJustUniterState(c *tc.C) {
 func (s *stateSuite) TestGetUnitStateUnitNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err := st.GetUnitState(context.Background(), "bad-uuid")
+	_, err := st.GetUnitState(c.Context(), "bad-uuid")
 	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestEnsureUnitStateRecord(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID})
@@ -162,7 +162,7 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *tc.C) {
 
 func (s *stateSuite) TestUpdateUnitStateUniter(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	expState := "some uniter state YAML"
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -184,7 +184,7 @@ func (s *stateSuite) TestUpdateUnitStateUniter(c *tc.C) {
 
 func (s *stateSuite) TestUpdateUnitStateStorage(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	expState := "some storage state YAML"
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -206,7 +206,7 @@ func (s *stateSuite) TestUpdateUnitStateStorage(c *tc.C) {
 
 func (s *stateSuite) TestUpdateUnitStateSecret(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	expState := "some secret state YAML"
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -228,7 +228,7 @@ func (s *stateSuite) TestUpdateUnitStateSecret(c *tc.C) {
 
 func (s *stateSuite) TestUpdateUnitStateCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Set some initial state. This should be overwritten.
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -273,7 +273,7 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *tc.C) {
 
 func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Set some initial state. This should be overwritten.
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -319,7 +319,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 
 func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Set some initial state. This should be overwritten.
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {

@@ -48,7 +48,7 @@ func (s *serviceSuite) SetUpTest(c *tc.C) {
 
 	s.modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
 
-	err := s.ModelTxnRunner(c, s.modelUUID.String()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.ModelTxnRunner(c, s.modelUUID.String()).StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -64,7 +64,7 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *tc.C) {
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelUUID, gomock.Any())
 	uri := s.createSecret(c, map[string]string{"foo": "bar"}, nil)
 
-	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
+	err := s.svc.DeleteSecret(c.Context(), uri, service.DeleteSecretParams{
 		Accessor: service.SecretAccessor{
 			Kind: service.UnitAccessor,
 			ID:   "mariadb/0",
@@ -73,7 +73,7 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.svc.GetSecret(context.Background(), uri)
+	_, err = s.svc.GetSecret(c.Context(), uri)
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
 }
 
@@ -87,7 +87,7 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *tc.C) {
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any())
 	uri := s.createSecret(c, nil, ref)
 
-	err := s.svc.DeleteSecret(context.Background(), uri, service.DeleteSecretParams{
+	err := s.svc.DeleteSecret(c.Context(), uri, service.DeleteSecretParams{
 		Accessor: service.SecretAccessor{
 			Kind: service.UnitAccessor,
 			ID:   "mariadb/0",
@@ -96,7 +96,7 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.svc.GetSecret(context.Background(), uri)
+	_, err = s.svc.GetSecret(c.Context(), uri)
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
 }
 
@@ -117,7 +117,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *coresecrets.ValueRef) *coresecrets.URI {
-	ctx := context.Background()
+	ctx := c.Context()
 	st := applicationstate.NewState(func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, s.modelUUID.String()), nil
 	}, clock.WallClock, loggertesting.WrapCheckLog(c))

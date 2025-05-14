@@ -4,7 +4,6 @@
 package proxyupdater_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -88,7 +87,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *tc.C
 	defer modelConfigWatcher.Kill()
 	s.modelConfigService.EXPECT().Watch().Return(modelConfigWatcher, nil)
 
-	result := s.facade.WatchForProxyConfigAndAPIHostPortChanges(context.Background(), s.oneEntity())
+	result := s.facade.WatchForProxyConfigAndAPIHostPortChanges(c.Context(), s.oneEntity())
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 
@@ -130,7 +129,7 @@ func (s *ProxyUpdaterSuite) TestMirrorConfig(c *tc.C) {
 	), nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 
-	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
+	cfg := s.facade.ProxyConfig(c.Context(), s.oneEntity())
 
 	s.state.Stub.CheckCallNames(c,
 		"APIHostPortsForAgents",
@@ -155,7 +154,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *tc.C) {
 	), nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 
-	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
+	cfg := s.facade.ProxyConfig(c.Context(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"APIHostPortsForAgents",
 	)
@@ -188,7 +187,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigJujuProxy(c *tc.C) {
 	), nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 
-	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
+	cfg := s.facade.ProxyConfig(c.Context(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"APIHostPortsForAgents",
 	)
@@ -226,7 +225,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *tc.C) {
 	), nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 
-	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
+	cfg := s.facade.ProxyConfig(c.Context(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"APIHostPortsForAgents",
 	)
@@ -258,7 +257,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *tc.C) {
 	), nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 
-	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
+	cfg := s.facade.ProxyConfig(c.Context(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"APIHostPortsForAgents",
 	)
@@ -288,7 +287,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *tc.C) {
 	), nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 
-	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
+	cfg := s.facade.ProxyConfig(c.Context(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"APIHostPortsForAgents",
 	)

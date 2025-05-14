@@ -64,11 +64,11 @@ func (s *modelStateSuite) createMachineWithName(c *tc.C, name machine.Name) stri
 		loggertesting.WrapCheckLog(c),
 	)
 	uuid := coremachinetesting.GenUUID(c)
-	err := machineSt.CreateMachine(context.Background(), name, uuid.String(), uuid)
+	err := machineSt.CreateMachine(c.Context(), name, uuid.String(), uuid)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
-	machineUUID, err := st.GetMachineUUIDByName(context.Background(), name)
+	machineUUID, err := st.GetMachineUUIDByName(c.Context(), name)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machineUUID, tc.Equals, uuid.String())
 
@@ -111,7 +111,7 @@ VALUES ($objectStoreMeta.uuid, $objectStoreMeta.sha_256, $objectStoreMeta.sha_38
 		SHA384: sha384Hash,
 		Size:   1234,
 	}
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt, metaRecord).Run()
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -131,13 +131,13 @@ VALUES ($objectStoreMeta.uuid, $objectStoreMeta.sha_256, $objectStoreMeta.sha_38
 INSERT INTO object_store_metadata_path (path, metadata_uuid)
 VALUES ($dbMetadataPath.*)`, pathRecord)
 	c.Assert(err, tc.ErrorIsNil)
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, pathStmt, pathRecord).Run()
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = agentbinarystate.NewState(s.TxnRunnerFactory()).RegisterAgentBinary(
-		context.Background(),
+		c.Context(),
 		agentbinary.RegisterAgentBinaryArg{
 			Arch:            version.Arch,
 			ObjectStoreUUID: objectstore.UUID(storeUUID),
@@ -168,14 +168,14 @@ func (s *modelStateSuite) setModelTargetAgentVersion(c *tc.C, vers string) {
 	stmt, err := sqlair.Prepare(q, args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt, args).Run()
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelStateSuite) setMachineAgentVersion(c *tc.C, machineUUID, running string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
 			"INSERT INTO machine_agent_version (machine_uuid, version, architecture_id) values (?, ?, ?)",
 			machineUUID, running, 0)
@@ -187,7 +187,7 @@ func (s *modelStateSuite) setMachineAgentVersion(c *tc.C, machineUUID, running s
 func (s *modelStateSuite) setUnitAgentVersion(
 	c *tc.C, unitUUID coreunit.UUID, running string,
 ) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
 			"INSERT INTO unit_agent_version (unit_uuid, version, architecture_id) values (?, ?, ?)",
 			unitUUID.String(), running, 0)
@@ -208,15 +208,15 @@ func (s *modelStateSuite) createTestingUnitForApplication(
 	appName string,
 ) coreunit.UUID {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	appID, err := appState.GetApplicationIDByName(context.Background(), appName)
+	appID, err := appState.GetApplicationIDByName(c.Context(), appName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, err := appState.AddIAASUnits(context.Background(), appID, application.AddUnitArg{})
+	unitNames, err := appState.AddIAASUnits(c.Context(), appID, application.AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
 
-	unitUUID, err := appState.GetUnitUUIDByName(context.Background(), unitName)
+	unitUUID, err := appState.GetUnitUUIDByName(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return unitUUID
@@ -238,7 +238,7 @@ func (s *modelStateSuite) createTestingApplicationWithName(
 		Risk:   "stable",
 		Branch: "branch",
 	}
-	ctx := context.Background()
+	ctx := c.Context()
 
 	appID, err := appState.CreateApplication(ctx, appName, application.AddApplicationArg{
 		Platform: platform,
@@ -296,7 +296,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	s.setModelTargetAgentVersion(c, expectedVersion.String())
 
-	obtainedVersion, err := st.GetModelTargetAgentVersion(context.Background())
+	obtainedVersion, err := st.GetModelTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(obtainedVersion, tc.DeepEquals, expectedVersion)
 }
@@ -306,7 +306,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionSuccess(c *tc.C) {
 func (s *modelStateSuite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err := st.GetModelTargetAgentVersion(context.Background())
+	_, err := st.GetModelTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
@@ -316,7 +316,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionCantParseVersion(c *tc.C) {
 	s.setModelTargetAgentVersion(c, "invalid-version")
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetModelTargetAgentVersion(context.Background())
+	_, err := st.GetModelTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorMatches, `parsing agent version: invalid version "invalid-version".*`)
 }
 
@@ -329,7 +329,7 @@ func (s *modelStateSuite) TestGetMachineTargetAgentVersion(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	vers, err := st.GetMachineTargetAgentVersion(
-		context.Background(),
+		c.Context(),
 		machineUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -348,7 +348,7 @@ func (s *modelStateSuite) TestGetMachineTargetAgentVersionTargetVersionNotSet(c 
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetMachineTargetAgentVersion(
-		context.Background(),
+		c.Context(),
 		machineUUID,
 	)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
@@ -360,7 +360,7 @@ func (s *modelStateSuite) TestGetMachineTargetAgentVersionCantParseVersion(c *tc
 	s.setModelTargetAgentVersion(c, "invalid-version")
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetMachineTargetAgentVersion(context.Background(), machineUUID)
+	_, err := st.GetMachineTargetAgentVersion(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorMatches, `parsing machine .* agent version: invalid version "invalid-version".*`)
 }
 
@@ -373,7 +373,7 @@ func (s *modelStateSuite) TestGetMachineTargetAgentVersionNotFound(c *tc.C) {
 	s.setModelTargetAgentVersion(c, "4.0.1")
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetMachineTargetAgentVersion(context.Background(), machineUUID)
+	_, err := st.GetMachineTargetAgentVersion(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
@@ -385,7 +385,7 @@ func (s *modelStateSuite) TestGetMachineTargetAgentVersionMachineNotFound(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err = st.GetMachineTargetAgentVersion(context.Background(), machineUUID.String())
+	_, err = st.GetMachineTargetAgentVersion(c.Context(), machineUUID.String())
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -397,7 +397,7 @@ func (s *modelStateSuite) TestGetMachineRunningAgentBinaryVersionMachineNotFound
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err = st.GetMachineRunningAgentBinaryVersion(context.Background(), machineUUID.String())
+	_, err = st.GetMachineRunningAgentBinaryVersion(c.Context(), machineUUID.String())
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -408,7 +408,7 @@ func (s *modelStateSuite) TestGetMachineRunningAgentBinaryVersionNotFound(c *tc.
 	machineUUID := s.createMachine(c)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetMachineRunningAgentBinaryVersion(context.Background(), machineUUID)
+	_, err := st.GetMachineRunningAgentBinaryVersion(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
@@ -418,7 +418,7 @@ func (s *modelStateSuite) TestGetMachineRunningAgentBinaryVersion(c *tc.C) {
 	s.setMachineAgentVersion(c, machineUUID, "4.1.1")
 
 	st := NewState(s.TxnRunnerFactory())
-	ver, err := st.GetMachineRunningAgentBinaryVersion(context.Background(), machineUUID)
+	ver, err := st.GetMachineRunningAgentBinaryVersion(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.DeepEquals, coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.1"),
@@ -435,7 +435,7 @@ func (s *modelStateSuite) TestGetUnitTargetAgentBinaryVersion(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	vers, err := st.GetUnitTargetAgentVersion(
-		context.Background(),
+		c.Context(),
 		unitUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -453,7 +453,7 @@ func (s *modelStateSuite) TestGetUnitTargetAgentVersionCantParseVersion(c *tc.C)
 	s.setModelTargetAgentVersion(c, "invalid-version")
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetUnitTargetAgentVersion(context.Background(), unitUUID)
+	_, err := st.GetUnitTargetAgentVersion(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorMatches, `parsing unit .* target agent version "invalid-version": invalid version "invalid-version".*`)
 }
 
@@ -464,7 +464,7 @@ func (s *modelStateSuite) TestGetUnitTargetAgentVersionNotFound(c *tc.C) {
 	unitUUID := s.createTestingUnit(c)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetUnitTargetAgentVersion(context.Background(), unitUUID)
+	_, err := st.GetUnitTargetAgentVersion(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
@@ -476,7 +476,7 @@ func (s *modelStateSuite) TestGetUnitTargetAgentVersionModelVersionNotFound(c *t
 	s.setUnitAgentVersion(c, unitUUID, "4.1.1")
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetUnitTargetAgentVersion(context.Background(), unitUUID)
+	_, err := st.GetUnitTargetAgentVersion(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
@@ -489,7 +489,7 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionMachineNotFound
 
 	st := NewState(s.TxnRunnerFactory())
 	err = st.SetMachineRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		machineUUID.String(),
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
@@ -506,15 +506,15 @@ func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	err := machineSt.CreateMachine(context.Background(), "666", "", machineUUID)
+	err := machineSt.CreateMachine(c.Context(), "666", "", machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = machineSt.SetMachineLife(context.Background(), "666", life.Dead)
+	err = machineSt.SetMachineLife(c.Context(), "666", life.Dead)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
 	err = st.SetMachineRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		machineUUID.String(),
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
@@ -532,7 +532,7 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionNotSupportedArc
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetMachineRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		machineUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
@@ -549,7 +549,7 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersion(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetMachineRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		machineUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
@@ -563,7 +563,7 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersion(c *tc.C) {
 		obtainedVersion     string
 		obtainedArch        string
 	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		stmt := `
 SELECT machine_uuid,
        version,
@@ -592,7 +592,7 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionUpdate(c *tc.C)
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetMachineRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		machineUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
@@ -606,7 +606,7 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionUpdate(c *tc.C)
 		obtainedVersion     string
 		obtainedArch        string
 	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		stmt := `
 SELECT machine_uuid,
        version,
@@ -628,7 +628,7 @@ WHERE machine_uuid = ?
 
 	// Update
 	err = st.SetMachineRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		machineUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
@@ -647,7 +647,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionUnitNotFound(c *tc
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetUnitRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		unitUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
@@ -664,7 +664,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionNotSupportedArch(c
 	unitUUID := s.createTestingUnit(c)
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetUnitRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		unitUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
@@ -680,7 +680,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersion(c *tc.C) {
 	unitUUID := s.createTestingUnit(c)
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetUnitRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		unitUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
@@ -689,7 +689,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersion(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	ver, err := st.GetUnitRunningAgentBinaryVersion(context.Background(), unitUUID)
+	ver, err := st.GetUnitRunningAgentBinaryVersion(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ver.Arch, tc.Equals, corearch.ARM64)
 	c.Assert(err, tc.ErrorIsNil)
@@ -703,7 +703,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionUpdate(c *tc.C) {
 	unitUUID := s.createTestingUnit(c)
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetUnitRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		unitUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
@@ -712,7 +712,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionUpdate(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	ver, err := st.GetUnitRunningAgentBinaryVersion(context.Background(), unitUUID)
+	ver, err := st.GetUnitRunningAgentBinaryVersion(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ver.Arch, tc.Equals, corearch.ARM64)
 	c.Assert(err, tc.ErrorIsNil)
@@ -723,7 +723,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionUpdate(c *tc.C) {
 	newVersion := jujuversion.Current
 	newVersion.Patch++
 	err = st.SetUnitRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		unitUUID,
 		coreagentbinary.Version{
 			Number: newVersion,
@@ -732,7 +732,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionUpdate(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	ver, err = st.GetUnitRunningAgentBinaryVersion(context.Background(), unitUUID)
+	ver, err = st.GetUnitRunningAgentBinaryVersion(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver.Number.String(), tc.Equals, newVersion.String())
 	c.Check(ver.Arch, tc.Equals, corearch.ARM64)
@@ -744,7 +744,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionUpdate(c *tc.C) {
 func (s *modelStateSuite) TestGetUnitRunningAgentBinaryVersionUnitNotFound(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	_, err := NewState(s.TxnRunnerFactory()).GetUnitRunningAgentBinaryVersion(
-		context.Background(), unitUUID,
+		c.Context(), unitUUID,
 	)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
@@ -755,7 +755,7 @@ func (s *modelStateSuite) TestGetUnitRunningAgentBinaryVersionUnitNotFound(c *tc
 func (s *modelStateSuite) TestGetUnitRunningAgentBinaryVersionNotFound(c *tc.C) {
 	unitUUID := s.createTestingUnit(c)
 	_, err := NewState(s.TxnRunnerFactory()).GetUnitRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		unitUUID,
 	)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
@@ -766,7 +766,7 @@ func (s *modelStateSuite) TestGetUnitRunningAgentBinaryVersionNotFound(c *tc.C) 
 // [State.GetMachinesNotAtTargetAgentVersion].
 func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionEmpty(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	list, err := st.GetMachinesNotAtTargetAgentVersion(context.Background())
+	list, err := st.GetMachinesNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(list), tc.Equals, 0)
 }
@@ -782,7 +782,7 @@ func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionUnreported(c *tc.C)
 	s.setModelTargetAgentVersion(c, "4.0.1")
 	s.setMachineAgentVersion(c, regUUID, "4.0.1")
 	st := NewState(s.TxnRunnerFactory())
-	list, err := st.GetMachinesNotAtTargetAgentVersion(context.Background())
+	list, err := st.GetMachinesNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(list, tc.DeepEquals, []machine.Name{
 		notRegName,
@@ -801,7 +801,7 @@ func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionFallingBehind(c *tc
 	s.setMachineAgentVersion(c, m1UUID, "4.0.1")
 	s.setMachineAgentVersion(c, m2UUID, "4.0.1")
 	st := NewState(s.TxnRunnerFactory())
-	list, err := st.GetMachinesNotAtTargetAgentVersion(context.Background())
+	list, err := st.GetMachinesNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(list, tc.DeepEquals, []machine.Name{
 		m1Name, m2Name,
@@ -820,7 +820,7 @@ func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionAllUptoDate(c *tc.C
 	s.setMachineAgentVersion(c, m1UUID, "4.1.0")
 	s.setMachineAgentVersion(c, m2UUID, "4.1.0")
 	st := NewState(s.TxnRunnerFactory())
-	list, err := st.GetMachinesNotAtTargetAgentVersion(context.Background())
+	list, err := st.GetMachinesNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(list), tc.Equals, 0)
 }
@@ -830,7 +830,7 @@ func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionAllUptoDate(c *tc.C
 // [State.GetUnitsNotAtTargetAgentVersion].
 func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionEmpty(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(list), tc.Equals, 0)
 }
@@ -845,7 +845,7 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionUnreported(c *tc.C) {
 	s.setModelTargetAgentVersion(c, "4.0.1")
 	s.setUnitAgentVersion(c, unit2UUID, "4.0.1")
 	st := NewState(s.TxnRunnerFactory())
-	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(list, tc.DeepEquals, []coreunit.Name{
 		coreunit.Name("foo/0"),
@@ -863,7 +863,7 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionFallingBehind(c *tc.C)
 	s.setUnitAgentVersion(c, unit1UUID, "4.0.1")
 	s.setUnitAgentVersion(c, unit2UUID, "4.0.1")
 	st := NewState(s.TxnRunnerFactory())
-	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(list, tc.DeepEquals, []coreunit.Name{
 		coreunit.Name("foo/0"), coreunit.Name("foo/1"),
@@ -881,7 +881,7 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionAllUptoDate(c *tc.C) {
 	s.setUnitAgentVersion(c, unit1UUID, "4.1.0")
 	s.setUnitAgentVersion(c, unit2UUID, "4.1.0")
 	st := NewState(s.TxnRunnerFactory())
-	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(list), tc.Equals, 0)
 }
@@ -890,7 +890,7 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionAllUptoDate(c *tc.C) {
 // has no machines we get back an empty list of machine agent binary metadata.
 func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataNoMachines(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	data, err := st.GetMachinesAgentBinaryMetadata(context.Background())
+	data, err := st.GetMachinesAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(data), tc.Equals, 0)
 }
@@ -918,7 +918,7 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadata(c *tc.C) {
 		machineName := machine.Name(fmt.Sprintf("amd64-%d", i))
 		machineUUID := s.createMachineWithName(c, machineName)
 		err := st.SetMachineRunningAgentBinaryVersion(
-			context.Background(), machineUUID, versionAMD64,
+			c.Context(), machineUUID, versionAMD64,
 		)
 		c.Assert(err, tc.ErrorIsNil)
 		expected[machineName] = metaAMD64
@@ -927,13 +927,13 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadata(c *tc.C) {
 		machineName := machine.Name(fmt.Sprintf("arm64-%d", i))
 		machineUUID := s.createMachineWithName(c, machineName)
 		err := st.SetMachineRunningAgentBinaryVersion(
-			context.Background(), machineUUID, versionARM64,
+			c.Context(), machineUUID, versionARM64,
 		)
 		c.Assert(err, tc.ErrorIsNil)
 		expected[machineName] = metaARM64
 	}
 
-	data, err := st.GetMachinesAgentBinaryMetadata(context.Background())
+	data, err := st.GetMachinesAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(data, tc.DeepEquals, expected)
 }
@@ -959,7 +959,7 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMachineNotSet(c *tc.
 		machineName := machine.Name(fmt.Sprintf("amd64-%d", i))
 		machineUUID := s.createMachineWithName(c, machineName)
 		err := st.SetMachineRunningAgentBinaryVersion(
-			context.Background(), machineUUID, versionAMD64,
+			c.Context(), machineUUID, versionAMD64,
 		)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -968,7 +968,7 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMachineNotSet(c *tc.
 	machineName := machine.Name("amd64-6")
 	s.createMachineWithName(c, machineName)
 
-	data, err := st.GetMachinesAgentBinaryMetadata(context.Background())
+	data, err := st.GetMachinesAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 	c.Check(len(data), tc.Equals, 0)
 }
@@ -991,7 +991,7 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMissingAgentBinary(c
 		machineName := machine.Name(fmt.Sprintf("amd64-%d", i))
 		machineUUID := s.createMachineWithName(c, machineName)
 		err := st.SetMachineRunningAgentBinaryVersion(
-			context.Background(), machineUUID, versionAMD64,
+			c.Context(), machineUUID, versionAMD64,
 		)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -1001,7 +1001,7 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMissingAgentBinary(c
 	machineName := machine.Name("arm64-6")
 	machineUUID := s.createMachineWithName(c, machineName)
 	err := st.SetMachineRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		machineUUID,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.1.0"),
@@ -1010,7 +1010,7 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMissingAgentBinary(c
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	data, err := st.GetMachinesAgentBinaryMetadata(context.Background())
+	data, err := st.GetMachinesAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 	c.Check(len(data), tc.Equals, 0)
 }
@@ -1038,7 +1038,7 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadata(c *tc.C) {
 
 	for i := range 5 {
 		unitUUID := s.createTestingUnitForApplication(c, "foo")
-		err := st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		err := st.SetUnitRunningAgentBinaryVersion(c.Context(), unitUUID, versionAMD64)
 		c.Assert(err, tc.ErrorIsNil)
 		unitName, err := coreunit.NewNameFromParts("foo", i)
 		c.Assert(err, tc.ErrorIsNil)
@@ -1048,14 +1048,14 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadata(c *tc.C) {
 	s.createTestingApplicationWithName(c, "foo1")
 	for i := range 5 {
 		unitUUID := s.createTestingUnitForApplication(c, "foo1")
-		err := st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionARM64)
+		err := st.SetUnitRunningAgentBinaryVersion(c.Context(), unitUUID, versionARM64)
 		c.Assert(err, tc.ErrorIsNil)
 		unitName, err := coreunit.NewNameFromParts("foo1", i)
 		c.Assert(err, tc.ErrorIsNil)
 		expected[unitName] = metaARM64
 	}
 
-	data, err := st.GetUnitsAgentBinaryMetadata(context.Background())
+	data, err := st.GetUnitsAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(data, tc.DeepEquals, expected)
 }
@@ -1080,14 +1080,14 @@ func (s *modelStateSuite) TestGetUnitsAgentBinaryMetadataUnitNotSet(c *tc.C) {
 
 	for range 5 {
 		unitUUID := s.createTestingUnitForApplication(c, "foo")
-		err := st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		err := st.SetUnitRunningAgentBinaryVersion(c.Context(), unitUUID, versionAMD64)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	// This is our rogue machine with no agent version set.
 	s.createTestingUnitForApplication(c, "foo")
 
-	data, err := st.GetUnitsAgentBinaryMetadata(context.Background())
+	data, err := st.GetUnitsAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 	c.Check(len(data), tc.Equals, 0)
 }
@@ -1109,7 +1109,7 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *tc
 
 	for range 5 {
 		unitUUID := s.createTestingUnitForApplication(c, "foo")
-		err := st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		err := st.SetUnitRunningAgentBinaryVersion(c.Context(), unitUUID, versionAMD64)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -1117,7 +1117,7 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *tc
 	// exists no agent binaries in the store.
 	unitUUID := s.createTestingUnitForApplication(c, "foo")
 	err := st.SetUnitRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		unitUUID,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.1.0"),
@@ -1126,7 +1126,7 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *tc
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	data, err := st.GetUnitsAgentBinaryMetadata(context.Background())
+	data, err := st.GetUnitsAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 	c.Check(len(data), tc.Equals, 0)
 }
@@ -1135,7 +1135,7 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *tc
 // a model correctly updates the database value and is what gets returned when
 // asking what is the value that has been set.
 func (s *modelStateSuite) TestSetAgentVersionStream(c *tc.C) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertStmt := `
 INSERT INTO agent_version (stream_id, target_version) VALUES (1, '4.1.1')
 `
@@ -1145,18 +1145,18 @@ INSERT INTO agent_version (stream_id, target_version) VALUES (1, '4.1.1')
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
-	err = st.SetModelAgentStream(context.Background(), modelagent.AgentStreamTesting)
+	err = st.SetModelAgentStream(c.Context(), modelagent.AgentStreamTesting)
 	c.Check(err, tc.ErrorIsNil)
 
-	agentStream, err := st.GetModelAgentStream(context.Background())
+	agentStream, err := st.GetModelAgentStream(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(agentStream, tc.Equals, modelagent.AgentStreamTesting)
 
 	// One more change for good measure.
-	err = st.SetModelAgentStream(context.Background(), modelagent.AgentStreamProposed)
+	err = st.SetModelAgentStream(c.Context(), modelagent.AgentStreamProposed)
 	c.Check(err, tc.ErrorIsNil)
 
-	agentStream, err = st.GetModelAgentStream(context.Background())
+	agentStream, err = st.GetModelAgentStream(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(agentStream, tc.Equals, modelagent.AgentStreamProposed)
 }

@@ -51,7 +51,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTag(c *tc.C) {
 		s.resourceService)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
 	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
-	appID, err := facade.getApplicationID(context.Background())
+	appID, err := facade.getApplicationID(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
@@ -74,7 +74,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTagError(c *tc.C) {
 		s.resourceService)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
 	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
-	_, err = facade.getApplicationID(context.Background())
+	_, err = facade.getApplicationID(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedError, tc.Commentf("(Assert) unexpected error: %v", err))
@@ -96,7 +96,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTag(c *tc.C) {
 		s.resourceService)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
 	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
-	appID, err := facade.getApplicationID(context.Background())
+	appID, err := facade.getApplicationID(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
@@ -119,7 +119,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTagError(c *tc.C) {
 		s.resourceService)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
 	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
-	_, err = facade.getApplicationID(context.Background())
+	_, err = facade.getApplicationID(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedError, tc.Commentf("(Assert) unexpected error: %v", err))
@@ -169,14 +169,14 @@ func (s *unitFacadeSuite) TestGetApplicationIDCache(c *tc.C) {
 	}
 
 	// Act & Assert: first retrieval (non cached)
-	id, err := facade.getApplicationID(context.Background())
+	id, err := facade.getApplicationID(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
 	c.Check(id, tc.Equals, coreapplication.ID("cached-id"), tc.Commentf("(Assert) unexpected application ID: %v", id))
 	c.Check(facade.applicationID, tc.Equals, coreapplication.ID("cached-id"),
 		tc.Commentf("(Assert)application ID should be cached: %v", id))
 
 	// Act & Assert: first retrieval (cached)
-	id, err = facade.getApplicationID(context.Background())
+	id, err = facade.getApplicationID(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
 	c.Check(id, tc.Equals, coreapplication.ID("cached-id"), tc.Commentf("(Assert) unexpected application ID: %v", id))
 

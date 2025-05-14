@@ -39,7 +39,7 @@ var _ = tc.Suite(&watcherSuite{})
 func (s *watcherSuite) TestWatchUnitResolveModeNotFound(c *tc.C) {
 	svc := s.setupService(c)
 
-	_, err := svc.WatchUnitResolveMode(context.Background(), "foo/0")
+	_, err := svc.WatchUnitResolveMode(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotFound)
 }
 
@@ -50,7 +50,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 
 	svc := s.setupService(c)
 
-	watcher, err := svc.WatchUnitResolveMode(context.Background(), "foo/0")
+	watcher, err := svc.WatchUnitResolveMode(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -62,7 +62,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 
 	// Assert that a notification is emitted if a unit is resolved
 	harness.AddTest(func(c *tc.C) {
-		err := svc.ResolveUnit(context.Background(), "foo/0", resolve.ResolveModeRetryHooks)
+		err := svc.ResolveUnit(c.Context(), "foo/0", resolve.ResolveModeRetryHooks)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -70,7 +70,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 
 	// Assert that a notification is emitted if a unit resolve mode is changed
 	harness.AddTest(func(c *tc.C) {
-		err := svc.ResolveUnit(context.Background(), "foo/0", resolve.ResolveModeNoHooks)
+		err := svc.ResolveUnit(c.Context(), "foo/0", resolve.ResolveModeNoHooks)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -78,7 +78,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 
 	// Assert that a notification is emitted if a unit resolve mode is cleared
 	harness.AddTest(func(c *tc.C) {
-		err := svc.ClearResolved(context.Background(), "foo/0")
+		err := svc.ClearResolved(c.Context(), "foo/0")
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -91,7 +91,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 
 	// Assert no notification is emitted if another unit is resolved
 	harness.AddTest(func(c *tc.C) {
-		err := svc.ResolveUnit(context.Background(), "foo/1", resolve.ResolveModeRetryHooks)
+		err := svc.ResolveUnit(c.Context(), "foo/1", resolve.ResolveModeRetryHooks)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
@@ -126,7 +126,7 @@ func (s *watcherSuite) createApplication(c *tc.C, name string, units ...applicat
 		Risk:   "stable",
 		Branch: "branch",
 	}
-	ctx := context.Background()
+	ctx := c.Context()
 
 	appID, err := appState.CreateApplication(ctx, name, application.AddApplicationArg{
 		Platform: platform,
@@ -167,7 +167,7 @@ func (s *watcherSuite) createApplication(c *tc.C, name string, units ...applicat
 	c.Assert(err, tc.ErrorIsNil)
 
 	var unitUUIDs = make([]coreunit.UUID, len(units))
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for i, unitName := range unitNames {
 			var uuid coreunit.UUID
 			err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&uuid)

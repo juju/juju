@@ -37,7 +37,7 @@ func (s *ResourcesSuite) TestListResourceRevisions(c *tc.C) {
 	s.expectGet(c, restClient, path, name, resource)
 
 	client := newResourcesClient(path, restClient, s.logger)
-	response, err := client.ListResourceRevisions(context.Background(), name, resource)
+	response, err := client.ListResourceRevisions(c.Context(), name, resource)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(response, tc.HasLen, 3)
 }
@@ -56,7 +56,7 @@ func (s *ResourcesSuite) TestListResourceRevisionsFailure(c *tc.C) {
 	s.expectGetFailure(restClient)
 
 	client := newResourcesClient(path, restClient, s.logger)
-	_, err := client.ListResourceRevisions(context.Background(), name, resource)
+	_, err := client.ListResourceRevisions(c.Context(), name, resource)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
@@ -102,7 +102,7 @@ func (s *ResourcesSuite) TestListResourceRevisionsRequestPayload(c *tc.C) {
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newResourcesClient(resourcesPath, restClient, s.logger)
-	response, err := client.ListResourceRevisions(context.Background(), "wordpress", "image")
+	response, err := client.ListResourceRevisions(c.Context(), "wordpress", "image")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(response, tc.DeepEquals, resourcesResponse.Revisions)
 }

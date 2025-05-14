@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -51,7 +49,7 @@ func (s *migrationSuite) TestPerform(c *tc.C) {
 		s.op.EXPECT().Execute(gomock.Any(), s.model).Return(nil),
 	)
 
-	err := m.Perform(context.Background(), s.scope, s.model)
+	err := m.Perform(c.Context(), s.scope, s.model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 func (s *migrationSuite) TestPerformWithRollbackAtSetup(c *tc.C) {
@@ -70,7 +68,7 @@ func (s *migrationSuite) TestPerformWithRollbackAtSetup(c *tc.C) {
 		s.op.EXPECT().Rollback(gomock.Any(), s.model).Return(nil),
 	)
 
-	err := m.Perform(context.Background(), s.scope, s.model)
+	err := m.Perform(c.Context(), s.scope, s.model)
 	c.Assert(err, tc.ErrorMatches, `setup operation op: boom`)
 }
 
@@ -91,7 +89,7 @@ func (s *migrationSuite) TestPerformWithRollbackAtExecution(c *tc.C) {
 		s.op.EXPECT().Rollback(gomock.Any(), s.model).Return(nil),
 	)
 
-	err := m.Perform(context.Background(), s.scope, s.model)
+	err := m.Perform(c.Context(), s.scope, s.model)
 	c.Assert(err, tc.ErrorMatches, `execute operation op: boom`)
 }
 
@@ -112,7 +110,7 @@ func (s *migrationSuite) TestPerformWithRollbackError(c *tc.C) {
 		s.op.EXPECT().Rollback(gomock.Any(), s.model).Return(errors.New("sad")),
 	)
 
-	err := m.Perform(context.Background(), s.scope, s.model)
+	err := m.Perform(c.Context(), s.scope, s.model)
 	c.Assert(err, tc.ErrorMatches, `rollback operation at 0 with sad: execute operation op: boom`)
 }
 

@@ -4,8 +4,6 @@
 package usersecrets_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -43,7 +41,7 @@ func (s *secretSuite) TestWatchRevisionsToPrune(c *tc.C) {
 		return nil
 	})
 	client := usersecrets.NewClient(apiCaller)
-	_, err := client.WatchRevisionsToPrune(context.Background())
+	_, err := client.WatchRevisionsToPrune(c.Context())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -58,6 +56,6 @@ func (s *secretSuite) TestDeleteObsoleteUserSecretRevisions(c *tc.C) {
 		return errors.New("boom")
 	})
 	client := usersecrets.NewClient(apiCaller)
-	err := client.DeleteObsoleteUserSecretRevisions(context.Background())
+	err := client.DeleteObsoleteUserSecretRevisions(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }

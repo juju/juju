@@ -4,7 +4,6 @@
 package resources_test
 
 import (
-	"context"
 	"sort"
 	"strconv"
 
@@ -35,11 +34,11 @@ func (s *eventsSuite) TestList(c *tc.C) {
 	for i := 0; i < 1000; i++ {
 		ev := template
 		ev.ObjectMeta.Name = strconv.Itoa(i)
-		_, err := s.client.CoreV1().Events("test").Create(context.Background(), &ev, metav1.CreateOptions{})
+		_, err := s.client.CoreV1().Events("test").Create(c.Context(), &ev, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		res = append(res, ev)
 	}
-	events, err := resources.ListEventsForObject(context.Background(), s.client, "test", "test", "Pod")
+	events, err := resources.ListEventsForObject(c.Context(), s.client, "test", "test", "Pod")
 	c.Assert(err, tc.ErrorIsNil)
 
 	toInt := func(s string) int {

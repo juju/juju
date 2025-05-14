@@ -5,7 +5,6 @@ package action_test
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -592,7 +591,7 @@ use 'juju show-task' to inspect the failure
 		// Set up context
 		output := bytes.Buffer{}
 		ctx := &cmd.Context{
-			Context: context.Background(),
+			Context: c.Context(),
 			Stdout:  &output,
 			Stderr:  &output,
 		}

@@ -4,8 +4,6 @@
 package keyupdater_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -40,7 +38,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeys(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := keyupdater.NewClient(apiCaller)
-	keys, err := client.AuthorisedKeys(context.Background(), tag)
+	keys, err := client.AuthorisedKeys(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.DeepEquals, []string{"key1", "key2"})
 }
@@ -63,6 +61,6 @@ func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := keyupdater.NewClient(apiCaller)
-	_, err := client.WatchAuthorisedKeys(context.Background(), tag)
+	_, err := client.WatchAuthorisedKeys(c.Context(), tag)
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }

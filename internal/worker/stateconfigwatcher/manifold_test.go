@@ -4,7 +4,6 @@
 package stateconfigwatcher_test
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -58,7 +57,7 @@ func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
-	_, err := s.manifold.Start(context.Background(), getter)
+	_, err := s.manifold.Start(c.Context(), getter)
 	c.Assert(err, tc.Equals, dependency.ErrMissing)
 }
 
@@ -66,18 +65,18 @@ func (s *ManifoldSuite) TestNilAgentConfigChanged(c *tc.C) {
 	manifold := stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
 		AgentName: "agent",
 	})
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "nil AgentConfigChanged .+")
 }
 
 func (s *ManifoldSuite) TestNotMachineAgent(c *tc.C) {
 	s.agent.conf.tag = names.NewUnitTag("foo/0")
-	_, err := s.manifold.Start(context.Background(), s.getter)
+	_, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "manifold can only be used with a machine or controller agent")
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	checkStop(c, w)
 }
@@ -89,7 +88,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestOutputWrongType(c *tc.C) {
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	defer checkStop(c, w)
 
@@ -100,7 +99,7 @@ func (s *ManifoldSuite) TestOutputWrongType(c *tc.C) {
 
 func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *tc.C) {
 	s.agent.conf.setStateServingInfo(false)
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	defer checkStop(c, w)
 
@@ -112,7 +111,7 @@ func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *tc.C) {
 
 func (s *ManifoldSuite) TestOutputSuccessStateServer(c *tc.C) {
 	s.agent.conf.setStateServingInfo(true)
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	defer checkStop(c, w)
 
@@ -124,7 +123,7 @@ func (s *ManifoldSuite) TestOutputSuccessStateServer(c *tc.C) {
 
 func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
 	s.agent.conf.setStateServingInfo(false)
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	checkNotExiting(c, w)
 
@@ -151,7 +150,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
 	checkExitsWithError(c, w, dependency.ErrBounce)
 
 	// Restart the worker, the output should now be true.
-	w, err = s.manifold.Start(context.Background(), s.getter)
+	w, err = s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	checkNotExiting(c, w)
 	checkOutput(true)
@@ -169,7 +168,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestClosedVoyeur(c *tc.C) {
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	checkNotExiting(c, w)
 

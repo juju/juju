@@ -197,7 +197,7 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 func (s *WorkerValidationSuite) testValidateError(c *tc.C, f func(*apiserver.Config), expect string) {
 	config := s.config
 	f(&config)
-	w, err := apiserver.NewWorker(context.Background(), config)
+	w, err := apiserver.NewWorker(c.Context(), config)
 	if !c.Check(err, tc.NotNil) {
 		workertest.DirtyKill(c, w)
 		return
@@ -213,6 +213,6 @@ func (s *WorkerValidationSuite) TestValidateLogSinkConfig(c *tc.C) {
 
 func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *tc.C, key, value, expect string) {
 	s.agentConfig.values = map[string]string{key: value}
-	_, err := apiserver.NewWorker(context.Background(), s.config)
+	_, err := apiserver.NewWorker(c.Context(), s.config)
 	c.Check(err, tc.ErrorMatches, "getting log sink config: "+expect)
 }

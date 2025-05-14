@@ -40,7 +40,7 @@ func (s *DiskManagerSuite) SetUpTest(c *tc.C) {
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 	devices := []params.BlockDevice{{DeviceName: "sda"}, {DeviceName: "sdb"}}
-	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
+	results, err := s.api.SetMachineBlockDevices(c.Context(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine:      "machine-0",
 			BlockDevices: devices,
@@ -53,7 +53,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesEmptyArgs(c *tc.C) {
-	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{})
+	results, err := s.api.SetMachineBlockDevices(c.Context(), params.SetMachineBlockDevices{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }
@@ -68,7 +68,7 @@ func (s *DiskManagerSuite) TestNewDiskManagerAPINonMachine(c *tc.C) {
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *tc.C) {
-	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
+	results, err := s.api.SetMachineBlockDevices(c.Context(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine: "machine-0",
 		}, {
@@ -92,7 +92,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *tc.C) {
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *tc.C) {
 	s.blockDeviceUpdater.err = errors.New("boom")
-	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
+	results, err := s.api.SetMachineBlockDevices(c.Context(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine: "machine-0",
 		}},

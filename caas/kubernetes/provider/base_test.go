@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -239,7 +238,7 @@ func (s *BaseSuite) setupBroker(
 	})
 
 	var err error
-	s.broker, err = provider.NewK8sBroker(context.Background(), controllerUUID, s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
+	s.broker, err = provider.NewK8sBroker(c.Context(), controllerUUID, s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	if expectErr == "" {
 		c.Assert(err, tc.ErrorIsNil)
@@ -542,7 +541,7 @@ func (s *fakeClientSuite) setupBroker(
 	})
 
 	var err error
-	s.broker, err = provider.NewK8sBroker(context.Background(), coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
+	s.broker, err = provider.NewK8sBroker(c.Context(), coretesting.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	c.Assert(err, tc.ErrorIsNil)
 }

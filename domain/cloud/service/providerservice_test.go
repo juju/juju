@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -29,7 +27,7 @@ func (s *providerServiceSuite) TestCloud(c *tc.C) {
 	}
 	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(one, nil)
 
-	result, err := NewWatchableProviderService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
+	result, err := NewWatchableProviderService(s.state, s.watcherFactory).Cloud(c.Context(), "fluffy")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, one)
 }
@@ -39,7 +37,7 @@ func (s *providerServiceSuite) TestCloudNotFound(c *tc.C) {
 
 	s.state.EXPECT().Cloud(gomock.Any(), "fluffy").Return(nil, errors.Errorf(`cloud "fluffy"`+" %w", coreerrors.NotFound))
 
-	result, err := NewWatchableProviderService(s.state, s.watcherFactory).Cloud(context.Background(), "fluffy")
+	result, err := NewWatchableProviderService(s.state, s.watcherFactory).Cloud(c.Context(), "fluffy")
 	c.Assert(err, tc.ErrorMatches, `cloud "fluffy" not found`)
 	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Check(result, tc.IsNil)
@@ -52,7 +50,7 @@ func (s *providerServiceSuite) TestWatchCloud(c *tc.C) {
 
 	s.state.EXPECT().WatchCloud(gomock.Any(), gomock.Any(), "cirrus").Return(nw, nil)
 
-	w, err := NewWatchableProviderService(s.state, s.watcherFactory).WatchCloud(context.Background(), "cirrus")
+	w, err := NewWatchableProviderService(s.state, s.watcherFactory).WatchCloud(c.Context(), "cirrus")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.NotNil)
 }

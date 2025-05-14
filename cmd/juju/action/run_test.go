@@ -5,7 +5,6 @@ package action_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -1012,7 +1011,7 @@ hello
 		// Set up context
 		output := bytes.Buffer{}
 		ctx := &cmd.Context{
-			Context: context.Background(),
+			Context: c.Context(),
 			Stdout:  &output,
 			Stderr:  &output,
 		}

@@ -4,8 +4,6 @@
 package uniter_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -41,7 +39,7 @@ func (s *modelSuite) TestModel(c *tc.C) {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	m, err := client.Model(context.Background())
+	m, err := client.Model(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m, tc.DeepEquals, &types.Model{
 		Name:      "mary",

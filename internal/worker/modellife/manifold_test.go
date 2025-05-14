@@ -64,13 +64,13 @@ func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 		getter := s.newGetter(c, map[string]any{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.newManifold(c).Start(context.Background(), getter)
+		_, err := s.newManifold(c).Start(c.Context(), getter)
 		c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
 	}
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
-	w, err := s.newManifold(c).Start(context.Background(), s.newGetter(c, map[string]any{
+	w, err := s.newManifold(c).Start(c.Context(), s.newGetter(c, map[string]any{
 		"domainservices": s.modelService,
 	}))
 	c.Assert(err, tc.ErrorIsNil)

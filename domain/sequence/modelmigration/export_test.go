@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -29,7 +27,7 @@ func (s *exportSuite) TestExportSequences(c *tc.C) {
 	s.exportService.EXPECT().GetSequencesForExport(gomock.Any()).Return(map[string]uint64{"seq1": 12, "seq2": 66}, nil)
 
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.IsNil)
 
 	sequences := dst.Sequences()
@@ -45,7 +43,7 @@ func (s *exportSuite) TestExportSequencesEmpty(c *tc.C) {
 	s.exportService.EXPECT().GetSequencesForExport(gomock.Any()).Return(nil, nil)
 
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.IsNil)
 
 	sequences := dst.Sequences()

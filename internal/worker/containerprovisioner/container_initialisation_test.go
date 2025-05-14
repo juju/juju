@@ -4,7 +4,6 @@
 package containerprovisioner
 
 import (
-	"context"
 	"errors"
 	"sync"
 
@@ -73,7 +72,7 @@ func (s *containerSetupSuite) testInitialiseContainers(c *tc.C, containerType in
 	cs := s.setUpContainerSetup(c, containerType)
 	abort := make(chan struct{})
 	close(abort)
-	err := cs.initialiseContainers(context.Background(), abort)
+	err := cs.initialiseContainers(c.Context(), abort)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -92,7 +91,7 @@ func (s *containerSetupSuite) TestContainerManagerConfigError(c *tc.C) {
 	cs := s.setUpContainerSetup(c, instance.LXD)
 	abort := make(chan struct{})
 	close(abort)
-	err := cs.initialiseContainers(context.Background(), abort)
+	err := cs.initialiseContainers(c.Context(), abort)
 	c.Assert(err, tc.ErrorMatches, ".*generating container manager config: boom")
 }
 

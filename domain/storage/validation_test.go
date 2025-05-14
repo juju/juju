@@ -77,7 +77,7 @@ func (s *validationSuite) validateStorageDirectives(storage map[string]storage.D
 		return errors.Capture(err)
 	}
 	return validator.ValidateStorageDirectivesAgainstCharm(
-		context.Background(),
+		c.Context(),
 		storage,
 		s.meta,
 	)

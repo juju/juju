@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -43,7 +41,7 @@ func (s *exportSuite) TestExportUnitPasswordHashes(c *tc.C) {
 		Name: "foo/0",
 	})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unit.PasswordHash(), tc.Equals, "hash")
@@ -68,7 +66,7 @@ func (s *exportSuite) TestExportUnitPasswordHashesNoPasswords(c *tc.C) {
 		Name: "foo/0",
 	})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unit.PasswordHash(), tc.Equals, "")
@@ -95,7 +93,7 @@ func (s *exportSuite) TestExportUnitPasswordHashesNoPasswordForUnit(c *tc.C) {
 		Name: "foo/0",
 	})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(unit.PasswordHash(), tc.Equals, "")

@@ -29,7 +29,7 @@ func (s *PubSubSuite) TestNewAPI(c *tc.C) {
 		c: c,
 	}
 	a := apipubsub.NewAPI(conn)
-	w, err := a.OpenMessageWriter(context.Background())
+	w, err := a.OpenMessageWriter(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	msg := new(params.PubSubMessage)
@@ -50,7 +50,7 @@ func (s *PubSubSuite) TestNewAPIWriteLogError(c *tc.C) {
 		connectError: errors.New("foo"),
 	}
 	a := apipubsub.NewAPI(conn)
-	w, err := a.OpenMessageWriter(context.Background())
+	w, err := a.OpenMessageWriter(c.Context())
 	c.Assert(err, tc.ErrorMatches, "cannot connect to /pubsub: foo")
 	c.Assert(w, tc.Equals, nil)
 }
@@ -61,7 +61,7 @@ func (s *PubSubSuite) TestNewAPIWriteError(c *tc.C) {
 		writeError: errors.New("foo"),
 	}
 	a := apipubsub.NewAPI(conn)
-	w, err := a.OpenMessageWriter(context.Background())
+	w, err := a.OpenMessageWriter(c.Context())
 	c.Assert(err, tc.IsNil)
 	defer w.Close()
 

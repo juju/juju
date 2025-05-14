@@ -38,7 +38,7 @@ func (s *downloaderSuite) TestDownload(c *tc.C) {
 	}, nil)
 
 	downloader := NewCharmDownloader(s.downloadClient, loggertesting.WrapCheckLog(c))
-	result, err := downloader.Download(context.Background(), cURL, "sha256")
+	result, err := downloader.Download(c.Context(), cURL, "sha256")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure the path is not empty and that the temp file still exists.
@@ -69,7 +69,7 @@ func (s *downloaderSuite) TestDownloadFailure(c *tc.C) {
 	s.downloadClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
 
 	downloader := NewCharmDownloader(s.downloadClient, loggertesting.WrapCheckLog(c))
-	_, err = downloader.Download(context.Background(), cURL, "hash")
+	_, err = downloader.Download(c.Context(), cURL, "hash")
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 
 	_, err = os.Stat(tmpPath)
@@ -96,7 +96,7 @@ func (s *downloaderSuite) TestDownloadInvalidDigestHash(c *tc.C) {
 	s.downloadClient.EXPECT().Download(gomock.Any(), cURL, gomock.Any(), gomock.Any()).DoAndReturn(spy)
 
 	downloader := NewCharmDownloader(s.downloadClient, loggertesting.WrapCheckLog(c))
-	_, err = downloader.Download(context.Background(), cURL, "hash")
+	_, err = downloader.Download(c.Context(), cURL, "hash")
 	c.Assert(err, tc.ErrorIs, ErrInvalidDigestHash)
 
 	_, err = os.Stat(tmpPath)

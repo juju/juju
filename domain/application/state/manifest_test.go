@@ -240,7 +240,7 @@ SELECT os.* AS &osType.* FROM os ORDER BY id;
 `, osType{})
 
 	var results []osType
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -269,7 +269,7 @@ SELECT architecture.* AS &archType.* FROM architecture ORDER BY id;
 `, archType{})
 
 	var results []archType
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, tc.ErrorIsNil)

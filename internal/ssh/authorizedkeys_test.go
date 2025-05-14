@@ -4,7 +4,6 @@
 package ssh
 
 import (
-	"context"
 	"io/fs"
 	"slices"
 	"strings"
@@ -78,7 +77,7 @@ func (*authorizedKeysSuite) TestGetCommonUserPublicKeys(c *tc.C) {
 	}
 
 	for i, test := range tests {
-		keys, err := GetCommonUserPublicKeys(context.Background(), test.FS)
+		keys, err := GetCommonUserPublicKeys(c.Context(), test.FS)
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("unexpected error for test %d %q", i, test.Name))
 		slices.Sort(test.Expected)
 		slices.Sort(keys)
@@ -132,7 +131,7 @@ func (*authorizedKeysSuite) TestGetFileSystemPublicKeys(c *tc.C) {
 	}
 
 	for i, test := range tests {
-		keys, err := GetFileSystemPublicKeys(context.Background(), test.FS)
+		keys, err := GetFileSystemPublicKeys(c.Context(), test.FS)
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("unexpected error for test %d", i))
 		slices.Sort(test.Expected)
 		slices.Sort(keys)

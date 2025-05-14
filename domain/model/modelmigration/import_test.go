@@ -59,7 +59,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *tc.C) {
 			config.UUIDKey: "test",
 		},
 	})
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 
 	// model name of wrong type
@@ -69,7 +69,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *tc.C) {
 			config.UUIDKey: "test",
 		},
 	})
-	err = importOp.Execute(context.Background(), model)
+	err = importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 
 	// uuid not defined
@@ -78,7 +78,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *tc.C) {
 			config.NameKey: "test-model",
 		},
 	})
-	err = importOp.Execute(context.Background(), model)
+	err = importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 
 	// uuid of wrong type
@@ -88,7 +88,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *tc.C) {
 			config.UUIDKey: 11,
 		},
 	})
-	err = importOp.Execute(context.Background(), model)
+	err = importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -112,7 +112,7 @@ func (i *importSuite) TestModelOwnerNoExist(c *tc.C) {
 		},
 		Owner: "tlm",
 	})
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, usererrors.UserNotFound)
 }
 
@@ -195,7 +195,7 @@ func (i *importSuite) TestModelCreate(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 		modelmigrationtesting.IgnoredSetupOperation(importOp),
 	)
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
+	err = coordinator.Perform(c.Context(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(activated, tc.IsTrue)
 }
@@ -276,7 +276,7 @@ func (i *importSuite) TestModelCreateWithAgentStream(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 		modelmigrationtesting.IgnoredSetupOperation(importOp),
 	)
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
+	err = coordinator.Perform(c.Context(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(activated, tc.IsTrue)
 }
@@ -357,7 +357,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 		modelmigrationtesting.IgnoredSetupOperation(importOp),
 	)
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
+	err = coordinator.Perform(c.Context(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Check(err, tc.ErrorMatches, `.*boom.*`)
 
 	// TODO (stickupkid): This is incorrect until the model info is
@@ -435,7 +435,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *tc
 		loggertesting.WrapCheckLog(c),
 		modelmigrationtesting.IgnoredSetupOperation(importOp),
 	)
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
+	err = coordinator.Perform(c.Context(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Check(err, tc.ErrorMatches, `.*boom.*`)
 
 	// TODO (stickupkid): This is incorrect until the model info is
@@ -512,7 +512,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 		loggertesting.WrapCheckLog(c),
 		modelmigrationtesting.IgnoredSetupOperation(importOp),
 	)
-	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
+	err = coordinator.Perform(c.Context(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Check(err, tc.ErrorMatches, `.*boom.*`)
 
 	// TODO (stickupkid): This is incorrect until the model info is
@@ -536,7 +536,7 @@ func (i *importSuite) TestImportModelConstraintsNoOperations(c *tc.C) {
 			"uuid": newUUID.String(),
 		},
 	})
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Check(err, tc.ErrorIsNil)
 
 	model = description.NewModel(description.ModelArgs{
@@ -545,7 +545,7 @@ func (i *importSuite) TestImportModelConstraintsNoOperations(c *tc.C) {
 		},
 	})
 	model.SetConstraints(description.ConstraintsArgs{})
-	err = importOp.Execute(context.Background(), model)
+	err = importOp.Execute(c.Context(), model)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -575,6 +575,6 @@ func (i *importSuite) TestImportModelConstraints(c *tc.C) {
 		AllocatePublicIP: true,
 		Spaces:           []string{"space1", "space2"},
 	})
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Check(err, tc.ErrorIsNil)
 }

@@ -6,7 +6,6 @@
 package diskmanager_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -49,7 +48,7 @@ KNAME="fd0" SIZE="1024" TYPE="disk" MAJ:MIN="2:0"
 KNAME="fd1" SIZE="1024" TYPE="disk" MAJ:MIN="2:1"
 EOF`)
 
-	devices, err := diskmanager.ListBlockDevices(context.Background())
+	devices, err := diskmanager.ListBlockDevices(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devices, tc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
@@ -181,14 +180,14 @@ EOF`)
 	expect.DeviceName = deviceName
 	expect.SizeMiB = 228936
 
-	devices, err := diskmanager.ListBlockDevices(context.Background())
+	devices, err := diskmanager.ListBlockDevices(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devices, tc.DeepEquals, []blockdevice.BlockDevice{expect})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkError(c *tc.C) {
 	testhelpers.PatchExecutableThrowError(c, s, "lsblk", 123)
-	devices, err := diskmanager.ListBlockDevices(context.Background())
+	devices, err := diskmanager.ListBlockDevices(c.Context())
 	c.Assert(err, tc.ErrorMatches, "cannot list block devices: lsblk failed: exit status 123")
 	c.Assert(devices, tc.IsNil)
 }
@@ -204,7 +203,7 @@ EOF`)
 
 	// If the in-use check errors, the block device will be marked "in use"
 	// to prevent it from being used, but no error will be returned.
-	devices, err := diskmanager.ListBlockDevices(context.Background())
+	devices, err := diskmanager.ListBlockDevices(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devices, tc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
@@ -222,7 +221,7 @@ KNAME="sda" SIZE="eleventy" LABEL="" UUID="" TYPE="disk"
 KNAME="sdb" SIZE="1048576" LABEL="" UUID="" BOB="DOBBS" TYPE="disk"
 EOF`)
 
-	devices, err := diskmanager.ListBlockDevices(context.Background())
+	devices, err := diskmanager.ListBlockDevices(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devices, tc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
@@ -243,7 +242,7 @@ KNAME="sda" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
 KNAME="sdb" SIZE="32017047552" LABEL="" UUID="" TYPE="disk"
 EOF`)
 
-	devices, err := diskmanager.ListBlockDevices(context.Background())
+	devices, err := diskmanager.ListBlockDevices(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devices, tc.HasLen, 0)
 }
@@ -258,7 +257,7 @@ KNAME="sr0" SIZE="254803968" LABEL="" UUID="" TYPE="rom"
 KNAME="whatever" SIZE="254803968" LABEL="" UUID="" TYPE="lvm"
 EOF`)
 
-	devices, err := diskmanager.ListBlockDevices(context.Background())
+	devices, err := diskmanager.ListBlockDevices(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(devices, tc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",

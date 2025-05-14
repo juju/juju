@@ -4,7 +4,6 @@
 package resources_test
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -31,17 +30,17 @@ func (s *persistentVolumeClaimSuite) TestApply(c *tc.C) {
 	}
 	// Create.
 	dsResource := resources.NewPersistentVolumeClaim("ds1", "test", ds)
-	c.Assert(dsResource.Apply(context.Background(), s.client), tc.ErrorIsNil)
-	result, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.Background(), "ds1", metav1.GetOptions{})
+	c.Assert(dsResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
+	result, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
 	dsResource = resources.NewPersistentVolumeClaim("ds1", "test", ds)
-	c.Assert(dsResource.Apply(context.Background(), s.client), tc.ErrorIsNil)
+	c.Assert(dsResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
 
-	result, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(context.Background(), "ds1", metav1.GetOptions{})
+	result, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `ds1`)
 	c.Assert(result.GetNamespace(), tc.Equals, `test`)
@@ -57,12 +56,12 @@ func (s *persistentVolumeClaimSuite) TestGet(c *tc.C) {
 	}
 	ds1 := template
 	ds1.SetAnnotations(map[string]string{"a": "b"})
-	_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(context.Background(), &ds1, metav1.CreateOptions{})
+	_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(c.Context(), &ds1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	dsResource := resources.NewPersistentVolumeClaim("ds1", "test", &template)
 	c.Assert(len(dsResource.GetAnnotations()), tc.Equals, 0)
-	err = dsResource.Get(context.Background(), s.client)
+	err = dsResource.Get(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(dsResource.GetName(), tc.Equals, `ds1`)
 	c.Assert(dsResource.GetNamespace(), tc.Equals, `test`)
@@ -76,21 +75,21 @@ func (s *persistentVolumeClaimSuite) TestDelete(c *tc.C) {
 			Namespace: "test",
 		},
 	}
-	_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(context.Background(), &ds, metav1.CreateOptions{})
+	_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(c.Context(), &ds, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.Background(), "ds1", metav1.GetOptions{})
+	result, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `ds1`)
 
 	dsResource := resources.NewPersistentVolumeClaim("ds1", "test", &ds)
-	err = dsResource.Delete(context.Background(), s.client)
+	err = dsResource.Delete(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = dsResource.Get(context.Background(), s.client)
+	err = dsResource.Get(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
-	_, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(context.Background(), "ds1", metav1.GetOptions{})
+	_, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
@@ -109,12 +108,12 @@ func (s *persistentVolumeClaimSuite) TestList(c *tc.C) {
 		if i%3 == 0 {
 			pvc.ObjectMeta.Labels = map[string]string{"modulo": "three"}
 		}
-		_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(context.Background(), &pvc, metav1.CreateOptions{})
+		_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(c.Context(), &pvc, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	// List PVCs filtered by the label
-	listed, err := resources.ListPersistentVolumeClaims(context.Background(), s.client, "test", metav1.ListOptions{
+	listed, err := resources.ListPersistentVolumeClaims(c.Context(), s.client, "test", metav1.ListOptions{
 		LabelSelector: "modulo == three",
 	})
 	c.Assert(err, tc.ErrorIsNil)

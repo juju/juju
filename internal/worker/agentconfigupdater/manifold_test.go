@@ -61,7 +61,7 @@ func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
@@ -75,7 +75,7 @@ func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *tc.C) {
 		"domain-services": s.controllerDomainServices,
 		"api-caller":      dependency.ErrMissing,
 	})
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
@@ -90,7 +90,7 @@ func (s *AgentConfigUpdaterSuite) TestNotMachine(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent": a,
 	})
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "agent's tag is not a machine or controller agent tag")
 }
@@ -117,7 +117,7 @@ func (s *AgentConfigUpdaterSuite) TestIsControllerFailure(c *tc.C) {
 		"domain-services": s.controllerDomainServices,
 		"trace":           coretrace.NoopTracer{},
 	})
-	w, err := s.manifold.Start(context.Background(), getter)
+	w, err := s.manifold.Start(c.Context(), getter)
 	c.Assert(w, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "checking is controller: boom")
 }
@@ -146,7 +146,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *tc.C, a agent.Agent, mockAPIP
 		"domain-services": s.controllerDomainServices,
 		"trace":           stubTracerGetter{},
 	})
-	return s.manifold.Start(context.Background(), getter)
+	return s.manifold.Start(c.Context(), getter)
 }
 
 func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
@@ -240,7 +240,7 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *tc.C, job model.MachineJ
 			return nil
 		},
 	)
-	w, err := s.manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
+	w, err := s.manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
 		"agent":      a,
 		"api-caller": apiCaller,
 	}))

@@ -121,7 +121,7 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *tc.C) {
 				Meta: &charm.Meta{},
 			}, nil),
 	)
-	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
+	target, err := s.sshC.ResolveTarget(c.Context(), "mariadb-k8s/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
@@ -131,7 +131,7 @@ func (s *sshContainerSuite) TestResolveTargetForController(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
-	target, err := s.sshC.ResolveTarget(context.Background(), "0")
+	target, err := s.sshC.ResolveTarget(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(target.GetEntity(), tc.DeepEquals, "controller-0")
 }
@@ -141,7 +141,7 @@ func (s *sshContainerSuite) TestResolveTargetForControllerInvalidTarget(c *tc.C)
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
-	_, err := s.sshC.ResolveTarget(context.Background(), "1")
+	_, err := s.sshC.ResolveTarget(c.Context(), "1")
 	c.Assert(err, tc.ErrorMatches, `target "1" not found`)
 }
 
@@ -168,7 +168,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *tc.C) {
 				Meta: &charm.Meta{},
 			}, nil),
 	)
-	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
+	target, err := s.sshC.ResolveTarget(c.Context(), "mariadb-k8s/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
@@ -196,7 +196,7 @@ func (s *sshContainerSuite) TestResolveCharmTargetForSidecarCharm(c *tc.C) {
 				Meta: &charm.Meta{},
 			}, nil),
 	)
-	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
+	target, err := s.sshC.ResolveTarget(c.Context(), "mariadb-k8s/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
@@ -228,7 +228,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *tc.
 				},
 			}, nil),
 	)
-	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
+	target, err := s.sshC.ResolveTarget(c.Context(), "mariadb-k8s/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(target.GetEntity(), tc.DeepEquals, "mariadb-k8s-0")
 }
@@ -260,7 +260,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainerMissing
 				},
 			}, nil),
 	)
-	_, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
+	_, err := s.sshC.ResolveTarget(c.Context(), "mariadb-k8s/0")
 	c.Assert(err, tc.ErrorMatches, `container "bad-test-container" must be one of charm, test-container`)
 }
 
@@ -278,7 +278,7 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPodNoProviderID(c *tc.C)
 				Meta: &charm.Meta{},
 			}, nil),
 	)
-	_, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
+	_, err := s.sshC.ResolveTarget(c.Context(), "mariadb-k8s/0")
 	c.Assert(err, tc.ErrorMatches, `container for unit "mariadb-k8s/0" is not ready yet`)
 }
 
@@ -582,7 +582,7 @@ func (s *sshContainerSuite) TestNamespaceControllerModel(c *tc.C) {
 	s.controllerAPI.EXPECT().ControllerConfig(gomock.Any()).Return(
 		controller.Config{"controller-name": "foobar"}, nil)
 
-	err := s.sshC.InitRun(context.Background(), mc)
+	err := s.sshC.InitRun(c.Context(), mc)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.sshC.Namespace(), tc.Equals, "controller-foobar")
 }

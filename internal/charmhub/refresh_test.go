@@ -75,7 +75,7 @@ func (s *RefreshSuite) TestRefresh(c *tc.C) {
 	s.expectPost(restClient, baseURLPath, id, body)
 
 	client := newRefreshClient(baseURLPath, restClient, s.logger)
-	responses, err := client.Refresh(context.Background(), config)
+	responses, err := client.Refresh(c.Context(), config)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(responses), tc.Equals, 1)
 	c.Assert(responses[0].Name, tc.Equals, id)
@@ -186,7 +186,7 @@ func (s *RefreshSuite) TestRefreshMetadata(c *tc.C) {
 
 	config := RefreshMany(config1, config2)
 
-	response, err := client.Refresh(context.Background(), config)
+	response, err := client.Refresh(c.Context(), config)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(response, tc.DeepEquals, []transport.RefreshResponse{
@@ -236,7 +236,7 @@ func (s *RefreshSuite) TestRefreshMetadataRandomOrder(c *tc.C) {
 
 	config := RefreshMany(config1, config2)
 
-	response, err := client.Refresh(context.Background(), config)
+	response, err := client.Refresh(c.Context(), config)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(response, tc.DeepEquals, []transport.RefreshResponse{
@@ -276,7 +276,7 @@ func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *tc.C) {
 	}
 
 	client := newRefreshClient(baseURLPath, restClient, s.logger)
-	err := client.RefreshWithMetricsOnly(context.Background(), metrics)
+	err := client.RefreshWithMetricsOnly(c.Context(), metrics)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -366,7 +366,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *tc.C) {
 	}
 
 	client := newRefreshClient(baseURLPath, restClient, s.logger)
-	responses, err := client.RefreshWithRequestMetrics(context.Background(), config, metrics)
+	responses, err := client.RefreshWithRequestMetrics(c.Context(), config, metrics)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(responses), tc.Equals, 2)
 	c.Assert(responses[0].Name, tc.Equals, id)
@@ -392,7 +392,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *tc.C) {
 	s.expectPostFailure(restClient)
 
 	client := newRefreshClient(baseURLPath, restClient, s.logger)
-	_, err = client.Refresh(context.Background(), config)
+	_, err = client.Refresh(c.Context(), config)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 

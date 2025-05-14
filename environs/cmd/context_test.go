@@ -4,8 +4,6 @@
 package cmd_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	environscmd "github.com/juju/juju/environs/cmd"
@@ -20,11 +18,11 @@ type contextSuite struct {
 var _ = tc.Suite(&contextSuite{})
 
 func (s *contextSuite) TestBootstrapContext(c *tc.C) {
-	ctx := environscmd.BootstrapContext(context.Background(), &cmd.Context{})
+	ctx := environscmd.BootstrapContext(c.Context(), &cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), tc.IsTrue)
 }
 
 func (s *contextSuite) TestBootstrapContextNoVerify(c *tc.C) {
-	ctx := environscmd.BootstrapContextNoVerify(context.Background(), &cmd.Context{})
+	ctx := environscmd.BootstrapContextNoVerify(c.Context(), &cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), tc.IsFalse)
 }

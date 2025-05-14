@@ -4,7 +4,6 @@
 package main
 
 import (
-	"context"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -91,7 +90,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region string, base c
 		return err
 	}
 	ss := simplestreams.NewSimpleStreams(sstestings.TestDataSourceFactory())
-	err = imagemetadata.MergeAndWriteMetadata(context.Background(), ss, base, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(c.Context(), ss, base, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}

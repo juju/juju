@@ -92,7 +92,7 @@ func (s *IntrospectCommandSuite) TestQuery(c *tc.C) {
 
 	srv := newServer(listener)
 	go srv.Serve(listener)
-	defer srv.Shutdown(context.Background())
+	defer srv.Shutdown(c.Context())
 
 	ctx, err := s.run(c, "query", "--agent=machine-0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -112,7 +112,7 @@ func (s *IntrospectCommandSuite) TestQueryFails(c *tc.C) {
 
 	srv := newServer(listener)
 	go srv.Serve(listener)
-	defer srv.Shutdown(context.Background())
+	defer srv.Shutdown(c.Context())
 
 	ctx, err := s.run(c, "missing", "--agent=machine-0")
 	c.Assert(err.Error(), tc.Equals, "response returned 404 (Not Found)")
@@ -138,7 +138,7 @@ func (s *IntrospectCommandSuite) TestGetToPostEndpoint(c *tc.C) {
 
 	srv := newServer(listener)
 	go srv.Serve(listener)
-	defer srv.Shutdown(context.Background())
+	defer srv.Shutdown(c.Context())
 
 	ctx, err := s.run(c, "postonly", "--agent=machine-0")
 	c.Assert(err, tc.ErrorMatches, `response returned 405 \(Method Not Allowed\)`)
@@ -159,7 +159,7 @@ func (s *IntrospectCommandSuite) TestPost(c *tc.C) {
 
 	srv := newServer(listener)
 	go srv.Serve(listener)
-	defer srv.Shutdown(context.Background())
+	defer srv.Shutdown(c.Context())
 
 	ctx, err := s.run(c, "--post", "postonly", "--agent=machine-0", "single=value", "double=foo", "double=bar")
 	c.Assert(err, tc.ErrorIsNil)
@@ -183,9 +183,9 @@ func (s *IntrospectCommandSuite) TestListen(c *tc.C) {
 
 	srv := newServer(listener)
 	go srv.Serve(listener)
-	defer srv.Shutdown(context.Background())
+	defer srv.Shutdown(c.Context())
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 	cmd := exec.CommandContext(ctx, os.Args[0], "-run-listen="+config.DataDir)
 	stderr, err := cmd.StderrPipe()

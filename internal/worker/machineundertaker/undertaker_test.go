@@ -62,7 +62,7 @@ func (s *undertakerSuite) TestErrorGettingRemovals(c *tc.C) {
 func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *tc.C) {
 	api := fakeAPI{Stub: &testhelpers.Stub{}}
 	u := machineundertaker.Undertaker{API: &api, Logger: loggertesting.WrapCheckLog(c)}
-	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("3"))
+	err := u.MaybeReleaseAddresses(c.Context(), names.NewMachineTag("3"))
 	c.Assert(err, tc.ErrorIsNil)
 	api.CheckCallNames(c)
 }
@@ -75,7 +75,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotContainer(c *tc.C) {
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4"))
+	err := u.MaybeReleaseAddresses(c.Context(), names.NewMachineTag("4"))
 	c.Assert(err, tc.ErrorIsNil)
 	api.CheckCallNames(c)
 }
@@ -89,7 +89,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorGettingInfo(c *tc.C) {
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/2"))
+	err := u.MaybeReleaseAddresses(c.Context(), names.NewMachineTag("4/lxd/2"))
 	c.Assert(err, tc.ErrorMatches, "a funny thing happened on the way")
 }
 
@@ -101,7 +101,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *tc.C) {
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
+	err := u.MaybeReleaseAddresses(c.Context(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, tc.ErrorIsNil)
 	releaser.CheckCallNames(c)
 }
@@ -122,7 +122,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *tc.C) {
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
+	err := u.MaybeReleaseAddresses(c.Context(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, tc.ErrorIsNil)
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
@@ -145,7 +145,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *tc.C) {
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
+	err := u.MaybeReleaseAddresses(c.Context(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, tc.ErrorMatches, "something unexpected")
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
@@ -167,7 +167,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *tc.C) {
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
+	err := u.MaybeReleaseAddresses(c.Context(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, tc.ErrorIsNil)
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
@@ -190,7 +190,7 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *tc.C) {
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	err := u.Handle(context.Background())
+	err := u.Handle(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(releaser.Calls(), tc.HasLen, 1)
@@ -218,7 +218,7 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *tc.C) {
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	err := u.Handle(context.Background())
+	err := u.Handle(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(releaser.Calls(), tc.HasLen, 1)
@@ -236,7 +236,7 @@ func (*undertakerSuite) TestHandle_ErrorOnRemoval(c *tc.C) {
 	}
 	api.SetErrors(nil, errors.New("couldn't remove machine 3"))
 	u := machineundertaker.Undertaker{API: &api, Logger: loggertesting.WrapCheckLog(c)}
-	err := u.Handle(context.Background())
+	err := u.Handle(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	checkRemovalsMatch(c, api.Stub, "3", "4/lxd/4")
 }

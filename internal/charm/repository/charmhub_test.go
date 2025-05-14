@@ -69,7 +69,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeploy(c *tc.C) {
 
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
 
-	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(c.Context(), "wordpress", origin)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected := s.expectedCURL(curl, rev, arch.DefaultArchitecture)
@@ -125,7 +125,7 @@ func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.expectCharmRefresh(c, cfg, hash)
 
-	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(c.Context(), "wordpress", origin)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected := s.expectedCURL(curl, rev, arch.DefaultArchitecture)
@@ -164,7 +164,7 @@ func (s *charmHubRepositorySuite) TestResolveFillsInEmptyTrack(c *tc.C) {
 		},
 		Channel: &channel,
 	}
-	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(c.Context(), "wordpress", origin)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resolvedData.Origin.Channel.Track, tc.Equals, "latest")
 }
@@ -190,7 +190,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *tc.C) {
 		},
 	}
 
-	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(c.Context(), "wordpress", origin)
 	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -228,7 +228,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *tc.C) {
 		},
 	}
 
-	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(c.Context(), "wordpress", origin)
 	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -273,7 +273,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *tc.
 	}
 	arg := corecharm.CharmID{URL: curl, Origin: origin}
 
-	obtainedData, err := s.newClient(c).ResolveForDeploy(context.Background(), arg)
+	obtainedData, err := s.newClient(c).ResolveForDeploy(c.Context(), arg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = revision
@@ -325,7 +325,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *tc.C)
 	}
 	arg := corecharm.CharmID{URL: curl, Origin: origin}
 
-	obtainedData, err := s.newClient(c).ResolveForDeploy(context.Background(), arg)
+	obtainedData, err := s.newClient(c).ResolveForDeploy(c.Context(), arg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -375,7 +375,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *tc.C) {
 		},
 	}
 
-	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "core-kubernetes", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(c.Context(), "core-kubernetes", origin)
 	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = 17
@@ -411,7 +411,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *tc.C) {
 		},
 	}
 
-	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	resolvedData, err := s.newClient(c).ResolveWithPreferredChannel(c.Context(), "wordpress", origin)
 	c.Assert(err, tc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -445,7 +445,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 		},
 	}
 
-	_, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	_, err := s.newClient(c).ResolveWithPreferredChannel(c.Context(), "wordpress", origin)
 	c.Assert(err, tc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found in the charm's default channel, base "amd64"
 available releases are:
@@ -469,7 +469,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *tc.C) {
 		client: s.client,
 		logger: loggertesting.WrapCheckLog(c),
 	}
-	_, err := repo.ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	_, err := repo.ResolveWithPreferredChannel(c.Context(), "wordpress", origin)
 	c.Assert(err, tc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found in the charm's default channel, base "amd64/ubuntu/18.04"
 available releases are:
@@ -521,7 +521,7 @@ func (s *charmHubRepositorySuite) TestDownload(c *tc.C) {
 
 	client := s.newClient(c)
 
-	gotOrigin, digest, err := client.Download(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
+	gotOrigin, digest, err := client.Download(c.Context(), "wordpress", requestedOrigin, "/tmp/foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotOrigin, tc.DeepEquals, resolvedOrigin)
 	c.Check(digest, tc.DeepEquals, &charmhub.Digest{
@@ -568,7 +568,7 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *tc.C) {
 
 	s.expectCharmRefreshInstallOneFromChannel(c, hash)
 
-	gotURL, gotOrigin, err := s.newClient(c).GetDownloadURL(context.Background(), "wordpress", requestedOrigin)
+	gotURL, gotOrigin, err := s.newClient(c).GetDownloadURL(c.Context(), "wordpress", requestedOrigin)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotURL, tc.DeepEquals, resolvedURL)
 	c.Assert(gotOrigin, tc.DeepEquals, resolvedOrigin)
@@ -579,7 +579,7 @@ func (s *charmHubRepositorySuite) TestResolveResources(c *tc.C) {
 	s.expectRefresh(true)
 	s.expectListResourceRevisions(2)
 
-	result, err := s.newClient(c).ResolveResources(context.Background(), []charmresource.Resource{{
+	result, err := s.newClient(c).ResolveResources(c.Context(), []charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginUpload,
 		Revision:    1,
@@ -615,7 +615,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStore(c *tc.C) {
 
 	id := charmID()
 	id.Origin.ID = ""
-	result, err := s.newClient(c).ResolveResources(context.Background(), []charmresource.Resource{{
+	result, err := s.newClient(c).ResolveResources(c.Context(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: 1,
@@ -635,7 +635,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevision(c *tc.
 	defer s.setupMocks(c).Finish()
 	s.expectRefreshWithRevision(1, true)
 
-	result, err := s.newClient(c).ResolveResources(context.Background(), []charmresource.Resource{{
+	result, err := s.newClient(c).ResolveResources(c.Context(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: -1,
@@ -657,7 +657,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesNoMatchingRevision(c *tc.C
 	s.expectRefreshWithRevision(99, true)
 	s.expectListResourceRevisions(3)
 
-	_, err := s.newClient(c).ResolveResources(context.Background(), []charmresource.Resource{{
+	_, err := s.newClient(c).ResolveResources(c.Context(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: 1,
@@ -672,7 +672,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesUpload(c *tc.C) {
 
 	id := charmID()
 	id.Origin.ID = ""
-	result, err := s.newClient(c).ResolveResources(context.Background(), []charmresource.Resource{{
+	result, err := s.newClient(c).ResolveResources(c.Context(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginUpload,
 		Revision: 3,
@@ -710,7 +710,7 @@ func (s *charmHubRepositorySuite) TestResourceInfo(c *tc.C) {
 		},
 	}
 
-	result, err := s.newClient(c).resourceInfo(context.Background(), curl, origin, "wal-e", 25)
+	result, err := s.newClient(c).resourceInfo(c.Context(), curl, origin, "wal-e", 25)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, charmresource.Resource{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},

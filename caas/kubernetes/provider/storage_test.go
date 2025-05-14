@@ -4,8 +4,6 @@
 package provider_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 	core "k8s.io/api/core/v1"
@@ -98,7 +96,7 @@ func (s *storageSuite) TestDestroyVolumes(c *tc.C) {
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	errs, err := vs.DestroyVolumes(context.Background(), []string{"vol-1"})
+	errs, err := vs.DestroyVolumes(c.Context(), []string{"vol-1"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil})
 }
@@ -123,7 +121,7 @@ func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *tc.C) {
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	errs, err := vs.DestroyVolumes(context.Background(), []string{"vol-1"})
+	errs, err := vs.DestroyVolumes(c.Context(), []string{"vol-1"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil})
 }
@@ -142,7 +140,7 @@ func (s *storageSuite) TestListVolumes(c *tc.C) {
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	vols, err := vs.ListVolumes(context.Background())
+	vols, err := vs.ListVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(vols, tc.DeepEquals, []string{"vol-1"})
 }
@@ -165,7 +163,7 @@ func (s *storageSuite) TestDescribeVolumes(c *tc.C) {
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := vs.DescribeVolumes(context.Background(), []string{"vol-id"})
+	result, err := vs.DescribeVolumes(c.Context(), []string{"vol-id"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{VolumeId: "vol-id", Size: 66, Persistent: true},

@@ -4,8 +4,6 @@
 package secrets_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -134,7 +132,7 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(c *tc.C, expectedRevions ...
 	s.secretBackendService.EXPECT().GetRevisionsToDrain(gomock.Any(), model.UUID(coretesting.ModelTag.Id()), revisions).
 		Return(revInfo, nil)
 
-	results, err := s.facade.GetSecretsToDrain(context.Background())
+	results, err := s.facade.GetSecretsToDrain(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.SecretRevisionsToDrainResults{
 		Results: []params.SecretRevisionsToDrainResult{{
@@ -240,7 +238,7 @@ func (s *secretsDrainSuite) TestGetUserSecretsToDrain(c *tc.C) {
 	s.secretBackendService.EXPECT().GetRevisionsToDrain(gomock.Any(), model.UUID(coretesting.ModelTag.Id()), revisions).
 		Return(revInfo, nil)
 
-	results, err := s.facade.GetSecretsToDrain(context.Background())
+	results, err := s.facade.GetSecretsToDrain(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.SecretRevisionsToDrainResults{
 		Results: []params.SecretRevisionsToDrainResult{{
@@ -281,7 +279,7 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *tc.C) {
 		},
 	).Return(nil)
 
-	result, err := s.facade.ChangeSecretBackend(context.Background(), params.ChangeSecretBackendArgs{
+	result, err := s.facade.ChangeSecretBackend(c.Context(), params.ChangeSecretBackendArgs{
 		Args: []params.ChangeSecretBackendArg{
 			{
 				URI:      uri1.String(),
@@ -320,7 +318,7 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *tc.C) {
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("11", nil)
 
-	result, err := s.facade.WatchSecretBackendChanged(context.Background())
+	result, err := s.facade.WatchSecretBackendChanged(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "11",

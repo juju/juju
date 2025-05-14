@@ -29,13 +29,13 @@ func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *tc.C) {
 
 	logger := internallogger.GetLogger("juju.cmd.loginprovider")
 	lp := loginprovider.NewTryInOrderLoginProvider(logger, p1, p2)
-	_, err := lp.Login(context.Background(), nil)
+	_, err := lp.Login(c.Context(), nil)
 	c.Assert(err, tc.ErrorMatches, "provider 2 error")
 
 	lp = loginprovider.NewTryInOrderLoginProvider(logger, p1, p2, p3)
 	_, err = lp.AuthHeader()
 	c.Check(err, tc.ErrorMatches, api.ErrorLoginFirst.Error())
-	_, err = lp.Login(context.Background(), nil)
+	_, err = lp.Login(c.Context(), nil)
 	c.Check(err, tc.ErrorIsNil)
 	got, err := lp.AuthHeader()
 	c.Check(err, tc.ErrorIsNil)

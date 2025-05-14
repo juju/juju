@@ -4,8 +4,6 @@
 package spaces_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -34,7 +32,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *tc.C) {
 
 	s.NetworkService.EXPECT().Subnet(gomock.Any(), subnetID).Return(nil, errors.NotFoundf("subnet 3"))
 
-	res, err := s.API.MoveSubnets(context.Background(), moveSubnetsArg(subnetID, spaceName, false))
+	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error.Message, tc.Equals, "subnet 3 not found")
@@ -88,7 +86,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *tc.C) {
 	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machine.Name("0")).Return([]unit.Name{"mysql/0"}, nil)
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
 
-	res, err := s.API.MoveSubnets(context.Background(), moveSubnetsArg(subnetID, spaceName, false))
+	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.DeepEquals, []params.MoveSubnetsResult{{
 		MovedSubnets: []params.MovedSubnet{{
@@ -158,7 +156,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *tc.C) 
 	bExp.AllConstraints().Return([]spaces.Constraints{cons1, cons2}, nil)
 	bExp.AllEndpointBindings().Return(nil, nil)
 
-	res, err := s.API.MoveSubnets(context.Background(), moveSubnetsArg(subnetID, spaceName, false))
+	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
@@ -213,7 +211,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
 
-	res, err := s.API.MoveSubnets(context.Background(), moveSubnetsArg(subnetID, spaceName, false))
+	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error.Message, tc.Equals,
@@ -273,7 +271,7 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 	bExp.AllEndpointBindings().Return(nil, nil)
 
 	// Supplying force=true succeeds despite the violation.
-	res, err := s.API.MoveSubnets(context.Background(), moveSubnetsArg(subnetID, spaceName, true))
+	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, true))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.DeepEquals, []params.MoveSubnetsResult{{
 		MovedSubnets: []params.MovedSubnet{{
@@ -345,7 +343,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
 
-	res, err := s.API.MoveSubnets(context.Background(), moveSubnetsArg(subnetID, spaceName, false))
+	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error.Message, tc.Equals,
@@ -412,7 +410,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 	bExp.AllConstraints().Return(nil, nil)
 	bExp.AllEndpointBindings().Return(map[string]spaces.Bindings{"mysql": bindings}, nil)
 
-	res, err := s.API.MoveSubnets(context.Background(), moveSubnetsArg(subnetID, spaceName, false))
+	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error.Message, tc.Equals,

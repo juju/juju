@@ -4,7 +4,6 @@
 package lxd_test
 
 import (
-	"context"
 	"errors"
 
 	lxdclient "github.com/canonical/lxd/client"
@@ -170,7 +169,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *tc.C) {
 	)
 
 	instance, hc, err := s.manager.CreateContainer(
-		context.Background(), iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
+		c.Context(), iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -179,7 +178,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *tc.C) {
 	c.Check(hc.Arch, tc.NotNil)
 	c.Check(*hc.Arch, tc.Equals, "amd64")
 
-	instanceStatus := instance.Status(context.Background())
+	instanceStatus := instance.Status(c.Context())
 	c.Check(instanceStatus.Status, tc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, tc.Equals, "test-availability-zone")
 
@@ -231,7 +230,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *tc.C) {
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})
 	_, _, err = s.manager.CreateContainer(
-		context.Background(), iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
+		c.Context(), iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -250,7 +249,7 @@ func (s *managerSuite) TestCreateContainerCreateFailed(c *tc.C) {
 
 	s.makeManager(c)
 	_, _, err := s.manager.CreateContainer(
-		context.Background(),
+		c.Context(),
 		prepInstanceConfig(c),
 		constraints.Value{},
 		corebase.MakeDefaultBase("ubuntu", "16.04"),
@@ -274,7 +273,7 @@ func (s *managerSuite) TestCreateContainerSpecCreationError(c *tc.C) {
 
 	s.makeManager(c)
 	_, _, err := s.manager.CreateContainer(
-		context.Background(),
+		c.Context(),
 		prepInstanceConfig(c),
 		constraints.Value{},
 		corebase.MakeDefaultBase("ubuntu", "16.04"),
@@ -308,7 +307,7 @@ func (s *managerSuite) TestCreateContainerStartFailed(c *tc.C) {
 	)
 
 	_, _, err = s.manager.CreateContainer(
-		context.Background(),
+		c.Context(),
 		iCfg,
 		constraints.Value{},
 		corebase.MakeDefaultBase("ubuntu", "16.04"),

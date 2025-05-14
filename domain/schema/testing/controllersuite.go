@@ -31,7 +31,7 @@ func (s *ControllerSuite) SetUpTest(c *tc.C) {
 		Schema:  schema.ControllerDDL(),
 		Verbose: s.Verbose,
 	})
-	err := database.InsertControllerNodeID(context.Background(), s.DqliteSuite.TxnRunner(), 0x2dc171858c3155be)
+	err := database.InsertControllerNodeID(c.Context(), s.DqliteSuite.TxnRunner(), 0x2dc171858c3155be)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -42,7 +42,7 @@ func (s *ControllerSuite) ApplyDDLForRunner(c *tc.C, runner coredatabase.TxnRunn
 		Schema:  schema.ControllerDDL(),
 		Verbose: s.Verbose,
 	}, runner)
-	err := database.InsertControllerNodeID(context.Background(), runner, 0x2dc171858c3155be)
+	err := database.InsertControllerNodeID(c.Context(), runner, 0x2dc171858c3155be)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -56,7 +56,7 @@ func (s *ControllerSuite) ControllerTxnRunner() coredatabase.TxnRunner {
 // add any other controller config.
 func (s *ControllerSuite) SeedControllerTable(c *tc.C, controllerModelUUID coremodel.UUID) (controllerUUID string) {
 	controllerUUID = jujutesting.ControllerTag.Id()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid, model_uuid) VALUES (?, ?)`, controllerUUID, controllerModelUUID)
 		return err
 	})
@@ -66,7 +66,7 @@ func (s *ControllerSuite) SeedControllerTable(c *tc.C, controllerModelUUID corem
 
 func (s *ControllerSuite) SeedControllerUUID(c *tc.C) (controllerUUID string) {
 	controllerUUID = jujutesting.ControllerTag.Id()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid, model_uuid) VALUES (?, ?)`, controllerUUID, jujutesting.ControllerModelTag.Id())
 		return err
 	})

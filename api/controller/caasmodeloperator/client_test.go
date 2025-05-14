@@ -4,8 +4,6 @@
 package caasmodeloperator_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -46,7 +44,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	})
 
 	client := caasmodeloperator.NewClient(apiCaller)
-	result, err := client.ModelOperatorProvisioningInfo(context.Background())
+	result, err := client.ModelOperatorProvisioningInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result.APIAddresses, tc.DeepEquals, apiAddresses)
@@ -75,7 +73,7 @@ func (m *ModelOperatorSuite) TestSetPassword(c *tc.C) {
 	})
 
 	client := caasmodeloperator.NewClient(apiCaller)
-	err := client.SetPassword(context.Background(), password)
+	err := client.SetPassword(c.Context(), password)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
 }

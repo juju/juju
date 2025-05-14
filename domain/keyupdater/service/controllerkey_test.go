@@ -4,7 +4,6 @@
 package service
 
 import (
-	"context"
 	"slices"
 
 	"github.com/juju/tc"
@@ -41,7 +40,7 @@ func (s *controllerKeySuite) TestNoControllerKeys(c *tc.C) {
 		gomock.Any(), []string{controller.SystemSSHKeys},
 	).Return(map[string]string{}, nil)
 
-	keys, err := NewControllerKeyService(s.state).ControllerAuthorisedKeys(context.Background())
+	keys, err := NewControllerKeyService(s.state).ControllerAuthorisedKeys(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(keys, tc.NotNil)
 	c.Check(len(keys), tc.Equals, 0)
@@ -62,7 +61,7 @@ func (s *controllerKeySuite) TestControllerKeys(c *tc.C) {
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju@example.com",
 	}
 
-	keys, err := NewControllerKeyService(s.state).ControllerAuthorisedKeys(context.Background())
+	keys, err := NewControllerKeyService(s.state).ControllerAuthorisedKeys(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 
 	// Sort expected v actual so we not hardcoded onto implementation anymore

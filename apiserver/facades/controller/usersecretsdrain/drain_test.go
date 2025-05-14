@@ -4,8 +4,6 @@
 package usersecretsdrain_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -100,7 +98,7 @@ func (s *drainSuite) TestGetSecretBackendConfigs(c *tc.C) {
 		},
 	}, nil)
 
-	result, err := s.facade.GetSecretBackendConfigs(context.Background(), params.SecretBackendArgs{
+	result, err := s.facade.GetSecretBackendConfigs(c.Context(), params.SecretBackendArgs{
 		BackendIDs: []string{"backend-id"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -124,7 +122,7 @@ func (s *drainSuite) TestGetSecretBackendConfigs(c *tc.C) {
 func (s *drainSuite) TestGetSecretContentInvalidArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{{}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -145,7 +143,7 @@ func (s *drainSuite) TestGetSecretContentInternal(c *tc.C) {
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String()},
 		},
@@ -196,7 +194,7 @@ func (s *drainSuite) TestGetSecretContentExternal(c *tc.C) {
 		},
 	}, nil)
 
-	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String()},
 		},
@@ -237,7 +235,7 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoInternal(c *tc.C) {
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretRevisionContentInfo(context.Background(), params.SecretRevisionArg{
+	results, err := s.facade.GetSecretRevisionContentInfo(c.Context(), params.SecretRevisionArg{
 		URI:       uri.String(),
 		Revisions: []int{666},
 	})
@@ -286,7 +284,7 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *tc.C) {
 		},
 	}, nil)
 
-	results, err := s.facade.GetSecretRevisionContentInfo(context.Background(), params.SecretRevisionArg{
+	results, err := s.facade.GetSecretRevisionContentInfo(c.Context(), params.SecretRevisionArg{
 		URI:       uri.String(),
 		Revisions: []int{666},
 	})

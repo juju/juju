@@ -216,7 +216,7 @@ func (s *BaseHookContextSuite) AssertCoreContext(c *tc.C, ctx *runnercontext.Hoo
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(actual, tc.Equals, "u-0.testing.invalid")
 
-	actual, err = ctx.PublicAddress(context.Background())
+	actual, err = ctx.PublicAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(actual, tc.Equals, "u-0.testing.invalid")
 
@@ -269,13 +269,13 @@ func (s *BaseHookContextSuite) AssertActionContext(c *tc.C, ctx *runnercontext.H
 }
 
 func (s *BaseHookContextSuite) AssertNotStorageContext(c *tc.C, ctx *runnercontext.HookContext) {
-	storageAttachment, err := ctx.HookStorage(context.Background())
+	storageAttachment, err := ctx.HookStorage(c.Context())
 	c.Assert(storageAttachment, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, ".*")
 }
 
 func (s *BaseHookContextSuite) AssertStorageContext(c *tc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
-	fromCache, err := ctx.HookStorage(context.Background())
+	fromCache, err := ctx.HookStorage(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(fromCache, tc.NotNil)
 	c.Assert(fromCache.Tag().Id(), tc.Equals, id)

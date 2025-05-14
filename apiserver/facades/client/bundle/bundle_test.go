@@ -4,8 +4,6 @@
 package bundle_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
@@ -67,7 +65,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: ":",
 	}
-	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
+	r, err := s.facade.GetChangesMapArgs(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
 	c.Assert(r, tc.DeepEquals, params.BundleChangesMapArgsResults{})
 }
@@ -87,7 +85,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *tc.C) {
                     num_units: -1
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
+	r, err := s.facade.GetChangesMapArgs(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Changes, tc.IsNil)
 	c.Assert(r.Errors, tc.SameContents, []string{
@@ -111,7 +109,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *tc.C) {
                     constraints: bad=wolf
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
+	r, err := s.facade.GetChangesMapArgs(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Changes, tc.IsNil)
 	c.Assert(r.Errors, tc.SameContents, []string{
@@ -133,7 +131,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *tc.C) {
                         bad: 0,100M
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
+	r, err := s.facade.GetChangesMapArgs(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Changes, tc.IsNil)
 	c.Assert(r.Errors, tc.SameContents, []string{
@@ -155,7 +153,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *tc.C) {
                         bad-gpu: -1,nvidia.com/gpu
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
+	r, err := s.facade.GetChangesMapArgs(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Changes, tc.IsNil)
 	c.Assert(r.Errors, tc.SameContents, []string{
@@ -188,7 +186,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *tc.C) {
                   - haproxy:web
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
+	r, err := s.facade.GetChangesMapArgs(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
@@ -259,7 +257,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *tc.C) {
                     channel: candidate
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
+	r, err := s.facade.GetChangesMapArgs(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
@@ -310,7 +308,7 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *tc.C) {
                   - haproxy:web
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
+	r, err := s.facade.GetChangesMapArgs(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
@@ -381,7 +379,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *tc.C
                         url: public
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
+	r, err := s.facade.GetChangesMapArgs(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	for _, change := range r.Changes {

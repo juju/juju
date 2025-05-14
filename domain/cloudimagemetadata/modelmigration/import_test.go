@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -86,7 +85,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	// Act
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -127,7 +126,7 @@ func (s *importSuite) TestImportWithNonCustomSource(c *tc.C) {
 
 	// Act
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -150,7 +149,7 @@ func (s *importSuite) TestImportFailureWhenSaveMetadata(c *tc.C) {
 
 	// Act
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedError)

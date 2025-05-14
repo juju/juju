@@ -152,7 +152,7 @@ func (s *manifoldSuite) TestNewTrackerIsCalled(c *tc.C) {
 		},
 	}
 	manifold := containerbroker.Manifold(config)
-	result, err := manifold.Start(context.Background(), s.getter)
+	result, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, s.worker)
 }
@@ -175,7 +175,7 @@ func (s *manifoldSuite) TestNewTrackerReturnsError(c *tc.C) {
 		},
 	}
 	manifold := containerbroker.Manifold(config)
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "errored")
 }
 

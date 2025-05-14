@@ -100,7 +100,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ctx := context.Background()
+		ctx := c.Context()
 		ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
 
@@ -125,7 +125,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(tunnelID, tc.Equals, tunnels[0])
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
@@ -186,7 +186,7 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ctx := context.Background()
+		ctx := c.Context()
 		ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
 
@@ -204,7 +204,7 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.Password)
 	c.Check(err, tc.ErrorIsNil)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
@@ -267,7 +267,7 @@ func (s *sshTunnelerSuite) TestPushTunnel(c *tc.C) {
 		}
 	}()
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
@@ -303,7 +303,7 @@ func (s *sshTunnelerSuite) TestPushTunnelInvalidTunnelID(c *tc.C) {
 
 	tunnelTracker := s.newTracker(c)
 
-	err := tunnelTracker.PushTunnel(context.Background(), "invalid-tunnel-id", nil)
+	err := tunnelTracker.PushTunnel(c.Context(), "invalid-tunnel-id", nil)
 	c.Assert(err, tc.ErrorMatches, "tunnel not found")
 }
 
@@ -325,7 +325,7 @@ func (s *sshTunnelerSuite) TestRequestTunnelTimeout(c *tc.C) {
 		ModelUUID: "model-uuid",
 	}
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Millisecond)
 	defer cancel()
 
@@ -354,7 +354,7 @@ func (s *sshTunnelerSuite) TestRequestTunnelDeadline(c *tc.C) {
 		ModelUUID: "model-uuid",
 	}
 
-	_, err := tunnelTracker.RequestTunnel(context.Background(), tunnelReqArgs)
+	_, err := tunnelTracker.RequestTunnel(c.Context(), tunnelReqArgs)
 	c.Assert(err, tc.ErrorMatches, "waiting for tunnel: context deadline exceeded")
 }
 
@@ -369,7 +369,7 @@ func (s *sshTunnelerSuite) TestPushTunnelTimeout(c *tc.C) {
 
 	conn := &net.TCPConn{}
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Millisecond)
 	defer cancel()
 
@@ -394,7 +394,7 @@ func (s *sshTunnelerSuite) TestInvalidMachineHostKey(c *tc.C) {
 		ModelUUID: "model-uuid",
 	}
 
-	_, err := tunnelTracker.RequestTunnel(context.Background(), tunnelReqArgs)
+	_, err := tunnelTracker.RequestTunnel(c.Context(), tunnelReqArgs)
 	c.Assert(err, tc.ErrorMatches, "failed to parse machine host key: ssh: no key found")
 }
 

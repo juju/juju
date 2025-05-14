@@ -4,8 +4,6 @@
 package state
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -52,14 +50,14 @@ func (s *migrationSuite) SetUpTest(c *tc.C) {
 		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestGetControllerUUID is asserting the happy path of getting the controller
 // uuid from the database.
 func (s *migrationSuite) TestGetControllerUUID(c *tc.C) {
-	controllerId, err := New(s.TxnRunnerFactory()).GetControllerUUID(context.Background())
+	controllerId, err := New(s.TxnRunnerFactory()).GetControllerUUID(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerId, tc.Equals, s.controllerUUID.String())
 }
@@ -71,14 +69,14 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 	db := s.DB()
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := machineState.CreateMachine(context.Background(), "666", "0", "deadbeef")
+	err := machineState.CreateMachine(c.Context(), "666", "0", "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('deadbeef', 'az-1')")
+	_, err = db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef', 'az-1')")
 	c.Assert(err, tc.ErrorIsNil)
 	arch := "arm64"
 	err = machineState.SetMachineCloudInstance(
-		context.Background(),
+		c.Context(),
 		"deadbeef",
 		instance.Id("instance-0"),
 		"",
@@ -87,10 +85,10 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineState.CreateMachine(context.Background(), "667", "1", "deadbeef-2")
+	err = machineState.CreateMachine(c.Context(), "667", "1", "deadbeef-2")
 	c.Assert(err, tc.ErrorIsNil)
 	err = machineState.SetMachineCloudInstance(
-		context.Background(),
+		c.Context(),
 		"deadbeef-2",
 		instance.Id("instance-1"),
 		"",
@@ -100,7 +98,7 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
+	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceIDs, tc.HasLen, 2)
 	c.Check(instanceIDs.Values(), tc.SameContents, []string{"instance-0", "instance-1"})
@@ -109,7 +107,7 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 // TestEmptyInstanceIDs tests that no error is returned when there are no
 // instances in the model.
 func (s *migrationSuite) TestEmptyInstanceIDs(c *tc.C) {
-	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(context.Background())
+	instanceIDs, err := New(s.TxnRunnerFactory()).GetAllInstanceIDs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceIDs, tc.HasLen, 0)
 }

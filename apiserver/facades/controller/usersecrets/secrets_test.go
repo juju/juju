@@ -4,8 +4,6 @@
 package usersecrets_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -56,7 +54,7 @@ func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *tc.C) {
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("watcher-id", nil)
 
-	result, err := s.facade.WatchRevisionsToPrune(context.Background())
+	result, err := s.facade.WatchRevisionsToPrune(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "watcher-id",
@@ -67,6 +65,6 @@ func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.secretService.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return(nil)
-	err := s.facade.DeleteObsoleteUserSecretRevisions(context.Background())
+	err := s.facade.DeleteObsoleteUserSecretRevisions(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }

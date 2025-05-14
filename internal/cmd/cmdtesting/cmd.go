@@ -5,7 +5,6 @@ package cmdtesting
 
 import (
 	"bytes"
-	"context"
 	"io/ioutil"
 
 	"github.com/juju/gnuflag"
@@ -43,7 +42,7 @@ func Context(c tc.LikeC) *cmd.Context {
 		Stdout: &bytes.Buffer{},
 		Stderr: &bytes.Buffer{},
 	}
-	ctx.Context = context.Background()
+	ctx.Context = c.Context()
 	return ctx
 }
 
@@ -56,7 +55,7 @@ func ContextForDir(c tc.LikeC, dir string) *cmd.Context {
 		Stdout: &bytes.Buffer{},
 		Stderr: &bytes.Buffer{},
 	}
-	ctx.Context = context.Background()
+	ctx.Context = c.Context()
 	return ctx
 }
 

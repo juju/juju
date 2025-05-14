@@ -4,8 +4,6 @@
 package bootstrap
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/permission"
@@ -28,7 +26,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *bootstrapSuite) TestAddUserWithPassword(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	uuid, addAdminUser := AddUserWithPassword(usertesting.GenNewName(c, "admin"), auth.NewPassword("password"), permission.AccessSpec{
 		Access: permission.SuperuserAccess,
 		Target: permission.ID{

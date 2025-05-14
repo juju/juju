@@ -68,7 +68,7 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *tc.C) {
 	)
 	credTag := names.NewCloudCredentialTag("cloud/user/credential")
 
-	result, err := s.api.ModelCredential(context.Background())
+	result, err := s.api.ModelCredential(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ModelCredential{
 		Model:           names.NewModelTag(s.modelUUID.String()).String(),
@@ -86,7 +86,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialNotSet(c *tc.C) {
 		credential.Key{}, false, credentialerrors.ModelCredentialNotSet,
 	)
 
-	result, err := s.api.ModelCredential(context.Background())
+	result, err := s.api.ModelCredential(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ModelCredential{
 		Model:  names.NewModelTag(s.modelUUID.String()).String(),
@@ -106,7 +106,7 @@ func (s *CredentialValidatorSuite) TestWatchModelCredential(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	s.modelCredentialWatcher.EXPECT().Changes().Return(ch)
 
-	result, err := s.api.WatchModelCredential(context.Background())
+	result, err := s.api.WatchModelCredential(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{"1", nil})
 }
@@ -116,6 +116,6 @@ func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *tc.C) {
 		return nil, coreerrors.NotValid
 	}
 	defer s.setUpMocks(c).Finish()
-	_, err := s.api.WatchModelCredential(context.Background())
+	_, err := s.api.WatchModelCredential(c.Context())
 	c.Assert(err, tc.DeepEquals, apiservererrors.ServerError(coreerrors.NotValid))
 }

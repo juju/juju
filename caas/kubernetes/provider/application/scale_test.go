@@ -4,8 +4,6 @@
 package application_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +18,7 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *tc.C) {
 
 	c.Assert(app.Scale(20), tc.ErrorIsNil)
 	ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
-		context.Background(),
+		c.Context(),
 		s.appName,
 		metav1.GetOptions{},
 	)
@@ -34,7 +32,7 @@ func (s *applicationSuite) TestApplicationScaleStateless(c *tc.C) {
 
 	c.Assert(app.Scale(20), tc.ErrorIsNil)
 	dep, err := s.client.AppsV1().Deployments(s.namespace).Get(
-		context.Background(),
+		c.Context(),
 		s.appName,
 		metav1.GetOptions{},
 	)
@@ -55,11 +53,11 @@ func (s *applicationSuite) TestCurrentScale(c *tc.C) {
 
 	c.Assert(app.Scale(3), tc.ErrorIsNil)
 
-	units, err := app.UnitsToRemove(context.Background(), 1)
+	units, err := app.UnitsToRemove(c.Context(), 1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(units, tc.SameContents, []string{"gitlab/1", "gitlab/2"})
 
-	units, err = app.UnitsToRemove(context.Background(), 3)
+	units, err = app.UnitsToRemove(c.Context(), 3)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(units, tc.HasLen, 0)
 }

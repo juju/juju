@@ -4,7 +4,6 @@
 package secretbackend_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -44,7 +43,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 		domain.NewWatcherFactory(factory, logger),
 	)
 
-	watcher, err := svc.WatchSecretBackendRotationChanges(context.Background())
+	watcher, err := svc.WatchSecretBackendRotationChanges(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher)
 
@@ -55,7 +54,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	backendID1 := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
 	nextRotateTime := time.Now().Add(rotateInternal)
-	result, err := state.CreateSecretBackend(context.Background(),
+	result, err := state.CreateSecretBackend(c.Context(),
 		secretbackend.CreateSecretBackendParams{
 			BackendIdentifier: secretbackend.BackendIdentifier{
 				ID:   backendID1,
@@ -74,7 +73,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	c.Assert(result, tc.Equals, backendID1)
 
 	backendID2 := uuid.MustNewUUID().String()
-	result, err = state.CreateSecretBackend(context.Background(),
+	result, err = state.CreateSecretBackend(c.Context(),
 		secretbackend.CreateSecretBackendParams{
 			BackendIdentifier: secretbackend.BackendIdentifier{
 				ID:   backendID2,
@@ -107,7 +106,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	)
 
 	nameChange := "my-backend1-updated"
-	_, err = state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+	_, err = state.UpdateSecretBackend(c.Context(), secretbackend.UpdateSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID: backendID1,
 		},
@@ -123,7 +122,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 
 	newRotateInternal := 48 * time.Hour
 	newNextRotateTime := time.Now().Add(newRotateInternal)
-	_, err = state.UpdateSecretBackend(context.Background(), secretbackend.UpdateSecretBackendParams{
+	_, err = state.UpdateSecretBackend(c.Context(), secretbackend.UpdateSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID: backendID2,
 		},
@@ -145,14 +144,14 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	)
 
 	// NOT triggered - delete the backend.
-	err = state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID1}, false)
+	err = state.DeleteSecretBackend(c.Context(), secretbackend.BackendIdentifier{ID: backendID1}, false)
 	c.Assert(err, tc.IsNil)
-	err = state.DeleteSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID2}, false)
+	err = state.DeleteSecretBackend(c.Context(), secretbackend.BackendIdentifier{ID: backendID2}, false)
 	c.Assert(err, tc.IsNil)
 
-	_, err = state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID1})
+	_, err = state.GetSecretBackend(c.Context(), secretbackend.BackendIdentifier{ID: backendID1})
 	c.Assert(err, tc.ErrorMatches, `secret backend not found: "`+backendID1+`"`)
-	_, err = state.GetSecretBackend(context.Background(), secretbackend.BackendIdentifier{ID: backendID2})
+	_, err = state.GetSecretBackend(c.Context(), secretbackend.BackendIdentifier{ID: backendID2})
 	c.Assert(err, tc.ErrorMatches, `secret backend not found: "`+backendID2+`"`)
 
 	wC.AssertNoChange()
@@ -172,7 +171,7 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 
 	modelUUID, internalBackendName, vaultBackendName := s.createModel(c, state, txnRunnerFactory, "test-model")
 
-	watcher, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
+	watcher, err := svc.WatchModelSecretBackendChanged(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher)
 
@@ -180,7 +179,7 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 	// Wait for the initial change.
 	wc.AssertAtLeastOneChange()
 
-	ctx := context.Background()
+	ctx := c.Context()
 	err = state.SetModelSecretBackend(ctx, modelUUID, vaultBackendName)
 	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -190,7 +189,7 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 	wc.AssertOneChange()
 
 	// Pretend that the agent restarted and the watcher is re-created.
-	watcher1, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
+	watcher1, err := svc.WatchModelSecretBackendChanged(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher1)
 	wc1 := watchertest.NewNotifyWatcherC(c, watcher1)
@@ -201,7 +200,7 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 func (s *watcherSuite) createModel(c *tc.C, st *state.State, txnRunner database.TxnRunnerFactory, name string) (coremodel.UUID, string, string) {
 	// Create internal controller secret backend.
 	internalBackendID := uuid.MustNewUUID().String()
-	result, err := st.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+	result, err := st.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID:   internalBackendID,
 			Name: juju.BackendName,
@@ -212,7 +211,7 @@ func (s *watcherSuite) createModel(c *tc.C, st *state.State, txnRunner database.
 	c.Assert(result, tc.Equals, internalBackendID)
 
 	vaultBackendID := uuid.MustNewUUID().String()
-	result, err = st.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+	result, err = st.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
 		BackendIdentifier: secretbackend.BackendIdentifier{
 			ID:   vaultBackendID,
 			Name: "my-backend",

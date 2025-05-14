@@ -4,8 +4,6 @@
 package operation_test
 
 import (
-	stdcontext "context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/hooks"
@@ -32,7 +30,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Prepare_BadState(c *tc.C) {
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
+	newState, err := op.Prepare(c.Context(), operation.State{})
 	c.Check(newState, tc.IsNil)
 	// accept is only valid in Continue mode, when we're sure nothing is queued
 	// or in progress.
@@ -44,7 +42,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Prepare_NotLeader(c *tc.C) {
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Prepare(stdcontext.Background(), operation.State{Kind: operation.Continue})
+	newState, err := op.Prepare(c.Context(), operation.State{Kind: operation.Continue})
 	c.Check(newState, tc.IsNil)
 	// *execute* is currently just a no-op -- all the meat happens in commit.
 	c.Check(err, tc.Equals, operation.ErrSkipExecute)
@@ -55,7 +53,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Prepare_AlreadyLeader(c *tc.C) {
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Prepare(stdcontext.Background(), operation.State{
+	newState, err := op.Prepare(c.Context(), operation.State{
 		Kind:   operation.Continue,
 		Leader: true,
 	})
@@ -68,10 +66,10 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_BlankSlate(c *tc.C) 
 	factory := s.newFactory(c)
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = op.Prepare(stdcontext.Background(), operation.State{Kind: operation.Continue})
+	_, err = op.Prepare(c.Context(), operation.State{Kind: operation.Continue})
 	c.Check(err, tc.Equals, operation.ErrSkipExecute)
 
-	newState, err := op.Commit(stdcontext.Background(), operation.State{
+	newState, err := op.Commit(c.Context(), operation.State{
 		Kind: operation.Continue,
 	})
 	c.Check(err, tc.ErrorIsNil)
@@ -87,10 +85,10 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_Preserve(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = op.Prepare(stdcontext.Background(), operation.State{Kind: operation.Continue})
+	_, err = op.Prepare(c.Context(), operation.State{Kind: operation.Continue})
 	c.Check(err, tc.Equals, operation.ErrSkipExecute)
 
-	newState, err := op.Commit(stdcontext.Background(), operation.State{
+	newState, err := op.Commit(c.Context(), operation.State{
 		Kind:    operation.Continue,
 		Started: true,
 		Hook:    &hook.Info{Kind: hooks.Install},
@@ -109,10 +107,10 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_AlreadyLeader(c *tc.C) {
 	factory := s.newFactory(c)
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = op.Prepare(stdcontext.Background(), operation.State{Kind: operation.Continue})
+	_, err = op.Prepare(c.Context(), operation.State{Kind: operation.Continue})
 	c.Check(err, tc.Equals, operation.ErrSkipExecute)
 
-	newState, err := op.Commit(stdcontext.Background(), operation.State{
+	newState, err := op.Commit(c.Context(), operation.State{
 		Kind:   operation.Continue,
 		Leader: true,
 	})
@@ -132,7 +130,7 @@ func (s *LeaderSuite) TestResignLeadership_Prepare_Leader(c *tc.C) {
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Prepare(stdcontext.Background(), operation.State{Leader: true})
+	newState, err := op.Prepare(c.Context(), operation.State{Leader: true})
 	c.Check(newState, tc.IsNil)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -142,7 +140,7 @@ func (s *LeaderSuite) TestResignLeadership_Prepare_NotLeader(c *tc.C) {
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
+	newState, err := op.Prepare(c.Context(), operation.State{})
 	c.Check(newState, tc.IsNil)
 	c.Check(err, tc.Equals, operation.ErrSkipExecute)
 }
@@ -152,11 +150,11 @@ func (s *LeaderSuite) TestResignLeadership_Execute(c *tc.C) {
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = op.Prepare(stdcontext.Background(), operation.State{Leader: true})
+	_, err = op.Prepare(c.Context(), operation.State{Leader: true})
 	c.Check(err, tc.ErrorIsNil)
 
 	// Execute is a no-op (which logs that we should run leader-deposed)
-	newState, err := op.Execute(stdcontext.Background(), operation.State{})
+	newState, err := op.Execute(c.Context(), operation.State{})
 	c.Check(newState, tc.IsNil)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -166,7 +164,7 @@ func (s *LeaderSuite) TestResignLeadership_Commit_ClearLeader(c *tc.C) {
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Commit(stdcontext.Background(), operation.State{Leader: true})
+	newState, err := op.Commit(c.Context(), operation.State{Leader: true})
 	c.Check(newState, tc.DeepEquals, &operation.State{})
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -176,7 +174,7 @@ func (s *LeaderSuite) TestResignLeadership_Commit_PreserveOthers(c *tc.C) {
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Commit(stdcontext.Background(), overwriteState)
+	newState, err := op.Commit(c.Context(), overwriteState)
 	c.Check(newState, tc.DeepEquals, &overwriteState)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -188,7 +186,7 @@ func (s *LeaderSuite) TestResignLeadership_Commit_All(c *tc.C) {
 
 	leaderState := overwriteState
 	leaderState.Leader = true
-	newState, err := op.Commit(stdcontext.Background(), leaderState)
+	newState, err := op.Commit(c.Context(), leaderState)
 	c.Check(newState, tc.DeepEquals, &overwriteState)
 	c.Check(err, tc.ErrorIsNil)
 }

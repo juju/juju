@@ -52,7 +52,7 @@ func (l *testingSSHServerListener) Accept() (net.Conn, error) {
 }
 
 func (l *testingSSHServerListener) Close() error {
-	ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
+	ctx, cancel := context.WithTimeout(c.Context(), l.timeout)
 	defer cancel()
 
 	select {

@@ -4,8 +4,6 @@
 package utils_test
 
 import (
-	"context"
-
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -56,7 +54,7 @@ func (s *utilsResourceSuite) TestGetMetaResources(c *tc.C) {
 	curl := "local:trusty/multi-series-1"
 	s.expectCharmInfo(curl)
 
-	obtained, err := utils.GetMetaResources(context.Background(), curl, s.charmClient)
+	obtained, err := utils.GetMetaResources(c.Context(), curl, s.charmClient)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, map[string]charmresource.Meta{
 		"test": {Name: "Testme"}})
@@ -252,7 +250,7 @@ func (s *utilsResourceSuite) assertGetUpgradeResources(
 		Origin: apicharm.Origin{Source: schemaToOriginSource(newCharmURL.Schema)},
 	}
 	filtered, err := utils.GetUpgradeResources(
-		context.Background(),
+		c.Context(),
 		charmID, s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, resourcesInMetadata,
 	)
@@ -280,7 +278,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryNoChange(c *tc.C) 
 	cliResources := map[string]string{}
 
 	filtered, err := utils.GetUpgradeResources(
-		context.Background(),
+		c.Context(),
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
@@ -300,7 +298,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryChange(c *tc.C) {
 	cliResources := map[string]string{}
 
 	filtered, err := utils.GetUpgradeResources(
-		context.Background(),
+		c.Context(),
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
@@ -320,7 +318,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevision(c *tc.
 	cliResources := map[string]string{"test-file": "42"}
 
 	filtered, err := utils.GetUpgradeResources(
-		context.Background(),
+		c.Context(),
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)
@@ -340,7 +338,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesRepositoryCLIRevisionAlready
 	cliResources := map[string]string{"test-file": "42"}
 
 	filtered, err := utils.GetUpgradeResources(
-		context.Background(),
+		c.Context(),
 		repoCharmID(), s.charmClient, s.resourceFacade,
 		"snappass-test", cliResources, repoResourcesInMetadata,
 	)

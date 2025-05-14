@@ -4,7 +4,6 @@
 package httpclient
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -43,7 +42,7 @@ func (s *workerSuite) TestKilledGetHTTPClientErrDying(c *tc.C) {
 	w.Kill()
 
 	worker := w.(*httpClientWorker)
-	_, err := worker.GetHTTPClient(context.Background(), "foo")
+	_, err := worker.GetHTTPClient(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, corehttp.ErrHTTPClientDying)
 }
 
@@ -65,7 +64,7 @@ func (s *workerSuite) TestGetHTTPClient(c *tc.C) {
 	}).AnyTimes()
 
 	worker := w.(*httpClientWorker)
-	httpClient, err := worker.GetHTTPClient(context.Background(), "foo")
+	httpClient, err := worker.GetHTTPClient(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(httpClient, tc.NotNil)
 
@@ -99,7 +98,7 @@ func (s *workerSuite) TestGetHTTPClientIsCached(c *tc.C) {
 	worker := w.(*httpClientWorker)
 	for i := 0; i < 10; i++ {
 
-		_, err := worker.GetHTTPClient(context.Background(), "foo")
+		_, err := worker.GetHTTPClient(c.Context(), "foo")
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -136,7 +135,7 @@ func (s *workerSuite) TestGetHTTPClientIsNotCachedForDifferentNamespaces(c *tc.C
 			return internalhttp.NewClient()
 		}
 
-		_, err := worker.GetHTTPClient(context.Background(), corehttp.Purpose(name))
+		_, err := worker.GetHTTPClient(c.Context(), corehttp.Purpose(name))
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -179,7 +178,7 @@ func (s *workerSuite) TestGetHTTPClientConcurrently(c *tc.C) {
 
 			name := fmt.Sprintf("anything-%d", i)
 
-			_, err := worker.GetHTTPClient(context.Background(), corehttp.Purpose(name))
+			_, err := worker.GetHTTPClient(c.Context(), corehttp.Purpose(name))
 			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}

@@ -93,7 +93,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *tc.C) {
 		s.mockBlockClient.numRetries = t.numRetries
 		s.mockBlockClient.retryCount = 0
 		runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-			bootstrapCtx := environscmd.BootstrapContext(context.Background(), ctx)
+			bootstrapCtx := environscmd.BootstrapContext(c.Context(), ctx)
 			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 			c.Check(errors.Cause(err), tc.DeepEquals, t.err)
 		})
@@ -115,7 +115,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetriesWithOpenEOFErr(c *tc.C)
 	s.mockBlockClient.loginError = io.EOF
 
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-		bootstrapCtx := environscmd.BootstrapContext(context.Background(), ctx)
+		bootstrapCtx := environscmd.BootstrapContext(c.Context(), ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 		c.Check(err, tc.ErrorIsNil)
 	})
@@ -127,7 +127,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *tc.
 	s.mockBlockClient.retryCount = 0
 	s.mockBlockClient.loginError = errors.NewUnauthorized(nil, "")
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-		bootstrapCtx := environscmd.BootstrapContext(context.Background(), ctx)
+		bootstrapCtx := environscmd.BootstrapContext(c.Context(), ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 		c.Check(err, tc.ErrorIs, errors.Unauthorized)
 	})
@@ -137,7 +137,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *tc.
 func (s *controllerSuite) TestWaitForAgentCancelled(c *tc.C) {
 	s.mockBlockClient.numRetries = 2
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-		stdCtx, cancel := context.WithCancel(context.Background())
+		stdCtx, cancel := context.WithCancel(c.Context())
 		cancel()
 		bootstrapCtx := environscmd.BootstrapContext(stdCtx, ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")

@@ -71,7 +71,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 		return nil
 	}
 	inst, hardware, err := manager.CreateContainer(
-		context.Background(),
+		c.Context(),
 		instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "18.04"),
 		networkConfig, storageConfig, callback)
 	c.Assert(err, tc.ErrorIsNil)

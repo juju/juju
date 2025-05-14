@@ -40,7 +40,7 @@ func (s *ErrorSuite) SetUpTest(c *tc.C) {
 func (s *ErrorSuite) TestNoValidation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	handled, err := errorutils.HandleCredentialError(context.Background(), nil, s.azureError)
+	handled, err := errorutils.HandleCredentialError(c.Context(), nil, s.azureError)
 	c.Assert(err, tc.ErrorIs, s.azureError)
 	c.Check(handled, tc.IsFalse)
 	//c.Check(c.GetTestLog(), tc.Contains, "no credential invalidator provided to handle error")
@@ -62,7 +62,7 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *tc.C) {
 
 	s.invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(errors.New("kaboom"))
 
-	handled, err := errorutils.HandleCredentialError(context.Background(), s.invalidator, s.azureError)
+	handled, err := errorutils.HandleCredentialError(c.Context(), s.invalidator, s.azureError)
 	c.Assert(err, tc.ErrorIs, s.azureError)
 	c.Check(handled, tc.IsTrue)
 	//c.Check(c.GetTestLog(), tc.Contains, "could not invalidate stored cloud credential on the controller")
@@ -80,7 +80,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *tc.C) {
 
 	// First test another status code.
 	s.azureError.StatusCode = http.StatusAccepted
-	handled, err := errorutils.HandleCredentialError(context.Background(), s.invalidator, s.azureError)
+	handled, err := errorutils.HandleCredentialError(c.Context(), s.invalidator, s.azureError)
 	c.Assert(err, tc.ErrorIs, s.azureError)
 	c.Check(handled, tc.IsFalse)
 	c.Check(called, tc.IsFalse)
@@ -92,7 +92,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *tc.C) {
 		s.azureError.ErrorCode = "some error code"
 		s.azureError.RawResponse = &http.Response{}
 
-		handled, err := errorutils.HandleCredentialError(context.Background(), s.invalidator, s.azureError)
+		handled, err := errorutils.HandleCredentialError(c.Context(), s.invalidator, s.azureError)
 		c.Assert(err, tc.ErrorIs, s.azureError)
 		c.Check(handled, tc.IsTrue)
 		c.Check(called, tc.IsTrue)
@@ -102,7 +102,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *tc.C) {
 func (s *ErrorSuite) TestNilAzureError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	handled, returnedErr := errorutils.HandleCredentialError(context.Background(), s.invalidator, nil)
+	handled, returnedErr := errorutils.HandleCredentialError(c.Context(), s.invalidator, nil)
 	c.Assert(returnedErr, tc.ErrorIsNil)
 	c.Assert(handled, tc.IsFalse)
 }

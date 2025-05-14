@@ -153,7 +153,7 @@ func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel() // cancel right away
 	req, err := http.NewRequestWithContext(ctx, "GET", "http://api.foo.bar", nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -193,7 +193,7 @@ func (s *RESTSuite) TestGet(c *tc.C) {
 	client := newHTTPRESTClient(mockHTTPClient)
 
 	var result interface{}
-	_, err := client.Get(context.Background(), base, &result)
+	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(recievedURL, tc.Equals, "http://api.foo.bar")
 }
@@ -224,7 +224,7 @@ func (s *RESTSuite) TestGetWithFailure(c *tc.C) {
 	base := MustMakePath(c, "http://api.foo.bar")
 
 	var result interface{}
-	_, err := client.Get(context.Background(), base, &result)
+	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
@@ -246,7 +246,7 @@ func (s *RESTSuite) TestGetWithFailureRetry(c *tc.C) {
 	base := MustMakePath(c, server.URL)
 
 	var result interface{}
-	_, err := client.Get(context.Background(), base, &result)
+	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Assert(called, tc.Equals, 3)
 }
@@ -269,7 +269,7 @@ func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *tc.C) {
 	base := MustMakePath(c, server.URL)
 
 	var result interface{}
-	_, err := client.Get(context.Background(), base, &result)
+	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Assert(called, tc.Equals, 1)
 }
@@ -294,7 +294,7 @@ func (s *RESTSuite) TestGetWithNoRetry(c *tc.C) {
 	base := MustMakePath(c, server.URL)
 
 	var result interface{}
-	_, err := client.Get(context.Background(), base, &result)
+	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.Equals, 1)
 }
@@ -311,7 +311,7 @@ func (s *RESTSuite) TestGetWithUnmarshalFailure(c *tc.C) {
 	base := MustMakePath(c, "http://api.foo.bar")
 
 	var result interface{}
-	_, err := client.Get(context.Background(), base, &result)
+	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 

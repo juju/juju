@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -26,7 +24,7 @@ func (s *serviceSuite) TestRetrieveHardwareCharacteristics(c *tc.C) {
 	s.state.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("42")).
 		Return(expected, nil)
 
-	hc, err := NewService(s.state).HardwareCharacteristics(context.Background(), "42")
+	hc, err := NewService(s.state).HardwareCharacteristics(c.Context(), "42")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hc, tc.DeepEquals, expected)
 }
@@ -37,7 +35,7 @@ func (s *serviceSuite) TestRetrieveHardwareCharacteristicsFails(c *tc.C) {
 	s.state.EXPECT().HardwareCharacteristics(gomock.Any(), machine.UUID("42")).
 		Return(nil, errors.New("boom"))
 
-	hc, err := NewService(s.state).HardwareCharacteristics(context.Background(), "42")
+	hc, err := NewService(s.state).HardwareCharacteristics(c.Context(), "42")
 	c.Check(hc, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "retrieving hardware characteristics for machine \"42\": boom")
 }
@@ -48,7 +46,7 @@ func (s *serviceSuite) TestRetrieveAvailabilityZone(c *tc.C) {
 	s.state.EXPECT().AvailabilityZone(gomock.Any(), machine.UUID("42")).
 		Return("foo", nil)
 
-	hc, err := NewService(s.state).AvailabilityZone(context.Background(), "42")
+	hc, err := NewService(s.state).AvailabilityZone(c.Context(), "42")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hc, tc.DeepEquals, "foo")
 }
@@ -70,7 +68,7 @@ func (s *serviceSuite) TestSetMachineCloudInstance(c *tc.C) {
 		hc,
 	).Return(nil)
 
-	err := NewService(s.state).SetMachineCloudInstance(context.Background(), "42", "instance-42", "42", hc)
+	err := NewService(s.state).SetMachineCloudInstance(c.Context(), "42", "instance-42", "42", hc)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -91,7 +89,7 @@ func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *tc.C) {
 		hc,
 	).Return(errors.New("boom"))
 
-	err := NewService(s.state).SetMachineCloudInstance(context.Background(), "42", "instance-42", "42", hc)
+	err := NewService(s.state).SetMachineCloudInstance(c.Context(), "42", "instance-42", "42", hc)
 	c.Assert(err, tc.ErrorMatches, "setting machine cloud instance for machine \"42\": boom")
 }
 
@@ -100,7 +98,7 @@ func (s *serviceSuite) TestDeleteMachineCloudInstance(c *tc.C) {
 
 	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), machine.UUID("42")).Return(nil)
 
-	err := NewService(s.state).DeleteMachineCloudInstance(context.Background(), "42")
+	err := NewService(s.state).DeleteMachineCloudInstance(c.Context(), "42")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -109,7 +107,7 @@ func (s *serviceSuite) TestDeleteMachineCloudInstanceFails(c *tc.C) {
 
 	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), machine.UUID("42")).Return(errors.New("boom"))
 
-	err := NewService(s.state).DeleteMachineCloudInstance(context.Background(), "42")
+	err := NewService(s.state).DeleteMachineCloudInstance(c.Context(), "42")
 	c.Assert(err, tc.ErrorMatches, "deleting machine cloud instance for machine \"42\": boom")
 }
 

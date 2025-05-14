@@ -4,8 +4,6 @@
 package resolver_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/hooks"
@@ -26,7 +24,7 @@ func (s *GuardSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *GuardSuite) checkCall(c *tc.C, state operation.State, call string) {
-	err := resolver.UpdateCharmDir(context.Background(), state, s.guard, loggertesting.WrapCheckLog(c))
+	err := resolver.UpdateCharmDir(c.Context(), state, s.guard, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 	s.guard.CheckCallNames(c, call)
 }

@@ -4,7 +4,6 @@
 package observer_test
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/juju/names/v6"
@@ -59,7 +58,7 @@ func (*multiplexerSuite) TestLeaveCallsAllObservers(c *tc.C) {
 	}
 
 	o := observer.NewMultiplexer(observers[0], observers[1])
-	o.Leave(context.Background())
+	o.Leave(c.Context())
 
 	for _, f := range observers {
 		f.CheckCall(c, 0, "Leave")
@@ -92,7 +91,7 @@ func (*multiplexerSuite) TestLoginCallsAllObservers(c *tc.C) {
 	modelUUID := model.UUID("abc")
 	fromController := false
 	userData := "foo"
-	o.Login(context.Background(), entity, modelTag, modelUUID, fromController, userData)
+	o.Login(c.Context(), entity, modelTag, modelUUID, fromController, userData)
 
 	for _, f := range observers {
 		f.CheckCall(c, 0, "Login", entity, modelTag, modelUUID, fromController, userData)

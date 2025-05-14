@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -30,11 +29,11 @@ func (s *relationSuite) TestRelationExists(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	exists, err := st.RelationExists(context.Background(), "some-relation-uuid")
+	exists, err := st.RelationExists(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, true)
 
-	exists, err = st.RelationExists(context.Background(), "not-today-henry")
+	exists, err = st.RelationExists(c.Context(), "not-today-henry")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
 }
@@ -46,7 +45,7 @@ func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.EnsureRelationNotAlive(context.Background(), "some-relation-uuid")
+	err = st.EnsureRelationNotAlive(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Relation had life "alive" and should now be "dying".
@@ -64,7 +63,7 @@ func (s *relationSuite) TestEnsureRelationNotAliveDyingSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.EnsureRelationNotAlive(context.Background(), "some-relation-uuid")
+	err = st.EnsureRelationNotAlive(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Relation was already "dying" and should be unchanged.
@@ -79,7 +78,7 @@ func (s *relationSuite) TestEnsureRelationNotAliveNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	err := st.EnsureRelationNotAlive(context.Background(), "some-relation-uuid")
+	err := st.EnsureRelationNotAlive(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -92,7 +91,7 @@ func (s *relationSuite) TestRelationRemovalNormalSuccess(c *tc.C) {
 
 	when := time.Now().UTC()
 	err = st.RelationScheduleRemoval(
-		context.Background(), "removal-uuid", "some-relation-uuid", false, when,
+		c.Context(), "removal-uuid", "some-relation-uuid", false, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -121,7 +120,7 @@ func (s *relationSuite) TestRelationRemovalNotExistsSuccess(c *tc.C) {
 
 	when := time.Now().UTC()
 	err := st.RelationScheduleRemoval(
-		context.Background(), "removal-uuid", "some-relation-uuid", true, when,
+		c.Context(), "removal-uuid", "some-relation-uuid", true, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -156,7 +155,7 @@ func (s *relationSuite) TestGetRelationLifeSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	l, err := st.GetRelationLife(context.Background(), "some-relation-uuid")
+	l, err := st.GetRelationLife(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(l, tc.Equals, life.Dying)
 }
@@ -164,14 +163,14 @@ func (s *relationSuite) TestGetRelationLifeSuccess(c *tc.C) {
 func (s *relationSuite) TestGetRelationLifeNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.GetRelationLife(context.Background(), "some-relation-uuid")
+	_, err := st.GetRelationLife(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *relationSuite) TestUnitNamesInScopeNoRows(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	inScope, err := st.UnitNamesInScope(context.Background(), "some-relation-uuid")
+	inScope, err := st.UnitNamesInScope(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(inScope, tc.HasLen, 0)
 }
@@ -181,7 +180,7 @@ func (s *relationSuite) TestUnitNamesInScopeSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	inScope, err := st.UnitNamesInScope(context.Background(), rel)
+	inScope, err := st.UnitNamesInScope(c.Context(), rel)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(inScope, tc.SameContents, []string{unit})
 }
@@ -191,10 +190,10 @@ func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteRelationUnits(context.Background(), rel)
+	err := st.DeleteRelationUnits(c.Context(), rel)
 	c.Assert(err, tc.ErrorIsNil)
 
-	inScope, err := st.UnitNamesInScope(context.Background(), rel)
+	inScope, err := st.UnitNamesInScope(c.Context(), rel)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(inScope, tc.HasLen, 0)
@@ -205,7 +204,7 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteRelation(context.Background(), rel)
+	err := st.DeleteRelation(c.Context(), rel)
 	c.Assert(err, tc.ErrorIs, errors.UnitsStillInScope)
 }
 
@@ -214,13 +213,13 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteRelationUnits(context.Background(), rel)
+	err := st.DeleteRelationUnits(c.Context(), rel)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.DeleteRelation(context.Background(), rel)
+	err = st.DeleteRelation(c.Context(), rel)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.GetRelationLife(context.Background(), rel)
+	_, err = st.GetRelationLife(c.Context(), rel)
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 

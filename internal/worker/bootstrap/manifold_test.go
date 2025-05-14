@@ -149,6 +149,6 @@ func (s *manifoldSuite) TestStartAlreadyBootstrapped(c *tc.C) {
 	s.expectGateUnlock()
 	s.expectAgentConfig()
 
-	_, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
+	_, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIs, dependency.ErrUninstall)
 }

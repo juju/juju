@@ -4,7 +4,6 @@
 package migrationflag_test
 
 import (
-	"context"
 	"errors"
 
 	"github.com/juju/tc"
@@ -31,7 +30,7 @@ func (*FacadeSuite) TestPhaseCallError(c *tc.C) {
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
-	phase, err := facade.Phase(context.Background(), someUUID)
+	phase, err := facade.Phase(c.Context(), someUUID)
 	c.Check(err, tc.ErrorMatches, "bork")
 	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	checkCalls(c, stub, "Phase")
@@ -44,7 +43,7 @@ func (*FacadeSuite) TestPhaseNoResults(c *tc.C) {
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
-	phase, err := facade.Phase(context.Background(), someUUID)
+	phase, err := facade.Phase(c.Context(), someUUID)
 	c.Check(err, tc.ErrorMatches, "expected 1 result, got 0")
 	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	checkCalls(c, stub, "Phase")
@@ -63,7 +62,7 @@ func (*FacadeSuite) TestPhaseExtraResults(c *tc.C) {
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
-	phase, err := facade.Phase(context.Background(), someUUID)
+	phase, err := facade.Phase(c.Context(), someUUID)
 	c.Check(err, tc.ErrorMatches, "expected 1 result, got 2")
 	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	checkCalls(c, stub, "Phase")
@@ -81,7 +80,7 @@ func (*FacadeSuite) TestPhaseError(c *tc.C) {
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
-	phase, err := facade.Phase(context.Background(), someUUID)
+	phase, err := facade.Phase(c.Context(), someUUID)
 	c.Check(err, tc.ErrorMatches, "mneh")
 	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	checkCalls(c, stub, "Phase")
@@ -97,7 +96,7 @@ func (*FacadeSuite) TestPhaseInvalid(c *tc.C) {
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
-	phase, err := facade.Phase(context.Background(), someUUID)
+	phase, err := facade.Phase(c.Context(), someUUID)
 	c.Check(err, tc.ErrorMatches, `unknown phase "COLLABORATE"`)
 	c.Check(phase, tc.Equals, migration.UNKNOWN)
 	checkCalls(c, stub, "Phase")
@@ -113,7 +112,7 @@ func (*FacadeSuite) TestPhaseSuccess(c *tc.C) {
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
-	phase, err := facade.Phase(context.Background(), someUUID)
+	phase, err := facade.Phase(c.Context(), someUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(phase, tc.Equals, migration.ABORT)
 	checkCalls(c, stub, "Phase")
@@ -126,7 +125,7 @@ func (*FacadeSuite) TestWatchCallError(c *tc.C) {
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
-	watch, err := facade.Watch(context.Background(), someUUID)
+	watch, err := facade.Watch(c.Context(), someUUID)
 	c.Check(err, tc.ErrorMatches, "bork")
 	c.Check(watch, tc.IsNil)
 	checkCalls(c, stub, "Watch")
@@ -139,7 +138,7 @@ func (*FacadeSuite) TestWatchNoResults(c *tc.C) {
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
-	watch, err := facade.Watch(context.Background(), someUUID)
+	watch, err := facade.Watch(c.Context(), someUUID)
 	c.Check(err, tc.ErrorMatches, "expected 1 result, got 0")
 	c.Check(watch, tc.IsNil)
 	checkCalls(c, stub, "Watch")
@@ -158,7 +157,7 @@ func (*FacadeSuite) TestWatchExtraResults(c *tc.C) {
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
-	watch, err := facade.Watch(context.Background(), someUUID)
+	watch, err := facade.Watch(c.Context(), someUUID)
 	c.Check(err, tc.ErrorMatches, "expected 1 result, got 2")
 	c.Check(watch, tc.IsNil)
 	checkCalls(c, stub, "Watch")
@@ -176,7 +175,7 @@ func (*FacadeSuite) TestWatchError(c *tc.C) {
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
 
-	watch, err := facade.Watch(context.Background(), someUUID)
+	watch, err := facade.Watch(c.Context(), someUUID)
 	c.Check(err, tc.ErrorMatches, "snfl")
 	c.Check(watch, tc.IsNil)
 	checkCalls(c, stub, "Watch")
@@ -202,7 +201,7 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	}
 	facade := migrationflag.NewFacade(apiCaller, newWatcher)
 
-	watch, err := facade.Watch(context.Background(), someUUID)
+	watch, err := facade.Watch(c.Context(), someUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(watch, tc.Equals, expectWatch)
 	checkCalls(c, stub, "Watch")

@@ -4,8 +4,6 @@
 package bootstrap
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -21,7 +19,7 @@ var _ = tc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestInsertCloud(c *tc.C) {
 	cld := cloud.Cloud{Name: "cirrus", Type: "ec2", AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType}}
-	err := InsertCloud(coreuser.AdminUserName, cld)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err := InsertCloud(coreuser.AdminUserName, cld)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var name string

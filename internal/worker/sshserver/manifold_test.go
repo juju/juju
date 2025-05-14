@@ -4,7 +4,6 @@
 package sshserver
 
 import (
-	"context"
 	"os"
 
 	"github.com/juju/errors"
@@ -108,7 +107,7 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 
 	// Start the worker
 	result, err := manifold.Start(
-		context.Background(),
+		c.Context(),
 		dt.StubGetter(map[string]interface{}{}),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -174,7 +173,7 @@ func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 
 	// Start the worker
 	_, err := manifold.Start(
-		context.Background(),
+		c.Context(),
 		dt.StubGetter(map[string]interface{}{}),
 	)
 	c.Assert(err, tc.ErrorIs, dependency.ErrUninstall)

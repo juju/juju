@@ -4,7 +4,6 @@
 package storage_test
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -44,7 +43,7 @@ func (s *poolSuite) TestList(c *tc.C) {
 	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.NilNames, domainstorage.NilProviders).
 		Return([]*internalstorage.Config{p}, nil)
 
-	results, err := s.api.ListPools(context.Background(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
+	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	one := results.Results[0]
@@ -64,7 +63,7 @@ func (s *poolSuite) TestListManyResults(c *tc.C) {
 	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.NilNames, domainstorage.NilProviders).
 		Return([]*internalstorage.Config{p, p2}, nil)
 
-	results, err := s.api.ListPools(context.Background(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
+	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	assertPoolNames(c, results.Results[0].Result, "testpool0", "testpool1")
 }
@@ -83,7 +82,7 @@ func (s *poolSuite) TestListNoPools(c *tc.C) {
 	s.storageService.EXPECT().ListStoragePools(gomock.Any(), domainstorage.NilNames, domainstorage.NilProviders).
 		Return([]*internalstorage.Config{}, nil)
 
-	results, err := s.api.ListPools(context.Background(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
+	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Result, tc.HasLen, 0)

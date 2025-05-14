@@ -108,7 +108,7 @@ func (s *workerSuite) TestStartError(c *tc.C) {
 
 	cfg := s.getConfig()
 
-	_, err := NewWorker(context.Background(), cfg)
+	_, err := NewWorker(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -263,7 +263,7 @@ func (s *workerSuite) getConfig() Config {
 func (s *workerSuite) newWorker(c *tc.C) *Worker {
 	cfg := s.getConfig()
 
-	w, err := NewWorker(context.Background(), cfg)
+	w, err := NewWorker(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return w.(*Worker)

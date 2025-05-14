@@ -66,7 +66,7 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 	}
 	s.createCloudCredential(c, st, key)
 
-	watcher, err := service.WatchCredential(context.Background(), key)
+	watcher, err := service.WatchCredential(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -81,7 +81,7 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 			Revoked: true,
 			Label:   "foobar",
 		}
-		err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			return st.UpsertCloudCredential(ctx, key, credInfo)
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -95,7 +95,7 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 
 func (s *watcherSuite) addCloud(c *tc.C, userName user.Name, cloud cloud.Cloud) string {
 	cloudSt := dbcloud.NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	cloudUUID := uuid.MustNewUUID().String()
 	err := cloudSt.CreateCloud(ctx, userName, cloudUUID, cloud)
 	c.Assert(err, tc.ErrorIsNil)
@@ -108,7 +108,7 @@ func (s *watcherSuite) addOwner(c *tc.C, name user.Name) user.UUID {
 	c.Assert(err, tc.ErrorIsNil)
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUserWithPermission(
-		context.Background(),
+		c.Context(),
 		userUUID,
 		name,
 		"test user",
@@ -138,7 +138,7 @@ func (s *watcherSuite) createCloudCredential(c *tc.C, st *state.State, key corec
 		AuthType:   string(authType),
 		Attributes: attributes,
 	}
-	err := st.UpsertCloudCredential(context.Background(), key, credInfo)
+	err := st.UpsertCloudCredential(c.Context(), key, credInfo)
 	c.Assert(err, tc.ErrorIsNil)
 	return credInfo
 }

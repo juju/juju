@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"math"
 	"time"
 
@@ -65,7 +64,7 @@ var (
 
 func (s *rootKeyStateSuite) TestInsertAndGetKey(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	_, err := st.GetKey(ctx, key0.ID, now)
 	c.Assert(err, tc.ErrorIs, errors.KeyNotFound)
@@ -80,7 +79,7 @@ func (s *rootKeyStateSuite) TestInsertAndGetKey(c *tc.C) {
 
 func (s *rootKeyStateSuite) TestInsertKeyIDUniqueness(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	_, err := st.GetKey(ctx, key0.ID, now)
 	c.Assert(err, tc.ErrorIs, errors.KeyNotFound)
@@ -94,7 +93,7 @@ func (s *rootKeyStateSuite) TestInsertKeyIDUniqueness(c *tc.C) {
 
 func (s *rootKeyStateSuite) TestFindLatestKeyReturnsMostRecent(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	addAllKeys(c, st)
 
 	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0), now)
@@ -104,7 +103,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyReturnsMostRecent(c *tc.C) {
 
 func (s *rootKeyStateSuite) TestFindLatestKeyExpiresAfter(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	addAllKeys(c, st)
 
 	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), now.Add(7*time.Second), time.Unix(math.MaxInt64, 0), now)
@@ -114,7 +113,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyExpiresAfter(c *tc.C) {
 
 func (s *rootKeyStateSuite) TestFindLatestKeyCreatedAfter(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	addAllKeys(c, st)
 
 	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0), now)
@@ -127,7 +126,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyCreatedAfter(c *tc.C) {
 
 func (s *rootKeyStateSuite) TestFindLatestKeyExpiresBefore(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	addAllKeys(c, st)
 
 	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(5*time.Second), now)
@@ -144,7 +143,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyExpiresBefore(c *tc.C) {
 
 func (s *rootKeyStateSuite) TestFindLatestKeyEquality(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	addAllKeys(c, st)
 
 	res, err := st.FindLatestKey(ctx, key3.Created, key3.Expires, key3.Expires, now)
@@ -157,7 +156,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyEquality(c *tc.C) {
 
 func (s *rootKeyStateSuite) TestExpiredKeysAreRemoved(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	addAllKeys(c, st)
 
 	_, err := st.GetKey(ctx, key0.ID, now)
@@ -174,7 +173,7 @@ func (s *rootKeyStateSuite) TestExpiredKeysAreRemoved(c *tc.C) {
 
 func (s *rootKeyStateSuite) TestRemoveKeysExpiredBeforeNowPlus5(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	addAllKeys(c, st)
 
 	now := now.Add(5 * time.Second)
@@ -193,7 +192,7 @@ func (s *rootKeyStateSuite) TestRemoveKeysExpiredBeforeNowPlus5(c *tc.C) {
 
 func (s *rootKeyStateSuite) TestRemoveKeysExpiredAll(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	addAllKeys(c, st)
 
 	now := now.Add(10 * time.Second)
@@ -215,7 +214,7 @@ func (s *rootKeyStateSuite) TestRemoveKeysExpiredAll(c *tc.C) {
 
 func (s *rootKeyStateSuite) TestRemoveKeysExpiredNone(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	addAllKeys(c, st)
 
 	now := now.Add(-10 * time.Second)
@@ -233,7 +232,7 @@ func (s *rootKeyStateSuite) TestRemoveKeysExpiredNone(c *tc.C) {
 }
 
 func addAllKeys(c *tc.C, st *State) {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err := st.InsertKey(ctx, key0)
 	c.Assert(err, tc.ErrorIsNil)

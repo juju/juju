@@ -332,7 +332,7 @@ func (s *RetrySuite) TestRetryRequiredContextKilled(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "http://meshuggah.rocks", nil)
 	c.Assert(err, tc.IsNil)

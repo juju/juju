@@ -131,7 +131,7 @@ func (s *workerSuite) TestWorkerControllerConfigContext(c *tc.C) {
 		c.Fatalf("timed out waiting for worker to start")
 	}
 
-	config, err := w.(*argsWorker).managedServices.ControllerConfig(context.Background())
+	config, err := w.(*argsWorker).managedServices.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config, tc.NotNil)
 
@@ -159,7 +159,7 @@ func (s *workerSuite) TestWorkerControllerConfigContextDeadline(c *tc.C) {
 
 	workertest.CleanKill(c, w)
 
-	_, err := w.(*argsWorker).managedServices.ControllerConfig(context.Background())
+	_, err := w.(*argsWorker).managedServices.ControllerConfig(c.Context())
 	c.Assert(err, tc.Equals, context.Canceled)
 }
 
@@ -184,7 +184,7 @@ func (s *workerSuite) TestWorkerServicesForModelContext(c *tc.C) {
 		c.Fatalf("timed out waiting for worker to start")
 	}
 
-	config, err := w.(*argsWorker).managedServices.ServicesForModel(context.Background(), "")
+	config, err := w.(*argsWorker).managedServices.ServicesForModel(c.Context(), "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config, tc.NotNil)
 
@@ -212,7 +212,7 @@ func (s *workerSuite) TestWorkerServicesForModelContextDeadline(c *tc.C) {
 
 	workertest.CleanKill(c, w)
 
-	_, err := w.(*argsWorker).managedServices.ServicesForModel(context.Background(), "")
+	_, err := w.(*argsWorker).managedServices.ServicesForModel(c.Context(), "")
 	c.Assert(err, tc.Equals, context.Canceled)
 }
 

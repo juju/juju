@@ -103,7 +103,7 @@ func (*ManifoldSuite) TestStartMissingAPICaller(c *tc.C) {
 	})
 	manifold := migrationflag.Manifold(validManifoldConfig())
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -120,7 +120,7 @@ func (*ManifoldSuite) TestStartNewFacadeError(c *tc.C) {
 	}
 	manifold := migrationflag.Manifold(config)
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "bort")
 }
@@ -142,7 +142,7 @@ func (*ManifoldSuite) TestStartNewWorkerError(c *tc.C) {
 	}
 	manifold := migrationflag.Manifold(config)
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "snerk")
 }
@@ -161,7 +161,7 @@ func (*ManifoldSuite) TestStartSuccess(c *tc.C) {
 	}
 	manifold := migrationflag.Manifold(config)
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, expectWorker)
 }

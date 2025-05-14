@@ -4,8 +4,6 @@
 package uniter_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -50,7 +48,7 @@ func (s *storageSuite) TestUnitStorageAttachments(c *tc.C) {
 
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
-	attachmentIds, err := client.UnitStorageAttachments(context.Background(), names.NewUnitTag("mysql/0"))
+	attachmentIds, err := client.UnitStorageAttachments(c.Context(), names.NewUnitTag("mysql/0"))
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(called, tc.IsTrue)
 	c.Assert(attachmentIds, tc.DeepEquals, storageAttachmentIds)
@@ -76,7 +74,7 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *tc.C) {
 
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
-	err := client.DestroyUnitStorageAttachments(context.Background(), names.NewUnitTag("mysql/0"))
+	err := client.DestroyUnitStorageAttachments(c.Context(), names.NewUnitTag("mysql/0"))
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(called, tc.IsTrue)
 }
@@ -90,7 +88,7 @@ func (s *storageSuite) TestStorageAttachmentResultCountMismatch(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
-	_, err := client.UnitStorageAttachments(context.Background(), names.NewUnitTag("mysql/0"))
+	_, err := client.UnitStorageAttachments(c.Context(), names.NewUnitTag("mysql/0"))
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }
 
@@ -100,7 +98,7 @@ func (s *storageSuite) TestAPIErrors(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
-	_, err := client.UnitStorageAttachments(context.Background(), names.NewUnitTag("mysql/0"))
+	_, err := client.UnitStorageAttachments(c.Context(), names.NewUnitTag("mysql/0"))
 	c.Check(err, tc.ErrorMatches, "bad")
 }
 
@@ -126,7 +124,7 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
-	_, err := client.WatchUnitStorageAttachments(context.Background(), names.NewUnitTag("mysql/0"))
+	_, err := client.WatchUnitStorageAttachments(c.Context(), names.NewUnitTag("mysql/0"))
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(called, tc.IsTrue)
 }
@@ -156,7 +154,7 @@ func (s *storageSuite) TestWatchStorageAttachments(c *tc.C) {
 
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
-	_, err := client.WatchStorageAttachment(context.Background(), names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
+	_, err := client.WatchStorageAttachment(c.Context(), names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(called, tc.IsTrue)
 }
@@ -194,7 +192,7 @@ func (s *storageSuite) TestStorageAttachments(c *tc.C) {
 
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
-	attachment, err := client.StorageAttachment(context.Background(), names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
+	attachment, err := client.StorageAttachment(c.Context(), names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(called, tc.IsTrue)
 	c.Assert(attachment, tc.DeepEquals, storageAttachment)
@@ -223,7 +221,7 @@ func (s *storageSuite) TestStorageAttachmentLife(c *tc.C) {
 
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
-	results, err := client.StorageAttachmentLife(context.Background(), []params.StorageAttachmentId{{
+	results, err := client.StorageAttachmentLife(c.Context(), []params.StorageAttachmentId{{
 		StorageTag: "storage-data-0",
 		UnitTag:    "unit-mysql-0",
 	}})
@@ -254,6 +252,6 @@ func (s *storageSuite) TestRemoveStorageAttachment(c *tc.C) {
 
 	caller := testing.BestVersionCaller{apiCaller, 2}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
-	err := client.RemoveStorageAttachment(context.Background(), names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
+	err := client.RemoveStorageAttachment(c.Context(), names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
 	c.Check(err, tc.ErrorMatches, "yoink")
 }

@@ -4,8 +4,6 @@
 package storage_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -32,7 +30,7 @@ func (s *poolCreateSuite) TestCreatePool(c *tc.C) {
 			Attrs:    nil,
 		}},
 	}
-	results, err := s.api.CreatePool(context.Background(), args)
+	results, err := s.api.CreatePool(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
@@ -48,7 +46,7 @@ func (s *poolCreateSuite) TestCreatePoolError(c *tc.C) {
 			Name: "doesnt-matter",
 		}},
 	}
-	results, err := s.api.CreatePool(context.Background(), args)
+	results, err := s.api.CreatePool(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.DeepEquals, &params.Error{

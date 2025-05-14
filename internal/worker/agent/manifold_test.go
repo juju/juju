@@ -4,8 +4,6 @@
 package agent_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -33,7 +31,7 @@ func (s *ManifoldSuite) TestOutput(c *tc.C) {
 	inputAgent := &dummyAgent{}
 	manifold := agent.Manifold(inputAgent)
 
-	agentWorker, err := manifold.Start(context.Background(), nil)
+	agentWorker, err := manifold.Start(c.Context(), nil)
 	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, agentWorker)
 
@@ -47,7 +45,7 @@ func (s *ManifoldSuite) TestOutputStoppedWorker(c *tc.C) {
 	inputAgent := &dummyAgent{}
 	manifold := agent.Manifold(inputAgent)
 
-	agentWorker, err := manifold.Start(context.Background(), nil)
+	agentWorker, err := manifold.Start(c.Context(), nil)
 	c.Check(err, tc.ErrorIsNil)
 	// The lifetime is irrelevant -- the output func will still function
 	// whether the (degenerate) worker is alive or not -- so no defer here.
@@ -74,7 +72,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	inputAgent := &dummyAgent{}
 	manifold := agent.Manifold(inputAgent)
 
-	agentWorker, err := manifold.Start(context.Background(), nil)
+	agentWorker, err := manifold.Start(c.Context(), nil)
 	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, agentWorker)
 
@@ -89,7 +87,7 @@ func (s *ManifoldSuite) TestReport(c *tc.C) {
 	inputAgent := &dummyAgent{}
 	manifold := agent.Manifold(inputAgent)
 
-	agentWorker, err := manifold.Start(context.Background(), nil)
+	agentWorker, err := manifold.Start(c.Context(), nil)
 	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, agentWorker)
 

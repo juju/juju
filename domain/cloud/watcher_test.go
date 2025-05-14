@@ -48,17 +48,17 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 
 	cloud := testCloud
 
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID, cloud)
+	err := st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID, cloud)
 	c.Assert(err, tc.ErrorIsNil)
 
-	watcher, err := service.WatchCloud(context.Background(), "fluffy")
+	watcher, err := service.WatchCloud(c.Context(), "fluffy")
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *tc.C) {
 		cloud.Endpoint = "https://endpoint2"
-		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			err := st.UpdateCloud(ctx, cloud)
 			return err
 		})
@@ -72,7 +72,7 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 }
 
 func (s *watcherSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -80,7 +80,7 @@ func (s *watcherSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID string)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user_authentication (user_uuid, disabled)
 			VALUES (?, ?)

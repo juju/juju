@@ -4,8 +4,6 @@
 package state
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -36,7 +34,7 @@ var _ = tc.Suite(&suite{})
 func (s *suite) TestGetModelConfigKeyValues(c *tc.C) {
 	// Set model config in state
 	modelConfigState := modelconfigstate.NewState(s.TxnRunnerFactory())
-	err := modelConfigState.SetModelConfig(context.Background(), map[string]string{
+	err := modelConfigState.SetModelConfig(c.Context(), map[string]string{
 		config.LXDSnapChannel:                            "5.0/stable",
 		config.ContainerImageMetadataURLKey:              "https://images.linuxcontainers.org/",
 		config.ContainerImageMetadataDefaultsDisabledKey: "true",
@@ -49,7 +47,7 @@ func (s *suite) TestGetModelConfigKeyValues(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	state := NewState(s.TxnRunnerFactory())
-	modelConfig, err := state.GetModelConfigKeyValues(context.Background(),
+	modelConfig, err := state.GetModelConfigKeyValues(c.Context(),
 		config.LXDSnapChannel,
 		config.ContainerImageMetadataURLKey,
 		config.ContainerImageMetadataDefaultsDisabledKey,
@@ -72,7 +70,7 @@ func (s *suite) TestGetModelConfigKeyValues(c *tc.C) {
 // the sqlair.ErrNoRows is not surfaced.
 func (s *suite) TestGetModelConfigKeyValuesEmptyModelConfig(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
-	modelConfig, err := state.GetModelConfigKeyValues(context.Background(),
+	modelConfig, err := state.GetModelConfigKeyValues(c.Context(),
 		config.LXDSnapChannel,
 		config.ContainerImageMetadataURLKey,
 		config.ContainerImageMetadataDefaultsDisabledKey,
@@ -88,7 +86,7 @@ func (s *suite) TestGetModelConfigKeyValuesEmptyModelConfig(c *tc.C) {
 func (s *suite) TestGetModelConfigKeyValuesGetNoKeys(c *tc.C) {
 	// Set model config in state
 	modelConfigState := modelconfigstate.NewState(s.TxnRunnerFactory())
-	err := modelConfigState.SetModelConfig(context.Background(), map[string]string{
+	err := modelConfigState.SetModelConfig(c.Context(), map[string]string{
 		config.LXDSnapChannel:                            "5.0/stable",
 		config.ContainerImageMetadataURLKey:              "https://images.linuxcontainers.org/",
 		config.ContainerImageMetadataDefaultsDisabledKey: "true",
@@ -97,7 +95,7 @@ func (s *suite) TestGetModelConfigKeyValuesGetNoKeys(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	state := NewState(s.TxnRunnerFactory())
-	modelConfig, err := state.GetModelConfigKeyValues(context.Background())
+	modelConfig, err := state.GetModelConfigKeyValues(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelConfig, tc.DeepEquals, map[string]string{})
 }
@@ -107,7 +105,7 @@ func (s *suite) TestModelID(c *tc.C) {
 	// Create model info.
 	modelID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := modelSt.Create(context.Background(), model.ModelDetailArgs{
+	err := modelSt.Create(c.Context(), model.ModelDetailArgs{
 		UUID:           modelID,
 		AgentVersion:   semversion.Number{Major: 4, Minor: 21, Patch: 67},
 		AgentStream:    modelagent.AgentStreamReleased,
@@ -120,7 +118,7 @@ func (s *suite) TestModelID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	state := NewState(s.TxnRunnerFactory())
-	returned, err := state.ModelID(context.Background())
+	returned, err := state.ModelID(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(returned, tc.DeepEquals, modelID)
 }

@@ -4,7 +4,6 @@
 package pubsub_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -51,7 +50,7 @@ func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
 		"agent": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -62,7 +61,7 @@ func (s *ManifoldSuite) TestCentralHubMissing(c *tc.C) {
 		"central-hub": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -73,7 +72,7 @@ func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *tc.C) {
 		"central-hub": pubsub.NewStructuredHub(nil),
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -92,7 +91,7 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 		"central-hub": hub,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.NotNil)
 

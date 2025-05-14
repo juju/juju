@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 	"golang.org/x/crypto/acme/autocert"
@@ -40,7 +38,7 @@ func (s *serviceSuite) TestCheckCacheMiss(c *tc.C) {
 
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
-	certbytes, err := svc.Get(context.Background(), certName)
+	certbytes, err := svc.Get(c.Context(), certName)
 	c.Assert(certbytes, tc.IsNil)
 	c.Assert(err, tc.ErrorIs, autocert.ErrCacheMiss)
 }
@@ -53,7 +51,7 @@ func (s *serviceSuite) TestCheckAnyError(c *tc.C) {
 
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
-	certbytes, err := svc.Get(context.Background(), certName)
+	certbytes, err := svc.Get(c.Context(), certName)
 	c.Assert(certbytes, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "state error")
 }

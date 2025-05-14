@@ -5,7 +5,6 @@ package exec_test
 
 import (
 	"bytes"
-	"context"
 	"net/url"
 	"sync"
 	"time"
@@ -73,7 +72,7 @@ func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *tc.C) {
 			Err: `podName "pod/" not valid`,
 		},
 	} {
-		c.Check(testCase.Params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, testCase.Err)
+		c.Check(testCase.Params.Validate(c.Context(), s.mockPodGetter), tc.ErrorMatches, testCase.Err)
 	}
 
 }
@@ -120,7 +119,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, `cannot exec into a container within the "Succeeded" pod "gitlab-k8s-0"`)
+	c.Assert(params.Validate(c.Context(), s.mockPodGetter), tc.ErrorMatches, `cannot exec into a container within the "Succeeded" pod "gitlab-k8s-0"`)
 
 	// failed - failed pod
 	params = exec.ExecParams{
@@ -145,7 +144,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, `cannot exec into a container within the "Failed" pod "gitlab-k8s-0"`)
+	c.Assert(params.Validate(c.Context(), s.mockPodGetter), tc.ErrorMatches, `cannot exec into a container within the "Failed" pod "gitlab-k8s-0"`)
 
 	// failed - containerName not found
 	params = exec.ExecParams{
@@ -171,7 +170,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, `container "non-existing-container-name" not found`)
+	c.Assert(params.Validate(c.Context(), s.mockPodGetter), tc.ErrorMatches, `container "non-existing-container-name" not found`)
 
 	// all good - container name specified for init container
 	params = exec.ExecParams{
@@ -200,7 +199,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorIsNil)
+	c.Assert(params.Validate(c.Context(), s.mockPodGetter), tc.ErrorIsNil)
 
 	// all good - container name specified.
 	params = exec.ExecParams{
@@ -229,7 +228,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorIsNil)
+	c.Assert(params.Validate(c.Context(), s.mockPodGetter), tc.ErrorIsNil)
 
 	// non fatal error - container not running - container name specified.
 	params = exec.ExecParams{
@@ -258,7 +257,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).Times(1).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorMatches, `container \"gitlab-container\" not running`)
+	c.Assert(params.Validate(c.Context(), s.mockPodGetter), tc.ErrorMatches, `container \"gitlab-container\" not running`)
 
 	// all good - no container name specified, pick the 1st container.
 	params = exec.ExecParams{
@@ -287,7 +286,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(context.Background(), s.mockPodGetter), tc.ErrorIsNil)
+	c.Assert(params.Validate(c.Context(), s.mockPodGetter), tc.ErrorIsNil)
 	c.Assert(params.ContainerName, tc.Equals, "gitlab-container")
 }
 
@@ -357,7 +356,7 @@ func (s *execSuite) TestExec(c *tc.C) {
 	cancel := make(<-chan struct{}, 1)
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- s.execClient.Exec(context.Background(), params, cancel)
+		errChan <- s.execClient.Exec(c.Context(), params, cancel)
 	}()
 
 	select {
@@ -465,7 +464,7 @@ func (s *execSuite) TestExecCancel(c *tc.C) {
 
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- s.execClient.Exec(context.Background(), params, cancel)
+		errChan <- s.execClient.Exec(c.Context(), params, cancel)
 	}()
 
 	select {

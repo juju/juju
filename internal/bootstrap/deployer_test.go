@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"bytes"
-	"context"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -116,7 +115,7 @@ func (s *deployerSuite) TestDeployLocalCharmThatDoesNotExist(c *tc.C) {
 	cfg := s.newConfig(c)
 	deployer := makeBaseDeployer(cfg)
 
-	_, err := deployer.DeployLocalCharm(context.Background(), arch.DefaultArchitecture, base.MakeDefaultBase("ubuntu", "22.04"))
+	_, err := deployer.DeployLocalCharm(c.Context(), arch.DefaultArchitecture, base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -141,7 +140,7 @@ func (s *deployerSuite) TestDeployLocalCharm(c *tc.C) {
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	info, err := deployer.DeployLocalCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	info, err := deployer.DeployLocalCharm(c.Context(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.URL.String(), tc.Equals, "local:juju-controller-0")
 	c.Assert(info.Origin, tc.DeepEquals, &corecharm.Origin{
@@ -170,7 +169,7 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *tc.C) {
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	info, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	info, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.URL.String(), tc.Equals, "ch:arm64/juju-controller-1")
 	c.Assert(info.Origin, tc.DeepEquals, &corecharm.Origin{
@@ -200,7 +199,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *tc.C) {
 
 	deployer := s.newBaseDeployer(c, cfg)
 
-	info, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	info, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.URL.String(), tc.Equals, "ch:arm64/inferi-1")
 	c.Assert(info.Origin, tc.DeepEquals, &corecharm.Origin{
@@ -289,7 +288,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		},
 	}
 	address := "10.0.0.1"
-	unit, err := deployer.AddControllerApplication(context.Background(), DeployCharmInfo{
+	unit, err := deployer.AddControllerApplication(c.Context(), DeployCharmInfo{
 		URL:    charm.MustParseURL(curl),
 		Charm:  s.charm,
 		Origin: &origin,

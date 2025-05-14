@@ -4,8 +4,6 @@
 package state
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -28,7 +26,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 
 func (s *stateSuite) TestControllerModelUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	uuid, err := st.ControllerModelUUID(context.Background())
+	uuid, err := st.ControllerModelUUID(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uuid, tc.Equals, s.controllerModelUUID)
 }

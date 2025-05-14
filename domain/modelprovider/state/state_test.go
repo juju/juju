@@ -4,8 +4,6 @@
 package state
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -57,7 +55,7 @@ var (
 )
 
 func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err := bootstrap.CreateDefaultBackends(coremodel.IAAS)(ctx, s.ControllerTxnRunner(), s.TxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
@@ -110,7 +108,7 @@ func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
 func (s *stateSuite) TestGetModelCloudAndCredential(c *tc.C) {
 	uuid := s.setupModel(c)
 	st := NewState(s.TxnRunnerFactory())
-	cld, region, cred, err := st.GetModelCloudAndCredential(context.Background(), uuid)
+	cld, region, cred, err := st.GetModelCloudAndCredential(c.Context(), uuid)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cld, tc.DeepEquals, &testCloud)
 	c.Check(region, tc.Equals, "test-region")
@@ -124,6 +122,6 @@ func (s *stateSuite) TestGetModelCloudAndCredential(c *tc.C) {
 func (s *stateSuite) TestGetModelCloudAndCredentialNotFound(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	st := NewState(s.TxnRunnerFactory())
-	_, _, _, err := st.GetModelCloudAndCredential(context.Background(), uuid)
+	_, _, _, err := st.GetModelCloudAndCredential(c.Context(), uuid)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }

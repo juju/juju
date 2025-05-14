@@ -4,8 +4,6 @@
 package externalcontrollerupdater_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -53,7 +51,7 @@ func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfo(c *tc.C) {
 		return nil
 	})
 	client := externalcontrollerupdater.New(apiCaller)
-	info, err := client.ExternalControllerInfo(context.Background(), coretesting.ControllerTag.Id())
+	info, err := client.ExternalControllerInfo(c.Context(), coretesting.ControllerTag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, &crossmodel.ControllerInfo{
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -73,7 +71,7 @@ func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfoError(c *tc.C
 		return nil
 	})
 	client := externalcontrollerupdater.New(apiCaller)
-	info, err := client.ExternalControllerInfo(context.Background(), coretesting.ControllerTag.Id())
+	info, err := client.ExternalControllerInfo(c.Context(), coretesting.ControllerTag.Id())
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(info, tc.IsNil)
 }
@@ -103,7 +101,7 @@ func (s *ExternalControllerUpdaterSuite) TestSetExternalControllerInfo(c *tc.C) 
 		return nil
 	})
 	client := externalcontrollerupdater.New(apiCaller)
-	err := client.SetExternalControllerInfo(context.Background(), crossmodel.ControllerInfo{
+	err := client.SetExternalControllerInfo(c.Context(), crossmodel.ControllerInfo{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		Alias:          "foo",
 		Addrs:          []string{"bar"},
@@ -128,7 +126,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllers(c *tc.C) {
 		return nil
 	})
 	client := externalcontrollerupdater.New(apiCaller)
-	w, err := client.WatchExternalControllers(context.Background())
+	w, err := client.WatchExternalControllers(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 	c.Assert(w, tc.IsNil)
 }

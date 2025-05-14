@@ -4,8 +4,6 @@
 package caasapplication_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -46,7 +44,7 @@ func (s *provisionerSuite) TestUnitIntroduction(c *tc.C) {
 		}
 		return nil
 	})
-	unitConfig, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
+	unitConfig, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
 	c.Assert(unitConfig, tc.NotNil)
@@ -71,7 +69,7 @@ func (s *provisionerSuite) TestUnitIntroductionFail(c *tc.C) {
 		}
 		return nil
 	})
-	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
+	_, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid")
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 	c.Assert(called, tc.IsTrue)
 }
@@ -93,7 +91,7 @@ func (s *provisionerSuite) TestUnitIntroductionFailAlreadyExists(c *tc.C) {
 		}
 		return nil
 	})
-	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
+	_, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid")
 	c.Assert(err, tc.ErrorIs, errors.AlreadyExists)
 	c.Assert(called, tc.IsTrue)
 }
@@ -115,7 +113,7 @@ func (s *provisionerSuite) TestUnitIntroductionFailNotAssigned(c *tc.C) {
 		}
 		return nil
 	})
-	_, err := client.UnitIntroduction(context.Background(), "pod-name", "pod-uuid")
+	_, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid")
 	c.Assert(err, tc.ErrorIs, errors.NotAssigned)
 	c.Assert(called, tc.IsTrue)
 }
@@ -150,7 +148,7 @@ func (s *provisionerSuite) TestUnitTerminating(c *tc.C) {
 			}
 			return nil
 		})
-		unitTermination, err := client.UnitTerminating(context.Background(), names.NewUnitTag("app/0"))
+		unitTermination, err := client.UnitTerminating(c.Context(), names.NewUnitTag("app/0"))
 		if test.err == nil {
 			c.Assert(err, tc.ErrorIsNil)
 		} else {

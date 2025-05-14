@@ -4,8 +4,6 @@
 package keymanager_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
@@ -44,7 +42,7 @@ func (s *keymanagerSuite) TestListKeys(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListKeys", args, result).SetArg(3, results).Return(nil)
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
-	keyResults, err := client.ListKeys(context.Background(), ssh.Fingerprints, tag.Name())
+	keyResults, err := client.ListKeys(c.Context(), ssh.Fingerprints, tag.Name())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(keyResults), tc.Equals, 1)
 	res := keyResults[0]
@@ -76,7 +74,7 @@ func (s *keymanagerSuite) TestAddKeys(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddKeys", args, result).SetArg(3, results).Return(nil)
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
-	errResults, err := client.AddKeys(context.Background(), tag.Name(), newKeys...)
+	errResults, err := client.AddKeys(c.Context(), tag.Name(), newKeys...)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResults, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
@@ -107,7 +105,7 @@ func (s *keymanagerSuite) TestDeleteKeys(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DeleteKeys", args, result).SetArg(3, results).Return(nil)
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
-	errResults, err := client.DeleteKeys(context.Background(), tag.Name(), sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
+	errResults, err := client.DeleteKeys(c.Context(), tag.Name(), sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResults, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
@@ -138,7 +136,7 @@ func (s *keymanagerSuite) TestImportKeys(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ImportKeys", args, result).SetArg(3, results).Return(nil)
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
-	errResults, err := client.ImportKeys(context.Background(), tag.Name(), keyIds...)
+	errResults, err := client.ImportKeys(c.Context(), tag.Name(), keyIds...)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errResults, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},

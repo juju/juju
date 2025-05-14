@@ -91,7 +91,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmHub(c *tc.C) 
 		},
 	}
 
-	err := bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err := bundleDeploy(c.Context(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, tc.ErrorMatches, `cannot resolve charm or bundle "no-such": bundle not found`)
 }
 
@@ -165,7 +165,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpecWithConstraints(constraints.MustParse("arch=arm64")))
+	err = bundleDeploy(c.Context(), charm.CharmHub, bundleData, s.bundleDeploySpecWithConstraints(constraints.MustParse("arch=arm64")))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
@@ -246,7 +246,7 @@ func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasBase(c *tc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(multiApplicationBundle))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(c.Context(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.deployArgs, tc.HasLen, 3)
 	s.assertDeployArgs(c, fullGatewayURL.String(), "istio-ingressgateway", "ubuntu", "20.04")
@@ -433,7 +433,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesCharmhubGitlabBundleWithRevision))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(c.Context(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "ubuntu", "20.04")
@@ -1620,7 +1620,7 @@ machines:
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(quickBundle))
 	c.Assert(err, tc.ErrorIsNil)
-	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(c.Context(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, tc.ErrorMatches, `cannot create machine for holding wp unit: invalid container type "bad"`)
 }
 
@@ -1865,7 +1865,7 @@ relations:
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(c.Context(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
@@ -1944,7 +1944,7 @@ relations:
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(c.Context(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
@@ -1973,7 +1973,7 @@ func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 
 	h := makeBundleHandler(charm.CharmHub, bundleData, spec)
-	err = h.getChanges(context.Background())
+	err = h.getChanges(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var count int
@@ -2024,7 +2024,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *tc
 	bundleDeploymentSpec := s.bundleDeploySpec()
 	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha", "beta")
 
-	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, bundleDeploymentSpec)
+	err = bundleDeploy(c.Context(), charm.CharmHub, bundleData, bundleDeploymentSpec)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2040,7 +2040,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBinding
 	bundleDeploymentSpec := s.bundleDeploySpec()
 	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha")
 
-	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, bundleDeploymentSpec)
+	err = bundleDeploy(c.Context(), charm.CharmHub, bundleData, bundleDeploymentSpec)
 	c.Assert(err, tc.ErrorMatches, `space "beta" not found`)
 }
 
@@ -2083,7 +2083,7 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpecWithConstraints(cons const
 		ctx: &cmd.Context{
 			Stderr:  s.stdErr,
 			Stdout:  s.stdOut,
-			Context: context.Background(),
+			Context: c.Context(),
 		},
 		bundleResolver:   s.bundleResolver,
 		deployResources:  deployResourcesFunc,
@@ -2193,7 +2193,7 @@ func (s *BundleDeployRepositorySuite) runDeployWithSpec(c *tc.C, bundle string, 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, spec)
+	err = bundleDeploy(c.Context(), charm.CharmHub, bundleData, spec)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2642,7 +2642,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *tc.C)
 	resolver.EXPECT().ResolveCharm(gomock.Any(), charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
-	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), base, charmChannel, arch, -1)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(c.Context(), charmURL.String(), base, charmChannel, arch, -1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(channel, tc.DeepEquals, "stable")
 	c.Assert(rev, tc.Equals, rev)
@@ -2673,7 +2673,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *t
 	resolver.EXPECT().ResolveCharm(gomock.Any(), charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
-	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), base, charmChannel, arch, -1)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(c.Context(), charmURL.String(), base, charmChannel, arch, -1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(channel, tc.DeepEquals, "stable")
 	c.Assert(rev, tc.Equals, -1)
@@ -2690,7 +2690,7 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *tc.C) {
 	charmChannel := "stable"
 	arch := "amd64"
 
-	channel, rev, err := handler.resolveCharmChannelAndRevision(context.Background(), charmURL.String(), charmBase, charmChannel, arch, -1)
+	channel, rev, err := handler.resolveCharmChannelAndRevision(c.Context(), charmURL.String(), charmBase, charmChannel, arch, -1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(channel, tc.DeepEquals, "stable")
 	c.Assert(rev, tc.Equals, -1)
@@ -2713,7 +2713,7 @@ func (s *BundleHandlerMakeModelSuite) TestEmptyModel(c *tc.C) {
 		defaultCharmSchema: charm.CharmHub,
 	}
 
-	err := handler.makeModel(context.Background(), false, nil)
+	err := handler.makeModel(c.Context(), false, nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2727,7 +2727,7 @@ func (s *BundleHandlerMakeModelSuite) TestEmptyModelOldController(c *tc.C) {
 		defaultCharmSchema: charm.CharmHub,
 	}
 
-	err := handler.makeModel(context.Background(), false, nil)
+	err := handler.makeModel(c.Context(), false, nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2744,7 +2744,7 @@ func (s *BundleHandlerMakeModelSuite) TestModelOldController(c *tc.C) {
 		unitStatus:         make(map[string]string),
 	}
 
-	err := handler.makeModel(context.Background(), false, nil)
+	err := handler.makeModel(c.Context(), false, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	app := handler.model.GetApplication("mysql")
 	c.Assert(app.Base.Channel.Track, tc.Equals, "18.04")

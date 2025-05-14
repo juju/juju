@@ -83,7 +83,7 @@ func (s *RelationCacheSuite) TestSettingsPropagatesError(c *tc.C) {
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
 
-	settings, err := cache.Settings(stdcontext.Background(), "whatever/0")
+	settings, err := cache.Settings(c.Context(), "whatever/0")
 	c.Assert(settings, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "blam")
 	c.Assert(s.calls, tc.DeepEquals, []string{"whatever/0"})
@@ -96,7 +96,7 @@ func (s *RelationCacheSuite) TestSettingsCachesMemberSettings(c *tc.C) {
 	cache := context.NewRelationCache(s.ReadSettings, []string{"x/2"})
 
 	for i := 0; i < 2; i++ {
-		settings, err := cache.Settings(stdcontext.Background(), "x/2")
+		settings, err := cache.Settings(c.Context(), "x/2")
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 		c.Assert(s.calls, tc.DeepEquals, []string{"x/2"})
@@ -111,13 +111,13 @@ func (s *RelationCacheSuite) TestInvalidateMemberUncachesMemberSettings(c *tc.C)
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, []string{"x/2"})
 
-	settings, err := cache.Settings(stdcontext.Background(), "x/2")
+	settings, err := cache.Settings(c.Context(), "x/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x/2"})
 
 	cache.InvalidateMember("x/2")
-	settings, err = cache.Settings(stdcontext.Background(), "x/2")
+	settings, err = cache.Settings(c.Context(), "x/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x/2", "x/2"})
@@ -131,13 +131,13 @@ func (s *RelationCacheSuite) TestInvalidateMemberUncachesOtherSettings(c *tc.C) 
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
 
-	settings, err := cache.Settings(stdcontext.Background(), "x/2")
+	settings, err := cache.Settings(c.Context(), "x/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x/2"})
 
 	cache.InvalidateMember("x/2")
-	settings, err = cache.Settings(stdcontext.Background(), "x/2")
+	settings, err = cache.Settings(c.Context(), "x/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x/2", "x/2"})
@@ -151,13 +151,13 @@ func (s *RelationCacheSuite) TestRemoveMemberUncachesMemberSettings(c *tc.C) {
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, []string{"x/2"})
 
-	settings, err := cache.Settings(stdcontext.Background(), "x/2")
+	settings, err := cache.Settings(c.Context(), "x/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x/2"})
 
 	cache.RemoveMember("x/2")
-	settings, err = cache.Settings(stdcontext.Background(), "x/2")
+	settings, err = cache.Settings(c.Context(), "x/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x/2", "x/2"})
@@ -170,7 +170,7 @@ func (s *RelationCacheSuite) TestSettingsCachesOtherSettings(c *tc.C) {
 	cache := context.NewRelationCache(s.ReadSettings, nil)
 
 	for i := 0; i < 2; i++ {
-		settings, err := cache.Settings(stdcontext.Background(), "x/2")
+		settings, err := cache.Settings(c.Context(), "x/2")
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 		c.Assert(s.calls, tc.DeepEquals, []string{"x/2"})
@@ -183,13 +183,13 @@ func (s *RelationCacheSuite) TestPrunePreservesMemberSettings(c *tc.C) {
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, []string{"foo/2"})
 
-	settings, err := cache.Settings(stdcontext.Background(), "foo/2")
+	settings, err := cache.Settings(c.Context(), "foo/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"foo/2"})
 
 	cache.Prune([]string{"foo/2"})
-	settings, err = cache.Settings(stdcontext.Background(), "foo/2")
+	settings, err = cache.Settings(c.Context(), "foo/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"foo/2"})
@@ -203,13 +203,13 @@ func (s *RelationCacheSuite) TestPruneUncachesOtherSettings(c *tc.C) {
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
 
-	settings, err := cache.Settings(stdcontext.Background(), "x/2")
+	settings, err := cache.Settings(c.Context(), "x/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x/2"})
 
 	cache.Prune(nil)
-	settings, err = cache.Settings(stdcontext.Background(), "x/2")
+	settings, err = cache.Settings(c.Context(), "x/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x/2", "x/2"})
@@ -220,7 +220,7 @@ func (s *RelationCacheSuite) TestApplicationSettings(c *tc.C) {
 		settings: params.Settings{"foo": "bar"}, err: nil,
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
-	settings, err := cache.ApplicationSettings(stdcontext.Background(), "x")
+	settings, err := cache.ApplicationSettings(c.Context(), "x")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x"})
@@ -233,20 +233,20 @@ func (s *RelationCacheSuite) TestInvalidateApplicationSettings(c *tc.C) {
 		settings: params.Settings{"foo": "baz"}, err: nil,
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
-	settings, err := cache.ApplicationSettings(stdcontext.Background(), "x")
+	settings, err := cache.ApplicationSettings(c.Context(), "x")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x"})
 
 	// Calling it a second time returns the value from the cache
-	settings, err = cache.ApplicationSettings(stdcontext.Background(), "x")
+	settings, err = cache.ApplicationSettings(c.Context(), "x")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x"})
 
 	// Now when we Invalidate the application, it will read it again
 	cache.InvalidateApplication("x")
-	settings, err = cache.ApplicationSettings(stdcontext.Background(), "x")
+	settings, err = cache.ApplicationSettings(c.Context(), "x")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "baz"})
 	c.Assert(s.calls, tc.DeepEquals, []string{"x", "x"})

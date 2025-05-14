@@ -59,7 +59,7 @@ func (s *httpSuite) TestOpenURI(c *tc.C) {
 		return nil
 	})
 
-	reader, err := apihttp.OpenURI(context.Background(), mockHttp, "/tools/2.6.6-ubuntu-amd64", nil)
+	reader, err := apihttp.OpenURI(c.Context(), mockHttp, "/tools/2.6.6-ubuntu-amd64", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	defer reader.Close()
 

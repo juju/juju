@@ -4,8 +4,6 @@
 package bootstrap
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -45,7 +43,7 @@ func (s *deployerIAASSuite) TestControllerAddress(c *tc.C) {
 	s.machine.EXPECT().PublicAddress().Return(network.NewSpaceAddress("10.0.0.1"), nil)
 
 	deployer := s.newDeployer(c)
-	address, err := deployer.ControllerAddress(context.Background())
+	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "10.0.0.1")
 }
@@ -56,7 +54,7 @@ func (s *deployerIAASSuite) TestControllerAddressWithNoAddress(c *tc.C) {
 	s.machine.EXPECT().PublicAddress().Return(network.NewSpaceAddress(""), network.NoAddressError("private"))
 
 	deployer := s.newDeployer(c)
-	address, err := deployer.ControllerAddress(context.Background())
+	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "")
 }
@@ -67,7 +65,7 @@ func (s *deployerIAASSuite) TestControllerAddressWithErr(c *tc.C) {
 	s.machine.EXPECT().PublicAddress().Return(network.NewSpaceAddress(""), errors.Errorf("boom"))
 
 	deployer := s.newDeployer(c)
-	_, err := deployer.ControllerAddress(context.Background())
+	_, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -92,7 +90,7 @@ func (s *deployerIAASSuite) TestCompleteProcess(c *tc.C) {
 	// call any methods.
 
 	deployer := s.newDeployer(c)
-	err := deployer.CompleteProcess(context.Background(), coreunit.Name("controller/0"))
+	err := deployer.CompleteProcess(c.Context(), coreunit.Name("controller/0"))
 	c.Assert(err, tc.ErrorIsNil)
 }
 

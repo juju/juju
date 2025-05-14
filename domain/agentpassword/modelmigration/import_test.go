@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -42,7 +40,7 @@ func (s *importSuite) TestImportUnitPasswordHash(c *tc.C) {
 		PasswordHash: "hash",
 	})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -64,7 +62,7 @@ func (s *importSuite) TestImportUnitPasswordHashError(c *tc.C) {
 		PasswordHash: "hash",
 	})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
@@ -83,7 +81,7 @@ func (s *importSuite) TestImportUnitPasswordHashMissingHash(c *tc.C) {
 		Name: "foo/0",
 	})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -96,7 +94,7 @@ func (s *importSuite) TestImportUnitPasswordHashNoApplications(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -112,7 +110,7 @@ func (s *importSuite) TestImportUnitPasswordHashNoUnits(c *tc.C) {
 		Name: "foo",
 	})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

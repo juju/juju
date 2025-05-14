@@ -84,7 +84,7 @@ func (s *manifoldConfigSuite) TestManifoldStart(c *tc.C) {
 		}),
 	)
 	manifold := stateconverter.Manifold(cfg)
-	w, err := manifold.Start(context.Background(), s.getter)
+	w, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 	select {

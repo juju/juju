@@ -27,7 +27,7 @@ type fixture struct {
 // by deferring a TearDown).
 func newFixture(c *tc.C) *fixture {
 	manifold := fortress.Manifold()
-	worker, err := manifold.Start(context.Background(), nil)
+	worker, err := manifold.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	return &fixture{
 		manifold: manifold,
@@ -60,7 +60,7 @@ func (fix *fixture) Guest(c *tc.C) (out fortress.Guest) {
 // (in case your test fails before sending, in which case we still want to stop
 // the visit).
 func (fix *fixture) startBlockingVisit(c *tc.C) chan<- struct{} {
-	err := fix.Guard(c).Unlock(context.Background())
+	err := fix.Guard(c).Unlock(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	visitStarted := make(chan struct{}, 1)
@@ -68,7 +68,7 @@ func (fix *fixture) startBlockingVisit(c *tc.C) chan<- struct{} {
 
 	unblockVisit := make(chan struct{}, 1)
 	go func() {
-		err := fix.Guest(c).Visit(context.Background(), func() error {
+		err := fix.Guest(c).Visit(c.Context(), func() error {
 			select {
 			case visitStarted <- struct{}{}:
 			case <-time.After(coretesting.LongWait):
@@ -98,7 +98,7 @@ func (fix *fixture) startBlockingVisit(c *tc.C) chan<- struct{} {
 func AssertUnlocked(c *tc.C, guest fortress.Guest) {
 	visited := make(chan error)
 	go func() {
-		visited <- guest.Visit(context.Background(), badVisit)
+		visited <- guest.Visit(c.Context(), badVisit)
 	}()
 
 	select {
@@ -114,7 +114,7 @@ func AssertUnlocked(c *tc.C, guest fortress.Guest) {
 func AssertLocked(c *tc.C, guest fortress.Guest) {
 	visited := make(chan error)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	go func() {

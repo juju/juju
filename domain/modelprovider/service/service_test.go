@@ -58,7 +58,7 @@ func (s *serviceSuite) TestGetCloudSpec(c *tc.C) {
 	st.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(&testCloud, "test-region", &testCredential, nil)
 
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), nil)
-	spec, err := svc.GetCloudSpec(context.Background())
+	spec, err := svc.GetCloudSpec(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	cred := cloud.NewCredential(testCredential.AuthType, testCredential.Attributes)
 	c.Assert(spec, tc.DeepEquals, cloudspec.CloudSpec{
@@ -84,7 +84,7 @@ func (s *serviceSuite) TestGetCloudSpecNoCredential(c *tc.C) {
 	st.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(&testCloud, "test-region", nil, nil)
 
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), nil)
-	spec, err := svc.GetCloudSpec(context.Background())
+	spec, err := svc.GetCloudSpec(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(spec, tc.DeepEquals, cloudspec.CloudSpec{
 		Type:              "ec2",
@@ -108,7 +108,7 @@ func (s *serviceSuite) TestGetCloudSpecModelNotFound(c *tc.C) {
 	st.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(nil, "", nil, modelerrors.NotFound)
 
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), nil)
-	_, err := svc.GetCloudSpec(context.Background())
+	_, err := svc.GetCloudSpec(c.Context())
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
@@ -126,7 +126,7 @@ func (s *serviceSuite) TestGetCloudSpecForSSH(c *tc.C) {
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), func(ctx context.Context) (ProviderWithSecretToken, error) {
 		return provider, nil
 	})
-	spec, err := svc.GetCloudSpecForSSH(context.Background())
+	spec, err := svc.GetCloudSpecForSSH(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	testCredential.Attributes["Token"] = "secret"
 	testCredential.Attributes["username"] = ""
@@ -156,6 +156,6 @@ func (s *serviceSuite) TestGetCloudSpecForSSHNotSupported(c *tc.C) {
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), func(ctx context.Context) (ProviderWithSecretToken, error) {
 		return nil, coreerrors.NotSupported
 	})
-	_, err := svc.GetCloudSpecForSSH(context.Background())
+	_, err := svc.GetCloudSpecForSSH(c.Context())
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }

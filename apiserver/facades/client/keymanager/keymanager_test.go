@@ -4,8 +4,6 @@
 package keymanager
 
 import (
-	"context"
-
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -107,7 +105,7 @@ func (s *keyManagerSuite) TestListKeysForUserNotFound(c *tc.C) {
 		s.apiUser,
 	)
 
-	results, err := api.ListKeys(context.Background(), args)
+	results, err := api.ListKeys(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -158,7 +156,7 @@ func (s *keyManagerSuite) TestListKeys(c *tc.C) {
 		s.apiUser,
 	)
 
-	results, err := api.ListKeys(context.Background(), args)
+	results, err := api.ListKeys(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -206,7 +204,7 @@ func (s *keyManagerSuite) TestListKeysFingerprintMode(c *tc.C) {
 		s.apiUser,
 	)
 
-	results, err := api.ListKeys(context.Background(), args)
+	results, err := api.ListKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -242,7 +240,7 @@ func (s *keyManagerSuite) TestListKeysNoPermission(c *tc.C) {
 		userTag,
 	)
 
-	_, err := api.ListKeys(context.Background(), args)
+	_, err := api.ListKeys(c.Context(), args)
 	c.Check(err, tc.DeepEquals, &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
@@ -279,7 +277,7 @@ func (s *keyManagerSuite) TestAddKeysForUser(c *tc.C) {
 		s.apiUser,
 	)
 
-	res, err := api.AddKeys(context.Background(), args)
+	res, err := api.AddKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
@@ -316,7 +314,7 @@ func (s *keyManagerSuite) TestAddKeysSuperUser(c *tc.C) {
 		s.apiUser,
 	)
 
-	res, err := api.AddKeys(context.Background(), args)
+	res, err := api.AddKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
@@ -353,7 +351,7 @@ func (s *keyManagerSuite) TestAddKeysModelAdmin(c *tc.C) {
 		s.apiUser,
 	)
 
-	res, err := api.AddKeys(context.Background(), args)
+	res, err := api.AddKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
@@ -378,7 +376,7 @@ func (s *keyManagerSuite) TestAddKeysNonAuthorised(c *tc.C) {
 		s.apiUser,
 	)
 
-	_, err := api.AddKeys(context.Background(), args)
+	_, err := api.AddKeys(c.Context(), args)
 	c.Check(err, tc.DeepEquals, &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
@@ -406,7 +404,7 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *tc.C) {
 		s.apiUser,
 	)
 
-	_, err := api.AddKeys(context.Background(), args)
+	_, err := api.AddKeys(c.Context(), args)
 	c.Check(err, tc.DeepEquals, &params.Error{
 		Code:    params.CodeOperationBlocked,
 		Message: "TestAddKeys",
@@ -443,7 +441,7 @@ func (s *keyManagerSuite) TesDeleteKeys(c *tc.C) {
 		s.apiUser,
 	)
 
-	res, err := api.DeleteKeys(context.Background(), args)
+	res, err := api.DeleteKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
@@ -480,7 +478,7 @@ func (s *keyManagerSuite) TestDeleteKeysSuperUser(c *tc.C) {
 		s.apiUser,
 	)
 
-	res, err := api.DeleteKeys(context.Background(), args)
+	res, err := api.DeleteKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
@@ -517,7 +515,7 @@ func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *tc.C) {
 		s.apiUser,
 	)
 
-	res, err := api.DeleteKeys(context.Background(), args)
+	res, err := api.DeleteKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
@@ -543,7 +541,7 @@ func (s *keyManagerSuite) TestDeleteKeysNonAuthorised(c *tc.C) {
 		s.apiUser,
 	)
 
-	_, err := api.DeleteKeys(context.Background(), args)
+	_, err := api.DeleteKeys(c.Context(), args)
 	c.Check(err, tc.DeepEquals, &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
@@ -572,7 +570,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 		s.apiUser,
 	)
 
-	_, err := api.DeleteKeys(context.Background(), args)
+	_, err := api.DeleteKeys(c.Context(), args)
 	c.Check(err, tc.DeepEquals, &params.Error{
 		Code:    params.CodeOperationBlocked,
 		Message: "TestDeleteKeys",

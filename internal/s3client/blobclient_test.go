@@ -5,7 +5,6 @@ package s3client
 
 import (
 	"bytes"
-	"context"
 	"io"
 
 	"github.com/juju/tc"
@@ -33,7 +32,7 @@ func (s *charmsS3ClientSuite) TestGetCharm(c *tc.C) {
 	s.session.EXPECT().GetObject(gomock.Any(), "model-"+coretesting.ModelTag.Id(), "charms/somecharm-abcd0123").Return(io.NopCloser(bytes.NewBufferString("blob")), int64(4), "ignored", nil)
 
 	cli := NewBlobsS3Client(s.session)
-	body, err := cli.GetCharm(context.Background(), coretesting.ModelTag.Id(), "somecharm-abcd0123")
+	body, err := cli.GetCharm(c.Context(), coretesting.ModelTag.Id(), "somecharm-abcd0123")
 	c.Assert(err, tc.ErrorIsNil)
 
 	bytes, err := io.ReadAll(body)
@@ -49,7 +48,7 @@ func (s *charmsS3ClientSuite) TestGetObject(c *tc.C) {
 	s.session.EXPECT().GetObject(gomock.Any(), "model-"+coretesting.ModelTag.Id(), "objects/"+hash).Return(io.NopCloser(bytes.NewBufferString("blob")), int64(4), "ignored", nil)
 
 	cli := NewBlobsS3Client(s.session)
-	body, _, err := cli.GetObject(context.Background(), coretesting.ModelTag.Id(), hash)
+	body, _, err := cli.GetObject(c.Context(), coretesting.ModelTag.Id(), hash)
 	c.Assert(err, tc.ErrorIsNil)
 
 	bytes, err := io.ReadAll(body)

@@ -4,8 +4,6 @@
 package controllerconfig
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
@@ -47,7 +45,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 			controller.MigrationMinionWaitMax: "101ms",
 		}
 
-		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
+		err = svc.UpdateControllerConfig(c.Context(), cfgMap, nil)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Get the change.
@@ -67,7 +65,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 			controller.AuditLogMaxBackups: 11,
 		}
 
-		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
+		err = svc.UpdateControllerConfig(c.Context(), cfgMap, nil)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Get the change.
@@ -83,7 +81,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 			controller.AuditLogMaxBackups: 11,
 		}
 
-		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
+		err = svc.UpdateControllerConfig(c.Context(), cfgMap, nil)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		// The value is the same, we shouldn't get a change.

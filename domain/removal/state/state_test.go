@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -23,7 +22,7 @@ var _ = tc.Suite(&stateSuite{})
 func (s *stateSuite) TestGetAllJobsNoRows(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	jobs, err := st.GetAllJobs(context.Background())
+	jobs, err := st.GetAllJobs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(jobs, tc.HasLen, 0)
 }
@@ -45,7 +44,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	jobs, err := st.GetAllJobs(context.Background())
+	jobs, err := st.GetAllJobs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobs, tc.HasLen, 2)
 
@@ -80,7 +79,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	c.Assert(err, tc.ErrorIsNil)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.DeleteJob(context.Background(), jID1.String())
+	err = st.DeleteJob(c.Context(), jID1.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	row := s.DB().QueryRow("SELECT count(*) FROM removal where uuid = ?", jID1)
@@ -90,6 +89,6 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	c.Check(count, tc.Equals, 0)
 
 	// Idempotent.
-	err = st.DeleteJob(context.Background(), jID1.String())
+	err = st.DeleteJob(c.Context(), jID1.String())
 	c.Assert(err, tc.ErrorIsNil)
 }

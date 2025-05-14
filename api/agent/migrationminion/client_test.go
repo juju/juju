@@ -4,7 +4,6 @@
 package migrationminion_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -43,7 +42,7 @@ func (s *ClientSuite) TestWatch(c *tc.C) {
 	})
 
 	client := migrationminion.NewClient(apiCaller)
-	w, err := client.Watch(context.Background())
+	w, err := client.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(w)
 
@@ -79,7 +78,7 @@ func (s *ClientSuite) TestWatchErr(c *tc.C) {
 		return errors.New("boom")
 	})
 	client := migrationminion.NewClient(apiCaller)
-	_, err := client.Watch(context.Background())
+	_, err := client.Watch(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -91,7 +90,7 @@ func (s *ClientSuite) TestReport(c *tc.C) {
 	})
 
 	client := migrationminion.NewClient(apiCaller)
-	err := client.Report(context.Background(), "id", migration.IMPORT, true)
+	err := client.Report(c.Context(), "id", migration.IMPORT, true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []testhelpers.StubCall{
@@ -109,6 +108,6 @@ func (s *ClientSuite) TestReportError(c *tc.C) {
 	})
 
 	client := migrationminion.NewClient(apiCaller)
-	err := client.Report(context.Background(), "id", migration.IMPORT, true)
+	err := client.Report(c.Context(), "id", migration.IMPORT, true)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }

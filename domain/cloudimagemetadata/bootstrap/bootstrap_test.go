@@ -61,7 +61,7 @@ func (s *bootstrapSuite) TestAddCustomImageMetadata(c *tc.C) {
 			Stream:      "Stream-3",
 		},
 	}
-	err := AddCustomImageMetadata(clock.WallClock, defaultStream, metadata)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err := AddCustomImageMetadata(clock.WallClock, defaultStream, metadata)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	insertedMetadata, err := s.retrieveMetadataFromDB()
@@ -112,7 +112,7 @@ func (s *bootstrapSuite) TestAddCustomImageMetadata(c *tc.C) {
 }
 
 func (s *bootstrapSuite) TestInitCustomImageMetadataWithNil(c *tc.C) {
-	err := AddCustomImageMetadata(clock.WallClock, "useless", []*imagemetadata.ImageMetadata{nil, nil, nil})(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err := AddCustomImageMetadata(clock.WallClock, "useless", []*imagemetadata.ImageMetadata{nil, nil, nil})(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	insertedMetadata, err := s.retrieveMetadataFromDB()
@@ -126,7 +126,7 @@ func (s *bootstrapSuite) TestInitCustomImageMetadataWithNil(c *tc.C) {
 // It is used in test to keep save and find tests independent of each other
 func (s *bootstrapSuite) retrieveMetadataFromDB() ([]cloudimagemetadata.Metadata, error) {
 	var metadata []cloudimagemetadata.Metadata
-	return metadata, s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	return metadata, s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query(`
 SELECT 
 source,

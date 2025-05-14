@@ -491,7 +491,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *tc.C) {
 	//    don't break in the worker.
 
 	schema := schema.ControllerDDL()
-	_, err := schema.Ensure(context.Background(), s.TxnRunner())
+	_, err := schema.Ensure(c.Context(), s.TxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectControllerDBUpgrade()
@@ -612,7 +612,7 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *tc.C) {
 	// Run the upgrade steps on the existing model, to ensure it doesn't break
 	// in the worker.
 	schema := schema.ModelDDL()
-	_, err := schema.Ensure(context.Background(), txnRunner)
+	_, err := schema.Ensure(c.Context(), txnRunner)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectDBCompleted()

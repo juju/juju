@@ -5,7 +5,6 @@ package service
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 
@@ -85,7 +84,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutJso
 	).Return(expectedUUID, nil)
 
 	storageUUID, size, fingerprint, err := store.Put(
-		context.Background(),
+		c.Context(),
 		storageKey,
 		s.jsonBlob,
 		0,
@@ -114,7 +113,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutYam
 	).Return(expectedUUID, nil)
 
 	storageUUID, size, fingerprint, err := store.Put(
-		context.Background(),
+		c.Context(),
 		storageKey,
 		s.yamlBlob,
 		0,
@@ -134,7 +133,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutEmp
 	storageKey := resourcetesting.GenResourceUUID(c).String()
 
 	_, _, _, err := store.Put(
-		context.Background(),
+		c.Context(),
 		storageKey,
 		bytes.NewReader([]byte{}),
 		0,
@@ -159,7 +158,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutErr
 	).Return(resourcestore.ID{}, kaboom)
 
 	_, _, _, err := store.Put(
-		context.Background(),
+		c.Context(),
 		storageKey,
 		s.jsonBlob,
 		0,
@@ -185,7 +184,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
 	}, nil)
 
 	r, size, err := store.Get(
-		context.Background(),
+		c.Context(),
 		storageKey,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -212,7 +211,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreGetError(c *tc.C
 	).Return(containerimageresourcestore.ContainerImageMetadata{}, kaboom)
 
 	_, _, err := store.Get(
-		context.Background(),
+		c.Context(),
 		storageKey,
 	)
 	c.Assert(err, tc.ErrorIs, kaboom)
@@ -230,7 +229,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemove(c *tc.C) 
 	)
 
 	err := store.Remove(
-		context.Background(),
+		c.Context(),
 		storageKey,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -249,7 +248,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemoveError(c *t
 	).Return(kaboom)
 
 	err := store.Remove(
-		context.Background(),
+		c.Context(),
 		storageKey,
 	)
 	c.Assert(err, tc.ErrorIs, kaboom)

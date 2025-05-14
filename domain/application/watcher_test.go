@@ -52,7 +52,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -75,7 +75,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 
 	var id corecharm.ID
 	harness.AddTest(func(c *tc.C) {
-		id, _, err = svc.SetCharm(context.Background(), charm.SetCharmArgs{
+		id, _, err = svc.SetCharm(c.Context(), charm.SetCharmArgs{
 			Charm:         &stubCharm{},
 			Source:        corecharm.CharmHub,
 			ReferenceName: "test",
@@ -96,7 +96,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	// Ensure that we get the charm deleted event.
 
 	harness.AddTest(func(c *tc.C) {
-		err := svc.DeleteCharm(context.Background(), charm.CharmLocator{
+		err := svc.DeleteCharm(c.Context(), charm.CharmLocator{
 			Name:     "test",
 			Revision: 1,
 			Source:   charm.CharmHubSource,
@@ -122,13 +122,13 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	var unitID1, unitID2, unitID3 string
 	setup := func(c *tc.C) {
 
-		ctx := context.Background()
+		ctx := c.Context()
 		err := svc.AddUnits(ctx, "foo", service.AddUnitArg{}, service.AddUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
 		err = svc.AddUnits(ctx, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
 
-		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/0").Scan(&unitID1); err != nil {
 				return errors.Capture(err)
 			}
@@ -150,7 +150,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	harness.AddTest(func(c *tc.C) {
 		setup(c)
 		// Update non app unit first up.
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/0"); err != nil {
 				return errors.Capture(err)
 			}
@@ -164,7 +164,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 		)
 	})
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "foo/0"); err != nil {
 				return errors.Capture(err)
 			}
@@ -177,7 +177,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 		)
 	})
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/0"); err != nil {
 				return errors.Capture(err)
 			}
@@ -191,7 +191,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	})
 	harness.AddTest(func(c *tc.C) {
 		// Removing dead unit, no change.
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID1); err != nil {
 				return errors.Capture(err)
 			}
@@ -215,7 +215,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	})
 	harness.AddTest(func(c *tc.C) {
 		// Updating different app unit with > 0 app units remaining - no change.
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/1"); err != nil {
 				return errors.Capture(err)
 			}
@@ -227,7 +227,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	})
 	harness.AddTest(func(c *tc.C) {
 		// Removing non app unit - no change.
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/0"); err != nil {
 				return errors.Capture(err)
 			}
@@ -239,7 +239,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	})
 	harness.AddTest(func(c *tc.C) {
 		// Removing non dead unit - change.
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID2); err != nil {
 				return errors.Capture(err)
 			}
@@ -265,7 +265,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	})
 	harness.AddTest(func(c *tc.C) {
 		// Updating different app unit with no app units remaining - no change.
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name=?", "bar/667"); err != nil {
 				return errors.Capture(err)
 			}
@@ -277,7 +277,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	})
 	harness.AddTest(func(c *tc.C) {
 		// Deleting different app unit with no app units remaining - no change.
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitID3); err != nil {
 				return errors.Capture(err)
 			}
@@ -312,7 +312,7 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *tc.C) {
 		s.createApplication(c, svc, "foo", service.AddUnitArg{}, service.AddUnitArg{})
 		s.createApplication(c, svc, "bar", service.AddUnitArg{})
 
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/0").Scan(&unitID1); err != nil {
 				return errors.Capture(err)
 			}
@@ -348,7 +348,7 @@ func (s *watcherSuite) TestWatchApplicationScale(c *tc.C) {
 	s.createApplication(c, svc, "foo")
 	s.createApplication(c, svc, "bar")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	watcher, err := svc.WatchApplicationScale(ctx, "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -390,7 +390,7 @@ func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	watcher, err := svc.WatchApplicationsWithPendingCharms(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -411,7 +411,7 @@ func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *tc.C) {
 		db, err := factory()
 		c.Assert(err, tc.ErrorIsNil)
 
-		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
 UPDATE charm SET available = TRUE
 FROM application AS a
@@ -430,7 +430,7 @@ WHERE a.uuid=?`, id0.String())
 		db, err := factory()
 		c.Assert(err, tc.ErrorIsNil)
 
-		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
 UPDATE application SET charm_modified_version = 1
 WHERE uuid=?`, id0.String())
@@ -470,7 +470,7 @@ func (s *watcherSuite) TestWatchApplication(c *tc.C) {
 	appName := "foo"
 	appUUID := s.createApplication(c, svc, appName)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	watcher, err := svc.WatchApplication(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -481,7 +481,7 @@ func (s *watcherSuite) TestWatchApplication(c *tc.C) {
 		db, err := factory()
 		c.Assert(err, tc.ErrorIsNil)
 
-		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
 UPDATE application SET charm_modified_version = 1
 WHERE uuid=?`, appUUID)
@@ -497,7 +497,7 @@ WHERE uuid=?`, appUUID)
 		db, err := factory()
 		c.Assert(err, tc.ErrorIsNil)
 
-		err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
 UPDATE application SET name = ?
 WHERE uuid=?`, appName, appUUID)
@@ -520,7 +520,7 @@ func (s *watcherSuite) TestWatchApplicationBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
 	svc := s.setupService(c, factory)
 
-	_, err := svc.WatchApplication(context.Background(), "bad-name")
+	_, err := svc.WatchApplication(c.Context(), "bad-name")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -532,7 +532,7 @@ func (s *watcherSuite) TestWatchApplicationConfig(c *tc.C) {
 	appName := "foo"
 	appUUID := s.createApplication(c, svc, appName)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	watcher, err := svc.WatchApplicationConfig(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -594,7 +594,7 @@ func (s *watcherSuite) TestWatchApplicationConfigBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
 	svc := s.setupService(c, factory)
 
-	_, err := svc.WatchApplicationConfig(context.Background(), "bad-name")
+	_, err := svc.WatchApplicationConfig(c.Context(), "bad-name")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -609,7 +609,7 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *tc.C) {
 	appName := "foo"
 	appUUID := s.createApplication(c, svc, appName)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	watcher, err := svc.WatchApplicationConfigHash(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -677,7 +677,7 @@ func (s *watcherSuite) TestWatchApplicationConfigHashBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
 	svc := s.setupService(c, factory)
 
-	_, err := svc.WatchApplicationConfigHash(context.Background(), "bad-name")
+	_, err := svc.WatchApplicationConfigHash(c.Context(), "bad-name")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -688,7 +688,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *tc.C) {
 	appName := "foo"
 	_ = s.createApplication(c, svc, appName, service.AddUnitArg{})
 
-	ctx := context.Background()
+	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -710,7 +710,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	appName := "foo"
 	appID := s.createApplication(c, svc, appName, service.AddUnitArg{})
 	// Create an ip address for the unit.
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
 		_, err := tx.ExecContext(ctx, insertNetNode, "net-node-uuid")
 		if err != nil {
@@ -760,7 +760,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -768,7 +768,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		// Change the address for that net node should trigger a change.
-		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			updateIPAddress := `UPDATE ip_address SET address_value = ? WHERE uuid = ?`
 			_, err = tx.ExecContext(ctx, updateIPAddress, "192.168.0.1", "ip-address-uuid")
 			if err != nil {
@@ -797,7 +797,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	appName := "foo"
 	appID := s.createApplication(c, svc, appName, service.AddUnitArg{})
 
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Add a cloud service to get an initial state.
 	err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.NewSpaceAddresses("10.0.0.1"))
@@ -818,7 +818,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		// Add an endpoint binding should trigger a change.
-		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			insertCharm := `INSERT INTO charm (uuid, reference_name) VALUES (?, ?)`
 			_, err = tx.ExecContext(ctx, insertCharm, "charm0-uuid", "foo-charm")
 			if err != nil {
@@ -854,7 +854,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
 	svc := s.setupService(c, factory)
 
-	_, err := svc.WatchUnitAddressesHash(context.Background(), "bad-unit-name")
+	_, err := svc.WatchUnitAddressesHash(c.Context(), "bad-unit-name")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -866,7 +866,7 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
 	appName := "foo"
 	appID := s.createApplication(c, svc, appName)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	watcher, err := svc.WatchApplicationExposed(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -885,7 +885,7 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
 	})
 
 	// Create a new endpoint
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
 		_, err := tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
 		if err != nil {
@@ -951,7 +951,7 @@ func (s *watcherSuite) TestWatchApplicationExposedBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "v_application_exposed_endpoint")
 	svc := s.setupService(c, factory)
 
-	_, err := svc.WatchApplicationExposed(context.Background(), "bad-name")
+	_, err := svc.WatchApplicationExposed(c.Context(), "bad-name")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -963,7 +963,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	appName := "foo"
 	s.createApplication(c, svc, appName, service.AddUnitArg{}, service.AddUnitArg{})
 
-	ctx := context.Background()
+	ctx := c.Context()
 
 	unitName := unit.Name("foo/0")
 	otherUnitName := unit.Name("foo/1")
@@ -979,7 +979,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	statusState := statusstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
 	resolveState := resolvestate.NewState(modelDB)
 
-	alternateCharmID, _, err := svc.SetCharm(context.Background(), charm.SetCharmArgs{
+	alternateCharmID, _, err := svc.SetCharm(c.Context(), charm.SetCharmArgs{
 		Charm:         &stubCharm{},
 		Source:        corecharm.CharmHub,
 		ReferenceName: "alternate",
@@ -1024,7 +1024,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	// manually
 	harness.AddTest(func(c *tc.C) {
 		stmt := `UPDATE unit SET charm_uuid = ? WHERE uuid = ?`
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, stmt, alternateCharmID, unitUUID)
 			return err
 		})
@@ -1038,7 +1038,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	// the unit_principal table
 	harness.AddTest(func(c *tc.C) {
 		stmt := `INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, stmt, otherUnitUUID, unitUUID)
 			return err
 		})
@@ -1050,7 +1050,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	// Assert that removing a subordinate unit triggers a change
 	harness.AddTest(func(c *tc.C) {
 		stmt := `DELETE FROM unit_principal`
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, stmt)
 			return err
 		})
@@ -1070,7 +1070,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	// Assert that refreshing another unit's charm does not trigger a change.
 	harness.AddTest(func(c *tc.C) {
 		stmt := `UPDATE unit SET charm_uuid = ? WHERE uuid = ?`
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, stmt, alternateCharmID, otherUnitUUID)
 			return err
 		})
@@ -1091,13 +1091,13 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniterBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
 	svc := s.setupService(c, factory)
 
-	_, err := svc.WatchUnitForLegacyUniter(context.Background(), unit.Name("foo/0"))
+	_, err := svc.WatchUnitForLegacyUniter(c.Context(), unit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *watcherSuite) getApplicationConfigHash(c *tc.C, db changestream.WatchableDB, appUUID coreapplication.ID) string {
 	var hash string
-	err := db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `SELECT sha256 FROM application_config_hash WHERE application_uuid=?`, appUUID.String())
 		err := row.Scan(&hash)
 		return err
@@ -1143,7 +1143,7 @@ func (s *watcherSuite) createApplication(c *tc.C, svc *service.WatchableService,
 }
 
 func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *tc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddUnitArg) coreapplication.ID {
-	ctx := context.Background()
+	ctx := c.Context()
 	appID, err := svc.CreateApplication(ctx, name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{

@@ -312,7 +312,7 @@ SELECT charm_config_type.* AS &charmConfigType.* FROM charm_config_type ORDER BY
 `, charmConfigType{})
 
 	var results []charmConfigType
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, tc.ErrorIsNil)

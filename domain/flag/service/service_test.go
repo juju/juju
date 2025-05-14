@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -28,7 +26,7 @@ func (s *serviceSuite) TestSetFlag(c *tc.C) {
 	s.state.EXPECT().SetFlag(gomock.Any(), "foo", true, "foo set to true").Return(nil)
 
 	service := NewService(s.state)
-	err := service.SetFlag(context.Background(), "foo", true, "foo set to true")
+	err := service.SetFlag(c.Context(), "foo", true, "foo set to true")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -38,7 +36,7 @@ func (s *serviceSuite) TestGetFlag(c *tc.C) {
 	s.state.EXPECT().GetFlag(gomock.Any(), "foo").Return(true, nil)
 
 	service := NewService(s.state)
-	value, err := service.GetFlag(context.Background(), "foo")
+	value, err := service.GetFlag(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(value, tc.IsTrue)
 }
@@ -49,7 +47,7 @@ func (s *serviceSuite) TestGetFlagNotFound(c *tc.C) {
 	s.state.EXPECT().GetFlag(gomock.Any(), "foo").Return(false, errors.Errorf("flag %w", coreerrors.NotFound))
 
 	service := NewService(s.state)
-	value, err := service.GetFlag(context.Background(), "foo")
+	value, err := service.GetFlag(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(value, tc.IsFalse)
 }

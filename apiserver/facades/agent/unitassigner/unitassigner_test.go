@@ -43,7 +43,7 @@ func (s *testsuite) TestAssignUnits(c *tc.C) {
 		networkService: &fakeNetworkService{},
 	}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
-	res, err := api.AssignUnits(context.Background(), args)
+	res, err := api.AssignUnits(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.ids, tc.DeepEquals, []string{"foo/0", "bar/1"})
 	c.Assert(res.Results, tc.HasLen, 2)
@@ -56,7 +56,7 @@ func (s *testsuite) TestWatchUnitAssignment(c *tc.C) {
 	f := &fakeState{}
 	api := API{st: f, res: common.NewResources()}
 	f.ids = []string{"boo", "far"}
-	res, err := api.WatchUnitAssignments(context.Background())
+	res, err := api.WatchUnitAssignments(c.Context())
 	c.Assert(f.watchCalled, tc.IsTrue)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Changes, tc.DeepEquals, f.ids)
@@ -87,7 +87,7 @@ func (s *testsuite) TestSetStatus(c *tc.C) {
 			Tag: "foo",
 		}},
 	}
-	res, err := api.SetAgentStatus(context.Background(), args)
+	res, err := api.SetAgentStatus(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(res.Results, tc.DeepEquals, []params.ErrorResult{

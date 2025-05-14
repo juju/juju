@@ -48,7 +48,7 @@ func (s *serviceSuite) TestGetMetadata(c *tc.C) {
 		SHA384: metadata.SHA384,
 	}, nil)
 
-	p, err := NewService(s.state).GetMetadata(context.Background(), path)
+	p, err := NewService(s.state).GetMetadata(c.Context(), path)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(p, tc.DeepEquals, metadata)
 }
@@ -74,7 +74,7 @@ func (s *serviceSuite) TestGetMetadataBySHA256(c *tc.C) {
 		SHA384: metadata.SHA384,
 	}, nil)
 
-	p, err := NewService(s.state).GetMetadataBySHA256(context.Background(), sha)
+	p, err := NewService(s.state).GetMetadataBySHA256(c.Context(), sha)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(p, tc.DeepEquals, metadata)
 }
@@ -88,7 +88,7 @@ func (s *serviceSuite) TestGetMetadataBySHA256Invalid(c *tc.C) {
 
 	illegalSha := "!" + sha[1:]
 
-	_, err := NewService(s.state).GetMetadataBySHA256(context.Background(), illegalSha)
+	_, err := NewService(s.state).GetMetadataBySHA256(c.Context(), illegalSha)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrInvalidHash)
 }
 
@@ -99,14 +99,14 @@ func (s *serviceSuite) TestGetMetadataBySHA256TooShort(c *tc.C) {
 	sha256.Write([]byte(uuid.MustNewUUID().String()))
 	sha := hex.EncodeToString(sha256.Sum(nil))
 
-	_, err := NewService(s.state).GetMetadataBySHA256(context.Background(), sha+"a")
+	_, err := NewService(s.state).GetMetadataBySHA256(c.Context(), sha+"a")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrInvalidHashLength)
 }
 
 func (s *serviceSuite) TestGetMetadataBySHA256TooLong(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state).GetMetadataBySHA256(context.Background(), "beef")
+	_, err := NewService(s.state).GetMetadataBySHA256(c.Context(), "beef")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrInvalidHashLength)
 }
 
@@ -129,7 +129,7 @@ func (s *serviceSuite) TestGetMetadataBySHA256Prefix(c *tc.C) {
 		SHA384: metadata.SHA384,
 	}, nil)
 
-	p, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), shaPrefix)
+	p, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), shaPrefix)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(p, tc.DeepEquals, metadata)
 }
@@ -137,21 +137,21 @@ func (s *serviceSuite) TestGetMetadataBySHA256Prefix(c *tc.C) {
 func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooShort(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), "beef")
+	_, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), "beef")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrHashPrefixTooShort)
 }
 
 func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooLong(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), "deadbeef1")
+	_, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), "deadbeef1")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrInvalidHashPrefix)
 }
 
 func (s *serviceSuite) TestGetMetadataBySHA256PrefixInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), "abcdefg")
+	_, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), "abcdefg")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrInvalidHashPrefix)
 }
 
@@ -174,7 +174,7 @@ func (s *serviceSuite) TestListMetadata(c *tc.C) {
 		Size:   metadata.Size,
 	}}, nil)
 
-	p, err := NewService(s.state).ListMetadata(context.Background())
+	p, err := NewService(s.state).ListMetadata(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(p, tc.DeepEquals, []objectstore.Metadata{{
 		Path:   metadata.Path,
@@ -204,7 +204,7 @@ func (s *serviceSuite) TestPutMetadata(c *tc.C) {
 		return uuid, nil
 	})
 
-	result, err := NewService(s.state).PutMetadata(context.Background(), metadata)
+	result, err := NewService(s.state).PutMetadata(c.Context(), metadata)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, uuid)
 }
@@ -219,7 +219,7 @@ func (s *serviceSuite) TestPutMetadataMissingSHA384(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := NewService(s.state).PutMetadata(context.Background(), metadata)
+	_, err := NewService(s.state).PutMetadata(c.Context(), metadata)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingHash)
 }
 
@@ -233,7 +233,7 @@ func (s *serviceSuite) TestPutMetadataMissingSHA256(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := NewService(s.state).PutMetadata(context.Background(), metadata)
+	_, err := NewService(s.state).PutMetadata(c.Context(), metadata)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingHash)
 }
 
@@ -244,7 +244,7 @@ func (s *serviceSuite) TestRemoveMetadata(c *tc.C) {
 
 	s.state.EXPECT().RemoveMetadata(gomock.Any(), key).Return(nil)
 
-	err := NewService(s.state).RemoveMetadata(context.Background(), key)
+	err := NewService(s.state).RemoveMetadata(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

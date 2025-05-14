@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -35,7 +33,7 @@ func (s *providerServiceSuite) TestModelConfig(c *tc.C) {
 	)
 
 	svc := NewProviderService(s.mockState)
-	cfg, err := svc.ModelConfig(context.Background())
+	cfg, err := svc.ModelConfig(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(cfg.AllAttrs(), tc.DeepEquals, map[string]any{
 		"name":           "wallyworld",

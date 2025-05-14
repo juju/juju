@@ -4,8 +4,6 @@
 package state
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/credential"
@@ -58,7 +56,7 @@ func (s *modelSuite) createTestModel(c *tc.C) coremodel.UUID {
 		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	return id
 }
@@ -81,11 +79,11 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that it was written correctly.
-	model, err := state.GetModel(context.Background())
+	model, err := state.GetModel(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.ModelInfo{
 		UUID:            id,
@@ -119,17 +117,17 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = state.Delete(context.Background(), id)
+	err = state.Delete(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = state.Delete(context.Background(), id)
+	err = state.Delete(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 
 	// Check that it was written correctly.
-	_, err = state.GetModel(context.Background())
+	_, err = state.GetModel(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -151,9 +149,9 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *tc.C) {
 		CloudType:      "ec2",
 		CloudRegion:    "myregion",
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-	err = state.Create(context.Background(), args)
+	err = state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
 }
 
@@ -163,7 +161,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *tc.C) {
 
 	// Ensure that you can only ever insert one model.
 
-	err := state.Create(context.Background(), model.ModelDetailArgs{
+	err := state.Create(c.Context(), model.ModelDetailArgs{
 		UUID:         modeltesting.GenModelUUID(c),
 		AgentStream:  modelagent.AgentStreamReleased,
 		AgentVersion: jujuversion.Current,
@@ -175,7 +173,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = state.Create(context.Background(), model.ModelDetailArgs{
+	err = state.Create(c.Context(), model.ModelDetailArgs{
 		UUID:         modeltesting.GenModelUUID(c),
 		AgentStream:  modelagent.AgentStreamReleased,
 		AgentVersion: jujuversion.Current,
@@ -195,7 +193,7 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *tc.C) {
 	// Ensure that you can't update it.
 
 	id := modeltesting.GenModelUUID(c)
-	err := state.Create(context.Background(), model.ModelDetailArgs{
+	err := state.Create(c.Context(), model.ModelDetailArgs{
 		UUID:           id,
 		AgentStream:    modelagent.AgentStreamReleased,
 		AgentVersion:   jujuversion.Current,
@@ -209,7 +207,7 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	db := s.DB()
-	_, err = db.ExecContext(context.Background(), "UPDATE model SET name = 'new-name' WHERE uuid = $1", id)
+	_, err = db.ExecContext(c.Context(), "UPDATE model SET name = 'new-name' WHERE uuid = $1", id)
 	c.Assert(err, tc.ErrorMatches, `model table is immutable, only insertions are allowed`)
 }
 
@@ -220,7 +218,7 @@ func (s *modelSuite) TestCreateModelAndDelete(c *tc.C) {
 	// Ensure that you can't update it.
 
 	id := modeltesting.GenModelUUID(c)
-	err := state.Create(context.Background(), model.ModelDetailArgs{
+	err := state.Create(c.Context(), model.ModelDetailArgs{
 		UUID:         id,
 		AgentStream:  modelagent.AgentStreamReleased,
 		AgentVersion: jujuversion.Current,
@@ -233,7 +231,7 @@ func (s *modelSuite) TestCreateModelAndDelete(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	db := s.DB()
-	_, err = db.ExecContext(context.Background(), "DELETE FROM model WHERE uuid = $1", id)
+	_, err = db.ExecContext(c.Context(), "DELETE FROM model WHERE uuid = $1", id)
 	c.Assert(err, tc.ErrorMatches, `model table is immutable, only insertions are allowed`)
 }
 
@@ -241,7 +239,7 @@ func (s *modelSuite) TestModelNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := state.GetModel(context.Background())
+	_, err := state.GetModel(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -251,18 +249,18 @@ func (s *modelSuite) TestGetModelMetrics(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := s.DB().ExecContext(context.Background(), `
+	_, err := s.DB().ExecContext(c.Context(), `
 		INSERT INTO charm (uuid, reference_name) VALUES ('456', 'foo');
 	`)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.DB().ExecContext(context.Background(), `
+	_, err = s.DB().ExecContext(c.Context(), `
 		INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES ('123', 'foo', 0, '456', ?);
 		`, network.AlphaSpaceId)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that it was written correctly.
-	model, err := state.GetModelMetrics(context.Background())
+	model, err := state.GetModelMetrics(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.ModelMetrics{
 		Model: coremodel.ModelInfo{
@@ -287,7 +285,7 @@ func (s *modelSuite) TestGetModelMetricsNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := state.GetModelMetrics(context.Background())
+	_, err := state.GetModelMetrics(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -300,7 +298,7 @@ func (s *modelSuite) TestSetModelConstraints(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := s.DB().ExecContext(context.Background(), `
+	_, err := s.DB().ExecContext(c.Context(), `
 INSERT INTO space (uuid, name) VALUES
 	(?, ?),
 	(?, ?)`,
@@ -328,10 +326,10 @@ INSERT INTO space (uuid, name) VALUES
 		ImageID:          ptr("image-id"),
 	}
 
-	err = state.SetModelConstraints(context.Background(), cons)
+	err = state.SetModelConstraints(c.Context(), cons)
 	c.Assert(err, tc.ErrorIsNil)
 
-	getCons, err := state.GetModelConstraints(context.Background())
+	getCons, err := state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(getCons, tc.DeepEquals, cons)
 }
@@ -355,28 +353,28 @@ func (s *modelSuite) TestSetModelConstraintsNullBools(c *tc.C) {
 		AllocatePublicIP: nil,
 	}
 
-	err := state.SetModelConstraints(context.Background(), cons)
+	err := state.SetModelConstraints(c.Context(), cons)
 	c.Assert(err, tc.ErrorIsNil)
 
-	getCons, err := state.GetModelConstraints(context.Background())
+	getCons, err := state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(getCons.AllocatePublicIP, tc.IsNil)
 
 	// False Bool
 	cons.AllocatePublicIP = ptr(false)
-	err = state.SetModelConstraints(context.Background(), cons)
+	err = state.SetModelConstraints(c.Context(), cons)
 	c.Assert(err, tc.ErrorIsNil)
 
-	getCons, err = state.GetModelConstraints(context.Background())
+	getCons, err = state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(*getCons.AllocatePublicIP, tc.IsFalse)
 
 	// True Bool
 	cons.AllocatePublicIP = ptr(true)
-	err = state.SetModelConstraints(context.Background(), cons)
+	err = state.SetModelConstraints(c.Context(), cons)
 	c.Assert(err, tc.ErrorIsNil)
 
-	getCons, err = state.GetModelConstraints(context.Background())
+	getCons, err = state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(*getCons.AllocatePublicIP, tc.IsTrue)
 }
@@ -389,7 +387,7 @@ func (s *modelSuite) TestSetModelConstraintsOverwrites(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := s.DB().ExecContext(context.Background(), `
+	_, err := s.DB().ExecContext(c.Context(), `
 INSERT INTO space (uuid, name) VALUES
 	(?, ?),
 	(?, ?)`,
@@ -417,10 +415,10 @@ INSERT INTO space (uuid, name) VALUES
 		ImageID:          ptr("image-id"),
 	}
 
-	err = state.SetModelConstraints(context.Background(), cons)
+	err = state.SetModelConstraints(c.Context(), cons)
 	c.Assert(err, tc.ErrorIsNil)
 
-	getCons, err := state.GetModelConstraints(context.Background())
+	getCons, err := state.GetModelConstraints(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(getCons, tc.DeepEquals, cons)
 
@@ -437,10 +435,10 @@ INSERT INTO space (uuid, name) VALUES
 		}),
 	}
 
-	err = state.SetModelConstraints(context.Background(), cons)
+	err = state.SetModelConstraints(c.Context(), cons)
 	c.Assert(err, tc.ErrorIsNil)
 
-	getCons, err = state.GetModelConstraints(context.Background())
+	getCons, err = state.GetModelConstraints(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(getCons, tc.DeepEquals, cons)
 }
@@ -452,7 +450,7 @@ func (s *modelSuite) TestSetModelConstraintFailedModelNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	err := state.SetModelConstraints(context.Background(), constraints.Constraints{
+	err := state.SetModelConstraints(c.Context(), constraints.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 	})
@@ -474,10 +472,10 @@ func (s *modelSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 		ImageID:   ptr("image-id"),
 	}
 
-	err := state.SetModelConstraints(context.Background(), cons)
+	err := state.SetModelConstraints(c.Context(), cons)
 	c.Check(err, tc.ErrorIs, machineerrors.InvalidContainerType)
 
-	_, err = state.GetModelConstraints(context.Background())
+	_, err = state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.ConstraintsNotFound)
 }
 
@@ -490,7 +488,7 @@ func (s *modelSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	err := state.SetModelConstraints(context.Background(), constraints.Constraints{
+	err := state.SetModelConstraints(c.Context(), constraints.Constraints{
 		Spaces: ptr([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
@@ -498,7 +496,7 @@ func (s *modelSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 
-	_, err = state.GetModelConstraints(context.Background())
+	_, err = state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.ConstraintsNotFound)
 }
 
@@ -511,7 +509,7 @@ func (s *modelSuite) TestGetModelConstraintsNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := state.GetModelConstraints(context.Background())
+	_, err := state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.ConstraintsNotFound)
 }
 
@@ -522,7 +520,7 @@ func (s *modelSuite) TestGetModelConstraintsModelNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := state.GetModelConstraints(context.Background())
+	_, err := state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -545,10 +543,10 @@ func (s *modelSuite) TestGetModelCloudType(c *tc.C) {
 		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelCloudType, err := state.GetModelCloudType(context.Background())
+	modelCloudType, err := state.GetModelCloudType(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelCloudType, tc.DeepEquals, cloudType)
 }
@@ -557,7 +555,7 @@ func (s *modelSuite) TestGetModelCloudTypeNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := state.GetModelCloudType(context.Background())
+	_, err := state.GetModelCloudType(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -580,12 +578,12 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *tc.C) {
 		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	owner, err := user.NewName("myowner")
 	c.Assert(err, tc.ErrorIsNil)
-	cloud, region, key, err := state.GetModelCloudRegionAndCredential(context.Background(), uuid)
+	cloud, region, key, err := state.GetModelCloudRegionAndCredential(c.Context(), uuid)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cloud, tc.Equals, "aws")
 	c.Check(region, tc.Equals, "myregion")
@@ -601,7 +599,7 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredentialNotFound(c *tc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	uuid := modeltesting.GenModelUUID(c)
-	_, _, _, err := state.GetModelCloudRegionAndCredential(context.Background(), uuid)
+	_, _, _, err := state.GetModelCloudRegionAndCredential(c.Context(), uuid)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -625,10 +623,10 @@ func (s *modelSuite) TestIsControllerModelTrue(c *tc.C) {
 		CredentialName:    "mycredential",
 		IsControllerModel: true,
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	isControllerModel, err := state.IsControllerModel(context.Background())
+	isControllerModel, err := state.IsControllerModel(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isControllerModel, tc.IsTrue)
 }
@@ -653,10 +651,10 @@ func (s *modelSuite) TestIsControllerModelFalse(c *tc.C) {
 		CredentialName:    "mycredential",
 		IsControllerModel: false,
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	isControllerModel, err := state.IsControllerModel(context.Background())
+	isControllerModel, err := state.IsControllerModel(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isControllerModel, tc.IsFalse)
 }
@@ -665,7 +663,7 @@ func (s *modelSuite) TestIsControllerModelNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := state.IsControllerModel(context.Background())
+	_, err := state.IsControllerModel(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -676,7 +674,7 @@ func (s *modelSuite) TestGetControllerUUIDNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := state.GetControllerUUID(context.Background())
+	_, err := state.GetControllerUUID(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -703,10 +701,10 @@ func (s *modelSuite) TestGetControllerUUID(c *tc.C) {
 		CredentialName:    "mycredential",
 		IsControllerModel: false,
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 
-	controllerUUID, err := state.GetControllerUUID(context.Background())
+	controllerUUID, err := state.GetControllerUUID(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(controllerUUID, tc.Equals, s.controllerUUID)
 }
@@ -733,10 +731,10 @@ func (s *modelSuite) TestGetModelType(c *tc.C) {
 		CredentialName:    "mycredential",
 		IsControllerModel: false,
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 
-	modelType, err := state.GetModelType(context.Background())
+	modelType, err := state.GetModelType(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(modelType, tc.Equals, coremodel.CAAS)
 }
@@ -748,7 +746,7 @@ func (s *modelSuite) TestGetModelTypeNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	_, err := state.GetModelType(context.Background())
+	_, err := state.GetModelType(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -774,10 +772,10 @@ func (s *modelSuite) TestGetModelInfoSummary(c *tc.C) {
 		CredentialName:    "mycredential",
 		IsControllerModel: false,
 	}
-	err := state.Create(context.Background(), args)
+	err := state.Create(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 
-	infoSummary, err := state.GetModelInfoSummary(context.Background())
+	infoSummary, err := state.GetModelInfoSummary(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(infoSummary, tc.DeepEquals, model.ModelInfoSummary{
 		Name:           "mycontrollermodel",

@@ -167,7 +167,7 @@ func (s *WorkerSuite) TestSendEmptyModelMetrics(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	err := w.sendEmptyModelMetrics(context.Background(), s.charmhubClient, true)
+	err := w.sendEmptyModelMetrics(c.Context(), s.charmhubClient, true)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -184,7 +184,7 @@ func (s *WorkerSuite) TestSendEmptyModelMetricsFails(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	err := w.sendEmptyModelMetrics(context.Background(), s.charmhubClient, true)
+	err := w.sendEmptyModelMetrics(c.Context(), s.charmhubClient, true)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -201,7 +201,7 @@ func (s *WorkerSuite) TestSendEmptyModelMetricsWithNoTelemetry(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	err := w.sendEmptyModelMetrics(context.Background(), s.charmhubClient, false)
+	err := w.sendEmptyModelMetrics(c.Context(), s.charmhubClient, false)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -266,7 +266,7 @@ func (s *WorkerSuite) TestFetch(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	result, err := w.fetch(context.Background(), s.charmhubClient)
+	result, err := w.fetch(c.Context(), s.charmhubClient)
 	c.Assert(err, tc.ErrorIsNil)
 
 	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
@@ -371,7 +371,7 @@ func (s *WorkerSuite) TestFetchInfo(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	result, err := w.fetchInfo(context.Background(), s.charmhubClient, true, ids, apps)
+	result, err := w.fetchInfo(c.Context(), s.charmhubClient, true, ids, apps)
 	c.Assert(err, tc.ErrorIsNil)
 
 	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
@@ -467,7 +467,7 @@ func (s *WorkerSuite) TestFetchInfoInvalidResponseLength(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	_, err = w.fetchInfo(context.Background(), s.charmhubClient, true, ids, apps)
+	_, err = w.fetchInfo(c.Context(), s.charmhubClient, true, ids, apps)
 	c.Assert(err, tc.ErrorMatches, `expected 0 responses, got 1`)
 }
 
@@ -536,7 +536,7 @@ func (s *WorkerSuite) TestRequest(c *tc.C) {
 	s.ensureStartup(c)
 
 	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
-	result, err := w.request(context.Background(), s.charmhubClient, metrics, ids)
+	result, err := w.request(c.Context(), s.charmhubClient, metrics, ids)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, []charmhubResult{{
 		name:      id.id,
@@ -629,7 +629,7 @@ func (s *WorkerSuite) TestRequestWithResources(c *tc.C) {
 	s.ensureStartup(c)
 
 	channel := internalcharm.MakePermissiveChannel("latest", "stable", "")
-	result, err := w.request(context.Background(), s.charmhubClient, metrics, ids)
+	result, err := w.request(c.Context(), s.charmhubClient, metrics, ids)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, []charmhubResult{{
 		name:      id.id,
@@ -706,7 +706,7 @@ func (s *WorkerSuite) TestRequestWithError(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	_, err := w.request(context.Background(), s.charmhubClient, metrics, ids)
+	_, err := w.request(c.Context(), s.charmhubClient, metrics, ids)
 	c.Assert(err, tc.ErrorMatches, "*api-error: boom")
 }
 
@@ -723,7 +723,7 @@ func (s *WorkerSuite) TestStoreNewRevisionsNoUpdates(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+	err := w.storeNewRevisions(c.Context(), latestCharmInfos)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -791,7 +791,7 @@ func (s *WorkerSuite) TestStoreNewCharmRevisionsNoResource(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+	err := w.storeNewRevisions(c.Context(), latestCharmInfos)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -817,7 +817,7 @@ func (s *WorkerSuite) TestStoreNewCharmRevisionsError(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+	err := w.storeNewRevisions(c.Context(), latestCharmInfos)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -872,7 +872,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisions(c *tc.C) {
 	s.ensureStartup(c)
 
 	// Act: run worker function
-	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+	err := w.storeNewRevisions(c.Context(), latestCharmInfos)
 
 	// Assert: real assertion are done in what as been called in the mock
 	c.Assert(err, tc.ErrorIsNil)
@@ -921,7 +921,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsWithApplicationNotFound(c *tc
 	s.ensureStartup(c)
 
 	// Act: run worker function
-	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+	err := w.storeNewRevisions(c.Context(), latestCharmInfos)
 
 	// Assert: check everything ok through mocks, but also that a log as been
 	// generated for the unknown application.
@@ -957,7 +957,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorGetApplicationID(c *tc.C
 	s.ensureStartup(c)
 
 	// Act: run worker function
-	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+	err := w.storeNewRevisions(c.Context(), latestCharmInfos)
 
 	// Assert: Check the error is returned
 	c.Assert(err, tc.ErrorIs, expectedError)
@@ -991,7 +991,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorStoreRepositoryResources
 	s.ensureStartup(c)
 
 	// Act: run worker function
-	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+	err := w.storeNewRevisions(c.Context(), latestCharmInfos)
 
 	// Assert: Check the error is returned
 	c.Assert(err, tc.ErrorIs, expectedError)

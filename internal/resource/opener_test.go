@@ -91,7 +91,7 @@ func (s *OpenerSuite) TestOpenResource(c *tc.C) {
 	opened, err := s.newUnitResourceOpener(
 		c,
 		0,
-	).OpenResource(context.Background(), "wal-e")
+	).OpenResource(c.Context(), "wal-e")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(opened.Size, tc.Equals, res.Size)
 	c.Check(opened.Fingerprint.String(), tc.Equals, res.Fingerprint.String())
@@ -144,7 +144,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *tc.C) {
 			opened, err := s.newUnitResourceOpener(
 				c,
 				maxConcurrentRequests,
-			).OpenResource(context.Background(), "wal-e")
+			).OpenResource(c.Context(), "wal-e")
 			c.Assert(err, tc.ErrorIsNil)
 			c.Check(opened.Size, tc.Equals, res.Size)
 			c.Check(
@@ -201,7 +201,7 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *tc.C) {
 	)
 
 	opened, err := s.newApplicationResourceOpener(c).OpenResource(
-		context.Background(),
+		c.Context(),
 		"wal-e",
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -390,7 +390,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *tc.C) {
 	opened, err := s.newUnitResourceOpener(
 		c,
 		-1,
-	).OpenResource(context.Background(), "wal-e")
+	).OpenResource(c.Context(), "wal-e")
 	c.Assert(err, tc.ErrorMatches, "failed after retrying: boom")
 	c.Check(opened, tc.NotNil)
 	c.Check(opened.ReadCloser, tc.IsNil)
@@ -411,7 +411,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnit(c *tc.C) {
 	)
 	s.expectNewUnitResourceOpener(c)
 	err := s.newUnitResourceOpener(c, 0).SetResourceUsed(
-		context.Background(),
+		c.Context(),
 		"wal-e",
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -435,7 +435,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnitError(c *tc.C) {
 
 	s.expectNewUnitResourceOpener(c)
 	err := s.newUnitResourceOpener(c, 0).SetResourceUsed(
-		context.Background(),
+		c.Context(),
 		"wal-e",
 	)
 	c.Assert(err, tc.ErrorIs, expectedErr)
@@ -456,7 +456,7 @@ func (s *OpenerSuite) TestSetResourceUsedApplication(c *tc.C) {
 	)
 
 	err := s.newApplicationResourceOpener(c).SetResourceUsed(
-		context.Background(),
+		c.Context(),
 		"wal-e",
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -478,7 +478,7 @@ func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *tc.C) {
 	).Return(expectedErr)
 
 	err := s.newApplicationResourceOpener(c).SetResourceUsed(
-		context.Background(),
+		c.Context(),
 		"wal-e",
 	)
 	c.Assert(err, tc.ErrorIs, expectedErr)
@@ -520,7 +520,7 @@ func (s *OpenerSuite) newUnitResourceOpener(
 	}
 
 	opener, err := newResourceOpenerForUnit(
-		context.Background(),
+		c.Context(),
 		s.state,
 		ResourceOpenerArgs{
 			ResourceService:      s.resourceService,
@@ -552,7 +552,7 @@ func (s *OpenerSuite) newApplicationResourceOpener(c *tc.C) coreresource.Opener 
 	s.state.EXPECT().ModelUUID().Return("uuid")
 	s.stateApplication.EXPECT().CharmOrigin().Return(&s.charmOrigin)
 	opener, err := newResourceOpenerForApplication(
-		context.Background(),
+		c.Context(),
 		s.state,
 		ResourceOpenerArgs{
 			ResourceService:      s.resourceService,

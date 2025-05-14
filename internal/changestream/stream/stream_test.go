@@ -1533,7 +1533,7 @@ func (s *streamSuite) insertChange(c *tc.C, changes ...change) {
 
 func (s *streamSuite) insertChangeForType(c *tc.C, changeType changestream.ChangeType, changes ...change) {
 	q := `INSERT INTO change_log (edit_type_id, namespace_id, changed) VALUES (?, ?, ?)`
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, v := range changes {
 			c.Logf("Executing insert change: edit-type: %d, %v %v", changeType, v.id, v.uuid)
 			if _, err := tx.ExecContext(ctx, q, changeType, v.id, v.uuid); err != nil {
@@ -1556,7 +1556,7 @@ func expectChanges(c *tc.C, expected []change, obtained []changestream.ChangeEve
 }
 
 func (s *streamSuite) expectWaterMark(c *tc.C, id string, changeLogIndex int) {
-	row := s.DB().QueryRowContext(context.Background(), "SELECT controller_id, lower_bound, upper_bound, updated_at FROM change_log_witness")
+	row := s.DB().QueryRowContext(c.Context(), "SELECT controller_id, lower_bound, upper_bound, updated_at FROM change_log_witness")
 
 	type witness struct {
 		id                     string

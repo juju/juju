@@ -5,7 +5,6 @@ package importer
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -49,7 +48,7 @@ func (g *githubSuite) TestSubjectNotFound(c *tc.C) {
 	)
 
 	gh := GithubResolver{g.client}
-	_, err := gh.PublicKeysForSubject(context.Background(), "tlm")
+	_, err := gh.PublicKeysForSubject(c.Context(), "tlm")
 	c.Check(err, tc.ErrorIs, importererrors.SubjectNotFound)
 }
 
@@ -87,7 +86,7 @@ func (g *githubSuite) TestSubjectPublicKeys(c *tc.C) {
 	)
 
 	gh := GithubResolver{g.client}
-	keys, err := gh.PublicKeysForSubject(context.Background(), "tlm")
+	keys, err := gh.PublicKeysForSubject(c.Context(), "tlm")
 	c.Check(err, tc.ErrorIsNil)
 
 	expected := []string{

@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -57,7 +56,7 @@ func (s *importSuite) TestExecuteWithNoApplications(c *tc.C) {
 
 	s.expectNoLeases(c)
 
-	err := op.Execute(context.Background(), description.NewModel(description.ModelArgs{}))
+	err := op.Execute(c.Context(), description.NewModel(description.ModelArgs{}))
 	c.Assert(err, tc.ErrorIsNil)
 
 }
@@ -91,7 +90,7 @@ func (s *importSuite) TestExecuteWithApplications(c *tc.C) {
 
 	s.expectLease(c, key, req)
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -140,7 +139,7 @@ func (s *importSuite) TestExecuteWithMultipleApplications(c *tc.C) {
 
 	s.expectLease(c, key, req)
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -162,7 +161,7 @@ func (s *importSuite) TestExecuteWithError(c *tc.C) {
 
 	s.service.EXPECT().ClaimLease(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("boom"))
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, `claiming lease for {"postgresql" "`+uuid+`" "application-leadership"}: boom`)
 }
 

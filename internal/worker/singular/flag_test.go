@@ -78,7 +78,7 @@ func (s *FlagSuite) TestNewWorkerValidate(c *tc.C) {
 	config := s.newConfig()
 	config.LeaseManager = nil
 
-	_, err := NewFlagWorker(context.Background(), config)
+	_, err := NewFlagWorker(c.Context(), config)
 	c.Assert(err, tc.ErrorIs, jujuerrors.NotValid)
 }
 
@@ -118,7 +118,7 @@ func (s *FlagSuite) TestFailureClaimerOnCreation(c *tc.C) {
 
 	s.manager.EXPECT().Claimer(lease.SingularControllerNamespace, "model-uuid").Return(s.claimer, errors.Errorf("boom"))
 
-	_, err := NewFlagWorker(context.Background(), s.newConfig())
+	_, err := NewFlagWorker(c.Context(), s.newConfig())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -128,7 +128,7 @@ func (s *FlagSuite) TestFailureClaimOnCreation(c *tc.C) {
 	s.manager.EXPECT().Claimer(lease.SingularControllerNamespace, "model-uuid").Return(s.claimer, nil)
 	s.claimer.EXPECT().Claim(s.entityID, s.unitTag.String(), s.duration).Return(errors.Errorf("boom"))
 
-	_, err := NewFlagWorker(context.Background(), s.newConfig())
+	_, err := NewFlagWorker(c.Context(), s.newConfig())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -295,7 +295,7 @@ func (s *FlagSuite) TestRepeatedClaimFailsWithError(c *tc.C) {
 }
 
 func (s *FlagSuite) newWorker(c *tc.C) *FlagWorker {
-	w, err := NewFlagWorker(context.Background(), s.newConfig())
+	w, err := NewFlagWorker(c.Context(), s.newConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	return w.(*FlagWorker)
 }

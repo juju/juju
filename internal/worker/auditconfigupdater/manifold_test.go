@@ -4,8 +4,6 @@
 package auditconfigupdater
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -50,7 +48,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	s.expectAgentConfig(c)
 	s.expectControllerConfig()
 
-	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
+	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }

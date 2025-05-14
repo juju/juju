@@ -35,17 +35,17 @@ func (s *stateSuite) TestSetUnitPassword(c *tc.C) {
 	s.createApplication(c)
 	unitName := s.createUnit(c)
 
-	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
+	unitUUID, err := st.GetUnitUUID(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := s.genPasswordHash(c)
 
-	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
+	err = st.SetUnitPasswordHash(c.Context(), unitUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the password hash was set correctly.
 	var hash string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM unit WHERE uuid = ?", unitUUID).Scan(&hash)
 		return err
 	})
@@ -56,7 +56,7 @@ func (s *stateSuite) TestSetUnitPassword(c *tc.C) {
 func (s *stateSuite) TestSetUnitPasswordUnitDoesNotExist(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err := st.GetUnitUUID(context.Background(), unit.Name("foo/0"))
+	_, err := st.GetUnitUUID(c.Context(), unit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
@@ -65,7 +65,7 @@ func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 
 	passwordHash := s.genPasswordHash(c)
 
-	err := st.SetUnitPasswordHash(context.Background(), unit.UUID("foo"), passwordHash)
+	err := st.SetUnitPasswordHash(c.Context(), unit.UUID("foo"), passwordHash)
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
@@ -75,15 +75,15 @@ func (s *stateSuite) TestMatchesUnitPasswordHash(c *tc.C) {
 	s.createApplication(c)
 	unitName := s.createUnit(c)
 
-	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
+	unitUUID, err := st.GetUnitUUID(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := s.genPasswordHash(c)
 
-	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
+	err = st.SetUnitPasswordHash(c.Context(), unitUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
-	valid, err := st.MatchesUnitPasswordHash(context.Background(), unitUUID, passwordHash)
+	valid, err := st.MatchesUnitPasswordHash(c.Context(), unitUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(valid, tc.IsTrue)
 }
@@ -93,7 +93,7 @@ func (s *stateSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
 
 	passwordHash := s.genPasswordHash(c)
 
-	_, err := st.MatchesUnitPasswordHash(context.Background(), unit.UUID("foo"), passwordHash)
+	_, err := st.MatchesUnitPasswordHash(c.Context(), unit.UUID("foo"), passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -103,15 +103,15 @@ func (s *stateSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
 	s.createApplication(c)
 	unitName := s.createUnit(c)
 
-	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
+	unitUUID, err := st.GetUnitUUID(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := s.genPasswordHash(c)
 
-	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
+	err = st.SetUnitPasswordHash(c.Context(), unitUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
-	valid, err := st.MatchesUnitPasswordHash(context.Background(), unitUUID, passwordHash+"1")
+	valid, err := st.MatchesUnitPasswordHash(c.Context(), unitUUID, passwordHash+"1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(valid, tc.IsFalse)
 }
@@ -122,15 +122,15 @@ func (s *stateSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
 	s.createApplication(c)
 	unitName := s.createUnit(c)
 
-	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
+	unitUUID, err := st.GetUnitUUID(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	passwordHash := s.genPasswordHash(c)
 
-	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
+	err = st.SetUnitPasswordHash(c.Context(), unitUUID, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 
-	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
+	hashes, err := st.GetAllUnitPasswordHashes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hashes, tc.DeepEquals, agentpassword.UnitPasswordHashes{
 		unitName: passwordHash,
@@ -143,7 +143,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *tc.C) {
 	s.createApplication(c)
 	s.createUnit(c)
 
-	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
+	hashes, err := st.GetAllUnitPasswordHashes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hashes, tc.DeepEquals, agentpassword.UnitPasswordHashes{
 		"foo/0": "",
@@ -153,7 +153,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *tc.C) {
 func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
+	hashes, err := st.GetAllUnitPasswordHashes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hashes, tc.DeepEquals, agentpassword.UnitPasswordHashes{})
 }
@@ -167,7 +167,7 @@ func (s *stateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 
 func (s *stateSuite) createApplication(c *tc.C) {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	_, err := applicationSt.CreateApplication(context.Background(), "foo", application.AddApplicationArg{
+	_, err := applicationSt.CreateApplication(c.Context(), "foo", application.AddApplicationArg{
 		Charm: charm.Charm{
 			Metadata: charm.Metadata{
 				Name: "foo",
@@ -191,7 +191,7 @@ func (s *stateSuite) createApplication(c *tc.C) {
 func (s *stateSuite) createUnit(c *tc.C) unit.Name {
 	netNodeUUID := uuid.MustNewUUID().String()
 
-	ctx := context.Background()
+	ctx := c.Context()
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	appID, err := applicationSt.GetApplicationIDByName(ctx, "foo")
@@ -202,7 +202,7 @@ func (s *stateSuite) createUnit(c *tc.C) unit.Name {
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err = tx.ExecContext(ctx, "INSERT INTO net_node VALUES (?) ON CONFLICT DO NOTHING", netNodeUUID)
 		if err != nil {
 			return err

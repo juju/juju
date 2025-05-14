@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -73,7 +71,7 @@ func (s *storageSuite) service(c *tc.C) *Service {
 func (s *storageSuite) TestImportFilesystemValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
+	_, err := s.service(c).ImportFilesystem(c.Context(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "elastic",
 		ProviderId:  "provider-id",
@@ -81,7 +79,7 @@ func (s *storageSuite) TestImportFilesystemValidate(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIs, corestorage.InvalidStorageName)
 
-	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
+	_, err = s.service(c).ImportFilesystem(c.Context(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "0",
 		ProviderId:  "provider-id",
@@ -89,7 +87,7 @@ func (s *storageSuite) TestImportFilesystemValidate(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIs, storageerrors.InvalidPoolNameError)
 
-	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
+	_, err = s.service(c).ImportFilesystem(c.Context(), ImportStorageParams{
 		Kind:        storage.StorageKindBlock,
 		Pool:        "elastic",
 		ProviderId:  "provider-id",
@@ -132,7 +130,7 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 		Pool: "elastic",
 	}).Return("pgdata/0", nil)
 
-	result, err := s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
+	result, err := s.service(c).ImportFilesystem(c.Context(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "elastic",
 		ProviderId:  "provider-id",
@@ -179,7 +177,7 @@ func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *tc.C) {
 		Pool: "fast-elastic",
 	}).Return("pgdata/0", nil)
 
-	result, err := s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
+	result, err := s.service(c).ImportFilesystem(c.Context(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "fast-elastic",
 		ProviderId:  "provider-id",
@@ -202,7 +200,7 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *tc.C) {
 		ModelUUID:      modeltesting.GenModelUUID(c).String(),
 		ControllerUUID: uuid.MustNewUUID().String(),
 	}, nil)
-	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
+	_, err = s.service(c).ImportFilesystem(c.Context(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "elastic",
 		ProviderId:  "provider-id",
@@ -254,7 +252,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 		},
 	}).Return("pgdata/0", nil)
 
-	result, err := s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
+	result, err := s.service(c).ImportFilesystem(c.Context(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "ebs",
 		ProviderId:  "provider-id",
@@ -277,7 +275,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {
 		ModelUUID:      modeltesting.GenModelUUID(c).String(),
 		ControllerUUID: uuid.MustNewUUID().String(),
 	}, nil)
-	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
+	_, err = s.service(c).ImportFilesystem(c.Context(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "ebs",
 		ProviderId:  "provider-id",

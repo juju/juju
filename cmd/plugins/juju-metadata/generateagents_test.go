@@ -5,7 +5,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -56,7 +55,7 @@ func (s *GenerateAgentsSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	e, err := bootstrap.PrepareController(
 		false,
-		environscmd.BootstrapContextNoVerify(context.Background(), cmdtesting.Context(c)),
+		environscmd.BootstrapContextNoVerify(c.Context(), cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),

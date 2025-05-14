@@ -193,7 +193,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 	c.Assert(remotes, tc.HasLen, 1)
 
 	var conn api.Connection
-	err := remotes[0].Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+	err := remotes[0].Connection(c.Context(), func(ctx context.Context, c api.Connection) error {
 		conn = c
 		return nil
 	})

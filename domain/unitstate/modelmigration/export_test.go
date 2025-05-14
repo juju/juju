@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -54,7 +52,7 @@ func (s *exportSuite) TestExportOperation(c *tc.C) {
 
 	exportOp := exportOperation{service: s.service}
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unit.CharmState(), tc.DeepEquals, map[string]string{
 		"charm": "state",
@@ -82,7 +80,7 @@ func (s *exportSuite) TestExportInvalidUnitName(c *tc.C) {
 
 	exportOp := exportOperation{service: s.service}
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
@@ -104,6 +102,6 @@ func (s *exportSuite) TestExportError(c *tc.C) {
 
 	exportOp := exportOperation{service: s.service}
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }

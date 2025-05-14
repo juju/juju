@@ -429,7 +429,7 @@ func (s *TrackerSuite) TestWithStableLeadership(c *tc.C) {
 
 	tracker := s.newTracker()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	started := make(chan struct{})
@@ -470,7 +470,7 @@ func (s *TrackerSuite) TestWithStableLeadershipLeadershipChanged(c *tc.C) {
 	s.claimLeaderErrors = []error{nil, coreleadership.ErrClaimDenied}
 	tracker := s.newTracker()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	called := false
@@ -514,7 +514,7 @@ func (s *TrackerSuite) TestWithStableLeadershipFuncError(c *tc.C) {
 
 	tracker := s.newTracker()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	err := tracker.WithStableLeadership(ctx, func(ctx context.Context) error {

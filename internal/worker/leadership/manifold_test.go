@@ -4,7 +4,6 @@
 package leadership_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -47,7 +46,7 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 func (s *ManifoldSuite) TestStartClockMissing(c *tc.C) {
 	manifold := leadership.Manifold(leadership.ManifoldConfig{})
 	getter := dt.StubGetter(nil)
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err.Error(), tc.Equals, "missing Clock not valid")
 	c.Check(err, tc.ErrorIs, errors.NotValid)
@@ -59,7 +58,7 @@ func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
 		"api-caller-name": &dummyAPICaller{},
 	})
 
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
@@ -70,7 +69,7 @@ func (s *ManifoldSuite) TestStartAPICallerMissing(c *tc.C) {
 		"api-caller-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
@@ -87,7 +86,7 @@ func (s *ManifoldSuite) TestStartError(c *tc.C) {
 		return nil, errors.New("blammo")
 	})
 
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "blammo")
 	s.CheckCalls(c, []testhelpers.StubCall{{
@@ -109,7 +108,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 		return dummyWorker, nil
 	})
 
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, dummyWorker)
 	s.CheckCalls(c, []testhelpers.StubCall{{

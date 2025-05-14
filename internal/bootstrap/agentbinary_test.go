@@ -4,7 +4,6 @@
 package bootstrap
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -66,7 +65,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinary(c *tc.C) {
 		"sha256",
 	).Return(nil)
 
-	cleanup, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
+	cleanup, err := PopulateAgentBinary(c.Context(), dir, s.storage, s.agentBinaryStore, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 	cleanup()
 
@@ -100,7 +99,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *tc.C) {
 		SHA256:  "sha256",
 	}).Return(errors.New("boom"))
 
-	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
+	_, err := PopulateAgentBinary(c.Context(), dir, s.storage, s.agentBinaryStore, s.logger)
 	c.Assert(err, tc.ErrorMatches, "boom")
 
 	s.expectTools(c, toolsPath)
@@ -117,7 +116,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *tc.C)
 
 	dir, _ := s.ensureDirs(c, current)
 
-	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
+	_, err := PopulateAgentBinary(c.Context(), dir, s.storage, s.agentBinaryStore, s.logger)
 	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
 }
 
@@ -140,7 +139,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *tc.C) {
 		Size:    size,
 	})
 
-	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
+	_, err := PopulateAgentBinary(c.Context(), dir, s.storage, s.agentBinaryStore, s.logger)
 	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
 }
 

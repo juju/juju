@@ -4,8 +4,6 @@
 package resources_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -40,7 +38,7 @@ func (s *ListResourcesSuite) TestListResources(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
-	res, err := client.ListResources(context.Background(), []string{"a-application", "other-application"})
+	res, err := client.ListResources(c.Context(), []string{"a-application", "other-application"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []coreresource.ApplicationResources{
 		{Resources: expected1},
@@ -54,7 +52,7 @@ func (s *ListResourcesSuite) TestBadApplication(c *tc.C) {
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	client := resources.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.ListResources(context.Background(), []string{"???"})
+	_, err := client.ListResources(c.Context(), []string{"???"})
 	c.Check(err, tc.ErrorMatches, `.*invalid application.*`)
 }
 
@@ -75,7 +73,7 @@ func (s *ListResourcesSuite) TestEmptyResources(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
-	res, err := client.ListResources(context.Background(), []string{"a-application", "other-application"})
+	res, err := client.ListResources(c.Context(), []string{"a-application", "other-application"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []coreresource.ApplicationResources{{}, {}})
 }
@@ -95,7 +93,7 @@ func (s *ListResourcesSuite) TestServerError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(errors.New("boom"))
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
-	_, err := client.ListResources(context.Background(), []string{"a-application"})
+	_, err := client.ListResources(c.Context(), []string{"a-application"})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -116,7 +114,7 @@ func (s *ListResourcesSuite) TestArity(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
-	_, err := client.ListResources(context.Background(), []string{"a-application", "other-application"})
+	_, err := client.ListResources(c.Context(), []string{"a-application", "other-application"})
 	c.Assert(err, tc.ErrorMatches, "expected 2 results, got 1")
 }
 
@@ -137,6 +135,6 @@ func (s *ListResourcesSuite) TestConversionFailed(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
-	_, err := client.ListResources(context.Background(), []string{"a-application"})
+	_, err := client.ListResources(c.Context(), []string{"a-application"})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }

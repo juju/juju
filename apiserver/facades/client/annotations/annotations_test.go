@@ -4,7 +4,6 @@
 package annotations
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -42,7 +41,7 @@ func (s *annotationSuite) TestGetAnnotations(c *tc.C) {
 		Name: s.uuid,
 	}).Return(map[string]string{"foo": "bar"}, nil)
 
-	results := s.annotationsAPI.Get(context.Background(), params.Entities{
+	results := s.annotationsAPI.Get(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(s.uuid).String()}},
 	})
 	c.Assert(results.Results, tc.DeepEquals, []params.AnnotationsGetResult{
@@ -68,7 +67,7 @@ func (s *annotationSuite) TestGetAnnotationsBulk(c *tc.C) {
 		Revision: 1,
 	}).Return(map[string]string{"other": "one"}, nil)
 
-	results := s.annotationsAPI.Get(context.Background(), params.Entities{
+	results := s.annotationsAPI.Get(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: names.NewModelTag(s.uuid).String()},
 			{Tag: names.NewApplicationTag("mysql").String()},
@@ -91,7 +90,7 @@ func (s *annotationSuite) TestGetAnnotationsNoPermission(c *tc.C) {
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(errors.New("boom"))
 
-	results := s.annotationsAPI.Get(context.Background(), params.Entities{
+	results := s.annotationsAPI.Get(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(s.uuid).String()}},
 	})
 	c.Assert(results.Results, tc.DeepEquals, []params.AnnotationsGetResult{
@@ -105,12 +104,12 @@ func (s *annotationSuite) TestGetAnnotationsNoError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
-	s.annotationService.EXPECT().GetAnnotations(context.Background(), annotations.ID{
+	s.annotationService.EXPECT().GetAnnotations(c.Context(), annotations.ID{
 		Kind: annotations.KindModel,
 		Name: s.uuid,
 	}).Return(map[string]string{"foo": "bar"}, errors.New("boom"))
 
-	results := s.annotationsAPI.Get(context.Background(), params.Entities{
+	results := s.annotationsAPI.Get(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(s.uuid).String()}},
 	})
 	c.Assert(results.Results, tc.DeepEquals, []params.AnnotationsGetResult{
@@ -132,7 +131,7 @@ func (s *annotationSuite) TestSetAnnotations(c *tc.C) {
 		Name: s.uuid,
 	}, map[string]string{"foo": "bar"}).Return(nil)
 
-	results := s.annotationsAPI.Set(context.Background(), params.AnnotationsSet{
+	results := s.annotationsAPI.Set(c.Context(), params.AnnotationsSet{
 		Annotations: []params.EntityAnnotations{{
 			EntityTag:   names.NewModelTag(s.uuid).String(),
 			Annotations: map[string]string{"foo": "bar"},
@@ -146,7 +145,7 @@ func (s *annotationSuite) TestSetAnnotationsNoPermission(c *tc.C) {
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.uuid)).Return(errors.New("boom"))
 
-	results := s.annotationsAPI.Set(context.Background(), params.AnnotationsSet{
+	results := s.annotationsAPI.Set(c.Context(), params.AnnotationsSet{
 		Annotations: []params.EntityAnnotations{{
 			EntityTag:   names.NewModelTag(s.uuid).String(),
 			Annotations: map[string]string{"foo": "bar"},
@@ -166,7 +165,7 @@ func (s *annotationSuite) TestSetAnnotationsError(c *tc.C) {
 		Name: s.uuid,
 	}, map[string]string{"foo": "bar"}).Return(errors.New("boom"))
 
-	results := s.annotationsAPI.Set(context.Background(), params.AnnotationsSet{
+	results := s.annotationsAPI.Set(c.Context(), params.AnnotationsSet{
 		Annotations: []params.EntityAnnotations{{
 			EntityTag:   names.NewModelTag(s.uuid).String(),
 			Annotations: map[string]string{"foo": "bar"},
@@ -197,7 +196,7 @@ func (s *annotationSuite) TestSetAnnotationsBrokenBehaviour(c *tc.C) {
 		Name: "mysql",
 	}, map[string]string{"foo": "bar"}).Return(errors.New("boom"))
 
-	results := s.annotationsAPI.Set(context.Background(), params.AnnotationsSet{
+	results := s.annotationsAPI.Set(c.Context(), params.AnnotationsSet{
 		Annotations: []params.EntityAnnotations{
 			{
 				EntityTag:   names.NewModelTag(s.uuid).String(),

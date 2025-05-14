@@ -458,7 +458,7 @@ SELECT charm_run_as_kind.* AS &charmRunAs.* FROM charm_run_as_kind ORDER BY id;
 `, charmRunAs{})
 
 	var results []charmRunAs
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -495,7 +495,7 @@ SELECT charm_relation_role.* AS &charmRelationRole.* FROM charm_relation_role OR
 `, charmRelationRole{})
 
 	var results []charmRelationRole
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -531,7 +531,7 @@ SELECT charm_relation_scope.* AS &charmRelationScope.* FROM charm_relation_scope
 `, charmRelationScope{})
 
 	var results []charmRelationScope
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -566,7 +566,7 @@ SELECT charm_storage_kind.* AS &storageKind.* FROM charm_storage_kind ORDER BY i
 `, storageKind{})
 
 	var results []storageKind
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -601,7 +601,7 @@ SELECT charm_resource_kind.* AS &charmResourceKind.* FROM charm_resource_kind OR
 `, charmResourceKind{})
 
 	var results []charmResourceKind
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})
 	c.Assert(err, tc.ErrorIsNil)

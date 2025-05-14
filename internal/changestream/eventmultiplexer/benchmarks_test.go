@@ -4,7 +4,6 @@
 package eventmultiplexer
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -31,7 +30,7 @@ func benchmarkSignal(b *testing.B, changes ChangeSet) {
 	sub := newSubscription(0, func() {})
 	defer workertest.CleanKill(c, sub)
 
-	ctx := context.Background()
+	ctx := c.Context()
 
 	done := consume(b, sub)
 	defer close(done)

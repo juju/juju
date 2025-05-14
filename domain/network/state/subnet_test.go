@@ -4,7 +4,6 @@
 package state
 
 import (
-	ctx "context"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -20,7 +19,7 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 
 	spUUID, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "provider-space-id-1", []string{})
+	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "provider-space-id-1", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	subnetUUID0, err := uuid.NewV7()
@@ -44,10 +43,10 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 			SpaceID:           spUUID.String(),
 		},
 	}
-	err = st.UpsertSubnets(ctx.Background(), subnetsToUpsert)
+	err = st.UpsertSubnets(c.Context(), subnetsToUpsert)
 	c.Assert(err, tc.ErrorIsNil)
 
-	sn1, err := st.GetSubnet(ctx.Background(), subnetUUID1.String())
+	sn1, err := st.GetSubnet(c.Context(), subnetUUID1.String())
 	c.Assert(err, tc.ErrorIsNil)
 	expected := &network.SubnetInfo{
 		ID:                network.Id(subnetUUID1.String()),
@@ -71,7 +70,7 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 		SpaceID:           network.AlphaSpaceId, // alpha space by default.
 		SpaceName:         network.AlphaSpaceName,
 	}
-	sn0, err := st.GetSubnet(ctx.Background(), subnetUUID0.String())
+	sn0, err := st.GetSubnet(c.Context(), subnetUUID0.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sn0, tc.DeepEquals, expected)
 
@@ -82,7 +81,7 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 			SpaceID: spUUID.String(),
 		},
 	}
-	err = st.UpsertSubnets(ctx.Background(), subnetsToUpsert)
+	err = st.UpsertSubnets(c.Context(), subnetsToUpsert)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected = &network.SubnetInfo{
@@ -96,7 +95,7 @@ func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 		SpaceID:           spUUID.String(),
 		SpaceName:         "space0",
 	}
-	sn0, err = st.GetSubnet(ctx.Background(), subnetUUID0.String())
+	sn0, err = st.GetSubnet(c.Context(), subnetUUID0.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sn0, tc.DeepEquals, expected)
 }
@@ -107,13 +106,13 @@ func (s *stateSuite) TestAddSubnet(c *tc.C) {
 
 	spUUID, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{})
+	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(uuid.String()),
 			CIDR:              "10.0.0.0/24",
@@ -186,13 +185,13 @@ func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *tc.C) {
 
 	spUUID, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{})
+	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	subnetUUID0, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "10.0.0.0/24",
@@ -207,7 +206,7 @@ func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *tc.C) {
 	subnetUUID1, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "10.0.1.0/24",
@@ -226,13 +225,13 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *tc.C) {
 
 	spUUID, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{})
+	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	subnetUUID0, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "10.0.0.0/24",
@@ -247,7 +246,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *tc.C) {
 	subnetUUID1, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "10.0.1.0/24",
@@ -268,7 +267,7 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *tc.C) {
 	subnetUUID0, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/20",
@@ -284,7 +283,7 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *tc.C) {
 	subnetUUID1, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "10.0.0.0/12",
@@ -309,11 +308,11 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *tc.C) {
 	}
 
 	// Get the fan subnet by uuid.
-	sn1, err := st.GetSubnet(ctx.Background(), subnetUUID1.String())
+	sn1, err := st.GetSubnet(c.Context(), subnetUUID1.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sn1, tc.DeepEquals, &expected)
 	// Get the fan subnet by cidr.
-	subnetsByCIDR, err := st.GetSubnetsByCIDR(ctx.Background(), "10.0.0.0/12")
+	subnetsByCIDR, err := st.GetSubnetsByCIDR(c.Context(), "10.0.0.0/12")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnetsByCIDR, tc.HasLen, 1)
 	c.Check(subnetsByCIDR[0], tc.DeepEquals, expected)
@@ -331,7 +330,7 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *tc.C) {
 			SpaceName:         network.AlphaSpaceName,
 		},
 	}
-	allSubnets, err := st.GetAllSubnets(ctx.Background())
+	allSubnets, err := st.GetAllSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(allSubnets, tc.HasLen, 2)
 	c.Check(allSubnets, tc.SameContents, allExpected)
@@ -344,7 +343,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *tc.C) {
 	subnetUUID0, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/20",
@@ -359,7 +358,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *tc.C) {
 	// Add a space with subnet base.
 	spUUID, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "provider-space-id", []string{subnetUUID0.String()})
+	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "provider-space-id", []string{subnetUUID0.String()})
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected := &network.SubnetInfo{
@@ -373,7 +372,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *tc.C) {
 		SpaceID:           spUUID.String(),
 		SpaceName:         "space0",
 	}
-	sn0, err := st.GetSubnet(ctx.Background(), subnetUUID0.String())
+	sn0, err := st.GetSubnet(c.Context(), subnetUUID0.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sn0, tc.DeepEquals, expected)
 }
@@ -385,7 +384,7 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *tc.C) {
 	subnetUUID0, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/20",
@@ -400,7 +399,7 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *tc.C) {
 	subnetUUID1, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "192.168.1.0/20",
@@ -415,7 +414,7 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *tc.C) {
 	subnetUUID2, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID2.String()),
 			CIDR:              "192.168.2.0/20",
@@ -428,7 +427,7 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	sns, err := st.GetAllSubnets(ctx.Background())
+	sns, err := st.GetAllSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sns, tc.HasLen, 3)
 }
@@ -440,7 +439,7 @@ func (s *stateSuite) TestRetrieveAllSubnet(c *tc.C) {
 	subnetUUID0, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/20",
@@ -455,7 +454,7 @@ func (s *stateSuite) TestRetrieveAllSubnet(c *tc.C) {
 	subnetUUID1, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "192.168.1.0/20",
@@ -470,7 +469,7 @@ func (s *stateSuite) TestRetrieveAllSubnet(c *tc.C) {
 	subnetUUID2, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID2.String()),
 			CIDR:              "192.168.2.0/20",
@@ -483,7 +482,7 @@ func (s *stateSuite) TestRetrieveAllSubnet(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	sns, err := st.GetAllSubnets(ctx.Background())
+	sns, err := st.GetAllSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sns, tc.HasLen, 3)
 }
@@ -494,13 +493,13 @@ func (s *stateSuite) TestUpdateSubnet(c *tc.C) {
 
 	spUUID, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{})
+	err = st.AddSpace(c.Context(), spUUID.String(), "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	subnetUUID, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID.String()),
 			CIDR:              "10.0.0.0/24",
@@ -515,10 +514,10 @@ func (s *stateSuite) TestUpdateSubnet(c *tc.C) {
 
 	newSpIUUID, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), newSpIUUID.String(), "space1", "bar", []string{})
+	err = st.AddSpace(c.Context(), newSpIUUID.String(), "space1", "bar", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.UpdateSubnet(ctx.Background(), subnetUUID.String(), newSpIUUID.String())
+	err = st.UpdateSubnet(c.Context(), subnetUUID.String(), newSpIUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	row := db.QueryRow("SELECT space_uuid FROM subnet WHERE subnet.uuid = ?", subnetUUID.String())
@@ -538,7 +537,7 @@ func (s *stateSuite) TestDeleteSubnet(c *tc.C) {
 	subnetUUID0, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/20",
@@ -554,7 +553,7 @@ func (s *stateSuite) TestDeleteSubnet(c *tc.C) {
 	subnetUUID1, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "10.0.0.0/12",
@@ -570,7 +569,7 @@ func (s *stateSuite) TestDeleteSubnet(c *tc.C) {
 	subnetUUID2, err := uuid.NewV7()
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.AddSubnet(
-		ctx.Background(),
+		c.Context(),
 		network.SubnetInfo{
 			ID:                network.Id(subnetUUID2.String()),
 			CIDR:              "10.8.0.0/12",
@@ -583,27 +582,27 @@ func (s *stateSuite) TestDeleteSubnet(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.DeleteSubnet(ctx.Background(), subnetUUID0.String())
+	err = st.DeleteSubnet(c.Context(), subnetUUID0.String())
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = st.GetSubnet(ctx.Background(), subnetUUID0.String())
+	_, err = st.GetSubnet(c.Context(), subnetUUID0.String())
 	c.Assert(err, tc.ErrorIs, networkerrors.SubnetNotFound)
-	subnets, err := st.GetAllSubnets(ctx.Background())
+	subnets, err := st.GetAllSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnets, tc.HasLen, 2)
 
-	err = st.DeleteSubnet(ctx.Background(), subnetUUID1.String())
+	err = st.DeleteSubnet(c.Context(), subnetUUID1.String())
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = st.GetSubnet(ctx.Background(), subnetUUID1.String())
+	_, err = st.GetSubnet(c.Context(), subnetUUID1.String())
 	c.Assert(err, tc.ErrorIs, networkerrors.SubnetNotFound)
-	subnets, err = st.GetAllSubnets(ctx.Background())
+	subnets, err = st.GetAllSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnets, tc.HasLen, 1)
 
-	err = st.DeleteSubnet(ctx.Background(), subnetUUID2.String())
+	err = st.DeleteSubnet(c.Context(), subnetUUID2.String())
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = st.GetSubnet(ctx.Background(), subnetUUID2.String())
+	_, err = st.GetSubnet(c.Context(), subnetUUID2.String())
 	c.Assert(err, tc.ErrorIs, networkerrors.SubnetNotFound)
-	subnets, err = st.GetAllSubnets(ctx.Background())
+	subnets, err = st.GetAllSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnets, tc.HasLen, 0)
 }

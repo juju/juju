@@ -45,7 +45,7 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 
 	// Insert 2 new jobs and check that the watcher emits their UUIDs.
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			q := `INSERT INTO removal (uuid, removal_type_id, entity_uuid) VALUES (?, ?, ?)`
 
 			if _, err := tx.ExecContext(ctx, q, "job-uuid-1", 1, "rel-uuid-1"); err != nil {

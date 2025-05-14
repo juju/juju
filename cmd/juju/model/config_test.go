@@ -4,7 +4,6 @@
 package model_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -320,10 +319,10 @@ func (s *ConfigCommandSuite) TestPassesValues(c *tc.C) {
 }
 
 func (s *ConfigCommandSuite) TestPassesCloudInitUserDataLong(c *tc.C) {
-	modelCfg, err := s.fake.ModelGet(context.Background())
+	modelCfg, err := s.fake.ModelGet(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	modelCfg["cloudinit-userdata"] = "test data"
-	err = s.fake.ModelSet(context.Background(), modelCfg)
+	err = s.fake.ModelSet(c.Context(), modelCfg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	context, err := s.run(c, "cloudinit-userdata")
@@ -343,10 +342,10 @@ func (s *ConfigCommandSuite) TestPassesCloudInitUserDataLong(c *tc.C) {
 }
 
 func (s *ConfigCommandSuite) TestPassesCloudInitUserDataShort(c *tc.C) {
-	modelCfg, err := s.fake.ModelGet(context.Background())
+	modelCfg, err := s.fake.ModelGet(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	modelCfg["cloudinit-userdata"] = ""
-	err = s.fake.ModelSet(context.Background(), modelCfg)
+	err = s.fake.ModelSet(c.Context(), modelCfg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	context, err := s.run(c)

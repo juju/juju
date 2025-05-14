@@ -4,7 +4,6 @@
 package exec_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -53,7 +52,7 @@ func (s *statusSuite) TestStatus(c *tc.C) {
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 
-	status, err := s.execClient.Status(context.Background(), params)
+	status, err := s.execClient.Status(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status, tc.DeepEquals, &exec.Status{
 		PodName: "gitlab-k8s-0",
@@ -100,7 +99,7 @@ func (s *statusSuite) TestStatusInit(c *tc.C) {
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 
-	status, err := s.execClient.Status(context.Background(), params)
+	status, err := s.execClient.Status(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status, tc.DeepEquals, &exec.Status{
 		PodName: "gitlab-k8s-0",
@@ -147,7 +146,7 @@ func (s *statusSuite) TestStatusEphemeral(c *tc.C) {
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 
-	status, err := s.execClient.Status(context.Background(), params)
+	status, err := s.execClient.Status(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status, tc.DeepEquals, &exec.Status{
 		PodName: "gitlab-k8s-0",
@@ -178,7 +177,7 @@ func (s *statusSuite) TestStatusPodNotFound(c *tc.C) {
 			Return(&core.PodList{}, nil),
 	)
 
-	status, err := s.execClient.Status(context.Background(), params)
+	status, err := s.execClient.Status(c.Context(), params)
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(status, tc.IsNil)
 }

@@ -61,7 +61,7 @@ func (s *zonesSuite) TestGetProviderAvailabilityZones(c *tc.C) {
 
 	providerService := NewProviderService(s.st, s.notSupportedNetworkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 
-	got, err := providerService.GetProviderAvailabilityZones(context.Background())
+	got, err := providerService.GetProviderAvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, zones)
 }
@@ -71,7 +71,7 @@ func (s *zonesSuite) TestGetProviderAvailabilityZonesNotSupported(c *tc.C) {
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.notSupportedZoneProviderGetter, loggertesting.WrapCheckLog(c))
 
-	zones, err := providerService.GetProviderAvailabilityZones(context.Background())
+	zones, err := providerService.GetProviderAvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(zones, tc.HasLen, 0)
 }

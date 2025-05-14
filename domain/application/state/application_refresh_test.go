@@ -53,7 +53,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmNoRelation(c *tc.C) {
 	defer finish()
 
 	// Act
-	err := s.state.SetApplicationCharm(context.Background(), appID, application.UpdateCharmParams{
+	err := s.state.SetApplicationCharm(c.Context(), appID, application.UpdateCharmParams{
 		Charm: newCharm,
 	})
 
@@ -93,7 +93,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEsta
 	defer finish()
 
 	// Act
-	err := s.state.SetApplicationCharm(context.Background(), appID, application.UpdateCharmParams{
+	err := s.state.SetApplicationCharm(c.Context(), appID, application.UpdateCharmParams{
 		Charm: newCharm,
 	})
 
@@ -124,7 +124,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	defer finish()
 
 	// Act
-	err := s.state.SetApplicationCharm(context.Background(), appID, application.UpdateCharmParams{
+	err := s.state.SetApplicationCharm(c.Context(), appID, application.UpdateCharmParams{
 		Charm: newCharm,
 	})
 
@@ -164,7 +164,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	defer finish()
 
 	// Act
-	err := s.state.SetApplicationCharm(context.Background(), appID, application.UpdateCharmParams{
+	err := s.state.SetApplicationCharm(c.Context(), appID, application.UpdateCharmParams{
 		Charm: newCharm,
 	})
 
@@ -205,7 +205,7 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 		Revision:      42,
 	}
 
-	appID, err := s.state.CreateApplication(context.Background(), appName, application.AddApplicationArg{
+	appID, err := s.state.CreateApplication(c.Context(), appName, application.AddApplicationArg{
 		Platform:          platform,
 		Charm:             originalCharm,
 		CharmDownloadInfo: nil,
@@ -255,7 +255,7 @@ func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID co
 	newAppID := s.createApplication(c, args)
 
 	// Create a new relation with a generated UUID and link both applications.
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Get the application endpoints for both applications
 		var origEndpointUUID, newEndpointUUID string
 

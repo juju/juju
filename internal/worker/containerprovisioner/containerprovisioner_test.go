@@ -148,7 +148,7 @@ func (s *lxdProvisionerSuite) waitForProvisioner(c *tc.C) {
 
 func (s *lxdProvisionerSuite) checkStartInstance(c *tc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		_, err := m.InstanceId(context.Background())
+		_, err := m.InstanceId(c.Context())
 		if err == nil {
 			return
 		}
@@ -510,7 +510,7 @@ func (m *testMachine) InstanceId(context.Context) (instance.Id, error) {
 }
 
 func (m *testMachine) InstanceNames() (instance.Id, string, error) {
-	instId, err := m.InstanceId(context.Background())
+	instId, err := m.InstanceId(c.Context())
 	return instId, "", err
 }
 

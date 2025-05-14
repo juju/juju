@@ -4,8 +4,6 @@
 package container_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -78,7 +76,7 @@ func (s *workloadSuite) TestWorkloadReadyHook(c *tc.C) {
 		},
 	}
 	opFactory := &mockOperations{}
-	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
+	op, err := containerResolver.NextOp(c.Context(), localState, remoteState, opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
@@ -118,7 +116,7 @@ func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *tc.C) {
 		},
 	}
 	opFactory := &mockOperations{}
-	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
+	op, err := containerResolver.NextOp(c.Context(), localState, remoteState, opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
@@ -161,7 +159,7 @@ func (s *workloadSuite) TestWorkloadCheckFailedHook(c *tc.C) {
 		},
 	}
 	opFactory := &mockOperations{}
-	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
+	op, err := containerResolver.NextOp(c.Context(), localState, remoteState, opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
@@ -202,7 +200,7 @@ func (s *workloadSuite) TestWorkloadCheckRecoveredHook(c *tc.C) {
 		},
 	}
 	opFactory := &mockOperations{}
-	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
+	op, err := containerResolver.NextOp(c.Context(), localState, remoteState, opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)

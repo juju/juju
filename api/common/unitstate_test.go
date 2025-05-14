@@ -4,8 +4,6 @@
 package common_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -43,7 +41,7 @@ func (s *unitStateSuite) TestSetStateSingleResult(c *tc.C) {
 		return nil
 	}
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
-	err := api.SetState(context.Background(), params.SetUnitStateArg{
+	err := api.SetState(c.Context(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -61,7 +59,7 @@ func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *tc.C) {
 
 	// The client should reconstruct the quota error from the server response
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
-	err := api.SetState(context.Background(), params.SetUnitStateArg{
+	err := api.SetState(c.Context(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, tc.ErrorIs, errors.QuotaLimitExceeded, tc.Commentf("expected the client to reconstruct QuotaLimitExceeded error from server response"))
@@ -84,7 +82,7 @@ func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *tc.C) {
 	}
 
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
-	err := api.SetState(context.Background(), params.SetUnitStateArg{
+	err := api.SetState(c.Context(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
@@ -109,7 +107,7 @@ func (s *unitStateSuite) TestStateSingleResult(c *tc.C) {
 	}
 
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
-	obtainedUnitState, err := api.State(context.Background())
+	obtainedUnitState, err := api.State(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(expectedCharmState, tc.DeepEquals, obtainedUnitState.CharmState)
 	c.Assert(expectedUniterState, tc.DeepEquals, obtainedUnitState.UniterState)
@@ -128,6 +126,6 @@ func (s *unitStateSuite) TestStateMultipleReturnsError(c *tc.C) {
 	}
 
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
-	_, err := api.State(context.Background())
+	_, err := api.State(c.Context())
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }

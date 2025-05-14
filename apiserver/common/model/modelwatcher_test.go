@@ -4,7 +4,6 @@
 package model_test
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -67,7 +66,7 @@ func (s *modelWatcherSuite) TestWatchSuccess(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
-	result, err := facade.WatchForModelConfigChanges(context.Background())
+	result, err := facade.WatchForModelConfigChanges(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
 }
@@ -92,7 +91,7 @@ func (s *modelWatcherSuite) TestWatchFailure(c *tc.C) {
 	})
 
 	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
-	result, err := facade.WatchForModelConfigChanges(context.Background())
+	result, err := facade.WatchForModelConfigChanges(c.Context())
 	c.Assert(err, tc.ErrorMatches, "bad watcher")
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{})
 }
@@ -105,7 +104,7 @@ func (s *modelWatcherSuite) TestModelConfigSuccess(c *tc.C) {
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(testingModelConfig, nil)
 
 	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
-	result, err := facade.ModelConfig(context.Background())
+	result, err := facade.ModelConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
 	c.Check(result.Config["secret"], tc.Equals, "pork")
@@ -119,7 +118,7 @@ func (s *modelWatcherSuite) TestModelConfigFetchError(c *tc.C) {
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, fmt.Errorf("nope"))
 
 	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
-	result, err := facade.ModelConfig(context.Background())
+	result, err := facade.ModelConfig(c.Context())
 	c.Assert(err, tc.ErrorMatches, "nope")
 	c.Check(result.Config, tc.IsNil)
 }
@@ -127,7 +126,7 @@ func (s *modelWatcherSuite) TestModelConfigFetchError(c *tc.C) {
 func testingEnvConfig(c *tc.C) *config.Config {
 	env, err := bootstrap.PrepareController(
 		false,
-		cmd.BootstrapContext(context.Background(), cmdtesting.Context(c)),
+		cmd.BootstrapContext(c.Context(), cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),

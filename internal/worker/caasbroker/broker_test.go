@@ -67,7 +67,7 @@ func (s *TrackerSuite) testValidate(c *tc.C, config caasbroker.Config, check fun
 	err := config.Validate()
 	check(err)
 
-	tracker, err := caasbroker.NewTracker(context.Background(), config)
+	tracker, err := caasbroker.NewTracker(c.Context(), config)
 	c.Check(tracker, tc.IsNil)
 	check(err)
 }
@@ -79,7 +79,7 @@ func (s *TrackerSuite) TestCloudSpecFails(c *tc.C) {
 		},
 	}
 	fix.Run(c, func(runCtx *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI:              runCtx,
 			NewContainerBrokerFunc: newMockBroker,
 			Logger:                 loggertesting.WrapCheckLog(c),
@@ -105,7 +105,7 @@ func (s *TrackerSuite) validFixture() *fixture {
 func (s *TrackerSuite) TestSuccess(c *tc.C) {
 	fix := s.validFixture()
 	fix.Run(c, func(runCtx *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI:              runCtx,
 			NewContainerBrokerFunc: newMockBroker,
 			Logger:                 loggertesting.WrapCheckLog(c),
@@ -121,7 +121,7 @@ func (s *TrackerSuite) TestSuccess(c *tc.C) {
 func (s *TrackerSuite) TestInitialise(c *tc.C) {
 	fix := s.validFixture()
 	fix.Run(c, func(runContext *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI: runContext,
 			NewContainerBrokerFunc: func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
 				c.Assert(args.Cloud, tc.DeepEquals, fix.initialSpec)
@@ -144,7 +144,7 @@ func (s *TrackerSuite) TestModelConfigFails(c *tc.C) {
 		},
 	}
 	fix.Run(c, func(runCtx *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI:              runCtx,
 			NewContainerBrokerFunc: newMockBroker,
 			Logger:                 loggertesting.WrapCheckLog(c),
@@ -158,7 +158,7 @@ func (s *TrackerSuite) TestModelConfigFails(c *tc.C) {
 func (s *TrackerSuite) TestModelConfigInvalid(c *tc.C) {
 	fix := &fixture{}
 	fix.Run(c, func(runContext *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI: runContext,
 			NewContainerBrokerFunc: func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 				return nil, errors.NotValidf("config")
@@ -178,7 +178,7 @@ func (s *TrackerSuite) TestModelConfigValid(c *tc.C) {
 		},
 	}
 	fix.Run(c, func(runCtx *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI:              runCtx,
 			NewContainerBrokerFunc: newMockBroker,
 			Logger:                 loggertesting.WrapCheckLog(c),
@@ -200,7 +200,7 @@ func (s *TrackerSuite) TestCloudSpecInvalid(c *tc.C) {
 	}
 	fix := &fixture{initialSpec: cloudSpec}
 	fix.Run(c, func(runContext *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI: runContext,
 			NewContainerBrokerFunc: func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
 				c.Assert(args.Cloud, tc.DeepEquals, cloudSpec)
@@ -221,7 +221,7 @@ func (s *TrackerSuite) TestWatchFails(c *tc.C) {
 		},
 	}
 	fix.Run(c, func(runCtx *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI:              runCtx,
 			NewContainerBrokerFunc: newMockBroker,
 			Logger:                 loggertesting.WrapCheckLog(c),
@@ -238,7 +238,7 @@ func (s *TrackerSuite) TestWatchFails(c *tc.C) {
 func (s *TrackerSuite) TestModelConfigWatchCloses(c *tc.C) {
 	fix := &fixture{}
 	fix.Run(c, func(runCtx *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI:              runCtx,
 			NewContainerBrokerFunc: newMockBroker,
 			Logger:                 loggertesting.WrapCheckLog(c),
@@ -256,7 +256,7 @@ func (s *TrackerSuite) TestModelConfigWatchCloses(c *tc.C) {
 func (s *TrackerSuite) TestCloudSpecWatchCloses(c *tc.C) {
 	fix := &fixture{}
 	fix.Run(c, func(runCtx *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI:              runCtx,
 			NewContainerBrokerFunc: newMockBroker,
 			Logger:                 loggertesting.WrapCheckLog(c),
@@ -278,7 +278,7 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *tc.C) {
 		},
 	}
 	fix.Run(c, func(runCtx *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI:              runCtx,
 			NewContainerBrokerFunc: newMockBroker,
 			Logger:                 loggertesting.WrapCheckLog(c),
@@ -296,7 +296,7 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *tc.C) {
 func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *tc.C) {
 	fix := &fixture{}
 	fix.Run(c, func(runContext *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI: runContext,
 			NewContainerBrokerFunc: func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 				broker := &mockBroker{}
@@ -322,7 +322,7 @@ func (s *TrackerSuite) TestWatchedModelConfigUpdates(c *tc.C) {
 		},
 	}
 	fix.Run(c, func(runCtx *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI:              runCtx,
 			NewContainerBrokerFunc: newMockBroker,
 			Logger:                 loggertesting.WrapCheckLog(c),
@@ -361,7 +361,7 @@ func (s *TrackerSuite) TestWatchedCloudSpecUpdates(c *tc.C) {
 		initialSpec: environscloudspec.CloudSpec{Name: "cloud", Type: "lxd"},
 	}
 	fix.Run(c, func(runCtx *runContext) {
-		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
+		tracker, err := caasbroker.NewTracker(c.Context(), caasbroker.Config{
 			ConfigAPI:              runCtx,
 			NewContainerBrokerFunc: newMockBroker,
 			Logger:                 loggertesting.WrapCheckLog(c),

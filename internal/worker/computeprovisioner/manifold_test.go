@@ -4,8 +4,6 @@
 package computeprovisioner_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
@@ -65,7 +63,7 @@ func (s *ManifoldSuite) TestManifold(c *tc.C) {
 
 func (s *ManifoldSuite) TestMissingAgent(c *tc.C) {
 	manifold := s.makeManifold(c)
-	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
 		"agent":      dependency.ErrMissing,
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    struct{ environs.Environ }{},
@@ -76,7 +74,7 @@ func (s *ManifoldSuite) TestMissingAgent(c *tc.C) {
 
 func (s *ManifoldSuite) TestMissingAPICaller(c *tc.C) {
 	manifold := s.makeManifold(c)
-	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
 		"agent":      struct{ agent.Agent }{},
 		"api-caller": dependency.ErrMissing,
 		"environ":    struct{ environs.Environ }{},
@@ -87,7 +85,7 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *tc.C) {
 
 func (s *ManifoldSuite) TestMissingEnviron(c *tc.C) {
 	manifold := s.makeManifold(c)
-	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
 		"agent":      struct{ agent.Agent }{},
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    dependency.ErrMissing,
@@ -98,7 +96,7 @@ func (s *ManifoldSuite) TestMissingEnviron(c *tc.C) {
 
 func (s *ManifoldSuite) TestStarts(c *tc.C) {
 	manifold := s.makeManifold(c)
-	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
 		"agent":      new(fakeAgent),
 		"api-caller": apitesting.APICallerFunc(nil),
 		"environ":    struct{ environs.Environ }{},

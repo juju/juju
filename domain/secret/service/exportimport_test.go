@@ -4,7 +4,6 @@
 package service
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -81,7 +80,7 @@ func (s *serviceSuite) TestGetSecretsForExport(c *tc.C) {
 		[]domainsecret.RemoteSecretInfo{}, nil,
 	)
 
-	got, err := s.service.GetSecretsForExport(context.Background())
+	got, err := s.service.GetSecretsForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, &SecretExport{
 		Secrets: secrets,
@@ -332,6 +331,6 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 			},
 		}},
 	}
-	err = s.service.ImportSecrets(context.Background(), toImport)
+	err = s.service.ImportSecrets(c.Context(), toImport)
 	c.Assert(err, tc.ErrorIsNil)
 }

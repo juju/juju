@@ -4,8 +4,6 @@
 package provider_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,14 +44,14 @@ func (s *secretsSuite) TestGetSecretToken(c *tc.C) {
 			core.ServiceAccountTokenKey: []byte("token"),
 		},
 	}
-	_, err := s.mockSecrets.Create(context.Background(), secret, v1.CreateOptions{})
+	_, err := s.mockSecrets.Create(c.Context(), secret, v1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	out, err := s.broker.GetSecretToken(context.Background(), "secret-1")
+	out, err := s.broker.GetSecretToken(c.Context(), "secret-1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.Equals, "token")
 
-	result, err := s.mockSecrets.List(context.Background(), v1.ListOptions{})
+	result, err := s.mockSecrets.List(c.Context(), v1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Items, tc.HasLen, 1)
 	c.Assert(result.Items[0].Name, tc.Equals, "secret-1")

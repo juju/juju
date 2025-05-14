@@ -4,8 +4,6 @@
 package stateconverter_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -29,7 +27,7 @@ func (s *converterSuite) TestSetUp(c *tc.C) {
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil)
 
 	conv := s.newConverter(c)
-	_, err := conv.SetUp(context.Background())
+	_, err := conv.SetUp(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -39,7 +37,7 @@ func (s *converterSuite) TestSetupMachinerErr(c *tc.C) {
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(nil, expectedError)
 
 	conv := s.newConverter(c)
-	w, err := conv.SetUp(context.Background())
+	w, err := conv.SetUp(c.Context())
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(w, tc.IsNil)
 }
@@ -51,7 +49,7 @@ func (s *converterSuite) TestSetupWatchErr(c *tc.C) {
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, expectedError)
 
 	conv := s.newConverter(c)
-	w, err := conv.SetUp(context.Background())
+	w, err := conv.SetUp(c.Context())
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(w, tc.IsNil)
 }
@@ -63,9 +61,9 @@ func (s *converterSuite) TestHandle(c *tc.C) {
 	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(true, nil)
 
 	conv := s.newConverter(c)
-	_, err := conv.SetUp(context.Background())
+	_, err := conv.SetUp(c.Context())
 	c.Assert(err, tc.IsNil)
-	err = conv.Handle(context.Background())
+	err = conv.Handle(c.Context())
 	// Since machine has model.JobManageModel, we expect an error
 	// which will get machineTag to restart.
 	c.Assert(err.Error(), tc.Equals, "bounce agent to pick up new jobs")
@@ -78,9 +76,9 @@ func (s *converterSuite) TestHandleNotController(c *tc.C) {
 	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(false, nil)
 
 	conv := s.newConverter(c)
-	_, err := conv.SetUp(context.Background())
+	_, err := conv.SetUp(c.Context())
 	c.Assert(err, tc.IsNil)
-	err = conv.Handle(context.Background())
+	err = conv.Handle(c.Context())
 	c.Assert(err, tc.IsNil)
 }
 
@@ -93,15 +91,15 @@ func (s *converterSuite) TestHandleJobsError(c *tc.C) {
 	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(false, expectedError)
 
 	conv := s.newConverter(c)
-	_, err := conv.SetUp(context.Background())
+	_, err := conv.SetUp(c.Context())
 	c.Assert(err, tc.IsNil)
-	err = conv.Handle(context.Background())
+	err = conv.Handle(c.Context())
 	// Since machine has model.JobManageModel, we expect an error
 	// which will get machineTag to restart.
 	c.Assert(err.Error(), tc.Equals, "bounce agent to pick up new jobs")
-	_, err = conv.SetUp(context.Background())
+	_, err = conv.SetUp(c.Context())
 	c.Assert(err, tc.IsNil)
-	err = conv.Handle(context.Background())
+	err = conv.Handle(c.Context())
 	c.Assert(errors.Cause(err), tc.Equals, expectedError)
 }
 

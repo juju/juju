@@ -38,7 +38,7 @@ func (*addressFinderSuite) TestBootstrapAddressFinderNotSupported(c *tc.C) {
 		func(_ context.Context) (environs.InstanceLister, error) {
 			return nil, errors.NotSupported
 		},
-	)(context.Background(), instance.Id("12345"))
+	)(c.Context(), instance.Id("12345"))
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(addresses, tc.DeepEquals, expected)
 }
@@ -51,7 +51,7 @@ func (*addressFinderSuite) TestBootstrapAddressFinderProviderError(c *tc.C) {
 		func(_ context.Context) (environs.InstanceLister, error) {
 			return nil, boom
 		},
-	)(context.Background(), instance.Id("12345"))
+	)(c.Context(), instance.Id("12345"))
 	c.Check(err, tc.ErrorIs, boom)
 }
 
@@ -79,7 +79,7 @@ func (s *addressFinderSuite) TestBoostrapAddressFinder(c *tc.C) {
 		func(_ context.Context) (environs.InstanceLister, error) {
 			return s.instanceLister, nil
 		},
-	)(context.Background(), instance.Id("12345"))
+	)(c.Context(), instance.Id("12345"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(foundAddresses, tc.DeepEquals, addresses)
 }

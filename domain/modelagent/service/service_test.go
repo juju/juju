@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -45,7 +43,7 @@ func (s *suite) TestGetModelAgentVersionSuccess(c *tc.C) {
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expectedVersion, nil)
 
 	svc := NewService(s.state)
-	ver, err := svc.GetModelTargetAgentVersion(context.Background())
+	ver, err := svc.GetModelTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.DeepEquals, expectedVersion)
 }
@@ -58,7 +56,7 @@ func (s *suite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 	s.state.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, modelagenterrors.AgentVersionNotFound)
 
 	svc := NewService(s.state)
-	_, err := svc.GetModelTargetAgentVersion(context.Background())
+	_, err := svc.GetModelTargetAgentVersion(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
@@ -77,7 +75,7 @@ func (s *suite) TestGetMachineTargetAgentVersion(c *tc.C) {
 	s.state.EXPECT().GetMachineUUIDByName(gomock.Any(), machineName).Return(uuid, nil)
 	s.state.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), uuid).Return(ver, nil)
 
-	rval, err := NewService(s.state).GetMachineTargetAgentVersion(context.Background(), machineName)
+	rval, err := NewService(s.state).GetMachineTargetAgentVersion(c.Context(), machineName)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, ver)
 }
@@ -93,7 +91,7 @@ func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *tc.C) {
 	)
 
 	_, err := NewService(s.state).GetMachineTargetAgentVersion(
-		context.Background(),
+		c.Context(),
 		coremachine.Name("0"),
 	)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
@@ -113,7 +111,7 @@ func (s *suite) TestGetUnitTargetAgentVersion(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(uuid, nil)
 	s.state.EXPECT().GetUnitTargetAgentVersion(gomock.Any(), uuid).Return(ver, nil)
 
-	rval, err := NewService(s.state).GetUnitTargetAgentVersion(context.Background(), "foo/0")
+	rval, err := NewService(s.state).GetUnitTargetAgentVersion(c.Context(), "foo/0")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, ver)
 }
@@ -129,7 +127,7 @@ func (s *suite) TestGetUnitTargetAgentVersionNotFound(c *tc.C) {
 	)
 
 	_, err := NewService(s.state).GetUnitTargetAgentVersion(
-		context.Background(),
+		c.Context(),
 		"foo/0",
 	)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -146,7 +144,7 @@ func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *tc.C) {
 	)
 
 	_, err := NewWatchableService(s.state, nil).WatchUnitTargetAgentVersion(
-		context.Background(),
+		c.Context(),
 		"foo/0",
 	)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -162,7 +160,7 @@ func (s *suite) TestWatchMachineTargetAgentVersionNotFound(c *tc.C) {
 		"", machineerrors.MachineNotFound,
 	)
 
-	_, err := NewWatchableService(s.state, nil).WatchMachineTargetAgentVersion(context.Background(), "0")
+	_, err := NewWatchableService(s.state, nil).WatchMachineTargetAgentVersion(c.Context(), "0")
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -173,7 +171,7 @@ func (s *suite) TestSetMachineReportedAgentVersionInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := NewService(s.state).SetMachineReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
 			Number: semversion.Zero,
@@ -196,7 +194,7 @@ func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *tc.C) {
 	)
 
 	err := NewService(s.state).SetMachineReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
 			Number: semversion.MustParse("1.2.3"),
@@ -223,7 +221,7 @@ func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *tc.C) {
 	).Return(machineerrors.MachineNotFound)
 
 	err = NewService(s.state).SetMachineReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
 			Number: semversion.MustParse("1.2.3"),
@@ -253,7 +251,7 @@ func (s *suite) TestSetMachineReportedAgentVersionDead(c *tc.C) {
 	).Return(machineerrors.MachineIsDead)
 
 	err = NewService(s.state).SetMachineReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
 			Number: semversion.MustParse("1.2.3"),
@@ -284,7 +282,7 @@ func (s *suite) TestSetMachineReportedAgentVersion(c *tc.C) {
 	).Return(nil)
 
 	err = NewService(s.state).SetMachineReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
 			Number: semversion.MustParse("1.2.3"),
@@ -301,7 +299,7 @@ func (s *suite) TestSetReportedUnitAgentVersionInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := NewService(s.state).SetUnitReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
 			Number: semversion.Zero,
@@ -324,7 +322,7 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 	)
 
 	err := NewService(s.state).SetUnitReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
 			Number: semversion.MustParse("1.2.3"),
@@ -350,7 +348,7 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 	).Return(applicationerrors.UnitNotFound)
 
 	err = NewService(s.state).SetUnitReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
 			Number: semversion.MustParse("1.2.3"),
@@ -382,7 +380,7 @@ func (s *suite) TestSetReportedUnitAgentVersionDead(c *tc.C) {
 	).Return(applicationerrors.UnitIsDead)
 
 	err := NewService(s.state).SetUnitReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
 			Number: semversion.MustParse("1.2.3"),
@@ -413,7 +411,7 @@ func (s *suite) TestSetReportedUnitAgentVersion(c *tc.C) {
 	).Return(nil)
 
 	err := NewService(s.state).SetUnitReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
 			Number: semversion.MustParse("1.2.3"),
@@ -436,7 +434,7 @@ func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *tc.C) {
 		"", machineerrors.MachineNotFound)
 
 	svc := NewService(s.state)
-	_, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
+	_, err := svc.GetMachineReportedAgentVersion(c.Context(), machineName)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 
 	// Section test of MachineNotFound when using the uuid to fetch the running
@@ -447,7 +445,7 @@ func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *tc.C) {
 		coreagentbinary.Version{}, machineerrors.MachineNotFound,
 	)
 
-	_, err = svc.GetMachineReportedAgentVersion(context.Background(), machineName)
+	_, err = svc.GetMachineReportedAgentVersion(c.Context(), machineName)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -466,7 +464,7 @@ func (s *suite) TestGetMachineReportedAgentVersionAgentVersionNotFound(c *tc.C) 
 	)
 
 	svc := NewService(s.state)
-	_, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
+	_, err := svc.GetMachineReportedAgentVersion(c.Context(), machineName)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
@@ -487,7 +485,7 @@ func (s *suite) TestGetMachineReportedAgentVersion(c *tc.C) {
 	)
 
 	svc := NewService(s.state)
-	ver, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
+	ver, err := svc.GetMachineReportedAgentVersion(c.Context(), machineName)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.DeepEquals, coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.1"),
@@ -508,7 +506,7 @@ func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 		"", applicationerrors.UnitNotFound)
 
 	svc := NewService(s.state)
-	_, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
+	_, err := svc.GetUnitReportedAgentVersion(c.Context(), unitName)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 
 	// Section test of UnitNotFound when using the uuid to fetch the running
@@ -519,7 +517,7 @@ func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 		coreagentbinary.Version{}, applicationerrors.UnitNotFound,
 	)
 
-	_, err = svc.GetUnitReportedAgentVersion(context.Background(), unitName)
+	_, err = svc.GetUnitReportedAgentVersion(c.Context(), unitName)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -538,7 +536,7 @@ func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *tc.C) {
 	)
 
 	svc := NewService(s.state)
-	_, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
+	_, err := svc.GetUnitReportedAgentVersion(c.Context(), unitName)
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
@@ -559,7 +557,7 @@ func (s *suite) TestGetUnitReportedAgentVersion(c *tc.C) {
 	)
 
 	svc := NewService(s.state)
-	ver, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
+	ver, err := svc.GetUnitReportedAgentVersion(c.Context(), unitName)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(ver, tc.DeepEquals, coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.1"),
@@ -576,7 +574,7 @@ func (s *suite) TestGetMachinesReportedAgentVersionAgentVersionNotSet(c *tc.C) {
 		nil, modelagenterrors.AgentVersionNotSet,
 	)
 	svc := NewService(s.state)
-	_, err := svc.GetMachinesAgentBinaryMetadata(context.Background())
+	_, err := svc.GetMachinesAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 }
 
@@ -589,7 +587,7 @@ func (s *suite) TestGetMachinesReportedAgentVersionMissingAgentBinaries(c *tc.C)
 		nil, modelagenterrors.MissingAgentBinaries,
 	)
 	svc := NewService(s.state)
-	_, err := svc.GetMachinesAgentBinaryMetadata(context.Background())
+	_, err := svc.GetMachinesAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
 
@@ -602,7 +600,7 @@ func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotSet(c *tc.C) {
 		nil, modelagenterrors.AgentVersionNotSet,
 	)
 	svc := NewService(s.state)
-	_, err := svc.GetUnitsAgentBinaryMetadata(context.Background())
+	_, err := svc.GetUnitsAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 }
 
@@ -615,7 +613,7 @@ func (s *suite) TestGetUnitReportedAgentVersionMissingAgentBinaries(c *tc.C) {
 		nil, modelagenterrors.MissingAgentBinaries,
 	)
 	svc := NewService(s.state)
-	_, err := svc.GetUnitsAgentBinaryMetadata(context.Background())
+	_, err := svc.GetUnitsAgentBinaryMetadata(c.Context())
 	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
 
@@ -629,7 +627,7 @@ func (s *suite) TestSetAgentStreamNotValidAgentStream(c *tc.C) {
 	agentStream := coreagentbinary.AgentStream("bad value")
 
 	err := NewService(s.state).SetModelAgentStream(
-		context.Background(),
+		c.Context(),
 		agentStream,
 	)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
@@ -646,7 +644,7 @@ func (s *suite) TestSetAgentStream(c *tc.C) {
 	).Return(nil)
 
 	err := NewService(s.state).SetModelAgentStream(
-		context.Background(),
+		c.Context(),
 		coreagentbinary.AgentStreamTesting,
 	)
 	c.Check(err, tc.ErrorIsNil)

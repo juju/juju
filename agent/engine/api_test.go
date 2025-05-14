@@ -4,8 +4,6 @@
 package engine_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -56,7 +54,7 @@ func (s *APIManifoldSuite) TestStartAPIMissing(c *tc.C) {
 		"api-caller-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
@@ -68,7 +66,7 @@ func (s *APIManifoldSuite) TestStartFailure(c *tc.C) {
 	})
 	s.SetErrors(errors.New("some error"))
 
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "some error")
 	s.CheckCalls(c, []testhelpers.StubCall{{
@@ -83,7 +81,7 @@ func (s *APIManifoldSuite) TestStartSuccess(c *tc.C) {
 		"api-caller-name": expectAPICaller,
 	})
 
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, s.worker)
 	s.CheckCalls(c, []testhelpers.StubCall{{

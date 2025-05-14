@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -47,7 +45,7 @@ func (s *serviceSuite) TestSaveMetadataSuccess(c *tc.C) {
 	s.state.EXPECT().SaveMetadata(gomock.Any(), inserted).Return(nil)
 
 	// Act
-	err := NewService(s.state).SaveMetadata(context.Background(), inserted)
+	err := NewService(s.state).SaveMetadata(c.Context(), inserted)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -60,7 +58,7 @@ func (s *serviceSuite) TestSaveMetadataEmptyImageID(c *tc.C) {
 	// State layer shouldn't be called
 
 	// Act
-	err := NewService(s.state).SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{{ImageID: ""}})
+	err := NewService(s.state).SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{{ImageID: ""}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, cloudimageerrors.NotValid)
@@ -75,7 +73,7 @@ func (s *serviceSuite) TestSaveMetadataInvalidFields(c *tc.C) {
 	// State layer shouldn't be called
 
 	// Act
-	err := NewService(s.state).SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{{ImageID: "dead-beaf" /* some field are required */}})
+	err := NewService(s.state).SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{{ImageID: "dead-beaf" /* some field are required */}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, cloudimageerrors.NotValid)
@@ -89,7 +87,7 @@ func (s *serviceSuite) TestSaveMetadataEmptyInsert(c *tc.C) {
 	// State layer shouldn't be called
 
 	// Act
-	err := NewService(s.state).SaveMetadata(context.Background(), nil /* empty array */)
+	err := NewService(s.state).SaveMetadata(c.Context(), nil /* empty array */)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -103,7 +101,7 @@ func (s *serviceSuite) TestSaveMetadataInvalidArchitectureName(c *tc.C) { // Arr
 	s.state.EXPECT().SupportedArchitectures(gomock.Any()).Return(set.NewStrings("amd64", "arm64"))
 
 	// Act
-	err := NewService(s.state).SaveMetadata(context.Background(),
+	err := NewService(s.state).SaveMetadata(c.Context(),
 		[]cloudimagemetadata.Metadata{{ImageID: "dead-beaf",
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Version: "1.2.3",
@@ -137,7 +135,7 @@ func (s *serviceSuite) TestSaveMetadataError(c *tc.C) { // Arrange
 	s.state.EXPECT().SaveMetadata(gomock.Any(), validMetadata).Return(errExpected)
 
 	// Act
-	err := NewService(s.state).SaveMetadata(context.Background(), validMetadata)
+	err := NewService(s.state).SaveMetadata(c.Context(), validMetadata)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, errExpected)
@@ -150,7 +148,7 @@ func (s *serviceSuite) TestDeleteMetadataSuccess(c *tc.C) {
 	s.state.EXPECT().DeleteMetadataWithImageID(gomock.Any(), "dead-beaf").Return(nil)
 
 	// Act
-	err := NewService(s.state).DeleteMetadataWithImageID(context.Background(), "dead-beaf")
+	err := NewService(s.state).DeleteMetadataWithImageID(c.Context(), "dead-beaf")
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -162,7 +160,7 @@ func (s *serviceSuite) TestDeleteMetadataEmptyImageID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Act
-	err := NewService(s.state).DeleteMetadataWithImageID(context.Background(), "")
+	err := NewService(s.state).DeleteMetadataWithImageID(c.Context(), "")
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, cloudimageerrors.EmptyImageID)
@@ -176,7 +174,7 @@ func (s *serviceSuite) TestDeleteMetadataError(c *tc.C) {
 	s.state.EXPECT().DeleteMetadataWithImageID(gomock.Any(), "dead-beaf").Return(errExpected)
 
 	// Act
-	err := NewService(s.state).DeleteMetadataWithImageID(context.Background(), "dead-beaf")
+	err := NewService(s.state).DeleteMetadataWithImageID(c.Context(), "dead-beaf")
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, errExpected)
@@ -209,7 +207,7 @@ func (s *serviceSuite) TestFindMetadataSuccessOneSource(c *tc.C) {
 	}, nil)
 
 	// Act
-	result, err := NewService(s.state).FindMetadata(context.Background(), criteria)
+	result, err := NewService(s.state).FindMetadata(c.Context(), criteria)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -248,7 +246,7 @@ func (s *serviceSuite) TestFindMetadataSuccessSeveralSources(c *tc.C) {
 	}, nil)
 
 	// Act
-	result, err := NewService(s.state).FindMetadata(context.Background(), criteria)
+	result, err := NewService(s.state).FindMetadata(c.Context(), criteria)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -268,7 +266,7 @@ func (s *serviceSuite) TestFindMetadataNotFound(c *tc.C) {
 	s.state.EXPECT().FindMetadata(gomock.Any(), criteria).Return(nil, cloudimageerrors.NotFound)
 
 	// Act
-	_, err := NewService(s.state).FindMetadata(context.Background(), criteria)
+	_, err := NewService(s.state).FindMetadata(c.Context(), criteria)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, cloudimageerrors.NotFound)
@@ -286,7 +284,7 @@ func (s *serviceSuite) TestFindMetadataError(c *tc.C) {
 	s.state.EXPECT().FindMetadata(gomock.Any(), criteria).Return(nil, errExpected)
 
 	// Act
-	_, err := NewService(s.state).FindMetadata(context.Background(), criteria)
+	_, err := NewService(s.state).FindMetadata(c.Context(), criteria)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, errExpected)
@@ -310,7 +308,7 @@ func (s *serviceSuite) TestAllCloudImageMetadataSuccess(c *tc.C) {
 	s.state.EXPECT().AllCloudImageMetadata(gomock.Any()).Return(expected, nil)
 
 	// Act
-	result, err := NewService(s.state).AllCloudImageMetadata(context.Background())
+	result, err := NewService(s.state).AllCloudImageMetadata(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -327,7 +325,7 @@ func (s *serviceSuite) TestAllCloudImageMetadataError(c *tc.C) {
 	s.state.EXPECT().AllCloudImageMetadata(gomock.Any()).Return(nil, errExpected)
 
 	// Act
-	_, err := NewService(s.state).AllCloudImageMetadata(context.Background())
+	_, err := NewService(s.state).AllCloudImageMetadata(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, errExpected)

@@ -57,7 +57,7 @@ func (s *namespaceSuite) TestInitialStateSent(c *tc.C) {
 
 	// The EventQueue is mocked, but we use a real Sqlite DB from which the
 	// initial state is read. Insert some data to verify.
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, "CREATE TABLE random_namespace (key_name TEXT NOT NULL PRIMARY KEY)"); err != nil {
 			return err
 		}
@@ -110,7 +110,7 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *tc.C) {
 
 	// The EventQueue is mocked, but we use a real Sqlite DB from which the
 	// initial state is read. Insert some data to verify.
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, "CREATE TABLE random_namespace (key_name TEXT NOT NULL PRIMARY KEY)"); err != nil {
 			return err
 		}

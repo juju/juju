@@ -58,7 +58,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *tc.C) {
 	endPoint := newKeyUpdaterAPI(
 		s.getCanRead, s.keyUpdaterService, s.watcherRegistry,
 	)
-	results, err := endPoint.WatchAuthorisedKeys(context.Background(), params.Entities{})
+	results, err := endPoint.WatchAuthorisedKeys(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }
@@ -106,7 +106,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *tc.C) {
 	})
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
-	result, err := endPoint.WatchAuthorisedKeys(context.Background(), args)
+	result, err := endPoint.WatchAuthorisedKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -130,7 +130,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNone(c *tc.C) {
 		s.getCanRead, s.keyUpdaterService, s.watcherRegistry,
 	)
 	// Not an error to watch nothing
-	results, err := endPoint.AuthorisedKeys(context.Background(), params.Entities{})
+	results, err := endPoint.AuthorisedKeys(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }
@@ -155,7 +155,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *tc.C) {
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).
 		Return([]string{"key1", "key2"}, nil)
 
-	result, err := endPoint.AuthorisedKeys(context.Background(), args)
+	result, err := endPoint.AuthorisedKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -186,7 +186,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNonMachineEntity(c *tc.C) {
 		},
 	}
 
-	result, err := endPoint.AuthorisedKeys(context.Background(), args)
+	result, err := endPoint.AuthorisedKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -212,7 +212,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysForNonMachineEntity(c *tc.C
 		},
 	}
 
-	result, err := endPoint.WatchAuthorisedKeys(context.Background(), args)
+	result, err := endPoint.WatchAuthorisedKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -242,7 +242,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNotFoundMachine(c *tc.C) {
 		gomock.Any(), coremachine.Name("0"),
 	).Return(nil, machineerrors.MachineNotFound)
 
-	result, err := endPoint.AuthorisedKeys(context.Background(), args)
+	result, err := endPoint.AuthorisedKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{

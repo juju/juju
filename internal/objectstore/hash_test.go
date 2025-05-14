@@ -4,7 +4,6 @@
 package objectstore
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -30,7 +29,7 @@ func (s *hashFileSystemAccessorSuite) TestHashExistsNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
-	err = accessor.HashExists(context.Background(), "hash")
+	err = accessor.HashExists(c.Context(), "hash")
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -45,7 +44,7 @@ func (s *hashFileSystemAccessorSuite) TestHashExists(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
-	err = accessor.HashExists(context.Background(), "foo")
+	err = accessor.HashExists(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -66,7 +65,7 @@ func (s *hashFileSystemAccessorSuite) TestGetByHash(c *tc.C) {
 	// is baked into the implementation.
 
 	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
-	reader, size, err := accessor.GetByHash(context.Background(), "foo")
+	reader, size, err := accessor.GetByHash(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(size, tc.Equals, int64(7))
 
@@ -83,7 +82,7 @@ func (s *hashFileSystemAccessorSuite) TestGetByHashNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
-	_, _, err = accessor.GetByHash(context.Background(), "foo")
+	_, _, err = accessor.GetByHash(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -99,7 +98,7 @@ func (s *hashFileSystemAccessorSuite) TestDeleteByHash(c *tc.C) {
 
 	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
 
-	err = accessor.DeleteByHash(context.Background(), "foo")
+	err = accessor.DeleteByHash(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = os.Stat(filepath.Join(s.namespaceFilePath(dir), "foo"))
@@ -115,7 +114,7 @@ func (s *hashFileSystemAccessorSuite) TestDeleteByHashNotFound(c *tc.C) {
 
 	accessor := newHashFileSystemAccessor("namespace", dir, loggertesting.WrapCheckLog(c))
 
-	err = accessor.DeleteByHash(context.Background(), "foo")
+	err = accessor.DeleteByHash(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 }
 

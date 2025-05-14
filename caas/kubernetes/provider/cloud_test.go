@@ -91,7 +91,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *tc.C) {
 		},
 	}, nil)
 
-	ctx := mockContext{Context: context.Background()}
+	ctx := mockContext{Context: c.Context()}
 	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, defaultK8sCloud)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cloud, tc.DeepEquals, jujucloud.Cloud{
@@ -147,14 +147,14 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *tc.C) {
 			},
 		},
 	}, nil)
-	c.Assert(provider.EnsureMicroK8sSuitable(context.Background(), &s.fakeBroker), tc.ErrorIsNil)
+	c.Assert(provider.EnsureMicroK8sSuitable(c.Context(), &s.fakeBroker), tc.ErrorIsNil)
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageNotEnabled(c *tc.C) {
 	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
 		[]storagev1.StorageClass{}, nil,
 	)
-	err := provider.EnsureMicroK8sSuitable(context.Background(), &s.fakeBroker)
+	err := provider.EnsureMicroK8sSuitable(c.Context(), &s.fakeBroker)
 	c.Assert(err, tc.ErrorMatches, `required storage addon is not enabled`)
 }
 
@@ -175,7 +175,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSNotEnabled(c *tc.C) {
 		"ListPods", "kube-system",
 		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
 	).Returns([]corev1.Pod{}, nil)
-	err := provider.EnsureMicroK8sSuitable(context.Background(), &s.fakeBroker)
+	err := provider.EnsureMicroK8sSuitable(c.Context(), &s.fakeBroker)
 	c.Assert(err, tc.ErrorMatches, `required dns addon is not enabled`)
 }
 

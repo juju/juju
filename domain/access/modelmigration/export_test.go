@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -76,7 +75,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	).Return(bazzaTime, nil)
 
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 
 	users := dst.Users()

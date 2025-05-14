@@ -4,8 +4,6 @@
 package certupdater_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -115,13 +113,13 @@ func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 		getter := s.newGetter(map[string]any{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context.Background(), getter)
+		_, err := s.manifold.Start(c.Context(), getter)
 		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -145,14 +143,14 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 func (s *ManifoldSuite) TestStartErrorClosesState(c *tc.C) {
 	s.stub.SetErrors(errors.New("boom"))
 
-	_, err := s.manifold.Start(context.Background(), s.getter)
+	_, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "boom")
 
 	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
 func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

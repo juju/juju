@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -24,7 +22,7 @@ func (s *serviceSuite) TestGetManagementCaveatOwnerUnit(c *tc.C) {
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
 
-	_, err := s.service.getManagementCaveat(context.Background(), uri, SecretAccessor{
+	_, err := s.service.getManagementCaveat(c.Context(), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})
@@ -47,7 +45,7 @@ func (s *serviceSuite) TestGetManagementCaveatLeaderUnitAppSecret(c *tc.C) {
 
 	s.ensurer.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(goodToken{})
 
-	_, err := s.service.getManagementCaveat(context.Background(), uri, SecretAccessor{
+	_, err := s.service.getManagementCaveat(c.Context(), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})
@@ -65,7 +63,7 @@ func (s *serviceSuite) TestGetManagementCaveatUserSecrets(c *tc.C) {
 		SubjectID:     "model-uuid",
 	}).Return("manage", nil)
 
-	_, err := s.service.getManagementCaveat(context.Background(), uri, SecretAccessor{
+	_, err := s.service.getManagementCaveat(c.Context(), uri, SecretAccessor{
 		Kind: ModelAccessor,
 		ID:   "model-uuid",
 	})
@@ -87,7 +85,7 @@ func (s *serviceSuite) TestCanReadAppSecret(c *tc.C) {
 		SubjectID:     "mariadb",
 	}).Return("view", nil)
 
-	err := s.service.canRead(context.Background(), uri, SecretAccessor{
+	err := s.service.canRead(c.Context(), uri, SecretAccessor{
 		Kind: UnitAccessor,
 		ID:   "mariadb/0",
 	})

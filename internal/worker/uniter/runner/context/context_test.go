@@ -180,7 +180,7 @@ func (s *InterfaceSuite) TestUnitNetworkInfo(c *tc.C) {
 	}
 	s.unit.EXPECT().NetworkInfo(gomock.Any(), []string{"unknown"}, nil).Return(result, nil)
 
-	netInfo, err := ctx.NetworkInfo(stdcontext.Background(), []string{"unknown"}, -1)
+	netInfo, err := ctx.NetworkInfo(c.Context(), []string{"unknown"}, -1)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(netInfo, tc.DeepEquals, result)
 }
@@ -191,7 +191,7 @@ func (s *InterfaceSuite) TestUnitStatus(c *tc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
 	defer context.PatchCachedStatus(ctx.(context.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
-	status, err := ctx.UnitStatus(stdcontext.Background())
+	status, err := ctx.UnitStatus(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(status.Status, tc.Equals, "maintenance")
 	c.Check(status.Info, tc.Equals, "working")
@@ -208,15 +208,15 @@ func (s *InterfaceSuite) TestSetUnitStatus(c *tc.C) {
 		Status: "maintenance",
 		Info:   "doing work",
 	}
-	err := ctx.SetUnitStatus(stdcontext.Background(), status)
+	err := ctx.SetUnitStatus(c.Context(), status)
 	c.Check(err, tc.ErrorIsNil)
 
-	s.unit.EXPECT().UnitStatus(stdcontext.Background()).Return(params.StatusResult{
+	s.unit.EXPECT().UnitStatus(c.Context()).Return(params.StatusResult{
 		Status: "maintenance",
 		Info:   "doing work",
 		Data:   map[string]interface{}{},
 	}, nil)
-	unitStatus, err := ctx.UnitStatus(stdcontext.Background())
+	unitStatus, err := ctx.UnitStatus(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(unitStatus.Status, tc.Equals, "maintenance")
 	c.Check(unitStatus.Info, tc.Equals, "doing work")
@@ -234,7 +234,7 @@ func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *tc.C) {
 		Info:   "doing work",
 	}
 	s.unit.EXPECT().SetUnitStatus(gomock.Any(), status2.Maintenance, "doing work", nil).Return(nil)
-	err := ctx.SetUnitStatus(stdcontext.Background(), status)
+	err := ctx.SetUnitStatus(c.Context(), status)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(ctx.(context.Context).HasExecutionSetUnitStatus(), tc.IsTrue)
 }
@@ -247,17 +247,17 @@ func (s *InterfaceSuite) TestGetSetWorkloadVersion(c *tc.C) {
 	s.uniter.EXPECT().UnitWorkloadVersion(gomock.Any(), s.unit.Tag()).Return("", nil)
 
 	// No workload version set yet.
-	result, err := ctx.UnitWorkloadVersion(stdcontext.Background())
+	result, err := ctx.UnitWorkloadVersion(c.Context())
 	c.Assert(result, tc.Equals, "")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.uniter.EXPECT().SetUnitWorkloadVersion(gomock.Any(), s.unit.Tag(), "Pipey").Return(nil)
-	err = ctx.SetUnitWorkloadVersion(stdcontext.Background(), "Pipey")
+	err = ctx.SetUnitWorkloadVersion(c.Context(), "Pipey")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Second call does not hit backend.
 	s.uniter.EXPECT().UnitWorkloadVersion(gomock.Any(), s.unit.Tag()).Return("Pipey", nil)
-	result, err = ctx.UnitWorkloadVersion(stdcontext.Background())
+	result, err = ctx.UnitWorkloadVersion(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, "Pipey")
 }
@@ -272,14 +272,14 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *tc.C) {
 		Info:   "waiting for machine",
 		Data:   map[string]interface{}{},
 	}, nil)
-	unitStatus, err := ctx.UnitStatus(stdcontext.Background())
+	unitStatus, err := ctx.UnitStatus(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(unitStatus.Status, tc.Equals, "waiting")
 	c.Check(unitStatus.Info, tc.Equals, "waiting for machine")
 	c.Check(unitStatus.Data, tc.DeepEquals, map[string]interface{}{})
 
 	// Second call does not hit backend.
-	unitStatus, err = ctx.UnitStatus(stdcontext.Background())
+	unitStatus, err = ctx.UnitStatus(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(unitStatus.Status, tc.Equals, "waiting")
 	c.Check(unitStatus.Info, tc.Equals, "waiting for machine")
@@ -294,7 +294,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *tc.C) {
 	pr, err := ctx.PrivateAddress()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pr, tc.Equals, "u-0.testing.invalid")
-	pa, err := ctx.PublicAddress(stdcontext.Background())
+	pa, err := ctx.PublicAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	// Initially the public address is the same as the private address since
 	// the "most public" address is chosen.
@@ -314,12 +314,12 @@ func (s *InterfaceSuite) TestConfigCaching(c *tc.C) {
 	cfg := charm.Settings{"blog-title": "My Title"}
 	s.unit.EXPECT().ConfigSettings(gomock.Any()).Return(cfg, nil)
 
-	settings, err := ctx.ConfigSettings(stdcontext.Background())
+	settings, err := ctx.ConfigSettings(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, cfg)
 
 	// Second call does not hit backend.
-	settings, err = ctx.ConfigSettings(stdcontext.Background())
+	settings, err = ctx.ConfigSettings(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(settings, tc.DeepEquals, cfg)
 }
@@ -363,7 +363,7 @@ func (s *InterfaceSuite) TestGoalState(c *tc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
 	s.uniter.EXPECT().GoalState(gomock.Any()).Return(goalStateCheck, nil)
-	goalState, err := ctx.GoalState(stdcontext.Background())
+	goalState, err := ctx.GoalState(c.Context())
 
 	// Mock status Since string
 	goalState.Units = mockUnitSince(goalState.Units)
@@ -386,7 +386,7 @@ func (s *InterfaceSuite) TestNonActionCallsToActionMethodsFail(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "not running an action")
 	err = ctx.SetActionMessage("foo")
 	c.Check(err, tc.ErrorMatches, "not running an action")
-	err = ctx.LogActionMessage(stdcontext.Background(), "foo")
+	err = ctx.LogActionMessage(c.Context(), "foo")
 	c.Check(err, tc.ErrorMatches, "not running an action")
 	err = ctx.UpdateActionResults([]string{"1", "2", "3"}, "value")
 	c.Check(err, tc.ErrorMatches, "not running an action")
@@ -481,7 +481,7 @@ func (s *InterfaceSuite) TestLogActionMessage(c *tc.C) {
 	hctx := s.getHookContext(c, ctrl, coretesting.ModelTag.Id(), -1, "", names.StorageTag{})
 	s.unit.EXPECT().LogActionMessage(gomock.Any(), names.NewActionTag("2"), "hello world").Return(nil)
 	context.WithActionContext(hctx, nil, nil)
-	err := hctx.LogActionMessage(stdcontext.Background(), "hello world")
+	err := hctx.LogActionMessage(c.Context(), "hello world")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -682,7 +682,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *tc.C) {
 			Description: "will be removed",
 		},
 	})
-	uri3, err := ctx.CreateSecret(stdcontext.Background(), &jujuc.SecretCreateArgs{
+	uri3, err := ctx.CreateSecret(c.Context(), &jujuc.SecretCreateArgs{
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "foo"},
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Description: ptr("a new one"),
@@ -749,10 +749,10 @@ func (s *HookContextSuite) TestDeleteCharmStateValue(c *tc.C) {
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
-	err := hookContext.DeleteCharmStateValue(stdcontext.Background(), "one")
+	err := hookContext.DeleteCharmStateValue(c.Context(), "one")
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedCache, err := hookContext.GetCharmState(stdcontext.Background())
+	obtainedCache, err := hookContext.GetCharmState(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedCache, tc.DeepEquals, s.mockCache.CharmState)
 }
@@ -762,7 +762,7 @@ func (s *HookContextSuite) TestDeleteCacheStateErr(c *tc.C) {
 	s.mockUnit.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
-	err := hookContext.DeleteCharmStateValue(stdcontext.Background(), "five")
+	err := hookContext.DeleteCharmStateValue(c.Context(), "five")
 	c.Assert(err, tc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
@@ -771,7 +771,7 @@ func (s *HookContextSuite) TestGetCharmState(c *tc.C) {
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
-	obtainedCache, err := hookContext.GetCharmState(stdcontext.Background())
+	obtainedCache, err := hookContext.GetCharmState(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedCache, tc.DeepEquals, s.mockCache.CharmState)
 }
@@ -781,7 +781,7 @@ func (s *HookContextSuite) TestGetCharmStateStateErr(c *tc.C) {
 	s.mockUnit.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
-	_, err := hookContext.GetCharmState(stdcontext.Background())
+	_, err := hookContext.GetCharmState(c.Context())
 	c.Assert(err, tc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
@@ -790,7 +790,7 @@ func (s *HookContextSuite) TestGetCharmStateValue(c *tc.C) {
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
-	obtainedVale, err := hookContext.GetCharmStateValue(stdcontext.Background(), "one")
+	obtainedVale, err := hookContext.GetCharmStateValue(c.Context(), "one")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedVale, tc.Equals, "two")
 }
@@ -800,7 +800,7 @@ func (s *HookContextSuite) TestGetCharmStateValueEmpty(c *tc.C) {
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
-	obtainedVale, err := hookContext.GetCharmStateValue(stdcontext.Background(), "seven")
+	obtainedVale, err := hookContext.GetCharmStateValue(c.Context(), "seven")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedVale, tc.Equals, "")
 }
@@ -810,7 +810,7 @@ func (s *HookContextSuite) TestGetCharmStateValueNotFound(c *tc.C) {
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
-	obtainedCache, err := hookContext.GetCharmStateValue(stdcontext.Background(), "five")
+	obtainedCache, err := hookContext.GetCharmStateValue(c.Context(), "five")
 	c.Assert(err, tc.ErrorMatches, "\"five\" not found")
 	c.Assert(obtainedCache, tc.Equals, "")
 }
@@ -820,7 +820,7 @@ func (s *HookContextSuite) TestGetCharmStateValueStateErr(c *tc.C) {
 	s.mockUnit.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
-	_, err := hookContext.GetCharmStateValue(stdcontext.Background(), "key")
+	_, err := hookContext.GetCharmStateValue(c.Context(), "key")
 	c.Assert(err, tc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
@@ -839,7 +839,7 @@ func (s *HookContextSuite) TestSetCache(c *tc.C) {
 
 	// Test key len limit
 	err := hookContext.SetCharmStateValue(
-		stdcontext.Background(),
+		c.Context(),
 		strings.Repeat("a", quota.MaxCharmStateKeySize+1),
 		"lol",
 	)
@@ -848,7 +848,7 @@ func (s *HookContextSuite) TestSetCache(c *tc.C) {
 
 	// Test value len limit
 	err = hookContext.SetCharmStateValue(
-		stdcontext.Background(),
+		c.Context(),
 		"lol",
 		strings.Repeat("a", quota.MaxCharmStateValueSize+1),
 	)
@@ -865,9 +865,9 @@ func (s *HookContextSuite) TestSetCacheEmptyStartState(c *tc.C) {
 
 func (s *HookContextSuite) testSetCache(c *tc.C) {
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
-	err := hookContext.SetCharmStateValue(stdcontext.Background(), "five", "six")
+	err := hookContext.SetCharmStateValue(c.Context(), "five", "six")
 	c.Assert(err, tc.ErrorIsNil)
-	obtainedCache, err := hookContext.GetCharmState(stdcontext.Background())
+	obtainedCache, err := hookContext.GetCharmState(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	value, ok := obtainedCache["five"]
 	c.Assert(ok, tc.IsTrue)
@@ -879,7 +879,7 @@ func (s *HookContextSuite) TestSetCacheStateErr(c *tc.C) {
 	s.mockUnit.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
-	err := hookContext.SetCharmStateValue(stdcontext.Background(), "five", "six")
+	err := hookContext.SetCharmStateValue(c.Context(), "five", "six")
 	c.Assert(err, tc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
@@ -889,14 +889,14 @@ func (s *HookContextSuite) TestFlushWithNonDirtyCache(c *tc.C) {
 	s.expectStateValues()
 
 	// The following commands are no-ops as they don't mutate the cache.
-	err := hookContext.SetCharmStateValue(stdcontext.Background(), "one", "two") // no-op: KV already present
+	err := hookContext.SetCharmStateValue(c.Context(), "one", "two") // no-op: KV already present
 	c.Assert(err, tc.ErrorIsNil)
-	err = hookContext.DeleteCharmStateValue(stdcontext.Background(), "not-there") // no-op: key not present
+	err = hookContext.DeleteCharmStateValue(c.Context(), "not-there") // no-op: key not present
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Flush the context with a success. As the cache is not dirty we do
 	// not expect a SetState call.
-	err = hookContext.Flush(stdcontext.Background(), "success", nil)
+	err = hookContext.Flush(c.Context(), "success", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -925,13 +925,13 @@ func (s *HookContextSuite) TestSequentialFlushOfCacheValues(c *tc.C) {
 
 	// Mutate cache and flush; this should call out to SetState and reset
 	// the dirty flag
-	err := hookContext.SetCharmStateValue(stdcontext.Background(), "lorem", "ipsum")
+	err := hookContext.SetCharmStateValue(c.Context(), "lorem", "ipsum")
 	c.Assert(err, tc.ErrorIsNil)
-	err = hookContext.Flush(stdcontext.Background(), "success", nil)
+	err = hookContext.Flush(c.Context(), "success", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Flush again; as the cache is not dirty, the SetState call is skipped.
-	err = hookContext.Flush(stdcontext.Background(), "success", nil)
+	err = hookContext.Flush(c.Context(), "success", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -959,7 +959,7 @@ func (s *HookContextSuite) TestOpenPortRange(c *tc.C) {
 
 	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, tc.ErrorIsNil)
-	err = hookContext.Flush(stdcontext.Background(), "success", nil)
+	err = hookContext.Flush(c.Context(), "success", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1007,7 +1007,7 @@ func (s *HookContextSuite) TestOpenedPortRanges(c *tc.C) {
 	}
 	c.Assert(openedPorts.UniquePortRanges(), tc.DeepEquals, expectedOpenPorts)
 
-	err = hookContext.Flush(stdcontext.Background(), "success", nil)
+	err = hookContext.Flush(c.Context(), "success", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// After Flush() opened ports should remain the same.
@@ -1039,7 +1039,7 @@ func (s *HookContextSuite) TestClosePortRange(c *tc.C) {
 
 	err := hookContext.ClosePortRange("", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, tc.ErrorIsNil)
-	err = hookContext.Flush(stdcontext.Background(), "success", nil)
+	err = hookContext.Flush(c.Context(), "success", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1092,7 +1092,7 @@ func (s *HookContextSuite) TestActionAbort(c *tc.C) {
 		actionData, err := hookContext.ActionData()
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(actionData.Failed, tc.Equals, test.Failed)
-		err = hookContext.Flush(stdcontext.Background(), "", errors.Errorf("failed yo"))
+		err = hookContext.Flush(c.Context(), "", errors.Errorf("failed yo"))
 		c.Assert(err, tc.ErrorIsNil)
 		ctrl.Finish()
 	}
@@ -1128,7 +1128,7 @@ func (s *HookContextSuite) TestActionFlushError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	cancel := make(chan struct{})
 	context.WithActionContext(hookContext, nil, cancel)
-	err = hookContext.Flush(stdcontext.Background(), "", nil)
+	err = hookContext.Flush(c.Context(), "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1142,7 +1142,7 @@ func (s *HookContextSuite) TestMissingAction(c *tc.C) {
 		`action not implemented on unit "wordpress/0"`).Return(nil)
 
 	context.WithActionContext(hookContext, nil, nil)
-	err := hookContext.Flush(stdcontext.Background(), "action", charmrunner.NewMissingHookError("noaction"))
+	err := hookContext.Flush(c.Context(), "action", charmrunner.NewMissingHookError("noaction"))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1163,7 +1163,7 @@ func (s *HookContextSuite) assertSecretGetFromPendingChanges(c *tc.C,
 	setPendingSecretChanges(hookContext, uri, label, data)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, mockBackendClient{})
 
-	value, err := hookContext.GetSecret(stdcontext.Background(), nil, label, refresh, peek)
+	value, err := hookContext.GetSecret(c.Context(), nil, label, refresh, peek)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), tc.DeepEquals, data)
 }
@@ -1294,7 +1294,7 @@ func (s *HookContextSuite) TestSecretGet(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsBackend)
 
-	value, err := hookContext.GetSecret(stdcontext.Background(), uri, "label", true, true)
+	value, err := hookContext.GetSecret(c.Context(), uri, "label", true, true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1336,7 +1336,7 @@ func (s *HookContextSuite) assertSecretGetOwnedSecretURILookup(
 
 	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsBackend)
 
-	value, err := hookContext.GetSecret(stdcontext.Background(), nil, "label", false, false)
+	value, err := hookContext.GetSecret(c.Context(), nil, "label", false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1386,7 +1386,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingCreates
 	hookContext.SetPendingSecretCreates(
 		map[string]uniter.SecretCreateArg{uri.ID: arg})
 
-	value, err := hookContext.GetSecret(stdcontext.Background(), nil, label, false, false)
+	value, err := hookContext.GetSecret(c.Context(), nil, label, false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1409,7 +1409,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingCreateLabel(c *t
 	hookContext.SetPendingSecretCreates(
 		map[string]uniter.SecretCreateArg{uri.ID: arg})
 
-	value, err := hookContext.GetSecret(stdcontext.Background(), uri, "foobar", false, true)
+	value, err := hookContext.GetSecret(c.Context(), uri, "foobar", false, true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1450,7 +1450,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdates
 	hookContext.SetPendingSecretUpdates(
 		map[string]uniter.SecretUpdateArg{uri.ID: arg})
 
-	value, err := hookContext.GetSecret(stdcontext.Background(), nil, label, false, true)
+	value, err := hookContext.GetSecret(c.Context(), nil, label, false, true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1474,7 +1474,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdates
 	hookContext.SetPendingSecretUpdates(
 		map[string]uniter.SecretUpdateArg{uri.ID: arg})
 
-	value, err := hookContext.GetSecret(stdcontext.Background(), nil, label, true, false)
+	value, err := hookContext.GetSecret(c.Context(), nil, label, true, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1498,7 +1498,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingLabel(c *tc.C) {
 	hookContext.SetPendingSecretUpdates(
 		map[string]uniter.SecretUpdateArg{uri.ID: arg})
 
-	value, err := hookContext.GetSecret(stdcontext.Background(), uri, "foobar", false, true)
+	value, err := hookContext.GetSecret(c.Context(), uri, "foobar", false, true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1551,7 +1551,7 @@ func (s *HookContextSuite) assertSecretCreate(c *tc.C, owner coresecrets.Owner) 
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
 	context.SetEnvironmentHookContextSecret(hookContext, "", nil, jujuSecretsAPI, nil)
 
-	uri, err := hookContext.CreateSecret(stdcontext.Background(), &jujuc.SecretCreateArgs{
+	uri, err := hookContext.CreateSecret(c.Context(), &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value:        value,
 			RotatePolicy: ptr(coresecrets.RotateDaily),
@@ -1605,7 +1605,7 @@ func (s *HookContextSuite) TestSecretCreateDupLabel(c *tc.C) {
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
 	context.SetEnvironmentHookContextSecret(hookContext, "", nil, jujuSecretsAPI, nil)
 
-	_, err := hookContext.CreateSecret(stdcontext.Background(), &jujuc.SecretCreateArgs{
+	_, err := hookContext.CreateSecret(c.Context(), &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value: value,
 			Label: ptr("foo"),
@@ -1613,7 +1613,7 @@ func (s *HookContextSuite) TestSecretCreateDupLabel(c *tc.C) {
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "myapp"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = hookContext.CreateSecret(stdcontext.Background(), &jujuc.SecretCreateArgs{
+	_, err = hookContext.CreateSecret(c.Context(), &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value: value,
 			Label: ptr("foo"),
@@ -2044,7 +2044,7 @@ func (s *HookContextSuite) TestHookStorage(c *tc.C) {
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).AnyTimes()
 	ctx := context.NewMockUnitHookContextWithStateAndStorage(c, "wordpress/0", s.mockUnit, st, names.NewStorageTag("data/0"))
 
-	storage, err := ctx.HookStorage(stdcontext.Background())
+	storage, err := ctx.HookStorage(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storage, tc.NotNil)
 	c.Assert(storage.Tag().Id(), tc.Equals, "data/0")

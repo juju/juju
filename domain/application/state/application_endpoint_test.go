@@ -50,7 +50,7 @@ func (s *applicationEndpointStateSuite) SetUpTest(c *tc.C) {
 	s.appID = applicationtesting.GenApplicationUUID(c)
 	s.charmUUID = charmtesting.GenCharmID(c)
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, reference_name, source_id) 
@@ -80,8 +80,8 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationNoCharmRelation(c *
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: noop, no error
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.insertApplicationEndpoints(context.Background(), tx, insertApplicationEndpointsParams{
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.insertApplicationEndpoints(c.Context(), tx, insertApplicationEndpointsParams{
 			appID:     s.appID,
 			charmUUID: s.charmUUID,
 		})
@@ -107,8 +107,8 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationNoCharmRelationWith
 	}
 
 	// Act: noop, no error
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.insertApplicationEndpoints(context.Background(), tx, insertApplicationEndpointsParams{
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.insertApplicationEndpoints(c.Context(), tx, insertApplicationEndpointsParams{
 			appID:     s.appID,
 			charmUUID: s.charmUUID,
 			bindings:  bindings,
@@ -131,8 +131,8 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationNoBindings(c *tc.C)
 	extraUUID := s.addExtraBinding(c, "extra")
 
 	// Act: Charm relation will create application endpoint bounded to the default space (alpha)
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.insertApplicationEndpoints(context.Background(), tx, insertApplicationEndpointsParams{
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.insertApplicationEndpoints(c.Context(), tx, insertApplicationEndpointsParams{
 			appID:     s.appID,
 			charmUUID: s.charmUUID,
 		})
@@ -171,8 +171,8 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointDefaultedSp
 	}
 
 	// Act: Charm relation will create application endpoint bounded to the default space (beta)
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.insertApplicationEndpoints(context.Background(), tx, insertApplicationEndpointsParams{
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.insertApplicationEndpoints(c.Context(), tx, insertApplicationEndpointsParams{
 			appID:     s.appID,
 			charmUUID: s.charmUUID,
 			bindings:  bindings,
@@ -216,8 +216,8 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointBindOneToBe
 	}
 
 	// Act: Charm relation will create application endpoint bounded to the specified space (beta)
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.insertApplicationEndpoints(context.Background(), tx, insertApplicationEndpointsParams{
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.insertApplicationEndpoints(c.Context(), tx, insertApplicationEndpointsParams{
 			appID:     s.appID,
 			charmUUID: s.charmUUID,
 			bindings:  bindings,
@@ -273,8 +273,8 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointBindOneToBe
 
 	// Act: Charm relation will create application endpoint bounded to either the defaulted space
 	// or the specified one
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.insertApplicationEndpoints(context.Background(), tx, insertApplicationEndpointsParams{
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.insertApplicationEndpoints(c.Context(), tx, insertApplicationEndpointsParams{
 			appID:     s.appID,
 			charmUUID: s.charmUUID,
 			bindings:  bindings,
@@ -324,8 +324,8 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointUnknownSpac
 	}
 
 	// Act: Charm relation will create application endpoint bounded to the default space (alpha)
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.insertApplicationEndpoints(context.Background(), tx, insertApplicationEndpointsParams{
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.insertApplicationEndpoints(c.Context(), tx, insertApplicationEndpointsParams{
 			appID:     s.appID,
 			charmUUID: s.charmUUID,
 			bindings:  bindings,
@@ -352,8 +352,8 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointUnknownRela
 	}
 
 	// Act
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.insertApplicationEndpoints(context.Background(), tx, insertApplicationEndpointsParams{
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.insertApplicationEndpoints(c.Context(), tx, insertApplicationEndpointsParams{
 			appID:     s.appID,
 			charmUUID: s.charmUUID,
 			bindings:  bindings,
@@ -395,8 +395,8 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindings(c *tc.C) {
 
 	// Act:
 	var bindings map[string]string
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		bindings, err = s.state.getEndpointBindings(context.Background(), tx, s.appID)
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		bindings, err = s.state.getEndpointBindings(c.Context(), tx, s.appID)
 		return err
 	})
 
@@ -430,8 +430,8 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsReturnsUnset(c *t
 
 	// Act:
 	var bindings map[string]string
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		bindings, err = s.state.getEndpointBindings(context.Background(), tx, s.appID)
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		bindings, err = s.state.getEndpointBindings(c.Context(), tx, s.appID)
 		return err
 	})
 
@@ -458,8 +458,8 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsOnlyDefault(c *tc
 
 	// Act:
 	var bindings map[string]string
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		bindings, err = s.state.getEndpointBindings(context.Background(), tx, s.appID)
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		bindings, err = s.state.getEndpointBindings(c.Context(), tx, s.appID)
 		return err
 	})
 
@@ -475,8 +475,8 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsApplicationNotFou
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err = s.state.getEndpointBindings(context.Background(), tx, "bad-uuid")
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, err = s.state.getEndpointBindings(c.Context(), tx, "bad-uuid")
 		return err
 	})
 
@@ -486,7 +486,7 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsApplicationNotFou
 
 func (s *applicationEndpointStateSuite) addApplicationEndpoint(c *tc.C, spaceUUID, relationUUID string) string {
 	endpointUUID := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid)
 VALUES (?,?,?,?)`, endpointUUID, s.appID, spaceUUID, relationUUID)
@@ -497,7 +497,7 @@ VALUES (?,?,?,?)`, endpointUUID, s.appID, spaceUUID, relationUUID)
 }
 
 func (s *applicationEndpointStateSuite) addApplicationExtraEndpoint(c *tc.C, spaceUUID, extraEndpointUUID string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO application_extra_endpoint (application_uuid, space_uuid, charm_extra_binding_uuid)
 VALUES (?,?,?)`, s.appID, spaceUUID, extraEndpointUUID)
@@ -508,7 +508,7 @@ VALUES (?,?,?)`, s.appID, spaceUUID, extraEndpointUUID)
 
 func (s *applicationEndpointStateSuite) addApplicationEndpointNullSpace(c *tc.C, relationUUID string) string {
 	endpointUUID := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid)
 VALUES (?,?,?,?)`, endpointUUID, s.appID, nil, relationUUID)
@@ -519,7 +519,7 @@ VALUES (?,?,?,?)`, endpointUUID, s.appID, nil, relationUUID)
 }
 
 func (s *applicationEndpointStateSuite) addApplicationExtraEndpointNullSpace(c *tc.C, extraEndpointUUID string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO application_extra_endpoint (application_uuid, space_uuid, charm_extra_binding_uuid)
 VALUES (?,?,?)`, s.appID, nil, extraEndpointUUID)
@@ -549,7 +549,7 @@ func (s *applicationEndpointStateSuite) fetchApplicationEndpoints(c *tc.C) []app
 		return *s
 	}
 	var endpoints []applicationEndpoint
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query(`
 SELECT ae.charm_relation_uuid, s.name
 FROM application_endpoint ae
@@ -579,7 +579,7 @@ ORDER BY s.name`, s.appID)
 
 func (s *applicationEndpointStateSuite) fetchApplicationExtraEndpoints(c *tc.C) []applicationEndpoint {
 	var endpoints []applicationEndpoint
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query(`
 SELECT ae.charm_extra_binding_uuid, s.name
 FROM application_extra_endpoint ae
@@ -618,7 +618,7 @@ func (s *applicationEndpointStateSuite) addSpaceReturningName(c *tc.C, name stri
 // creating it if necessary, and returns its name.
 func (s *applicationEndpointStateSuite) addSpace(c *tc.C, name string) string {
 	spaceUUID := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO space (uuid, name)
 VALUES (?, ?)`, spaceUUID, name)
@@ -629,7 +629,7 @@ VALUES (?, ?)`, spaceUUID, name)
 }
 
 func (s *applicationEndpointStateSuite) setApplicationDefaultSpace(c *tc.C, spaceUUID string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE application
 SET    space_uuid = ? 
@@ -643,7 +643,7 @@ WHERE  uuid = ?`, spaceUUID, s.appID)
 // It asserts that the operation succeeds and fails the test if an error occurs.
 func (s *applicationEndpointStateSuite) addRelation(c *tc.C, name string) string {
 	relUUID := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name)
 VALUES (?,?,0,0,?)`, relUUID, s.charmUUID, name)
@@ -658,7 +658,7 @@ VALUES (?,?,0,0,?)`, relUUID, s.charmUUID, name)
 // It asserts that the operation succeeds and fails the test if an error occurs.
 func (s *applicationEndpointStateSuite) addExtraBinding(c *tc.C, name string) string {
 	bindingUUID := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm_extra_binding (uuid, charm_uuid, name) 
 VALUES (?,?,?)`, bindingUUID, s.charmUUID, name)
@@ -670,7 +670,7 @@ VALUES (?,?,?)`, bindingUUID, s.charmUUID, name)
 
 func (s *applicationEndpointStateSuite) getApplicationDefaultSpace(c *tc.C) string {
 	var spaceName string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT s.name
 FROM application a

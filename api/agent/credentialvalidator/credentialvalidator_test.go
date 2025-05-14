@@ -4,8 +4,6 @@
 package credentialvalidator_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -39,7 +37,7 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *tc.C) {
 	})
 
 	client := credentialvalidator.NewFacade(apiCaller)
-	found, exists, err := client.ModelCredential(context.Background())
+	found, exists, err := client.ModelCredential(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(exists, tc.IsTrue)
 	c.Assert(found, tc.DeepEquals, base.StoredCredential{CloudCredential: "cloud/user/credential", Valid: true})
@@ -55,7 +53,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialIsNotNeeded(c *tc.C) {
 	})
 
 	client := credentialvalidator.NewFacade(apiCaller)
-	_, exists, err := client.ModelCredential(context.Background())
+	_, exists, err := client.ModelCredential(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(exists, tc.IsFalse)
 }
@@ -71,7 +69,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialInvalidCredentialTag(c *tc
 	})
 
 	client := credentialvalidator.NewFacade(apiCaller)
-	_, exists, err := client.ModelCredential(context.Background())
+	_, exists, err := client.ModelCredential(c.Context())
 	c.Assert(err, tc.ErrorMatches, `"some-invalid-cloud-credential-tag-as-string" is not a valid tag`)
 	c.Assert(exists, tc.IsFalse)
 }
@@ -82,7 +80,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialCallError(c *tc.C) {
 	})
 
 	client := credentialvalidator.NewFacade(apiCaller)
-	_, _, err := client.ModelCredential(context.Background())
+	_, _, err := client.ModelCredential(c.Context())
 	c.Assert(err, tc.ErrorMatches, "foo")
 }
 
@@ -100,7 +98,7 @@ func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *tc.C) {
 		return nil
 	})
 	client := credentialvalidator.NewFacade(apitesting.BestVersionCaller{apiCaller, 2})
-	_, err := client.WatchModelCredential(context.Background())
+	_, err := client.WatchModelCredential(c.Context())
 	c.Assert(err, tc.ErrorMatches, "foo")
 }
 
@@ -110,6 +108,6 @@ func (s *CredentialValidatorSuite) TestWatchModelCredentialCallError(c *tc.C) {
 	})
 
 	client := credentialvalidator.NewFacade(apitesting.BestVersionCaller{apiCaller, 2})
-	_, err := client.WatchModelCredential(context.Background())
+	_, err := client.WatchModelCredential(c.Context())
 	c.Assert(err, tc.ErrorMatches, "foo")
 }

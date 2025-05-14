@@ -106,7 +106,7 @@ func (s *ContextSuite) setupFactory(c *tc.C, ctrl *gomock.Controller) {
 	s.setupUniter(ctrl)
 
 	s.unit.EXPECT().PrincipalName(gomock.Any()).Return("", false, nil).AnyTimes()
-	s.uniter.EXPECT().Model(stdcontext.Background()).Return(&types.Model{
+	s.uniter.EXPECT().Model(c.Context()).Return(&types.Model{
 		Name:      "test-model",
 		UUID:      coretesting.ModelTag.Id(),
 		ModelType: types.IAAS,
@@ -117,7 +117,7 @@ func (s *ContextSuite) setupFactory(c *tc.C, ctrl *gomock.Controller) {
 	cfg := coretesting.ModelConfig(c)
 	s.uniter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
-	contextFactory, err := context.NewContextFactory(stdcontext.Background(), context.FactoryConfig{
+	contextFactory, err := context.NewContextFactory(c.Context(), context.FactoryConfig{
 		Uniter:           s.uniter,
 		Unit:             s.unit,
 		Tracker:          &runnertesting.FakeTracker{},
@@ -133,7 +133,7 @@ func (s *ContextSuite) setupFactory(c *tc.C, ctrl *gomock.Controller) {
 	s.paths = runnertesting.NewRealPaths(c)
 	s.membership = map[int][]string{}
 
-	s.contextFactory, err = context.NewContextFactory(stdcontext.Background(), context.FactoryConfig{
+	s.contextFactory, err = context.NewContextFactory(c.Context(), context.FactoryConfig{
 		Uniter:           s.uniter,
 		Unit:             s.unit,
 		Tracker:          &runnertesting.FakeTracker{},

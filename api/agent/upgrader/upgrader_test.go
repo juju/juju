@@ -4,8 +4,6 @@
 package upgrader_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/upgrader"
@@ -42,7 +40,7 @@ func (s *machineUpgraderSuite) TestSetVersion(c *tc.C) {
 
 	})
 	client := upgrader.NewClient(apiCaller)
-	err := client.SetVersion(context.Background(), "machine-666", coretesting.CurrentVersion())
+	err := client.SetVersion(c.Context(), "machine-666", coretesting.CurrentVersion())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -64,7 +62,7 @@ func (s *machineUpgraderSuite) TestTools(c *tc.C) {
 
 	})
 	client := upgrader.NewClient(apiCaller)
-	t, err := client.Tools(context.Background(), "machine-666")
+	t, err := client.Tools(c.Context(), "machine-666")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(t, tc.DeepEquals, toolsResult)
 }
@@ -86,7 +84,7 @@ func (s *machineUpgraderSuite) TestWatchAPIVersion(c *tc.C) {
 
 	})
 	client := upgrader.NewClient(apiCaller)
-	_, err := client.WatchAPIVersion(context.Background(), "machine-666")
+	_, err := client.WatchAPIVersion(c.Context(), "machine-666")
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -108,7 +106,7 @@ func (s *machineUpgraderSuite) TestDesiredVersion(c *tc.C) {
 
 	})
 	client := upgrader.NewClient(apiCaller)
-	v, err := client.DesiredVersion(context.Background(), "machine-666")
+	v, err := client.DesiredVersion(c.Context(), "machine-666")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(v, tc.DeepEquals, versResult)
 }

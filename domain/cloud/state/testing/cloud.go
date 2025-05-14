@@ -28,7 +28,7 @@ func CreateTestCloud(
 	cloudUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)

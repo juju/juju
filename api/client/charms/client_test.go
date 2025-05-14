@@ -5,7 +5,6 @@ package charms_test
 
 import (
 	"archive/zip"
-	"context"
 	"os"
 	"path/filepath"
 
@@ -98,7 +97,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *tc.C) {
 		{URL: curl2, Origin: edgeChannelOrigin},
 		{URL: curl2, Origin: edgeChannelOrigin},
 	}
-	got, err := client.ResolveCharms(context.Background(), args)
+	got, err := client.ResolveCharms(c.Context(), args)
 	c.Assert(err, tc.IsNil)
 
 	want := []charms.ResolvedCharm{
@@ -158,7 +157,7 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *tc.C) {
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
 	c.Assert(err, tc.ErrorIsNil)
-	got, err := client.GetDownloadInfo(context.Background(), curl, origin)
+	got, err := client.GetDownloadInfo(c.Context(), curl, origin)
 	c.Assert(err, tc.IsNil)
 
 	want := charms.DownloadInfo{
@@ -197,7 +196,7 @@ func (s *addCharmSuite) TestAddCharm(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddCharm", facadeArgs, result).SetArg(3, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
-	got, err := client.AddCharm(context.Background(), curl, origin, false)
+	got, err := client.AddCharm(c.Context(), curl, origin, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, origin)
 }
@@ -222,7 +221,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacement(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CheckCharmPlacement", facadeArgs, &result).SetArg(3, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
-	err := client.CheckCharmPlacement(context.Background(), "winnie", charm.MustParseURL("poo"))
+	err := client.CheckCharmPlacement(c.Context(), "winnie", charm.MustParseURL("poo"))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -242,7 +241,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CheckCharmPlacement", facadeArgs, &result).Return(errors.Errorf("trap"))
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
-	err := client.CheckCharmPlacement(context.Background(), "winnie", charm.MustParseURL("poo"))
+	err := client.CheckCharmPlacement(c.Context(), "winnie", charm.MustParseURL("poo"))
 	c.Assert(err, tc.ErrorMatches, "trap")
 }
 
@@ -281,7 +280,7 @@ func (s *charmsMockSuite) TestListCharmResources(c *tc.C) {
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
 	c.Assert(err, tc.ErrorIsNil)
-	got, err := client.ListCharmResources(context.Background(), curl, origin)
+	got, err := client.ListCharmResources(c.Context(), curl, origin)
 	c.Assert(err, tc.IsNil)
 
 	want := []charmresource.Resource{{

@@ -4,7 +4,6 @@
 package service
 
 import (
-	"context"
 	"slices"
 
 	"github.com/juju/tc"
@@ -66,7 +65,7 @@ func (s *serviceSuite) TestAuthorisedKeysForMachine(c *tc.C) {
 	expected = append(expected, machineKeys...)
 
 	keys, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).GetAuthorisedKeysForMachine(
-		context.Background(),
+		c.Context(),
 		coremachine.Name("0"),
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -90,7 +89,7 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNoControllerKeys(c *tc.C) {
 	expected = append(expected, machineKeys...)
 
 	keys, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).GetAuthorisedKeysForMachine(
-		context.Background(),
+		c.Context(),
 		coremachine.Name("0"),
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -109,7 +108,7 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNotFound(c *tc.C) {
 	s.state.EXPECT().CheckMachineExists(gomock.Any(), coremachine.Name("0")).Return(machineerrors.MachineNotFound)
 
 	_, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).GetAuthorisedKeysForMachine(
-		context.Background(),
+		c.Context(),
 		coremachine.Name("0"),
 	)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
@@ -125,7 +124,7 @@ func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerSuccess(c *tc.C) 
 	s.controllerState.EXPECT().GetUserAuthorizedKeysForModel(gomock.Any(), s.modelId).Return(controllerKeys, nil)
 
 	keys, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).
-		GetInitialAuthorisedKeysForContainer(context.Background())
+		GetInitialAuthorisedKeysForContainer(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(keys, tc.DeepEquals, controllerKeys)
 }
@@ -145,6 +144,6 @@ func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerFailure(c *tc.C) 
 	)
 
 	_, err := NewService(s.controllerKeyProvider, s.controllerState, s.state).
-		GetInitialAuthorisedKeysForContainer(context.Background())
+		GetInitialAuthorisedKeysForContainer(c.Context())
 	c.Check(err, tc.ErrorIs, boom)
 }

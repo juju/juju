@@ -34,7 +34,7 @@ var _ = tc.Suite(&transactionRunnerSuite{})
 func (s *transactionRunnerSuite) TestTxn(c *tc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
-	err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(c.Context(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT 1")
 		if err != nil {
 			return errors.Trace(err)
@@ -74,7 +74,7 @@ func (s *transactionRunnerSuite) TestTxnLogging(c *tc.C) {
 		c:       c,
 	}))
 
-	err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(c.Context(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT 1")
 		if err != nil {
 			return errors.Trace(err)
@@ -92,7 +92,7 @@ running txn (id: 1) with query: COMMIT
 }
 
 func (s *transactionRunnerSuite) TestTxnWithCancelledContext(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	runner := txn.NewRetryingTxnRunner()
@@ -119,7 +119,7 @@ func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *tc.C) {
 	go func() {
 		defer wg.Done()
 
-		err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+		err := runner.StdTxn(c.Context(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 			close(sync)
 
 			select {
@@ -142,7 +142,7 @@ func (s *transactionRunnerSuite) TestTxnParallelCancelledContext(c *tc.C) {
 			c.Fatal("should not be called")
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(c.Context())
 
 		// Force the cancel to happen after the transaction has started.
 		cancel()
@@ -174,7 +174,7 @@ func (s *transactionRunnerSuite) TestTxnInserts(c *tc.C) {
 
 	s.createTable(c)
 
-	err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(c.Context(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO foo (id, name) VALUES (1, 'test')")
 		if err != nil {
 			return errors.Trace(err)
@@ -202,7 +202,7 @@ func (s *transactionRunnerSuite) TestTxnRollback(c *tc.C) {
 
 	s.createTable(c)
 
-	err := runner.StdTxn(context.Background(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(c.Context(), s.DB(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO foo (id, name) VALUES (1, 'test')")
 		if err != nil {
 			return errors.Trace(err)
@@ -229,7 +229,7 @@ func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *tc.C) {
 	runner := txn.NewRetryingTxnRunner()
 
 	var count int
-	err := runner.Retry(context.Background(), func() error {
+	err := runner.Retry(c.Context(), func() error {
 		count++
 		return errors.Errorf("fail")
 	})
@@ -238,7 +238,7 @@ func (s *transactionRunnerSuite) TestRetryForNonRetryableError(c *tc.C) {
 }
 
 func (s *transactionRunnerSuite) TestRetryWithACancelledContext(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 
 	runner := txn.NewRetryingTxnRunner()
 
@@ -266,7 +266,7 @@ func (s *transactionRunnerSuite) TestRetryForRetryableError(c *tc.C) {
 	runner := txn.NewRetryingTxnRunner(txn.WithRetryStrategy(txn.DefaultRetryStrategy(s.clock, loggertesting.WrapCheckLog(c))))
 
 	var count int
-	err := runner.Retry(context.Background(), func() error {
+	err := runner.Retry(c.Context(), func() error {
 		count++
 		return sqlite3.ErrBusy
 	})

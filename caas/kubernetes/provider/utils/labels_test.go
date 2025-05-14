@@ -4,8 +4,6 @@
 package utils_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -133,10 +131,10 @@ func (l *LabelSuite) TestDectectModelLabelVersion(c *tc.C) {
 	}
 
 	for t, test := range tests {
-		_, err := l.client.CoreV1().Namespaces().Create(context.Background(), test.Namespace, meta.CreateOptions{})
+		_, err := l.client.CoreV1().Namespaces().Create(c.Context(), test.Namespace, meta.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
-		labelVersion, err := utils.DetectModelLabelVersion(context.Background(), test.Namespace.Name, test.ModelName, test.ModelUUID, test.ControllerUUID, l.client.CoreV1().Namespaces())
+		labelVersion, err := utils.DetectModelLabelVersion(c.Context(), test.Namespace.Name, test.ModelName, test.ModelUUID, test.ControllerUUID, l.client.CoreV1().Namespaces())
 		if test.ErrorString != "" {
 			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
 		} else {

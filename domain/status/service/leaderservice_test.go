@@ -60,7 +60,7 @@ func (s *leaderServiceSuite) TestSetRelationStatus(c *tc.C) {
 	s.state.EXPECT().SetRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(nil)
 
 	// Act
-	err := s.service.SetRelationStatus(context.Background(), unitName, relationUUID, sts)
+	err := s.service.SetRelationStatus(c.Context(), unitName, relationUUID, sts)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -88,7 +88,7 @@ func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	s.state.EXPECT().SetRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(statuserrors.RelationNotFound)
 
 	// Act
-	err := s.service.SetRelationStatus(context.Background(), unitName, relationUUID, sts)
+	err := s.service.SetRelationStatus(c.Context(), unitName, relationUUID, sts)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, statuserrors.RelationNotFound)
@@ -115,7 +115,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 		Since:   &now,
 	})
 
-	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, corestatus.StatusInfo{
+	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -139,7 +139,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *t
 
 	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
 
-	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, corestatus.StatusInfo{
+	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -154,7 +154,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderInvalidUnitNam
 	now := time.Now()
 
 	unitName := coreunit.Name("!!!!")
-	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, corestatus.StatusInfo{
+	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -174,7 +174,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c 
 	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).
 		Return(applicationUUID, "foo", statuserrors.UnitNotFound)
 
-	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, corestatus.StatusInfo{
+	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -196,14 +196,14 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 			return lease.ErrNotHeld
 		})
 
-	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
+	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotLeader)
 }
 
 func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderInvalidUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), coreunit.Name("!!!"))
+	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(c.Context(), coreunit.Name("!!!"))
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
 }
 
@@ -213,7 +213,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 	unitName := coreunit.Name("foo/0")
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", statuserrors.ApplicationNotFound)
-	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
+	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
@@ -267,7 +267,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 			},
 		}, nil)
 
-	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
+	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(applicationStatus, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
@@ -350,7 +350,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 			},
 		}, nil)
 
-	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
+	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(applicationStatus, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Blocked,

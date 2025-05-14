@@ -86,14 +86,14 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	s.expectControllerConfig(c, testing.FakeControllerConfig())
 
-	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
+	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// This should still be a worker, just a useless one.
 	nw, ok := w.(*noopWorker)
 	c.Assert(ok, tc.IsTrue)
-	err = nw.Session(context.Background(), func(context.Context, objectstore.Session) error {
+	err = nw.Session(c.Context(), func(context.Context, objectstore.Session) error {
 		c.Fatalf("unexpected call to Session")
 		return nil
 	})
@@ -117,7 +117,7 @@ func (s *manifoldSuite) TestStartS3Backend(c *tc.C) {
 	s.expectControllerConfigWatch(c)
 	s.expectHTTPClient(c)
 
-	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
+	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
@@ -140,7 +140,7 @@ func (s *manifoldSuite) TestOutput(c *tc.C) {
 	s.expectHTTPClient(c)
 
 	manifold := Manifold(s.getConfig())
-	w, err := manifold.Start(context.Background(), s.newGetter())
+	w, err := manifold.Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -153,7 +153,7 @@ func (s *manifoldSuite) TestOutput(c *tc.C) {
 	c.Check(client, tc.NotNil)
 
 	var session objectstore.Session
-	err = client.Session(context.Background(), func(ctx context.Context, s objectstore.Session) error {
+	err = client.Session(c.Context(), func(ctx context.Context, s objectstore.Session) error {
 		session = s
 		return nil
 	})

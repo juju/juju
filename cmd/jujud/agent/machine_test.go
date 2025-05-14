@@ -108,7 +108,7 @@ func (s *MachineSuite) SetUpTest(c *tc.C) {
 	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
 
 	// Ensure the dummy provider is initialised - no need to actually bootstrap.
-	ctx := envtesting.BootstrapContext(context.Background(), c)
+	ctx := envtesting.BootstrapContext(c.Context(), c)
 	err = s.Environ.PrepareForBootstrap(ctx, "controller")
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -348,7 +348,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *tc.C) {
 
 	// Wait for state to be updated.
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), m.Id())
+		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(c.Context(), m.Id())
 		c.Assert(err, tc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, tc.HasLen, 1)
@@ -395,7 +395,7 @@ func (s *MachineSuite) setupIgnoreAddresses(c *tc.C, expectedIgnoreValue bool) c
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
-	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), attrs, nil)
+	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(c.Context(), attrs, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	return ignoreAddressCh
 }

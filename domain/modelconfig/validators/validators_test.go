@@ -41,7 +41,7 @@ func (*validatorsSuite) TestCharmhubURLChange(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var validationError *config.ValidationError
-	_, err = CharmhubURLChange()(context.Background(), newCfg, oldCfg)
+	_, err = CharmhubURLChange()(c.Context(), newCfg, oldCfg)
 	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"charmhub-url"})
 }
@@ -63,7 +63,7 @@ func (*validatorsSuite) TestCharmhubURLNoChange(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = CharmhubURLChange()(context.Background(), newCfg, oldCfg)
+	_, err = CharmhubURLChange()(c.Context(), newCfg, oldCfg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -86,7 +86,7 @@ func (*validatorsSuite) TestAgentStreamChanged(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var validationError *config.ValidationError
-	_, err = AgentStreamChange()(context.Background(), newCfg, oldCfg)
+	_, err = AgentStreamChange()(c.Context(), newCfg, oldCfg)
 	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"agent-stream"})
 }
@@ -110,7 +110,7 @@ func (*validatorsSuite) TestAgentStreamNoChange(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	cfg, err := AgentStreamChange()(context.Background(), newCfg, oldCfg)
+	cfg, err := AgentStreamChange()(c.Context(), newCfg, oldCfg)
 	c.Assert(err, tc.ErrorIsNil)
 	reportedStream := cfg.AgentStream()
 	c.Check(reportedStream, tc.Equals, "")
@@ -130,7 +130,7 @@ func (*validatorsSuite) TestAgentStreamNoChange(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = AgentStreamChange()(context.Background(), newCfg, oldCfg)
+	_, err = AgentStreamChange()(c.Context(), newCfg, oldCfg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -152,7 +152,7 @@ func (*validatorsSuite) TestAgentVersionChanged(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var validationError *config.ValidationError
-	_, err = AgentVersionChange()(context.Background(), newCfg, oldCfg)
+	_, err = AgentVersionChange()(c.Context(), newCfg, oldCfg)
 	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"agent-version"})
 }
@@ -176,7 +176,7 @@ func (*validatorsSuite) TestAgentVersionNoChange(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	cfg, err := AgentVersionChange()(context.Background(), newCfg, oldCfg)
+	cfg, err := AgentVersionChange()(c.Context(), newCfg, oldCfg)
 	c.Assert(err, tc.ErrorIsNil)
 	_, agentVersionSet := cfg.AgentVersion()
 	c.Check(agentVersionSet, tc.IsFalse)
@@ -196,7 +196,7 @@ func (*validatorsSuite) TestAgentVersionNoChange(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = AgentVersionChange()(context.Background(), newCfg, oldCfg)
+	_, err = AgentVersionChange()(c.Context(), newCfg, oldCfg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -222,7 +222,7 @@ func (*validatorsSuite) TestSpaceCheckerFound(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = SpaceChecker(provider)(context.Background(), newCfg, oldCfg)
+	_, err = SpaceChecker(provider)(c.Context(), newCfg, oldCfg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -248,7 +248,7 @@ func (*validatorsSuite) TestSpaceCheckerNotFound(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = SpaceChecker(provider)(context.Background(), newCfg, oldCfg)
+	_, err = SpaceChecker(provider)(c.Context(), newCfg, oldCfg)
 	var validationError *config.ValidationError
 	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"default-space"})
@@ -277,7 +277,7 @@ func (*validatorsSuite) TestSpaceCheckerError(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = SpaceChecker(provider)(context.Background(), newCfg, oldCfg)
+	_, err = SpaceChecker(provider)(c.Context(), newCfg, oldCfg)
 	c.Assert(err, tc.ErrorIs, providerErr)
 }
 
@@ -297,7 +297,7 @@ func (*validatorsSuite) TestLoggincTracePermissionNoTrace(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = LoggingTracePermissionChecker(false)(context.Background(), newCfg, oldCfg)
+	_, err = LoggingTracePermissionChecker(false)(c.Context(), newCfg, oldCfg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -317,7 +317,7 @@ func (*validatorsSuite) TestLoggincTracePermissionTrace(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = LoggingTracePermissionChecker(false)(context.Background(), newCfg, oldCfg)
+	_, err = LoggingTracePermissionChecker(false)(c.Context(), newCfg, oldCfg)
 	c.Assert(err, tc.ErrorIs, ErrorLogTracingPermission)
 
 	var validationError *config.ValidationError
@@ -341,7 +341,7 @@ func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = LoggingTracePermissionChecker(true)(context.Background(), newCfg, oldCfg)
+	_, err = LoggingTracePermissionChecker(true)(c.Context(), newCfg, oldCfg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -359,7 +359,7 @@ func (*validatorsSuite) TestContainerNetworkingMethodValueValid(c *tc.C) {
 		})
 		c.Assert(err, tc.ErrorIsNil)
 
-		_, err = ContainerNetworkingMethodValue()(context.Background(), cfg, nil)
+		_, err = ContainerNetworkingMethodValue()(c.Context(), cfg, nil)
 		c.Check(err, tc.ErrorIsNil)
 	}
 }
@@ -384,7 +384,7 @@ func (*validatorsSuite) TestContainerNetworkingMethodChanged(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = ContainerNetworkingMethodChange()(context.Background(), newCfg, oldCfg)
+	_, err = ContainerNetworkingMethodChange()(c.Context(), newCfg, oldCfg)
 	var validationError *config.ValidationError
 	c.Assert(errors.As(err, &validationError), tc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, tc.DeepEquals, []string{"container-networking-method"})
@@ -410,6 +410,6 @@ func (*validatorsSuite) TestContainerNetworkingMethodNoChange(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = ContainerNetworkingMethodChange()(context.Background(), newCfg, oldCfg)
+	_, err = ContainerNetworkingMethodChange()(c.Context(), newCfg, oldCfg)
 	c.Check(err, tc.ErrorIsNil)
 }

@@ -4,7 +4,6 @@
 package secretbackends
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -70,7 +69,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *tc.C) {
 		Config:      addedConfig,
 	}).Return(secretbackenderrors.AlreadyExists)
 
-	results, err := facade.AddSecretBackends(context.Background(), params.AddSecretBackendArgs{
+	results, err := facade.AddSecretBackends(c.Context(), params.AddSecretBackendArgs{
 		Args: []params.AddSecretBackendArg{{
 			ID: "backend-id",
 			SecretBackend: params.SecretBackend{
@@ -104,7 +103,7 @@ func (s *SecretsSuite) TestAddSecretBackendsPermissionDenied(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
-	_, err := facade.AddSecretBackends(context.Background(), params.AddSecretBackendArgs{})
+	_, err := facade.AddSecretBackends(c.Context(), params.AddSecretBackendArgs{})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -152,7 +151,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *tc.C, reveal bool) {
 			},
 		}, nil)
 
-	results, err := facade.ListSecretBackends(context.Background(),
+	results, err := facade.ListSecretBackends(c.Context(),
 		params.ListSecretBackendsArgs{
 			Names: []string{"myvault"}, Reveal: reveal,
 		})
@@ -195,7 +194,7 @@ func (s *SecretsSuite) TestListSecretBackendsPermissionDeniedReveal(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
-	_, err := facade.ListSecretBackends(context.Background(), params.ListSecretBackendsArgs{Reveal: true})
+	_, err := facade.ListSecretBackends(c.Context(), params.ListSecretBackendsArgs{Reveal: true})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -229,7 +228,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *tc.C) {
 		},
 	).Return(secretbackenderrors.NotFound)
 
-	results, err := facade.UpdateSecretBackends(context.Background(), params.UpdateSecretBackendArgs{
+	results, err := facade.UpdateSecretBackends(c.Context(), params.UpdateSecretBackendArgs{
 		Args: []params.UpdateSecretBackendArg{{
 			Name:                "myvault",
 			NameChange:          ptr("new-name"),
@@ -261,7 +260,7 @@ func (s *SecretsSuite) TestUpdateSecretBackendsPermissionDenied(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
-	_, err := facade.UpdateSecretBackends(context.Background(), params.UpdateSecretBackendArgs{})
+	_, err := facade.UpdateSecretBackends(c.Context(), params.UpdateSecretBackendArgs{})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -284,7 +283,7 @@ func (s *SecretsSuite) TestRemoveSecretBackends(c *tc.C) {
 			}).Return(errors.NotSupportedf("remove with revisions")),
 	)
 
-	results, err := facade.RemoveSecretBackends(context.Background(), params.RemoveSecretBackendArgs{
+	results, err := facade.RemoveSecretBackends(c.Context(), params.RemoveSecretBackendArgs{
 		Args: []params.RemoveSecretBackendArg{{
 			Name:  "myvault",
 			Force: true,
@@ -308,6 +307,6 @@ func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
-	_, err := facade.RemoveSecretBackends(context.Background(), params.RemoveSecretBackendArgs{})
+	_, err := facade.RemoveSecretBackends(c.Context(), params.RemoveSecretBackendArgs{})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

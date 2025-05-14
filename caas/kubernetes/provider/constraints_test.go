@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"context"
 	"strings"
 
 	"github.com/juju/tc"
@@ -22,7 +21,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	validator, err := s.broker.ConstraintsValidator(context.Background())
+	validator, err := s.broker.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("mem=64G")
@@ -36,7 +35,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorEmpty(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	validator, err := s.broker.ConstraintsValidator(context.Background())
+	validator, err := s.broker.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -49,7 +48,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	validator, err := s.broker.ConstraintsValidator(context.Background())
+	validator, err := s.broker.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{

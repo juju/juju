@@ -73,7 +73,7 @@ func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *tc.C) {
 	}, nil)
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	deployer, err := factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy pre-deployed local charm: %s", ch))
 }
@@ -96,7 +96,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *tc.C) {
 	cfg.CharmOrBundle = archivePath
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	deployer, err := factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, tc.ErrorIsNil)
 	ch := "local:multi-series-1"
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy local charm: %s", ch))
@@ -122,7 +122,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharmPathWithSchema(c *tc.C) {
 	cfg.CharmOrBundle = archivePath
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	deployer, err := factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, tc.ErrorIsNil)
 	ch := "local:multi-series-1"
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy local charm: %s", ch))
@@ -136,7 +136,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharmError(c *tc.C) {
 
 	s.expectStat(path, os.ErrNotExist)
 
-	_, err := factory.GetDeployer(context.Background(), DeployerConfig{CharmOrBundle: path}, s.charmDeployAPI, nil)
+	_, err := factory.GetDeployer(c.Context(), DeployerConfig{CharmOrBundle: path}, s.charmDeployAPI, nil)
 	c.Assert(err, tc.ErrorMatches, `no charm was found at "./bad.charm"`)
 }
 
@@ -154,7 +154,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubCharm(c *tc.C) {
 	cfg.CharmOrBundle = ch
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	deployer, err := factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy charm: %s", ch))
 }
@@ -189,7 +189,7 @@ func (s *deployerSuite) testGetDeployerRepositoryCharmWithRevision(c *tc.C, curl
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 
 	factory := s.newDeployerFactory()
-	return factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	return factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 }
 
 func (s *deployerSuite) TestBaseOverride(c *tc.C) {
@@ -203,7 +203,7 @@ func (s *deployerSuite) TestBaseOverride(c *tc.C) {
 	cfg.CharmOrBundle = curl
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	deployer, err := factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy charm: %s", curl))
 
@@ -236,7 +236,7 @@ func (s *deployerSuite) TestGetDeployerLocalBundle(c *tc.C) {
 	cfg.CharmOrBundle = bundlePath
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	deployer, err := factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy local bundle from: %s", bundlePath))
 }
@@ -259,7 +259,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithChannel(c *tc.C) {
 	s.expectBundleBytes()
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	deployer, err := factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy bundle: %s from channel edge", bundle))
 }
@@ -281,7 +281,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevision(c *tc.C) {
 
 	s.expectResolveBundleURL(nil, 1)
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	deployer, err := factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployer.String(), tc.Equals, fmt.Sprintf("deploy bundle: %s with revision 8", bundle))
 }
@@ -297,7 +297,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevisionURL(c *tc.C) {
 	s.expectModelType()
 
 	factory := s.newDeployerFactory()
-	_, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	_, err := factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, tc.ErrorMatches, "cannot specify revision in a charm or bundle name. Please use --revision.")
 }
 
@@ -314,7 +314,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleError(c *tc.C) {
 	s.expectResolveBundleURL(nil, 1)
 
 	factory := s.newDeployerFactory()
-	_, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
+	_, err := factory.GetDeployer(c.Context(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, tc.ErrorMatches, "revision and channel are mutually exclusive when deploying a bundle. Please choose one.")
 }
 
@@ -358,7 +358,7 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAAS(c *tc.C) {
 		model: s.modelCommand,
 	}
 
-	err := f.validateResourcesNeededForLocalDeploy(context.Background(), &charm.Meta{})
+	err := f.validateResourcesNeededForLocalDeploy(c.Context(), &charm.Meta{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -371,7 +371,7 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployIAAS(c *tc.C) {
 		model: s.modelCommand,
 	}
 
-	err := f.validateResourcesNeededForLocalDeploy(context.Background(), &charm.Meta{})
+	err := f.validateResourcesNeededForLocalDeploy(c.Context(), &charm.Meta{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -4,8 +4,6 @@
 package apiremotecaller
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
@@ -45,7 +43,7 @@ func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
 		"agent": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
 	c.Check(worker, tc.IsNil)
 }
@@ -56,7 +54,7 @@ func (s *ManifoldSuite) TestCentralHubMissing(c *tc.C) {
 		"central-hub": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
 	c.Check(worker, tc.IsNil)
 }
@@ -67,7 +65,7 @@ func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *tc.C) {
 		"central-hub": pubsub.NewStructuredHub(nil),
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
 	c.Check(worker, tc.IsNil)
 }
@@ -86,7 +84,7 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 		"central-hub": hub,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker, tc.NotNil)
 

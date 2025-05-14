@@ -4,8 +4,6 @@
 package storage_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -57,7 +55,7 @@ func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 func (s *volumeSuite) TestListVolumesNoFilters(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{})
+	found, err := s.api.ListVolumes(c.Context(), params.VolumeFilters{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 0)
 }
@@ -65,7 +63,7 @@ func (s *volumeSuite) TestListVolumesNoFilters(c *tc.C) {
 func (s *volumeSuite) TestListVolumesEmptyFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
+	found, err := s.api.ListVolumes(c.Context(), params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error, tc.IsNil)
@@ -80,7 +78,7 @@ func (s *volumeSuite) TestListVolumesError(c *tc.C) {
 	s.storageAccessor.allVolumes = func() ([]state.Volume, error) {
 		return nil, errors.New(msg)
 	}
-	results, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
+	results, err := s.api.ListVolumes(c.Context(), params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, msg)
@@ -92,7 +90,7 @@ func (s *volumeSuite) TestListVolumesNoVolumes(c *tc.C) {
 	s.storageAccessor.allVolumes = func() ([]state.Volume, error) {
 		return nil, nil
 	}
-	results, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
+	results, err := s.api.ListVolumes(c.Context(), params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Result, tc.HasLen, 0)
@@ -105,7 +103,7 @@ func (s *volumeSuite) TestListVolumesFilter(c *tc.C) {
 	filters := []params.VolumeFilter{{
 		Machines: []string{s.machineTag.String()},
 	}}
-	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{filters})
+	found, err := s.api.ListVolumes(c.Context(), params.VolumeFilters{filters})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result, tc.HasLen, 1)
@@ -119,7 +117,7 @@ func (s *volumeSuite) TestListVolumesFilterNonMatching(c *tc.C) {
 	filters := []params.VolumeFilter{{
 		Machines: []string{"machine-42"},
 	}}
-	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{filters})
+	found, err := s.api.ListVolumes(c.Context(), params.VolumeFilters{filters})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result, tc.HasLen, 0)
@@ -138,7 +136,7 @@ func (s *volumeSuite) TestListVolumesVolumeInfo(c *tc.C) {
 	expected.Info.Size = 123
 	expected.Info.HardwareId = "abc"
 	expected.Info.Persistent = true
-	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
+	found, err := s.api.ListVolumes(c.Context(), params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error, tc.IsNil)
@@ -161,7 +159,7 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *tc.C) {
 		},
 		Life: "alive",
 	}
-	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
+	found, err := s.api.ListVolumes(c.Context(), params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result, tc.HasLen, 1)
@@ -185,7 +183,7 @@ func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *tc.C) {
 		},
 		Life: "alive",
 	}
-	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
+	found, err := s.api.ListVolumes(c.Context(), params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result, tc.HasLen, 1)
@@ -220,7 +218,7 @@ func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *tc.C) {
 		},
 		Life: "alive",
 	}
-	found, err := s.api.ListVolumes(context.Background(), params.VolumeFilters{[]params.VolumeFilter{{}}})
+	found, err := s.api.ListVolumes(c.Context(), params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)

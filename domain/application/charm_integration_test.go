@@ -4,8 +4,6 @@
 package application_test
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -51,7 +49,7 @@ func (s *charmSuite) TestSetCharmWithArchitecture(c *tc.C) {
 		}},
 	}
 
-	_, _, err := service.SetCharm(context.Background(), charm.SetCharmArgs{
+	_, _, err := service.SetCharm(c.Context(), charm.SetCharmArgs{
 		Charm:         internalcharm.NewCharmBase(&metadata, &manifest, nil, nil, nil),
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -63,7 +61,7 @@ func (s *charmSuite) TestSetCharmWithArchitecture(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, locator, _, err := service.GetCharm(context.Background(), charm.CharmLocator{
+	_, locator, _, err := service.GetCharm(c.Context(), charm.CharmLocator{
 		Name:     "foo",
 		Revision: 1,
 		Source:   charm.LocalSource,
@@ -92,7 +90,7 @@ func (s *charmSuite) TestSetCharmWithoutArchitecture(c *tc.C) {
 		}},
 	}
 
-	_, _, err := service.SetCharm(context.Background(), charm.SetCharmArgs{
+	_, _, err := service.SetCharm(c.Context(), charm.SetCharmArgs{
 		Charm:         internalcharm.NewCharmBase(&metadata, &manifest, nil, nil, nil),
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -103,7 +101,7 @@ func (s *charmSuite) TestSetCharmWithoutArchitecture(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, locator, _, err := service.GetCharm(context.Background(), charm.CharmLocator{
+	_, locator, _, err := service.GetCharm(c.Context(), charm.CharmLocator{
 		Name:     "foo",
 		Revision: 1,
 		Source:   charm.LocalSource,

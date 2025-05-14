@@ -4,8 +4,6 @@
 package operation_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -39,7 +37,7 @@ func (s *DeploySuite) testPrepareAlreadyDone(
 	})
 	op, err := newDeploy(factory, "ch:quantal/hive-23")
 	c.Assert(err, tc.ErrorIsNil)
-	newState, err := op.Prepare(context.Background(), operation.State{
+	newState, err := op.Prepare(c.Context(), operation.State{
 		Kind:     kind,
 		Step:     operation.Done,
 		CharmURL: "ch:quantal/hive-23",
@@ -92,7 +90,7 @@ func (s *DeploySuite) testPrepareArchiveInfoError(c *tc.C, newDeploy newDeploy) 
 	op, err := newDeploy(factory, "ch:quantal/hive-23")
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Prepare(context.Background(), operation.State{})
+	newState, err := op.Prepare(c.Context(), operation.State{})
 	c.Check(newState, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "pew")
 	c.Check(callbacks.MockGetArchiveInfo.gotCharmURL, tc.Equals, "ch:quantal/hive-23")
@@ -133,7 +131,7 @@ func (s *DeploySuite) testPrepareStageError(c *tc.C, newDeploy newDeploy) {
 	op, err := newDeploy(factory, "ch:quantal/hive-23")
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Prepare(context.Background(), operation.State{})
+	newState, err := op.Prepare(c.Context(), operation.State{})
 	c.Check(newState, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "squish")
 	c.Check(*deployer.MockStage.gotInfo, tc.Equals, callbacks.MockGetArchiveInfo.info)
@@ -175,7 +173,7 @@ func (s *DeploySuite) testPrepareSetCharmError(c *tc.C, newDeploy newDeploy) {
 	op, err := newDeploy(factory, "ch:quantal/hive-23")
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Prepare(context.Background(), operation.State{})
+	newState, err := op.Prepare(c.Context(), operation.State{})
 	c.Check(newState, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "blargh")
 	c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, tc.Equals, "ch:quantal/hive-23")
@@ -212,7 +210,7 @@ func (s *DeploySuite) testPrepareSuccess(c *tc.C, newDeploy newDeploy, before, a
 	op, err := newDeploy(factory, "ch:quantal/nyancat-4")
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Prepare(context.Background(), before)
+	newState, err := op.Prepare(c.Context(), before)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(newState, tc.DeepEquals, &after)
 	c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, tc.Equals, "ch:quantal/nyancat-4")
@@ -346,10 +344,10 @@ func (s *DeploySuite) testExecuteError(c *tc.C, newDeploy newDeploy) {
 	})
 	op, err := newDeploy(factory, "ch:quantal/nyancat-4")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = op.Prepare(context.Background(), operation.State{})
+	_, err = op.Prepare(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Execute(context.Background(), operation.State{})
+	newState, err := op.Execute(c.Context(), operation.State{})
 	c.Check(newState, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "rasp")
 	c.Check(deployer.MockDeploy.called, tc.IsTrue)
@@ -384,11 +382,11 @@ func (s *DeploySuite) testExecuteSuccess(
 	op, err := newDeploy(factory, "ch:quantal/lol-1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	midState, err := op.Prepare(context.Background(), before)
+	midState, err := op.Prepare(c.Context(), before)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(midState, tc.NotNil)
 
-	newState, err := op.Execute(context.Background(), *midState)
+	newState, err := op.Execute(c.Context(), *midState)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(newState, tc.DeepEquals, &after)
 	c.Check(deployer.MockDeploy.called, tc.IsTrue)
@@ -504,7 +502,7 @@ func (s *DeploySuite) TestCommitQueueInstallHook(c *tc.C) {
 	})
 	op, err := factory.NewInstall("ch:quantal/x-0")
 	c.Assert(err, tc.ErrorIsNil)
-	newState, err := op.Commit(context.Background(), operation.State{
+	newState, err := op.Commit(c.Context(), operation.State{
 		Kind:     operation.Install,
 		Step:     operation.Done,
 		CharmURL: "", // doesn't actually matter here
@@ -531,7 +529,7 @@ func (s *DeploySuite) testCommitQueueUpgradeHook(c *tc.C, newDeploy newDeploy) {
 
 	op, err := newDeploy(factory, "ch:quantal/x-0")
 	c.Assert(err, tc.ErrorIsNil)
-	newState, err := op.Commit(context.Background(), operation.State{
+	newState, err := op.Commit(c.Context(), operation.State{
 		Kind:     operation.Upgrade,
 		Step:     operation.Done,
 		CharmURL: "", // doesn't actually matter here
@@ -571,7 +569,7 @@ func (s *DeploySuite) testCommitInterruptedHook(c *tc.C, newDeploy newDeploy) {
 	op, err := newDeploy(factory, "ch:quantal/x-0")
 	c.Assert(err, tc.ErrorIsNil)
 	hookStep := operation.Done
-	newState, err := op.Commit(context.Background(), operation.State{
+	newState, err := op.Commit(c.Context(), operation.State{
 		Kind:     operation.Upgrade,
 		Step:     operation.Done,
 		CharmURL: "", // doesn't actually matter here

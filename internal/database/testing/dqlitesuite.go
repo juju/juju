@@ -127,7 +127,7 @@ func (s *DqliteSuite) SetUpTest(c *tc.C) {
 	// Enable super verbose mode.
 	s.Verbose = verbose && includeSQLOutput != ""
 
-	err = s.dqlite.Ready(context.Background())
+	err = s.dqlite.Ready(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.trackedDB, s.db = s.OpenDB(c)
@@ -190,7 +190,7 @@ func (s *DqliteSuite) ApplyDDL(c *tc.C, schema SchemaApplier) {
 // ApplyDDLForRunner is a helper manager for the test suites to apply a set of
 // DDL string on top of a pre-established database.
 func (s *DqliteSuite) ApplyDDLForRunner(c *tc.C, schema SchemaApplier, runner coredatabase.TxnRunner) {
-	schema.Apply(c, context.Background(), runner)
+	schema.Apply(c, c.Context(), runner)
 }
 
 // OpenDB returns a new sql.DB reference.
@@ -210,13 +210,13 @@ func (s *DqliteSuite) OpenDBForNamespace(c *tc.C, domain string, foreignKey bool
 	// check for empty string here to go bang in a more understandable way.
 	c.Assert(domain, tc.Not(tc.Equals), "", tc.Commentf("cannot open a database for a empty domain"))
 
-	db, err := s.dqlite.Open(context.Background(), domain)
+	db, err := s.dqlite.Open(c.Context(), domain)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure we close all databases that are opened during the tests.
 	s.cleanupDB(domain, db)
 
-	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, foreignKey)
+	err = pragma.SetPragma(c.Context(), db, pragma.ForeignKeysPragma, foreignKey)
 	c.Assert(err, tc.ErrorIsNil)
 
 	trackedDB := &txnRunner{

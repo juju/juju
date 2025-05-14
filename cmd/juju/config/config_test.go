@@ -5,7 +5,6 @@ package config
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"io/fs"
 	"os"
@@ -176,7 +175,7 @@ func (s *suite) TestReadFile(c *tc.C) {
 		ConfigFile: jujucmd.FileVar{Path: filename},
 	}
 	ctx := &jujucmd.Context{
-		Context: context.Background(),
+		Context: c.Context(),
 		Dir:     dir,
 	}
 
@@ -193,7 +192,7 @@ func (s *suite) TestReadFileStdin(c *tc.C) {
 		ConfigFile: jujucmd.FileVar{Path: "-"},
 	}
 	ctx := &jujucmd.Context{
-		Context: context.Background(),
+		Context: c.Context(),
 		Stdin:   stdin,
 	}
 
@@ -213,7 +212,7 @@ func (s *suite) TestReadNoSuchFile(c *tc.C) {
 		ConfigFile: jujucmd.FileVar{Path: filename},
 	}
 	ctx := &jujucmd.Context{
-		Context: context.Background(),
+		Context: c.Context(),
 		Dir:     dir,
 	}
 
@@ -232,7 +231,7 @@ func (s *suite) TestReadFileBadYAML(c *tc.C) {
 		ConfigFile: jujucmd.FileVar{Path: filename},
 	}
 	ctx := &jujucmd.Context{
-		Context: context.Background(),
+		Context: c.Context(),
 		Dir:     dir,
 	}
 

@@ -57,7 +57,7 @@ func (s *CleanerSuite) AssertEmpty(c *tc.C) {
 }
 
 func (s *CleanerSuite) TestCleaner(c *tc.C) {
-	cln, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
+	cln, err := cleaner.NewCleaner(c.Context(), s.mockState, s.mockClock, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { c.Assert(worker.Stop(cln), tc.ErrorIsNil) }()
 
@@ -71,7 +71,7 @@ func (s *CleanerSuite) TestCleaner(c *tc.C) {
 }
 
 func (s *CleanerSuite) TestCleanerPeriodic(c *tc.C) {
-	cln, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
+	cln, err := cleaner.NewCleaner(c.Context(), s.mockState, s.mockClock, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { c.Assert(worker.Stop(cln), tc.ErrorIsNil) }()
 
@@ -93,7 +93,7 @@ func (s *CleanerSuite) TestCleanerPeriodic(c *tc.C) {
 
 func (s *CleanerSuite) TestWatchCleanupsError(c *tc.C) {
 	s.mockState.err = []error{errors.New("hello")}
-	_, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
+	_, err := cleaner.NewCleaner(c.Context(), s.mockState, s.mockClock, s.logger)
 	c.Assert(err, tc.ErrorMatches, "hello")
 
 	s.AssertReceived(c, "WatchCleanups")
@@ -102,7 +102,7 @@ func (s *CleanerSuite) TestWatchCleanupsError(c *tc.C) {
 
 func (s *CleanerSuite) TestCleanupError(c *tc.C) {
 	s.mockState.err = []error{nil, errors.New("hello")}
-	cln, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
+	cln, err := cleaner.NewCleaner(c.Context(), s.mockState, s.mockClock, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.AssertReceived(c, "WatchCleanups")

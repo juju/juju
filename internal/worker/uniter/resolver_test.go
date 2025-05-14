@@ -92,9 +92,9 @@ func (s *rebootResolverSuite) SetUpTest(_ *tc.C) {
 }
 
 func (s *baseResolverSuite) SetUpTest(c *tc.C, modelType model.ModelType, rebootDetected bool) {
-	attachments, err := storage.NewAttachments(context.Background(), &dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
+	attachments, err := storage.NewAttachments(c.Context(), &dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	secretsTracker, err := secrets.NewSecrets(context.Background(), &dummySecretsAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
+	secretsTracker, err := secrets.NewSecrets(c.Context(), &dummySecretsAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	logger := loggertesting.WrapCheckLog(c)
 
@@ -160,7 +160,7 @@ func (s *resolverSuite) TestStartedNotInstalled(c *tc.C) {
 			Started:   true,
 		},
 	}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -175,7 +175,7 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *tc.C) {
 			Started:   false,
 		},
 	}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run install hook")
 }
@@ -197,7 +197,7 @@ func (s *resolverSuite) TestQueuedHookOnAgentRestart(c *tc.C) {
 			HookStep: &queued,
 		},
 	}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run config-changed hook")
 	s.stub.CheckNoCalls(c)
@@ -225,7 +225,7 @@ func (s *resolverSuite) TestPendingHookOnAgentRestart(c *tc.C) {
 			HookStep: &queued,
 		},
 	}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	c.Assert(hookError, tc.IsTrue)
 	s.stub.CheckNoCalls(c)
@@ -248,7 +248,7 @@ func (s *resolverSuite) TestHookErrorDoesNotStartRetryTimerIfShouldRetryFalse(c 
 		},
 	}
 	// Run the resolver; we should not attempt a hook retry
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	s.stub.CheckNoCalls(c)
 }
@@ -269,11 +269,11 @@ func (s *resolverSuite) TestHookErrorStartRetryTimer(c *tc.C) {
 	}
 	// Run the resolver twice; we should start the hook retry
 	// timer on the first time through, no change on the second.
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer")
 
-	_, err = s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err = s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer") // no change
 }
@@ -293,18 +293,18 @@ func (s *resolverSuite) TestHookErrorStartRetryTimerAgain(c *tc.C) {
 		},
 	}
 
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer")
 
 	s.remoteState.RetryHookVersion = 1
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run config-changed hook")
 	s.stub.CheckCallNames(c, "StartRetryHookTimer") // no change
 	localState.RetryHookVersion = 1
 
-	_, err = s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err = s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer", "StartRetryHookTimer")
 }
@@ -336,12 +336,12 @@ func (s *resolverSuite) testResolveHookErrorStopRetryTimer(c *tc.C, mode params.
 		},
 	}
 
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer")
 
 	s.remoteState.ResolvedMode = mode
-	_, err = s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err = s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer", "StopRetryHookTimer")
 }
@@ -361,12 +361,12 @@ func (s *resolverSuite) TestRunHookStopRetryTimer(c *tc.C) {
 		},
 	}
 
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer")
 
 	localState.Kind = operation.Continue
-	_, err = s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err = s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer", "StopRetryHookTimer")
 }
@@ -383,7 +383,7 @@ func (s *resolverSuite) TestRunsConfigChangedIfConfigHashChanges(c *tc.C) {
 	}
 	s.remoteState.ConfigHash = "differenthash"
 
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run config-changed hook")
 }
@@ -400,7 +400,7 @@ func (s *resolverSuite) TestRunsConfigChangedIfTrustHashChanges(c *tc.C) {
 	}
 	s.remoteState.TrustHash = "differenthash"
 
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run config-changed hook")
 }
@@ -417,7 +417,7 @@ func (s *resolverSuite) TestRunsConfigChangedIfAddressesHashChanges(c *tc.C) {
 	}
 	s.remoteState.AddressesHash = "differenthash"
 
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run config-changed hook")
 }
@@ -438,7 +438,7 @@ func (s *resolverSuite) TestNoOperationIfHashesAllMatch(c *tc.C) {
 	s.remoteState.TrustHash = "trust"
 	s.remoteState.AddressesHash = "addresses"
 
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -452,7 +452,7 @@ func (s *resolverSuite) TestUpgradeOperation(c *tc.C) {
 			Started:   true,
 		},
 	}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
@@ -468,7 +468,7 @@ func (s *iaasResolverSuite) TestUpgradeOperationVerifyCPFail(c *tc.C) {
 		},
 	}
 	s.remoteState.CharmProfileRequired = true
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -483,7 +483,7 @@ func (s *resolverSuite) TestContinueUpgradeOperation(c *tc.C) {
 		},
 	}
 	s.setupForceCharmModifiedTrue()
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
@@ -504,7 +504,7 @@ func (s *resolverSuite) TestNoOperationWithOptionalResolvers(c *tc.C) {
 	s.remoteState.TrustHash = "trust"
 	s.remoteState.AddressesHash = "addresses"
 
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	c.Assert(s.firstOptionalResolver.callCount, tc.Equals, 1)
 	c.Assert(s.lastOptionalResolver.callCount, tc.Equals, 1)
@@ -528,7 +528,7 @@ func (s *resolverSuite) TestOperationWithOptionalResolvers(c *tc.C) {
 
 	s.firstOptionalResolver.op = &fakeNoOp{}
 
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op, tc.Equals, s.firstOptionalResolver.op)
 	c.Assert(s.firstOptionalResolver.callCount, tc.Equals, 1)
@@ -547,7 +547,7 @@ func (s *iaasResolverSuite) TestContinueUpgradeOperationVerifyCPFail(c *tc.C) {
 	}
 	s.setupForceCharmModifiedTrue()
 	s.remoteState.CharmProfileRequired = true
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -564,7 +564,7 @@ func (s *resolverSuite) TestRunHookPendingUpgradeOperation(c *tc.C) {
 		},
 	}
 	s.setupForceCharmModifiedTrue()
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
@@ -581,7 +581,7 @@ func (s *resolverSuite) TestRunsSecretRotated(c *tc.C) {
 	s.remoteState.Leader = true
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-rotate (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
@@ -598,7 +598,7 @@ func (s *conflictedResolverSuite) TestNextOpConflicted(c *tc.C) {
 			Started:   true,
 		},
 	}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrWaiting)
 }
 
@@ -615,7 +615,7 @@ func (s *conflictedResolverSuite) TestNextOpConflictedVerifyCPFail(c *tc.C) {
 		},
 	}
 	s.remoteState.CharmProfileRequired = true
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -635,7 +635,7 @@ func (s *conflictedResolverSuite) TestNextOpConflictedNewResolvedUpgrade(c *tc.C
 		},
 	}
 	s.remoteState.ResolvedMode = params.ResolvedRetryHooks
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("continue upgrade to %s", s.charmURL))
 }
@@ -653,7 +653,7 @@ func (s *conflictedResolverSuite) TestNextOpConflictedNewRevertUpgrade(c *tc.C) 
 		},
 	}
 	s.setupForceCharmModifiedTrue()
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, fmt.Sprintf("switch upgrade to %s", s.charmURL))
 }
@@ -669,7 +669,7 @@ func (s *rebootResolverSuite) TestNopResolverForNonIAASModels(c *tc.C) {
 			Started:   true,
 		},
 	}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -685,12 +685,12 @@ func (s *rebootResolverSuite) TestStartHookTriggerPostReboot(c *tc.C) {
 		},
 	}
 
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run start hook")
 
 	// Ensure that start-post-reboot is only triggered once
-	_, err = s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err = s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 

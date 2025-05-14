@@ -4,7 +4,6 @@
 package storage_test
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/tc"
@@ -32,7 +31,7 @@ func (s *poolRemoveSuite) TestRemovePool(c *tc.C) {
 			Name: poolName,
 		}},
 	}
-	results, err := s.api.RemovePool(context.Background(), args)
+	results, err := s.api.RemovePool(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
@@ -49,7 +48,7 @@ func (s *poolRemoveSuite) TestRemoveNotExists(c *tc.C) {
 			Name: poolName,
 		}},
 	}
-	results, err := s.api.RemovePool(context.Background(), args)
+	results, err := s.api.RemovePool(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "storage pool is not found")
@@ -64,12 +63,12 @@ func (s *poolRemoveSuite) TestRemoveInUse(c *tc.C) {
 			Name: poolName,
 		}},
 	}
-	results, err := s.api.RemovePool(context.Background(), args)
+	results, err := s.api.RemovePool(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
 
-	pools, err := s.storageService.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.NilProviders)
+	pools, err := s.storageService.ListStoragePools(c.Context(), domainstorage.NilNames, domainstorage.NilProviders)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pools, tc.HasLen, 1)
 }
@@ -86,13 +85,13 @@ func (s *poolRemoveSuite) TestRemoveSomeInUse(c *tc.C) {
 			Name: poolNameNotInUse,
 		}},
 	}
-	results, err := s.api.RemovePool(context.Background(), args)
+	results, err := s.api.RemovePool(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolNameInUse))
 	c.Assert(results.Results[1].Error, tc.IsNil)
 
-	pools, err := s.storageService.ListStoragePools(context.Background(), domainstorage.NilNames, domainstorage.NilProviders)
+	pools, err := s.storageService.ListStoragePools(c.Context(), domainstorage.NilNames, domainstorage.NilProviders)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pools, tc.HasLen, 1)
 }

@@ -47,7 +47,7 @@ func (s *MachineStartupSuite) TestStartSuccess(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": new(mockAPIConn),
 	})
-	worker, err := s.manifold.Start(context.Background(), getter)
+	worker, err := s.manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "resource permanently unavailable")
 	c.Check(s.startCalled, tc.IsTrue)

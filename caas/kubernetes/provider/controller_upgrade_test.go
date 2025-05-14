@@ -4,7 +4,6 @@
 package provider
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -57,7 +56,7 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *tc.C) {
 		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 	)
-	_, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).Create(context.Background(),
+	_, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).Create(c.Context(),
 		&apps.StatefulSet{
 			ObjectMeta: meta.ObjectMeta{
 				Name: appName,
@@ -82,10 +81,10 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *tc.C) {
 		}, meta.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(controllerUpgrade(context.Background(), appName, semversion.MustParse("9.9.9"), s.broker), tc.ErrorIsNil)
+	c.Assert(controllerUpgrade(c.Context(), appName, semversion.MustParse("9.9.9"), s.broker), tc.ErrorIsNil)
 
 	ss, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).
-		Get(context.Background(), appName, meta.GetOptions{})
+		Get(c.Context(), appName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ss.Spec.Template.Spec.Containers[0].Image, tc.Equals, newImagePath)
 
@@ -97,7 +96,7 @@ func (s *ControllerUpgraderSuite) TestControllerDoesNotExist(c *tc.C) {
 	var (
 		appName = k8sconstants.JujuControllerStackName
 	)
-	err := controllerUpgrade(context.Background(), appName, semversion.MustParse("9.9.9"), s.broker)
+	err := controllerUpgrade(c.Context(), appName, semversion.MustParse("9.9.9"), s.broker)
 	c.Assert(err, tc.NotNil)
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

@@ -4,7 +4,6 @@
 package pubsub_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -66,7 +65,7 @@ func (s *pubsubSuite) TestNoAuth(c *tc.C) {
 func (s *pubsubSuite) TestRejectsUserLogins(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
 	userTag := names.NewUserTag("bobbrown")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        user.NameFromTag(userTag),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,

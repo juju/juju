@@ -4,8 +4,6 @@
 package testing
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -15,7 +13,7 @@ import (
 // IsBlobStored returns true if a given storage path is in used in the
 // managed blob store.
 func IsBlobStored(c *tc.C, store objectstore.ObjectStore, storagePath string) bool {
-	r, _, err := store.Get(context.Background(), storagePath)
+	r, _, err := store.Get(c.Context(), storagePath)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			return false

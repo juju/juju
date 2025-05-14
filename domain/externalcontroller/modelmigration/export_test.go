@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -63,7 +61,7 @@ func (s *exportSuite) TestExportExternalController(c *tc.C) {
 	// controllers before the migration:
 	c.Assert(dst.ExternalControllers(), tc.HasLen, 0)
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 	// Assert that the destination description model has one external
 	// controller after the migration:
@@ -107,7 +105,7 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 	// controllers before the migration:
 	c.Assert(dst.ExternalControllers(), tc.HasLen, 0)
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 	// Assert that the destination description model has one external
 	// controller after the migration:
@@ -152,7 +150,7 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 	// controllers before the migration:
 	c.Assert(dst.ExternalControllers(), tc.HasLen, 0)
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 	// Assert that the destination description model has one external
 	// controller after the migration:
@@ -178,7 +176,7 @@ func (s *exportSuite) TestExportExternalControllerWithNoControllerNotFound(c *tc
 		Return(nil, errors.Errorf("test-external-controller %w", coreerrors.NotFound))
 
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorMatches, "test-external-controller not found")
 }
 
@@ -196,6 +194,6 @@ func (s *exportSuite) TestExportExternalControllerFailsGettingExternalController
 		Return(nil, errors.New("fail"))
 
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorMatches, "fail")
 }

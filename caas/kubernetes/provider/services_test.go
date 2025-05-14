@@ -4,8 +4,6 @@
 package provider
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
@@ -27,7 +25,7 @@ func (s *servicesSuite) SetUpTest(c *tc.C) {
 
 func (s *servicesSuite) TestFindServiceForApplication(c *tc.C) {
 	_, err := s.client.CoreV1().Services("test").Create(
-		context.Background(),
+		c.Context(),
 		&core.Service{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "wallyworld",
@@ -43,7 +41,7 @@ func (s *servicesSuite) TestFindServiceForApplication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc, err := findServiceForApplication(
-		context.Background(),
+		c.Context(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
 		constants.LabelVersion1,
@@ -55,7 +53,7 @@ func (s *servicesSuite) TestFindServiceForApplication(c *tc.C) {
 
 func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *tc.C) {
 	_, err := s.client.CoreV1().Services("test").Create(
-		context.Background(),
+		c.Context(),
 		&core.Service{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "wallyworld",
@@ -70,7 +68,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.client.CoreV1().Services("test").Create(
-		context.Background(),
+		c.Context(),
 		&core.Service{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "wallyworld-endpoints",
@@ -85,7 +83,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc, err := findServiceForApplication(
-		context.Background(),
+		c.Context(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
 		constants.LabelVersion1,
@@ -97,7 +95,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *tc.C) {
 
 func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *tc.C) {
 	_, err := s.client.CoreV1().Services("test").Create(
-		context.Background(),
+		c.Context(),
 		&core.Service{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "wallyworld",
@@ -112,7 +110,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.client.CoreV1().Services("test").Create(
-		context.Background(),
+		c.Context(),
 		&core.Service{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "wallyworld-v2",
@@ -127,7 +125,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = findServiceForApplication(
-		context.Background(),
+		c.Context(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
 		constants.LabelVersion1,
@@ -138,7 +136,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *tc.C) {
 
 func (s *servicesSuite) TestFindServiceForApplicationMissing(c *tc.C) {
 	_, err := findServiceForApplication(
-		context.Background(),
+		c.Context(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
 		constants.LabelVersion1,

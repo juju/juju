@@ -32,7 +32,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPut(c *tc.C) {
 		Password:     "fragglerock",
 	}
 	resourceStorageUUID, err := st.PutContainerImageMetadata(
-		context.Background(),
+		c.Context(),
 		resourceUUID.String(),
 		ociImageMetadata.RegistryPath,
 		ociImageMetadata.Username,
@@ -54,7 +54,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutOnlyRegistryN
 		RegistryPath: "testing@sha256:beef-deed",
 	}
 	storageKey, err := st.PutContainerImageMetadata(
-		context.Background(),
+		c.Context(),
 		resourceUUID.String(),
 		ociImageMetadata.RegistryPath,
 		"",
@@ -83,7 +83,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwice(c *tc.C
 		Password:     "second-fragglerock",
 	}
 	storageKey, err := st.PutContainerImageMetadata(
-		context.Background(),
+		c.Context(),
 		resourceUUID.String(),
 		ociImageMetadata.RegistryPath,
 		ociImageMetadata.Username,
@@ -93,7 +93,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwice(c *tc.C
 	c.Assert(storageKey, tc.Not(tc.Equals), "")
 
 	_, err = st.PutContainerImageMetadata(
-		context.Background(),
+		c.Context(),
 		resourceUUID.String(),
 		ociImageMetadata2.RegistryPath,
 		ociImageMetadata2.Username,
@@ -112,7 +112,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataGet(c *tc.C) {
 		Password:     "fragglerock",
 	}
 	s.putContainerImageMetadata(c, ociImageMetadata)
-	retrieved, err := st.GetContainerImageMetadata(context.Background(), uuid.String())
+	retrieved, err := st.GetContainerImageMetadata(c.Context(), uuid.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(retrieved, tc.Equals, ociImageMetadata)
 }
@@ -120,7 +120,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataGet(c *tc.C) {
 func (s *containerImageMetadataSuite) TestContainerImageMetadataGetBadUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	storageKey := coreresourcetesting.GenResourceUUID(c).String()
-	_, err := st.GetContainerImageMetadata(context.Background(), storageKey)
+	_, err := st.GetContainerImageMetadata(c.Context(), storageKey)
 	c.Assert(err, tc.ErrorIs, errors.ContainerImageMetadataNotFound)
 }
 
@@ -135,10 +135,10 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataRemove(c *tc.C) 
 	}
 	s.putContainerImageMetadata(c, ociImageMetadata)
 
-	err := st.RemoveContainerImageMetadata(context.Background(), storageKey.String())
+	err := st.RemoveContainerImageMetadata(c.Context(), storageKey.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT 1
 FROM resource_container_image_metadata_store
@@ -150,7 +150,7 @@ WHERE storage_key = ?`, storageKey.String()).Scan()
 func (s *containerImageMetadataSuite) TestContainerImageMetadataRemoveBadUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
-	err := st.RemoveContainerImageMetadata(context.Background(), resourceUUID.String())
+	err := st.RemoveContainerImageMetadata(c.Context(), resourceUUID.String())
 	c.Assert(err, tc.ErrorIs, errors.ContainerImageMetadataNotFound)
 }
 
@@ -158,7 +158,7 @@ func (s *containerImageMetadataSuite) getContainerImageMetadata(c *tc.C, storage
 	id, err := storageKey.ContainerImageMetadataStoreID()
 	c.Assert(err, tc.ErrorIsNil)
 	var retrievedRegistryPath, retrievedUsername, retrievedPassword string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT registry_path, username, password 
 FROM resource_container_image_metadata_store
@@ -169,7 +169,7 @@ WHERE storage_key = ?`, id).Scan(&retrievedRegistryPath, &retrievedUsername, &re
 }
 
 func (s *containerImageMetadataSuite) putContainerImageMetadata(c *tc.C, metadata containerimageresourcestore.ContainerImageMetadata) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 INSERT INTO resource_container_image_metadata_store
 (storage_key, registry_path, username, password) VALUES (?, ?, ?, ?)

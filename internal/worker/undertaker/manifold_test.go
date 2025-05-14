@@ -72,7 +72,7 @@ func (s *manifoldSuite) TestAPICallerMissing(c *tc.C) {
 	resources := resourcesMissing("api-caller")
 	manifold := undertaker.Manifold(s.namesConfig(c))
 
-	worker, err := manifold.Start(context.Background(), resources.Getter())
+	worker, err := manifold.Start(c.Context(), resources.Getter())
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	c.Check(worker, tc.IsNil)
 }
@@ -86,7 +86,7 @@ func (s *manifoldSuite) TestNewFacadeError(c *tc.C) {
 	}
 	manifold := undertaker.Manifold(config)
 
-	worker, err := manifold.Start(context.Background(), resources.Getter())
+	worker, err := manifold.Start(c.Context(), resources.Getter())
 	c.Check(err, tc.ErrorMatches, "blort")
 	c.Check(worker, tc.IsNil)
 }
@@ -104,7 +104,7 @@ func (s *manifoldSuite) TestNewWorkerError(c *tc.C) {
 	}
 	manifold := undertaker.Manifold(config)
 
-	worker, err := manifold.Start(context.Background(), resources.Getter())
+	worker, err := manifold.Start(c.Context(), resources.Getter())
 	c.Check(err, tc.ErrorMatches, "lhiis")
 	c.Check(worker, tc.IsNil)
 }
@@ -123,7 +123,7 @@ func (s *manifoldSuite) TestNewWorkerSuccess(c *tc.C) {
 	manifold := undertaker.Manifold(config)
 	resources := resourcesMissing()
 
-	worker, err := manifold.Start(context.Background(), resources.Getter())
+	worker, err := manifold.Start(c.Context(), resources.Getter())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, expectWorker)
 	c.Assert(gotConfig.Logger, tc.Equals, loggertesting.WrapCheckLog(c))

@@ -36,7 +36,7 @@ func (s *exposedStateSuite) SetUpTest(c *tc.C) {
 func (s *exposedStateSuite) TestApplicationNotExposed(c *tc.C) {
 	appUUID := coreapplication.ID(uuid.MustNewUUID().String())
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appUUID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsFalse)
 }
@@ -46,7 +46,7 @@ func (s *exposedStateSuite) TestApplicationExposedToSpace(c *tc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 }
@@ -56,7 +56,7 @@ func (s *exposedStateSuite) TestApplicationExposedCIDR(c *tc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 }
@@ -65,7 +65,7 @@ func (s *exposedStateSuite) TestExposedEndpointsEmpty(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exposedEndpoints, tc.IsNil)
 }
@@ -75,7 +75,7 @@ func (s *exposedStateSuite) TestExposedEndpointsOnlySpace(c *tc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(exposedEndpoints), tc.Equals, 1)
 	c.Check(exposedEndpoints["endpoint0"].ExposeToSpaceIDs.SortedValues(), tc.DeepEquals, []string{"space0-uuid"})
@@ -86,7 +86,7 @@ func (s *exposedStateSuite) TestExposedEndpointsOnlyCIDR(c *tc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(exposedEndpoints), tc.Equals, 1)
 	c.Check(exposedEndpoints["endpoint0"].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"10.0.0.0/24"})
@@ -99,7 +99,7 @@ func (s *exposedStateSuite) TestExposedEndpointsFull(c *tc.C) {
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 	s.createExposedEndpointCIDR(c, appID, "10.0.1.0/24")
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(exposedEndpoints), tc.Equals, 1)
 	c.Check(exposedEndpoints["endpoint0"].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"10.0.0.0/24", "10.0.1.0/24"})
@@ -110,7 +110,7 @@ func (s *exposedStateSuite) TestExposedEndpointsWithWildcard(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
-	err := s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err := s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"": {
 			ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
 			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
@@ -118,11 +118,11 @@ func (s *exposedStateSuite) TestExposedEndpointsWithWildcard(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(exposedEndpoints), tc.Equals, 1)
 	c.Check(exposedEndpoints[""].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"192.168.0.0/24", "192.168.1.0/24"})
@@ -133,7 +133,7 @@ func (s *exposedStateSuite) TestExposedEndpointsWithWildcardMultipleTimes(c *tc.
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
-	err := s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err := s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"": {
 			ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
 			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
@@ -141,28 +141,28 @@ func (s *exposedStateSuite) TestExposedEndpointsWithWildcardMultipleTimes(c *tc.
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(exposedEndpoints), tc.Equals, 1)
 	c.Check(exposedEndpoints[""].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"192.168.0.0/24", "192.168.1.0/24"})
 	c.Check(exposedEndpoints[""].ExposeToSpaceIDs.SortedValues(), tc.DeepEquals, []string{"space0-uuid"})
 
-	err = s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err = s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"": {
 			ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err = s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err = s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(exposedEndpoints), tc.Equals, 1)
 	c.Check(exposedEndpoints[""].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"10.0.0.0/24", "10.0.1.0/24"})
@@ -174,7 +174,7 @@ func (s *exposedStateSuite) TestEndpointsOneNotExists(c *tc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
-	err := s.state.EndpointsExist(context.Background(), appID, set.NewStrings("endpoint0", "unknown-endpoint"))
+	err := s.state.EndpointsExist(c.Context(), appID, set.NewStrings("endpoint0", "unknown-endpoint"))
 	c.Assert(err, tc.ErrorMatches, "one or more of the provided endpoints .* do not exist")
 }
 
@@ -183,7 +183,7 @@ func (s *exposedStateSuite) TestEndpointsAllNotExists(c *tc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
-	err := s.state.EndpointsExist(context.Background(), appID, set.NewStrings("missing-endpoint", "unknown-endpoint"))
+	err := s.state.EndpointsExist(c.Context(), appID, set.NewStrings("missing-endpoint", "unknown-endpoint"))
 	c.Assert(err, tc.ErrorMatches, "one or more of the provided endpoints .* do not exist")
 }
 
@@ -192,7 +192,7 @@ func (s *exposedStateSuite) TestEndpointsExist(c *tc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
-	err := s.state.EndpointsExist(context.Background(), appID, set.NewStrings("endpoint0"))
+	err := s.state.EndpointsExist(c.Context(), appID, set.NewStrings("endpoint0"))
 	c.Assert(err, tc.IsNil)
 }
 
@@ -201,7 +201,7 @@ func (s *exposedStateSuite) TestSpacesOneNotExists(c *tc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
-	err := s.state.SpacesExist(context.Background(), set.NewStrings("space0-uuid", "unknown-space"))
+	err := s.state.SpacesExist(c.Context(), set.NewStrings("space0-uuid", "unknown-space"))
 	c.Assert(err, tc.ErrorMatches, "one or more of the provided spaces .* do not exist")
 }
 
@@ -210,7 +210,7 @@ func (s *exposedStateSuite) TestSpacesAllNotExists(c *tc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
-	err := s.state.SpacesExist(context.Background(), set.NewStrings("missing-space", "unknown-space"))
+	err := s.state.SpacesExist(c.Context(), set.NewStrings("missing-space", "unknown-space"))
 	c.Assert(err, tc.ErrorMatches, "one or more of the provided spaces .* do not exist")
 }
 
@@ -219,12 +219,12 @@ func (s *exposedStateSuite) TestSpacesExist(c *tc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
-	err := s.state.SpacesExist(context.Background(), set.NewStrings("space0-uuid"))
+	err := s.state.SpacesExist(c.Context(), set.NewStrings("space0-uuid"))
 	c.Assert(err, tc.IsNil)
 }
 
 func (s *exposedStateSuite) TestGetSpaceUUIDByNameNotFound(c *tc.C) {
-	_, err := s.state.GetSpaceUUIDByName(context.Background(), "missing-space")
+	_, err := s.state.GetSpaceUUIDByName(c.Context(), "missing-space")
 	c.Assert(err, tc.ErrorMatches, "space not found.*")
 }
 
@@ -232,7 +232,7 @@ func (s *exposedStateSuite) TestGetSpaceUUIDByName(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
-	uuid, err := s.state.GetSpaceUUIDByName(context.Background(), "space0")
+	uuid, err := s.state.GetSpaceUUIDByName(c.Context(), "space0")
 	c.Assert(err, tc.IsNil)
 	c.Check(uuid, tc.Equals, network.Id("space0-uuid"))
 }
@@ -243,14 +243,14 @@ func (s *exposedStateSuite) TestUnsetExposeSettings(c *tc.C) {
 	s.createExposedEndpointSpace(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	err = s.state.UnsetExposeSettings(context.Background(), appID, set.NewStrings("endpoint0"))
+	err = s.state.UnsetExposeSettings(c.Context(), appID, set.NewStrings("endpoint0"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsFalse)
 }
@@ -261,21 +261,21 @@ func (s *exposedStateSuite) TestUnsetExposeSettingsOnlyOneEndpoint(c *tc.C) {
 	s.createExposedEndpointSpace(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
-	err := s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err := s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"": {
 			ExposeToCIDRs: set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.UnsetExposeSettings(context.Background(), appID, set.NewStrings("endpoint0"))
+	err = s.state.UnsetExposeSettings(c.Context(), appID, set.NewStrings("endpoint0"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(exposedEndpoints), tc.Equals, 1)
 	c.Check(exposedEndpoints[""].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"192.168.0.0/24", "192.168.1.0/24"})
@@ -288,14 +288,14 @@ func (s *exposedStateSuite) TestUnsetExposeSettingsAllEndpoints(c *tc.C) {
 	s.createExposedEndpointSpace(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	err = s.state.UnsetExposeSettings(context.Background(), appID, set.NewStrings())
+	err = s.state.UnsetExposeSettings(c.Context(), appID, set.NewStrings())
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsFalse)
 }
@@ -304,11 +304,11 @@ func (s *exposedStateSuite) TestMergeExposeSettingsNewEntry(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsFalse)
 
-	err = s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err = s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"endpoint0": {
 			ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
 			ExposeToCIDRs:    set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
@@ -316,11 +316,11 @@ func (s *exposedStateSuite) TestMergeExposeSettingsNewEntry(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exposedEndpoints["endpoint0"].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"10.0.0.0/24", "10.0.1.0/24"})
 	c.Check(exposedEndpoints["endpoint0"].ExposeToSpaceIDs.SortedValues(), tc.DeepEquals, []string{"space0-uuid"})
@@ -332,18 +332,18 @@ func (s *exposedStateSuite) TestMergeExposeSettingsExistingOverwriteCIDR(c *tc.C
 	s.createExposedEndpointSpace(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
-	err := s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err := s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"endpoint0": {
 			ExposeToCIDRs: set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exposedEndpoints["endpoint0"].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"192.168.0.0/24", "192.168.1.0/24"})
 	c.Check(exposedEndpoints["endpoint0"].ExposeToSpaceIDs.IsEmpty(), tc.IsTrue)
@@ -354,7 +354,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsExistingOverwriteSpace(c *tc.
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 	// Create a new space
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
 		_, err := tx.ExecContext(ctx, insertSpace, "space1-uuid", "space1")
 		if err != nil {
@@ -364,18 +364,18 @@ func (s *exposedStateSuite) TestMergeExposeSettingsExistingOverwriteSpace(c *tc.
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err = s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"endpoint0": {
 			ExposeToSpaceIDs: set.NewStrings("space1-uuid"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exposedEndpoints["endpoint0"].ExposeToCIDRs.IsEmpty(), tc.IsTrue)
 	c.Check(exposedEndpoints["endpoint0"].ExposeToSpaceIDs.SortedValues(), tc.DeepEquals, []string{"space1-uuid"})
@@ -385,7 +385,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	// Create a new space
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
 		_, err := tx.ExecContext(ctx, insertSpace, "space1-uuid", "space1")
 		if err != nil {
@@ -395,11 +395,11 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsFalse)
 
-	err = s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err = s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"": {
 			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
 			ExposeToSpaceIDs: set.NewStrings("space1-uuid"),
@@ -407,11 +407,11 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exposedEndpoints[""].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"192.168.0.0/24", "192.168.1.0/24"})
 	c.Check(exposedEndpoints[""].ExposeToSpaceIDs.SortedValues(), tc.DeepEquals, []string{"space1-uuid"})
@@ -421,7 +421,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcardOverwrite(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	// Create a new space
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
 		_, err := tx.ExecContext(ctx, insertSpace, "space1-uuid", "space1")
 		if err != nil {
@@ -431,11 +431,11 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcardOverwrite(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsFalse)
 
-	err = s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err = s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"": {
 			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
 			ExposeToSpaceIDs: set.NewStrings("space0-uuid", "space1-uuid"),
@@ -443,28 +443,28 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcardOverwrite(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exposedEndpoints[""].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"192.168.0.0/24", "192.168.1.0/24"})
 	c.Check(exposedEndpoints[""].ExposeToSpaceIDs.SortedValues(), tc.DeepEquals, []string{"space0-uuid", "space1-uuid"})
 
 	// Overwrite the wildcard endpoint.
-	err = s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err = s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"": {
 			ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err = s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err = s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exposedEndpoints[""].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"10.0.0.0/24", "10.0.1.0/24"})
 	c.Check(exposedEndpoints[""].ExposeToSpaceIDs.IsEmpty(), tc.IsTrue)
@@ -474,7 +474,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 	// Create a new endpoint
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
 		_, err := tx.ExecContext(ctx, insertCharmRelation, "charm-relation1-uuid", "charm0-uuid", "0", "0", "endpoint1")
 		if err != nil {
@@ -489,11 +489,11 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsFalse)
 
-	err = s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err = s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"endpoint0": {
 			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
 			ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
@@ -501,28 +501,28 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exposedEndpoints["endpoint0"].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"192.168.0.0/24", "192.168.1.0/24"})
 	c.Check(exposedEndpoints["endpoint0"].ExposeToSpaceIDs.SortedValues(), tc.DeepEquals, []string{"space0-uuid"})
 
 	// Overwrite the wildcard endpoint.
-	err = s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
+	err = s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
 		"endpoint1": {
 			ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isExposed, tc.IsTrue)
 
-	exposedEndpoints, err = s.state.GetExposedEndpoints(context.Background(), appID)
+	exposedEndpoints, err = s.state.GetExposedEndpoints(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(exposedEndpoints), tc.Equals, 2)
 	c.Check(exposedEndpoints["endpoint0"].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"192.168.0.0/24", "192.168.1.0/24"})
@@ -532,7 +532,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 }
 
 func (s *exposedStateSuite) setUpEndpoint(c *tc.C, appID coreapplication.ID) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
 		_, err := tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
 		if err != nil {
@@ -559,7 +559,7 @@ func (s *exposedStateSuite) setUpEndpoint(c *tc.C, appID coreapplication.ID) {
 }
 
 func (s *exposedStateSuite) createExposedEndpointSpace(c *tc.C, appID coreapplication.ID) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertExposedSpace := `
 INSERT INTO application_exposed_endpoint_space
 (application_uuid, application_endpoint_uuid, space_uuid)
@@ -574,7 +574,7 @@ VALUES (?, ?, ?)`
 }
 
 func (s *exposedStateSuite) createExposedEndpointCIDR(c *tc.C, appID coreapplication.ID, cidr string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertExposedCIDR := `
 INSERT INTO application_exposed_endpoint_cidr
 (application_uuid, application_endpoint_uuid, cidr)

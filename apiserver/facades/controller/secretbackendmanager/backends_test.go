@@ -4,7 +4,6 @@
 package secretbackendmanager
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -67,7 +66,7 @@ func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *tc.C) {
 	}}
 	s.mockWatcher.EXPECT().Changes().Return(rotateChan)
 
-	result, err := s.facade.WatchSecretBackendsRotateChanges(context.Background())
+	result, err := s.facade.WatchSecretBackendsRotateChanges(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.SecretBackendRotateWatchResult{
 		WatcherId: "1",
@@ -86,7 +85,7 @@ func (s *SecretsManagerSuite) TestRotateBackendTokens(c *tc.C) {
 	s.mockService.EXPECT().RotateBackendToken(gomock.Any(), "backend-id-1").Return(nil)
 	s.mockService.EXPECT().RotateBackendToken(gomock.Any(), "backend-id-2").Return(errors.New("boom"))
 
-	result, err := s.facade.RotateBackendTokens(context.Background(), params.RotateSecretBackendArgs{
+	result, err := s.facade.RotateBackendTokens(c.Context(), params.RotateSecretBackendArgs{
 		BackendIDs: []string{
 			"backend-id-1",
 			"backend-id-2",

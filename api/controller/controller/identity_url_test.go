@@ -4,8 +4,6 @@
 package controller_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -23,7 +21,7 @@ func (s *Suite) TestIdentityProviderURLCallError(c *tc.C) {
 		},
 	}
 	client := controller.NewClient(apiCaller)
-	result, err := client.IdentityProviderURL(context.Background())
+	result, err := client.IdentityProviderURL(c.Context())
 	c.Check(result, tc.Equals, "")
 	c.Check(err, tc.ErrorMatches, "boom")
 }
@@ -45,7 +43,7 @@ func (s *Suite) TestIdentityProviderURL(c *tc.C) {
 	}
 
 	client := controller.NewClient(apiCaller)
-	result, err := client.IdentityProviderURL(context.Background())
+	result, err := client.IdentityProviderURL(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, expURL)
 }
@@ -67,6 +65,6 @@ func (s *Suite) TestIdentityProviderURLWithErrorResult(c *tc.C) {
 	}
 
 	client := controller.NewClient(apiCaller)
-	_, err := client.IdentityProviderURL(context.Background())
+	_, err := client.IdentityProviderURL(c.Context())
 	c.Assert(err, tc.ErrorMatches, "version error")
 }

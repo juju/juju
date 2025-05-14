@@ -4,8 +4,6 @@
 package operation_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -257,24 +255,24 @@ func (s *StateOpsSuite) TestStates(c *tc.C) {
 func (s *StateOpsSuite) runTest(c *tc.C, t stateTest) {
 	defer s.setupMocks(c).Finish()
 	ops := operation.NewStateOps(s.mockStateRW)
-	_, err := ops.Read(context.Background())
+	_, err := ops.Read(c.Context())
 	c.Assert(err, tc.Equals, operation.ErrNoSavedState)
 
 	if t.err == "" {
 		s.expectSetState(c, t.st, t.err)
 	}
-	err = ops.Write(context.Background(), &t.st)
+	err = ops.Write(c.Context(), &t.st)
 	if t.err == "" {
 		c.Assert(err, tc.ErrorIsNil)
 	} else {
 		c.Assert(err, tc.ErrorMatches, "invalid operation state: "+t.err)
 		s.expectState(c, t.st)
-		_, err = ops.Read(context.Background())
+		_, err = ops.Read(c.Context())
 		c.Assert(err, tc.ErrorMatches, `validation of uniter state: invalid operation state: `+t.err)
 		return
 	}
 	s.expectState(c, t.st)
-	st, err := ops.Read(context.Background())
+	st, err := ops.Read(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(st, tc.DeepEquals, &t.st)
 }

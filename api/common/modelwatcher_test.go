@@ -4,7 +4,6 @@
 package common_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -41,7 +40,7 @@ func (s *modelwatcherTests) TestModelConfig(c *tc.C) {
 	facade.EXPECT().FacadeCall(gomock.Any(), "ModelConfig", nil, gomock.Any()).SetArg(3, result).Return(nil)
 
 	client := common.NewModelConfigWatcher(facade)
-	cfg, err := client.ModelConfig(context.Background())
+	cfg, err := client.ModelConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(testing.Attrs(cfg.AllAttrs()), tc.DeepEquals, attrs)
 }
@@ -60,7 +59,7 @@ func (s *modelwatcherTests) TestWatchForModelConfigChanges(c *tc.C) {
 	facade.EXPECT().RawAPICaller().Return(caller)
 
 	client := common.NewModelConfigWatcher(facade)
-	w, err := client.WatchForModelConfigChanges(context.Background())
+	w, err := client.WatchForModelConfigChanges(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// watch for the changes

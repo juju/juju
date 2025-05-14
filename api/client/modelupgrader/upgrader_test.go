@@ -43,7 +43,7 @@ func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *tc.C) {
 	).Return(nil)
 
 	client := modelupgrader.NewClient(apiCaller)
-	err := client.AbortModelUpgrade(context.Background(), coretesting.ModelTag.Id())
+	err := client.AbortModelUpgrade(c.Context(), coretesting.ModelTag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -70,7 +70,7 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *tc.C) {
 
 	client := modelupgrader.NewClient(apiCaller)
 	chosenVersion, err := client.UpgradeModel(
-		context.Background(),
+		c.Context(),
 		coretesting.ModelTag.Id(),
 		semversion.MustParse("2.9.1"),
 		"", true, true,
@@ -84,7 +84,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *tc.C) {
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
 	doer := mocks.NewMockDoer(ctrl)
-	ctx := context.Background()
+	ctx := c.Context()
 
 	req, err := http.NewRequest(
 		"POST",
@@ -112,7 +112,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *tc.C) {
 	client := modelupgrader.NewClient(apiCaller)
 
 	result, err := client.UploadTools(
-		context.Background(),
+		c.Context(),
 		nil, semversion.MustParseBinary("2.9.100-ubuntu-amd64"),
 	)
 	c.Assert(err, tc.ErrorIsNil)

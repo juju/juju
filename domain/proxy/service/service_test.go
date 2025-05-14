@@ -40,7 +40,7 @@ func (s *serviceSuite) TestGetConnectionProxyInfo(c *tc.C) {
 	service := NewService(func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
 	})
-	proxier, err := service.GetConnectionProxyInfo(context.Background())
+	proxier, err := service.GetConnectionProxyInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(proxier, tc.Equals, s.proxier)
 }
@@ -51,7 +51,7 @@ func (s *serviceSuite) TestGetConnectionProxyInfoNotSupported(c *tc.C) {
 	service := NewService(func(ctx context.Context) (Provider, error) {
 		return s.provider, coreerrors.NotSupported
 	})
-	_, err := service.GetConnectionProxyInfo(context.Background())
+	_, err := service.GetConnectionProxyInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, proxyerrors.ProxyInfoNotSupported)
 }
 
@@ -63,7 +63,7 @@ func (s *serviceSuite) TestGetConnectionProxyInfoNotFound(c *tc.C) {
 	service := NewService(func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
 	})
-	_, err := service.GetConnectionProxyInfo(context.Background())
+	_, err := service.GetConnectionProxyInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, proxyerrors.ProxyInfoNotFound)
 }
 
@@ -75,7 +75,7 @@ func (s *serviceSuite) TestGetProxyToApplication(c *tc.C) {
 	service := NewService(func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
 	})
-	proxier, err := service.GetProxyToApplication(context.Background(), "foo", "8080")
+	proxier, err := service.GetProxyToApplication(c.Context(), "foo", "8080")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(proxier, tc.Equals, s.proxier)
 }
@@ -86,6 +86,6 @@ func (s *serviceSuite) TestGetProxyToApplicationNotSupported(c *tc.C) {
 	service := NewService(func(ctx context.Context) (Provider, error) {
 		return s.provider, coreerrors.NotSupported
 	})
-	_, err := service.GetProxyToApplication(context.Background(), "foo", "8080")
+	_, err := service.GetProxyToApplication(c.Context(), "foo", "8080")
 	c.Assert(err, tc.ErrorIs, proxyerrors.ProxyNotSupported)
 }

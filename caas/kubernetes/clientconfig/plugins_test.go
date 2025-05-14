@@ -4,7 +4,6 @@
 package clientconfig_test
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -157,7 +156,7 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *tc.C) {
 	errChan := make(chan error)
 	cfgOutChan := make(chan *clientcmdapi.Config)
 	go func() {
-		cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(context.Background(), s.k8sClient, s.UID, cfg, contextName, s.clock)
+		cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(c.Context(), s.k8sClient, s.UID, cfg, contextName, s.clock)
 		errChan <- err
 		cfgOutChan <- cfgOut
 	}()
@@ -276,7 +275,7 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *tc.C)
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(&sa, nil),
 	)
-	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(context.Background(), s.k8sClient, s.UID, cfg, contextName, s.clock)
+	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(c.Context(), s.k8sClient, s.UID, cfg, contextName, s.clock)
 	c.Assert(err, tc.ErrorIsNil)
 	authName := cfg.Contexts[contextName].AuthInfo
 	updatedAuthInfo := cfgOut.AuthInfos[authName]
@@ -383,7 +382,7 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccount2ndUpdate(c *tc.C) 
 		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), &newSaWithSecretUpdated, metav1.UpdateOptions{}).Times(1).
 			Return(nil, nil),
 	)
-	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(context.Background(), s.k8sClient, s.UID, cfg, contextName, s.clock)
+	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(c.Context(), s.k8sClient, s.UID, cfg, contextName, s.clock)
 	c.Assert(err, tc.ErrorIsNil)
 	authName := cfg.Contexts[contextName].AuthInfo
 	updatedAuthInfo := cfgOut.AuthInfos[authName]
@@ -420,7 +419,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *tc.C) {
 		s.mockClusterRoles.EXPECT().Create(gomock.Any(), cr, metav1.CreateOptions{}).Times(1).
 			Return(cr, nil),
 	)
-	crOut, cleanUps, err := clientconfig.GetOrCreateClusterRole(context.Background(), cr.ObjectMeta, s.k8sClient.RbacV1().ClusterRoles())
+	crOut, cleanUps, err := clientconfig.GetOrCreateClusterRole(c.Context(), cr.ObjectMeta, s.k8sClient.RbacV1().ClusterRoles())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(crOut, tc.DeepEquals, cr)
 	c.Assert(len(cleanUps), tc.DeepEquals, 1)
@@ -429,7 +428,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *tc.C) {
 		s.mockClusterRoles.EXPECT().Get(gomock.Any(), cr.Name, metav1.GetOptions{}).Times(1).
 			Return(cr, nil),
 	)
-	crOut, cleanUps, err = clientconfig.GetOrCreateClusterRole(context.Background(), cr.ObjectMeta, s.k8sClient.RbacV1().ClusterRoles())
+	crOut, cleanUps, err = clientconfig.GetOrCreateClusterRole(c.Context(), cr.ObjectMeta, s.k8sClient.RbacV1().ClusterRoles())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(crOut, tc.DeepEquals, cr)
 	c.Assert(len(cleanUps), tc.DeepEquals, 0)
@@ -455,7 +454,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateServiceAccount(c *tc.C) {
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(sa, nil),
 	)
-	saOut, cleanUps, err := clientconfig.GetOrCreateServiceAccount(context.Background(), sa.ObjectMeta, s.k8sClient.CoreV1().ServiceAccounts(s.namespace))
+	saOut, cleanUps, err := clientconfig.GetOrCreateServiceAccount(c.Context(), sa.ObjectMeta, s.k8sClient.CoreV1().ServiceAccounts(s.namespace))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(saOut, tc.DeepEquals, sa)
 	c.Assert(len(cleanUps), tc.DeepEquals, 1)
@@ -464,7 +463,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateServiceAccount(c *tc.C) {
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(sa, nil),
 	)
-	saOut, cleanUps, err = clientconfig.GetOrCreateServiceAccount(context.Background(), sa.ObjectMeta, s.k8sClient.CoreV1().ServiceAccounts(s.namespace))
+	saOut, cleanUps, err = clientconfig.GetOrCreateServiceAccount(c.Context(), sa.ObjectMeta, s.k8sClient.CoreV1().ServiceAccounts(s.namespace))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(saOut, tc.DeepEquals, sa)
 	c.Assert(len(cleanUps), tc.DeepEquals, 0)
@@ -524,7 +523,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *tc.C) {
 			Return(clusterRoleBinding, nil),
 	)
 	clusterRoleBindingOut, cleanUps, err := clientconfig.GetOrCreateClusterRoleBinding(
-		context.Background(), clusterRoleBinding.ObjectMeta, sa, cr, s.k8sClient.RbacV1().ClusterRoleBindings(),
+		c.Context(), clusterRoleBinding.ObjectMeta, sa, cr, s.k8sClient.RbacV1().ClusterRoleBindings(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(clusterRoleBindingOut, tc.DeepEquals, clusterRoleBinding)
@@ -537,7 +536,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *tc.C) {
 			Return(clusterRoleBinding, nil),
 	)
 	clusterRoleBindingOut, cleanUps, err = clientconfig.GetOrCreateClusterRoleBinding(
-		context.Background(), clusterRoleBinding.ObjectMeta, sa, cr, s.k8sClient.RbacV1().ClusterRoleBindings(),
+		c.Context(), clusterRoleBinding.ObjectMeta, sa, cr, s.k8sClient.RbacV1().ClusterRoleBindings(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(clusterRoleBindingOut, tc.DeepEquals, clusterRoleBinding)
@@ -564,7 +563,7 @@ func (s *k8sRawClientSuite) TestRemoveJujuAdminServiceAccount(c *tc.C) {
 		).Times(1).Return(nil),
 	)
 
-	err := clientconfig.RemoveJujuAdminServiceAccount(context.Background(), s.k8sClient, s.UID)
+	err := clientconfig.RemoveJujuAdminServiceAccount(c.Context(), s.k8sClient, s.UID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

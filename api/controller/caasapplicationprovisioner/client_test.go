@@ -4,8 +4,6 @@
 package caasapplicationprovisioner_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -46,7 +44,7 @@ func (s *provisionerSuite) TestWatchApplications(c *tc.C) {
 		}
 		return nil
 	})
-	_, err := client.WatchApplications(context.Background())
+	_, err := client.WatchApplications(c.Context())
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(called, tc.IsTrue)
 }
@@ -67,7 +65,7 @@ func (s *provisionerSuite) TestSetPasswords(c *tc.C) {
 		}
 		return nil
 	})
-	err := client.SetPassword(context.Background(), "app", "secret")
+	err := client.SetPassword(c.Context(), "app", "secret")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(called, tc.IsTrue)
 }
@@ -94,7 +92,7 @@ func (s *provisionerSuite) TestLifeApplication(c *tc.C) {
 	})
 
 	client := caasapplicationprovisioner.NewClient(apiCaller)
-	lifeValue, err := client.Life(context.Background(), tag.Id())
+	lifeValue, err := client.Life(c.Context(), tag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(lifeValue, tc.Equals, life.Alive)
 }
@@ -121,7 +119,7 @@ func (s *provisionerSuite) TestLifeUnit(c *tc.C) {
 	})
 
 	client := caasapplicationprovisioner.NewClient(apiCaller)
-	lifeValue, err := client.Life(context.Background(), tag.Id())
+	lifeValue, err := client.Life(c.Context(), tag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(lifeValue, tc.Equals, life.Alive)
 }
@@ -138,7 +136,7 @@ func (s *provisionerSuite) TestLifeError(c *tc.C) {
 	})
 
 	client := caasapplicationprovisioner.NewClient(apiCaller)
-	_, err := client.Life(context.Background(), "gitlab")
+	_, err := client.Life(c.Context(), "gitlab")
 	c.Assert(err, tc.ErrorMatches, "bletch")
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
@@ -147,7 +145,7 @@ func (s *provisionerSuite) TestLifeInvalidApplicationName(c *tc.C) {
 	client := caasapplicationprovisioner.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
-	_, err := client.Life(context.Background(), "")
+	_, err := client.Life(c.Context(), "")
 	c.Assert(err, tc.ErrorMatches, `application or unit name "" not valid`)
 }
 
@@ -161,7 +159,7 @@ func (s *provisionerSuite) TestLifeCount(c *tc.C) {
 		}
 		return nil
 	})
-	_, err := client.Life(context.Background(), "gitlab")
+	_, err := client.Life(c.Context(), "gitlab")
 	c.Check(err, tc.ErrorMatches, `expected 1 result, got 2`)
 }
 
@@ -190,7 +188,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *tc.C) {
 			}}}
 		return nil
 	})
-	info, err := client.ProvisioningInfo(context.Background(), "gitlab")
+	info, err := client.ProvisioningInfo(c.Context(), "gitlab")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, caasapplicationprovisioner.ProvisioningInfo{
 		Version:      vers,
@@ -231,7 +229,7 @@ func (s *provisionerSuite) TestApplicationOCIResources(c *tc.C) {
 			}}
 		return nil
 	})
-	imageResources, err := client.ApplicationOCIResources(context.Background(), "gitlab")
+	imageResources, err := client.ApplicationOCIResources(c.Context(), "gitlab")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(imageResources, tc.DeepEquals, map[string]resource.DockerImageDetails{
 		"cockroachdb-image": {
@@ -258,7 +256,7 @@ func (s *provisionerSuite) TestProvisioningInfoArity(c *tc.C) {
 		}
 		return nil
 	})
-	_, err := client.ProvisioningInfo(context.Background(), "gitlab")
+	_, err := client.ProvisioningInfo(c.Context(), "gitlab")
 	c.Assert(err, tc.ErrorMatches, "expected one result, got 2")
 }
 
@@ -284,7 +282,7 @@ func (s *provisionerSuite) TestSetOperatorStatus(c *tc.C) {
 		return nil
 	})
 
-	err := client.SetOperatorStatus(context.Background(), "gitlab", status.Error, "broken", map[string]interface{}{"foo": "bar"})
+	err := client.SetOperatorStatus(c.Context(), "gitlab", status.Error, "broken", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -305,7 +303,7 @@ func (s *provisionerSuite) TestAllUnits(c *tc.C) {
 		return nil
 	})
 
-	tags, err := client.Units(context.Background(), "gitlab")
+	tags, err := client.Units(c.Context(), "gitlab")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tags, tc.SameContents, []params.CAASUnit{
 		{Tag: names.NewUnitTag("gitlab/0")},
@@ -342,7 +340,7 @@ func (s *provisionerSuite) TestUpdateUnits(c *tc.C) {
 		}
 		return nil
 	})
-	info, err := client.UpdateUnits(context.Background(), params.UpdateApplicationUnits{
+	info, err := client.UpdateUnits(c.Context(), params.UpdateApplicationUnits{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		Units: []params.ApplicationUnitParams{
 			{ProviderId: "uuid", UnitTag: "unit-gitlab-0", Address: "address", Ports: []string{"port"},
@@ -370,7 +368,7 @@ func (s *provisionerSuite) TestUpdateUnitsCount(c *tc.C) {
 		}
 		return nil
 	})
-	info, err := client.UpdateUnits(context.Background(), params.UpdateApplicationUnits{
+	info, err := client.UpdateUnits(c.Context(), params.UpdateApplicationUnits{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		Units: []params.ApplicationUnitParams{
 			{ProviderId: "uuid", Address: "address"},
@@ -399,7 +397,7 @@ func (s *provisionerSuite) TestWatchApplication(c *tc.C) {
 		}
 		return nil
 	})
-	watcher, err := client.WatchApplication(context.Background(), "gitlab")
+	watcher, err := client.WatchApplication(c.Context(), "gitlab")
 	c.Assert(watcher, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
@@ -420,7 +418,7 @@ func (s *provisionerSuite) TestClearApplicationResources(c *tc.C) {
 		}
 		return nil
 	})
-	err := client.ClearApplicationResources(context.Background(), "foo")
+	err := client.ClearApplicationResources(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(called, tc.IsTrue)
 }
@@ -443,7 +441,7 @@ func (s *provisionerSuite) TestWatchUnits(c *tc.C) {
 		}
 		return nil
 	})
-	worker, err := client.WatchUnits(context.Background(), "foo")
+	worker, err := client.WatchUnits(c.Context(), "foo")
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(worker, tc.IsNil)
 	c.Check(called, tc.IsTrue)
@@ -465,7 +463,7 @@ func (s *provisionerSuite) TestRemoveUnit(c *tc.C) {
 		}
 		return nil
 	})
-	err := client.RemoveUnit(context.Background(), "foo/0")
+	err := client.RemoveUnit(c.Context(), "foo/0")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(called, tc.IsTrue)
 }
@@ -487,7 +485,7 @@ func (s *provisionerSuite) TestProvisioningState(c *tc.C) {
 		}
 		return nil
 	})
-	state, err := client.ProvisioningState(context.Background(), "foo")
+	state, err := client.ProvisioningState(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(called, tc.IsTrue)
 	c.Check(state, tc.DeepEquals, &params.CAASApplicationProvisioningState{
@@ -514,7 +512,7 @@ func (s *provisionerSuite) TestSetProvisioningState(c *tc.C) {
 		*(result.(*params.ErrorResult)) = params.ErrorResult{}
 		return nil
 	})
-	err := client.SetProvisioningState(context.Background(), "foo", params.CAASApplicationProvisioningState{
+	err := client.SetProvisioningState(c.Context(), "foo", params.CAASApplicationProvisioningState{
 		Scaling:     true,
 		ScaleTarget: 10,
 	})
@@ -542,7 +540,7 @@ func (s *provisionerSuite) TestSetProvisioningStateError(c *tc.C) {
 		}
 		return nil
 	})
-	err := client.SetProvisioningState(context.Background(), "foo", params.CAASApplicationProvisioningState{
+	err := client.SetProvisioningState(c.Context(), "foo", params.CAASApplicationProvisioningState{
 		Scaling:     true,
 		ScaleTarget: 10,
 	})
@@ -574,7 +572,7 @@ func (s *provisionerSuite) TestDestroyUnits(c *tc.C) {
 		}
 		return nil
 	})
-	err := client.DestroyUnits(context.Background(), []string{"foo/0"})
+	err := client.DestroyUnits(c.Context(), []string{"foo/0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
 }
@@ -606,7 +604,7 @@ func (s *provisionerSuite) TestDestroyUnitsMismatchResults(c *tc.C) {
 		}
 		return nil
 	})
-	err := client.DestroyUnits(context.Background(), []string{"foo/0"})
+	err := client.DestroyUnits(c.Context(), []string{"foo/0"})
 	c.Assert(err, tc.NotNil)
 	c.Assert(err.Error(), tc.Equals, "expected 1 results got 2")
 	c.Assert(called, tc.IsTrue)
@@ -628,7 +626,7 @@ func (s *provisionerSuite) TestProvisionerConfig(c *tc.C) {
 		}
 		return nil
 	})
-	result, err := client.ProvisionerConfig(context.Background())
+	result, err := client.ProvisionerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
 	c.Assert(result, tc.DeepEquals, params.CAASApplicationProvisionerConfig{

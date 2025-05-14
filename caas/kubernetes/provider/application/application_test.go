@@ -369,35 +369,35 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application, isPrivate
 
 	c.Assert(app.Ensure(appConfig), tc.ErrorIsNil)
 
-	secret, err := s.client.CoreV1().Secrets("test").Get(context.Background(), "gitlab-application-config", metav1.GetOptions{})
+	secret, err := s.client.CoreV1().Secrets("test").Get(c.Context(), "gitlab-application-config", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(secret, tc.DeepEquals, &appSecret)
 
-	secret, err = s.client.CoreV1().Secrets("test").Get(context.Background(), "gitlab-nginx-secret", metav1.GetOptions{})
+	secret, err = s.client.CoreV1().Secrets("test").Get(c.Context(), "gitlab-nginx-secret", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(secret, tc.DeepEquals, &nginxPullSecret)
 
-	svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+	svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(svc, tc.DeepEquals, &appSvc)
 
-	sa, err := s.client.CoreV1().ServiceAccounts(s.namespace).Get(context.Background(), "gitlab", metav1.GetOptions{})
+	sa, err := s.client.CoreV1().ServiceAccounts(s.namespace).Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(sa, tc.DeepEquals, &appSA)
 
-	r, err := s.client.RbacV1().Roles(s.namespace).Get(context.Background(), "gitlab", metav1.GetOptions{})
+	r, err := s.client.RbacV1().Roles(s.namespace).Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r, tc.DeepEquals, &appRole)
 
-	cr, err := s.client.RbacV1().ClusterRoles().Get(context.Background(), "test-gitlab", metav1.GetOptions{})
+	cr, err := s.client.RbacV1().ClusterRoles().Get(c.Context(), "test-gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cr, tc.DeepEquals, &appClusterRole)
 
-	rb, err := s.client.RbacV1().RoleBindings(s.namespace).Get(context.Background(), "gitlab", metav1.GetOptions{})
+	rb, err := s.client.RbacV1().RoleBindings(s.namespace).Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rb, tc.DeepEquals, &appRoleBinding)
 
-	crb, err := s.client.RbacV1().ClusterRoleBindings().Get(context.Background(), "test-gitlab", metav1.GetOptions{})
+	crb, err := s.client.RbacV1().ClusterRoleBindings().Get(c.Context(), "test-gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(crb, tc.DeepEquals, &appClusterRoleBinding)
 
@@ -408,43 +408,43 @@ func (s *applicationSuite) assertDelete(c *tc.C, app caas.Application) {
 	err := app.Delete()
 	c.Assert(err, tc.ErrorIsNil)
 
-	clusterRoles, err := s.client.RbacV1().ClusterRoles().List(context.Background(), metav1.ListOptions{})
+	clusterRoles, err := s.client.RbacV1().ClusterRoles().List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(clusterRoles.Items, tc.IsNil)
 
-	clusterRoleBinding, err := s.client.RbacV1().ClusterRoleBindings().List(context.Background(), metav1.ListOptions{})
+	clusterRoleBinding, err := s.client.RbacV1().ClusterRoleBindings().List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(clusterRoleBinding.Items, tc.IsNil)
 
-	daemonSets, err := s.client.AppsV1().DaemonSets(s.namespace).List(context.Background(), metav1.ListOptions{})
+	daemonSets, err := s.client.AppsV1().DaemonSets(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(daemonSets.Items, tc.IsNil)
 
-	deployments, err := s.client.AppsV1().Deployments(s.namespace).List(context.Background(), metav1.ListOptions{})
+	deployments, err := s.client.AppsV1().Deployments(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployments.Items, tc.IsNil)
 
-	roles, err := s.client.RbacV1().Roles(s.namespace).List(context.Background(), metav1.ListOptions{})
+	roles, err := s.client.RbacV1().Roles(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(roles.Items, tc.IsNil)
 
-	roleBindings, err := s.client.RbacV1().RoleBindings(s.namespace).List(context.Background(), metav1.ListOptions{})
+	roleBindings, err := s.client.RbacV1().RoleBindings(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(roleBindings.Items, tc.IsNil)
 
-	secrets, err := s.client.CoreV1().Secrets(s.namespace).List(context.Background(), metav1.ListOptions{})
+	secrets, err := s.client.CoreV1().Secrets(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(secrets.Items, tc.IsNil)
 
-	services, err := s.client.CoreV1().Services(s.namespace).List(context.Background(), metav1.ListOptions{})
+	services, err := s.client.CoreV1().Services(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(services.Items, tc.IsNil)
 
-	serviceAccounts, err := s.client.CoreV1().ServiceAccounts(s.namespace).List(context.Background(), metav1.ListOptions{})
+	serviceAccounts, err := s.client.CoreV1().ServiceAccounts(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(serviceAccounts.Items, tc.IsNil)
 
-	statefulSets, err := s.client.AppsV1().StatefulSets(s.namespace).List(context.Background(), metav1.ListOptions{})
+	statefulSets, err := s.client.AppsV1().StatefulSets(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(statefulSets.Items, tc.IsNil)
 }
@@ -453,7 +453,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
+			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -476,7 +476,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 				},
 			})
 
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -541,7 +541,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, true, "3.5-beta1", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
+			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -583,7 +583,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 				RunAsGroup: int64Ptr(4321),
 			}
 
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -761,7 +761,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 	)
 	s.assertEnsure(
 		c, app, true, constraints.Value{}, true, false, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
+			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -784,7 +784,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 				},
 			})
 
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -849,10 +849,10 @@ func (s *applicationSuite) TestEnsureStateless(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
-			ss, err := s.client.AppsV1().Deployments("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().Deployments("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 
-			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.Background(), "gitlab-database-appuuid", metav1.GetOptions{})
+			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "gitlab-database-appuuid", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(pvc, tc.DeepEquals, &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
@@ -922,10 +922,10 @@ func (s *applicationSuite) TestEnsureDaemon(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
-			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().DaemonSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 
-			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.Background(), "gitlab-database-appuuid", metav1.GetOptions{})
+			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "gitlab-database-appuuid", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(pvc, tc.DeepEquals, &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1023,7 +1023,7 @@ func (s *applicationSuite) TestExistsDeployment(c *tc.C) {
 		},
 	}
 	dr.SetDeletionTimestamp(&now)
-	_, err = s.client.AppsV1().Deployments("test").Create(context.Background(),
+	_, err = s.client.AppsV1().Deployments("test").Create(c.Context(),
 		dr, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1062,7 +1062,7 @@ func (s *applicationSuite) TestExistsStatefulSet(c *tc.C) {
 		},
 	}
 	sr.SetDeletionTimestamp(&now)
-	_, err = s.client.AppsV1().StatefulSets("test").Create(context.Background(),
+	_, err = s.client.AppsV1().StatefulSets("test").Create(c.Context(),
 		sr, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1102,7 +1102,7 @@ func (s *applicationSuite) TestExistsDaemonSet(c *tc.C) {
 		},
 	}
 	dmr.SetDeletionTimestamp(&now)
-	_, err = s.client.AppsV1().DaemonSets("test").Create(context.Background(),
+	_, err = s.client.AppsV1().DaemonSets("test").Create(c.Context(),
 		dmr, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1118,7 +1118,7 @@ func (s *applicationSuite) TestExistsDaemonSet(c *tc.C) {
 func (s *applicationSuite) TestUpgradeStateful(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.34", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		c.Assert(len(ss.Spec.Template.Spec.InitContainers), tc.Equals, 1)
@@ -1130,7 +1130,7 @@ func (s *applicationSuite) TestUpgradeStateful(c *tc.C) {
 	})
 
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.37", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		c.Assert(len(ss.Spec.Template.Spec.InitContainers), tc.Equals, 1)
@@ -1144,7 +1144,7 @@ func (s *applicationSuite) TestUpgradeStateful(c *tc.C) {
 	})
 
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "3.5-beta1.1", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		c.Assert(len(ss.Spec.Template.Spec.InitContainers), tc.Equals, 1)
@@ -1173,7 +1173,7 @@ func (s *applicationSuite) TestDeleteStateful(c *tc.C) {
 		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 	)
 	c.Assert(app.Delete(), tc.ErrorIsNil)
 }
@@ -1191,7 +1191,7 @@ func (s *applicationSuite) TestDeleteStateless(c *tc.C) {
 		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 	)
 	c.Assert(app.Delete(), tc.ErrorIsNil)
 }
@@ -1209,7 +1209,7 @@ func (s *applicationSuite) TestDeleteDaemon(c *tc.C) {
 		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 	)
 	c.Assert(app.Delete(), tc.ErrorIsNil)
 }
@@ -1223,7 +1223,7 @@ func (s *applicationSuite) TestWatchNotsupported(c *tc.C) {
 		return w, nil
 	}
 
-	_, err := app.Watch(context.Background())
+	_, err := app.Watch(c.Context())
 	c.Assert(err, tc.ErrorMatches, `unknown deployment type not supported`)
 }
 
@@ -1236,7 +1236,7 @@ func (s *applicationSuite) TestWatch(c *tc.C) {
 		return w, nil
 	}
 
-	w, err := app.Watch(context.Background())
+	w, err := app.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
@@ -1288,7 +1288,7 @@ func (s *applicationSuite) assertState(c *tc.C, deploymentType caas.DeploymentTy
 			Annotations: map[string]string{"juju.is/version": "2.9.37"},
 		},
 	}
-	_, err := s.client.CoreV1().Pods("test").Create(context.Background(),
+	_, err := s.client.CoreV1().Pods("test").Create(c.Context(),
 		pod1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1301,7 +1301,7 @@ func (s *applicationSuite) assertState(c *tc.C, deploymentType caas.DeploymentTy
 			Annotations: map[string]string{"juju.is/version": "2.9.37"},
 		},
 	}
-	_, err = s.client.CoreV1().Pods("test").Create(context.Background(),
+	_, err = s.client.CoreV1().Pods("test").Create(c.Context(),
 		pod2, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1334,7 +1334,7 @@ func (s *applicationSuite) TestStateStateful(c *tc.C) {
 				Replicas: pointer.Int32Ptr(int32(desiredReplicas)),
 			},
 		}
-		_, err := s.client.AppsV1().StatefulSets("test").Create(context.Background(),
+		_, err := s.client.AppsV1().StatefulSets("test").Create(c.Context(),
 			dmr, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		return desiredReplicas
@@ -1362,7 +1362,7 @@ func (s *applicationSuite) TestStateStateless(c *tc.C) {
 				Replicas: pointer.Int32Ptr(int32(desiredReplicas)),
 			},
 		}
-		_, err := s.client.AppsV1().Deployments("test").Create(context.Background(),
+		_, err := s.client.AppsV1().Deployments("test").Create(c.Context(),
 			dmr, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		return desiredReplicas
@@ -1392,7 +1392,7 @@ func (s *applicationSuite) TestStateDaemon(c *tc.C) {
 				DesiredNumberScheduled: int32(desiredReplicas),
 			},
 		}
-		_, err := s.client.AppsV1().DaemonSets("test").Create(context.Background(),
+		_, err := s.client.AppsV1().DaemonSets("test").Create(c.Context(),
 			dmr, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		return desiredReplicas
@@ -1426,7 +1426,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *tc.C)
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	getMainResourceSpec := func() *appsv1.Deployment {
@@ -1512,7 +1512,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *tc.C)
 			},
 		}
 	}
-	_, err = s.client.AppsV1().Deployments("test").Create(context.Background(), getMainResourceSpec(), metav1.CreateOptions{})
+	_, err = s.client.AppsV1().Deployments("test").Create(c.Context(), getMainResourceSpec(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1539,7 +1539,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *tc.C)
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Apply(resources.NewDeployment("gitlab", "test", updatedMainResource)),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -1555,7 +1555,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *tc.C) 
 	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	getMainResourceSpec := func() *appsv1.StatefulSet {
@@ -1641,7 +1641,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *tc.C) 
 			},
 		}
 	}
-	_, err = s.client.AppsV1().StatefulSets("test").Create(context.Background(), getMainResourceSpec(), metav1.CreateOptions{})
+	_, err = s.client.AppsV1().StatefulSets("test").Create(c.Context(), getMainResourceSpec(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1668,7 +1668,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *tc.C) 
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Apply(resources.NewStatefulSet("gitlab", "test", updatedMainResource)),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -1684,7 +1684,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	getMainResourceSpec := func() *appsv1.DaemonSet {
@@ -1730,7 +1730,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *tc.C) {
 			},
 		}
 	}
-	_, err = s.client.AppsV1().DaemonSets("test").Create(context.Background(), getMainResourceSpec(), metav1.CreateOptions{})
+	_, err = s.client.AppsV1().DaemonSets("test").Create(c.Context(), getMainResourceSpec(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1757,7 +1757,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *tc.C) {
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Apply(resources.NewDaemonSet("gitlab", "test", updatedMainResource)),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -1773,7 +1773,7 @@ func (s *applicationSuite) TestUpdatePortsInvalidProtocol(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
@@ -1799,7 +1799,7 @@ func (s *applicationSuite) TestUpdatePortsWithExistingPorts(c *tc.C) {
 			Protocol:   corev1.ProtocolTCP,
 		},
 	}
-	svc, err := s.client.CoreV1().Services("test").Create(context.Background(), existingSvc, metav1.CreateOptions{})
+	svc, err := s.client.CoreV1().Services("test").Create(c.Context(), existingSvc, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(svc.Spec.Ports, tc.DeepEquals, existingSvc.Spec.Ports)
 
@@ -1848,10 +1848,10 @@ func (s *applicationSuite) TestUpdatePortsWithExistingPorts(c *tc.C) {
 
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 
 		s.applier.EXPECT().Apply(updatedSvcResource2nd),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		// Added ports: 8080 and 8888.
@@ -1884,7 +1884,7 @@ func (s *applicationSuite) TestUpdatePortsStateless(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1902,7 +1902,7 @@ func (s *applicationSuite) TestUpdatePortsStateless(c *tc.C) {
 
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -1918,7 +1918,7 @@ func (s *applicationSuite) TestUpdatePortsStateful(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1936,7 +1936,7 @@ func (s *applicationSuite) TestUpdatePortsStateful(c *tc.C) {
 
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -1952,7 +1952,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1970,7 +1970,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *tc.C) {
 
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -2169,7 +2169,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 				},
 			}
 		}
-		_, err := s.client.CoreV1().Pods(s.namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
+		_, err := s.client.CoreV1().Pods(s.namespace).Create(c.Context(), &pod, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		pvc := corev1.PersistentVolumeClaim{
@@ -2198,7 +2198,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 				Phase: corev1.ClaimBound,
 			},
 		}
-		_, err = s.client.CoreV1().PersistentVolumeClaims(s.namespace).Create(context.Background(), &pvc, metav1.CreateOptions{})
+		_, err = s.client.CoreV1().PersistentVolumeClaims(s.namespace).Create(c.Context(), &pvc, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		pv := corev1.PersistentVolume{
@@ -2218,7 +2218,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 				Message: "volume bound",
 			},
 		}
-		_, err = s.client.CoreV1().PersistentVolumes().Create(context.Background(), &pv, metav1.CreateOptions{})
+		_, err = s.client.CoreV1().PersistentVolumes().Create(c.Context(), &pv, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -2529,13 +2529,13 @@ func (s *applicationSuite) TestServiceActive(c *tc.C) {
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Update(context.Background(), testSvc, metav1.UpdateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(c.Context(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+	ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	ss.Status.ReadyReplicas = 3
-	_, err = s.client.AppsV1().StatefulSets("test").Update(context.Background(), ss, metav1.UpdateOptions{})
+	_, err = s.client.AppsV1().StatefulSets("test").Update(c.Context(), ss, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc, err := app.Service()
@@ -2568,7 +2568,7 @@ func (s *applicationSuite) TestServiceNotSupportedDaemon(c *tc.C) {
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Update(context.Background(), testSvc, metav1.UpdateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(c.Context(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = app.Service()
@@ -2585,7 +2585,7 @@ func (s *applicationSuite) TestServiceNotSupportedStateless(c *tc.C) {
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Update(context.Background(), testSvc, metav1.UpdateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(c.Context(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = app.Service()
@@ -2602,14 +2602,14 @@ func (s *applicationSuite) TestServiceTerminated(c *tc.C) {
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Update(context.Background(), testSvc, metav1.UpdateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(c.Context(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+	ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	now := metav1.Now()
 	ss.DeletionTimestamp = &now
-	_, err = s.client.AppsV1().StatefulSets("test").Update(context.Background(), ss, metav1.UpdateOptions{})
+	_, err = s.client.AppsV1().StatefulSets("test").Update(c.Context(), ss, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc, err := app.Service()
@@ -2642,13 +2642,13 @@ func (s *applicationSuite) TestServiceError(c *tc.C) {
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Update(context.Background(), testSvc, metav1.UpdateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(c.Context(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+	ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	ss.Status.ReadyReplicas = 0
-	_, err = s.client.AppsV1().StatefulSets("test").Update(context.Background(), ss, metav1.UpdateOptions{})
+	_, err = s.client.AppsV1().StatefulSets("test").Update(c.Context(), ss, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	evt := corev1.Event{
@@ -2664,10 +2664,10 @@ func (s *applicationSuite) TestServiceError(c *tc.C) {
 		Reason:  "FailedCreate",
 		Message: "0/1 nodes are available: 1 pod has unbound immediate PersistentVolumeClaims.",
 	}
-	_, err = s.client.CoreV1().Events("test").Create(context.Background(), &evt, metav1.CreateOptions{})
+	_, err = s.client.CoreV1().Events("test").Create(c.Context(), &evt, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
-		_ = s.client.CoreV1().Events("test").Delete(context.Background(), evt.GetName(), metav1.DeleteOptions{})
+		_ = s.client.CoreV1().Events("test").Delete(c.Context(), evt.GetName(), metav1.DeleteOptions{})
 	}()
 
 	svc, err := app.Service()
@@ -2695,7 +2695,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
+			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2731,7 +2731,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 				ps.Containers[i].Resources.Limits = resourceRequests
 			}
 
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2810,7 +2810,7 @@ func (s *applicationSuite) TestPullSecretUpdate(c *tc.C) {
 		},
 	}
 
-	_, err := s.client.CoreV1().Secrets(s.namespace).Create(context.Background(), &unusedPullSecret,
+	_, err := s.client.CoreV1().Secrets(s.namespace).Create(c.Context(), &unusedPullSecret,
 		metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2830,16 +2830,16 @@ func (s *applicationSuite) TestPullSecretUpdate(c *tc.C) {
 			corev1.DockerConfigJsonKey: pullSecretConfig,
 		},
 	}
-	_, err = s.client.CoreV1().Secrets(s.namespace).Create(context.Background(), &nginxPullSecret,
+	_, err = s.client.CoreV1().Secrets(s.namespace).Create(c.Context(), &nginxPullSecret,
 		metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "", func() {})
 
-	_, err = s.client.CoreV1().Secrets(s.namespace).Get(context.Background(), "gitlab-oldcontainer-secret", metav1.GetOptions{})
+	_, err = s.client.CoreV1().Secrets(s.namespace).Get(c.Context(), "gitlab-oldcontainer-secret", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorMatches, `secrets "gitlab-oldcontainer-secret" not found`)
 
-	secret, err := s.client.CoreV1().Secrets(s.namespace).Get(context.Background(), "gitlab-nginx-secret", metav1.GetOptions{})
+	secret, err := s.client.CoreV1().Secrets(s.namespace).Get(c.Context(), "gitlab-nginx-secret", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(secret, tc.NotNil)
 	newPullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username", "password", "docker.io/library/nginx:latest")
@@ -2920,7 +2920,7 @@ func (s *applicationSuite) TestPVCNames(c *tc.C) {
 		},
 	}
 	for _, claim := range claims {
-		_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(context.Background(), claim, metav1.CreateOptions{})
+		_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(c.Context(), claim, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -2942,7 +2942,7 @@ func (s *applicationSuite) TestLimits(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
 				c.Check(ctr.Resources.Limits, tc.DeepEquals, limits)

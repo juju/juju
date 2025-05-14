@@ -4,7 +4,6 @@
 package stateauthenticator
 
 import (
-	"context"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -63,7 +62,7 @@ func (s *macaroonCommonSuite) setupMocks(c *tc.C) *gomock.Controller {
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, nil, loggertesting.WrapCheckLog(c))
 
 	authenticator, err := NewAuthenticator(
-		context.Background(),
+		c.Context(),
 		nil,
 		model.UUID(testing.ModelTag.Id()),
 		s.controllerConfigService,
@@ -103,7 +102,7 @@ func (s *macaroonAuthWrongPublicKeySuite) TearDownTest(c *tc.C) {
 func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	ctx := context.Background()
+	ctx := c.Context()
 	client := httpbakery.NewClient()
 
 	m, err := macaroon.New(nil, nil, "loc", macaroon.LatestVersion)
@@ -134,6 +133,6 @@ func (s *macaroonNoURLSuite) TestNoBakeryWhenNoIdentityURL(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// By default, when there is no identity location, no bakery is created.
-	_, err := ServerBakery(context.Background(), s.authenticator, nil)
+	_, err := ServerBakery(c.Context(), s.authenticator, nil)
 	c.Assert(err, tc.ErrorMatches, "macaroon authentication is not configured")
 }

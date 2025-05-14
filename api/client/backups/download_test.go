@@ -4,7 +4,6 @@
 package backups
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -33,7 +32,7 @@ func (s *downloadSuite) TestDownload(c *tc.C) {
 	s.apiCaller.EXPECT().HTTPClient().Return(httpClient, nil)
 
 	client := s.newClient()
-	rdr, err := client.Download(context.Background(), "/path/to/backup")
+	rdr, err := client.Download(c.Context(), "/path/to/backup")
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rdr.Close() }()
 

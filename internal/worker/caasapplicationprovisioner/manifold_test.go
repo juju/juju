@@ -4,8 +4,6 @@
 package caasapplicationprovisioner_test
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -96,7 +94,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		return nil, nil
 	}
 	manifold := caasapplicationprovisioner.Manifold(s.config)
-	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
 		"broker":     struct{ caas.Broker }{},
 		"clock":      struct{ clock.Clock }{},
