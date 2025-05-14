@@ -156,6 +156,44 @@ func (c *MockStateDeleteRelationUnitsCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// DeleteUnit mocks base method.
+func (m *MockState) DeleteUnit(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteUnit", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteUnit indicates an expected call of DeleteUnit.
+func (mr *MockStateMockRecorder) DeleteUnit(arg0, arg1 any) *MockStateDeleteUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnit", reflect.TypeOf((*MockState)(nil).DeleteUnit), arg0, arg1)
+	return &MockStateDeleteUnitCall{Call: call}
+}
+
+// MockStateDeleteUnitCall wrap *gomock.Call
+type MockStateDeleteUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteUnitCall) Return(arg0 error) *MockStateDeleteUnitCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteUnitCall) Do(f func(context.Context, string) error) *MockStateDeleteUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteUnitCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // EnsureRelationNotAlive mocks base method.
 func (m *MockState) EnsureRelationNotAlive(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -190,6 +228,45 @@ func (c *MockStateEnsureRelationNotAliveCall) Do(f func(context.Context, string)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateEnsureRelationNotAliveCall) DoAndReturn(f func(context.Context, string) error) *MockStateEnsureRelationNotAliveCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// EnsureUnitNotAlive mocks base method.
+func (m *MockState) EnsureUnitNotAlive(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureUnitNotAlive", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnsureUnitNotAlive indicates an expected call of EnsureUnitNotAlive.
+func (mr *MockStateMockRecorder) EnsureUnitNotAlive(arg0, arg1 any) *MockStateEnsureUnitNotAliveCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitNotAlive", reflect.TypeOf((*MockState)(nil).EnsureUnitNotAlive), arg0, arg1)
+	return &MockStateEnsureUnitNotAliveCall{Call: call}
+}
+
+// MockStateEnsureUnitNotAliveCall wrap *gomock.Call
+type MockStateEnsureUnitNotAliveCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateEnsureUnitNotAliveCall) Return(arg0 string, arg1 error) *MockStateEnsureUnitNotAliveCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateEnsureUnitNotAliveCall) Do(f func(context.Context, string) (string, error)) *MockStateEnsureUnitNotAliveCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateEnsureUnitNotAliveCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateEnsureUnitNotAliveCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -268,6 +345,45 @@ func (c *MockStateGetRelationLifeCall) Do(f func(context.Context, string) (life.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetRelationLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockStateGetRelationLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitLife mocks base method.
+func (m *MockState) GetUnitLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitLife indicates an expected call of GetUnitLife.
+func (mr *MockStateMockRecorder) GetUnitLife(arg0, arg1 any) *MockStateGetUnitLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockState)(nil).GetUnitLife), arg0, arg1)
+	return &MockStateGetUnitLifeCall{Call: call}
+}
+
+// MockStateGetUnitLifeCall wrap *gomock.Call
+type MockStateGetUnitLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitLifeCall) Return(arg0 life.Life, arg1 error) *MockStateGetUnitLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockStateGetUnitLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockStateGetUnitLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -387,6 +503,45 @@ func (c *MockStateRelationScheduleRemovalCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// UnitExists mocks base method.
+func (m *MockState) UnitExists(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnitExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitExists indicates an expected call of UnitExists.
+func (mr *MockStateMockRecorder) UnitExists(arg0, arg1 any) *MockStateUnitExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitExists", reflect.TypeOf((*MockState)(nil).UnitExists), arg0, arg1)
+	return &MockStateUnitExistsCall{Call: call}
+}
+
+// MockStateUnitExistsCall wrap *gomock.Call
+type MockStateUnitExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateUnitExistsCall) Return(arg0 bool, arg1 error) *MockStateUnitExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateUnitExistsCall) Do(f func(context.Context, string) (bool, error)) *MockStateUnitExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateUnitExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateUnitExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UnitNamesInScope mocks base method.
 func (m *MockState) UnitNamesInScope(arg0 context.Context, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -422,6 +577,44 @@ func (c *MockStateUnitNamesInScopeCall) Do(f func(context.Context, string) ([]st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateUnitNamesInScopeCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateUnitNamesInScopeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UnitScheduleRemoval mocks base method.
+func (m *MockState) UnitScheduleRemoval(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnitScheduleRemoval", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UnitScheduleRemoval indicates an expected call of UnitScheduleRemoval.
+func (mr *MockStateMockRecorder) UnitScheduleRemoval(arg0, arg1, arg2, arg3, arg4 any) *MockStateUnitScheduleRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitScheduleRemoval", reflect.TypeOf((*MockState)(nil).UnitScheduleRemoval), arg0, arg1, arg2, arg3, arg4)
+	return &MockStateUnitScheduleRemovalCall{Call: call}
+}
+
+// MockStateUnitScheduleRemovalCall wrap *gomock.Call
+type MockStateUnitScheduleRemovalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateUnitScheduleRemovalCall) Return(arg0 error) *MockStateUnitScheduleRemovalCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateUnitScheduleRemovalCall) Do(f func(context.Context, string, string, bool, time.Time) error) *MockStateUnitScheduleRemovalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateUnitScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockStateUnitScheduleRemovalCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -7,7 +7,8 @@ CREATE UNIQUE INDEX idx_removal_type_name
 ON removal_type (name);
 
 INSERT INTO removal_type VALUES
-(0, 'relation');
+(0, 'relation'),
+(1, 'unit');
 
 CREATE TABLE removal (
     uuid TEXT NOT NULL PRIMARY KEY,
