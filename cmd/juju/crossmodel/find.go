@@ -118,9 +118,9 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	filter := crossmodel.ApplicationOfferFilter{
-		Namespace: c.modelNamespace,
-		ModelName: c.modelName,
-		OfferName: c.offerName,
+		ModelNamespace: c.modelNamespace,
+		ModelName:      c.modelName,
+		OfferName:      c.offerName,
 	}
 	if c.interfaceName != "" {
 		filter.Endpoints = []crossmodel.EndpointFilterTerm{{
@@ -161,7 +161,7 @@ func (c *findCommand) validateOrSetURL() error {
 	} else {
 		c.source = controllerName
 	}
-	namespace := urlParts.Namespace
+	namespace := urlParts.ModelNamespace
 	if namespace == "" {
 		accountDetails, err := c.CurrentAccountDetails()
 		if err != nil {

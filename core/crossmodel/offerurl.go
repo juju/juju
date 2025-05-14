@@ -22,8 +22,8 @@ type OfferURL struct {
 	// If empty, the model is another model in the same controller.
 	Source string // "<controller-name>" or "<jaas>" or ""
 
-	// Namespace is the model's namespace in which the offer is made.
-	Namespace string
+	// ModelNamespace is the model's namespace in which the offer is made.
+	ModelNamespace string
 
 	// ModelName is the name of the model providing the exported endpoints.
 	// It is only used for local URLs or for specifying models in the same
@@ -37,8 +37,8 @@ type OfferURL struct {
 // Path returns the path component of the URL.
 func (u *OfferURL) Path() string {
 	var parts []string
-	if u.Namespace != "" {
-		parts = append(parts, u.Namespace)
+	if u.ModelNamespace != "" {
+		parts = append(parts, u.ModelNamespace)
 	}
 	if u.ModelName != "" {
 		parts = append(parts, u.ModelName)
@@ -127,7 +127,7 @@ func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, er
 	valid = valid && modelApplicationRegexp.MatchString(urlParts)
 	if valid {
 		result.Source = source
-		result.Namespace = modelApplicationRegexp.ReplaceAllString(urlParts, "$namespace")
+		result.ModelNamespace = modelApplicationRegexp.ReplaceAllString(urlParts, "$namespace")
 		result.ModelName = modelApplicationRegexp.ReplaceAllString(urlParts, "$model")
 		result.ApplicationName = modelApplicationRegexp.ReplaceAllString(urlParts, "$application")
 	}
@@ -146,8 +146,8 @@ func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, er
 	// before validating the name.
 	appName := strings.Split(result.ApplicationName, ":")[0]
 	// Validate the resulting URL part values.
-	if result.Namespace != "" && !model.IsValidNamespace(result.Namespace) {
-		return nil, errors.Errorf("model namespace %q %w", result.Namespace, coreerrors.NotValid)
+	if result.ModelNamespace != "" && !model.IsValidNamespace(result.ModelNamespace) {
+		return nil, errors.Errorf("model namespace %q %w", result.ModelNamespace, coreerrors.NotValid)
 	}
 	if result.ModelName != "" && !names.IsValidModelName(result.ModelName) {
 		return nil, errors.Errorf("model name %q %w", result.ModelName, coreerrors.NotValid)
