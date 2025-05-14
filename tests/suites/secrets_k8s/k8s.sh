@@ -63,8 +63,8 @@ run_secrets() {
 		attempt=$((attempt + 1))
 	done
 
-	juju --show-log deploy hello-kubecon hello
-	# TODO(anvial): remove the revision flag once we update hello-kubecon charm
+	juju --show-log deploy snappass-test hello
+	# TODO(anvial): remove the revision flag once we update snappass-test charm
 	#  (https://discourse.charmhub.io/t/old-ingress-relation-removal/12944)
 	#  or we choose an alternative pair of charms to integrate.
 	juju --show-log deploy nginx-ingress-integrator nginx --channel=latest/stable --revision=83
@@ -164,7 +164,7 @@ run_user_secrets() {
 	juju --show-log add-model "$model_name" --config secret-backend=auto
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
-	juju --show-log deploy hello-kubecon
+	juju --show-log deploy snappass-test
 
 	# create user secrets.
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
@@ -176,10 +176,10 @@ run_user_secrets() {
 	juju --show-log update-secret "$secret_uri" --info info owned-by="$model_name-2"
 	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'info'
 
-	# grant secret to hello-kubecon app, and now the application can access the revision 2.
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
-	juju --show-log grant-secret "$secret_uri" hello-kubecon
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-2"
+	# grant secret to snappass-test app, and now the application can access the revision 2.
+	check_contains "$(juju exec --unit snappass-test/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
+	juju --show-log grant-secret "$secret_uri" snappass-test
+	check_contains "$(juju exec --unit snappass-test/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-2"
 
 	# create a new revision 3.
 	juju --show-log update-secret "$secret_uri" owned-by="$model_name-3"
@@ -197,23 +197,23 @@ run_user_secrets() {
 	juju --show-log update-secret "$secret_uri" --auto-prune=true
 
 	# revision 1 should be pruned.
-	# revision 2 is still been used by hello-kubecon app, so it should not be pruned.
+	# revision 2 is still been used by snappass-test app, so it should not be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
 	check_num_secret_revisions "$secret_uri" "$secret_short_uri" 2
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_name-2"
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri --peek)" "owned-by: $model_name-3"
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri --refresh)" "owned-by: $model_name-3"
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-3"
+	check_contains "$(juju exec --unit snappass-test/0 -- secret-get $secret_short_uri --peek)" "owned-by: $model_name-3"
+	check_contains "$(juju exec --unit snappass-test/0 -- secret-get $secret_short_uri --refresh)" "owned-by: $model_name-3"
+	check_contains "$(juju exec --unit snappass-test/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-3"
 
 	# revision 2 should be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
 	check_num_secret_revisions "$secret_uri" "$secret_short_uri" 1
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
-	juju --show-log revoke-secret $secret_uri hello-kubecon
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
+	juju --show-log revoke-secret $secret_uri snappass-test
+	check_contains "$(juju exec --unit snappass-test/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
 
 	juju --show-log remove-secret $secret_uri
 	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'
@@ -227,7 +227,7 @@ run_secret_drain() {
 	vault_backend_name='myvault'
 	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
 
-	juju --show-log deploy hello-kubecon hello
+	juju --show-log deploy snappass-test hello
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
 
@@ -293,7 +293,7 @@ run_user_secret_drain() {
 	vault_backend_name='myvault'
 	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
 
-	juju --show-log deploy hello-kubecon hello
+	juju --show-log deploy snappass-test hello
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
 
