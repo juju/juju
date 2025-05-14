@@ -123,8 +123,15 @@ type ModelCreateArgs struct {
 	// Name is the name for the new model.
 	Name string `json:"name"`
 
+	// TODO - we will use namespace as soon as owner is removed.
 	// Namespace is the model's namespace.
 	Namespace string `json:"namespace"`
+
+	// TODO - owner will be removed.
+	// OwnerTag represents the user that will own the new model.
+	// The OwnerTag must be a valid user tag.  If the user tag represents
+	// a local user, that user must exist.
+	OwnerTag string `json:"owner-tag"`
 
 	// Config defines the model config, which includes the name of the
 	// model. A model UUID is allocated by the API server during the

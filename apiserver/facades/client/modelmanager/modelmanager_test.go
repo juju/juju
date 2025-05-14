@@ -57,6 +57,7 @@ func createArgs(owner string) params.ModelCreateArgs {
 	return params.ModelCreateArgs{
 		Name:      "test-model",
 		Namespace: owner,
+		OwnerTag:  names.NewUserTag(owner).String(),
 		Config: map[string]interface{}{
 			"authorized-keys": "ssh-key",
 			// And to make it a valid dummy config.
@@ -341,6 +342,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 	args := params.ModelCreateArgs{
 		Name:      "foo",
 		Namespace: "admin",
+		OwnerTag:  "user-admin",
 		Config: map[string]interface{}{
 			"bar": "baz",
 		},
@@ -366,6 +368,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
 	args := params.ModelCreateArgs{
 		Name:      "foo",
 		Namespace: "admin",
+		OwnerTag:  "user-admin",
 	}
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
@@ -385,6 +388,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
 	args := params.ModelCreateArgs{
 		Name:      "foo",
 		Namespace: "admin",
+		OwnerTag:  "user-admin",
 	}
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
@@ -411,6 +415,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 	args := params.ModelCreateArgs{
 		Name:      "foo",
 		Namespace: "admin",
+		OwnerTag:  "user-admin",
 		Config: map[string]interface{}{
 			"bar":                  "baz",
 			config.AgentVersionKey: jujuversion.Current.String(),
@@ -442,6 +447,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C
 	args := params.ModelCreateArgs{
 		Name:      "foo",
 		Namespace: "admin",
+		OwnerTag:  "user-admin",
 		Config: map[string]interface{}{
 			"bar":                  "baz",
 			config.AgentVersionKey: jujuversion.Current.String(),
