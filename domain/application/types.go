@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/linklayerdevice"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -126,8 +126,8 @@ type ServiceAddress struct {
 // used to tie the cloud service IP address to the application.
 type CloudServiceDevice struct {
 	Name              string
-	DeviceTypeID      linklayerdevice.DeviceType
-	VirtualPortTypeID linklayerdevice.VirtualPortType
+	DeviceTypeID      domainnetwork.DeviceType
+	VirtualPortTypeID domainnetwork.VirtualPortType
 }
 
 // Origin contains parameters for an application's origin.
@@ -161,8 +161,8 @@ type CloudContainer struct {
 // used to tie the cloud container IP address to the container.
 type ContainerDevice struct {
 	Name              string
-	DeviceTypeID      linklayerdevice.DeviceType
-	VirtualPortTypeID linklayerdevice.VirtualPortType
+	DeviceTypeID      domainnetwork.DeviceType
+	VirtualPortTypeID domainnetwork.VirtualPortType
 }
 
 // ContainerAddress contains parameters for a cloud container address.

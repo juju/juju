@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/linklayerdevice"
+	domainnetwork "github.com/juju/juju/domain/network"
 	portstate "github.com/juju/juju/domain/port/state"
 	"github.com/juju/juju/domain/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -138,8 +138,8 @@ func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
 			Address: ptr(application.ContainerAddress{
 				Device: application.ContainerDevice{
 					Name:              "placeholder",
-					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
-					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
+					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 				},
 				Value:       "10.6.6.6",
 				AddressType: ipaddress.AddressTypeIPv4,
@@ -195,8 +195,8 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *tc.C) {
 			Address: ptr(application.ContainerAddress{
 				Device: application.ContainerDevice{
 					Name:              "placeholder",
-					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
-					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
+					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 				},
 				Value:       "10.6.6.6",
 				AddressType: ipaddress.AddressTypeIPv4,
@@ -522,8 +522,8 @@ func (s *unitStateSuite) TestDeleteUnit(c *tc.C) {
 			Address: ptr(application.ContainerAddress{
 				Device: application.ContainerDevice{
 					Name:              "placeholder",
-					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
-					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
+					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 				},
 				Value:       "10.6.6.6",
 				AddressType: ipaddress.AddressTypeIPv4,

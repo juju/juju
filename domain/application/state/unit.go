@@ -28,8 +28,8 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/linklayerdevice"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
@@ -1039,8 +1039,8 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 			// cloud container.
 			Device: application.ContainerDevice{
 				Name:              fmt.Sprintf("placeholder for %q cloud container", unitName),
-				DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
-				VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+				DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
+				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 			},
 			Value:       cloudContainer.Address.Value,
 			AddressType: ipaddress.MarshallAddressType(cloudContainer.Address.AddressType()),

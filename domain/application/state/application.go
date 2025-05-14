@@ -35,8 +35,8 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/linklayerdevice"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
@@ -1027,8 +1027,8 @@ func (st *State) insertCloudServiceDevice(ctx context.Context, tx *sqlair.TX, ap
 	cloudServiceDeviceInfo := cloudServiceDevice{
 		UUID:              devUUID.String(),
 		Name:              fmt.Sprintf("placeholder for %q cloud service", applicationName),
-		DeviceTypeID:      int(linklayerdevice.DeviceTypeUnknown),
-		VirtualPortTypeID: int(linklayerdevice.NonVirtualPortType),
+		DeviceTypeID:      int(domainnetwork.DeviceTypeUnknown),
+		VirtualPortTypeID: int(domainnetwork.NonVirtualPortType),
 		NetNodeID:         netNodeUUID,
 	}
 	insertCloudServiceDeviceStmt, err := st.Prepare(`
