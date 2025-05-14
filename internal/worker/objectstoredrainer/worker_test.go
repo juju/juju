@@ -7,7 +7,7 @@ import (
 	"context"
 	time "time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/worker/fortress"
 )
 
 type workerSuite struct {
@@ -34,7 +33,7 @@ func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *gc.C) {
 	done := make(chan struct{})
 	s.service.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
 	s.service.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
-	s.guard.EXPECT().Unlock().DoAndReturn(func() error {
+	s.guard.EXPECT().Unlock(gomock.Any()).DoAndReturn(func(context.Context) error {
 		defer close(done)
 		return nil
 	})
@@ -66,7 +65,7 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *gc.C) {
 	done := make(chan struct{})
 	s.service.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
 	s.service.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
-	s.guard.EXPECT().Lockdown(gomock.Any()).DoAndReturn(func(fortress.Abort) error {
+	s.guard.EXPECT().Lockdown(gomock.Any()).DoAndReturn(func(context.Context) error {
 		defer close(done)
 		return nil
 	})
@@ -94,6 +93,6 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ObjectStoreService: s.service,
 		Guard:              s.guard,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }

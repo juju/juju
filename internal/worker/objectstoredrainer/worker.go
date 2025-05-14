@@ -104,14 +104,14 @@ func (w *Worker) loop() error {
 			// We're not draining, so we can unlock the guard and wait
 			// for the next change.
 			if !phase.IsDraining() {
-				if err := w.config.Guard.Unlock(); err != nil {
+				if err := w.config.Guard.Unlock(ctx); err != nil {
 					return errors.Errorf("failed to update guard: %v", err)
 				}
 				continue
 			}
 
 			// TODO (stickupkid): Handle the draining phase.
-			if err := w.config.Guard.Lockdown(ctx.Done()); err != nil {
+			if err := w.config.Guard.Lockdown(ctx); err != nil {
 				return errors.Errorf("failed to update guard: %v", err)
 			}
 		}

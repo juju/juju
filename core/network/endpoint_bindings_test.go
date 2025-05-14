@@ -5,16 +5,16 @@ package network_test
 
 import (
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var _ = tc.Suite(&bindingsMockSuite{})
 
 type bindingsMockSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *bindingsMockSuite) TestMapBindingsWithSpaceNames(c *tc.C) {
