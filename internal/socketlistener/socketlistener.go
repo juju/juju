@@ -89,6 +89,9 @@ func (sl *SocketListener) Wait() error {
 
 // run listens on the control socket and handles requests.
 func (sl *SocketListener) run() error {
+	ctx, cancel := sl.scopedContext()
+	defer cancel()
+
 	router := mux.NewRouter()
 	sl.config.RegisterHandlers(router)
 
@@ -96,7 +99,7 @@ func (sl *SocketListener) run() error {
 	defer func() {
 		err := srv.Close()
 		if err != nil {
-			sl.config.Logger.Warningf(context.TODO(), "error closing HTTP server: %v", err)
+			sl.config.Logger.Warningf(ctx, "error closing HTTP server: %v", err)
 		}
 	}()
 
@@ -108,10 +111,14 @@ func (sl *SocketListener) run() error {
 		return srv.Shutdown(ctx)
 	})
 
-	sl.config.Logger.Debugf(context.TODO(), "socketlistener now serving on socket %q", sl.config.SocketName)
-	defer sl.config.Logger.Debugf(context.TODO(), "socketlistener finished serving on socket %q", sl.config.SocketName)
+	sl.config.Logger.Debugf(ctx, "socketlistener now serving on socket %q", sl.config.SocketName)
+	defer sl.config.Logger.Debugf(ctx, "socketlistener finished serving on socket %q", sl.config.SocketName)
 	if err := srv.Serve(sl.listener); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil
+}
+
+func (sl *SocketListener) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(sl.tomb.Context(context.Background()))
 }

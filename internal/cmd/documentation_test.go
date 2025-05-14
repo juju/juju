@@ -4,6 +4,7 @@
 package cmd_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -223,7 +224,9 @@ func (*documentationSuite) TestWriteIndex(c *tc.C) {
 	superCmd.SetFlags(&gnuflag.FlagSet{})
 	err := superCmd.Init([]string{"documentation", "--split", "--out", docsDir})
 	c.Assert(err, tc.IsNil)
-	err = superCmd.Run(&cmd.Context{})
+	err = superCmd.Run(&cmd.Context{
+		Context: context.Background(),
+	})
 	c.Assert(err, tc.IsNil)
 
 	// Check the index file

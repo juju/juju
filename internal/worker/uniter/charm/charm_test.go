@@ -36,7 +36,7 @@ func (br *bundleReader) EnableWaitForAbort() (stopWaiting chan struct{}) {
 }
 
 // Read implements the BundleReader interface.
-func (br *bundleReader) Read(ctx context.Context, info charm.BundleInfo, abort <-chan struct{}) (charm.Bundle, error) {
+func (br *bundleReader) Read(ctx context.Context, info charm.BundleInfo) (charm.Bundle, error) {
 	bundle, ok := br.bundles[info.URL()]
 	if !ok {
 		return nil, fmt.Errorf("no such charm!")
@@ -45,7 +45,7 @@ func (br *bundleReader) Read(ctx context.Context, info charm.BundleInfo, abort <
 		// EnableWaitForAbort is a one-time wait; make sure we clear it.
 		defer func() { br.stopWaiting = nil }()
 		select {
-		case <-abort:
+		case <-ctx.Done():
 			return nil, fmt.Errorf("charm read aborted")
 		case <-br.stopWaiting:
 			// We can stop waiting for the abort chan and return the bundle.

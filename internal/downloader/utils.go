@@ -27,7 +27,7 @@ func NewHTTPBlobOpener(hostnameVerification bool) func(Request) (io.ReadCloser, 
 			jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 		)
 
-		resp, err := client.Get(context.TODO(), req.URL.String())
+		resp, err := client.Get(context.Background(), req.URL.String())
 		if err != nil {
 			return nil, err
 		}

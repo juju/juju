@@ -124,7 +124,7 @@ func (c *findClient) find(ctx context.Context, query string, options ...FindOpti
 		option(opts)
 	}
 
-	c.logger.Tracef(context.TODO(), "Find(%s)", query)
+	c.logger.Tracef(ctx, "Find(%s)", query)
 	path, err := c.path.Query("q", query)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -150,7 +150,7 @@ func (c *findClient) find(ctx context.Context, query string, options ...FindOpti
 	if restResp.StatusCode == http.StatusNotFound {
 		return nil, errors.NotFoundf(query)
 	}
-	if err := handleBasicAPIErrors(resp.ErrorList, c.logger); err != nil {
+	if err := handleBasicAPIErrors(ctx, resp.ErrorList, c.logger); err != nil {
 		return nil, errors.Trace(err)
 	}
 

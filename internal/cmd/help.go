@@ -181,11 +181,11 @@ func (c *helpCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *helpCommand) getCommandHelp(super *SuperCommand, command Command, alias string) []byte {
+func (c *helpCommand) getCommandHelp(ctx context.Context, super *SuperCommand, command Command, alias string) []byte {
 	info := command.Info()
 
 	if command != super {
-		logger.Tracef(context.TODO(), "command not super")
+		logger.Tracef(ctx, "command not super")
 		// If the alias is to a subcommand of another super command
 		// the alias string holds the "super sub" name.
 		if alias == "" {
@@ -195,7 +195,7 @@ func (c *helpCommand) getCommandHelp(super *SuperCommand, command Command, alias
 		}
 	}
 	if super.usagePrefix != "" {
-		logger.Tracef(context.TODO(), "adding super prefix")
+		logger.Tracef(ctx, "adding super prefix")
 		info.Name = fmt.Sprintf("%s %s", super.usagePrefix, info.Name)
 	}
 
@@ -240,7 +240,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 
 	// If the topic is a registered subcommand, then run the help command with it
 	if c.target != nil {
-		_, err := ctx.Stdout.Write(c.getCommandHelp(c.targetSuper, c.target.command, c.target.alias))
+		_, err := ctx.Stdout.Write(c.getCommandHelp(ctx, c.targetSuper, c.target.command, c.target.alias))
 		if err != nil {
 			return err
 		}
@@ -253,7 +253,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 		// current action, but we want the info to be printed
 		// as if there was nothing selected.
 		c.super.action.command = nil
-		_, err := ctx.Stdout.Write(c.getCommandHelp(c.super, c.super, ""))
+		_, err := ctx.Stdout.Write(c.getCommandHelp(ctx, c.super, c.super, ""))
 		if err != nil {
 			return err
 		}

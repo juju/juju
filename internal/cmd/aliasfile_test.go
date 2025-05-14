@@ -4,8 +4,9 @@
 package cmd_test
 
 import (
+	"context"
 	_ "fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/tc"
@@ -23,7 +24,7 @@ var _ = tc.Suite(&ParseAliasFileSuite{})
 func (*ParseAliasFileSuite) TestMissing(c *tc.C) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "missing")
-	aliases := cmd.ParseAliasFile(filename)
+	aliases := cmd.ParseAliasFile(context.Background(), filename)
 	c.Assert(aliases, tc.NotNil)
 	c.Assert(aliases, tc.HasLen, 0)
 }
@@ -47,9 +48,9 @@ no equals sign
 key = 
 = value
 `
-	err := ioutil.WriteFile(filename, []byte(content), 0644)
+	err := os.WriteFile(filename, []byte(content), 0644)
 	c.Assert(err, tc.IsNil)
-	aliases := cmd.ParseAliasFile(filename)
+	aliases := cmd.ParseAliasFile(context.Background(), filename)
 	c.Assert(aliases, tc.DeepEquals, map[string][]string{
 		"foo":    {"trailing-space"},
 		"repeat": {"second"},

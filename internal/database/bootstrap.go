@@ -100,7 +100,7 @@ func BootstrapDqlite(
 	}
 	defer func() {
 		if err := dqlite.Close(); err != nil {
-			logger.Errorf(context.TODO(), "closing Dqlite: %v", err)
+			logger.Errorf(ctx, "closing Dqlite: %v", err)
 		}
 	}()
 

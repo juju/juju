@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/juju/gnuflag"
@@ -38,8 +39,9 @@ func main() {
 	}
 
 	err = jujuCmd.Run(&cmd.Context{
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
+		Context: context.Background(),
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
 	})
 	if err != nil {
 		panic(err)

@@ -78,7 +78,7 @@ func (c *infoClient) info(ctx context.Context, name string, options ...InfoOptio
 
 	isTraceEnabled := c.logger.IsLevelEnabled(corelogger.TRACE)
 	if isTraceEnabled {
-		c.logger.Tracef(context.TODO(), "Info(%s)", name)
+		c.logger.Tracef(ctx, "Info(%s)", name)
 	}
 
 	var resp transport.InfoResponse
@@ -106,7 +106,7 @@ func (c *infoClient) info(ctx context.Context, name string, options ...InfoOptio
 	if restResp.StatusCode == http.StatusNotFound {
 		return resp, errors.NotFoundf(name)
 	}
-	if err := handleBasicAPIErrors(resp.ErrorList, c.logger); err != nil {
+	if err := handleBasicAPIErrors(ctx, resp.ErrorList, c.logger); err != nil {
 		return resp, errors.Trace(err)
 	}
 
@@ -117,7 +117,7 @@ func (c *infoClient) info(ctx context.Context, name string, options ...InfoOptio
 	}
 
 	if isTraceEnabled {
-		c.logger.Tracef(context.TODO(), "Info() unmarshalled: %+v", resp)
+		c.logger.Tracef(ctx, "Info() unmarshalled: %+v", resp)
 	}
 	return resp, nil
 }

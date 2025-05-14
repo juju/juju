@@ -151,8 +151,8 @@ func newiSCSIInfo(info map[string]string) (*iscsiConnectionInfo, error) {
 	if err != nil {
 		return nil, errors.Errorf("invalid port: %v", port)
 	}
-	user, _ = info["chap-user"]
-	secret, _ = info["chap-secret"]
+	user = info["chap-user"]
+	secret = info["chap-secret"]
 	plan := &iscsiConnectionInfo{
 		iqn:        iqn,
 		address:    address,

@@ -44,6 +44,6 @@ func (m *DBMigration) Apply(ctx context.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	m.logger.Debugf(context.TODO(), "Applied %d schema changes", changeSet.Post)
+	m.logger.Debugf(ctx, "Applied %d schema changes", changeSet.Post)
 	return nil
 }

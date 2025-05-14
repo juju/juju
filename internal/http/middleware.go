@@ -107,7 +107,7 @@ func getProxy(req *http.Request) (*url.URL, error) {
 	// And caused changes in proxy settings via model-config not to
 	// be used.
 	cfg := httpproxy.FromEnvironment()
-	midLogger.Tracef(context.TODO(), "proxy config http(%s), https(%s), no-proxy(%s)",
+	midLogger.Tracef(req.Context(), "proxy config http(%s), https(%s), no-proxy(%s)",
 		cfg.HTTPProxy, cfg.HTTPSProxy, cfg.NoProxy)
 	return cfg.ProxyFunc()(req.URL)
 }

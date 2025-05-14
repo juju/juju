@@ -4,6 +4,7 @@
 package containerizer
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -20,7 +21,6 @@ import (
 type bridgePolicySuite struct {
 	baseSuite
 
-	netBondReconfigureDelay   int
 	containerNetworkingMethod containermanager.NetworkingMethod
 
 	spaces corenetwork.SpaceInfos
@@ -32,7 +32,6 @@ var _ = tc.Suite(&bridgePolicySuite{})
 func (s *bridgePolicySuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 
-	s.netBondReconfigureDelay = 13
 	s.containerNetworkingMethod = "local"
 	s.spaces = nil
 }
@@ -93,7 +92,6 @@ func (s *bridgePolicySuite) policy() *BridgePolicy {
 	return &BridgePolicy{
 		allSpaces:                 s.spaces,
 		allSubnets:                s.baseSuite.allSubnets,
-		netBondReconfigureDelay:   s.netBondReconfigureDelay,
 		containerNetworkingMethod: s.containerNetworkingMethod,
 	}
 }
@@ -104,7 +102,7 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *tc.C) {
 	exp := s.guest.EXPECT()
 	exp.Constraints().Return(constraints.MustParse("spaces=foo,bar,^baz"), nil)
 
-	obtained, err := s.policy().determineContainerSpaces(s.machine, s.guest)
+	obtained, err := s.policy().determineContainerSpaces(context.Background(), s.machine, s.guest)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := corenetwork.SpaceInfos{
 		*s.spaces.GetByName("foo"),
@@ -119,7 +117,7 @@ func (s *bridgePolicySuite) TestDetermineContainerNoSpacesConstraints(c *tc.C) {
 	exp := s.guest.EXPECT()
 	exp.Constraints().Return(constraints.MustParse(""), nil)
 
-	obtained, err := s.policy().determineContainerSpaces(s.machine, s.guest)
+	obtained, err := s.policy().determineContainerSpaces(context.Background(), s.machine, s.guest)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := corenetwork.SpaceInfos{
 		*s.spaces.GetByName(corenetwork.AlphaSpaceName),

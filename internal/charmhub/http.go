@@ -162,7 +162,7 @@ func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
 			return !errors.Is(err, io.EOF)
 		},
 		NotifyFunc: func(lastError error, attempt int) {
-			t.logger.Errorf(context.TODO(), "Charmhub API error (attempt %d): %v", attempt, lastError)
+			t.logger.Errorf(req.Context(), "Charmhub API error (attempt %d): %v", attempt, lastError)
 		},
 		Attempts: 2,
 		Delay:    t.retryDelay,
@@ -232,9 +232,9 @@ func newAPIRequesterLogger(httpClient HTTPClient, logger corelogger.Logger) *api
 func (t *apiRequestLogger) Do(req *http.Request) (*http.Response, error) {
 	if t.logger.IsLevelEnabled(corelogger.TRACE) {
 		if data, err := httputil.DumpRequest(req, true); err == nil {
-			t.logger.Tracef(context.TODO(), "%s request %s", req.Method, data)
+			t.logger.Tracef(req.Context(), "%s request %s", req.Method, data)
 		} else {
-			t.logger.Tracef(context.TODO(), "%s request DumpRequest error %s", req.Method, err.Error())
+			t.logger.Tracef(req.Context(), "%s request DumpRequest error %s", req.Method, err.Error())
 		}
 	}
 
@@ -245,9 +245,9 @@ func (t *apiRequestLogger) Do(req *http.Request) (*http.Response, error) {
 
 	if t.logger.IsLevelEnabled(corelogger.TRACE) {
 		if data, err := httputil.DumpResponse(resp, true); err == nil {
-			t.logger.Tracef(context.TODO(), "%s response %s", req.Method, data)
+			t.logger.Tracef(req.Context(), "%s response %s", req.Method, data)
 		} else {
-			t.logger.Tracef(context.TODO(), "%s response DumpResponse error %s", req.Method, err.Error())
+			t.logger.Tracef(req.Context(), "%s response DumpResponse error %s", req.Method, err.Error())
 		}
 	}
 

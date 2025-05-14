@@ -144,7 +144,7 @@ func (w *BaseWorker) reportUpgradeFailure(ctx context.Context, err error, willRe
 	if !willRetry {
 		retryText = "giving up"
 	}
-	w.Logger.Errorf(context.TODO(), "upgrade from %v to %v for %q failed (%s): %v",
+	w.Logger.Errorf(ctx, "upgrade from %v to %v for %q failed (%s): %v",
 		w.FromVersion, w.ToVersion, w.Tag, retryText, err)
 	_ = w.StatusSetter.SetStatus(
 		ctx,

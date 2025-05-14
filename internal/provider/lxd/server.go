@@ -78,7 +78,7 @@ type Server interface {
 	EnableHTTPSListener() error
 	GetNICsFromProfile(profName string) (map[string]map[string]string, error)
 	IsClustered() bool
-	UseTargetServer(name string) (*lxd.Server, error)
+	UseTargetServer(ctx context.Context, name string) (*lxd.Server, error)
 	GetClusterMembers() (members []lxdapi.ClusterMember, err error)
 	Name() string
 	HasExtension(extension string) (exists bool)

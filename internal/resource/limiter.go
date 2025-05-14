@@ -58,7 +58,7 @@ func (r *resourceDownloadLimiter) Acquire(ctx context.Context, appName string) e
 		if err := r.globalLock.Acquire(ctx, 1); err != nil {
 			return err
 		}
-		resourceLogger.Debugf(context.TODO(), "acquire global resource download lock for %q, took %dms", appName, time.Now().Sub(start)/time.Millisecond)
+		resourceLogger.Debugf(ctx, "acquire global resource download lock for %q, took %dms", appName, time.Now().Sub(start)/time.Millisecond)
 	}
 	if r.applicationLimit <= 0 {
 		return nil
@@ -79,7 +79,7 @@ func (r *resourceDownloadLimiter) Acquire(ctx context.Context, appName string) e
 	if err := lock.Acquire(ctx); err != nil {
 		return err
 	}
-	resourceLogger.Debugf(context.TODO(), "acquire app resource download lock for %q, took %dms", appName, time.Now().Sub(start)/time.Millisecond)
+	resourceLogger.Debugf(ctx, "acquire app resource download lock for %q, took %dms", appName, time.Now().Sub(start)/time.Millisecond)
 	return nil
 }
 

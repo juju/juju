@@ -57,8 +57,9 @@ func main() {
 	err := jujucSuperCmd.Init([]string{"documentation", "--split", "--no-index", "--out", dest})
 	check(err)
 	err = jujucSuperCmd.Run(&cmd.Context{
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
+		Context: context.Background(),
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
 	})
 	check(err)
 }

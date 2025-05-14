@@ -47,7 +47,7 @@ func (c *resourcesClient) ListResourceRevisions(ctx context.Context, charm, reso
 
 	isTraceEnabled := c.logger.IsLevelEnabled(corelogger.TRACE)
 	if isTraceEnabled {
-		c.logger.Tracef(context.TODO(), "ListResourceRevisions(%s, %s)", charm, resource)
+		c.logger.Tracef(ctx, "ListResourceRevisions(%s, %s)", charm, resource)
 	}
 
 	var resp transport.ResourcesResponse
@@ -64,7 +64,7 @@ func (c *resourcesClient) ListResourceRevisions(ctx context.Context, charm, reso
 	}
 
 	if isTraceEnabled {
-		c.logger.Tracef(context.TODO(), "ListResourceRevisions(%s, %s) unmarshalled: %s", charm, resource, pretty.Sprint(resp.Revisions))
+		c.logger.Tracef(ctx, "ListResourceRevisions(%s, %s) unmarshalled: %s", charm, resource, pretty.Sprint(resp.Revisions))
 	}
 	return resp.Revisions, nil
 }

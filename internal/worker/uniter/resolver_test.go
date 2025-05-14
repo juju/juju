@@ -726,7 +726,7 @@ func (m *fakeRW) SetState(context.Context, params.SetUnitStateArg) error {
 type fakeDeployer struct {
 }
 
-func (m *fakeDeployer) Stage(_ context.Context, _ unitercharm.BundleInfo, _ <-chan struct{}) error {
+func (m *fakeDeployer) Stage(_ context.Context, _ unitercharm.BundleInfo) error {
 	return nil
 }
 

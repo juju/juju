@@ -64,7 +64,7 @@ func NewCharmDownloader(client DownloadClient, logger logger.Logger) *CharmDownl
 // Returns [ErrInvalidHash] if the hash of the downloaded charm does not match
 // the expected hash.
 func (d *CharmDownloader) Download(ctx context.Context, url *url.URL, hash string) (_ *DownloadResult, err error) {
-	d.logger.Debugf(context.TODO(), "downloading charm: %s", url)
+	d.logger.Debugf(ctx, "downloading charm: %s", url)
 
 	tmpFile, err := os.CreateTemp("", "charm-")
 	if err != nil {
@@ -87,7 +87,7 @@ func (d *CharmDownloader) Download(ctx context.Context, url *url.URL, hash strin
 		// manually.
 		removeErr := os.Remove(tmpFile.Name())
 		if removeErr != nil {
-			d.logger.Warningf(context.TODO(), "failed to remove temporary file %q: %v", tmpFile.Name(), removeErr)
+			d.logger.Warningf(ctx, "failed to remove temporary file %q: %v", tmpFile.Name(), removeErr)
 		}
 	}()
 
@@ -102,7 +102,7 @@ func (d *CharmDownloader) Download(ctx context.Context, url *url.URL, hash strin
 		return nil, errors.Errorf("%w: %q, got %q", ErrInvalidDigestHash, hash, digest.SHA256)
 	}
 
-	d.logger.Debugf(context.TODO(), "downloaded charm: %q", url)
+	d.logger.Debugf(ctx, "downloaded charm: %q", url)
 
 	return &DownloadResult{
 		SHA256: digest.SHA256,

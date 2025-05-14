@@ -160,11 +160,11 @@ func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachm
 		return nil, errors.Trace(err)
 	}
 	return &storage.FilesystemAttachment{
-		arg.Filesystem,
-		arg.Machine,
-		storage.FilesystemAttachmentInfo{
-			arg.Path,
-			arg.ReadOnly,
+		Filesystem: arg.Filesystem,
+		Machine:    arg.Machine,
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
+			Path:     arg.Path,
+			ReadOnly: arg.ReadOnly,
 		},
 	}, nil
 }

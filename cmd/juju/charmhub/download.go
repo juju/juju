@@ -354,7 +354,7 @@ func (c *downloadCommand) refresh(
 
 	var refreshConfig charmhub.RefreshConfig
 	if c.revision == -1 {
-		refreshConfig, err = charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
+		refreshConfig, err = charmhub.InstallOneFromChannel(ctx, c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
 			Architecture: normBase.Architecture,
 			Name:         normBase.OS,
 			Channel:      normBase.Channel,
@@ -363,7 +363,7 @@ func (c *downloadCommand) refresh(
 			return nil, nil, errors.Trace(err)
 		}
 	} else {
-		refreshConfig, err = charmhub.InstallOneFromRevision(c.charmOrBundle, c.revision)
+		refreshConfig, err = charmhub.InstallOneFromRevision(ctx, c.charmOrBundle, c.revision)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}

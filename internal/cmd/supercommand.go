@@ -7,6 +7,7 @@ import (
 	"context"
 	stderr "errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"sort"
 	"strings"
@@ -259,7 +260,7 @@ func (c *SuperCommand) init() {
 		}
 	}
 
-	c.userAliases = ParseAliasFile(c.userAliasesFilename)
+	c.userAliases = ParseAliasFile(context.TODO(), c.userAliasesFilename)
 }
 
 // AddHelpTopic adds a new help topic with the description being the short
@@ -421,7 +422,7 @@ func (c *SuperCommand) SetCommonFlags(f *gnuflag.FlagSet) {
 	// plugins to provide a sensible line of text for 'juju help plugins'.
 	f.BoolVar(&c.showDescription, "description", false, "Show short description of plugin, if any")
 	c.commonflags = gnuflag.NewFlagSetWithFlagKnownAs(c.Info().Name, gnuflag.ContinueOnError, FlagAlias(c, "flag"))
-	c.commonflags.SetOutput(ioutil.Discard)
+	c.commonflags.SetOutput(io.Discard)
 	f.VisitAll(func(flag *gnuflag.Flag) {
 		c.commonflags.Var(flag.Value, flag.Name, flag.Usage)
 	})
@@ -567,19 +568,19 @@ func (c *SuperCommand) Run(ctx *Context) error {
 			// format, we should let the user know. In doing so, we dump the
 			// original error and return the handle error so that effective
 			// debugging is possible.
-			logger.Debugf(context.TODO(), "error stack: \n%v", errors.ErrorStack(err))
+			logger.Debugf(ctx, "error stack: \n%v", errors.ErrorStack(err))
 			return handleErr
 		}
 
 		WriteError(ctx.Stderr, err)
-		logger.Debugf(context.TODO(), "error stack: \n%v", errors.ErrorStack(err))
+		logger.Debugf(ctx, "error stack: \n%v", errors.ErrorStack(err))
 
 		// Err has been logged above, we can make the err silent so it does not log again in cmd/main
 		if !utils.IsRcPassthroughError(err) {
 			err = ErrSilent
 		}
 	} else {
-		logger.Infof(context.TODO(), "command finished")
+		logger.Infof(ctx, "command finished")
 	}
 	return err
 }

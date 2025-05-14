@@ -458,7 +458,7 @@ func (w *revisionUpdateWorker) request(ctx context.Context, client CharmhubClien
 			Name:         id.osType,
 			Channel:      id.osChannel,
 		}
-		cfg, err := charmhub.RefreshOne(id.instanceKey, id.id, id.revision, id.channel, base)
+		cfg, err := charmhub.RefreshOne(ctx, id.instanceKey, id.id, id.revision, id.channel, base)
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
