@@ -168,6 +168,11 @@ func reloadSpaces(ctx context.Context, modelNetworkService NetworkService) error
 func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
 
+	ownerTag, err := names.ParseUserTag(args.OwnerTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
 	// We need to get the controller's default cloud and credential. To help
 	// Juju users when creating their first models we allow them to omit this
 	// information from the model creation args. If they have done exactly this
@@ -205,7 +210,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 
 		// a special case of ErrPerm will happen if the user has add-model permission but is trying to
 		// create a model for another person, which is not yet supported.
-		if args.Namespace != m.apiUser.Id() {
+		if ownerTag != m.apiUser {
 			return result, internalerrors.Errorf(
 				"%q permission does not permit creation of models for different owners",
 				permission.AddModelAccess,
@@ -230,7 +235,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		creationArgs.Credential = credential.KeyFromTag(cloudCredentialTag)
 	}
 
-	userName, err := user.NewName(args.Namespace)
+	userName, err := user.NewName(ownerTag.Id())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -238,7 +243,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	switch {
 	case errors.Is(err, accesserrors.UserNotFound):
 		return result, internalerrors.Errorf(
-			"owner %q for model does not exist", args.Namespace,
+			"owner %q for model does not exist", userName,
 		).Add(coreerrors.NotFound)
 	case errors.Is(err, accesserrors.UserNameNotValid):
 		return result, internalerrors.New(
@@ -247,7 +252,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	case err != nil:
 		return result, internalerrors.Errorf(
 			"retrieving user %q for new model %q owner: %w",
-			args.Namespace, args.Name, err,
+			userName, args.Name, err,
 		)
 	}
 	creationArgs.Owner = userUUID

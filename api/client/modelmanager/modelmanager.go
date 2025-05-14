@@ -75,8 +75,10 @@ func (c *Client) CreateModel(
 		cloudCredentialTag = cloudCredential.String()
 	}
 	createArgs := params.ModelCreateArgs{
-		Name:               name,
-		Namespace:          owner,
+		Name:      name,
+		Namespace: owner,
+		// TODO - owner will be removed.
+		OwnerTag:           names.NewUserTag(owner).String(),
 		Config:             config,
 		CloudTag:           cloudTag,
 		CloudRegion:        cloudRegion,
