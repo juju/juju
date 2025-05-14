@@ -751,7 +751,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 		return result, errors.Trace(err)
 	}
 
-	ctrlUserUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(userTag))
+	userUUID, err := m.accessService.GetUserUUIDByName(ctx, user.NameFromTag(userTag))
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -762,7 +762,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 	if m.isAdmin {
 		models, err = m.modelService.ListAllModels(ctx)
 	} else {
-		models, err = m.modelService.ListModelsForUser(ctx, ctrlUserUUID)
+		models, err = m.modelService.ListModelsForUser(ctx, userUUID)
 	}
 
 	if err != nil {
@@ -896,7 +896,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 		canWrite := checkWritePermission(tag)
 		if !canWrite {
 			// If the logged in user does not have at least read permission, we return an error.
-			if err := m.authorizer.HasPermission(ctx, permission.WriteAccess, tag); err != nil {
+			if err := m.authorizer.HasPermission(ctx, permission.ReadAccess, tag); err != nil {
 				return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
 			}
 		}
@@ -917,48 +917,49 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			valid := !cred.Invalid
 			modelInfo.CloudCredentialValidity = &valid
 		}
-		if canWrite {
-			st, release, err := m.state.GetBackend(tag.Id())
-			if errors.Is(err, errors.NotFound) {
-				return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
-			} else if err != nil {
-				return params.ModelInfo{}, errors.Trace(err)
-			}
-			defer release()
+		if !canWrite {
+			return modelInfo, nil
+		}
 
-			modelUUID := coremodel.UUID(tag.Id())
-			modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
-			if err != nil {
-				return params.ModelInfo{}, errors.Trace(err)
-			}
-			// TODO: remove mongo state from the commonmodel.ModelMachineInfo.
-			if modelInfo.Machines, err = commonmodel.ModelMachineInfo(ctx, st, modelDomainServices.Machine()); err != nil {
-				return params.ModelInfo{}, err
-			}
+		st, release, err := m.state.GetBackend(tag.Id())
+		if errors.Is(err, errors.NotFound) {
+			return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+		} else if err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+		defer release()
 
-			backends, err := m.secretBackendService.BackendSummaryInfoForModel(ctx, modelUUID)
-			if err != nil {
-				return params.ModelInfo{}, errors.Trace(err)
-			}
-			for _, backend := range backends {
-				name := backend.Name
-				if name == kubernetes.BackendName {
-					name = kubernetes.BuiltInName(modelInfo.Name)
-				}
-				modelInfo.SecretBackends = append(modelInfo.SecretBackends, params.SecretBackendResult{
-					// Don't expose the id.
-					NumSecrets: backend.NumSecrets,
-					Status:     backend.Status,
-					Message:    backend.Message,
-					Result: params.SecretBackend{
-						Name:                name,
-						BackendType:         backend.BackendType,
-						TokenRotateInterval: backend.TokenRotateInterval,
-						Config:              backend.Config,
-					},
-				})
-			}
+		modelUUID := coremodel.UUID(tag.Id())
+		modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+		if err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+		// TODO: remove mongo state from the commonmodel.ModelMachineInfo.
+		if modelInfo.Machines, err = commonmodel.ModelMachineInfo(ctx, st, modelDomainServices.Machine()); err != nil {
+			return params.ModelInfo{}, err
+		}
 
+		secretBackends, err := m.secretBackendService.BackendSummaryInfoForModel(ctx, modelUUID)
+		if err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+		for _, backend := range secretBackends {
+			name := backend.Name
+			if name == kubernetes.BackendName {
+				name = kubernetes.BuiltInName(modelInfo.Name)
+			}
+			modelInfo.SecretBackends = append(modelInfo.SecretBackends, params.SecretBackendResult{
+				// Don't expose the id.
+				NumSecrets: backend.NumSecrets,
+				Status:     backend.Status,
+				Message:    backend.Message,
+				Result: params.SecretBackend{
+					Name:                name,
+					BackendType:         backend.BackendType,
+					TokenRotateInterval: backend.TokenRotateInterval,
+					Config:              backend.Config,
+				},
+			})
 		}
 		return modelInfo, nil
 	}
