@@ -275,6 +275,30 @@ func (s *serviceSuite) TestCheckAndUpdateCredential(c *tc.C) {
 	}})
 }
 
+// TestCheckAndUpdateNewCredential checks that a new credential can
+// be created if one doesn't exit already.
+func (s *serviceSuite) TestCheckAndUpdateNewCredential(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cred := cloud.Credential{}
+	key := corecredential.Key{
+		Cloud: "cirrus",
+		Owner: usertesting.GenNewName(c, "bob"),
+		Name:  "foobar",
+	}
+
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(nil, credentialerrors.NotFound)
+
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, credential.CloudCredentialInfo{})
+
+	service := s.service(c)
+
+	results, err := service.CheckAndUpdateCredential(
+		c.Context(), key, cred, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 0)
+}
+
 func (s *serviceSuite) TestRevokeCredentialsModelsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

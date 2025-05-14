@@ -362,9 +362,8 @@ func (s *credentialSuite) TestRemoveCredentials(c *tc.C) {
 	_, err = st.CloudCredential(ctx, key)
 	c.Assert(err, tc.ErrorIs, credentialerrors.NotFound)
 
-	models, err = st.ModelsUsingCloudCredential(ctx, key)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(models, tc.HasLen, 0)
+	_, err = st.ModelsUsingCloudCredential(ctx, key)
+	c.Assert(err, tc.ErrorIs, credentialerrors.NotFound)
 }
 
 func (s *credentialSuite) TestAllCloudCredentialsNotFound(c *tc.C) {
@@ -446,12 +445,10 @@ func (s *credentialSuite) TestInvalidateCloudCredentialNotFound(c *tc.C) {
 func (s *credentialSuite) TestNoModelsUsingCloudCredential(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	ctx := c.Context()
-	result, err := st.ModelsUsingCloudCredential(ctx, corecredential.Key{
-		Cloud: "cirrus",
-		Owner: s.userName,
-		Name:  "foobar",
-	})
+	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
+	s.createCloudCredential(c, st, key)
+
+	result, err := st.ModelsUsingCloudCredential(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 0)
 }
