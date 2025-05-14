@@ -719,9 +719,6 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *tc.C) {
 	s.modelService.EXPECT().DefaultModelCloudInfo(
 		gomock.Any()).Return("dummy", "dummy-region", nil)
 
-	addModelUser := names.NewUserTag("add-model")
-
-	s.setAPIUser(c, addModelUser)
 	_, err := s.api.CreateModel(c.Context(), createArgs("non-admin"))
 	c.Assert(err, tc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners")
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -884,8 +881,8 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 	now := time.Now()
 	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
 	s.modelService.EXPECT().ListAllModels(gomock.Any()).Return([]coremodel.Model{
-		{UUID: modelUUID, OwnerName: user.NameFromTag(userTag)},
-		{UUID: modelUUIDNeverAccessed, OwnerName: user.NameFromTag(userTag)},
+		{UUID: modelUUID, Namespace: userTag.Id()},
+		{UUID: modelUUIDNeverAccessed, Namespace: userTag.Id()},
 		{UUID: modelUUIDNotExist},
 	}, nil)
 
@@ -905,15 +902,15 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 		UserModels: []params.UserModel{
 			{
 				Model: params.Model{
-					UUID:     modelUUID.String(),
-					OwnerTag: userTag.String(),
+					UUID:      modelUUID.String(),
+					Namespace: userTag.Id(),
 				},
 				LastConnection: &now,
 			},
 			{
 				Model: params.Model{
-					UUID:     modelUUIDNeverAccessed.String(),
-					OwnerTag: userTag.String(),
+					UUID:      modelUUIDNeverAccessed.String(),
+					Namespace: userTag.Id(),
 				},
 			},
 		},
@@ -933,8 +930,8 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 	now := time.Now()
 	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
 	s.modelService.EXPECT().ListModelsForUser(gomock.Any(), userUUID).Return([]coremodel.Model{
-		{UUID: modelUUID, OwnerName: user.NameFromTag(userTag)},
-		{UUID: modelUUIDNeverAccessed, OwnerName: user.NameFromTag(userTag)},
+		{UUID: modelUUID, Namespace: userTag.Id()},
+		{UUID: modelUUIDNeverAccessed, Namespace: userTag.Id()},
 		{UUID: modelUUIDNotExist},
 	}, nil)
 
@@ -954,15 +951,15 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 		UserModels: []params.UserModel{
 			{
 				Model: params.Model{
-					UUID:     modelUUID.String(),
-					OwnerTag: userTag.String(),
+					UUID:      modelUUID.String(),
+					Namespace: userTag.Id(),
 				},
 				LastConnection: &now,
 			},
 			{
 				Model: params.Model{
-					UUID:     modelUUIDNeverAccessed.String(),
-					OwnerTag: userTag.String(),
+					UUID:      modelUUIDNeverAccessed.String(),
+					Namespace: userTag.Id(),
 				},
 			},
 		},

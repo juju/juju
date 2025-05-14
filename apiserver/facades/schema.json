@@ -3825,7 +3825,7 @@
                         "model-name": {
                             "type": "string"
                         },
-                        "namespace": {
+                        "model-namespace": {
                             "type": "string"
                         },
                         "offer-name": {
@@ -3834,7 +3834,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "namespace",
+                        "model-namespace",
                         "model-name",
                         "offer-name",
                         "application-name",
@@ -10896,6 +10896,9 @@
                         "namespace": {
                             "type": "string"
                         },
+                        "owner-tag": {
+                            "type": "string"
+                        },
                         "region": {
                             "type": "string"
                         }
@@ -10903,7 +10906,8 @@
                     "additionalProperties": false,
                     "required": [
                         "name",
-                        "namespace"
+                        "namespace",
+                        "owner-tag"
                     ]
                 },
                 "ModelDefaultValues": {
