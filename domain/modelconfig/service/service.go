@@ -98,7 +98,7 @@ func NewService(
 }
 
 // ModelConfig returns the current config for the model.
-func (s *Service) ModelConfig(ctx context.Context) (_ *config.Config, err error) {
+func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -127,7 +127,7 @@ func (s *Service) ModelConfig(ctx context.Context) (_ *config.Config, err error)
 // the value.
 func (s *Service) ModelConfigValues(
 	ctx context.Context,
-) (_ config.ConfigValues, err error) {
+) (config.ConfigValues, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -231,7 +231,7 @@ func (s *Service) reconcileRemovedAttributes(
 func (s *Service) SetModelConfig(
 	ctx context.Context,
 	cfg map[string]any,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -292,7 +292,7 @@ func (s *Service) UpdateModelConfig(
 	updateAttrs map[string]any,
 	removeAttrs []string,
 	additionalValidators ...config.Validator,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -354,7 +354,7 @@ type spaceValidator struct {
 
 // HasSpace implements validators.SpaceProvider. It checks whether the
 // given space exists.
-func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (_ bool, err error) {
+func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

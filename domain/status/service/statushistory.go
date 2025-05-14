@@ -14,7 +14,7 @@ import (
 )
 
 // GetStatusHistory returns the status history based on the request.
-func (s *Service) GetStatusHistory(ctx context.Context, request StatusHistoryRequest) (_ []status.DetailedStatus, err error) {
+func (s *Service) GetStatusHistory(ctx context.Context, request StatusHistoryRequest) ([]status.DetailedStatus, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

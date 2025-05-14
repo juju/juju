@@ -14,7 +14,7 @@ import (
 
 // GetProviderAvailabilityZones returns all the availability zones
 // retrieved from the model's cloud provider.
-func (s *ProviderService) GetProviderAvailabilityZones(ctx context.Context) (_ network.AvailabilityZones, err error) {
+func (s *ProviderService) GetProviderAvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

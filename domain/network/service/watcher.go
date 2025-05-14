@@ -45,7 +45,7 @@ func NewWatchableService(st State,
 // WatchSubnets returns a watcher that observes changes to subnets and their
 // association (fan underlays), filtered based on the provided list of subnets
 // to watch.
-func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

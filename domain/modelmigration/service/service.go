@@ -83,7 +83,7 @@ func NewService(
 func (s *Service) AdoptResources(
 	ctx context.Context,
 	sourceControllerVersion semversion.Number,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -129,7 +129,7 @@ func (s *Service) AdoptResources(
 // discrepancies.
 func (s *Service) CheckMachines(
 	ctx context.Context,
-) (_ []modelmigration.MigrationMachineDiscrepancy, err error) {
+) ([]modelmigration.MigrationMachineDiscrepancy, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

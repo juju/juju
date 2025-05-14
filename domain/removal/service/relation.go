@@ -60,7 +60,7 @@ type RelationState interface {
 // The UUID for the scheduled removal job is returned.
 // [relationerrors.RelationNotFound] is returned if no such relation exists.
 func (s *Service) RemoveRelation(
-	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration) (_ removal.UUID, err error) {
+	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration) (removal.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

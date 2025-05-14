@@ -51,7 +51,7 @@ func NewService(st State) *Service {
 
 // CurateNodes modifies the known control plane by adding and removing
 // controller node records according to the input slices.
-func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) (err error) {
+func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -63,7 +63,7 @@ func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) (er
 
 // UpdateDqliteNode sets the Dqlite node ID and bind address for the input
 // controller ID.
-func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) (err error) {
+func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -76,7 +76,7 @@ func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nod
 // IsKnownDatabaseNamespace reports if the namespace is known to the controller.
 // If the namespace is not valid an error satisfying [errors.NotValid] is
 // returned.
-func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string) (_ bool, err error) {
+func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -99,7 +99,7 @@ func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string
 // - [coreerrors.NotValid] if the version is not valid.
 // - [coreerrors.NotSupported] if the architecture is not supported.
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
-func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, controllerID string, version coreagentbinary.Version) (err error) {
+func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, controllerID string, version coreagentbinary.Version) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

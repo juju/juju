@@ -61,7 +61,7 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 	ctx context.Context,
 	unitName coreunit.Name,
 	status corestatus.StatusInfo,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -178,7 +178,7 @@ func (s *LeadershipService) SetRelationStatus(
 	unitName coreunit.Name,
 	relationUUID corerelation.UUID,
 	info corestatus.StatusInfo,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

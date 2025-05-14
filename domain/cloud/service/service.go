@@ -51,7 +51,7 @@ type Service struct {
 
 // CreateCloud creates the input cloud entity and provides Admin
 // permissions for the owner.
-func (s *Service) CreateCloud(ctx context.Context, owner user.Name, cloud cloud.Cloud) (err error) {
+func (s *Service) CreateCloud(ctx context.Context, owner user.Name, cloud cloud.Cloud) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -67,7 +67,7 @@ func (s *Service) CreateCloud(ctx context.Context, owner user.Name, cloud cloud.
 }
 
 // UpdateCloud updates the specified cloud.
-func (s *Service) UpdateCloud(ctx context.Context, cloud cloud.Cloud) (err error) {
+func (s *Service) UpdateCloud(ctx context.Context, cloud cloud.Cloud) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -78,7 +78,7 @@ func (s *Service) UpdateCloud(ctx context.Context, cloud cloud.Cloud) (err error
 }
 
 // DeleteCloud removes the specified cloud.
-func (s *Service) DeleteCloud(ctx context.Context, name string) (err error) {
+func (s *Service) DeleteCloud(ctx context.Context, name string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -89,7 +89,7 @@ func (s *Service) DeleteCloud(ctx context.Context, name string) (err error) {
 }
 
 // ListAll returns all the clouds.
-func (s *Service) ListAll(ctx context.Context) (_ []cloud.Cloud, err error) {
+func (s *Service) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -98,7 +98,7 @@ func (s *Service) ListAll(ctx context.Context) (_ []cloud.Cloud, err error) {
 }
 
 // Cloud returns the named cloud.
-func (s *Service) Cloud(ctx context.Context, name string) (_ *cloud.Cloud, err error) {
+func (s *Service) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -125,7 +125,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 }
 
 // WatchCloud returns a watcher that observes changes to the specified cloud.
-func (s *WatchableService) WatchCloud(ctx context.Context, name string) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

@@ -196,7 +196,7 @@ func NewService(
 }
 
 // GetAllRelationStatuses returns all the relation statuses of the given model.
-func (s *Service) GetAllRelationStatuses(ctx context.Context) (_ map[corerelation.UUID]corestatus.StatusInfo, err error) {
+func (s *Service) GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -226,7 +226,7 @@ func (s *Service) SetApplicationStatus(
 	ctx context.Context,
 	applicationName string,
 	statusInfo corestatus.StatusInfo,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -257,7 +257,7 @@ func (s *Service) SetApplicationStatus(
 // set, otherwise it is derived from the unit display statuses. If no
 // application is found, an error satisfying [statuserrors.ApplicationNotFound]
 // is returned.
-func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName string) (_ corestatus.StatusInfo, err error) {
+func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName string) (corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -275,7 +275,7 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 // SetUnitWorkloadStatus sets the workload status of the specified unit,
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
-func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name, statusInfo corestatus.StatusInfo) (err error) {
+func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name, statusInfo corestatus.StatusInfo) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -304,7 +304,7 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 // GetUnitWorkloadStatus returns the workload status of the specified unit,
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
-func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (_ corestatus.StatusInfo, err error) {
+func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -326,7 +326,7 @@ func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 // SetUnitAgentStatus sets the agent status of the specified unit,
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
-func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name, statusInfo corestatus.StatusInfo) (err error) {
+func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name, statusInfo corestatus.StatusInfo) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := unitName.Validate(); err != nil {
@@ -365,7 +365,7 @@ func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 // units in the specified application, indexed by unit name, returning an error
 // satisfying [statuserrors.ApplicationNotFound] if the application doesn't
 // exist.
-func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (_ map[coreunit.Name]corestatus.StatusInfo, err error) {
+func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -432,7 +432,7 @@ func (s *Service) GetUnitDisplayAndAgentStatus(ctx context.Context, unitName cor
 // the unit agent accesses the API server. If the unit is not found, an error
 // satisfying [applicationerrors.UnitNotFound] is returned. The unit life is not
 // considered when setting the presence.
-func (s *Service) SetUnitPresence(ctx context.Context, unitName coreunit.Name) (err error) {
+func (s *Service) SetUnitPresence(ctx context.Context, unitName coreunit.Name) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -445,7 +445,7 @@ func (s *Service) SetUnitPresence(ctx context.Context, unitName coreunit.Name) (
 // DeleteUnitPresence removes the presence of the unit in the model. If the unit
 // is not found, it ignores the error. The unit life is not considered when
 // deleting the presence.
-func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name) (err error) {
+func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -457,7 +457,7 @@ func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name
 
 // CheckUnitStatusesReadyForMigration returns an error if the statuses of any units
 // in the model indicate they cannot be migrated.
-func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) (err error) {
+func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -492,7 +492,7 @@ func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) (err e
 
 // GetApplicationAndUnitStatuses returns the application statuses of all the
 // applications in the model, indexed by application name.
-func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (_ map[string]Application, err error) {
+func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]Application, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -515,7 +515,7 @@ func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (_ map[stri
 
 // GetApplicationAndUnitModelStatuses returns the application name and unit
 // count for each model for the model status request.
-func (s *Service) GetApplicationAndUnitModelStatuses(ctx context.Context) (_ map[string]int, err error) {
+func (s *Service) GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -529,7 +529,7 @@ func (s *Service) ImportRelationStatus(
 	ctx context.Context,
 	relationID int,
 	info corestatus.StatusInfo,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -546,7 +546,7 @@ func (s *Service) ImportRelationStatus(
 // in the model, indexed by unit name.
 //
 // TODO(jack-w-shaw): Export the container statuses too.
-func (s *Service) ExportUnitStatuses(ctx context.Context) (_ map[coreunit.Name]corestatus.StatusInfo, _ map[coreunit.Name]corestatus.StatusInfo, err error) {
+func (s *Service) ExportUnitStatuses(ctx context.Context) (map[coreunit.Name]corestatus.StatusInfo, map[coreunit.Name]corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -570,7 +570,7 @@ func (s *Service) ExportUnitStatuses(ctx context.Context) (_ map[coreunit.Name]c
 
 // ExportApplicationStatuses returns the statuses of all applications in the model,
 // indexed by application name, if they have a status set.
-func (s *Service) ExportApplicationStatuses(ctx context.Context) (_ map[string]corestatus.StatusInfo, err error) {
+func (s *Service) ExportApplicationStatuses(ctx context.Context) (map[string]corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -592,7 +592,7 @@ func (s *Service) ExportApplicationStatuses(ctx context.Context) (_ map[string]c
 }
 
 // ExportRelationStatuses returns the statuses of all relations in the model.
-func (s *Service) ExportRelationStatuses(ctx context.Context) (_ map[int]corestatus.StatusInfo, err error) {
+func (s *Service) ExportRelationStatuses(ctx context.Context) (map[int]corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -744,7 +744,7 @@ func (s *Service) decodeUnitStatusDetails(unit status.Unit) (Unit, error) {
 // The following error types can be expected to be returned:
 // - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does
 // not exist.
-func (s *Service) GetModelStatusInfo(ctx context.Context) (_ status.ModelStatusInfo, err error) {
+func (s *Service) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

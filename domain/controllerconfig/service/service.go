@@ -60,7 +60,7 @@ func NewService(st State) *Service {
 }
 
 // ControllerConfig returns the config values for the controller.
-func (s *Service) ControllerConfig(ctx context.Context) (_ controller.Config, err error) {
+func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -96,7 +96,7 @@ func (s *Service) ControllerConfig(ctx context.Context) (_ controller.Config, er
 }
 
 // UpdateControllerConfig updates the controller config.
-func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) (err error) {
+func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -276,7 +276,7 @@ var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
 
 // Watch returns a watcher that returns keys for any changes to controller
 // config.
-func (s *WatchableService) WatchControllerConfig(ctx context.Context) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchControllerConfig(ctx context.Context) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

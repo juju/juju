@@ -42,7 +42,7 @@ func NewService(st State, logger logger.Logger) *Service {
 }
 
 // Put implements autocert.Cache.Put.
-func (s *Service) Put(ctx context.Context, name string, data []byte) (err error) {
+func (s *Service) Put(ctx context.Context, name string, data []byte) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -51,7 +51,7 @@ func (s *Service) Put(ctx context.Context, name string, data []byte) (err error)
 }
 
 // Get implements autocert.Cache.Get.
-func (s *Service) Get(ctx context.Context, name string) (_ []byte, err error) {
+func (s *Service) Get(ctx context.Context, name string) ([]byte, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -64,7 +64,7 @@ func (s *Service) Get(ctx context.Context, name string) (_ []byte, err error) {
 }
 
 // Delete implements autocert.Cache.Delete.
-func (s *Service) Delete(ctx context.Context, name string) (err error) {
+func (s *Service) Delete(ctx context.Context, name string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

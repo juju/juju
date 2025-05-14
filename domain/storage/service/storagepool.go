@@ -39,7 +39,7 @@ type PoolAttrs map[string]any
 
 // CreateStoragePool creates a storage pool, returning an error satisfying [errors.AlreadyExists]
 // if a pool with the same name already exists.
-func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) (err error) {
+func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -53,8 +53,8 @@ func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string,
 		Provider: string(providerType),
 		Attrs:    attrsToSave,
 	}
-	err = s.st.CreateStoragePool(ctx, sp)
-	if err != nil {
+
+	if err := s.st.CreateStoragePool(ctx, sp); err != nil {
 		return errors.Errorf("creating storage pool %q: %w", name, err)
 	}
 	return nil
@@ -95,7 +95,7 @@ func (s *StoragePoolService) validateConfig(ctx context.Context, name string, pr
 
 // DeleteStoragePool deletes a storage pool, returning an error satisfying
 // [errors.NotFound] if it doesn't exist.
-func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string) (err error) {
+func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -134,7 +134,7 @@ func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string)
 
 // ReplaceStoragePool replaces an existing storage pool, returning an error
 // satisfying [storageerrors.PoolNotFoundError] if a pool with the name does not exist.
-func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) (err error) {
+func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -157,15 +157,15 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 		Provider: string(providerType),
 		Attrs:    attrsToSave,
 	}
-	err = s.st.ReplaceStoragePool(ctx, sp)
-	if err != nil {
+
+	if err := s.st.ReplaceStoragePool(ctx, sp); err != nil {
 		return errors.Errorf("replacing storage pool %q: %w", name, err)
 	}
 	return nil
 }
 
 // AllStoragePools returns the all storage pools.
-func (s *StoragePoolService) AllStoragePools(ctx context.Context) (_ []*storage.Config, err error) {
+func (s *StoragePoolService) AllStoragePools(ctx context.Context) ([]*storage.Config, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -173,7 +173,7 @@ func (s *StoragePoolService) AllStoragePools(ctx context.Context) (_ []*storage.
 	return s.ListStoragePools(ctx, domainstorage.NilNames, domainstorage.NilProviders)
 }
 
-func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) (_ []*storage.Config, err error) {
+func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -240,7 +240,7 @@ func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, provi
 
 // GetStoragePoolByName returns the storage pool with the specified name, returning an error
 // satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
-func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name string) (_ *storage.Config, err error) {
+func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

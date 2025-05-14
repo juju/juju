@@ -50,7 +50,7 @@ func NewWatchableService(
 
 // WatchConsumedSecretsChanges watches secrets consumed by the specified unit
 // and returns a watcher which notifies of secret URIs that have had a new revision added.
-func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName coreunit.Name) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -94,7 +94,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 // WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any unit
 // of the specified app and retuens a watcher which notifies of secret URIs
 // that have had a new revision added.
-func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -119,7 +119,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 //
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
-func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSecretOwner) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if len(owners) == 0 {
@@ -129,7 +129,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 }
 
 // WatchSecretRevisionsExpiryChanges returns a watcher that notifies when the expiry time of a secret revision changes.
-func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...CharmSecretOwner) (_ watcher.SecretTriggerWatcher, err error) {
+func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -405,12 +405,12 @@ func (w *obsoleteWatcher) Kill() {
 
 // Wait waits for the watcher to die,
 // and returns the error with which it was killed.
-func (w *obsoleteWatcher) Wait() (err error) {
+func (w *obsoleteWatcher) Wait() error {
 	return w.catacomb.Wait()
 }
 
 // WatchSecretsRotationChanges returns a watcher that notifies when the rotation time of a secret changes.
-func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owners ...CharmSecretOwner) (_ watcher.SecretTriggerWatcher, err error) {
+func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if len(owners) == 0 {
@@ -445,7 +445,7 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 }
 
 // WatchObsoleteUserSecretsToPrune returns a watcher that notifies when a user secret revision is obsolete and ready to be pruned.
-func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

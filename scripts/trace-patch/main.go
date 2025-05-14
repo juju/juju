@@ -133,26 +133,6 @@ func Write(
 // processFile is responsible for taking an ast file and injecting the
 // necessary changes to it. It returns true if the file was modified.
 func processFile(file *ast.File) bool {
-	// Only import "fmt" if needed
-	var hasTrace bool
-	for _, imp := range file.Imports {
-		if strings.Trim(imp.Path.Value, `"`) == "github.com/juju/juju/core/trace" {
-			hasTrace = true
-			break
-		}
-	}
-	if !hasTrace {
-		newImport := &ast.ImportSpec{
-			Path: &ast.BasicLit{Kind: token.STRING, Value: `"github.com/juju/juju/core/trace"`},
-		}
-		decl := &ast.GenDecl{
-			Tok:    token.IMPORT,
-			Specs:  []ast.Spec{newImport},
-			Lparen: token.NoPos,
-		}
-		file.Decls = append([]ast.Decl{decl}, file.Decls...)
-	}
-
 	var modified bool
 	ast.Inspect(file, func(n ast.Node) bool {
 		if fn, ok := n.(*ast.FuncDecl); ok {
@@ -178,100 +158,43 @@ func processMethod(funcDecl *ast.FuncDecl) bool {
 
 	fmt.Fprintln(os.Stderr, "Processing method", funcDecl.Name.Name)
 
-	stmts := traceExpr(funcDecl.Name.Name)
-	funcDecl.Body.List = append(stmts, funcDecl.Body.List...)
-
-	results := namedReturnedArgs(funcDecl.Type.Results)
+	results := namedReturnedArgs(funcDecl.Name.Name, funcDecl.Type.Results)
 	funcDecl.Type.Results = results
 
 	return true
 }
 
-func traceExpr(name string) []ast.Stmt {
-	// 1. ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	assignStmt := &ast.AssignStmt{
-		Lhs: []ast.Expr{
-			ast.NewIdent("ctx"),
-			ast.NewIdent("span"),
-		},
-		Tok: token.DEFINE,
-		Rhs: []ast.Expr{
-			&ast.CallExpr{
-				Fun: &ast.SelectorExpr{
-					X:   ast.NewIdent("trace"),
-					Sel: ast.NewIdent("Start"),
-				},
-				Args: []ast.Expr{
-					ast.NewIdent("ctx"),
-					&ast.CallExpr{
-						Fun: &ast.SelectorExpr{
-							X:   ast.NewIdent("trace"),
-							Sel: ast.NewIdent("NameFromFunc"),
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// 2. defer func() { span.RecordError(err); span.End() }()
-	deferStmt := &ast.DeferStmt{
-		Call: &ast.CallExpr{
-			Fun: &ast.FuncLit{
-				Type: &ast.FuncType{
-					Params: &ast.FieldList{},
-				},
-				Body: &ast.BlockStmt{
-					List: []ast.Stmt{
-						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Fun: &ast.SelectorExpr{
-									X:   ast.NewIdent("span"),
-									Sel: ast.NewIdent("RecordError"),
-								},
-								Args: []ast.Expr{ast.NewIdent("err")},
-							},
-						},
-						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Fun: &ast.SelectorExpr{
-									X:   ast.NewIdent("span"),
-									Sel: ast.NewIdent("End"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	return []ast.Stmt{
-		assignStmt,
-		deferStmt,
-	}
-}
-
-func namedReturnedArgs(results *ast.FieldList) *ast.FieldList {
+func namedReturnedArgs(methodName string, results *ast.FieldList) *ast.FieldList {
 	if results == nil || len(results.List) == 0 {
 		return nil
 	}
 
-	for _, field := range results.List {
+	var matches int
+	for i, field := range results.List {
 		// Don't modify if the field has names
 		// (e.g. (ctx context.Context, err error))
-		if len(field.Names) > 0 {
+		if len(field.Names) == 0 {
 			continue
 		}
 
-		name := "_"
-		if ident, ok := field.Type.(*ast.Ident); ok && ident.Name == "error" {
-			name = "err"
-		}
+		names := field.Names
+		name := names[0]
 
-		field.Names = []*ast.Ident{
-			ast.NewIdent(name),
+		if name.Name == "_" {
+			matches++
 		}
+		if i == len(results.List)-1 && name.Name == "err" {
+			matches++
+		}
+	}
+
+	if matches != len(results.List) {
+		fmt.Fprintln(os.Stderr, "Skipping method", methodName)
+		return results
+	}
+
+	for _, field := range results.List {
+		field.Names = nil
 	}
 
 	return results

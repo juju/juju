@@ -122,7 +122,7 @@ func (s *ProviderService) CreateApplication(
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 	units ...AddUnitArg,
-) (_ coreapplication.ID, err error) {
+) (coreapplication.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -220,7 +220,7 @@ func (s *ProviderService) CreateApplication(
 // available for charms to use.
 // If the agent version cannot be found, an error satisfying
 // [modelerrors.NotFound] will be returned.
-func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (_ assumes.FeatureSet, err error) {
+func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -261,7 +261,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (_ assumes.F
 // error is returned.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) (err error) {
+func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -296,7 +296,7 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application
 // doesn't exist.
 // If no units are provided, it will return nil.
-func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) (err error) {
+func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if len(units) == 0 {
@@ -392,7 +392,7 @@ func (s *Service) recordStatusHistory(
 //
 // We pass in a CAAS broker to get app details from the k8s cluster - we will
 // probably make it a service attribute once more use cases emerge.
-func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr string) (_ bool, err error) {
+func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -446,7 +446,7 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 func (s *ProviderService) RegisterCAASUnit(
 	ctx context.Context,
 	params application.RegisterCAASUnitParams,
-) (_ coreunit.Name, _ string, err error) {
+) (coreunit.Name, string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

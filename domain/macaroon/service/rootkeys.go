@@ -58,7 +58,7 @@ func NewRootKeyService(st RootKeyState, clock macaroon.Clock) *RootKeyService {
 //
 // To satisfy dbrootkeystore.ContextBacking specification,
 // if not key is found, a bakery.ErrNotFound error is returned.
-func (s *RootKeyService) GetKeyContext(ctx context.Context, id []byte) (_ dbrootkeystore.RootKey, err error) {
+func (s *RootKeyService) GetKeyContext(ctx context.Context, id []byte) (dbrootkeystore.RootKey, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -80,7 +80,7 @@ func (s *RootKeyService) GetKeyContext(ctx context.Context, id []byte) (_ dbroot
 // To satisfy dbrootkeystore.FindLatestKeyContext specification,
 // if no such key is found, the zero root key is returned with a
 // nil error
-func (s *RootKeyService) FindLatestKeyContext(ctx context.Context, createdAfter, expiresAfter, expiresBefore time.Time) (_ dbrootkeystore.RootKey, err error) {
+func (s *RootKeyService) FindLatestKeyContext(ctx context.Context, createdAfter, expiresAfter, expiresBefore time.Time) (dbrootkeystore.RootKey, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -94,7 +94,7 @@ func (s *RootKeyService) FindLatestKeyContext(ctx context.Context, createdAfter,
 // InsertKeyContext (dbrootkeystore.InsertKeyContext) inserts
 // the given root key into state. If a key with matching
 // id already exists, return a macaroonerrors.KeyAlreadyExists error.
-func (s *RootKeyService) InsertKeyContext(ctx context.Context, key dbrootkeystore.RootKey) (err error) {
+func (s *RootKeyService) InsertKeyContext(ctx context.Context, key dbrootkeystore.RootKey) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

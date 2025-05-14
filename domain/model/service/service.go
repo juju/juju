@@ -236,7 +236,7 @@ func NewWatchableService(st State,
 
 // CheckModelExists checks if a model exists within the controller. True or
 // false is returned indiciating of the model exists.
-func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (_ bool, err error) {
+func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.st.CheckModelExists(ctx, modelUUID)
@@ -251,7 +251,7 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 // returned.
 func (s *Service) DefaultModelCloudInfo(
 	ctx context.Context,
-) (_ string, _ string, err error) {
+) (string, string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	ctrlUUID, err := s.st.GetControllerModelUUID(ctx)
@@ -299,7 +299,7 @@ func (s *Service) DefaultModelCloudInfo(
 func (s *Service) CreateModel(
 	ctx context.Context,
 	args model.GlobalModelCreationArgs,
-) (_ coremodel.UUID, _ func(context.Context) error, err error) {
+) (coremodel.UUID, func(context.Context) error, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -417,7 +417,7 @@ func (s *Service) createModel(
 func (s *Service) ImportModel(
 	ctx context.Context,
 	args model.ModelImportArgs,
-) (_ func(context.Context) error, err error) {
+) (func(context.Context) error, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -433,7 +433,7 @@ func (s *Service) ImportModel(
 // ControllerModel returns the model used for housing the Juju controller.
 // Should no model exist for the controller an error of [modelerrors.NotFound]
 // will be returned.
-func (s *Service) ControllerModel(ctx context.Context) (_ coremodel.Model, err error) {
+func (s *Service) ControllerModel(ctx context.Context) (coremodel.Model, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.st.GetControllerModel(ctx)
@@ -442,7 +442,7 @@ func (s *Service) ControllerModel(ctx context.Context) (_ coremodel.Model, err e
 // Model returns the model associated with the provided uuid.
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model does not exist.
-func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (_ coremodel.Model, err error) {
+func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -461,7 +461,7 @@ func (s *Service) DeleteModel(
 	ctx context.Context,
 	uuid coremodel.UUID,
 	opts ...model.DeleteModelOption,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -499,7 +499,7 @@ func (s *Service) DeleteModel(
 
 // ListModelUUIDs returns a list of all model UUIDs in the controller that are
 // active.
-func (s *Service) ListModelUUIDs(ctx context.Context) (_ []coremodel.UUID, err error) {
+func (s *Service) ListModelUUIDs(ctx context.Context) ([]coremodel.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -520,7 +520,7 @@ func (s *Service) ListModelUUIDs(ctx context.Context) (_ []coremodel.UUID, err e
 func (s *Service) ListModelUUIDsForUser(
 	ctx context.Context,
 	userUUID coreuser.UUID,
-) (_ []coremodel.UUID, err error) {
+) ([]coremodel.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -533,7 +533,7 @@ func (s *Service) ListModelUUIDsForUser(
 
 // ListAllModels  lists all models in the controller. If no models exist then
 // an empty slice is returned.
-func (s *Service) ListAllModels(ctx context.Context) (_ []coremodel.Model, err error) {
+func (s *Service) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -543,7 +543,7 @@ func (s *Service) ListAllModels(ctx context.Context) (_ []coremodel.Model, err e
 // ListModelsForUser lists the models that are either owned by the user or
 // accessible  by the user specified by the user id. If no user or models exists
 // an empty slice of models will be returned.
-func (s *Service) ListModelsForUser(ctx context.Context, userID coreuser.UUID) (_ []coremodel.Model, err error) {
+func (s *Service) ListModelsForUser(ctx context.Context, userID coreuser.UUID) ([]coremodel.Model, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := userID.Validate(); err != nil {
@@ -575,7 +575,7 @@ func ModelTypeForCloud(
 // GetModelUsers will retrieve basic information about users with permissions on
 // the given model UUID.
 // If the model cannot be found it will return [modelerrors.NotFound].
-func (s *Service) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) (_ []coremodel.ModelUserInfo, err error) {
+func (s *Service) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -592,7 +592,7 @@ func (s *Service) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) (
 // GetModelUser will retrieve basic information about the specified model user.
 // If the model cannot be found it will return [modelerrors.NotFound].
 // If the user cannot be found it will return [modelerrors.UserNotFoundOnModel].
-func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (_ coremodel.ModelUserInfo, err error) {
+func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -635,7 +635,7 @@ func (s *Service) UpdateCredential(
 	ctx context.Context,
 	uuid coremodel.UUID,
 	key credential.Key,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -653,7 +653,7 @@ func (s *Service) UpdateCredential(
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model does not exist.
 // - [modelerrors.NotActivated]: When the model has not been activated.
-func (s *Service) GetModelLife(ctx context.Context, uuid coremodel.UUID) (_ life.Value, err error) {
+func (s *Service) GetModelLife(ctx context.Context, uuid coremodel.UUID) (life.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -672,7 +672,7 @@ func (s *Service) GetModelLife(ctx context.Context, uuid coremodel.UUID) (_ life
 // The following errors may be returned:
 // - [modelerrors.NotFound] if no model exists
 // - [accesserrors.UserNameNotValid] if ownerName is zero
-func (s *Service) GetModelByNameAndOwner(ctx context.Context, name string, ownerName coreuser.Name) (_ coremodel.Model, err error) {
+func (s *Service) GetModelByNameAndOwner(ctx context.Context, name string, ownerName coreuser.Name) (coremodel.Model, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -728,7 +728,7 @@ func getWatchActivatedModelsMapper(st State) eventsource.Mapper {
 // update. The events returned are maintained in the same order as they are
 // received. Newly created models will not be reported since they are not
 // activated at creation. Deletion of activated models is also not reported.
-func (s *WatchableService) WatchActivatedModels(ctx context.Context) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -743,7 +743,7 @@ func (s *WatchableService) WatchActivatedModels(ctx context.Context) (_ watcher.
 }
 
 // WatchModel returns a watcher that emits an event if the model changes.
-func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UUID) (_ watcher.NotifyWatcher, err error) {
+func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -759,7 +759,7 @@ func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UU
 // - changes to the credential set on a model.
 // The following errors can be expected:
 // - [modelerrors.NotFound] when the model is not found.
-func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

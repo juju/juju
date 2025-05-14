@@ -32,7 +32,7 @@ func NewPermissionService(st PermissionState) *PermissionService {
 
 // CreatePermission gives the user access per the provided spec. All errors
 // are passed through from the spec validation and state layer.
-func (s *PermissionService) CreatePermission(ctx context.Context, spec corepermission.UserAccessSpec) (_ corepermission.UserAccess, err error) {
+func (s *PermissionService) CreatePermission(ctx context.Context, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -50,7 +50,7 @@ func (s *PermissionService) CreatePermission(ctx context.Context, spec corepermi
 // DeletePermission removes the given user's access to the given target.
 // A NotValid error is returned if the subject (user) string is empty, or
 // the target is not valid. Any errors from the state layer are passed through.
-func (s *PermissionService) DeletePermission(ctx context.Context, subject user.Name, target corepermission.ID) (err error) {
+func (s *PermissionService) DeletePermission(ctx context.Context, subject user.Name, target corepermission.ID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -67,7 +67,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, subject user.N
 // the given target. A NotValid error is returned if the subject (user)
 // string is empty, or the target is not valid. Any errors from the state
 // layer are passed through.
-func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (_ corepermission.UserAccess, err error) {
+func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.UserAccess, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -85,7 +85,7 @@ func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject
 // database and has permissions on an object. If they do then they will be
 // added. This ensures that juju has a record of external users that have
 // inherited their permissions from everyone@external.
-func (s *PermissionService) EnsureExternalUserIfAuthorized(ctx context.Context, subject user.Name, target corepermission.ID) (err error) {
+func (s *PermissionService) EnsureExternalUserIfAuthorized(ctx context.Context, subject user.Name, target corepermission.ID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -97,8 +97,10 @@ func (s *PermissionService) EnsureExternalUserIfAuthorized(ctx context.Context, 
 	}
 	if err := s.st.EnsureExternalUserIfAuthorized(ctx, subject, target); errors.Is(err, accesserrors.UserNotFound) {
 		return errors.Capture(err)
+	} else if err != nil {
+		return errors.Capture(err)
 	}
-	return errors.Capture(err)
+	return nil
 }
 
 // ReadUserAccessLevelForTarget returns the user access level for the
@@ -107,7 +109,7 @@ func (s *PermissionService) EnsureExternalUserIfAuthorized(ctx context.Context, 
 // from the state layer are passed through.
 // If the access level of a user cannot be found then
 // [accesserrors.AccessNotFound] is returned.
-func (s *PermissionService) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (_ corepermission.Access, err error) {
+func (s *PermissionService) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if subject.IsZero() {
@@ -123,7 +125,7 @@ func (s *PermissionService) ReadUserAccessLevelForTarget(ctx context.Context, su
 // ReadAllUserAccessForTarget return a slice of user access for all users
 // with access to the given target. A NotValid error is returned if the
 // target is not valid. Any errors from the state layer are passed through.
-func (s *PermissionService) ReadAllUserAccessForTarget(ctx context.Context, target corepermission.ID) (_ []corepermission.UserAccess, err error) {
+func (s *PermissionService) ReadAllUserAccessForTarget(ctx context.Context, target corepermission.ID) ([]corepermission.UserAccess, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := target.Validate(); err != nil {
@@ -137,7 +139,7 @@ func (s *PermissionService) ReadAllUserAccessForTarget(ctx context.Context, targ
 // user has for any access type. // A NotValid error is returned if the
 // subject (user) string is empty. Any errors from the state layer are
 // passed through.
-func (s *PermissionService) ReadAllUserAccessForUser(ctx context.Context, subject user.Name) (_ []corepermission.UserAccess, err error) {
+func (s *PermissionService) ReadAllUserAccessForUser(ctx context.Context, subject user.Name) ([]corepermission.UserAccess, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if subject.IsZero() {
@@ -152,7 +154,7 @@ func (s *PermissionService) ReadAllUserAccessForUser(ctx context.Context, subjec
 // A NotValid error is returned if the given access type does not exist,
 // or the subject (user) is an empty string.
 // E.G. All clouds the user has access to.
-func (s *PermissionService) ReadAllAccessForUserAndObjectType(ctx context.Context, subject user.Name, objectType corepermission.ObjectType) (_ []corepermission.UserAccess, err error) {
+func (s *PermissionService) ReadAllAccessForUserAndObjectType(ctx context.Context, subject user.Name, objectType corepermission.ObjectType) ([]corepermission.UserAccess, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if subject.IsZero() {
@@ -173,7 +175,7 @@ func (s *PermissionService) ReadAllAccessForUserAndObjectType(ctx context.Contex
 // exist in the users table.
 // [accesserrors.PermissionAccessGreater] is returned if the user is being
 // granted an access level greater or equal to what they already have.
-func (s *PermissionService) UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) (err error) {
+func (s *PermissionService) UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := args.Validate(); err != nil {
@@ -184,7 +186,7 @@ func (s *PermissionService) UpdatePermission(ctx context.Context, args access.Up
 
 // AllModelAccessForCloudCredential for a given (cloud) credential key, return all
 // model name and model access level combinations.
-func (s *PermissionService) AllModelAccessForCloudCredential(ctx context.Context, key credential.Key) (_ []access.CredentialOwnerModelAccess, err error) {
+func (s *PermissionService) AllModelAccessForCloudCredential(ctx context.Context, key credential.Key) ([]access.CredentialOwnerModelAccess, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	results, err := s.st.AllModelAccessForCloudCredential(ctx, key)

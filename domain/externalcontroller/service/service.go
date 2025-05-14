@@ -65,7 +65,7 @@ func NewService(st State) *Service {
 func (s *Service) Controller(
 	ctx context.Context,
 	controllerUUID string,
-) (_ *crossmodel.ControllerInfo, err error) {
+) (*crossmodel.ControllerInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -81,7 +81,7 @@ func (s *Service) Controller(
 func (s *Service) ControllerForModel(
 	ctx context.Context,
 	modelUUID string,
-) (_ *crossmodel.ControllerInfo, err error) {
+) (*crossmodel.ControllerInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -101,7 +101,7 @@ func (s *Service) ControllerForModel(
 // record and associates it with the input model UUIDs.
 func (s *Service) UpdateExternalController(
 	ctx context.Context, ec crossmodel.ControllerInfo,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -116,7 +116,7 @@ func (s *Service) UpdateExternalController(
 func (s *Service) ImportExternalControllers(
 	ctx context.Context,
 	externalControllers []crossmodel.ControllerInfo,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -128,7 +128,7 @@ func (s *Service) ImportExternalControllers(
 func (s *Service) ModelsForController(
 	ctx context.Context,
 	controllerUUID string,
-) (_ []string, err error) {
+) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -146,7 +146,7 @@ func (s *Service) ModelsForController(
 func (s *Service) ControllersForModels(
 	ctx context.Context,
 	modelUUIDs ...string,
-) (_ []crossmodel.ControllerInfo, err error) {
+) ([]crossmodel.ControllerInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.st.ControllersForModels(ctx, modelUUIDs...)
@@ -170,7 +170,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 }
 
 // Watch returns a watcher that observes changes to external controllers.
-func (s *WatchableService) Watch(ctx context.Context) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

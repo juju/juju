@@ -31,7 +31,7 @@ func NewService(st State) *Service {
 
 // SetFlag sets the value of a flag.
 // Description is used to describe the flag and it's potential state.
-func (s *Service) SetFlag(ctx context.Context, flag string, value bool, description string) (err error) {
+func (s *Service) SetFlag(ctx context.Context, flag string, value bool, description string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -39,7 +39,7 @@ func (s *Service) SetFlag(ctx context.Context, flag string, value bool, descript
 }
 
 // GetFlag returns the value of a flag.
-func (s *Service) GetFlag(ctx context.Context, flag string) (_ bool, err error) {
+func (s *Service) GetFlag(ctx context.Context, flag string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

@@ -92,7 +92,7 @@ func NewService(
 func (s *Service) ContainerManagerConfigForType(
 	ctx context.Context,
 	containerType instance.ContainerType,
-) (_ containermanager.Config, err error) {
+) (containermanager.Config, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -130,7 +130,7 @@ func (s *Service) ContainerManagerConfigForType(
 // ContainerNetworkingMethod determines the container networking method that
 // should be used, based on the model config key "container-networking-method"
 // and the current provider.
-func (s *Service) ContainerNetworkingMethod(ctx context.Context) (_ containermanager.NetworkingMethod, err error) {
+func (s *Service) ContainerNetworkingMethod(ctx context.Context) (containermanager.NetworkingMethod, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -178,7 +178,7 @@ func (s *Service) ContainerNetworkingMethod(ctx context.Context) (_ containerman
 }
 
 // ContainerConfig returns the container config for the model.
-func (s *Service) ContainerConfig(ctx context.Context) (_ container.Config, err error) {
+func (s *Service) ContainerConfig(ctx context.Context) (container.Config, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

@@ -36,7 +36,7 @@ func NewControllerKeyService(st ControllerKeyState) *ControllerKeyService {
 // keys are defined for the controller, a zero length slice is returned.
 func (s *ControllerKeyService) ControllerAuthorisedKeys(
 	ctx context.Context,
-) (_ []string, err error) {
+) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

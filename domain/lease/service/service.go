@@ -40,7 +40,7 @@ func NewService(st State) *Service {
 
 // Leases (lease.Store) returns all leases in the database,
 // optionally filtering using the input keys.
-func (s *Service) Leases(ctx context.Context, keys ...lease.Key) (_ map[lease.Key]lease.Info, err error) {
+func (s *Service) Leases(ctx context.Context, keys ...lease.Key) (map[lease.Key]lease.Info, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -59,7 +59,7 @@ func (s *Service) Leases(ctx context.Context, keys ...lease.Key) (_ map[lease.Ke
 // ClaimLease (lease.Store) claims the lease indicated by the input key,
 // for the holder and duration indicated by the input request.
 // The lease must not already be held, otherwise an error is returned.
-func (s *Service) ClaimLease(ctx context.Context, key lease.Key, req lease.Request) (err error) {
+func (s *Service) ClaimLease(ctx context.Context, key lease.Key, req lease.Request) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := req.Validate(); err != nil {
@@ -75,7 +75,7 @@ func (s *Service) ClaimLease(ctx context.Context, key lease.Key, req lease.Reque
 // ExtendLease (lease.Store) ensures the input lease will be held for at least
 // the requested duration starting from now.
 // If the input holder does not currently hold the lease, an error is returned.
-func (s *Service) ExtendLease(ctx context.Context, key lease.Key, req lease.Request) (err error) {
+func (s *Service) ExtendLease(ctx context.Context, key lease.Key, req lease.Request) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -88,7 +88,7 @@ func (s *Service) ExtendLease(ctx context.Context, key lease.Key, req lease.Requ
 // RevokeLease (lease.Store) deletes the lease from the store,
 // provided it exists and is held by the input holder.
 // If either of these conditions is false, an error is returned.
-func (s *Service) RevokeLease(ctx context.Context, key lease.Key, holder string) (err error) {
+func (s *Service) RevokeLease(ctx context.Context, key lease.Key, holder string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -97,7 +97,7 @@ func (s *Service) RevokeLease(ctx context.Context, key lease.Key, holder string)
 
 // LeaseGroup (lease.Store) returns all leases
 // for the input namespace and model.
-func (s *Service) LeaseGroup(ctx context.Context, namespace, modelUUID string) (_ map[lease.Key]lease.Info, err error) {
+func (s *Service) LeaseGroup(ctx context.Context, namespace, modelUUID string) (map[lease.Key]lease.Info, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -107,7 +107,7 @@ func (s *Service) LeaseGroup(ctx context.Context, namespace, modelUUID string) (
 // PinLease (lease.Store) adds the input entity into the lease_pin table
 // to indicate that the lease indicated by the input key must not expire,
 // and that this entity requires such behaviour.
-func (s *Service) PinLease(ctx context.Context, key lease.Key, entity string) (err error) {
+func (s *Service) PinLease(ctx context.Context, key lease.Key, entity string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -119,7 +119,7 @@ func (s *Service) PinLease(ctx context.Context, key lease.Key, entity string) (e
 // no longer requires the lease to be pinned.
 // When there are no entities associated with a particular lease,
 // it is determined not to be pinned, and can expire normally.
-func (s *Service) UnpinLease(ctx context.Context, key lease.Key, entity string) (err error) {
+func (s *Service) UnpinLease(ctx context.Context, key lease.Key, entity string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -128,7 +128,7 @@ func (s *Service) UnpinLease(ctx context.Context, key lease.Key, entity string) 
 
 // Pinned (lease.Store) returns all leases that are currently pinned,
 // and the entities requiring such behaviour for them.
-func (s *Service) Pinned(ctx context.Context) (_ map[lease.Key][]string, err error) {
+func (s *Service) Pinned(ctx context.Context) (map[lease.Key][]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -137,7 +137,7 @@ func (s *Service) Pinned(ctx context.Context) (_ map[lease.Key][]string, err err
 
 // ExpireLeases ensures that all leases that have expired are deleted from
 // the store.
-func (s *Service) ExpireLeases(ctx context.Context) (err error) {
+func (s *Service) ExpireLeases(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

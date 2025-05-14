@@ -87,7 +87,7 @@ type WatcherState interface {
 // watcher emits events for changes to the opened ports table. Each emitted
 // event contains the machine name which is associated with the changed port
 // range.
-func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -102,7 +102,7 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (_ watch
 // WatchOpenedPortsForApplication returns a notify watcher for opened ports. This
 // watcher emits events for changes to the opened ports table that are associated
 // with the given application
-func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (watcher.NotifyWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -207,13 +207,13 @@ type maskedChangeEvent struct {
 
 // Namespace returns the namespace of the change. This is normally the
 // table name.
-func (e maskedChangeEvent) Namespace() (_ string) {
+func (e maskedChangeEvent) Namespace() string {
 	return e.namespace
 }
 
 // Changed returns the changed value of event. This logically can be
 // the primary key of the row that was changed or the field of the change
 // that was changed.
-func (e maskedChangeEvent) Changed() (_ string) {
+func (e maskedChangeEvent) Changed() string {
 	return e.machineName
 }

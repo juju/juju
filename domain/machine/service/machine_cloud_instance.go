@@ -15,7 +15,7 @@ import (
 // InstanceID returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a
 // [github.com/juju/juju/domain/machine/errors.NotProvisioned]
-func (s *Service) InstanceID(ctx context.Context, machineUUID machine.UUID) (_ instance.Id, err error) {
+func (s *Service) InstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -30,7 +30,7 @@ func (s *Service) InstanceID(ctx context.Context, machineUUID machine.UUID) (_ i
 // this machine.
 // If the machine is not provisioned, it returns a
 // [github.com/juju/juju/domain/machine/errors.NotProvisioned]
-func (s *Service) InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (_ instance.Id, _ string, err error) {
+func (s *Service) InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -42,7 +42,7 @@ func (s *Service) InstanceIDAndName(ctx context.Context, machineUUID machine.UUI
 }
 
 // AvailabilityZone returns the availability zone for the specified machine.
-func (s *Service) AvailabilityZone(ctx context.Context, machineUUID machine.UUID) (_ string, err error) {
+func (s *Service) AvailabilityZone(ctx context.Context, machineUUID machine.UUID) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -55,7 +55,7 @@ func (s *Service) AvailabilityZone(ctx context.Context, machineUUID machine.UUID
 
 // HardwareCharacteristics returns the hardware characteristics of the
 // of the specified machine.
-func (s *Service) HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (_ *instance.HardwareCharacteristics, err error) {
+func (s *Service) HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -74,7 +74,7 @@ func (s *Service) SetMachineCloudInstance(
 	instanceID instance.Id,
 	displayName string,
 	hardwareCharacteristics *instance.HardwareCharacteristics,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -87,7 +87,7 @@ func (s *Service) SetMachineCloudInstance(
 // DeleteMachineCloudInstance removes an entry in the machine cloud instance
 // table along with the instance tags and the link to a lxd profile if any, as
 // well as any associated status data.
-func (s *Service) DeleteMachineCloudInstance(ctx context.Context, machineUUID machine.UUID) (err error) {
+func (s *Service) DeleteMachineCloudInstance(ctx context.Context, machineUUID machine.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

@@ -43,7 +43,7 @@ func NewService(st State) *Service {
 
 // SetUnitPassword sets the password for the given unit. If the unit does not
 // exist, an error satisfying [passworderrors.UnitNotFound] is returned.
-func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, password string) (err error) {
+func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -64,7 +64,7 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 
 // MatchesUnitPasswordHash checks if the password is valid or not against the
 // password hash stored in the database.
-func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Name, password string) (_ bool, err error) {
+func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Name, password string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

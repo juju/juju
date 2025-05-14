@@ -45,7 +45,7 @@ type Service struct {
 }
 
 // GetAllJobs returns all removal jobs.
-func (s *Service) GetAllJobs(ctx context.Context) (_ []removal.Job, err error) {
+func (s *Service) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	jobs, err := s.st.GetAllJobs(ctx)
@@ -58,10 +58,11 @@ func (s *Service) GetAllJobs(ctx context.Context) (_ []removal.Job, err error) {
 // ExecuteJob runs the appropriate removal logic for the input job.
 // If the job is determined to have run successfully, we ensure that
 // no removal job with the same UUID exists in the database.
-func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) (err error) {
+func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	var err error
 	switch job.RemovalType {
 	case removal.RelationJob:
 		err = s.processRelationRemovalJob(ctx, job)

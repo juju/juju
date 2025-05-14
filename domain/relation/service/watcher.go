@@ -66,7 +66,7 @@ func NewWatchableService(
 func (s *WatchableService) WatchLifeSuspendedStatus(
 	ctx context.Context,
 	unitUUID unit.UUID,
-) (_ watcher.StringsWatcher, err error) {
+) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -470,7 +470,7 @@ func (s *WatchableService) WatchRelatedUnits(
 	ctx context.Context,
 	unitName unit.Name,
 	relationUUID corerelation.UUID,
-) (_ watcher.StringsWatcher, err error) {
+) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

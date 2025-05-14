@@ -127,7 +127,7 @@ func NewWatchableService(
 func (s *Service) GetAuthorisedKeysForMachine(
 	ctx context.Context,
 	machineName coremachine.Name,
-) (_ []string, err error) {
+) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -183,7 +183,7 @@ func (s *Service) GetAuthorisedKeysForMachine(
 func (s *WatchableService) WatchAuthorisedKeysForMachine(
 	ctx context.Context,
 	machineName coremachine.Name,
-) (_ watcher.NotifyWatcher, err error) {
+) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -224,7 +224,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 
 // GetInitialAuthorisedKeysForContainer returns the authorised keys to be used
 // when provisioning a new container for the model.
-func (s *Service) GetInitialAuthorisedKeysForContainer(ctx context.Context) (_ []string, err error) {
+func (s *Service) GetInitialAuthorisedKeysForContainer(ctx context.Context) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

@@ -38,7 +38,7 @@ func NewService(st State, logger logger.Logger) *Service {
 }
 
 // AddSpace creates and returns a new space.
-func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (_ network.Id, err error) {
+func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -68,7 +68,7 @@ func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (_ netw
 // UpdateSpace updates the space name identified by the passed uuid. If the
 // space is not found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) (err error) {
+func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return errors.Capture(s.st.UpdateSpace(ctx, uuid, name))
@@ -77,7 +77,7 @@ func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) (er
 // Space returns a space from state that matches the input ID. If the space is
 // not found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-func (s *Service) Space(ctx context.Context, uuid string) (_ *network.SpaceInfo, err error) {
+func (s *Service) Space(ctx context.Context, uuid string) (*network.SpaceInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	sp, err := s.st.GetSpace(ctx, uuid)
@@ -90,7 +90,7 @@ func (s *Service) Space(ctx context.Context, uuid string) (_ *network.SpaceInfo,
 // SpaceByName returns a space from state that matches the input name. If the
 // space is not found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-func (s *Service) SpaceByName(ctx context.Context, name string) (_ *network.SpaceInfo, err error) {
+func (s *Service) SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -102,7 +102,7 @@ func (s *Service) SpaceByName(ctx context.Context, name string) (_ *network.Spac
 }
 
 // GetAllSpaces returns all spaces for the model.
-func (s *Service) GetAllSpaces(ctx context.Context) (_ network.SpaceInfos, err error) {
+func (s *Service) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -116,7 +116,7 @@ func (s *Service) GetAllSpaces(ctx context.Context) (_ network.SpaceInfos, err e
 // RemoveSpace deletes a space identified by its uuid. If the space is not
 // found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-func (s *Service) RemoveSpace(ctx context.Context, uuid string) (err error) {
+func (s *Service) RemoveSpace(ctx context.Context, uuid string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return errors.Capture(s.st.DeleteSpace(ctx, uuid))
@@ -147,7 +147,7 @@ func NewProviderService(
 }
 
 // ReloadSpaces loads spaces and subnets from the provider into state.
-func (s *ProviderService) ReloadSpaces(ctx context.Context) (err error) {
+func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -247,7 +247,7 @@ func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUp
 }
 
 // SupportsSpaces returns whether the provider supports spaces.
-func (s *ProviderService) SupportsSpaces(ctx context.Context) (_ bool, err error) {
+func (s *ProviderService) SupportsSpaces(ctx context.Context) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -262,7 +262,7 @@ func (s *ProviderService) SupportsSpaces(ctx context.Context) (_ bool, err error
 
 // SupportsSpaceDiscovery returns whether the provider supports discovering
 // spaces from the provider.
-func (s *ProviderService) SupportsSpaceDiscovery(ctx context.Context) (_ bool, err error) {
+func (s *ProviderService) SupportsSpaceDiscovery(ctx context.Context) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

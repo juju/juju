@@ -101,7 +101,7 @@ func (s *AgentBinaryStore) AddAgentBinary(
 	version coreagentbinary.Version,
 	size int64,
 	sha384 string,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -190,7 +190,7 @@ func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
 	ctx context.Context, r io.Reader,
 	version coreagentbinary.Version,
 	size int64, sha256 string,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := version.Validate(); err != nil {
@@ -222,7 +222,7 @@ func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
 func (s *AgentBinaryStore) GetAgentBinaryForSHA256(
 	ctx context.Context,
 	sha256Sum string,
-) (_ io.ReadCloser, _ int64, err error) {
+) (io.ReadCloser, int64, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

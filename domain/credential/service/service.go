@@ -92,7 +92,7 @@ func NewService(st State, logger logger.Logger) *Service {
 }
 
 // CloudCredential returns the cloud credential for the given tag.
-func (s *Service) CloudCredential(ctx context.Context, key corecredential.Key) (_ cloud.Credential, err error) {
+func (s *Service) CloudCredential(ctx context.Context, key corecredential.Key) (cloud.Credential, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -111,7 +111,7 @@ func (s *Service) CloudCredential(ctx context.Context, key corecredential.Key) (
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
-func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (_ map[corecredential.Key]cloud.Credential, err error) {
+func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[corecredential.Key]cloud.Credential, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -128,7 +128,7 @@ func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner user.Na
 
 // CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 // keyed by credential name.
-func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (_ map[string]cloud.Credential, err error) {
+func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]cloud.Credential, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -153,7 +153,7 @@ func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner user.Name,
 func (s *Service) GetModelCredentialStatus(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
-) (_ corecredential.Key, _ bool, err error) {
+) (corecredential.Key, bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -165,7 +165,7 @@ func (s *Service) GetModelCredentialStatus(
 }
 
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
-func (s *Service) UpdateCloudCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential) (err error) {
+func (s *Service) UpdateCloudCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -176,7 +176,7 @@ func (s *Service) UpdateCloudCredential(ctx context.Context, key corecredential.
 }
 
 // RemoveCloudCredential removes a cloud credential with the given tag.
-func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.Key) (err error) {
+func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.Key) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -190,7 +190,7 @@ func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.
 // The following errors can be expected:
 // - [github.com/juju/juju/domain/credential/errors.NotFound] when the
 // credential specified by key does not exist.
-func (s *Service) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) (err error) {
+func (s *Service) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -217,7 +217,7 @@ func (s *Service) InvalidateModelCredential(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
 	reason string,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -243,7 +243,7 @@ func (s *Service) modelsUsingCredential(ctx context.Context, key corecredential.
 // validationContextGetter prior to calling this function, or else an error will be returned.
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
-func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential, force bool) (_ []UpdateCredentialModelResult, err error) {
+func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -295,7 +295,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 // validating the credential.
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
-func (s *Service) CheckAndRevokeCredential(ctx context.Context, key corecredential.Key, force bool) (err error) {
+func (s *Service) CheckAndRevokeCredential(ctx context.Context, key corecredential.Key, force bool) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -349,7 +349,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory, logger logger.
 
 // WatchCredential returns a watcher that observes changes to the specified
 // credential.
-func (s *WatchableService) WatchCredential(ctx context.Context, key corecredential.Key) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchCredential(ctx context.Context, key corecredential.Key) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

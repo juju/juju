@@ -79,7 +79,7 @@ type StorageState interface {
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) (err error) {
+func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := unitName.Validate(); err != nil {
@@ -117,7 +117,7 @@ func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, u
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 func (s *Service) AddStorageForUnit(
 	ctx context.Context, storageName corestorage.Name, unitName coreunit.Name, directive storage.Directive,
-) (_ []corestorage.ID, err error) {
+) ([]corestorage.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := unitName.Validate(); err != nil {
@@ -140,7 +140,7 @@ func (s *Service) AddStorageForUnit(
 // - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 // - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-func (s *Service) DetachStorageForUnit(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) (err error) {
+func (s *Service) DetachStorageForUnit(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := unitName.Validate(); err != nil {
@@ -165,7 +165,7 @@ func (s *Service) DetachStorageForUnit(ctx context.Context, storageID corestorag
 // - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
 // - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) (err error) {
+func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := storageID.Validate(); err != nil {

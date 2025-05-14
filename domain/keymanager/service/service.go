@@ -149,7 +149,7 @@ func (s *Service) AddPublicKeysForUser(
 	ctx context.Context,
 	userUUID user.UUID,
 	keys ...string,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -208,7 +208,7 @@ func (s *Service) DeleteKeysForUser(
 	ctx context.Context,
 	userUUID user.UUID,
 	targets ...string,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -229,7 +229,7 @@ func (s *Service) DeleteKeysForUser(
 // not exist.
 func (s *Service) GetAllUsersPublicKeys(
 	ctx context.Context,
-) (_ map[user.Name][]string, err error) {
+) (map[user.Name][]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -259,7 +259,7 @@ func (s *ImporterService) ImportPublicKeysForUser(
 	ctx context.Context,
 	userUUID user.UUID,
 	subject *url.URL,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -331,7 +331,7 @@ func (s *ImporterService) ImportPublicKeysForUser(
 func (s *Service) ListPublicKeysForUser(
 	ctx context.Context,
 	userUUID user.UUID,
-) (_ []coressh.PublicKey, err error) {
+) ([]coressh.PublicKey, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

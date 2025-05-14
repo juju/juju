@@ -51,7 +51,7 @@ func NewService(st State) *Service {
 
 // GetAnnotations retrieves all the annotations associated with a given ID. If
 // no annotations are found, an empty map is returned.
-func (s *Service) GetAnnotations(ctx context.Context, id annotations.ID) (_ map[string]string, err error) {
+func (s *Service) GetAnnotations(ctx context.Context, id annotations.ID) (map[string]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -64,7 +64,7 @@ func (s *Service) GetAnnotations(ctx context.Context, id annotations.ID) (_ map[
 
 // GetCharmAnnotations retrieves all the annotations associated with a given
 // charm argument. If no annotations are found, an empty map is returned.
-func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs) (_ map[string]string, err error) {
+func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs) (map[string]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -79,7 +79,7 @@ func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetChar
 // SetAnnotations associates key/value annotation pairs with a given ID. If
 // an annotation already exists for the given ID, then it will be updated with
 // the given value.
-func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotations map[string]string) (err error) {
+func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotations map[string]string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -100,7 +100,7 @@ func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotat
 // SetCharmAnnotations associates key/value annotation pairs with a given charm
 // argument. If an annotation already exists for the given ID, then it will be
 // updated with the given value.
-func (s *Service) SetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs, annotations map[string]string) (err error) {
+func (s *Service) SetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs, annotations map[string]string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

@@ -45,7 +45,7 @@ func NewProviderService(st ProviderState) *ProviderService {
 }
 
 // Cloud returns the named cloud.
-func (s *ProviderService) Cloud(ctx context.Context, name string) (_ *cloud.Cloud, err error) {
+func (s *ProviderService) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -72,7 +72,7 @@ func NewWatchableProviderService(st ProviderState, watcherFactory WatcherFactory
 }
 
 // WatchCloud returns a watcher that observes changes to the specified cloud.
-func (s *WatchableProviderService) WatchCloud(ctx context.Context, name string) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableProviderService) WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

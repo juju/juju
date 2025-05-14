@@ -187,7 +187,7 @@ func NewModelService(
 // exist.
 // It returns an empty Value if the model does not have any constraints
 // configured.
-func (s *ModelService) GetModelConstraints(ctx context.Context) (_ coreconstraints.Value, err error) {
+func (s *ModelService) GetModelConstraints(ctx context.Context) (coreconstraints.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -205,7 +205,7 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (_ coreconstrain
 }
 
 // GetModelCloudType returns the type of the cloud that is in use by this model.
-func (s *ModelService) GetModelCloudType(ctx context.Context) (_ string, err error) {
+func (s *ModelService) GetModelCloudType(ctx context.Context) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -218,7 +218,7 @@ func (s *ModelService) GetModelCloudType(ctx context.Context) (_ string, err err
 // - [modelerrors.NotFound] when the model does not exist.
 func (s *ModelService) GetModelSummary(
 	ctx context.Context,
-) (_ coremodel.ModelSummary, err error) {
+) (coremodel.ModelSummary, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -272,7 +272,7 @@ func (s *ModelService) GetModelSummary(
 func (s *ModelService) GetUserModelSummary(
 	ctx context.Context,
 	userUUID coreuser.UUID,
-) (_ coremodel.UserModelSummary, err error) {
+) (coremodel.UserModelSummary, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -330,7 +330,7 @@ func (s *ModelService) GetUserModelSummary(
 // being set in the model constraint doesn't exist.
 // - [github.com/juju/juju/domain/machine/errors.InvalidContainerType]: when
 // the container type being set in the model constraint isn't valid.
-func (s *ModelService) SetModelConstraints(ctx context.Context, cons coreconstraints.Value) (err error) {
+func (s *ModelService) SetModelConstraints(ctx context.Context, cons coreconstraints.Value) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -340,7 +340,7 @@ func (s *ModelService) SetModelConstraints(ctx context.Context, cons coreconstra
 
 // GetModelInfo returns the readonly model information for the model in
 // question.
-func (s *ModelService) GetModelInfo(ctx context.Context) (_ coremodel.ModelInfo, err error) {
+func (s *ModelService) GetModelInfo(ctx context.Context) (coremodel.ModelInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.modelSt.GetModel(ctx)
@@ -348,7 +348,7 @@ func (s *ModelService) GetModelInfo(ctx context.Context) (_ coremodel.ModelInfo,
 
 // GetModelMetrics returns the model metrics information set in the
 // database.
-func (s *ModelService) GetModelMetrics(ctx context.Context) (_ coremodel.ModelMetrics, err error) {
+func (s *ModelService) GetModelMetrics(ctx context.Context) (coremodel.ModelMetrics, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.modelSt.GetModelMetrics(ctx)
@@ -357,7 +357,7 @@ func (s *ModelService) GetModelMetrics(ctx context.Context) (_ coremodel.ModelMe
 // GetModelType returns the [coremodel.ModelType] for the current model.
 // The following errors can be expected:
 // - [modelerrors.NotFound] when the model does not exist.
-func (s *ModelService) GetModelType(ctx context.Context) (_ coremodel.ModelType, err error) {
+func (s *ModelService) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.modelSt.GetModelType(ctx)
@@ -370,7 +370,7 @@ func (s *ModelService) GetModelType(ctx context.Context) (_ coremodel.ModelType,
 // - [modelerrors.AlreadyExists] when the model uuid is already in use.
 func (s *ModelService) CreateModel(
 	ctx context.Context,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	defaultAgentVersion, defaultAgentStream := agentVersionSelector()
@@ -389,7 +389,7 @@ func (s *ModelService) CreateModel(
 func (s *ModelService) CreateModelWithAgentVersion(
 	ctx context.Context,
 	agentVersion semversion.Number,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -409,7 +409,7 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 	ctx context.Context,
 	agentVersion semversion.Number,
 	agentStream agentbinary.AgentStream,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -459,7 +459,7 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 // - [modelerrors.NotFound]: When the model does not exist.
 func (s *ModelService) DeleteModel(
 	ctx context.Context,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.modelSt.Delete(ctx, s.modelUUID)
@@ -469,7 +469,7 @@ func (s *ModelService) DeleteModel(
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model does not exist.
-func (s *ModelService) GetStatus(ctx context.Context) (_ model.StatusInfo, err error) {
+func (s *ModelService) GetStatus(ctx context.Context) (model.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	modelState, err := s.controllerSt.GetModelState(ctx, s.modelUUID)
@@ -519,7 +519,7 @@ func (s *ModelService) statusFromModelState(
 //
 // The following error types can be expected:
 // - [modelerrors.NotFound]: Returned if the model does not exist.
-func (s *ModelService) GetEnvironVersion(ctx context.Context) (_ int, err error) {
+func (s *ModelService) GetEnvironVersion(ctx context.Context) (int, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -573,7 +573,7 @@ func NewProviderModelService(
 }
 
 // CloudAPIVersion returns the cloud API version for the model's cloud.
-func (s *ProviderModelService) CloudAPIVersion(ctx context.Context) (_ string, err error) {
+func (s *ProviderModelService) CloudAPIVersion(ctx context.Context) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -596,7 +596,7 @@ func (s *ProviderModelService) CloudAPIVersion(ctx context.Context) (_ string, e
 // - [modelerrors.AlreadyExists] when the model uuid is already in use.
 func (s *ProviderModelService) CreateModel(
 	ctx context.Context,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -618,7 +618,7 @@ func (s *ProviderModelService) CreateModel(
 func (s *ProviderModelService) CreateModelWithAgentVersion(
 	ctx context.Context,
 	agentVersion semversion.Number,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -643,7 +643,7 @@ func (s *ProviderModelService) CreateModelWithAgentVersionStream(
 	ctx context.Context,
 	agentVersion semversion.Number,
 	agentStream agentbinary.AgentStream,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -806,7 +806,7 @@ func EnvironVersionProviderGetter() EnvironVersionProviderFunc {
 // IsControllerModel returns true if the model is the controller model.
 // The following errors may be returned:
 // - [modelerrors.NotFound] when the model does not exist.
-func (s *ModelService) IsControllerModel(ctx context.Context) (_ bool, err error) {
+func (s *ModelService) IsControllerModel(ctx context.Context) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.modelSt.IsControllerModel(ctx)

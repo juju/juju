@@ -224,7 +224,7 @@ func (s *WatchableService) WatchApplicationUnitLife(ctx context.Context, appName
 }
 
 // WatchApplicationScale returns a watcher that observes changes to an application's scale.
-func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
@@ -266,7 +266,7 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 
 // WatchApplicationsWithPendingCharms returns a watcher that observes changes to
 // applications that have pending charms.
-func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -351,7 +351,7 @@ type indexedChanged struct {
 // application table.
 // If the application does not exist an error satisfying
 // [applicationerrors.NotFound] will be returned.
-func (s *WatchableService) WatchApplication(ctx context.Context, name string) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -376,7 +376,7 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (_
 //
 // If the application does not exist an error satisfying
 // [applicationerrors.NotFound] will be returned.
-func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name string) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -404,7 +404,7 @@ func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name stri
 //
 // If the application does not exist an error satisfying
 // [applicationerrors.NotFound] will be returned.
-func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name string) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name string) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -475,7 +475,7 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 //
 // If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
 // will be returned.
-func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName coreunit.Name) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -557,7 +557,7 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 //
 // If the application does not exist an error satisfying
 // [applicationerrors.NotFound] will be returned.
-func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name string) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -595,7 +595,7 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 // with the uniter agent facade. Specifically, version 20 of the facade implements
 // a Watch endpoint, which can watches for _any_ change to the unit doc in Mongo.
 // Once we no longer need to support facade 20, we can drop this method.
-func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitName coreunit.Name) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -636,7 +636,7 @@ func newMaskedChangeIDEvent(change changestream.ChangeEvent, id string) changest
 	}
 }
 
-func (m maskedChangeIDEvent) Changed() (_ string) {
+func (m maskedChangeIDEvent) Changed() string {
 	return m.id
 }
 

@@ -36,7 +36,7 @@ func NewUserService(st UserState) *UserService {
 // GetAllUsers will retrieve all users with authentication information
 // (last login, disabled) from the database. If no users exist an empty slice
 // will be returned.
-func (s *UserService) GetAllUsers(ctx context.Context, includeDisabled bool) (_ []user.User, err error) {
+func (s *UserService) GetAllUsers(ctx context.Context, includeDisabled bool) ([]user.User, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -53,7 +53,7 @@ func (s *UserService) GetAllUsers(ctx context.Context, includeDisabled bool) (_ 
 func (s *UserService) GetUser(
 	ctx context.Context,
 	uuid user.UUID,
-) (_ user.User, err error) {
+) (user.User, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -78,7 +78,7 @@ func (s *UserService) GetUser(
 func (s *UserService) GetUserByName(
 	ctx context.Context,
 	name user.Name,
-) (_ user.User, err error) {
+) (user.User, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -101,7 +101,7 @@ func (s *UserService) GetUserByName(
 func (s *UserService) GetUserUUIDByName(
 	ctx context.Context,
 	name user.Name,
-) (_ user.UUID, err error) {
+) (user.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -126,7 +126,7 @@ func (s *UserService) GetUserByAuth(
 	ctx context.Context,
 	name user.Name,
 	password auth.Password,
-) (_ user.User, err error) {
+) (user.User, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -159,7 +159,7 @@ func (s *UserService) GetUserByAuth(
 //   - accesserrors.CreatorUUIDNotFound: If a creator has been supplied for the user
 //     and the creator does not exist.
 //   - auth.ErrPasswordNotValid: If the password supplied is not valid.
-func (s *UserService) AddUser(ctx context.Context, arg AddUserArg) (_ user.UUID, _ []byte, err error) {
+func (s *UserService) AddUser(ctx context.Context, arg AddUserArg) (user.UUID, []byte, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -187,6 +187,7 @@ func (s *UserService) AddUser(ctx context.Context, arg AddUserArg) (_ user.UUID,
 	}
 
 	var key []byte
+	var err error
 	if arg.Password != nil {
 		err = s.addUserWithPassword(ctx, arg)
 	} else {
@@ -237,7 +238,7 @@ func (s *UserService) addUserWithActivationKey(ctx context.Context, arg AddUserA
 //   - accesserrors.UserAlreadyExists: If a user with the supplied name already exists.
 //   - accesserrors.CreatorUUIDNotFound: If the creator supplied for the user
 //     does not exist.
-func (s *UserService) AddExternalUser(ctx context.Context, name user.Name, displayName string, creatorUUID user.UUID) (err error) {
+func (s *UserService) AddExternalUser(ctx context.Context, name user.Name, displayName string, creatorUUID user.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -258,7 +259,7 @@ func (s *UserService) AddExternalUser(ctx context.Context, name user.Name, displ
 // The following error types are possible from this function:
 // - accesserrors.UserNameNotValid: When the username supplied is not valid.
 // - accesserrors.NotFound: If no user by the given UUID exists.
-func (s *UserService) RemoveUser(ctx context.Context, name user.Name) (err error) {
+func (s *UserService) RemoveUser(ctx context.Context, name user.Name) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -277,7 +278,7 @@ func (s *UserService) RemoveUser(ctx context.Context, name user.Name) (err error
 //   - accesserrors.UserNameNotValid: When the username supplied is not valid.
 //   - accesserrors.NotFound: If no user by the given name exists.
 //   - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
-func (s *UserService) SetPassword(ctx context.Context, name user.Name, pass auth.Password) (err error) {
+func (s *UserService) SetPassword(ctx context.Context, name user.Name, pass auth.Password) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if name.IsZero() {
@@ -295,7 +296,7 @@ func (s *UserService) SetPassword(ctx context.Context, name user.Name, pass auth
 // The following error types are possible from this function:
 // - accesserrors.UserNameNotValid: When the username supplied is not valid.
 // - accesserrors.NotFound: If no user by the given UUID exists.
-func (s *UserService) ResetPassword(ctx context.Context, name user.Name) (_ []byte, err error) {
+func (s *UserService) ResetPassword(ctx context.Context, name user.Name) ([]byte, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if name.IsZero() {
@@ -317,7 +318,7 @@ func (s *UserService) ResetPassword(ctx context.Context, name user.Name) (_ []by
 // The following error types are possible from this function:
 // - accesserrors.UserNameNotValid: When the username supplied is not valid.
 // - accesserrors.NotFound: If no user by the given UUID exists.
-func (s *UserService) EnableUserAuthentication(ctx context.Context, name user.Name) (err error) {
+func (s *UserService) EnableUserAuthentication(ctx context.Context, name user.Name) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -335,7 +336,7 @@ func (s *UserService) EnableUserAuthentication(ctx context.Context, name user.Na
 // The following error types are possible from this function:
 // - accesserrors.UserNameNotValid: When the username supplied is not valid.
 // - accesserrors.NotFound: If no user by the given UUID exists.
-func (s *UserService) DisableUserAuthentication(ctx context.Context, name user.Name) (err error) {
+func (s *UserService) DisableUserAuthentication(ctx context.Context, name user.Name) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -354,7 +355,7 @@ func (s *UserService) DisableUserAuthentication(ctx context.Context, name user.N
 // - [accesserrors.UserNameNotValid] when the username supplied is not valid.
 // - [accesserrors.UserNotFound] when the user cannot be found.
 // - [modelerrors.NotFound] if no model by the given modelUUID exists.
-func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (err error) {
+func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -373,7 +374,7 @@ func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, 
 // [accesserrors.UserNameNotValid] when the username supplied is not valid.
 // [accesserrors.UserNotFound] when the user cannot be found.
 // [modelerrors.NotFound] if no model by the given modelUUID exists.
-func (s *UserService) SetLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID, lastLogin time.Time) (err error) {
+func (s *UserService) SetLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID, lastLogin time.Time) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -394,7 +395,7 @@ func (s *UserService) SetLastModelLogin(ctx context.Context, name user.Name, mod
 // - [modelerrors.NotFound] if no model by the given modelUUID exists.
 // - [accesserrors.UserNeverAccessedModel] if there is no record of the user
 // accessing the model.
-func (s *UserService) LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (_ time.Time, err error) {
+func (s *UserService) LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (time.Time, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -447,7 +448,7 @@ type Sealer interface {
 // unmarshalled an error will be returned.
 // To prevent the leaking of the key and nonce (which can unbox the secret),
 // a Sealer will be returned that can be used to seal the response payload.
-func (s *UserService) SetPasswordWithActivationKey(ctx context.Context, name user.Name, nonce, box []byte) (_ Sealer, err error) {
+func (s *UserService) SetPasswordWithActivationKey(ctx context.Context, name user.Name, nonce, box []byte) (Sealer, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

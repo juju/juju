@@ -73,7 +73,7 @@ func NewWatchableService(
 // and so does not factor machine removals, which are considered to be
 // after their transition to the dead state.
 // It emits machine names rather than UUIDs.
-func (s *WatchableService) WatchModelMachines(ctx context.Context) (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -88,7 +88,7 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (_ watcher.St
 // WatchMachineCloudInstances returns a NotifyWatcher that is subscribed to
 // the changes in the machine_cloud_instance table in the model, for the given
 // machine UUID.
-func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machineUUID machine.UUID) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machineUUID machine.UUID) (watcher.NotifyWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -106,7 +106,7 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machi
 // Note: Sometime in the future, this watcher could react to logical changes
 // fired from `SetAppliedLXDProfileNames()` instead of the `machine_lxd_profile`
 // table, which could become noisy.
-func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID machine.UUID) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID machine.UUID) (watcher.NotifyWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -122,7 +122,7 @@ func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID mac
 // WatchMachineReboot returns a NotifyWatcher that is subscribed to
 // the changes in the machine_requires_reboot table in the model.
 // It raises an event whenever the machine uuid or its parent is added to the reboot table.
-func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid machine.UUID) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid machine.UUID) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

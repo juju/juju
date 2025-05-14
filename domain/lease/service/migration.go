@@ -33,7 +33,7 @@ func NewMigrationService(st MigrationState) *MigrationService {
 
 // GetApplicationLeadershipForModel returns the leadership information for the
 // model applications.
-func (s *MigrationService) GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (_ map[string]string, err error) {
+func (s *MigrationService) GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (map[string]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

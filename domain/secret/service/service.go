@@ -65,7 +65,7 @@ type SecretService struct {
 }
 
 // CreateSecretURIs returns the specified number of new secret URIs.
-func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) (_ []*secrets.URI, err error) {
+func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*secrets.URI, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -372,7 +372,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 // It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists] if
 // the secret owner already has a secret with the same label.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
-func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, params UpdateUserSecretParams) (err error) {
+func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, params UpdateUserSecretParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -473,7 +473,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 // It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists] if
 // the secret owner already has a secret with the same label.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
-func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI, params UpdateCharmSecretParams) (err error) {
+func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI, params UpdateCharmSecretParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -649,7 +649,7 @@ func (s *SecretService) GetSecretsForOwners(ctx domain.AtomicContext, owners ...
 func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 	revision *int,
 	labels domainsecret.Labels,
-) (_ []*secrets.SecretMetadata, _ [][]*secrets.SecretRevisionMetadata, err error) {
+) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -676,7 +676,7 @@ func splitCharmSecretOwners(owners ...CharmSecretOwner) (domainsecret.Applicatio
 // The count of secret and revisions in the result must match.
 func (s *SecretService) ListCharmSecrets(
 	ctx context.Context, owners ...CharmSecretOwner,
-) (_ []*secrets.SecretMetadata, _ [][]*secrets.SecretRevisionMetadata, err error) {
+) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -686,7 +686,7 @@ func (s *SecretService) ListCharmSecrets(
 
 // GetSecret returns the secret with the specified URI.
 // If returns [secreterrors.SecretNotFound] is there's no such secret.
-func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (_ *secrets.SecretMetadata, err error) {
+func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -695,23 +695,19 @@ func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (_ *sec
 
 // GetUserSecretURIByLabel returns the user secret URI with the specified label.
 // If returns [secreterrors.SecretNotFound] is there's no such secret.
-func (s *SecretService) GetUserSecretURIByLabel(ctx context.Context, label string) (_ *secrets.URI, err error) {
+func (s *SecretService) GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.
+	defer span.End()
 
-			// ListCharmSecretsToDrain returns secret drain revision info for
-			// the secrets owned by the specified apps and units.
-			RecordError(err)
-		span.End()
-	}()
 	return s.secretState.GetUserSecretURIByLabel(ctx, label)
 }
 
+// ListCharmSecretsToDrain returns secret drain revision info for
+// the secrets owned by the specified apps and units.
 func (s *SecretService) ListCharmSecretsToDrain(
 	ctx context.Context,
 	owners ...CharmSecretOwner,
-) (_ []*secrets.SecretMetadataForDrain, err error) {
+) ([]*secrets.SecretMetadataForDrain, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -720,7 +716,7 @@ func (s *SecretService) ListCharmSecretsToDrain(
 }
 
 // ListUserSecretsToDrain returns secret drain revision info for any user secrets.
-func (s *SecretService) ListUserSecretsToDrain(ctx context.Context) (_ []*secrets.SecretMetadataForDrain, err error) {
+func (s *SecretService) ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -729,7 +725,7 @@ func (s *SecretService) ListUserSecretsToDrain(ctx context.Context) (_ []*secret
 
 // GetSecretValue returns the value of the specified secret revision.
 // If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
-func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, rev int, accessor SecretAccessor) (_ secrets.SecretValue, _ *secrets.ValueRef, err error) {
+func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, rev int, accessor SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -743,7 +739,7 @@ func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, re
 // GetSecretContentFromBackend retrieves the content for the specified secret revision.
 // If the content is not found, it may be that the secret has been drained so it tries
 // again using the new active backend.
-func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *secrets.URI, rev int) (_ secrets.SecretValue, err error) {
+func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *secrets.URI, rev int) (secrets.SecretValue, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -803,7 +799,7 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 // the consumer.
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	ctx context.Context, unitName coreunit.Name, uri *secrets.URI, label string,
-) (_ *secrets.URI, _ *string, err error) {
+) (*secrets.URI, *string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -934,7 +930,7 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) ChangeSecretBackend(
 	ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -981,7 +977,7 @@ func (s *SecretService) ChangeSecretBackend(
 }
 
 // SecretRotated rotates the secret with the specified URI.
-func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, params SecretRotatedParams) (err error) {
+func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, params SecretRotatedParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

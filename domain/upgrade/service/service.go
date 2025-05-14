@@ -59,7 +59,7 @@ func NewService(st State, wf WatcherFactory) *Service {
 
 // CreateUpgrade creates an upgrade to and from specified versions
 // If an upgrade is already running/pending, return an AlreadyExists err
-func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVersion semversion.Number) (_ upgrade.UUID, err error) {
+func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVersion semversion.Number) (upgrade.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if previousVersion.Compare(targetVersion) >= 0 {
@@ -71,7 +71,7 @@ func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVers
 // SetControllerReady marks the supplied controllerID as being ready
 // to start its upgrade. All provisioned controllers need to be ready
 // before an upgrade can start
-func (s *Service) SetControllerReady(ctx context.Context, upgradeUUID upgrade.UUID, controllerID string) (err error) {
+func (s *Service) SetControllerReady(ctx context.Context, upgradeUUID upgrade.UUID, controllerID string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -82,7 +82,7 @@ func (s *Service) SetControllerReady(ctx context.Context, upgradeUUID upgrade.UU
 }
 
 // StartUpgrade starts the current upgrade if it exists
-func (s *Service) StartUpgrade(ctx context.Context, upgradeUUID upgrade.UUID) (err error) {
+func (s *Service) StartUpgrade(ctx context.Context, upgradeUUID upgrade.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -95,7 +95,7 @@ func (s *Service) StartUpgrade(ctx context.Context, upgradeUUID upgrade.UUID) (e
 // SetControllerDone marks the supplied controllerID as having
 // completed its upgrades. When SetControllerDone is called by the
 // last provisioned controller, the upgrade will be archived.
-func (s *Service) SetControllerDone(ctx context.Context, upgradeUUID upgrade.UUID, controllerID string) (err error) {
+func (s *Service) SetControllerDone(ctx context.Context, upgradeUUID upgrade.UUID, controllerID string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -106,7 +106,7 @@ func (s *Service) SetControllerDone(ctx context.Context, upgradeUUID upgrade.UUI
 }
 
 // SetDBUpgradeCompleted marks the upgrade as completed in the database
-func (s *Service) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID upgrade.UUID) (err error) {
+func (s *Service) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID upgrade.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -118,7 +118,7 @@ func (s *Service) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID upgrade
 
 // SetDBUpgradeFailed marks the upgrade as failed in the database.
 // Manual intervention will be required if this has been invoked.
-func (s *Service) SetDBUpgradeFailed(ctx context.Context, upgradeUUID upgrade.UUID) (err error) {
+func (s *Service) SetDBUpgradeFailed(ctx context.Context, upgradeUUID upgrade.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -130,14 +130,14 @@ func (s *Service) SetDBUpgradeFailed(ctx context.Context, upgradeUUID upgrade.UU
 
 // ActiveUpgrade returns the uuid of the current active upgrade.
 // If there are no active upgrades, return a NotFound error
-func (s *Service) ActiveUpgrade(ctx context.Context) (_ upgrade.UUID, err error) {
+func (s *Service) ActiveUpgrade(ctx context.Context) (upgrade.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.st.ActiveUpgrade(ctx)
 }
 
 // UpgradeInfo returns the upgrade info for the supplied upgradeUUID
-func (s *Service) UpgradeInfo(ctx context.Context, upgradeUUID upgrade.UUID) (_ coreupgrade.Info, err error) {
+func (s *Service) UpgradeInfo(ctx context.Context, upgradeUUID upgrade.UUID) (coreupgrade.Info, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	if err := upgradeUUID.Validate(); err != nil {
@@ -149,18 +149,17 @@ func (s *Service) UpgradeInfo(ctx context.Context, upgradeUUID upgrade.UUID) (_ 
 // IsUpgrading returns true if there is an upgrade in progress.
 // This essentially asks is there any upgrades that are not in the terminal
 // states (completed or failed)
-func (s *Service) IsUpgrading(ctx context.Context) (_ bool, err error) {
+func (s *Service) IsUpgrading(ctx context.Context) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if _, err := s.ActiveUpgrade(ctx); err == nil {
-		return true, nil
-	}
-	if errors.Is(err, upgradeerrors.NotFound) {
+	if _, err := s.ActiveUpgrade(ctx); err != nil {
+		return false, errors.Capture(err)
+	} else if errors.Is(err, upgradeerrors.NotFound) {
 		return false, nil
 	}
 
-	return false, errors.Capture(err)
+	return true, nil
 }
 
 // WatchableService provides the API for working with upgrade info
@@ -213,7 +212,7 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 
 // WatchForUpgradeState creates a watcher which notifies when the upgrade
 // has reached the given state.
-func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID upgrade.UUID, state coreupgrade.State) (_ watcher.NotifyWatcher, err error) {
+func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID upgrade.UUID, state coreupgrade.State) (watcher.NotifyWatcher, error) {
 	if err := upgradeUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}

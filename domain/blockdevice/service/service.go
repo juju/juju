@@ -63,7 +63,7 @@ func NewService(st State, logger logger.Logger) *Service {
 }
 
 // BlockDevices returns the block devices for a specified machine.
-func (s *Service) BlockDevices(ctx context.Context, machineId string) (_ []blockdevice.BlockDevice, err error) {
+func (s *Service) BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -71,7 +71,7 @@ func (s *Service) BlockDevices(ctx context.Context, machineId string) (_ []block
 }
 
 // UpdateBlockDevices updates the block devices for a specified machine.
-func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) (err error) {
+func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -84,7 +84,7 @@ func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devi
 }
 
 // AllBlockDevices returns all block devices in the model, keyed on machine id.
-func (s *Service) AllBlockDevices(ctx context.Context) (_ map[string]blockdevice.BlockDevice, err error) {
+func (s *Service) AllBlockDevices(ctx context.Context) (map[string]blockdevice.BlockDevice, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -123,7 +123,7 @@ func NewWatchableService(st State, wf WatcherFactory, logger logger.Logger) *Wat
 func (s *WatchableService) WatchBlockDevices(
 	ctx context.Context,
 	machineId string,
-) (_ watcher.NotifyWatcher, err error) {
+) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

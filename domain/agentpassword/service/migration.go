@@ -41,7 +41,7 @@ func NewMigrationService(
 }
 
 // GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-func (s *MigrationService) GetAllUnitPasswordHashes(ctx context.Context) (_ agentpassword.UnitPasswordHashes, err error) {
+func (s *MigrationService) GetAllUnitPasswordHashes(ctx context.Context) (agentpassword.UnitPasswordHashes, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -49,7 +49,7 @@ func (s *MigrationService) GetAllUnitPasswordHashes(ctx context.Context) (_ agen
 }
 
 // SetUnitPasswordHash sets the password hash for the given unit.
-func (s *MigrationService) SetUnitPasswordHash(ctx context.Context, unitName unit.Name, passwordHash agentpassword.PasswordHash) (err error) {
+func (s *MigrationService) SetUnitPasswordHash(ctx context.Context, unitName unit.Name, passwordHash agentpassword.PasswordHash) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

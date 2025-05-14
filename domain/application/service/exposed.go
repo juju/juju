@@ -19,7 +19,7 @@ import (
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) IsApplicationExposed(ctx context.Context, appName string) (_ bool, err error) {
+func (s *Service) IsApplicationExposed(ctx context.Context, appName string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -38,7 +38,7 @@ func (s *Service) IsApplicationExposed(ctx context.Context, appName string) (_ b
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (_ map[string]application.ExposedEndpoint, err error) {
+func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -57,7 +57,7 @@ func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (_ ma
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, exposedEndpoints set.Strings) (err error) {
+func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, exposedEndpoints set.Strings) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -75,7 +75,7 @@ func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, expos
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) (err error) {
+func (s *Service) MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

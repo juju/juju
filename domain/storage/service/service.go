@@ -45,7 +45,7 @@ func NewService(st State, logger logger.Logger, registryGetter corestorage.Model
 //
 // Deprecated: This method will be removed once the storage registry is fully
 // implemented in each service.
-func (s *Service) GetStorageRegistry(ctx context.Context) (_ internalstorage.ProviderRegistry, err error) {
+func (s *Service) GetStorageRegistry(ctx context.Context) (internalstorage.ProviderRegistry, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

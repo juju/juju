@@ -94,7 +94,7 @@ func (s *Service) Put(
 	r io.Reader,
 	_ int64,
 	_ store.Fingerprint,
-) (_ store.ID, _ int64, _ store.Fingerprint, err error) {
+) (store.ID, int64, store.Fingerprint, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -127,7 +127,7 @@ func (s *Service) Put(
 func (s *Service) Remove(
 	ctx context.Context,
 	storageKey string,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

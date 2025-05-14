@@ -40,7 +40,7 @@ func NewService(providerGetter providertracker.ProviderGetter[Provider]) *Servic
 // If the provider does not support the environs.ConnectorInfo then it will
 // return [errors.ProxyNotSupported], if the connection proxy info is not located
 // it will return [errors.ProxyNotFound].
-func (s *Service) GetConnectionProxyInfo(ctx context.Context) (_ proxy.Proxier, err error) {
+func (s *Service) GetConnectionProxyInfo(ctx context.Context) (proxy.Proxier, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -63,7 +63,7 @@ func (s *Service) GetConnectionProxyInfo(ctx context.Context) (_ proxy.Proxier, 
 
 // GetProxyToApplication returns the proxy information for the application
 // with the given port.
-func (s *Service) GetProxyToApplication(ctx context.Context, appName, remotePort string) (_ proxy.Proxier, err error) {
+func (s *Service) GetProxyToApplication(ctx context.Context, appName, remotePort string) (proxy.Proxier, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

@@ -86,7 +86,7 @@ func NewService(st State) *Service {
 }
 
 // GetMetadata returns the persistence metadata for the specified path.
-func (s *Service) GetMetadata(ctx context.Context, path string) (_ objectstore.Metadata, err error) {
+func (s *Service) GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -104,7 +104,7 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (_ objectstore.M
 
 // GetMetadataBySHA256 returns the persistence metadata for the object
 // with SHA256 starting with the provided prefix.
-func (s *Service) GetMetadataBySHA256(ctx context.Context, sha256 string) (_ objectstore.Metadata, err error) {
+func (s *Service) GetMetadataBySHA256(ctx context.Context, sha256 string) (objectstore.Metadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -128,7 +128,7 @@ func (s *Service) GetMetadataBySHA256(ctx context.Context, sha256 string) (_ obj
 
 // GetMetadataBySHA256Prefix returns the persistence metadata for the object
 // with SHA256 starting with the provided prefix.
-func (s *Service) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix string) (_ objectstore.Metadata, err error) {
+func (s *Service) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix string) (objectstore.Metadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -151,7 +151,7 @@ func (s *Service) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix st
 }
 
 // ListMetadata returns the persistence metadata for all paths.
-func (s *Service) ListMetadata(ctx context.Context) (_ []objectstore.Metadata, err error) {
+func (s *Service) ListMetadata(ctx context.Context) ([]objectstore.Metadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -175,7 +175,7 @@ func (s *Service) ListMetadata(ctx context.Context) (_ []objectstore.Metadata, e
 // hash is missing, a [objectstoreerrors.ErrMissingHash] error is returned. It
 // is expected that the caller supplies both hashes or none and they should be
 // consistent with the object. That's the caller's responsibility.
-func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata) (_ objectstore.UUID, err error) {
+func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata) (objectstore.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -200,7 +200,7 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 }
 
 // RemoveMetadata removes the specified path for the persistence metadata.
-func (s *Service) RemoveMetadata(ctx context.Context, path string) (err error) {
+func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -229,7 +229,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 
 // Watch returns a watcher that emits the path changes that either have been
 // added or removed.
-func (s *WatchableService) Watch() (_ watcher.StringsWatcher, err error) {
+func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	// TODO (stickupkid): Wire up context.Context to the watcher.
 	table, stmt := s.st.InitialWatchStatement()
 	return s.watcherFactory.NewNamespaceWatcher(

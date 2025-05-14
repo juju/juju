@@ -91,7 +91,7 @@ func NewAgentBinaryService(
 // taking precedence over the controller agent binaries.
 // It returns a slice of agent binary metadata. The order of the metadata is not guaranteed.
 // An empty slice is returned if no agent binaries are found.
-func (s *AgentBinaryService) ListAgentBinaries(ctx context.Context) (_ []agentbinary.Metadata, err error) {
+func (s *AgentBinaryService) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	controllerAgentBinaries, err := s.controllerState.ListAgentBinaries(ctx)

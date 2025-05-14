@@ -28,7 +28,7 @@ func NewService(st State) *Service {
 }
 
 // ControllerModelUUID returns the model UUID of the controller model.
-func (s *Service) ControllerModelUUID(ctx context.Context) (_ model.UUID, err error) {
+func (s *Service) ControllerModelUUID(ctx context.Context) (model.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return s.st.ControllerModelUUID(ctx)

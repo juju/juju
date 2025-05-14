@@ -224,7 +224,7 @@ func ProviderDefaults(
 func (s *Service) CloudDefaults(
 	ctx context.Context,
 	cloudName string,
-) (_ modeldefaults.ModelDefaultAttributes, err error) {
+) (modeldefaults.ModelDefaultAttributes, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -285,7 +285,7 @@ func (s *Service) UpdateCloudDefaults(
 	ctx context.Context,
 	cloudName string,
 	updateAttrs map[string]any,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -317,7 +317,7 @@ func (s *Service) UpdateCloudRegionDefaults(
 	cloudName string,
 	regionName string,
 	updateAttrs map[string]any,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -351,7 +351,7 @@ func (s *Service) RemoveCloudDefaults(
 	ctx context.Context,
 	cloudName string,
 	removeAttrs []string,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -379,7 +379,7 @@ func (s *Service) RemoveCloudRegionDefaults(
 	cloudName,
 	regionName string,
 	removeAttrs []string,
-) (err error) {
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -415,7 +415,7 @@ func (s *Service) RemoveCloudRegionDefaults(
 func (s *Service) ModelDefaults(
 	ctx context.Context,
 	uuid coremodel.UUID,
-) (_ modeldefaults.Defaults, err error) {
+) (modeldefaults.Defaults, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

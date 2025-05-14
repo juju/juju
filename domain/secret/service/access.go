@@ -17,7 +17,7 @@ import (
 
 // GetSecretGrants returns the subjects which have the specified access to the secret.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
-func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) (_ []SecretAccess, err error) {
+func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]SecretAccess, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -63,7 +63,7 @@ func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, r
 
 // GetSecretAccessScope returns the access scope for the specified accessor's permission on the secret.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
-func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) (_ SecretAccessScope, err error) {
+func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) (SecretAccessScope, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -132,7 +132,7 @@ func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, a
 // If an attempt is made to change an existing permission's scope or subject type, an error
 // satisfying [secreterrors.InvalidSecretPermissionChange] is returned.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
-func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) (err error) {
+func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -178,7 +178,7 @@ func grantParams(in SecretAccessParams) domainsecret.GrantParams {
 
 // RevokeSecretAccess revokes access to the secret for the specified subject.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
-func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) (err error) {
+func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

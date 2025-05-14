@@ -41,7 +41,7 @@ type StorageService struct {
 // The following error types can be expected:
 // - [coreerrors.NotSupported]: when the importing the kind of storage is not supported by the provider.
 // - [storageerrors.InvalidPoolNameError]: when the supplied pool name is invalid.
-func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorageParams) (_ corestorage.ID, err error) {
+func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorageParams) (corestorage.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

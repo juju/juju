@@ -17,7 +17,7 @@ import (
 
 // GetSecretsForExport returns a result containing all the information needed to
 // export secrets to a model description.
-func (s *SecretService) GetSecretsForExport(ctx context.Context) (_ *SecretExport, err error) {
+func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -147,7 +147,7 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (_ *SecretExpor
 }
 
 // ImportSecrets saves the supplied secret details to the model.
-func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretExport) (err error) {
+func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretExport) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
