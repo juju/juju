@@ -17,10 +17,7 @@ import (
 // AddSubnet creates and returns a new subnet.
 func (s *Service) AddSubnet(ctx context.Context, args network.SubnetInfo) (_ network.Id, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if args.ID == "" {
 		uuid, err := uuid.NewV7()
@@ -40,10 +37,7 @@ func (s *Service) AddSubnet(ctx context.Context, args network.SubnetInfo) (_ net
 // GetAllSubnets returns all the subnets for the model.
 func (s *Service) GetAllSubnets(ctx context.Context) (_ network.SubnetInfos, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	allSubnets, err := s.st.GetAllSubnets(ctx)
 	return allSubnets, errors.Capture(err)
 }
@@ -52,10 +46,7 @@ func (s *Service) GetAllSubnets(ctx context.Context) (_ network.SubnetInfos, err
 // or an error if it is not found.
 func (s *Service) Subnet(ctx context.Context, uuid string) (_ *network.SubnetInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	subnet, err := s.st.GetSubnet(ctx, uuid)
 	return subnet, errors.Capture(err)
 }
@@ -63,10 +54,7 @@ func (s *Service) Subnet(ctx context.Context, uuid string) (_ *network.SubnetInf
 // SubnetsByCIDR returns the subnets matching the input CIDRs.
 func (s *Service) SubnetsByCIDR(ctx context.Context, cidrs ...string) (_ []network.SubnetInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	subnets, err := s.st.GetSubnetsByCIDR(ctx, cidrs...)
 	return subnets, errors.Capture(err)
 }
@@ -75,19 +63,13 @@ func (s *Service) SubnetsByCIDR(ctx context.Context, cidrs ...string) (_ []netwo
 // UUID.
 func (s *Service) UpdateSubnet(ctx context.Context, uuid, spaceUUID string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return errors.Capture(s.st.UpdateSubnet(ctx, uuid, spaceUUID))
 }
 
 // Remove deletes a subnet identified by its uuid.
 func (s *Service) RemoveSubnet(ctx context.Context, uuid string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return errors.Capture(s.st.DeleteSubnet(ctx, uuid))
 }

@@ -15,10 +15,7 @@ import (
 // DeleteObsoleteUserSecretRevisions deletes any obsolete user secret revisions that are marked as auto-prune.
 func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	deletedRevisionIDs, err := s.secretState.DeleteObsoleteUserSecretRevisions(ctx)
 	if err != nil {
@@ -36,10 +33,7 @@ func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) (
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, params DeleteSecretParams) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {

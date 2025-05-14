@@ -38,10 +38,7 @@ func NewUserService(st UserState) *UserService {
 // will be returned.
 func (s *UserService) GetAllUsers(ctx context.Context, includeDisabled bool) (_ []user.User, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	usrs, err := s.st.GetAllUsers(ctx, includeDisabled)
 	if err != nil {
@@ -58,10 +55,7 @@ func (s *UserService) GetUser(
 	uuid user.UUID,
 ) (_ user.User, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := uuid.Validate(); err != nil {
 		return user.User{}, errors.Errorf("validating uuid %q: %w", uuid, accesserrors.UserUUIDNotValid)
@@ -86,10 +80,7 @@ func (s *UserService) GetUserByName(
 	name user.Name,
 ) (_ user.User, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return user.User{}, errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
@@ -112,10 +103,7 @@ func (s *UserService) GetUserUUIDByName(
 	name user.Name,
 ) (_ user.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return "", errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
@@ -140,10 +128,7 @@ func (s *UserService) GetUserByAuth(
 	password auth.Password,
 ) (_ user.User, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return user.User{}, errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
@@ -176,10 +161,7 @@ func (s *UserService) GetUserByAuth(
 //   - auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *UserService) AddUser(ctx context.Context, arg AddUserArg) (_ user.UUID, _ []byte, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if arg.Name.IsZero() {
 		return "", nil, errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
@@ -257,10 +239,7 @@ func (s *UserService) addUserWithActivationKey(ctx context.Context, arg AddUserA
 //     does not exist.
 func (s *UserService) AddExternalUser(ctx context.Context, name user.Name, displayName string, creatorUUID user.UUID) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsLocal() {
 		return errors.Errorf("cannot use add external user method to add local user: %w", accesserrors.UserNameNotValid)
@@ -281,10 +260,7 @@ func (s *UserService) AddExternalUser(ctx context.Context, name user.Name, displ
 // - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) RemoveUser(ctx context.Context, name user.Name) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
@@ -303,10 +279,7 @@ func (s *UserService) RemoveUser(ctx context.Context, name user.Name) (err error
 //   - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *UserService) SetPassword(ctx context.Context, name user.Name, pass auth.Password) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if name.IsZero() {
 		return errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
 	}
@@ -324,10 +297,7 @@ func (s *UserService) SetPassword(ctx context.Context, name user.Name, pass auth
 // - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) ResetPassword(ctx context.Context, name user.Name) (_ []byte, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if name.IsZero() {
 		return nil, errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
 	}
@@ -349,10 +319,7 @@ func (s *UserService) ResetPassword(ctx context.Context, name user.Name) (_ []by
 // - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) EnableUserAuthentication(ctx context.Context, name user.Name) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
@@ -370,10 +337,7 @@ func (s *UserService) EnableUserAuthentication(ctx context.Context, name user.Na
 // - accesserrors.NotFound: If no user by the given UUID exists.
 func (s *UserService) DisableUserAuthentication(ctx context.Context, name user.Name) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
@@ -392,10 +356,7 @@ func (s *UserService) DisableUserAuthentication(ctx context.Context, name user.N
 // - [modelerrors.NotFound] if no model by the given modelUUID exists.
 func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
@@ -414,10 +375,7 @@ func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, 
 // [modelerrors.NotFound] if no model by the given modelUUID exists.
 func (s *UserService) SetLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID, lastLogin time.Time) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
@@ -438,10 +396,7 @@ func (s *UserService) SetLastModelLogin(ctx context.Context, name user.Name, mod
 // accessing the model.
 func (s *UserService) LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (_ time.Time, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return time.Time{}, errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
@@ -494,10 +449,7 @@ type Sealer interface {
 // a Sealer will be returned that can be used to seal the response payload.
 func (s *UserService) SetPasswordWithActivationKey(ctx context.Context, name user.Name, nonce, box []byte) (_ Sealer, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return nil, errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)

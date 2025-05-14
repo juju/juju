@@ -73,10 +73,7 @@ func NewService(st State) *Service {
 // [resolveerrors.UnitNotResolved] is returned.
 func (s *Service) UnitResolveMode(ctx context.Context, unitName coreunit.Name) (_ resolve.ResolveMode, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return "", err
@@ -94,10 +91,7 @@ func (s *Service) UnitResolveMode(ctx context.Context, unitName coreunit.Name) (
 // returned.
 func (s *Service) ResolveUnit(ctx context.Context, unitName coreunit.Name, mode resolve.ResolveMode) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return err
@@ -112,10 +106,7 @@ func (s *Service) ResolveUnit(ctx context.Context, unitName coreunit.Name, mode 
 // ResolveAllUnits marks all units as resolved.
 func (s *Service) ResolveAllUnits(ctx context.Context, mode resolve.ResolveMode) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return s.st.ResolveAllUnits(ctx, mode)
 }
 
@@ -123,10 +114,7 @@ func (s *Service) ResolveAllUnits(ctx context.Context, mode resolve.ResolveMode)
 // found, an error satisfying [resolveerrors.UnitNotFound] is returned.
 func (s *Service) ClearResolved(ctx context.Context, unitName coreunit.Name) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return err
@@ -161,10 +149,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 // will be returned.
 func (s *WatchableService) WatchUnitResolveMode(ctx context.Context, unitName coreunit.Name) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return nil, err

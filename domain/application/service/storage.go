@@ -81,10 +81,7 @@ type StorageState interface {
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -122,10 +119,7 @@ func (s *Service) AddStorageForUnit(
 	ctx context.Context, storageName corestorage.Name, unitName coreunit.Name, directive storage.Directive,
 ) (_ []corestorage.ID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if err := unitName.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -148,10 +142,7 @@ func (s *Service) AddStorageForUnit(
 // - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
 func (s *Service) DetachStorageForUnit(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -176,10 +167,7 @@ func (s *Service) DetachStorageForUnit(ctx context.Context, storageID corestorag
 // - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
 func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if err := storageID.Validate(); err != nil {
 		return errors.Capture(err)
 	}

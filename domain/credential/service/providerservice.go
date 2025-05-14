@@ -55,10 +55,7 @@ type ProviderService struct {
 // CloudCredential returns the cloud credential for the given tag.
 func (s *ProviderService) CloudCredential(ctx context.Context, key corecredential.Key) (_ cloud.Credential, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return cloud.Credential{}, errors.Errorf("invalid id getting cloud credential: %w", err)
@@ -79,10 +76,7 @@ func (s *ProviderService) CloudCredential(ctx context.Context, key corecredentia
 // credential specified by key does not exist.
 func (s *ProviderService) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return errors.Errorf("invalidating cloud credential with invalid key: %w", err)
@@ -116,10 +110,7 @@ func NewWatchableProviderService(st ProviderState, watcherFactory WatcherFactory
 // credential.
 func (s *WatchableProviderService) WatchCredential(ctx context.Context, key corecredential.Key) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return nil, errors.Errorf("watching cloud credential with invalid key: %w", err)

@@ -62,10 +62,7 @@ type RelationState interface {
 func (s *Service) RemoveRelation(
 	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration) (_ removal.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	exists, err := s.st.RelationExists(ctx, relUUID.String())
 	if err != nil {

@@ -84,10 +84,7 @@ func NewMigrationService(
 // [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *MigrationService) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (_ corecharm.ID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !isValidCharmName(args.Name) {
 		return "", applicationerrors.CharmNameNotValid
@@ -116,10 +113,7 @@ func (s *MigrationService) GetCharmID(ctx context.Context, args charm.GetCharmAr
 // returned.
 func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name string) (_ internalcharm.Charm, _ charm.CharmLocator, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !isValidApplicationName(name) {
 		return nil, charm.CharmLocator{}, applicationerrors.ApplicationNameNotValid
@@ -181,10 +175,7 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 // GetApplications returns all the applications in the model.
 func (s *MigrationService) GetApplications(ctx context.Context) (_ []application.ExportApplication, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetApplicationsForExport(ctx)
 }
@@ -194,10 +185,7 @@ func (s *MigrationService) GetApplications(ctx context.Context) (_ []application
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *MigrationService) GetApplicationUnits(ctx context.Context, name string) (_ []application.ExportUnit, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !isValidApplicationName(name) {
 		return nil, applicationerrors.ApplicationNameNotValid
@@ -216,10 +204,7 @@ func (s *MigrationService) GetApplicationUnits(ctx context.Context, name string)
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name string) (_ application.CharmOrigin, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !isValidApplicationName(name) {
 		return application.CharmOrigin{}, applicationerrors.ApplicationNameNotValid
@@ -242,10 +227,7 @@ func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name s
 // is returned.
 func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, name string) (_ config.ConfigAttributes, _ application.ApplicationSettings, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !isValidApplicationName(name) {
 		return nil, application.ApplicationSettings{}, applicationerrors.ApplicationNameNotValid
@@ -276,10 +258,7 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name string) (_ coreconstraints.Value, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !isValidApplicationName(name) {
 		return coreconstraints.Value{}, applicationerrors.ApplicationNameNotValid
@@ -299,10 +278,7 @@ func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name s
 // [applicationerrors.UnitNotFound] is returned.
 func (s *MigrationService) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (_ coreunit.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := name.Validate(); err != nil {
 		return "", errors.Capture(err)
@@ -316,10 +292,7 @@ func (s *MigrationService) GetUnitUUIDByName(ctx context.Context, name coreunit.
 // [applicationerrors.ApplicationNotFound] if the application is not found.
 func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name string) (_ application.ScaleState, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !isValidApplicationName(name) {
 		return application.ScaleState{}, applicationerrors.ApplicationNameNotValid
@@ -339,10 +312,7 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 // exists.
 func (s *MigrationService) ImportCAASApplication(ctx context.Context, name string, args ImportApplicationArgs) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, charmUUID, err := s.importApplication(ctx, name, args)
 	if err != nil {
@@ -374,10 +344,7 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 // exists.
 func (s *MigrationService) ImportIAASApplication(ctx context.Context, name string, args ImportApplicationArgs) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, charmUUID, err := s.importApplication(ctx, name, args)
 	if err != nil {
@@ -483,10 +450,7 @@ func makeInsertApplicationArg(
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *MigrationService) IsApplicationExposed(ctx context.Context, appName string) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
@@ -505,10 +469,7 @@ func (s *MigrationService) IsApplicationExposed(ctx context.Context, appName str
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *MigrationService) GetExposedEndpoints(ctx context.Context, appName string) (_ map[string]application.ExposedEndpoint, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
@@ -524,10 +485,7 @@ func (s *MigrationService) GetExposedEndpoints(ctx context.Context, appName stri
 // space name doesn't exist.
 func (s *MigrationService) GetSpaceUUIDByName(ctx context.Context, name string) (_ network.Id, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetSpaceUUIDByName(ctx, name)
 }
@@ -592,10 +550,7 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 // as much of the application as possible, even on failure.
 func (s *MigrationService) RemoveImportedApplication(ctx context.Context, name string) (err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	// TODO (stickupkid): This is a placeholder for now, we need to implement
 	// this method.

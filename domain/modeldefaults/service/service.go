@@ -226,10 +226,7 @@ func (s *Service) CloudDefaults(
 	cloudName string,
 ) (_ modeldefaults.ModelDefaultAttributes, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
@@ -290,10 +287,7 @@ func (s *Service) UpdateCloudDefaults(
 	updateAttrs map[string]any,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
@@ -325,10 +319,7 @@ func (s *Service) UpdateCloudRegionDefaults(
 	updateAttrs map[string]any,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
@@ -362,10 +353,7 @@ func (s *Service) RemoveCloudDefaults(
 	removeAttrs []string,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
@@ -393,10 +381,7 @@ func (s *Service) RemoveCloudRegionDefaults(
 	removeAttrs []string,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
@@ -432,10 +417,7 @@ func (s *Service) ModelDefaults(
 	uuid coremodel.UUID,
 ) (_ modeldefaults.Defaults, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := uuid.Validate(); err != nil {
 		return modeldefaults.Defaults{}, errors.Errorf("model uuid: %w", err)
@@ -674,10 +656,7 @@ func (s *Service) ModelDefaultsProvider(
 ) ModelDefaultsProviderFunc {
 	return func(ctx context.Context) (_ modeldefaults.Defaults, err error) {
 		ctx, span := trace.Start(ctx, trace.NameFromFunc())
-		defer func() {
-			span.RecordError(err)
-			span.End()
-		}()
+		defer span.End()
 
 		return s.ModelDefaults(ctx, uuid)
 	}

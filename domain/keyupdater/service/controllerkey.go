@@ -38,10 +38,7 @@ func (s *ControllerKeyService) ControllerAuthorisedKeys(
 	ctx context.Context,
 ) (_ []string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	ctrlConfig, err := s.st.GetControllerConfigKeys(ctx, []string{controller.SystemSSHKeys})
 	if err != nil {

@@ -52,10 +52,7 @@ func NewWatchableService(
 // and returns a watcher which notifies of secret URIs that have had a new revision added.
 func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName coreunit.Name) (_ watcher.StringsWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	tableLocal, queryLocal := s.secretState.InitialWatchStatementForConsumedSecretsChange(unitName)
 	wLocal, err := s.watcherFactory.NewNamespaceWatcher(
@@ -99,10 +96,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 // that have had a new revision added.
 func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (_ watcher.StringsWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	table, query := s.secretState.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
@@ -127,10 +121,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 // secret results are "uri".
 func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSecretOwner) (_ watcher.StringsWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -140,10 +131,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 // WatchSecretRevisionsExpiryChanges returns a watcher that notifies when the expiry time of a secret revision changes.
 func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...CharmSecretOwner) (_ watcher.SecretTriggerWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
@@ -424,10 +412,7 @@ func (w *obsoleteWatcher) Wait() (err error) {
 // WatchSecretsRotationChanges returns a watcher that notifies when the rotation time of a secret changes.
 func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owners ...CharmSecretOwner) (_ watcher.SecretTriggerWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -462,10 +447,7 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 // WatchObsoleteUserSecretsToPrune returns a watcher that notifies when a user secret revision is obsolete and ready to be pruned.
 func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		if len(changes) == 0 {

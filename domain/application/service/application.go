@@ -630,10 +630,7 @@ func (s *Service) GetApplicationIDByUnitName(
 	unitName coreunit.Name,
 ) (_ coreapplication.ID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	id, err := s.st.GetApplicationIDByUnitName(ctx, unitName)
 	if err != nil {
@@ -675,10 +672,7 @@ func makeStorageArgs(storage map[string]storage.Directive) []application.Applica
 // is returned.
 func (s *Service) DeleteApplication(ctx context.Context, name string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.DeleteApplication(ctx, name); err != nil {
 		return errors.Errorf("deleting application %q: %w", name, err)
@@ -691,10 +685,7 @@ func (s *Service) DeleteApplication(ctx context.Context, name string) (err error
 // if the application doesn't exist.
 func (s *Service) DestroyApplication(ctx context.Context, appName string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
@@ -715,10 +706,7 @@ func (s *Service) DestroyApplication(ctx context.Context, appName string) (err e
 // TODO(units): remove when everything is in dqlite.
 func (s *Service) MarkApplicationDead(ctx context.Context, appName string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
@@ -735,10 +723,7 @@ func (s *Service) MarkApplicationDead(ctx context.Context, appName string) (err 
 // as storage are still viable with the new charm.
 func (s *Service) SetApplicationCharm(ctx context.Context, appName string, params application.UpdateCharmParams) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
@@ -758,10 +743,7 @@ func (s *Service) SetApplicationCharm(ctx context.Context, appName string, param
 // and [applicationerrors.ApplicationNotFound] if the application is not found.
 func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (_ coreapplication.ID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !isValidApplicationName(name) {
 		return "", applicationerrors.ApplicationNameNotValid
@@ -784,10 +766,7 @@ func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (_ co
 // [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name string) (_ charm.CharmLocator, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !isValidApplicationName(name) {
 		return charm.CharmLocator{}, applicationerrors.ApplicationNameNotValid
@@ -808,10 +787,7 @@ func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name str
 // Returns [applicationerrors.ApplicationNotFound] if the application is not found.
 func (s *Service) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (_ int, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	charmModifiedVersion, err := s.st.GetCharmModifiedVersion(ctx, id)
 	if err != nil {
@@ -835,10 +811,7 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 	err error,
 ) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := id.Validate(); err != nil {
 		return nil, charm.CharmLocator{}, errors.Errorf("application ID: %w", err).Add(applicationerrors.ApplicationIDNotValid)
@@ -896,10 +869,7 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if providerID == "" {
 		return errors.Errorf("empty provider ID %w", coreerrors.NotValid)
@@ -918,10 +888,7 @@ type Broker interface {
 // application is not found.
 func (s *Service) GetApplicationLife(ctx context.Context, appName string) (_ corelife.Value, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
 	if err != nil {
@@ -936,10 +903,7 @@ func (s *Service) GetApplicationLife(ctx context.Context, appName string) (_ cor
 // - [appliationerrors.ApplicationNotFound] if the application does not exist
 func (s *Service) IsSubordinateApplication(ctx context.Context, appUUID coreapplication.ID) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	subordinate, err := s.st.IsSubordinateApplication(ctx, appUUID)
 	if err != nil {
@@ -965,10 +929,7 @@ func (s *Service) IsSubordinateApplicationByName(ctx context.Context, appName st
 // This is used on CAAS models.
 func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale int) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if scale < 0 {
 		return errors.Errorf("application scale %d not valid", scale).Add(applicationerrors.ScaleChangeInvalid)
@@ -996,10 +957,7 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 // This is used on CAAS models.
 func (s *Service) GetApplicationScale(ctx context.Context, appName string) (_ int, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
@@ -1033,10 +991,7 @@ func (s *Service) ShouldAllowCharmUpgradeOnError(ctx context.Context, appName st
 // This is used on CAAS models.
 func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, scaleChange int) (_ int, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
@@ -1055,10 +1010,7 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 // This is used on CAAS models.
 func (s *Service) SetApplicationScalingState(ctx context.Context, appName string, scaleTarget int, scaling bool) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.SetApplicationScalingState(ctx, appName, scaleTarget, scaling); err != nil {
 		return errors.Errorf("updating scaling state for %q: %w", appName, err)
@@ -1071,10 +1023,7 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 // the application doesn't exist. This is used on CAAS models.
 func (s *Service) GetApplicationScalingState(ctx context.Context, appName string) (_ ScalingState, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
@@ -1095,10 +1044,7 @@ func (s *Service) GetApplicationScalingState(ctx context.Context, appName string
 // with pending status charms, then those applications are ignored.
 func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) (_ []coreapplication.ID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if len(uuids) == 0 {
 		return nil, nil
@@ -1113,10 +1059,7 @@ func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context,
 // digest.
 func (s *Service) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (_ application.CharmDownloadInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := appID.Validate(); err != nil {
 		return application.CharmDownloadInfo{}, errors.Errorf("application ID: %w", err)
@@ -1132,10 +1075,7 @@ func (s *Service) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreappli
 // the same as the one that was reserved.
 func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplication.ID, resolve application.ResolveCharmDownload) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := appID.Validate(); err != nil {
 		return errors.Errorf("application ID: %w", err)
@@ -1218,10 +1158,7 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 // ResolveControllerCharmDownload resolves the controller charm download slot.
 func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve application.ResolveControllerCharmDownload) (_ application.ResolvedControllerCharmDownload, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	// Make sure it's actually a valid charm.
 	charm, err := internalcharm.ReadCharmArchive(resolve.Path)
@@ -1265,10 +1202,7 @@ func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve ap
 // This will return an empty slice if there are no applications.
 func (s *Service) GetApplicationsForRevisionUpdater(ctx context.Context) (_ []application.RevisionUpdaterApplication, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return s.st.GetApplicationsForRevisionUpdater(ctx)
 }
 
@@ -1278,10 +1212,7 @@ func (s *Service) GetApplicationsForRevisionUpdater(ctx context.Context) (_ []ap
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplication.ID) (_ config.ConfigAttributes, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := appID.Validate(); err != nil {
 		return nil, errors.Errorf("application ID: %w", err)
@@ -1311,10 +1242,7 @@ func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplicatio
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (_ config.ConfigAttributes, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := appID.Validate(); err != nil {
 		return nil, errors.Errorf("application ID: %w", err)
@@ -1338,10 +1266,7 @@ func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID co
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := appID.Validate(); err != nil {
 		return false, errors.Errorf("application ID: %w", err)
@@ -1370,10 +1295,7 @@ func (s *Service) GetApplicationCharmOrigin(ctx context.Context, name string) (a
 // specified application ID.
 func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreapplication.ID) (_ ApplicationConfig, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := appID.Validate(); err != nil {
 		return ApplicationConfig{}, errors.Errorf("application ID: %w", err)
@@ -1430,10 +1352,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := appID.Validate(); err != nil {
 		return errors.Errorf("application ID: %w", err)
@@ -1454,10 +1373,7 @@ func (s *Service) UnsetApplicationConfigKeys(ctx context.Context, appID coreappl
 // [applicationerrors.InvalidApplicationConfig] is returned.
 func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplication.ID, newConfig map[string]string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := appID.Validate(); err != nil {
 		return errors.Errorf("application ID: %w", err)
@@ -1539,10 +1455,7 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (_ coreconstraints.Value, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := appID.Validate(); err != nil {
 		return coreconstraints.Value{}, errors.Errorf("application ID: %w", err)
@@ -1574,10 +1487,7 @@ func (s *Service) GetApplicationEndpointBindings(ctx context.Context, appID core
 // is returned.
 func (s *Service) GetDeviceConstraints(ctx context.Context, name string) (_ map[string]devices.Constraints, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, name)
 	if err != nil {

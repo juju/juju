@@ -40,10 +40,7 @@ func NewMigrationService(st State) *MigrationServic {
 // retrieve the sequences for export in the database.
 func (m *MigrationServic) GetSequencesForExport(ctx context.Context) (_ map[string]uint64, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return m.st.GetSequencesForExport(ctx)
 }
 
@@ -51,10 +48,7 @@ func (m *MigrationServic) GetSequencesForExport(ctx context.Context) (_ map[stri
 // import the sequences from the database.
 func (m *MigrationServic) ImportSequences(ctx context.Context, seqs map[string]uint64) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return m.st.ImportSequences(ctx, seqs)
 }
 
@@ -62,9 +56,6 @@ func (m *MigrationServic) ImportSequences(ctx context.Context, seqs map[string]u
 // remove all sequences from the database.
 func (m *MigrationServic) RemoveAllSequences(ctx context.Context) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return m.st.RemoveAllSequences(ctx)
 }

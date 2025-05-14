@@ -19,10 +19,7 @@ import (
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) (_ []SecretAccess, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	accessors, err := s.secretState.GetSecretGrants(ctx, uri, role)
 	if err != nil {
@@ -68,10 +65,7 @@ func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, r
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) (_ SecretAccessScope, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	ap := domainsecret.AccessParams{
 		SubjectID: accessor.ID,
@@ -140,10 +134,7 @@ func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, a
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
@@ -189,10 +180,7 @@ func grantParams(in SecretAccessParams) domainsecret.GrantParams {
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {

@@ -198,10 +198,7 @@ func NewService(st State) *Service {
 // already exists.
 func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (_ machine.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	// Make a new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
@@ -225,10 +222,7 @@ func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (
 // It returns a MachineNotFound error if the parent machine does not exist.
 func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, parentName machine.Name) (_ machine.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	// Make a new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
@@ -261,10 +255,7 @@ func createUUIDs() (string, machine.UUID, error) {
 // DeleteMachine deletes the specified machine.
 func (s *Service) DeleteMachine(ctx context.Context, machineName machine.Name) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.DeleteMachine(ctx, machineName); err != nil {
 		return errors.Errorf("deleting machine %q: %w", machineName, err)
@@ -276,10 +267,7 @@ func (s *Service) DeleteMachine(ctx context.Context, machineName machine.Name) (
 // It returns a NotFound if the given machine doesn't exist.
 func (s *Service) GetMachineLife(ctx context.Context, machineName machine.Name) (_ *life.Life, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	life, err := s.st.GetMachineLife(ctx, machineName)
 	if err != nil {
@@ -292,10 +280,7 @@ func (s *Service) GetMachineLife(ctx context.Context, machineName machine.Name) 
 // It returns a MachineNotFound if the provided machine doesn't exist.
 func (s *Service) SetMachineLife(ctx context.Context, machineName machine.Name, life life.Life) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.SetMachineLife(ctx, machineName, life); err != nil {
 		return errors.Errorf("setting life status for machine %q: %w", machineName, err)
@@ -308,10 +293,7 @@ func (s *Service) SetMachineLife(ctx context.Context, machineName machine.Name, 
 // updated.
 func (s *Service) EnsureDeadMachine(ctx context.Context, machineName machine.Name) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.SetMachineLife(ctx, machineName, life.Dead)
 }
@@ -319,10 +301,7 @@ func (s *Service) EnsureDeadMachine(ctx context.Context, machineName machine.Nam
 // AllMachineNames returns the names of all machines in the model.
 func (s *Service) AllMachineNames(ctx context.Context) (_ []machine.Name, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	machines, err := s.st.AllMachineNames(ctx)
 	if err != nil {
@@ -338,10 +317,7 @@ func (s *Service) AllMachineNames(ctx context.Context) (_ []machine.Name, err er
 // Idempotent.
 func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (_ status.StatusInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
 	if err != nil {
@@ -356,10 +332,7 @@ func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Nam
 // InvalidStatus if the given status is not a known status value.
 func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !status.Status.KnownInstanceStatus() {
 		return machineerrors.InvalidStatus
@@ -381,10 +354,7 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Nam
 // the status is not set. Idempotent.
 func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (_ status.StatusInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	machineStatus, err := s.st.GetMachineStatus(ctx, machineName)
 	if err != nil {
@@ -406,10 +376,7 @@ func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name
 // the given status is not a known status value.
 func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !status.Status.KnownMachineStatus() {
 		return machineerrors.InvalidStatus
@@ -430,10 +397,7 @@ func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name
 // It returns a NotFound if the given machine doesn't exist.
 func (s *Service) IsMachineController(ctx context.Context, machineName machine.Name) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	isController, err := s.st.IsMachineController(ctx, machineName)
 	if err != nil {
@@ -447,10 +411,7 @@ func (s *Service) IsMachineController(ctx context.Context, machineName machine.N
 // It returns a NotFound if the given machine doesn't exist.
 func (s *Service) ShouldKeepInstance(ctx context.Context, machineName machine.Name) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	keepInstance, err := s.st.ShouldKeepInstance(ctx, machineName)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -464,10 +425,7 @@ func (s *Service) ShouldKeepInstance(ctx context.Context, machineName machine.Na
 // It returns a NotFound if the given machine doesn't exist.
 func (s *Service) SetKeepInstance(ctx context.Context, machineName machine.Name, keep bool) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return errors.Capture(s.st.SetKeepInstance(ctx, machineName, keep))
 }
@@ -475,10 +433,7 @@ func (s *Service) SetKeepInstance(ctx context.Context, machineName machine.Name,
 // RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
 func (s *Service) RequireMachineReboot(ctx context.Context, uuid machine.UUID) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.RequireMachineReboot(ctx, uuid); err != nil {
 		return errors.Errorf("requiring a machine reboot for machine with uuid %q: %w", uuid, err)
@@ -489,10 +444,7 @@ func (s *Service) RequireMachineReboot(ctx context.Context, uuid machine.UUID) (
 // ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
 func (s *Service) ClearMachineReboot(ctx context.Context, uuid machine.UUID) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.ClearMachineReboot(ctx, uuid); err != nil {
 		return errors.Errorf("clear machine reboot flag for machine with uuid %q: %w", uuid, err)
@@ -503,10 +455,7 @@ func (s *Service) ClearMachineReboot(ctx context.Context, uuid machine.UUID) (er
 // IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
 func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid machine.UUID) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	rebootRequired, err := s.st.IsMachineRebootRequired(ctx, uuid)
 	if err != nil {
@@ -521,10 +470,7 @@ func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid machine.UUID
 // It returns a GrandParentNotAllowed if the machine's parent has a parent.
 func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID machine.UUID) (_ machine.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	parentUUID, err := s.st.GetMachineParentUUID(ctx, machineUUID)
 	if err != nil {
@@ -536,10 +482,7 @@ func (s *Service) GetMachineParentUUID(ctx context.Context, machineUUID machine.
 // ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
 func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID) (_ machine.RebootAction, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	rebootRequired, err := s.st.ShouldRebootOrShutdown(ctx, uuid)
 	if err != nil {
@@ -552,10 +495,7 @@ func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID)
 // It returns a MachineNotFound error if the machine does not exist.
 func (s *Service) MarkMachineForRemoval(ctx context.Context, machineName machine.Name) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.MarkMachineForRemoval(ctx, machineName); err != nil {
 		return errors.Errorf("marking machine %q for removal: %w", machineName, err)
@@ -567,10 +507,7 @@ func (s *Service) MarkMachineForRemoval(ctx context.Context, machineName machine
 // be removed but need provider-level cleanup.
 func (s *Service) GetAllMachineRemovals(ctx context.Context) (_ []machine.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	removals, err := s.st.GetAllMachineRemovals(ctx)
 	if err != nil {
@@ -583,20 +520,14 @@ func (s *Service) GetAllMachineRemovals(ctx context.Context) (_ []machine.UUID, 
 // It returns a MachineNotFound if the machine does not exist.
 func (s *Service) GetMachineUUID(ctx context.Context, name machine.Name) (_ machine.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return s.st.GetMachineUUID(ctx, name)
 }
 
 // AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
 func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) (_ []string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	profiles, err := s.st.AppliedLXDProfileNames(ctx, mUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -611,10 +542,7 @@ func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID
 // exist.
 func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID, profileNames []string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return errors.Capture(s.st.SetAppliedLXDProfileNames(ctx, mUUID, profileNames))
 }
 
@@ -624,10 +552,7 @@ func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.U
 // TODO: Implement this method.
 func (s *Service) GetMachineArchesForApplication(ctx context.Context, appUUID application.ID) (_ []arch.Arch, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return nil, errors.Errorf("GetMachineArchesForApplication not implemented")
 }
@@ -643,10 +568,7 @@ type ProviderService struct {
 // GetBootstrapEnviron returns the bootstrap environ.
 func (s *ProviderService) GetBootstrapEnviron(ctx context.Context) (_ environs.BootstrapEnviron, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	provider, err := s.providerGetter(ctx)
 	if err != nil {
@@ -658,10 +580,7 @@ func (s *ProviderService) GetBootstrapEnviron(ctx context.Context) (_ environs.B
 // GetInstanceTypesFetcher returns the instance types fetcher.
 func (s *ProviderService) GetInstanceTypesFetcher(ctx context.Context) (_ environs.InstanceTypesFetcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	provider, err := s.providerGetter(ctx)
 	if err != nil {

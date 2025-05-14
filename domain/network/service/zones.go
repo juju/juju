@@ -16,10 +16,7 @@ import (
 // retrieved from the model's cloud provider.
 func (s *ProviderService) GetProviderAvailabilityZones(ctx context.Context) (_ network.AvailabilityZones, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	zoneProvider, err := s.providerWithZones(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {

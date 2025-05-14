@@ -103,10 +103,7 @@ func (s *AgentBinaryStore) AddAgentBinary(
 	sha384 string,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := version.Validate(); err != nil {
 		return errors.Errorf("agent version %q is not valid: %w", version, err)
@@ -195,10 +192,7 @@ func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
 	size int64, sha256 string,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if err := version.Validate(); err != nil {
 		return errors.Errorf("agent version %q is not valid: %w", version, err)
 	}
@@ -230,10 +224,7 @@ func (s *AgentBinaryStore) GetAgentBinaryForSHA256(
 	sha256Sum string,
 ) (_ io.ReadCloser, _ int64, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	// We check that this sha256 exists in the database and is associated with
 	// agent binaries. If we don't do this the possability exists to leak other

@@ -217,10 +217,7 @@ func (s *Service) getCharmID(ctx context.Context, args charm.GetCharmArgs) (core
 // returned.
 func (s *Service) IsControllerCharm(ctx context.Context, locator charm.CharmLocator) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -242,10 +239,7 @@ func (s *Service) IsControllerCharm(ctx context.Context, locator charm.CharmLoca
 // returned.
 func (s *Service) SupportsContainers(ctx context.Context, locator charm.CharmLocator) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -267,10 +261,7 @@ func (s *Service) SupportsContainers(ctx context.Context, locator charm.CharmLoc
 // returned.
 func (s *Service) IsSubordinateCharm(ctx context.Context, locator charm.CharmLocator) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -294,16 +285,12 @@ func (s *Service) IsSubordinateCharm(ctx context.Context, locator charm.CharmLoc
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
 func (s *Service) GetCharm(ctx context.Context, locator charm.CharmLocator) (_ internalcharm.Charm, _ charm.CharmLocator, _ bool, err error) {
-	ctx,
-		// We stil retrieve the ID from state, in the future we should move
-		// this to the state GetCharm method so it runs under the same
-		// transaction.
-		span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 
+	// We stil retrieve the ID from state, in the future we should move
+	// this to the state GetCharm method so it runs under the same
+	// transaction.
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
 	if err != nil {
@@ -377,10 +364,7 @@ func (s *Service) getCharmAndLocator(ctx context.Context, charmID corecharm.ID) 
 // returned.
 func (s *Service) GetCharmMetadata(ctx context.Context, locator charm.CharmLocator) (_ internalcharm.Meta, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -406,10 +390,7 @@ func (s *Service) GetCharmMetadata(ctx context.Context, locator charm.CharmLocat
 // returned.
 func (s *Service) GetCharmMetadataName(ctx context.Context, locator charm.CharmLocator) (_ string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -430,10 +411,7 @@ func (s *Service) GetCharmMetadataName(ctx context.Context, locator charm.CharmL
 // returned.
 func (s *Service) GetCharmMetadataDescription(ctx context.Context, locator charm.CharmLocator) (_ string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
 	if err != nil {
@@ -453,10 +431,7 @@ func (s *Service) GetCharmMetadataDescription(ctx context.Context, locator charm
 // returned.
 func (s *Service) GetCharmMetadataStorage(ctx context.Context, locator charm.CharmLocator) (_ map[string]internalcharm.Storage, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -482,10 +457,7 @@ func (s *Service) GetCharmMetadataStorage(ctx context.Context, locator charm.Cha
 // returned.
 func (s *Service) GetCharmMetadataResources(ctx context.Context, locator charm.CharmLocator) (_ map[string]resource.Meta, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -511,10 +483,7 @@ func (s *Service) GetCharmMetadataResources(ctx context.Context, locator charm.C
 // returned.
 func (s *Service) GetCharmManifest(ctx context.Context, locator charm.CharmLocator) (_ internalcharm.Manifest, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -540,10 +509,7 @@ func (s *Service) GetCharmManifest(ctx context.Context, locator charm.CharmLocat
 // returned.
 func (s *Service) GetCharmActions(ctx context.Context, locator charm.CharmLocator) (_ internalcharm.Actions, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -569,10 +535,7 @@ func (s *Service) GetCharmActions(ctx context.Context, locator charm.CharmLocato
 // returned.
 func (s *Service) GetCharmConfig(ctx context.Context, locator charm.CharmLocator) (_ internalcharm.Config, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -598,10 +561,7 @@ func (s *Service) GetCharmConfig(ctx context.Context, locator charm.CharmLocator
 // returned.
 func (s *Service) GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (_ internalcharm.LXDProfile, _ charm.Revision, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -627,10 +587,7 @@ func (s *Service) GetCharmLXDProfile(ctx context.Context, locator charm.CharmLoc
 // returned.
 func (s *Service) GetCharmArchivePath(ctx context.Context, locator charm.CharmLocator) (_ string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -652,10 +609,7 @@ func (s *Service) GetCharmArchivePath(ctx context.Context, locator charm.CharmLo
 // returned.
 func (s *Service) GetCharmArchive(ctx context.Context, locator charm.CharmLocator) (_ io.ReadCloser, _ string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -684,10 +638,7 @@ func (s *Service) GetCharmArchive(ctx context.Context, locator charm.CharmLocato
 // returned.
 func (s *Service) GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (_ io.ReadCloser, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	reader, err := s.charmStore.GetBySHA256Prefix(ctx, sha256Prefix)
 	if errors.Is(err, store.ErrNotFound) {
@@ -707,10 +658,7 @@ func (s *Service) GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefi
 // returned.
 func (s *Service) IsCharmAvailable(ctx context.Context, locator charm.CharmLocator) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -730,10 +678,7 @@ func (s *Service) IsCharmAvailable(ctx context.Context, locator charm.CharmLocat
 // returned.
 func (s *Service) SetCharmAvailable(ctx context.Context, locator charm.CharmLocator) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -749,10 +694,7 @@ func (s *Service) SetCharmAvailable(ctx context.Context, locator charm.CharmLoca
 // config or manifest, a set of warnings will be returned.
 func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (_ corecharm.ID, _ []string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	result, warnings, err := s.setCharm(ctx, args)
 	if err != nil {
@@ -765,10 +707,7 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (_ core
 // Returns an error if the charm does not exist.
 func (s *Service) DeleteCharm(ctx context.Context, locator charm.CharmLocator) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -784,10 +723,7 @@ func (s *Service) DeleteCharm(ctx context.Context, locator charm.CharmLocator) (
 // is returned.
 func (s *Service) ListCharmLocators(ctx context.Context, names ...string) (_ []charm.CharmLocator, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if len(names) == 0 {
 		return s.st.ListCharmLocators(ctx)
@@ -799,10 +735,7 @@ func (s *Service) ListCharmLocators(ctx context.Context, names ...string) (_ []c
 // charm name, source and revision.
 func (s *Service) GetCharmDownloadInfo(ctx context.Context, locator charm.CharmLocator) (_ *charm.DownloadInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
@@ -817,10 +750,7 @@ func (s *Service) GetCharmDownloadInfo(ctx context.Context, locator charm.CharmL
 // [applicationerrors.CharmNotResolved] is returned.
 func (s *Service) GetAvailableCharmArchiveSHA256(ctx context.Context, locator charm.CharmLocator) (_ string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
 	if err != nil {
@@ -841,10 +771,7 @@ func (s *Service) GetAvailableCharmArchiveSHA256(ctx context.Context, locator ch
 // if the charm is not found.
 func (s *Service) ResolveUploadCharm(ctx context.Context, args charm.ResolveUploadCharm) (_ charm.CharmLocator, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	var localUploadCharm bool
 
@@ -1074,10 +1001,7 @@ func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCha
 // corresponding charm ID.
 func (s *Service) ReserveCharmRevision(ctx context.Context, args charm.ReserveCharmRevisionArgs) (_ corecharm.ID, _ []string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	result, warnings, err := s.setCharm(ctx, charm.SetCharmArgs{
 		Charm:         args.Charm,
@@ -1112,10 +1036,7 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, args charm.ReserveCh
 // first.
 func (s *Service) GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (_ charm.CharmLocator, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if !isValidCharmName(name) {
 		return charm.CharmLocator{}, applicationerrors.CharmNameNotValid
 	}
@@ -1126,10 +1047,7 @@ func (s *Service) GetLatestPendingCharmhubCharm(ctx context.Context, name string
 // WatchCharms returns a watcher that observes changes to charms.
 func (s *WatchableService) WatchCharms(ctx context.Context) (_ watcher.StringsWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.watcherFactory.NewUUIDsWatcher(
 		s.st.NamespaceForWatchCharm(),

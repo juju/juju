@@ -63,10 +63,7 @@ func NewService(
 // GetCloudSpec returns the cloud spec for the model.
 func (s *Service) GetCloudSpec(ctx context.Context) (_ cloudspec.CloudSpec, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	cld, cloudRegion, credInfo, err := s.st.GetModelCloudAndCredential(ctx, s.modelUUID)
 	if errors.Is(err, modelerrors.NotFound) {
@@ -87,10 +84,7 @@ func (s *Service) GetCloudSpec(ctx context.Context) (_ cloudspec.CloudSpec, err 
 // GetCloudSpecForSSH returns a cloud spec suitable for sshing into a k8s container.
 func (s *Service) GetCloudSpecForSSH(ctx context.Context) (_ cloudspec.CloudSpec, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	provider, err := s.providerWithSecretToken(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {

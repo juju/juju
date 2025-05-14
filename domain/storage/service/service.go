@@ -47,10 +47,7 @@ func NewService(st State, logger logger.Logger, registryGetter corestorage.Model
 // implemented in each service.
 func (s *Service) GetStorageRegistry(ctx context.Context) (_ internalstorage.ProviderRegistry, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	registry, err := s.StorageService.registryGetter.GetStorageRegistry(ctx)
 	if err != nil {

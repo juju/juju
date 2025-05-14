@@ -124,10 +124,7 @@ func (s *ProviderService) CreateApplication(
 	units ...AddUnitArg,
 ) (_ coreapplication.ID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := validateCharmAndApplicationParams(
 		name,
@@ -225,10 +222,7 @@ func (s *ProviderService) CreateApplication(
 // [modelerrors.NotFound] will be returned.
 func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (_ assumes.FeatureSet, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	agentVersion, err := s.agentVersionGetter.GetModelTargetAgentVersion(ctx)
 	if err != nil {
@@ -269,10 +263,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (_ assumes.F
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := appID.Validate(); err != nil {
 		return errors.Errorf("application ID: %w", err)
@@ -307,10 +298,7 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // If no units are provided, it will return nil.
 func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if len(units) == 0 {
 		return nil
 	}
@@ -406,10 +394,7 @@ func (s *Service) recordStatusHistory(
 // probably make it a service attribute once more use cases emerge.
 func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr string) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	unitName, err := coreunit.NewName(unitNameStr)
 	if err != nil {
@@ -463,10 +448,7 @@ func (s *ProviderService) RegisterCAASUnit(
 	params application.RegisterCAASUnitParams,
 ) (_ coreunit.Name, _ string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if params.ProviderID == "" {
 		return "", "", errors.Errorf("provider id %w", coreerrors.NotValid)

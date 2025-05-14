@@ -21,10 +21,7 @@ import (
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) IsApplicationExposed(ctx context.Context, appName string) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
@@ -43,10 +40,7 @@ func (s *Service) IsApplicationExposed(ctx context.Context, appName string) (_ b
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (_ map[string]application.ExposedEndpoint, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
@@ -65,10 +59,7 @@ func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (_ ma
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, exposedEndpoints set.Strings) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
@@ -86,10 +77,7 @@ func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, expos
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {

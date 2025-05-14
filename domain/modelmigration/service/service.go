@@ -85,10 +85,7 @@ func (s *Service) AdoptResources(
 	sourceControllerVersion semversion.Number,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	provider, err := s.resourceProviderGettter(ctx)
 
@@ -134,10 +131,7 @@ func (s *Service) CheckMachines(
 	ctx context.Context,
 ) (_ []modelmigration.MigrationMachineDiscrepancy, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	provider, err := s.instanceProviderGetter(ctx)
 	if err != nil && !errors.Is(err, coreerrors.NotSupported) {

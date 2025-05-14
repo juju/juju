@@ -100,10 +100,7 @@ func NewService(
 // ModelConfig returns the current config for the model.
 func (s *Service) ModelConfig(ctx context.Context) (_ *config.Config, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	stConfig, err := s.st.ModelConfig(ctx)
 	if err != nil {
@@ -132,10 +129,7 @@ func (s *Service) ModelConfigValues(
 	ctx context.Context,
 ) (_ config.ConfigValues, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	cfg, err := s.ModelConfig(ctx)
 	if err != nil {
@@ -239,10 +233,7 @@ func (s *Service) SetModelConfig(
 	cfg map[string]any,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
 	if err != nil {
@@ -303,10 +294,7 @@ func (s *Service) UpdateModelConfig(
 	additionalValidators ...config.Validator,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	// noop with no updates or removals to perform.
 	if len(updateAttrs) == 0 && len(removeAttrs) == 0 {
@@ -368,10 +356,7 @@ type spaceValidator struct {
 // given space exists.
 func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return v.st.SpaceExists(ctx, spaceName)
 }

@@ -75,10 +75,7 @@ func NewWatchableService(
 // It emits machine names rather than UUIDs.
 func (s *WatchableService) WatchModelMachines(ctx context.Context) (_ watcher.StringsWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	table, stmt := s.st.InitialWatchModelMachinesStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
@@ -93,10 +90,7 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (_ watcher.St
 // machine UUID.
 func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machineUUID machine.UUID) (_ watcher.NotifyWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
@@ -114,10 +108,7 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machi
 // table, which could become noisy.
 func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID machine.UUID) (_ watcher.NotifyWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
@@ -133,10 +124,7 @@ func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID mac
 // It raises an event whenever the machine uuid or its parent is added to the reboot table.
 func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid machine.UUID) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	uuids, err := s.machineToCareForReboot(ctx, uuid)
 	if err != nil {

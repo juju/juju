@@ -62,10 +62,7 @@ func NewService(st State) *Service {
 // ControllerConfig returns the config values for the controller.
 func (s *Service) ControllerConfig(ctx context.Context) (_ controller.Config, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	ctrlConfigMap, err := s.st.ControllerConfig(ctx)
 	if err != nil {
@@ -101,10 +98,7 @@ func (s *Service) ControllerConfig(ctx context.Context) (_ controller.Config, er
 // UpdateControllerConfig updates the controller config.
 func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	coerced, err := controller.EncodeToString(updateAttrs)
 	if err != nil {
@@ -284,10 +278,8 @@ var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
 // config.
 func (s *WatchableService) WatchControllerConfig(ctx context.Context) (_ watcher.StringsWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
+
 	return s.watcherFactory.NewNamespaceWatcher(
 		InitialNamespaceChanges(s.st.AllKeysQuery()),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerConfig(), changestream.All),

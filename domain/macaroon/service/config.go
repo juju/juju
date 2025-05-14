@@ -45,10 +45,7 @@ func NewBakeryConfigService(st BakeryConfigState) *BakeryConfigService {
 // InitialiseBakeryConfig creates and fills in the bakery config in state.
 func (s *BakeryConfigService) InitialiseBakeryConfig(ctx context.Context) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	localUsersKey, err := bakery.GenerateKey()
 	if err != nil {
@@ -86,10 +83,7 @@ func (s *BakeryConfigService) InitialiseBakeryConfig(ctx context.Context) (err e
 // GetLocalUsersKey returns the key pair used with the local users bakery.
 func (s *BakeryConfigService) GetLocalUsersKey(ctx context.Context) (_ *bakery.KeyPair, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	keyPair, err := s.st.GetLocalUsersKey(ctx)
 	if err != nil {
@@ -101,10 +95,7 @@ func (s *BakeryConfigService) GetLocalUsersKey(ctx context.Context) (_ *bakery.K
 // GetLocalUsersThirdPartyKey returns the third party key pair used with the local users bakery.
 func (s *BakeryConfigService) GetLocalUsersThirdPartyKey(ctx context.Context) (_ *bakery.KeyPair, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	keyPair, err := s.st.GetLocalUsersThirdPartyKey(ctx)
 	if err != nil {
@@ -116,10 +107,7 @@ func (s *BakeryConfigService) GetLocalUsersThirdPartyKey(ctx context.Context) (_
 // GetExternalUsersThirdPartyKey returns the third party key pair used with the external users bakery.
 func (s *BakeryConfigService) GetExternalUsersThirdPartyKey(ctx context.Context) (_ *bakery.KeyPair, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	keyPair, err := s.st.GetExternalUsersThirdPartyKey(ctx)
 	if err != nil {
@@ -131,10 +119,7 @@ func (s *BakeryConfigService) GetExternalUsersThirdPartyKey(ctx context.Context)
 // GetOffersThirdPartyKey returns the key pair used with the cross model offers bakery.
 func (s *BakeryConfigService) GetOffersThirdPartyKey(ctx context.Context) (_ *bakery.KeyPair, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	keyPair, err := s.st.GetOffersThirdPartyKey(ctx)
 	if err != nil {

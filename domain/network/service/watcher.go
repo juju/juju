@@ -47,10 +47,7 @@ func NewWatchableService(st State,
 // to watch.
 func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (_ watcher.StringsWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	filter := subnetUUIDsFilter(subnetUUIDsToWatch)
 

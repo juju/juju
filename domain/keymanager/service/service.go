@@ -151,10 +151,7 @@ func (s *Service) AddPublicKeysForUser(
 	keys ...string,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := userUUID.Validate(); err != nil {
 		return errors.Errorf("validating user uuid %q when adding public keys: %w", userUUID, err)
@@ -213,10 +210,7 @@ func (s *Service) DeleteKeysForUser(
 	targets ...string,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := userUUID.Validate(); err != nil {
 		return errors.Errorf(
@@ -237,10 +231,7 @@ func (s *Service) GetAllUsersPublicKeys(
 	ctx context.Context,
 ) (_ map[user.Name][]string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetAllUsersPublicKeys(ctx, s.modelUUID)
 }
@@ -270,10 +261,7 @@ func (s *ImporterService) ImportPublicKeysForUser(
 	subject *url.URL,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := userUUID.Validate(); err != nil {
 		return errors.Errorf(
@@ -345,10 +333,7 @@ func (s *Service) ListPublicKeysForUser(
 	userUUID user.UUID,
 ) (_ []coressh.PublicKey, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := userUUID.Validate(); err != nil {
 		return nil, errors.Errorf(

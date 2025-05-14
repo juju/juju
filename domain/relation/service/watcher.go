@@ -68,10 +68,7 @@ func (s *WatchableService) WatchLifeSuspendedStatus(
 	unitUUID unit.UUID,
 ) (_ watcher.StringsWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
@@ -142,10 +139,7 @@ func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID applicati
 func (w *principalLifeSuspendedStatusWatcher) GetInitialQuery() eventsource.NamespaceQuery {
 	return func(ctx context.Context, txn database.TxnRunner) (_ []string, err error) {
 		ctx, span := trace.Start(ctx, trace.NameFromFunc())
-		defer func() {
-			span.RecordError(err)
-			span.End()
-		}()
+		defer span.End()
 
 		relationUUIDStrings, err := w.initialQuery(ctx, txn)
 		if err != nil {
@@ -306,10 +300,7 @@ func newSubordinateLifeSuspendedStatusWatcher(s *WatchableService, subordinateID
 func (w *subordinateLifeSuspendedStatusWatcher) GetInitialQuery() eventsource.NamespaceQuery {
 	return func(ctx context.Context, txn database.TxnRunner) (_ []string, err error) {
 		ctx, span := trace.Start(ctx, trace.NameFromFunc())
-		defer func() {
-			span.RecordError(err)
-			span.End()
-		}()
+		defer span.End()
 
 		relationUUIDStrings, err := w.initialQuery(ctx, txn)
 		if err != nil {
@@ -481,10 +472,7 @@ func (s *WatchableService) WatchRelatedUnits(
 	relationUUID corerelation.UUID,
 ) (_ watcher.StringsWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return nil, errors.Capture(err)

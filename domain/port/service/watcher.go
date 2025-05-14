@@ -89,10 +89,7 @@ type WatcherState interface {
 // range.
 func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (_ watcher.StringsWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	table, statement := s.st.InitialWatchMachineOpenedPortsStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
@@ -107,10 +104,7 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (_ watch
 // with the given application
 func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (_ watcher.NotifyWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.watcherFactory.NewNotifyMapperWatcher(
 		s.filterForApplication(applicationUUID),

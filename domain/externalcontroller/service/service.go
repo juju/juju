@@ -67,10 +67,7 @@ func (s *Service) Controller(
 	controllerUUID string,
 ) (_ *crossmodel.ControllerInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	controllerInfo, err := s.st.Controller(ctx, controllerUUID)
 	if err != nil {
@@ -86,10 +83,7 @@ func (s *Service) ControllerForModel(
 	modelUUID string,
 ) (_ *crossmodel.ControllerInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	controllers, err := s.st.ControllersForModels(ctx, modelUUID)
 	if err != nil {
@@ -109,10 +103,7 @@ func (s *Service) UpdateExternalController(
 	ctx context.Context, ec crossmodel.ControllerInfo,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.UpdateExternalController(ctx, ec); err != nil {
 		return errors.Errorf("updating external controller state: %w", err)
@@ -127,10 +118,7 @@ func (s *Service) ImportExternalControllers(
 	externalControllers []crossmodel.ControllerInfo,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.ImportExternalControllers(ctx, externalControllers)
 }
@@ -142,10 +130,7 @@ func (s *Service) ModelsForController(
 	controllerUUID string,
 ) (_ []string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	models, err := s.st.ModelsForController(ctx, controllerUUID)
 	if err != nil {
@@ -163,10 +148,7 @@ func (s *Service) ControllersForModels(
 	modelUUIDs ...string,
 ) (_ []crossmodel.ControllerInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return s.st.ControllersForModels(ctx, modelUUIDs...)
 }
 
@@ -190,10 +172,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 // Watch returns a watcher that observes changes to external controllers.
 func (s *WatchableService) Watch(ctx context.Context) (_ watcher.StringsWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if s.watcherFactory != nil {
 		return s.watcherFactory.NewUUIDsWatcher(

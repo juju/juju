@@ -346,10 +346,7 @@ func (s *LeadershipService) GetRelationApplicationSettingsWithLeader(
 	applicationID application.ID,
 ) (_ map[string]string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -394,10 +391,7 @@ func (s *LeadershipService) SetRelationApplicationAndUnitSettings(
 	applicationSettings, unitSettings map[string]string,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if len(applicationSettings) == 0 && len(unitSettings) == 0 {
 		return nil
@@ -445,10 +439,7 @@ func NewService(
 // between these endpoints and the details of the endpoint returned.
 func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (_ relation.Endpoint, _ relation.Endpoint, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	var none relation.Endpoint
 	idep1, err := relation.NewCandidateEndpointIdentifier(ep1)
@@ -474,10 +465,7 @@ func (s *Service) ApplicationRelationsInfo(
 	applicationID application.ID,
 ) (_ []relation.EndpointRelationData, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := applicationID.Validate(); err != nil {
 		return nil, relationerrors.ApplicationIDNotValid
@@ -511,10 +499,7 @@ func (s *Service) EnterScope(
 	subordinateCreator relation.SubordinateCreator,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := relationUUID.Validate(); err != nil {
 		return errors.Errorf(
@@ -555,10 +540,7 @@ func (s *Service) EnterScope(
 // GetAllRelationDetails return RelationDetailResults of all relation for the current model.
 func (s *Service) GetAllRelationDetails(ctx context.Context) (_ []relation.RelationDetailsResult, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetAllRelationDetails(ctx)
 }
@@ -575,10 +557,7 @@ func (s *Service) GetGoalStateRelationDataForApplication(
 	applicationID application.ID,
 ) (_ []relation.GoalStateRelationData, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if err := applicationID.Validate(); err != nil {
 		return nil, errors.Errorf(
 			"%w: %w", relationerrors.ApplicationIDNotValid, err)
@@ -598,10 +577,7 @@ func (s *Service) GetRelationDetails(
 	relationUUID corerelation.UUID,
 ) (_ relation.RelationDetails, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := relationUUID.Validate(); err != nil {
 		return relation.RelationDetails{}, errors.Errorf(
@@ -641,10 +617,7 @@ func (s *Service) GetRelationsStatusForUnit(
 	unitUUID unit.UUID,
 ) (_ []relation.RelationUnitStatus, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
@@ -684,10 +657,7 @@ func (s *Service) GetRelationUnit(
 	unitName unit.Name,
 ) (_ corerelation.UnitUUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := relationUUID.Validate(); err != nil {
 		return "", errors.Errorf(
@@ -721,10 +691,7 @@ func (s *Service) getRelationUnitByID(
 // If any UUID is invalid, an appropriate error is returned.
 func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID) (_ relation.RelationUnitsChange, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	for _, uuid := range unitUUIDs {
 		if err := uuid.Validate(); err != nil {
@@ -751,10 +718,7 @@ func (s *Service) GetRelationUnitSettings(
 	relationUnitUUID corerelation.UnitUUID,
 ) (_ map[string]string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := relationUnitUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
@@ -771,10 +735,7 @@ func (s *Service) GetRelationUnitSettings(
 //     relating to the relation ID cannot be found.
 func (s *Service) GetRelationUUIDByID(ctx context.Context, relationID int) (_ corerelation.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return s.st.GetRelationUUIDByID(ctx, relationID)
 }
 
@@ -786,10 +747,7 @@ func (s *Service) GetRelationUUIDByID(ctx context.Context, relationID int) (_ co
 //   - [relationerrors.RelationKeyNotValid]: when the relation key is not valid.
 func (s *Service) GetRelationUUIDByKey(ctx context.Context, relationKey corerelation.Key) (_ corerelation.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := relationKey.Validate(); err != nil {
 		return "", relationerrors.RelationKeyNotValid
@@ -835,10 +793,7 @@ func (s *Service) GetRelationUUIDForRemoval(
 	args relation.GetRelationUUIDForRemovalArgs,
 ) (_ corerelation.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := args.Validate(); err != nil {
 		return "", errors.Capture(err)
@@ -899,10 +854,7 @@ func (s *Service) GetRelationApplicationSettings(
 	applicationID application.ID,
 ) (_ map[string]string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := relationUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
@@ -928,10 +880,7 @@ func (s *Service) GetRelationApplicationSettings(
 //     found.
 func (s *Service) LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := relationUnitUUID.Validate(); err != nil {
 		return errors.Errorf(
@@ -944,10 +893,7 @@ func (s *Service) LeaveScope(ctx context.Context, relationUnitUUID corerelation.
 // unit is in scopen of a given relation
 func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if _, err := s.getRelationUnitByID(ctx, relationID, unitName); errors.Is(err, relationerrors.RelationUnitNotFound) {
 		return false, nil
@@ -960,10 +906,7 @@ func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, u
 // ImportRelations sets relations imported in migration.
 func (s *Service) ImportRelations(ctx context.Context, args relation.ImportRelationsArgs) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	for _, arg := range args {
 		relUUID, err := s.importRelation(ctx, arg)
@@ -985,10 +928,7 @@ func (s *Service) ImportRelations(ctx context.Context, args relation.ImportRelat
 // model.
 func (s *Service) ExportRelations(ctx context.Context) (_ []relation.ExportRelation, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	relations, err := s.st.ExportRelations(ctx)
 	if err != nil {
@@ -1084,10 +1024,7 @@ func (s *Service) DeleteImportedRelations(
 	ctx context.Context,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.DeleteImportedRelations(ctx)
 }

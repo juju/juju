@@ -94,10 +94,7 @@ func NewService(st State, logger logger.Logger) *Service {
 // CloudCredential returns the cloud credential for the given tag.
 func (s *Service) CloudCredential(ctx context.Context, key corecredential.Key) (_ cloud.Credential, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return cloud.Credential{}, errors.Errorf("invalid id getting cloud credential: %w", err)
@@ -116,10 +113,7 @@ func (s *Service) CloudCredential(ctx context.Context, key corecredential.Key) (
 // for a given owner.
 func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (_ map[corecredential.Key]cloud.Credential, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	creds, err := s.st.AllCloudCredentialsForOwner(ctx, owner)
 	if err != nil {
@@ -136,10 +130,7 @@ func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner user.Na
 // keyed by credential name.
 func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (_ map[string]cloud.Credential, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	creds, err := s.st.CloudCredentialsForOwner(ctx, owner, cloudName)
 	if err != nil {
@@ -164,10 +155,7 @@ func (s *Service) GetModelCredentialStatus(
 	modelUUID coremodel.UUID,
 ) (_ corecredential.Key, _ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := modelUUID.Validate(); err != nil {
 		return corecredential.Key{}, false, errors.Errorf("invalid model uuid: %w", err)
@@ -179,10 +167,7 @@ func (s *Service) GetModelCredentialStatus(
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
 func (s *Service) UpdateCloudCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return errors.Errorf("invalid id updating cloud credential: %w", err)
@@ -193,10 +178,7 @@ func (s *Service) UpdateCloudCredential(ctx context.Context, key corecredential.
 // RemoveCloudCredential removes a cloud credential with the given tag.
 func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.Key) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return errors.Errorf("invalid id removing cloud credential: %w", err)
@@ -210,10 +192,7 @@ func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.
 // credential specified by key does not exist.
 func (s *Service) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return errors.Errorf("invalidating cloud credential with invalid key: %w", err)
@@ -240,10 +219,7 @@ func (s *Service) InvalidateModelCredential(
 	reason string,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := modelUUID.Validate(); err != nil {
 		return err
@@ -269,10 +245,7 @@ func (s *Service) modelsUsingCredential(ctx context.Context, key corecredential.
 // but before validation can complete.
 func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential, force bool) (_ []UpdateCredentialModelResult, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return nil, errors.Errorf("invalid id updating cloud credential: %w", err)
@@ -324,10 +297,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 // but before validation can complete.
 func (s *Service) CheckAndRevokeCredential(ctx context.Context, key corecredential.Key, force bool) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return errors.Errorf("invalid id revoking cloud credential: %w", err)
@@ -381,10 +351,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory, logger logger.
 // credential.
 func (s *WatchableService) WatchCredential(ctx context.Context, key corecredential.Key) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return nil, errors.Errorf("watching cloud credential with invalid key: %w", err)

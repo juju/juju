@@ -99,10 +99,7 @@ func (v defaultCredentialValidator) Validate(
 	checkCloudInstances bool,
 ) (machineErrors []error, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := key.Validate(); err != nil {
 		return nil, errors.Errorf("credential %w", err)

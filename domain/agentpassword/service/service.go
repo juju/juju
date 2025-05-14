@@ -45,10 +45,7 @@ func NewService(st State) *Service {
 // exist, an error satisfying [passworderrors.UnitNotFound] is returned.
 func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, password string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
@@ -69,10 +66,7 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 // password hash stored in the database.
 func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Name, password string) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return false, errors.Capture(err)

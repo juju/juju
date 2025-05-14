@@ -35,10 +35,7 @@ func NewMigrationService(st MigrationState) *MigrationService {
 // model applications.
 func (s *MigrationService) GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (_ map[string]string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := modelUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)

@@ -67,10 +67,7 @@ type SecretService struct {
 // CreateSecretURIs returns the specified number of new secret URIs.
 func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) (_ []*secrets.URI, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if count <= 0 {
 		return nil, errors.Errorf("secret URi count %d %w", count, coreerrors.NotValid)
@@ -377,10 +374,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, params UpdateUserSecretParams) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
@@ -481,10 +475,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI, params UpdateCharmSecretParams) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if len(params.Data) > 0 && params.ValueRef != nil {
 		return errors.New("must specify either content or a value reference but not both")
@@ -660,10 +651,7 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 	labels domainsecret.Labels,
 ) (_ []*secrets.SecretMetadata, _ [][]*secrets.SecretRevisionMetadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.secretState.ListSecrets(ctx, uri, revision, labels)
 }
@@ -690,10 +678,7 @@ func (s *SecretService) ListCharmSecrets(
 	ctx context.Context, owners ...CharmSecretOwner,
 ) (_ []*secrets.SecretMetadata, _ [][]*secrets.SecretRevisionMetadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	return s.secretState.ListCharmSecrets(ctx, appOwners, unitOwners)
@@ -703,10 +688,7 @@ func (s *SecretService) ListCharmSecrets(
 // If returns [secreterrors.SecretNotFound] is there's no such secret.
 func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (_ *secrets.SecretMetadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.secretState.GetSecret(ctx, uri)
 }
@@ -731,10 +713,7 @@ func (s *SecretService) ListCharmSecretsToDrain(
 	owners ...CharmSecretOwner,
 ) (_ []*secrets.SecretMetadataForDrain, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	return s.secretState.ListCharmSecretsToDrain(ctx, appOwners, unitOwners)
@@ -743,10 +722,7 @@ func (s *SecretService) ListCharmSecretsToDrain(
 // ListUserSecretsToDrain returns secret drain revision info for any user secrets.
 func (s *SecretService) ListUserSecretsToDrain(ctx context.Context) (_ []*secrets.SecretMetadataForDrain, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.secretState.ListUserSecretsToDrain(ctx)
 }
@@ -755,10 +731,7 @@ func (s *SecretService) ListUserSecretsToDrain(ctx context.Context) (_ []*secret
 // If returns [secreterrors.SecretRevisionNotFound] is there's no such secret revision.
 func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, rev int, accessor SecretAccessor) (_ secrets.SecretValue, _ *secrets.ValueRef, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.canRead(ctx, uri, accessor); err != nil {
 		return nil, nil, errors.Capture(err)
@@ -772,10 +745,7 @@ func (s *SecretService) GetSecretValue(ctx context.Context, uri *secrets.URI, re
 // again using the new active backend.
 func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *secrets.URI, rev int) (_ secrets.SecretValue, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if s.activeBackendID == "" {
 		err := s.loadBackendInfo(ctx, false)
@@ -835,10 +805,7 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	ctx context.Context, unitName coreunit.Name, uri *secrets.URI, label string,
 ) (_ *secrets.URI, _ *string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	modelUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
@@ -969,10 +936,7 @@ func (s *SecretService) ChangeSecretBackend(
 	ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
@@ -1019,10 +983,7 @@ func (s *SecretService) ChangeSecretBackend(
 // SecretRotated rotates the secret with the specified URI.
 func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, params SecretRotatedParams) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {

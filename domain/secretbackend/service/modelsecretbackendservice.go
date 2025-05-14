@@ -29,10 +29,7 @@ func NewModelSecretBackendService(modelID coremodel.UUID, st State) *ModelSecret
 // returning an error satisfying [modelerrors.NotFound] if the model provided does not exist.
 func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (_ string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
 	if err != nil {
@@ -58,10 +55,7 @@ func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (
 // returning an error satisfying [secretbackenderrors.NotValid] if the backend name provided is not valid.
 func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, backendName string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if backendName == "" {
 		return errors.Errorf("missing backend name")

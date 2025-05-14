@@ -65,10 +65,7 @@ func NewService(st State, logger logger.Logger) *Service {
 // BlockDevices returns the block devices for a specified machine.
 func (s *Service) BlockDevices(ctx context.Context, machineId string) (_ []blockdevice.BlockDevice, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.BlockDevices(ctx, machineId)
 }
@@ -76,10 +73,7 @@ func (s *Service) BlockDevices(ctx context.Context, machineId string) (_ []block
 // UpdateBlockDevices updates the block devices for a specified machine.
 func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	for i := range devices {
 		if devices[i].FilesystemType == "" {
@@ -92,10 +86,7 @@ func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devi
 // AllBlockDevices returns all block devices in the model, keyed on machine id.
 func (s *Service) AllBlockDevices(ctx context.Context) (_ map[string]blockdevice.BlockDevice, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	machineDevices, err := s.st.MachineBlockDevices(ctx)
 	if err != nil {
@@ -134,10 +125,7 @@ func (s *WatchableService) WatchBlockDevices(
 	machineId string,
 ) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.WatchBlockDevices(ctx, s.watcherFactory.NewNotifyWatcher, machineId)
 }

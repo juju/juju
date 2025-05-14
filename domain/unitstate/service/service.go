@@ -41,10 +41,7 @@ func NewService(st State) *Service {
 // based on its populated values.
 func (s *Service) SetState(ctx context.Context, as unitstate.UnitState) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.SetUnitState(ctx, as)
 }
@@ -52,10 +49,7 @@ func (s *Service) SetState(ctx context.Context, as unitstate.UnitState) (err err
 // GetState returns the full unit state. The state may be empty.
 func (s *Service) GetState(ctx context.Context, name coreunit.Name) (_ unitstate.RetrievedUnitState, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	state, err := s.st.GetUnitState(ctx, name)
 	if err != nil {

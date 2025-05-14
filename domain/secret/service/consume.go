@@ -23,10 +23,7 @@ import (
 // along with an error satisfying [secreterrors.SecretConsumerNotFound].
 func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName unit.Name) (_ *secrets.SecretConsumerMetadata, _ int, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	consumerMetadata, latestRevision, err := s.secretState.GetSecretConsumer(ctx, uri, unitName)
 	if err != nil {
@@ -56,10 +53,7 @@ func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *sec
 // is returned.
 func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name) (_ *secrets.SecretConsumerMetadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	result, _, err := s.GetSecretConsumerAndLatest(ctx, uri, unitName)
 	return result, err
@@ -70,10 +64,7 @@ func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI,
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
 func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md *secrets.SecretConsumerMetadata) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.secretState.SaveSecretConsumer(ctx, uri, unitName, md)
 }
@@ -83,10 +74,7 @@ func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
 func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string, unitName unit.Name) (_ *secrets.URI, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.secretState.GetURIByConsumerLabel(ctx, label, unitName)
 }
@@ -95,10 +83,7 @@ func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string,
 // the label associated with the secret for the consumer.
 func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName unit.Name, refresh, peek bool, labelToUpdate *string) (_ int, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	consumerInfo, latestRevision, err := s.GetSecretConsumerAndLatest(ctx, uri, unitName)
 	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
@@ -141,10 +126,7 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 	ctx context.Context, backendID string, role secrets.SecretRole, consumers ...SecretAccessor,
 ) (_ []*secrets.SecretRevisionRef, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	accessors := make([]domainsecret.AccessParams, len(consumers))
 	for i, consumer := range consumers {
@@ -170,10 +152,7 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 // updating the tracked revision for the specified consumer if refresh is true.
 func (s *SecretService) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets.URI, unitName unit.Name, refresh bool) (_ int, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	consumerInfo, latestRevision, err := s.secretState.GetSecretRemoteConsumer(ctx, uri, unitName)
 	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
@@ -198,9 +177,6 @@ func (s *SecretService) UpdateRemoteConsumedRevision(ctx context.Context, uri *s
 // which has been consumed from a different model.
 func (s *SecretService) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return s.secretState.UpdateRemoteSecretRevision(ctx, uri, latestRevision)
 }

@@ -42,10 +42,7 @@ func NewService(providerGetter providertracker.ProviderGetter[Provider]) *Servic
 // it will return [errors.ProxyNotFound].
 func (s *Service) GetConnectionProxyInfo(ctx context.Context) (_ proxy.Proxier, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	provider, err := s.providerGetter(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
@@ -68,10 +65,7 @@ func (s *Service) GetConnectionProxyInfo(ctx context.Context) (_ proxy.Proxier, 
 // with the given port.
 func (s *Service) GetProxyToApplication(ctx context.Context, appName, remotePort string) (_ proxy.Proxier, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	provider, err := s.providerGetter(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {

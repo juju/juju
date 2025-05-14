@@ -55,10 +55,7 @@ func NewProviderService(
 // - [modelerrors.NotFound]: When the model is not found for a given uuid.
 func (s *ProviderService) Model(ctx context.Context) (_ coremodel.ModelInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.modelSt.GetModel(ctx)
 }
@@ -72,9 +69,6 @@ func (s *ProviderService) Model(ctx context.Context) (_ coremodel.ModelInfo, err
 // - [modelerrors.NotFound] when the model is not found.
 func (s *ProviderService) WatchModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return watchModelCloudCredential(ctx, s.controllerSt, s.watcherFactory, modelUUID)
 }

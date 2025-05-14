@@ -94,10 +94,7 @@ func (s *Service) ContainerManagerConfigForType(
 	containerType instance.ContainerType,
 ) (_ containermanager.Config, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	rval := containermanager.Config{}
 
@@ -135,10 +132,7 @@ func (s *Service) ContainerManagerConfigForType(
 // and the current provider.
 func (s *Service) ContainerNetworkingMethod(ctx context.Context) (_ containermanager.NetworkingMethod, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	cfg, err := s.st.GetModelConfigKeyValues(ctx, config.ContainerNetworkingMethodKey)
 	if err != nil {
@@ -186,10 +180,7 @@ func (s *Service) ContainerNetworkingMethod(ctx context.Context) (_ containerman
 // ContainerConfig returns the container config for the model.
 func (s *Service) ContainerConfig(ctx context.Context) (_ container.Config, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	result := container.Config{}
 

@@ -63,10 +63,7 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 	status corestatus.StatusInfo,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return errors.Errorf("unit name: %w", err)
@@ -113,10 +110,7 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	err error,
 ) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return corestatus.StatusInfo{}, nil, errors.Errorf("unit name: %w", err)
@@ -186,10 +180,7 @@ func (s *LeadershipService) SetRelationStatus(
 	info corestatus.StatusInfo,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	// Check that the time has been provided
 	if info.Since == nil || info.Since.IsZero() {

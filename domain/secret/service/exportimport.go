@@ -19,10 +19,7 @@ import (
 // export secrets to a model description.
 func (s *SecretService) GetSecretsForExport(ctx context.Context) (_ *SecretExport, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	secrets, secretRevisions, err := s.secretState.ListSecrets(ctx, nil, nil, secret.NilLabels)
 	if err != nil {
@@ -152,10 +149,7 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (_ *SecretExpor
 // ImportSecrets saves the supplied secret details to the model.
 func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretExport) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.importRemoteSecrets(ctx, modelSecrets.RemoteSecrets); err != nil {
 		return errors.Errorf("importing remote secrets: %w", err)

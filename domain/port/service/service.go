@@ -63,10 +63,7 @@ func NewService(st State, logger logger.Logger) *Service {
 // endpoint.
 func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (_ network.GroupedPortRanges, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetUnitOpenedPorts(ctx, unitUUID)
 }
@@ -77,10 +74,7 @@ func (s *Service) GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID
 // group by unit name
 func (s *Service) GetAllOpenedPorts(ctx context.Context) (_ port.UnitGroupedPortRanges, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetAllOpenedPorts(ctx)
 }
@@ -92,10 +86,7 @@ func (s *Service) GetAllOpenedPorts(ctx context.Context) (_ port.UnitGroupedPort
 // TODO: Once we have a core static machine uuid type, use it here.
 func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string) (_ map[coreunit.Name]network.GroupedPortRanges, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetMachineOpenedPorts(ctx, machineUUID)
 }
@@ -104,10 +95,7 @@ func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string)
 // application. Opened ports are grouped first by unit name and then by endpoint.
 func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (_ map[coreunit.Name]network.GroupedPortRanges, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {
@@ -124,10 +112,7 @@ func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID
 // as k8s, which can only reason with unit-length port ranges.
 func (s *Service) GetApplicationOpenedPortsByEndpoint(ctx context.Context, applicationUUID coreapplication.ID) (_ network.GroupedPortRanges, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	openedPorts, err := s.st.GetApplicationOpenedPorts(ctx, applicationUUID)
 	if err != nil {
@@ -177,10 +162,7 @@ func atomisePortRange(portRange network.PortRange) []network.PortRange {
 // it on all other endpoints except the targeted endpoint.
 func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, openPorts, closePorts network.GroupedPortRanges) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if len(openPorts.UniquePortRanges())+len(closePorts.UniquePortRanges()) == 0 {
 		return nil
@@ -202,10 +184,7 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 // GetUnitUUID returns the UUID of the unit with the given name.
 func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (_ coreunit.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return "", errors.Capture(err)

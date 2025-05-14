@@ -88,10 +88,7 @@ func NewService(st State) *Service {
 // GetMetadata returns the persistence metadata for the specified path.
 func (s *Service) GetMetadata(ctx context.Context, path string) (_ objectstore.Metadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	metadata, err := s.st.GetMetadata(ctx, path)
 	if err != nil {
@@ -109,10 +106,7 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (_ objectstore.M
 // with SHA256 starting with the provided prefix.
 func (s *Service) GetMetadataBySHA256(ctx context.Context, sha256 string) (_ objectstore.Metadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if len(sha256) != hashLength {
 		return objectstore.Metadata{}, objectstoreerrors.ErrInvalidHashLength
@@ -136,10 +130,7 @@ func (s *Service) GetMetadataBySHA256(ctx context.Context, sha256 string) (_ obj
 // with SHA256 starting with the provided prefix.
 func (s *Service) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix string) (_ objectstore.Metadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if len(sha256Prefix) < minHashPrefixLength {
 		return objectstore.Metadata{}, errors.Errorf("minimum has prefix length is %d: %w", minHashPrefixLength, objectstoreerrors.ErrHashPrefixTooShort)
@@ -162,10 +153,7 @@ func (s *Service) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefix st
 // ListMetadata returns the persistence metadata for all paths.
 func (s *Service) ListMetadata(ctx context.Context) (_ []objectstore.Metadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	metadata, err := s.st.ListMetadata(ctx)
 	if err != nil {
@@ -189,10 +177,7 @@ func (s *Service) ListMetadata(ctx context.Context) (_ []objectstore.Metadata, e
 // consistent with the object. That's the caller's responsibility.
 func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata) (_ objectstore.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	// If you have one hash, you must have the other.
 	if h1, h2 := metadata.SHA384, metadata.SHA256; h1 != "" && h2 == "" {
@@ -217,10 +202,7 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 // RemoveMetadata removes the specified path for the persistence metadata.
 func (s *Service) RemoveMetadata(ctx context.Context, path string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.RemoveMetadata(ctx, path); err != nil {
 		return errors.Errorf("removing path %s: %w", path, err)

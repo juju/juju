@@ -238,10 +238,7 @@ func NewWatchableService(st State,
 // false is returned indiciating of the model exists.
 func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
@@ -256,10 +253,7 @@ func (s *Service) DefaultModelCloudInfo(
 	ctx context.Context,
 ) (_ string, _ string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	ctrlUUID, err := s.st.GetControllerModelUUID(ctx)
 	if err != nil {
 		return "", "", errors.Errorf(
@@ -307,10 +301,7 @@ func (s *Service) CreateModel(
 	args model.GlobalModelCreationArgs,
 ) (_ coremodel.UUID, _ func(context.Context) error, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := args.Validate(); err != nil {
 		return "", nil, errors.Errorf(
@@ -428,10 +419,7 @@ func (s *Service) ImportModel(
 	args model.ModelImportArgs,
 ) (_ func(context.Context) error, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := args.Validate(); err != nil {
 		return nil, errors.Errorf(
@@ -447,10 +435,7 @@ func (s *Service) ImportModel(
 // will be returned.
 func (s *Service) ControllerModel(ctx context.Context) (_ coremodel.Model, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return s.st.GetControllerModel(ctx)
 }
 
@@ -459,10 +444,7 @@ func (s *Service) ControllerModel(ctx context.Context) (_ coremodel.Model, err e
 // - [modelerrors.NotFound]: When the model does not exist.
 func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (_ coremodel.Model, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := uuid.Validate(); err != nil {
 		return coremodel.Model{}, errors.Errorf("model uuid: %w", err)
@@ -481,10 +463,7 @@ func (s *Service) DeleteModel(
 	opts ...model.DeleteModelOption,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	options := model.DefaultDeleteModelOptions()
 	for _, fn := range opts {
@@ -522,10 +501,7 @@ func (s *Service) DeleteModel(
 // active.
 func (s *Service) ListModelUUIDs(ctx context.Context) (_ []coremodel.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	uuids, err := s.st.ListModelUUIDs(ctx)
 	if err != nil {
@@ -546,10 +522,7 @@ func (s *Service) ListModelUUIDsForUser(
 	userUUID coreuser.UUID,
 ) (_ []coremodel.UUID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := userUUID.Validate(); err != nil {
 		return nil, errors.Errorf("validating user uuid: %w", err)
@@ -562,10 +535,7 @@ func (s *Service) ListModelUUIDsForUser(
 // an empty slice is returned.
 func (s *Service) ListAllModels(ctx context.Context) (_ []coremodel.Model, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.ListAllModels(ctx)
 }
@@ -575,10 +545,7 @@ func (s *Service) ListAllModels(ctx context.Context) (_ []coremodel.Model, err e
 // an empty slice of models will be returned.
 func (s *Service) ListModelsForUser(ctx context.Context, userID coreuser.UUID) (_ []coremodel.Model, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	if err := userID.Validate(); err != nil {
 		return nil, errors.Errorf("listing models owned by user: %w", err)
 	}
@@ -610,10 +577,7 @@ func ModelTypeForCloud(
 // If the model cannot be found it will return [modelerrors.NotFound].
 func (s *Service) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) (_ []coremodel.ModelUserInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := modelUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -630,10 +594,7 @@ func (s *Service) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) (
 // If the user cannot be found it will return [modelerrors.UserNotFoundOnModel].
 func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (_ coremodel.ModelUserInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if name.IsZero() {
 		return coremodel.ModelUserInfo{}, errors.New(
@@ -676,10 +637,7 @@ func (s *Service) UpdateCredential(
 	key credential.Key,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := uuid.Validate(); err != nil {
 		return errors.Errorf("updating cloud credential model uuid: %w", err)
@@ -697,10 +655,7 @@ func (s *Service) UpdateCredential(
 // - [modelerrors.NotActivated]: When the model has not been activated.
 func (s *Service) GetModelLife(ctx context.Context, uuid coremodel.UUID) (_ life.Value, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := uuid.Validate(); err != nil {
 		return "", errors.Errorf("model uuid: %w", err)
@@ -719,10 +674,7 @@ func (s *Service) GetModelLife(ctx context.Context, uuid coremodel.UUID) (_ life
 // - [accesserrors.UserNameNotValid] if ownerName is zero
 func (s *Service) GetModelByNameAndOwner(ctx context.Context, name string, ownerName coreuser.Name) (_ coremodel.Model, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if ownerName.IsZero() {
 		return coremodel.Model{}, errors.Errorf("invalid owner name: %w", accesserrors.UserNameNotValid)
@@ -778,10 +730,7 @@ func getWatchActivatedModelsMapper(st State) eventsource.Mapper {
 // activated at creation. Deletion of activated models is also not reported.
 func (s *WatchableService) WatchActivatedModels(ctx context.Context) (_ watcher.StringsWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	mapper := getWatchActivatedModelsMapper(s.st)
 	modelTableName, query := s.st.InitialWatchActivatedModelsStatement()
@@ -796,10 +745,7 @@ func (s *WatchableService) WatchActivatedModels(ctx context.Context) (_ watcher.
 // WatchModel returns a watcher that emits an event if the model changes.
 func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UUID) (_ watcher.NotifyWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter("model", changestream.All, eventsource.EqualsPredicate(modelUUID.String())),
@@ -815,10 +761,7 @@ func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UU
 // - [modelerrors.NotFound] when the model is not found.
 func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return watchModelCloudCredential(ctx, s.st, s.watcherFactory, modelUUID)
 }

@@ -40,10 +40,7 @@ func NewService(st State, logger logger.Logger) *Service {
 // AddSpace creates and returns a new space.
 func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (_ network.Id, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if !names.IsValidSpace(string(space.Name)) {
 		return "", errors.Errorf("space name %q not valid", space.Name).Add(networkerrors.SpaceNameNotValid)
@@ -73,10 +70,7 @@ func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (_ netw
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return errors.Capture(s.st.UpdateSpace(ctx, uuid, name))
 }
 
@@ -85,10 +79,7 @@ func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) (er
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 func (s *Service) Space(ctx context.Context, uuid string) (_ *network.SpaceInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	sp, err := s.st.GetSpace(ctx, uuid)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -101,10 +92,7 @@ func (s *Service) Space(ctx context.Context, uuid string) (_ *network.SpaceInfo,
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 func (s *Service) SpaceByName(ctx context.Context, name string) (_ *network.SpaceInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	sp, err := s.st.GetSpaceByName(ctx, name)
 	if err != nil {
@@ -116,10 +104,7 @@ func (s *Service) SpaceByName(ctx context.Context, name string) (_ *network.Spac
 // GetAllSpaces returns all spaces for the model.
 func (s *Service) GetAllSpaces(ctx context.Context) (_ network.SpaceInfos, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	spaces, err := s.st.GetAllSpaces(ctx)
 	if err != nil {
@@ -133,10 +118,7 @@ func (s *Service) GetAllSpaces(ctx context.Context) (_ network.SpaceInfos, err e
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 func (s *Service) RemoveSpace(ctx context.Context, uuid string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return errors.Capture(s.st.DeleteSpace(ctx, uuid))
 }
 
@@ -167,10 +149,7 @@ func NewProviderService(
 // ReloadSpaces loads spaces and subnets from the provider into state.
 func (s *ProviderService) ReloadSpaces(ctx context.Context) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	networkProvider, err := s.providerWithNetworking(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
@@ -270,10 +249,7 @@ func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUp
 // SupportsSpaces returns whether the provider supports spaces.
 func (s *ProviderService) SupportsSpaces(ctx context.Context) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	networkProvider, err := s.providerWithNetworking(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
@@ -288,10 +264,7 @@ func (s *ProviderService) SupportsSpaces(ctx context.Context) (_ bool, err error
 // spaces from the provider.
 func (s *ProviderService) SupportsSpaceDiscovery(ctx context.Context) (_ bool, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	networkProvider, err := s.providerWithNetworking(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {

@@ -93,10 +93,7 @@ func NewAgentBinaryService(
 // An empty slice is returned if no agent binaries are found.
 func (s *AgentBinaryService) ListAgentBinaries(ctx context.Context) (_ []agentbinary.Metadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	controllerAgentBinaries, err := s.controllerState.ListAgentBinaries(ctx)
 	if err != nil {
 		return nil, errors.Errorf("listing agent binaries from controller state: %w", err)
@@ -146,10 +143,7 @@ func (s *AgentBinaryService) GetEnvironAgentBinariesFinder() EnvironAgentBinarie
 		filter coretools.Filter,
 	) (_ coretools.List, err error) {
 		ctx, span := trace.Start(ctx, trace.NameFromFunc())
-		defer func() {
-			span.RecordError(err)
-			span.End()
-		}()
+		defer span.End()
 
 		provider, err := s.providerForAgentBinaryFinder(ctx)
 		if errors.Is(err, coreerrors.NotSupported) {

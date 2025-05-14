@@ -184,10 +184,7 @@ func (s *Service) GetMachinesNotAtTargetAgentVersion(
 	ctx context.Context,
 ) (_ []machine.Name, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetMachinesNotAtTargetAgentVersion(context.Background())
 }
@@ -204,10 +201,7 @@ func (s *Service) GetMachineReportedAgentVersion(
 	machineName machine.Name,
 ) (_ agentbinary.Version, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	uuid, err := s.st.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
@@ -247,10 +241,7 @@ func (s *Service) GetMachinesAgentBinaryMetadata(
 	ctx context.Context,
 ) (_ map[machine.Name]agentbinary.Metadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetMachinesAgentBinaryMetadata(ctx)
 }
@@ -265,10 +256,7 @@ func (s *Service) GetMachineTargetAgentVersion(
 	machineName machine.Name,
 ) (_ agentbinary.Version, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	uuid, err := s.st.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
@@ -300,10 +288,7 @@ func (s *Service) GetUnitsAgentBinaryMetadata(
 	ctx context.Context,
 ) (_ map[coreunit.Name]agentbinary.Metadata, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	return s.st.GetUnitsAgentBinaryMetadata(ctx)
 }
 
@@ -316,10 +301,7 @@ func (s *Service) GetUnitsNotAtTargetAgentVersion(
 	ctx context.Context,
 ) (_ []coreunit.Name, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetUnitsNotAtTargetAgentVersion(ctx)
 }
@@ -335,10 +317,7 @@ func (s *Service) GetUnitReportedAgentVersion(
 	unitName coreunit.Name,
 ) (_ agentbinary.Version, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	uuid, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
@@ -371,10 +350,7 @@ func (s *Service) GetUnitTargetAgentVersion(
 	unitName coreunit.Name,
 ) (_ agentbinary.Version, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	uuid, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
@@ -395,10 +371,7 @@ func (s *Service) GetUnitTargetAgentVersion(
 // agent version record exists.
 func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (_ semversion.Number, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.GetModelTargetAgentVersion(ctx)
 }
@@ -420,10 +393,7 @@ func (s *Service) SetMachineReportedAgentVersion(
 	reportedVersion agentbinary.Version,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := machineName.Validate(); err != nil {
 		return errors.Errorf("setting reported agent version for machine: %w", err)
@@ -462,10 +432,7 @@ func (s *Service) SetModelAgentStream(
 	agentStream agentbinary.AgentStream,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	domainAgentStream, err := modelagent.AgentStreamFromCoreAgentStream(agentStream)
 	if errors.Is(err, coreerrors.NotValid) {
@@ -501,10 +468,7 @@ func (s *Service) SetUnitReportedAgentVersion(
 	reportedVersion agentbinary.Version,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := unitName.Validate(); err != nil {
 		return errors.Errorf("unit name %q is not valid: %w", unitName, err)
@@ -544,10 +508,7 @@ func (s *WatchableService) WatchMachineTargetAgentVersion(
 	machineName machine.Name,
 ) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if _, err := s.st.GetMachineUUIDByName(ctx, machineName); errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
@@ -572,10 +533,7 @@ func (s *WatchableService) WatchUnitTargetAgentVersion(
 	unitName coreunit.Name,
 ) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if _, err := s.st.GetUnitUUIDByName(ctx, unitName); errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
@@ -595,10 +553,7 @@ func (s *WatchableService) WatchUnitTargetAgentVersion(
 // version.
 func (s *WatchableService) WatchModelTargetAgentVersion(ctx context.Context) (_ watcher.NotifyWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	w, err := s.watcherFactory.NewNotifyWatcher(
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchAgentVersion(), changestream.All),

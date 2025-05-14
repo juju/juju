@@ -53,10 +53,7 @@ func NewService(st State) *Service {
 // no annotations are found, an empty map is returned.
 func (s *Service) GetAnnotations(ctx context.Context, id annotations.ID) (_ map[string]string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := id.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -69,10 +66,7 @@ func (s *Service) GetAnnotations(ctx context.Context, id annotations.ID) (_ map[
 // charm argument. If no annotations are found, an empty map is returned.
 func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs) (_ map[string]string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := id.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -87,10 +81,7 @@ func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetChar
 // the given value.
 func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotations map[string]string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := id.Validate(); err != nil {
 		return errors.Capture(err)
@@ -111,10 +102,7 @@ func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotat
 // updated with the given value.
 func (s *Service) SetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs, annotations map[string]string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := id.Validate(); err != nil {
 		return errors.Capture(err)

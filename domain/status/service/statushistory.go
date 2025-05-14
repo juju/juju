@@ -16,10 +16,7 @@ import (
 // GetStatusHistory returns the status history based on the request.
 func (s *Service) GetStatusHistory(ctx context.Context, request StatusHistoryRequest) (_ []status.DetailedStatus, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	reader, err := s.statusHistoryReaderFn()
 	if err != nil {

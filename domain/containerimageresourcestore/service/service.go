@@ -64,10 +64,7 @@ func (s *Service) Get(
 	storageKey string,
 ) (r io.ReadCloser, size int64, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	metadata, err := s.st.GetContainerImageMetadata(ctx, storageKey)
 	if err != nil {
@@ -99,10 +96,7 @@ func (s *Service) Put(
 	_ store.Fingerprint,
 ) (_ store.ID, _ int64, _ store.Fingerprint, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	respBuf := new(bytes.Buffer)
 	bytesRead, err := respBuf.ReadFrom(r)
@@ -135,10 +129,7 @@ func (s *Service) Remove(
 	storageKey string,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.RemoveContainerImageMetadata(ctx, storageKey); err != nil {
 		return errors.Errorf("removing container image metadata from state: %w", err)

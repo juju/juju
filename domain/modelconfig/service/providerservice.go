@@ -49,10 +49,7 @@ func NewProviderService(
 // ModelConfig returns the current config for the model.
 func (s *ProviderService) ModelConfig(ctx context.Context) (_ *config.Config, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	stConfig, err := s.st.ModelConfig(ctx)
 	if err != nil {

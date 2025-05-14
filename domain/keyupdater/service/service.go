@@ -129,10 +129,7 @@ func (s *Service) GetAuthorisedKeysForMachine(
 	machineName coremachine.Name,
 ) (_ []string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := machineName.Validate(); err != nil {
 		return nil, errors.Errorf(
@@ -188,10 +185,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 	machineName coremachine.Name,
 ) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := machineName.Validate(); err != nil {
 		return nil, errors.Errorf(
@@ -232,10 +226,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 // when provisioning a new container for the model.
 func (s *Service) GetInitialAuthorisedKeysForContainer(ctx context.Context) (_ []string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	modelId, err := s.st.GetModelUUID(ctx)
 	if err != nil {

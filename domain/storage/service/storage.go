@@ -43,10 +43,7 @@ type StorageService struct {
 // - [storageerrors.InvalidPoolNameError]: when the supplied pool name is invalid.
 func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorageParams) (_ corestorage.ID, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if arg.Kind != internalstorage.StorageKindFilesystem {
 		// TODO(axw) implement support for volumes.

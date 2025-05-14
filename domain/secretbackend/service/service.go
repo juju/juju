@@ -69,10 +69,7 @@ func newService(
 // returning an error satisfying [secretbackenderrors.NotFound] if the backend is not found.
 func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID coremodel.UUID) (_ *provider.ModelBackendConfigInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, modelUUID)
 	if err != nil {
@@ -115,10 +112,7 @@ func (s *Service) DrainBackendConfigInfo(
 	ctx context.Context, p DrainBackendConfigParams,
 ) (_ *provider.ModelBackendConfigInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if p.Accessor.Kind != secretservice.UnitAccessor && p.Accessor.Kind != secretservice.ModelAccessor {
 		return nil, errors.Errorf("secret accessor kind %q %w", p.Accessor.Kind, coreerrors.NotSupported)
@@ -161,10 +155,7 @@ func (s *Service) BackendConfigInfo(
 	ctx context.Context, p BackendConfigParams,
 ) (_ *provider.ModelBackendConfigInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if p.Accessor.Kind != secretservice.UnitAccessor && p.Accessor.Kind != secretservice.ModelAccessor {
 		return nil, errors.Errorf("secret accessor kind %q %w", p.Accessor.Kind, coreerrors.NotSupported)
@@ -330,10 +321,7 @@ func convertConfigToString(config map[string]interface{}) map[string]string {
 // which contain secrets from the specified model.
 func (s *Service) BackendSummaryInfoForModel(ctx context.Context, modelUUID coremodel.UUID) (_ []*SecretBackendInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	backends, err := s.st.ListSecretBackendsForModel(ctx, modelUUID, false)
 	if err != nil {
@@ -359,10 +347,7 @@ func (s *Service) BackendSummaryInfoForModel(ctx context.Context, modelUUID core
 // If names are specified, just those backends are included, else all.
 func (s *Service) BackendSummaryInfo(ctx context.Context, reveal bool, names ...string) (_ []*SecretBackendInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	backends, err := s.st.ListSecretBackends(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -445,10 +430,7 @@ func validateExternalBackendName(name string) error {
 // ListBackendIDs returns the IDs of all the secret backends.
 func (s *Service) ListBackendIDs(ctx context.Context) (_ []string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	result, err := s.st.ListSecretBackendIDs(ctx)
 	if err != nil {
@@ -460,10 +442,7 @@ func (s *Service) ListBackendIDs(ctx context.Context) (_ []string, err error) {
 // CreateSecretBackend creates a new secret backend.
 func (s *Service) CreateSecretBackend(ctx context.Context, backend coresecrets.SecretBackend) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if backend.ID == "" {
 		return errors.Errorf("%w: missing ID", secretbackenderrors.NotValid)
@@ -526,10 +505,7 @@ func (s *Service) CreateSecretBackend(ctx context.Context, backend coresecrets.S
 // UpdateSecretBackend updates an existing secret backend.
 func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBackendParams) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := params.Validate(); err != nil {
 		return errors.Capture(err)
@@ -597,10 +573,7 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 // DeleteSecretBackend deletes a secret backend.
 func (s *Service) DeleteSecretBackend(ctx context.Context, params DeleteSecretBackendParams) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.DeleteSecretBackend(ctx, params.BackendIdentifier, params.DeleteInUse)
 }
@@ -608,10 +581,7 @@ func (s *Service) DeleteSecretBackend(ctx context.Context, params DeleteSecretBa
 // RotateBackendToken rotates the token for the given secret backend.
 func (s *Service) RotateBackendToken(ctx context.Context, backendID string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	backendInfo, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{ID: backendID})
 	if err != nil {
@@ -668,10 +638,7 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) (err
 // drained to a different backend for the specified model.
 func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []coresecrets.SecretExternalRevision) (_ []RevisionInfo, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	internalBackendUUID, activeBackendUUID, err := s.st.GetInternalAndActiveBackendUUIDs(ctx, modelUUID)
 	if err != nil {
@@ -739,10 +706,7 @@ var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
 // WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
 func (s *WatchableService) WatchSecretBackendRotationChanges(ctx context.Context) (_ watcher.SecretBackendRotateWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	tableName, initialQ := s.st.InitialWatchStatementForSecretBackendRotationChanges()
 	w, err := s.watcherFactory.NewNamespaceWatcher(
@@ -758,10 +722,7 @@ func (s *WatchableService) WatchSecretBackendRotationChanges(ctx context.Context
 // WatchSecretBackendChanged notifies when the model secret backend has changed.
 func (s *WatchableService) WatchModelSecretBackendChanged(ctx context.Context, modelUUID coremodel.UUID) (_ watcher.NotifyWatcher, err error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	w, err := s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(

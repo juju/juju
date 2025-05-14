@@ -17,10 +17,7 @@ import (
 // [github.com/juju/juju/domain/machine/errors.NotProvisioned]
 func (s *Service) InstanceID(ctx context.Context, machineUUID machine.UUID) (_ instance.Id, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	instanceId, err := s.st.InstanceID(ctx, machineUUID)
 	if err != nil {
@@ -35,10 +32,7 @@ func (s *Service) InstanceID(ctx context.Context, machineUUID machine.UUID) (_ i
 // [github.com/juju/juju/domain/machine/errors.NotProvisioned]
 func (s *Service) InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (_ instance.Id, _ string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	instanceID, instanceName, err := s.st.InstanceIDAndName(ctx, machineUUID)
 	if err != nil {
@@ -50,10 +44,7 @@ func (s *Service) InstanceIDAndName(ctx context.Context, machineUUID machine.UUI
 // AvailabilityZone returns the availability zone for the specified machine.
 func (s *Service) AvailabilityZone(ctx context.Context, machineUUID machine.UUID) (_ string, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	az, err := s.st.AvailabilityZone(ctx, machineUUID)
 	if err != nil {
@@ -66,10 +57,7 @@ func (s *Service) AvailabilityZone(ctx context.Context, machineUUID machine.UUID
 // of the specified machine.
 func (s *Service) HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (_ *instance.HardwareCharacteristics, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	hc, err := s.st.HardwareCharacteristics(ctx, machineUUID)
 	if err != nil {
@@ -88,10 +76,7 @@ func (s *Service) SetMachineCloudInstance(
 	hardwareCharacteristics *instance.HardwareCharacteristics,
 ) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.SetMachineCloudInstance(ctx, machineUUID, instanceID, displayName, hardwareCharacteristics); err != nil {
 		return errors.Errorf("setting machine cloud instance for machine %q: %w", machineUUID, err)
@@ -104,10 +89,7 @@ func (s *Service) SetMachineCloudInstance(
 // well as any associated status data.
 func (s *Service) DeleteMachineCloudInstance(ctx context.Context, machineUUID machine.UUID) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.DeleteMachineCloudInstance(ctx, machineUUID); err != nil {
 		return errors.Errorf("deleting machine cloud instance for machine %q: %w", machineUUID, err)

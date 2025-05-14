@@ -53,10 +53,7 @@ type Service struct {
 // permissions for the owner.
 func (s *Service) CreateCloud(ctx context.Context, owner user.Name, cloud cloud.Cloud) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	credUUID, err := uuid.NewUUID()
 	if err != nil {
@@ -72,10 +69,7 @@ func (s *Service) CreateCloud(ctx context.Context, owner user.Name, cloud cloud.
 // UpdateCloud updates the specified cloud.
 func (s *Service) UpdateCloud(ctx context.Context, cloud cloud.Cloud) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.UpdateCloud(ctx, cloud); err != nil {
 		return errors.Errorf("updating cloud %q: %w", cloud.Name, err)
@@ -86,10 +80,7 @@ func (s *Service) UpdateCloud(ctx context.Context, cloud cloud.Cloud) (err error
 // DeleteCloud removes the specified cloud.
 func (s *Service) DeleteCloud(ctx context.Context, name string) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	if err := s.st.DeleteCloud(ctx, name); err != nil {
 		return errors.Errorf("deleting cloud %q: %w", name, err)
@@ -100,10 +91,7 @@ func (s *Service) DeleteCloud(ctx context.Context, name string) (err error) {
 // ListAll returns all the clouds.
 func (s *Service) ListAll(ctx context.Context) (_ []cloud.Cloud, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	all, err := s.st.ListClouds(ctx)
 	return all, errors.Capture(err)
@@ -112,10 +100,7 @@ func (s *Service) ListAll(ctx context.Context) (_ []cloud.Cloud, err error) {
 // Cloud returns the named cloud.
 func (s *Service) Cloud(ctx context.Context, name string) (_ *cloud.Cloud, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	cloud, err := s.st.Cloud(ctx, name)
 	return cloud, errors.Capture(err)
@@ -142,10 +127,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 // WatchCloud returns a watcher that observes changes to the specified cloud.
 func (s *WatchableService) WatchCloud(ctx context.Context, name string) (_ watcher.NotifyWatcher, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	return s.st.WatchCloud(ctx, s.watcherFactory.NewNotifyWatcher, name)
 }

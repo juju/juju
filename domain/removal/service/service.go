@@ -47,10 +47,7 @@ type Service struct {
 // GetAllJobs returns all removal jobs.
 func (s *Service) GetAllJobs(ctx context.Context) (_ []removal.Job, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 	jobs, err := s.st.GetAllJobs(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -63,10 +60,7 @@ func (s *Service) GetAllJobs(ctx context.Context) (_ []removal.Job, err error) {
 // no removal job with the same UUID exists in the database.
 func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+	defer span.End()
 
 	switch job.RemovalType {
 	case removal.RelationJob:
