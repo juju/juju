@@ -755,6 +755,9 @@ func (u *UniterAPI) charmModifiedVersion(
 }
 
 // CharmURL returns the charm URL for all given units or applications.
+//
+// The "Ok" field of the result is used to indicate whether units should upgrade
+// to the charm with the given URL even if they are in an error state.
 func (u *UniterAPI) CharmURL(ctx context.Context, args params.Entities) (params.StringBoolResults, error) {
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
@@ -770,34 +773,63 @@ func (u *UniterAPI) CharmURL(ctx context.Context, args params.Entities) (params.
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var unitOrApplication state.Entity
-			unitOrApplication, err = u.st.FindEntity(tag)
-			if err == nil {
-				var cURL *string
-				var force bool
-
-				switch entity := unitOrApplication.(type) {
-				case *state.Application:
-					cURL, force = entity.CharmURL()
-				case *state.Unit:
-					cURL = entity.CharmURL()
-					// The force value is not actually used on the uniter's unit api.
-					if cURL != nil {
-						force = true
-					}
-				}
-
-				if cURL != nil {
-					result.Results[i].Result = *cURL
-					result.Results[i].Ok = force
-				}
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
+		var (
+			curl                string
+			charmUpgradeOnError bool
+		)
+		switch t := tag.(type) {
+		case names.ApplicationTag:
+			curl, charmUpgradeOnError, err = u.charmURLForApplication(ctx, t)
+		case names.UnitTag:
+			curl, charmUpgradeOnError, err = u.charmURLForUnit(ctx, t)
+		default:
+			err = apiservererrors.ErrPerm
+		}
+		result.Results[i].Result = curl
+		result.Results[i].Ok = charmUpgradeOnError
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) charmURLForApplication(ctx context.Context, tag names.ApplicationTag) (string, bool, error) {
+	// The charmUpgradeOnError value is not used by the unit api, so
+	// only set it for applications.
+	charmUpgradeOnError, err := u.applicationService.ShouldAllowCharmUpgradeOnError(ctx, tag.Id())
+	if err != nil {
+		return "", false, internalerrors.Capture(err)
+	}
+	charmLocator, err := u.applicationService.GetCharmLocatorByApplicationName(ctx, tag.Id())
+	if err != nil {
+		return "", false, internalerrors.Capture(err)
+	}
+	curl, err := apiservercharms.CharmURLFromLocator(charmLocator.Name, charmLocator)
+	if err != nil {
+		return "", false, internalerrors.Capture(err)
+	}
+	return curl, charmUpgradeOnError, nil
+}
+
+func (u *UniterAPI) charmURLForUnit(ctx context.Context, tag names.UnitTag) (string, bool, error) {
+	appName, err := names.UnitApplication(tag.Id())
+	if err != nil {
+		return "", false, internalerrors.Capture(err)
+	}
+	charmLocator, err := u.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
+	if err != nil {
+		return "", false, internalerrors.Capture(err)
+	}
+	curl, err := apiservercharms.CharmURLFromLocator(charmLocator.Name, charmLocator)
+	if err != nil {
+		return "", false, internalerrors.Capture(err)
+	}
+	// The charmUpgradeOnError value is not used by the unit api, so always set
+	// it to true for units.
+	return curl, true, nil
 }
 
 // SetCharmURL sets the charm URL for each given unit. An error will
@@ -818,11 +850,9 @@ func (u *UniterAPI) SetCharmURL(ctx context.Context, args params.EntitiesCharmUR
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
-			if err == nil {
-				err = unit.SetCharmURL(entity.CharmURL)
-			}
+			continue
+			// TODO(aflynn): SetCharmURL is currently a no-op. It will be
+			// addressed in the refresh epic.
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}

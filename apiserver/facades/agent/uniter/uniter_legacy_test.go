@@ -251,14 +251,6 @@ func (s *uniterLegacySuite) TestDestroyAllSubordinates(c *tc.C) {
 	// Verify wordpressUnit's subordinates were destroyed.
 }
 
-func (s *uniterLegacySuite) TestCharmURL(c *tc.C) {
-	// Set wordpressUnit's charm URL first.
-	// Make sure wordpress application's charm is what we expect.
-}
-
-func (s *uniterLegacySuite) TestSetCharmURL(c *tc.C) {
-}
-
 func (s *uniterLegacySuite) TestWorkloadVersion(c *tc.C) {
 }
 

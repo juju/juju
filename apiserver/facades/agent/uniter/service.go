@@ -187,6 +187,14 @@ type ApplicationService interface {
 	// GetUnitSubordinates returns the names of all the subordinate units of the
 	// given principal unit.
 	GetUnitSubordinates(ctx context.Context, unitName coreunit.Name) ([]coreunit.Name, error)
+
+	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
+	GetCharmLocatorByApplicationName(ctx context.Context, name string) (charm.CharmLocator, error)
+
+	// ShouldAllowCharmUpgradeOnError indicates if the units of an application should
+	// upgrade to the latest version of the application charm even if they are in
+	// error state.
+	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
 }
 
 type ResolveService interface {
