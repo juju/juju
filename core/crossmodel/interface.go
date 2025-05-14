@@ -82,8 +82,8 @@ func (s *ApplicationOffer) String() string {
 // ApplicationOfferFilter is used to query applications offered
 // by this model.
 type ApplicationOfferFilter struct {
-	// Namespace is the namespace of the model hosting the offer.
-	Namespace string
+	// ModelNamespace is the namespace of the model hosting the offer.
+	ModelNamespace string
 
 	// ModelName is the name of the model hosting the offer.
 	ModelName string

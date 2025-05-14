@@ -408,7 +408,7 @@ type accountDetailsGetter interface {
 func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL) error {
 	var currentAccountDetails *jujuclient.AccountDetails
 	for _, url := range offerURLs {
-		if url.Namespace != "" {
+		if url.ModelNamespace != "" {
 			continue
 		}
 		if currentAccountDetails == nil {
@@ -418,7 +418,7 @@ func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL) err
 				return errors.Trace(err)
 			}
 		}
-		url.Namespace = currentAccountDetails.User
+		url.ModelNamespace = currentAccountDetails.User
 	}
 	return nil
 }

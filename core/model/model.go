@@ -55,6 +55,8 @@ func ParseModelType(s string) (ModelType, error) {
 }
 
 var (
+	// TODO - we want to restrict the allow characters to be [a-z][-] and restrict length
+	//  and add a conversion helper for existing user name baded namespaces.
 	validNamespaceSnippet = "[a-zA-Z0-9][a-zA-Z0-9.+-]*[a-zA-Z0-9]"
 	validNamespace        = regexp.MustCompile(fmt.Sprintf("^(?P<name>%s)(?:@(?P<domain>%s))?$", validNamespaceSnippet, validNamespaceSnippet))
 )

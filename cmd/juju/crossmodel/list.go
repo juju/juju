@@ -164,7 +164,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	c.filters = []crossmodel.ApplicationOfferFilter{{
-		Namespace:       namespace,
+		ModelNamespace:  namespace,
 		ModelName:       unqualifiedModelName,
 		ApplicationName: c.applicationName,
 	}}

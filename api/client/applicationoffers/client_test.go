@@ -108,7 +108,7 @@ func (s *crossmodelMockSuite) TestList(c *tc.C) {
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		Namespace:        "fred",
+		ModelNamespace:   "fred",
 		ModelName:        "prod",
 		OfferName:        offerName,
 		Endpoints:        relations,
@@ -120,7 +120,7 @@ func (s *crossmodelMockSuite) TestList(c *tc.C) {
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			Namespace:       "fred",
+			ModelNamespace:  "fred",
 			ModelName:       "prod",
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,
@@ -191,7 +191,7 @@ func (s *crossmodelMockSuite) TestListError(c *tc.C) {
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			Namespace:           filter.Namespace,
+			ModelNamespace:      filter.ModelNamespace,
 			ModelName:           filter.ModelName,
 			OfferName:           filter.OfferName,
 			ApplicationName:     filter.ApplicationName,
@@ -377,15 +377,15 @@ func (s *crossmodelMockSuite) TestFind(c *tc.C) {
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		Namespace: namespace,
-		ModelName: modelName,
-		OfferName: offerName,
-		Endpoints: relations,
+		ModelNamespace: namespace,
+		ModelName:      modelName,
+		OfferName:      offerName,
+		Endpoints:      relations,
 	}
 
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			Namespace:       filter.Namespace,
+			ModelNamespace:  filter.ModelNamespace,
 			ModelName:       filter.ModelName,
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,
@@ -446,7 +446,7 @@ func (s *crossmodelMockSuite) TestFindError(c *tc.C) {
 	}
 	args := params.OfferFilters{
 		Filters: []params.OfferFilter{{
-			Namespace:       filter.Namespace,
+			ModelNamespace:  filter.ModelNamespace,
 			ModelName:       filter.ModelName,
 			OfferName:       filter.OfferName,
 			ApplicationName: filter.ApplicationName,

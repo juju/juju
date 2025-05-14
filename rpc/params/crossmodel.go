@@ -53,8 +53,8 @@ type OfferFilters struct {
 
 // OfferFilter is used to query offers.
 type OfferFilter struct {
-	// Namespace is the namespace of the model hosting the offer.
-	Namespace string `json:"namespace"`
+	// ModelNamespace is the namespace of the model hosting the offer.
+	ModelNamespace string `json:"model-namespace"`
 
 	// ModelName is the name of the model hosting the offer.
 	ModelName string `json:"model-name"`

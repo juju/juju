@@ -281,12 +281,12 @@ func (api *BaseAPI) getModelsFromOffers(ctx context.Context, user names.UserTag,
 		if err != nil {
 			return model.Model{}, errors.Trace(err)
 		}
-		modelPath := fmt.Sprintf("%s/%s", url.Namespace, url.ModelName)
+		modelPath := fmt.Sprintf("%s/%s", url.ModelNamespace, url.ModelName)
 		if model, ok := modelsCache[modelPath]; ok {
 			return model, nil
 		}
 
-		namespace := url.Namespace
+		namespace := url.ModelNamespace
 		if namespace == "" {
 			namespace = user.Id()
 		}
@@ -323,7 +323,7 @@ func (api *BaseAPI) getModelFilters(ctx context.Context, user names.UserTag, fil
 		if f.ModelName == "" {
 			return nil, nil, errors.New("application offer filter must specify a model name")
 		}
-		namespace := f.Namespace
+		namespace := f.ModelNamespace
 		if namespace == "" {
 			namespace = user.Id()
 		}

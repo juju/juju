@@ -356,7 +356,7 @@ func (s *applicationOffersSuite) assertList(c *tc.C, offerUUID string, expectedC
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				Namespace:       "fred@external",
+				ModelNamespace:  "fred@external",
 				ModelName:       "prod",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
@@ -451,7 +451,7 @@ func (s *applicationOffersSuite) TestListPermission(c *tc.C) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				Namespace:       "fred@external",
+				ModelNamespace:  "fred@external",
 				ModelName:       "prod",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
@@ -471,7 +471,7 @@ func (s *applicationOffersSuite) TestListError(c *tc.C) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				Namespace:       "fred@external",
+				ModelNamespace:  "fred@external",
 				ModelName:       "prod",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
@@ -1170,24 +1170,24 @@ func (s *applicationOffersSuite) TestFindMulti(c *tc.C) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				OfferName: "hosted-db2",
-				Namespace: "fred@external",
-				ModelName: "prod",
+				OfferName:      "hosted-db2",
+				ModelNamespace: "fred@external",
+				ModelName:      "prod",
 			},
 			{
-				OfferName: "hosted-mysql",
-				Namespace: "mary",
-				ModelName: "another",
+				OfferName:      "hosted-mysql",
+				ModelNamespace: "mary",
+				ModelName:      "another",
 			},
 			{
-				OfferName: "hosted-postgresql",
-				Namespace: "mary",
-				ModelName: "another",
+				OfferName:      "hosted-postgresql",
+				ModelNamespace: "mary",
+				ModelName:      "another",
 			},
 			{
-				OfferName: "badoffer",
-				Namespace: "mary",
-				ModelName: "another",
+				OfferName:      "badoffer",
+				ModelNamespace: "mary",
+				ModelName:      "another",
 			},
 		},
 	}
