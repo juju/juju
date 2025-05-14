@@ -6,13 +6,13 @@ package objectstoredrainer
 import (
 	stdtesting "testing"
 
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination service_mock_test.go github.com/juju/juju/internal/worker/objectstoreflag ObjectStoreService
@@ -21,11 +21,11 @@ import (
 func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
-	gc.TestingT(t)
+	tc.TestingT(t)
 }
 
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger logger.Logger
 
@@ -33,7 +33,7 @@ type baseSuite struct {
 	guard   *MockGuard
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.service = NewMockObjectStoreService(ctrl)
