@@ -40,3 +40,10 @@ func (s *filterSuite) TestNamespaceFilter(c *tc.C) {
 	c.Check(received("bar"), tc.IsTrue)
 	c.Check(received("foo"), tc.IsTrue)
 }
+
+func (s *filterSuite) TestContainsPredicate(c *tc.C) {
+	predicate := ContainsPredicate([]string{"foo", "bar"})
+	c.Check(predicate("foo"), tc.IsTrue)
+	c.Check(predicate("bar"), tc.IsTrue)
+	c.Check(predicate("baz"), tc.IsFalse)
+}

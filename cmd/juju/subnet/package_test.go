@@ -175,7 +175,7 @@ func (sa *StubAPI) AddSubnet(ctx context.Context, cidr string, id network.Id, sp
 
 func (sa *StubAPI) ListSubnets(ctx context.Context, withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
 	if withSpace == nil {
-		// Due to the way CheckCall works (using jc.DeepEquals
+		// Due to the way CheckCall works (using tc.DeepEquals
 		// internally), we need to pass an explicit nil here, rather
 		// than a pointer to a names.SpaceTag pointing to nil.
 		sa.MethodCall(sa, "ListSubnets", nil, withZone)

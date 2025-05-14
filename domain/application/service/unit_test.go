@@ -844,7 +844,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUn
 	c.Check(addr, tc.DeepEquals, matchingScopeAddrs[2])
 }
 
-func (s *unitServiceSuite) TestGetPublicAddresses(c *gc.C) {
+func (s *unitServiceSuite) TestGetPublicAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -892,12 +892,12 @@ func (s *unitServiceSuite) TestGetPublicAddresses(c *gc.C) {
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
 
 	addrs, err := s.service.GetUnitPublicAddresses(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The two public addresses should be returned.
-	c.Check(addrs, gc.DeepEquals, unitAddresses[0:2])
+	c.Check(addrs, tc.DeepEquals, unitAddresses[0:2])
 }
 
-func (s *unitServiceSuite) TestGetPublicAddressesCloudLocal(c *gc.C) {
+func (s *unitServiceSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -945,10 +945,10 @@ func (s *unitServiceSuite) TestGetPublicAddressesCloudLocal(c *gc.C) {
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
 
 	addrs, err := s.service.GetUnitPublicAddresses(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The two cloud-local addresses should be returned because there are no
 	// public ones.
-	c.Check(addrs, gc.DeepEquals, unitAddresses[0:2])
+	c.Check(addrs, tc.DeepEquals, unitAddresses[0:2])
 }
 
 func (s *unitServiceSuite) TestGetPrivateAddressUnitNotFound(c *tc.C) {
@@ -1103,7 +1103,7 @@ func (s *unitServiceSuite) TestGetUnitSubordinatesError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, boom)
 }
 
-func (s *serviceSuite) TestGetUnitNetNodesNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetUnitNetNodesNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -1111,10 +1111,10 @@ func (s *serviceSuite) TestGetUnitNetNodesNotFound(c *gc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return("", applicationerrors.UnitNotFound)
 
 	_, err := s.service.GetUnitNetNodes(context.Background(), unitName)
-	c.Assert(err, gc.ErrorMatches, "unit not found")
+	c.Assert(err, tc.ErrorMatches, "unit not found")
 }
 
-func (s *serviceSuite) TestGetUnitNetNodes(c *gc.C) {
+func (s *serviceSuite) TestGetUnitNetNodes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -1125,6 +1125,6 @@ func (s *serviceSuite) TestGetUnitNetNodes(c *gc.C) {
 	s.state.EXPECT().GetUnitNetNodes(gomock.Any(), coreunit.UUID("foo-uuid")).Return(netNodeUUIDs, nil)
 
 	netNodes, err := s.service.GetUnitNetNodes(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(netNodes, gc.DeepEquals, netNodeUUIDs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(netNodes, tc.DeepEquals, netNodeUUIDs)
 }

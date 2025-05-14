@@ -5,7 +5,6 @@ package apiaddresssetter
 
 import (
 	"context"
-	"slices"
 	"strconv"
 	"time"
 
@@ -30,14 +29,14 @@ type ControllerConfigService interface {
 
 	// WatchControllerConfig returns a watcher that returns keys for any changes
 	// to controller config.
-	WatchControllerConfig() (watcher.StringsWatcher, error)
+	WatchControllerConfig(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // ControllerNodeService provides access to controller nodes.
 type ControllerNodeService interface {
 	// WatchControllerNodes returns a watcher that observes changes to the
 	// controller nodes.
-	WatchControllerNodes() (watcher.NotifyWatcher, error)
+	WatchControllerNodes(ctx context.Context) (watcher.NotifyWatcher, error)
 
 	// GetControllerIDs returns the list of controller IDs from the controller node
 	// records.
@@ -179,18 +178,18 @@ func (w *apiAddressSetterWorker) Wait() error {
 }
 
 func (w *apiAddressSetterWorker) loop() error {
-	controllerNodeChanges, err := w.watchForControllerNodeChanges()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	configChanges, err := w.watchForConfigChanges()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	ctx, cancel := w.scopedContext()
 	defer cancel()
+
+	controllerNodeChanges, err := w.watchForControllerNodeChanges(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	configChanges, err := w.watchForConfigChanges(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	for {
 		w.config.Logger.Tracef(ctx, "waiting for controller nodes or addresses changes")
@@ -236,8 +235,8 @@ func (w *apiAddressSetterWorker) scopedContext() (context.Context, context.Cance
 
 // watchForControllerChanges starts a watcher for changes to controller nodes.
 // It returns a channel which will receive events if any of the watchers fires.
-func (w *apiAddressSetterWorker) watchForControllerNodeChanges() (<-chan struct{}, error) {
-	watcher, err := w.config.ControllerNodeService.WatchControllerNodes()
+func (w *apiAddressSetterWorker) watchForControllerNodeChanges(ctx context.Context) (<-chan struct{}, error) {
+	watcher, err := w.config.ControllerNodeService.WatchControllerNodes(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -250,8 +249,8 @@ func (w *apiAddressSetterWorker) watchForControllerNodeChanges() (<-chan struct{
 
 // watchForConfigChanges starts a watcher for changes to controller config.
 // It returns a channel which will receive events if the watcher fires.
-func (w *apiAddressSetterWorker) watchForConfigChanges() (<-chan []string, error) {
-	watcher, err := w.config.ControllerConfigService.WatchControllerConfig()
+func (w *apiAddressSetterWorker) watchForConfigChanges(ctx context.Context) (<-chan []string, error) {
+	watcher, err := w.config.ControllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -270,15 +269,18 @@ func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (boo
 	if err != nil {
 		return false, errors.Errorf("cannot get controller IDs: %w", err)
 	}
+	controllers := make(map[string]string)
+	for _, controllerID := range controllerIDs {
+		controllers[controllerID] = controllerID
+	}
 
 	w.config.Logger.Debugf(ctx, "controller nodes: %#v", controllerIDs)
 
 	var changed bool
-
 	// Stop controller tracker that no longer correspond to controller nodes.
 	workerNames := w.runner.WorkerNames()
 	for _, controllerID := range workerNames {
-		if !slices.Contains(controllerIDs, controllerID) {
+		if _, isRemoved := controllers[controllerID]; !isRemoved {
 			if err := w.stopAndRemoveTracker(ctx, controllerID); err != nil {
 				return false, errors.Capture(err)
 			}
@@ -289,6 +291,7 @@ func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (boo
 	// Start trackers for new nodes.
 	for _, controllerID := range controllerIDs {
 		w.config.Logger.Debugf(ctx, "found new controller %q", controllerID)
+		changed = true
 
 		if err := w.runner.StartWorker(ctx, controllerID, func(ctx context.Context) (worker.Worker, error) {
 			id, err := strconv.Atoi(controllerID)
@@ -307,7 +310,6 @@ func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (boo
 		}); err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
 			return false, errors.Errorf("failed to start tracker for controller node %q: %w", controllerID, err)
 		}
-		changed = true
 	}
 
 	return changed, nil

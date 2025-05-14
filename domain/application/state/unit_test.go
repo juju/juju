@@ -1448,17 +1448,17 @@ func (s *unitStateSuite) TestGetUnitAddressesWithoutK8sService(c *tc.C) {
 	})
 }
 
-func (s *unitStateSuite) TestGetUnitNetNodesNotFound(c *gc.C) {
+func (s *unitStateSuite) TestGetUnitNetNodesNotFound(c *tc.C) {
 	_, err := s.state.GetUnitNetNodes(context.Background(), "unknown-unit-uuid")
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *gc.C) {
+func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *tc.C) {
 	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -1483,19 +1483,19 @@ func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	netNodeUUID, err := s.state.GetUnitNetNodes(context.Background(), unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netNodeUUID, jc.SameContents, []string{"svc-net-node-uuid", "pod-net-node-uuid"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(netNodeUUID, tc.SameContents, []string{"svc-net-node-uuid", "pod-net-node-uuid"})
 }
 
-func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *gc.C) {
+func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -1510,11 +1510,11 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	netNodeUUID, err := s.state.GetUnitNetNodes(context.Background(), unitUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netNodeUUID, jc.SameContents, []string{"machine-net-node-uuid"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(netNodeUUID, tc.SameContents, []string{"machine-net-node-uuid"})
 }
 
 type applicationSpace struct {

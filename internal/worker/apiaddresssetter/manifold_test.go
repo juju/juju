@@ -6,12 +6,11 @@ package apiaddresssetter
 import (
 	"context"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/errors"
@@ -24,81 +23,74 @@ type manifoldConfigSuite struct {
 	config ManifoldConfig
 }
 
-var _ = gc.Suite(&manifoldConfigSuite{})
+var _ = tc.Suite(&manifoldConfigSuite{})
 
-func (s *manifoldConfigSuite) SetUpTest(c *gc.C) {
+func (s *manifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.config = validConfig(c)
 }
 
-func (s *manifoldConfigSuite) TestMissingDomainServicesName(c *gc.C) {
+func (s *manifoldConfigSuite) TestMissingDomainServicesName(c *tc.C) {
 	s.config.DomainServicesName = ""
 	s.checkNotValid(c, "empty DomainServicesName not valid")
 }
 
-func (s *manifoldConfigSuite) TestMissingGetControllerConfigService(c *gc.C) {
-	s.config.GetControllerConfigService = nil
-	s.checkNotValid(c, "nil GetControllerConfigService not valid")
+func (s *manifoldConfigSuite) TestMissingGetDomainServices(c *tc.C) {
+	s.config.GetDomainServices = nil
+	s.checkNotValid(c, "nil GetDomainServices not valid")
 }
 
-func (s *manifoldConfigSuite) TestMissingGetApplicationService(c *gc.C) {
-	s.config.GetApplicationService = nil
-	s.checkNotValid(c, "nil GetApplicationService not valid")
-}
-
-func (s *manifoldConfigSuite) TestMissingGetNetworkService(c *gc.C) {
-	s.config.GetNetworkService = nil
-	s.checkNotValid(c, "nil GetNetworkService not valid")
-}
-
-func (s *manifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
+func (s *manifoldConfigSuite) TestMissingNewWorker(c *tc.C) {
 	s.config.NewWorker = nil
 	s.checkNotValid(c, "nil NewWorker not valid")
 }
 
-func (s *manifoldConfigSuite) TestMissingLogger(c *gc.C) {
+func (s *manifoldConfigSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
 }
 
-func (s *manifoldConfigSuite) checkNotValid(c *gc.C, expect string) {
+func (s *manifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
-func validConfig(c *gc.C) ManifoldConfig {
+func validConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
-		DomainServicesName:         "domain-services",
-		GetControllerConfigService: GetControllerConfigService,
-		GetApplicationService:      GetApplicationService,
-		GetControllerNodeService:   GetControllerNodeService,
-		GetNetworkService:          GetNetworkService,
-		NewWorker:                  func(Config) (worker.Worker, error) { return noWorker{}, nil },
-		Logger:                     loggertesting.WrapCheckLog(c),
+		DomainServicesName: "domain-services",
+		GetDomainServices:  GetDomainServices,
+		NewWorker:          func(Config) (worker.Worker, error) { return noWorker{}, nil },
+		Logger:             loggertesting.WrapCheckLog(c),
 	}
 }
 
 type manifoldSuite struct {
 	testing.IsolationSuite
 
+	domainServices          *MockDomainServices
 	controllerConfigService *MockControllerConfigService
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+var _ = tc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.domainServices = NewMockDomainServices(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	return ctrl
 }
 
-func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
+func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.domainServices.EXPECT().Application().Return(noService{})
+	s.domainServices.EXPECT().Network().Return(noService{})
+	s.domainServices.EXPECT().ControllerNode().Return(noService{})
+	s.domainServices.EXPECT().ControllerConfig().Return(s.controllerConfigService)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 		"api-port":            1234,
 		"controller-api-port": 4321,
@@ -106,17 +98,8 @@ func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
 
 	cfg := ManifoldConfig{
 		DomainServicesName: "domain-services",
-		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
-			return s.controllerConfigService, nil
-		},
-		GetApplicationService: func(getter dependency.Getter, name string) (ApplicationService, error) {
-			return noService{}, nil
-		},
-		GetControllerNodeService: func(getter dependency.Getter, name string) (ControllerNodeService, error) {
-			return noService{}, nil
-		},
-		GetNetworkService: func(getter dependency.Getter, name string) (NetworkService, error) {
-			return noService{}, nil
+		GetDomainServices: func(getter dependency.Getter, name string) (DomainServices, error) {
+			return s.domainServices, nil
 		},
 		NewWorker: func(cfg Config) (worker.Worker, error) {
 			if err := cfg.Validate(); err != nil {
@@ -128,8 +111,8 @@ func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
 	}
 
 	w, err := Manifold(cfg).Start(context.Background(), noGetter{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(w, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(w, tc.NotNil)
 }
 
 type noGetter struct {

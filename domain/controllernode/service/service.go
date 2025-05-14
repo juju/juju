@@ -94,7 +94,10 @@ func NewWatchableService(
 
 // WatchControllerNodes returns a watcher that observes changes to the
 // controller nodes.
-func (s *WatchableService) WatchControllerNodes() (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchControllerNodes(),

@@ -7,11 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/tc"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -30,9 +29,9 @@ type workerSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
@@ -43,17 +42,17 @@ func (s *workerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) TestWorkerCleanKill(c *gc.C) {
+func (s *workerSuite) TestWorkerCleanKill(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	nodeWatcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	s.controllerNodeService.EXPECT().WatchControllerNodes().Return(nodeWatcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(nodeWatcher, nil)
 	// We use the consume of the initial event as a sync point to decide
 	// whether the worker has started. This channel is then used to stop
 	// waiting for the worker to start.
 	notifyInitialConfigConsumed := make(chan struct{})
 	// Send an initial change to the (mocked) controller config watcher.
-	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
 		ch := make(chan []string)
 		go func() {
 			select {
@@ -77,7 +76,7 @@ func (s *workerSuite) TestWorkerCleanKill(c *gc.C) {
 	}
 	w, err := New(cfg)
 	defer workertest.DirtyKill(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-notifyInitialConfigConsumed:
@@ -92,17 +91,17 @@ func (s *workerSuite) TestWorkerCleanKill(c *gc.C) {
 // will start tracking the new controller node, and since we mock a new
 // controller being added, the worker should also update the api address for
 // the new controller.
-func (s *workerSuite) TestNewControllerNode(c *gc.C) {
+func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	// Mock the controller node watcher.
 	nodeCh := make(chan struct{})
 	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
-	s.controllerNodeService.EXPECT().WatchControllerNodes().Return(nodeWatcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(nodeWatcher, nil)
 
 	cfgCh := make(chan []string)
 	cfgWatcher := watchertest.NewMockStringsWatcher(cfgCh)
-	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(cfgWatcher, nil)
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(cfgWatcher, nil)
 
 	// Starts the controller tracker for the new node.
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
@@ -129,7 +128,7 @@ func (s *workerSuite) TestNewControllerNode(c *gc.C) {
 	sync := make(chan struct{})
 	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "1", hostPorts, sp).DoAndReturn(func(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, sp network.SpaceInfo) error {
-		sync <- struct{}{}
+		close(sync)
 		return nil
 	})
 
@@ -143,7 +142,7 @@ func (s *workerSuite) TestNewControllerNode(c *gc.C) {
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Simulate a new controller node event.
@@ -165,17 +164,17 @@ func (s *workerSuite) TestNewControllerNode(c *gc.C) {
 
 // TestConfigChange tests that when the controller config changes, the worker
 // will update the api addresses for the controller.
-func (s *workerSuite) TestConfigChange(c *gc.C) {
+func (s *workerSuite) TestConfigChange(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	// Mock the controller node watcher.
 	nodeCh := make(chan struct{})
 	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
-	s.controllerNodeService.EXPECT().WatchControllerNodes().Return(nodeWatcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(nodeWatcher, nil)
 
 	cfgCh := make(chan []string)
 	cfgWatcher := watchertest.NewMockStringsWatcher(cfgCh)
-	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(cfgWatcher, nil)
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(cfgWatcher, nil)
 
 	// Starts the controller tracker for the new node.
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
@@ -203,7 +202,7 @@ func (s *workerSuite) TestConfigChange(c *gc.C) {
 	sync := make(chan struct{})
 	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "1", hostPorts, sp0).DoAndReturn(func(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, sp network.SpaceInfo) error {
-		sync <- struct{}{}
+		close(sync)
 		return nil
 	})
 	// Expected calls after the controller config change.
@@ -218,7 +217,7 @@ func (s *workerSuite) TestConfigChange(c *gc.C) {
 	// Synchronization point to ensure the worker processes the config event.
 	cfgSync := make(chan struct{})
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "1", hostPorts, sp1).DoAndReturn(func(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, sp network.SpaceInfo) error {
-		cfgSync <- struct{}{}
+		close(cfgSync)
 		return nil
 	})
 
@@ -232,7 +231,7 @@ func (s *workerSuite) TestConfigChange(c *gc.C) {
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Simulate a new controller node event.
@@ -269,15 +268,15 @@ func (s *workerSuite) TestConfigChange(c *gc.C) {
 
 // TestNodeAddressChange tests that when the controller node address changes,
 // the worker will update the api addresses for the controller.
-func (s *workerSuite) TestNodeAddressChange(c *gc.C) {
+func (s *workerSuite) TestNodeAddressChange(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	// Mock the controller node watcher.
 	nodeCh := make(chan struct{})
 	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
-	s.controllerNodeService.EXPECT().WatchControllerNodes().Return(nodeWatcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(nodeWatcher, nil)
 
-	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(watchertest.NewMockStringsWatcher(make(chan []string)), nil)
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(watchertest.NewMockStringsWatcher(make(chan []string)), nil)
 
 	// Starts the controller tracker for the new node.
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
@@ -307,7 +306,7 @@ func (s *workerSuite) TestNodeAddressChange(c *gc.C) {
 	sync := make(chan struct{})
 	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "1", hostPorts, sp0).DoAndReturn(func(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, sp network.SpaceInfo) error {
-		sync <- struct{}{}
+		close(sync)
 		return nil
 	})
 	// Expected calls after the controller node address change.
@@ -324,7 +323,7 @@ func (s *workerSuite) TestNodeAddressChange(c *gc.C) {
 	addrSync := make(chan struct{})
 	newHP := network.SpaceAddressesWithPort(newAddrs, 17070)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "1", newHP, sp0).DoAndReturn(func(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, sp network.SpaceInfo) error {
-		addrSync <- struct{}{}
+		close(addrSync)
 		return nil
 	})
 
@@ -338,7 +337,7 @@ func (s *workerSuite) TestNodeAddressChange(c *gc.C) {
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := New(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Simulate a new controller node event.

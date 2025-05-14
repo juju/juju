@@ -177,18 +177,18 @@ func (s *serviceSuite) TestIsControllerNodeNotValid(c *tc.C) {
 	c.Check(is, tc.IsFalse)
 }
 
-func (s *serviceSuite) TestSetAPIAddressesStateError(c *gc.C) {
+func (s *serviceSuite) TestSetAPIAddressesStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state)
 
 	controllerID := "1"
 	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, gomock.Any()).Return(internalerrors.New("boom"))
 
-	err := svc.SetAPIAddresses(context.Background(), controllerID, network.SpaceHostPorts{{}}, network.SpaceInfo{})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	err := svc.SetAPIAddresses(c.Context(), controllerID, network.SpaceHostPorts{{}}, network.SpaceInfo{})
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *serviceSuite) TestSetAPIAddresses(c *gc.C) {
+func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state)
 
@@ -227,21 +227,21 @@ func (s *serviceSuite) TestSetAPIAddresses(c *gc.C) {
 			NetPort: network.NetPort(17070),
 		},
 	}
-	err := svc.SetAPIAddresses(context.Background(), controllerID, addrs, network.SpaceInfo{
+	err := svc.SetAPIAddresses(c.Context(), controllerID, addrs, network.SpaceInfo{
 		ID:   "space0-uuid",
 		Name: "space0",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetControllerIDs(c *gc.C) {
+func (s *serviceSuite) TestGetControllerIDs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state)
 
 	s.state.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1", "2"}, nil)
 
-	controllerIDs, err := svc.GetControllerIDs(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(controllerIDs, gc.HasLen, 2)
-	c.Check(controllerIDs, gc.DeepEquals, []string{"1", "2"})
+	controllerIDs, err := svc.GetControllerIDs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(controllerIDs, tc.HasLen, 2)
+	c.Check(controllerIDs, tc.DeepEquals, []string{"1", "2"})
 }
