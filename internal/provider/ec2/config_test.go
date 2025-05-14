@@ -3,11 +3,7 @@
 
 package ec2
 
-// TODO: Clean this up so it matches environs/openstack/config_test.go.
-
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -62,7 +58,7 @@ func (t configTest) check(c *tc.C) {
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, tc.ErrorIsNil)
-	e, err := environs.New(context.Background(), environs.OpenParams{
+	e, err := environs.New(c.Context(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: cfg,
 	}, environs.NoopCredentialInvalidator())
@@ -77,9 +73,9 @@ func (t configTest) check(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 
 		// Keep err for validation below.
-		valid, err = providerInstance.Validate(context.Background(), changed, old)
+		valid, err = providerInstance.Validate(c.Context(), changed, old)
 		if err == nil {
-			err = ec2env.SetConfig(context.Background(), valid)
+			err = ec2env.SetConfig(c.Context(), valid)
 		}
 	}
 	if t.err != "" {
@@ -293,7 +289,7 @@ func (s *ConfigSuite) TestConfig(c *tc.C) {
 // business logic in Juju around this provider and this needs to be very
 // considered.
 func (s *ConfigSuite) TestModelConfigDefaults(c *tc.C) {
-	defaults, err := providerInstance.ModelConfigDefaults(context.Background())
+	defaults, err := providerInstance.ModelConfigDefaults(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(defaults[config.StorageDefaultBlockSourceKey], tc.Equals, "ebs")
 }

@@ -4,7 +4,6 @@
 package oci_test
 
 import (
-	"context"
 	"strings"
 
 	"github.com/juju/tc"
@@ -50,7 +49,7 @@ func (s *instanceSuite) TestStatus(c *tc.C) {
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, tc.IsNil)
 
-	instStatus := inst.Status(context.Background())
+	instStatus := inst.Status(c.Context())
 	expectedStatus := instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateRunning)),
@@ -64,7 +63,7 @@ func (s *instanceSuite) TestStatus(c *tc.C) {
 	inst, err = oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, tc.IsNil)
 
-	instStatus = inst.Status(context.Background())
+	instStatus = inst.Status(c.Context())
 	expectedStatus = instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateTerminating)),
@@ -88,12 +87,12 @@ func (s *instanceSuite) TestStatusNilRawInstanceResponse(c *tc.C) {
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 		})
 
-	s.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil)
+	s.compute.EXPECT().GetInstance(gomock.Any(), request).Return(response, nil)
 
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, tc.IsNil)
 
-	instStatus := inst.Status(context.Background())
+	instStatus := inst.Status(c.Context())
 	expectedStatus := instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateRunning)),
@@ -101,7 +100,7 @@ func (s *instanceSuite) TestStatusNilRawInstanceResponse(c *tc.C) {
 	c.Assert(instStatus, tc.DeepEquals, expectedStatus)
 }
 
-func (s *instanceSuite) setupListVnicsExpectations(instanceId, vnicID string) {
+func (s *instanceSuite) setupListVnicsExpectations(c *tc.C, instanceId, vnicID string) {
 	attachResponse := []ociCore.VnicAttachment{
 		{
 			Id:                 makeStringPointer("fakeAttachmentId"),
@@ -134,8 +133,8 @@ func (s *instanceSuite) setupListVnicsExpectations(instanceId, vnicID string) {
 	})
 
 	gomock.InOrder(
-		s.compute.EXPECT().ListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
-		s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
+		s.compute.EXPECT().ListVnicAttachments(gomock.Any(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
+		s.netw.EXPECT().GetVnic(gomock.Any(), vnicRequest[0]).Return(vnicResponse[0], nil),
 	)
 }
 
@@ -144,12 +143,12 @@ func (s *instanceSuite) TestAddresses(c *tc.C) {
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
-	s.setupListVnicsExpectations(s.testInstanceID, vnicID)
+	s.setupListVnicsExpectations(c, s.testInstanceID, vnicID)
 
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, tc.IsNil)
 
-	addresses, err := inst.Addresses(context.Background())
+	addresses, err := inst.Addresses(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Check(addresses, tc.HasLen, 2)
 	c.Check(addresses[0].Scope, tc.Equals, corenetwork.ScopeCloudLocal)
@@ -161,12 +160,12 @@ func (s *instanceSuite) TestAddressesNoPublicIP(c *tc.C) {
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
-	s.setupListVnicsExpectations(s.testInstanceID, vnicID)
+	s.setupListVnicsExpectations(c, s.testInstanceID, vnicID)
 
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
 	c.Assert(err, tc.IsNil)
 
-	addresses, err := inst.Addresses(context.Background())
+	addresses, err := inst.Addresses(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Check(addresses, tc.HasLen, 2)
 	c.Check(addresses[0].Scope, tc.Equals, corenetwork.ScopeCloudLocal)
@@ -178,7 +177,7 @@ func (s *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *tc.C) {
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
-	s.setupListVnicsExpectations(s.testInstanceID, vnicID)
+	s.setupListVnicsExpectations(c, s.testInstanceID, vnicID)
 
 	rules := firewall.IngressRules{{
 		PortRange: corenetwork.PortRange{
@@ -198,5 +197,5 @@ func (s *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *tc.C) {
 
 	inst, err := oci.NewInstanceWithConfigurator(*s.ociInstance, s.env, factory)
 	c.Assert(err, tc.IsNil)
-	c.Assert(inst.OpenPorts(context.Background(), "", rules), tc.IsNil)
+	c.Assert(inst.OpenPorts(c.Context(), "", rules), tc.IsNil)
 }

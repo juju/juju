@@ -4,8 +4,6 @@
 package remoterelations_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -50,7 +48,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.WatchRemoteApplications(context.Background())
+	_, err := client.WatchRemoteApplications(c.Context())
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }
@@ -73,7 +71,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.WatchRemoteApplicationRelations(context.Background(), "db2")
+	_, err := client.WatchRemoteApplicationRelations(c.Context(), "db2")
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }
@@ -84,7 +82,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationInvalidApplication(c *t
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.WatchRemoteApplicationRelations(context.Background(), "!@#")
+	_, err := client.WatchRemoteApplicationRelations(c.Context(), "!@#")
 	c.Assert(err, tc.ErrorMatches, `application name "!@#" not valid`)
 }
 
@@ -105,7 +103,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.WatchLocalRelationChanges(context.Background(), "relation-wordpress:db mysql:db")
+	_, err := client.WatchLocalRelationChanges(c.Context(), "relation-wordpress:db mysql:db")
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }
@@ -128,7 +126,7 @@ func (s *remoteRelationsSuite) TestExportEntities(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	result, err := client.ExportEntities(context.Background(), []names.Tag{names.NewApplicationTag("foo")})
+	result, err := client.ExportEntities(c.Context(), []names.Tag{names.NewApplicationTag("foo")})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Check(result[0].Error, tc.ErrorMatches, "FAIL")
@@ -146,7 +144,7 @@ func (s *remoteRelationsSuite) TestExportEntitiesResultCount(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.ExportEntities(context.Background(), []names.Tag{names.NewApplicationTag("foo")})
+	_, err := client.ExportEntities(c.Context(), []names.Tag{names.NewApplicationTag("foo")})
 	c.Check(err, tc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 
@@ -168,7 +166,7 @@ func (s *remoteRelationsSuite) TestRelations(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	result, err := client.Relations(context.Background(), []string{"foo:db bar:db"})
+	result, err := client.Relations(c.Context(), []string{"foo:db bar:db"})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Check(result[0].Error, tc.ErrorMatches, "FAIL")
@@ -186,7 +184,7 @@ func (s *remoteRelationsSuite) TestRelationsResultsCount(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.Relations(context.Background(), []string{"foo:db bar:db"})
+	_, err := client.Relations(c.Context(), []string{"foo:db bar:db"})
 	c.Check(err, tc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 
@@ -208,7 +206,7 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	result, err := client.RemoteApplications(context.Background(), []string{"foo"})
+	result, err := client.RemoteApplications(c.Context(), []string{"foo"})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Check(result[0].Error, tc.ErrorMatches, "FAIL")
@@ -226,7 +224,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationsResultsCount(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.RemoteApplications(context.Background(), []string{"foo"})
+	_, err := client.RemoteApplications(c.Context(), []string{"foo"})
 	c.Check(err, tc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 
@@ -249,7 +247,7 @@ func (s *remoteRelationsSuite) TestGetToken(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.GetToken(context.Background(), names.NewApplicationTag("app"))
+	_, err := client.GetToken(c.Context(), names.NewApplicationTag("app"))
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }
@@ -265,7 +263,7 @@ func (s *remoteRelationsSuite) TestGetTokenCount(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.GetToken(context.Background(), names.NewApplicationTag("app"))
+	_, err := client.GetToken(c.Context(), names.NewApplicationTag("app"))
 	c.Check(err, tc.ErrorMatches, `expected 1 result, got 2`)
 }
 
@@ -288,7 +286,7 @@ func (s *remoteRelationsSuite) TestImportRemoteEntity(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	err := client.ImportRemoteEntity(context.Background(), names.NewApplicationTag("app"), "token")
+	err := client.ImportRemoteEntity(c.Context(), names.NewApplicationTag("app"), "token")
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }
@@ -304,7 +302,7 @@ func (s *remoteRelationsSuite) TestImportRemoteEntityCount(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	err := client.ImportRemoteEntity(context.Background(), names.NewApplicationTag("app"), "token")
+	err := client.ImportRemoteEntity(c.Context(), names.NewApplicationTag("app"), "token")
 	c.Check(err, tc.ErrorMatches, `expected 1 result, got 2`)
 }
 
@@ -324,7 +322,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.WatchRemoteRelations(context.Background())
+	_, err := client.WatchRemoteRelations(c.Context())
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }
@@ -350,7 +348,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	err := client.ConsumeRemoteRelationChange(context.Background(), change)
+	err := client.ConsumeRemoteRelationChange(c.Context(), change)
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }
@@ -373,7 +371,7 @@ func (s *remoteRelationsSuite) TestControllerAPIInfoForModel(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.ControllerAPIInfoForModel(context.Background(), coretesting.ModelTag.Id())
+	_, err := client.ControllerAPIInfoForModel(c.Context(), coretesting.ModelTag.Id())
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }
@@ -400,7 +398,7 @@ func (s *remoteRelationsSuite) TestSaveMacaroon(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	err = client.SaveMacaroon(context.Background(), rel, mac)
+	err = client.SaveMacaroon(c.Context(), rel, mac)
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }
@@ -428,7 +426,7 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationStatus(c *tc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	err := client.SetRemoteApplicationStatus(context.Background(), "mysql", status.Blocked, "a message")
+	err := client.SetRemoteApplicationStatus(c.Context(), "mysql", status.Blocked, "a message")
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }
@@ -448,7 +446,7 @@ func (s *remoteRelationsSuite) TestUpdateControllerForModelResultCount(c *tc.C) 
 	)
 
 	client := remoterelations.NewClient(apiCaller)
-	err := client.UpdateControllerForModel(context.Background(), crossmodel.ControllerInfo{}, "some-model-uuid")
+	err := client.UpdateControllerForModel(c.Context(), crossmodel.ControllerInfo{}, "some-model-uuid")
 	c.Check(err, tc.ErrorMatches, `expected 1 result, got 2`)
 }
 
@@ -464,7 +462,7 @@ func (s *remoteRelationsSuite) TestUpdateControllerForModelResultError(c *tc.C) 
 	)
 
 	client := remoterelations.NewClient(apiCaller)
-	err := client.UpdateControllerForModel(context.Background(), crossmodel.ControllerInfo{}, "some-model-uuid")
+	err := client.UpdateControllerForModel(c.Context(), crossmodel.ControllerInfo{}, "some-model-uuid")
 	c.Check(err, tc.ErrorMatches, `FAIL`)
 }
 
@@ -478,7 +476,7 @@ func (s *remoteRelationsSuite) TestUpdateControllerForModelResultSuccess(c *tc.C
 	)
 
 	client := remoterelations.NewClient(apiCaller)
-	err := client.UpdateControllerForModel(context.Background(), crossmodel.ControllerInfo{}, "some-model-uuid")
+	err := client.UpdateControllerForModel(c.Context(), crossmodel.ControllerInfo{}, "some-model-uuid")
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -510,7 +508,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoteSecretChange(c *tc.C) {
 		Revision: 666,
 	}}
 	client := remoterelations.NewClient(apiCaller)
-	err := client.ConsumeRemoteSecretChanges(context.Background(), changes)
+	err := client.ConsumeRemoteSecretChanges(c.Context(), changes)
 	c.Check(err, tc.ErrorMatches, "FAIL")
 	c.Check(callCount, tc.Equals, 1)
 }

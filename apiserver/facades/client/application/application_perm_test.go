@@ -4,8 +4,6 @@
 package application
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -46,7 +44,7 @@ func (s *permBaseSuite) TestDeployPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{})
+	_, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -59,7 +57,7 @@ func (s *permBaseSuite) TestDeployBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{})
+	_, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -71,7 +69,7 @@ func (s *permBaseSuite) TestSetCharmPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{})
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -84,7 +82,7 @@ func (s *permBaseSuite) TestSetCharmBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{})
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -98,7 +96,7 @@ func (s *permBaseSuite) TestSetCharmBlockIgnoredWithForceUnits(c *tc.C) {
 
 	s.newAPI(c)
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ForceUnits: true,
 	})
 
@@ -121,7 +119,7 @@ func (s *permBaseSuite) TestSetCharmValidOrigin(c *tc.C) {
 	// Ensure that a valid origin is required before setting a charm.
 	// There will be tests from ensuring correctness of the origin.
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
 		CharmOrigin: &params.CharmOrigin{
 			Source: "local",
@@ -139,7 +137,7 @@ func (s *permBaseSuite) TestGetCharmURLOriginPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
+	_, err := s.api.GetCharmURLOrigin(c.Context(), params.ApplicationGet{
 		ApplicationName: "foo",
 	})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -153,7 +151,7 @@ func (s *permBaseSuite) TestCharmRelationsPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.CharmRelations(context.Background(), params.ApplicationCharmRelations{
+	_, err := s.api.CharmRelations(c.Context(), params.ApplicationCharmRelations{
 		ApplicationName: "foo",
 	})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -167,7 +165,7 @@ func (s *permBaseSuite) TestExposePermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	err := s.api.Expose(context.Background(), params.ApplicationExpose{
+	err := s.api.Expose(c.Context(), params.ApplicationExpose{
 		ApplicationName: "foo",
 	})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -181,7 +179,7 @@ func (s *permBaseSuite) TestUnexposePermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	err := s.api.Unexpose(context.Background(), params.ApplicationUnexpose{
+	err := s.api.Unexpose(c.Context(), params.ApplicationUnexpose{
 		ApplicationName: "foo",
 	})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -195,7 +193,7 @@ func (s *permBaseSuite) TestDestroyApplicationPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.DestroyApplication(context.Background(), params.DestroyApplicationsParams{})
+	_, err := s.api.DestroyApplication(c.Context(), params.DestroyApplicationsParams{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -208,7 +206,7 @@ func (s *permBaseSuite) TestDestroyApplicationBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.DestroyApplication(context.Background(), params.DestroyApplicationsParams{})
+	_, err := s.api.DestroyApplication(c.Context(), params.DestroyApplicationsParams{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -220,7 +218,7 @@ func (s *permBaseSuite) TestDestroyConsumedApplicationsPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.DestroyConsumedApplications(context.Background(), params.DestroyConsumedApplicationsParams{})
+	_, err := s.api.DestroyConsumedApplications(c.Context(), params.DestroyConsumedApplicationsParams{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -233,7 +231,7 @@ func (s *permBaseSuite) TestDestroyConsumedApplicationsBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.DestroyConsumedApplications(context.Background(), params.DestroyConsumedApplicationsParams{})
+	_, err := s.api.DestroyConsumedApplications(c.Context(), params.DestroyConsumedApplicationsParams{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -245,7 +243,7 @@ func (s *permBaseSuite) TestGetConstraintsPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.GetConstraints(context.Background(), params.Entities{})
+	_, err := s.api.GetConstraints(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -257,7 +255,7 @@ func (s *permBaseSuite) TestSetConstraintsPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	err := s.api.SetConstraints(context.Background(), params.SetConstraints{})
+	err := s.api.SetConstraints(c.Context(), params.SetConstraints{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -270,7 +268,7 @@ func (s *permBaseSuite) TestSetConstraintsBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	err := s.api.SetConstraints(context.Background(), params.SetConstraints{})
+	err := s.api.SetConstraints(c.Context(), params.SetConstraints{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -282,7 +280,7 @@ func (s *permBaseSuite) TestAddRelationPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.AddRelation(context.Background(), params.AddRelation{})
+	_, err := s.api.AddRelation(c.Context(), params.AddRelation{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -295,7 +293,7 @@ func (s *permBaseSuite) TestAddRelationBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.AddRelation(context.Background(), params.AddRelation{})
+	_, err := s.api.AddRelation(c.Context(), params.AddRelation{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -307,7 +305,7 @@ func (s *permBaseSuite) TestDestroyRelationPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	err := s.api.DestroyRelation(context.Background(), params.DestroyRelation{})
+	err := s.api.DestroyRelation(c.Context(), params.DestroyRelation{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -320,7 +318,7 @@ func (s *permBaseSuite) TestDestroyRelationBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	err := s.api.DestroyRelation(context.Background(), params.DestroyRelation{})
+	err := s.api.DestroyRelation(c.Context(), params.DestroyRelation{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -333,7 +331,7 @@ func (s *permBaseSuite) TestSetRelationsSuspendedPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{})
+	_, err := s.api.SetRelationsSuspended(c.Context(), params.RelationSuspendedArgs{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -347,7 +345,7 @@ func (s *permBaseSuite) TestSetRelationsSuspendedBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{})
+	_, err := s.api.SetRelationsSuspended(c.Context(), params.RelationSuspendedArgs{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -360,7 +358,7 @@ func (s *permBaseSuite) TestConsumePermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.Consume(context.Background(), params.ConsumeApplicationArgsV5{})
+	_, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -374,7 +372,7 @@ func (s *permBaseSuite) TestConsumeBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.Consume(context.Background(), params.ConsumeApplicationArgsV5{})
+	_, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -386,7 +384,7 @@ func (s *permBaseSuite) TestGetPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.Get(context.Background(), params.ApplicationGet{})
+	_, err := s.api.Get(c.Context(), params.ApplicationGet{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -398,7 +396,7 @@ func (s *permBaseSuite) TestCharmConfigPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.CharmConfig(context.Background(), params.ApplicationGetArgs{})
+	_, err := s.api.CharmConfig(c.Context(), params.ApplicationGetArgs{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -410,7 +408,7 @@ func (s *permBaseSuite) TestGetConfigPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.GetConfig(context.Background(), params.Entities{})
+	_, err := s.api.GetConfig(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -422,7 +420,7 @@ func (s *permBaseSuite) TestSetConfigsPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{})
+	_, err := s.api.SetConfigs(c.Context(), params.ConfigSetArgs{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -435,7 +433,7 @@ func (s *permBaseSuite) TestSetConfigsBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{})
+	_, err := s.api.SetConfigs(c.Context(), params.ConfigSetArgs{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -447,7 +445,7 @@ func (s *permBaseSuite) TestUnsetApplicationsConfigPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.UnsetApplicationsConfig(context.Background(), params.ApplicationConfigUnsetArgs{})
+	_, err := s.api.UnsetApplicationsConfig(c.Context(), params.ApplicationConfigUnsetArgs{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -460,7 +458,7 @@ func (s *permBaseSuite) TestUnsetApplicationsConfigBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.UnsetApplicationsConfig(context.Background(), params.ApplicationConfigUnsetArgs{})
+	_, err := s.api.UnsetApplicationsConfig(c.Context(), params.ApplicationConfigUnsetArgs{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -472,7 +470,7 @@ func (s *permBaseSuite) TestResolveUnitErrorsPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{})
+	_, err := s.api.ResolveUnitErrors(c.Context(), params.UnitsResolved{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -485,7 +483,7 @@ func (s *permBaseSuite) TestResolveUnitErrorsBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{})
+	_, err := s.api.ResolveUnitErrors(c.Context(), params.UnitsResolved{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -497,7 +495,7 @@ func (s *permBaseSuite) TestApplicationsInfoPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.ApplicationsInfo(context.Background(), params.Entities{})
+	_, err := s.api.ApplicationsInfo(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -509,7 +507,7 @@ func (s *permBaseSuite) TestMergeBindingsPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.MergeBindings(context.Background(), params.ApplicationMergeBindingsArgs{})
+	_, err := s.api.MergeBindings(c.Context(), params.ApplicationMergeBindingsArgs{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -522,7 +520,7 @@ func (s *permBaseSuite) TestMergeBindingsBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.MergeBindings(context.Background(), params.ApplicationMergeBindingsArgs{})
+	_, err := s.api.MergeBindings(c.Context(), params.ApplicationMergeBindingsArgs{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -534,7 +532,7 @@ func (s *permBaseSuite) TestUnitsInfoPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.UnitsInfo(context.Background(), params.Entities{})
+	_, err := s.api.UnitsInfo(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -546,7 +544,7 @@ func (s *permBaseSuite) TestLeaderPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.Leader(context.Background(), params.Entity{})
+	_, err := s.api.Leader(c.Context(), params.Entity{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -558,7 +556,7 @@ func (s *permBaseSuite) TestDeployFromRepositoryPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.DeployFromRepository(context.Background(), params.DeployFromRepositoryArgs{})
+	_, err := s.api.DeployFromRepository(c.Context(), params.DeployFromRepositoryArgs{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -571,7 +569,7 @@ func (s *permBaseSuite) TestDeployFromRepositoryBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.DeployFromRepository(context.Background(), params.DeployFromRepositoryArgs{})
+	_, err := s.api.DeployFromRepository(c.Context(), params.DeployFromRepositoryArgs{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -593,7 +591,7 @@ func (s *permSuiteIAAS) TestAddUnitsPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
 		ApplicationName: "foo",
 	})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -608,7 +606,7 @@ func (s *permSuiteIAAS) TestAddUnitsBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
 		ApplicationName: "foo",
 	})
 	c.Assert(err, tc.ErrorMatches, "blocked")
@@ -622,7 +620,7 @@ func (s *permSuiteIAAS) TestDestroyUnitPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{})
+	_, err := s.api.DestroyUnit(c.Context(), params.DestroyUnitsParams{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -635,7 +633,7 @@ func (s *permSuiteIAAS) TestDestroyUnitBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{})
+	_, err := s.api.DestroyUnit(c.Context(), params.DestroyUnitsParams{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
@@ -646,7 +644,7 @@ func (s *permSuiteIAAS) TestScaleApplicationsInvalidForIAAS(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{})
+	_, err := s.api.ScaleApplications(c.Context(), params.ScaleApplicationsParams{})
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
@@ -667,7 +665,7 @@ func (s *permSuiteCAAS) TestAddUnitsInvalidForCAAS(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
 		ApplicationName: "foo",
 	})
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
@@ -680,7 +678,7 @@ func (s *permSuiteCAAS) TestDestroyUnitInvalidForCAAS(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{})
+	_, err := s.api.DestroyUnit(c.Context(), params.DestroyUnitsParams{})
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
@@ -692,7 +690,7 @@ func (s *permSuiteCAAS) TestScaleApplicationsPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{})
+	_, err := s.api.ScaleApplications(c.Context(), params.ScaleApplicationsParams{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -705,6 +703,6 @@ func (s *permSuiteCAAS) TestScaleApplicationsBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{})
+	_, err := s.api.ScaleApplications(c.Context(), params.ScaleApplicationsParams{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }

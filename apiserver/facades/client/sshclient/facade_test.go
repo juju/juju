@@ -628,8 +628,8 @@ func (s *facadeSuite) TestGetVirtualHostnameForEntity(c *tc.C) {
 	}
 	for _, t := range tests {
 		ctx := c.Context()
-		s.authorizer.EXPECT().HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).Return(authentication.ErrorEntityMissingPermission).Times(1)
-		s.authorizer.EXPECT().HasPermission(ctx, permission.AdminAccess, names.NewModelTag(s.modelUUID.String())).Return(nil).Times(1)
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).Return(authentication.ErrorEntityMissingPermission).Times(1)
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(s.modelUUID.String())).Return(nil).Times(1)
 		c.Log(t.name)
 		res, err := facade.VirtualHostname(ctx, params.VirtualHostnameTargetArg{
 			Tag:       t.tag,

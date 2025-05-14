@@ -69,7 +69,7 @@ func (s *ErrorsSuite) TestNoValidation(c *tc.C) {
 	isAuthF := func(e error) bool {
 		return true
 	}
-	denied, err := common.HandleCredentialError(context.Background(), nil, isAuthF, authFailureError)
+	denied, err := common.HandleCredentialError(c.Context(), nil, isAuthF, authFailureError)
 	//c.Assert(c.GetTestLog(), tc.Contains, "no credential invalidator provided")
 	c.Assert(err, tc.Equals, authFailureError)
 	c.Check(denied, tc.IsFalse)
@@ -84,7 +84,7 @@ func (s *ErrorsSuite) TestInvalidationCallbackErrorOnlyLogs(c *tc.C) {
 
 	s.credentialInvalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(errors.New("boom"))
 
-	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, authFailureError)
+	denied, err := common.HandleCredentialError(c.Context(), s.credentialInvalidator, isAuthF, authFailureError)
 	//c.Assert(c.GetTestLog(), tc.Contains, "could not invalidate stored cloud credential on the controller")
 	c.Assert(err, tc.Equals, authFailureError)
 	c.Check(denied, tc.IsTrue)
@@ -104,7 +104,7 @@ func (s *ErrorsSuite) TestHandleCredentialErrorPermissionError(c *tc.C) {
 		return nil
 	})
 
-	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, authFailureError)
+	denied, err := common.HandleCredentialError(c.Context(), s.credentialInvalidator, isAuthF, authFailureError)
 	c.Assert(called, tc.IsTrue)
 	c.Assert(err, tc.Equals, authFailureError)
 	c.Check(denied, tc.IsTrue)
@@ -124,7 +124,7 @@ func (s *ErrorsSuite) TestHandleCredentialErrorPermissionErrorTraced(c *tc.C) {
 		return nil
 	})
 
-	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, errors.Trace(authFailureError))
+	denied, err := common.HandleCredentialError(c.Context(), s.credentialInvalidator, isAuthF, errors.Trace(authFailureError))
 	c.Assert(called, tc.IsTrue)
 	c.Assert(err, tc.ErrorIs, authFailureError)
 	c.Check(denied, tc.IsTrue)
@@ -144,7 +144,7 @@ func (s *ErrorsSuite) TestHandleCredentialErrorPermissionErrorAnnotated(c *tc.C)
 		return nil
 	})
 
-	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, errors.Annotatef(authFailureError, "annotated"))
+	denied, err := common.HandleCredentialError(c.Context(), s.credentialInvalidator, isAuthF, errors.Annotatef(authFailureError, "annotated"))
 	c.Assert(called, tc.IsTrue)
 	c.Assert(err, tc.ErrorIs, authFailureError)
 	c.Check(denied, tc.IsTrue)
@@ -157,7 +157,7 @@ func (s *ErrorsSuite) TestHandleCredentialErrorAnotherError(c *tc.C) {
 		return errors.Is(e, authFailureError)
 	}
 
-	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, errors.New("some other error"))
+	denied, err := common.HandleCredentialError(c.Context(), s.credentialInvalidator, isAuthF, errors.New("some other error"))
 	c.Assert(err, tc.ErrorMatches, "some other error")
 	c.Assert(denied, tc.IsFalse)
 }
@@ -169,7 +169,7 @@ func (s *ErrorsSuite) TestNilError(c *tc.C) {
 		return errors.Is(e, authFailureError)
 	}
 
-	denied, err := common.HandleCredentialError(context.Background(), s.credentialInvalidator, isAuthF, nil)
+	denied, err := common.HandleCredentialError(c.Context(), s.credentialInvalidator, isAuthF, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(denied, tc.IsFalse)
 }

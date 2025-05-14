@@ -4,7 +4,6 @@
 package highavailability_test
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -43,7 +42,7 @@ var (
 )
 
 func (s *clientSuite) SetUpTest(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	s.ApiServerSuite.SetUpTest(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -89,7 +88,7 @@ func (s *clientSuite) enableS3(c *tc.C) {
 		controller.ObjectStoreS3StaticSecret: "shhh....",
 	}
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
+	err := controllerConfigService.UpdateControllerConfig(c.Context(), attrs, nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -99,7 +98,7 @@ func (s *clientSuite) setMachineAddresses(c *tc.C, machineId string) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	err = m.SetMachineAddresses(
 		controllerConfig,
@@ -136,7 +135,7 @@ func enableHA(
 			Constraints:    cons,
 			Placement:      placement,
 		}}}
-	results, err := haServer.EnableHA(context.Background(), arg)
+	results, err := haServer.EnableHA(c.Context(), arg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
@@ -158,7 +157,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *tc.C) {
 	c.Assert(machines[0].Base().DisplayString(), tc.Equals, "ubuntu@12.10")
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	err = machines[0].SetMachineAddresses(
 		controllerConfig,
@@ -180,7 +179,7 @@ func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *tc.C) {
 	c.Assert(m0.Base().DisplayString(), tc.Equals, "ubuntu@12.10")
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// remove the extra provider addresses, so we have no valid CloudLocal addresses
@@ -217,7 +216,7 @@ func (s *clientSuite) TestEnableHANoErrorVirtualAddressesIpV4(c *tc.C) {
 	st := s.ControllerModel(c).State()
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a virtual address to machine 0
@@ -239,7 +238,7 @@ func (s *clientSuite) TestEnableHANoErrorVirtualAddressesIpV6(c *tc.C) {
 	st := s.ControllerModel(c).State()
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add a virtual address to machine 0
@@ -269,7 +268,7 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *tc.C) {
 	s.setMachineAddresses(c, "1")
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	m, err := st.Machine("2")
@@ -331,7 +330,7 @@ func (s *clientSuite) TestEnableHAEmptyConstraints(c *tc.C) {
 func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *tc.C) {
 	attrs := controller.Config{controller.JujuHASpace: "ha-space"}
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
+	err := controllerConfigService.UpdateControllerConfig(c.Context(), attrs, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("spaces=random-space"), nil)
@@ -360,7 +359,7 @@ func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *tc.C) {
 func (s *clientSuite) TestEnableHAControllerConfigWithFileBackedObjectStore(c *tc.C) {
 	attrs := controller.Config{controller.ObjectStoreType: "file"}
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	err := controllerConfigService.UpdateControllerConfig(context.Background(), attrs, nil)
+	err := controllerConfigService.UpdateControllerConfig(c.Context(), attrs, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.enableHANoS3(c, 3, emptyCons, nil)
@@ -371,7 +370,7 @@ func (s *clientSuite) TestBlockMakeHA(c *tc.C) {
 	// Block all changes.
 	domainServices := s.ControllerDomainServices(c)
 	blockCommandService := domainServices.BlockCommand()
-	err := blockCommandService.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "TestBlockEnableHA")
+	err := blockCommandService.SwitchBlockOn(c.Context(), blockcommand.ChangeBlock, "TestBlockEnableHA")
 	c.Assert(err, tc.ErrorIsNil)
 
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G"), nil)
@@ -559,7 +558,7 @@ func (s *clientSuite) TestEnableHAErrors(c *tc.C) {
 }
 
 func (s *clientSuite) TestEnableHAHostedModelErrors(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	st2 := f.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
@@ -593,7 +592,7 @@ func (s *clientSuite) TestEnableHAMultipleSpecs(c *tc.C) {
 			{NumControllers: 5},
 		},
 	}
-	results, err := s.haServer.EnableHA(context.Background(), arg)
+	results, err := s.haServer.EnableHA(c.Context(), arg)
 	c.Check(err, tc.ErrorMatches, "only one controller spec is supported")
 	c.Check(results.Results, tc.HasLen, 0)
 }
@@ -602,7 +601,7 @@ func (s *clientSuite) TestEnableHANoSpecs(c *tc.C) {
 	arg := params.ControllersSpecs{
 		Specs: []params.ControllersSpec{},
 	}
-	results, err := s.haServer.EnableHA(context.Background(), arg)
+	results, err := s.haServer.EnableHA(c.Context(), arg)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 0)
 }
@@ -623,7 +622,7 @@ func (s *clientSuite) TestEnableHABootstrap(c *tc.C) {
 
 func (s *clientSuite) TestHighAvailabilityCAASFails(c *tc.C) {
 	c.Skip("TODO - reimplement when facade moved off of mongo")
-	ctx := context.Background()
+	ctx := c.Context()
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -639,14 +638,14 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *tc.C) {
 }
 
 func (s *clientSuite) TestControllerDetails(c *tc.C) {
-	cfg, err := s.ControllerDomainServices(c).ControllerConfig().ControllerConfig(context.Background())
+	cfg, err := s.ControllerDomainServices(c).ControllerConfig().ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	apiPort := cfg.APIPort()
 
 	_, err = s.enableHA(c, 3, emptyCons, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	d, err := s.haServer.ControllerDetails(context.Background())
+	d, err := s.haServer.ControllerDetails(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(d, tc.DeepEquals, params.ControllerDetailsResults{
 		Results: []params.ControllerDetails{

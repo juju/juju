@@ -52,7 +52,7 @@ func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *tc.C) {
 	}
 
 	res, err := FetchInstanceTypeInfo(
-		context.Background(),
+		c.Context(),
 		fetchInstanceClientFunc(client),
 	)
 	c.Assert(err, tc.ErrorIsNil)

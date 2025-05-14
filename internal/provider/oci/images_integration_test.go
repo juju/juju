@@ -4,7 +4,6 @@
 package oci_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -103,7 +102,7 @@ func (s *imagesSuite) TestInstanceTypes(c *tc.C) {
 	compute := ocitesting.NewMockComputeClient(ctrl)
 	defer ctrl.Finish()
 
-	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &s.testImageID).Return(listShapesResponse(), nil)
+	compute.EXPECT().ListShapes(gomock.Any(), &s.testCompartment, &s.testImageID).Return(listShapesResponse(), nil)
 
 	types, err := oci.InstanceTypes(compute, &s.testCompartment, &s.testImageID)
 	c.Assert(err, tc.IsNil)
@@ -336,13 +335,13 @@ func (s *imagesSuite) TestRefreshImageCache(c *tc.C) {
 		},
 	}
 
-	compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil)
-	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntu1).Return(listShapesResponse(), nil)
-	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntu2).Return(listShapesResponse(), nil)
-	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntu3).Return(listShapesResponse(), nil)
-	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntu4).Return(listShapesResponse(), nil)
+	compute.EXPECT().ListImages(gomock.Any(), &s.testCompartment).Return(listImageResponse, nil)
+	compute.EXPECT().ListShapes(gomock.Any(), &s.testCompartment, &fakeUbuntu1).Return(listShapesResponse(), nil)
+	compute.EXPECT().ListShapes(gomock.Any(), &s.testCompartment, &fakeUbuntu2).Return(listShapesResponse(), nil)
+	compute.EXPECT().ListShapes(gomock.Any(), &s.testCompartment, &fakeUbuntu3).Return(listShapesResponse(), nil)
+	compute.EXPECT().ListShapes(gomock.Any(), &s.testCompartment, &fakeUbuntu4).Return(listShapesResponse(), nil)
 
-	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
+	imgCache, err := oci.RefreshImageCache(c.Context(), compute, &s.testCompartment)
 	c.Assert(err, tc.IsNil)
 	c.Assert(imgCache, tc.NotNil)
 	c.Check(imgCache.ImageMap(), tc.HasLen, 1)
@@ -374,11 +373,11 @@ func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *tc.C) {
 
 	compute.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return([]ociCore.Image{}, nil)
 
-	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
+	imgCache, err := oci.RefreshImageCache(c.Context(), compute, &s.testCompartment)
 	c.Assert(err, tc.IsNil)
 	c.Assert(imgCache, tc.NotNil)
 
-	fromCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
+	fromCache, err := oci.RefreshImageCache(c.Context(), compute, &s.testCompartment)
 	c.Assert(err, tc.IsNil)
 	c.Check(imgCache, tc.DeepEquals, fromCache)
 }
@@ -390,7 +389,7 @@ func (s *imagesSuite) TestRefreshImageCacheStaleCache(c *tc.C) {
 
 	compute.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return([]ociCore.Image{}, nil).Times(2)
 
-	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
+	imgCache, err := oci.RefreshImageCache(c.Context(), compute, &s.testCompartment)
 	c.Assert(err, tc.IsNil)
 	c.Assert(imgCache, tc.NotNil)
 
@@ -399,7 +398,7 @@ func (s *imagesSuite) TestRefreshImageCacheStaleCache(c *tc.C) {
 	// No need to check the value. gomock will assert if ListImages
 	// is not called twice
 	imgCache.SetLastRefresh(now.Add(-31 * time.Minute))
-	_, err = oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
+	_, err = oci.RefreshImageCache(c.Context(), compute, &s.testCompartment)
 	c.Assert(err, tc.IsNil)
 }
 
@@ -426,12 +425,12 @@ func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *tc.C) {
 	}
 	fakeUbuntuID := "fakeUbuntu1"
 
-	compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil)
+	compute.EXPECT().ListImages(gomock.Any(), &s.testCompartment).Return(listImageResponse, nil)
 	// Only list shapes from "fakeUbuntu1" image, because the other one
 	// is invalid.
-	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(listShapesResponse(), nil)
+	compute.EXPECT().ListShapes(gomock.Any(), &s.testCompartment, &fakeUbuntuID).Return(listShapesResponse(), nil)
 
-	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
+	imgCache, err := oci.RefreshImageCache(c.Context(), compute, &s.testCompartment)
 	c.Assert(err, tc.IsNil)
 	c.Assert(imgCache, tc.NotNil)
 	c.Check(imgCache.ImageMap(), tc.HasLen, 1)

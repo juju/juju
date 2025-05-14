@@ -3,10 +3,7 @@
 
 package testing
 
-// Provides a TestDataSuite which creates and provides http access to sample simplestreams metadata.
-
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -718,21 +715,21 @@ func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *tc.C) {
-	indexRef, err := s.GetIndexRef(Index_v1)
+	indexRef, err := s.GetIndexRef(c, Index_v1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(indexRef.Format, tc.Equals, Index_v1)
 	c.Assert(indexRef.Source, tc.Equals, s.Source)
 	c.Assert(len(indexRef.Indexes) > 0, tc.IsTrue)
 }
 
-func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams.IndexReference, error) {
+func (s *LocalLiveSimplestreamsSuite) GetIndexRef(c *tc.C, format string) (*simplestreams.IndexReference, error) {
 	params := simplestreams.ValueParams{
 		DataType:      s.DataType,
 		ValueTemplate: TestItem{},
 	}
 	ss := simplestreams.NewSimpleStreams(TestDataSourceFactory())
 	return ss.GetIndexWithFormat(
-		context.Background(),
+		c.Context(),
 		s.Source, s.IndexPath(),
 		format,
 		simplestreams.MirrorsPath(s.StreamsVersion),
@@ -743,12 +740,12 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *tc.C) {
-	_, err := s.GetIndexRef("bad")
+	_, err := s.GetIndexRef(c, "bad")
 	c.Assert(err, tc.NotNil)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathExists(c *tc.C) {
-	indexRef, err := s.GetIndexRef(Index_v1)
+	indexRef, err := s.GetIndexRef(c, Index_v1)
 	c.Assert(err, tc.ErrorIsNil)
 	path, err := indexRef.GetProductsPath(s.ValidConstraint)
 	c.Assert(err, tc.ErrorIsNil)
@@ -756,7 +753,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathExists(c *tc.C) {
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *tc.C) {
-	indexRef, err := s.GetIndexRef(Index_v1)
+	indexRef, err := s.GetIndexRef(c, Index_v1)
 	c.Assert(err, tc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{Region: "bad", Endpoint: "spec"},
@@ -767,7 +764,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *tc.
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *tc.C) {
-	indexRef, err := s.GetIndexRef(Index_v1)
+	indexRef, err := s.GetIndexRef(c, Index_v1)
 	c.Assert(err, tc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: s.ValidConstraint.Params().CloudSpec,
@@ -780,9 +777,9 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *t
 }
 
 func (s *LocalLiveSimplestreamsSuite) AssertGetMetadata(c *tc.C) *simplestreams.CloudMetadata {
-	indexRef, err := s.GetIndexRef(Index_v1)
+	indexRef, err := s.GetIndexRef(c, Index_v1)
 	c.Assert(err, tc.ErrorIsNil)
-	metadata, err := indexRef.GetCloudMetadataWithFormat(context.Background(), s.ValidConstraint, Product_v1, s.RequireSigned)
+	metadata, err := indexRef.GetCloudMetadataWithFormat(c.Context(), s.ValidConstraint, Product_v1, s.RequireSigned)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(metadata.Format, tc.Equals, Product_v1)
 	c.Assert(len(metadata.Products) > 0, tc.IsTrue)

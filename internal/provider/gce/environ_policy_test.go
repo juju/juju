@@ -4,8 +4,6 @@
 package gce_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -34,7 +32,7 @@ func (s *environPolSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *environPolSuite) TestPrecheckInstanceDefaults(c *tc.C) {
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase()})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -48,7 +46,7 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *tc.C) {
 
 	cons := constraints.MustParse("instance-type=n1-standard-2 arch=amd64 root-disk=1G")
 	placement := "zone=home-zone"
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons, Placement: placement})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -66,7 +64,7 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *tc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *tc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-2")
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, tc.ErrorIsNil)
@@ -74,7 +72,7 @@ func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *tc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *tc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1.invalid")
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, tc.ErrorMatches, `.*invalid GCE instance type.*`)
@@ -83,7 +81,7 @@ func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *tc.C) {
 func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *tc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-2 root-disk=1G")
 	placement := ""
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons, Placement: placement})
 
 	c.Check(err, tc.ErrorIsNil)
@@ -91,7 +89,7 @@ func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *tc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-2 arch=arm64")
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, tc.ErrorIsNil)
@@ -103,7 +101,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *tc.C) {
 	}
 
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
 	c.Check(err, tc.ErrorIsNil)
@@ -115,7 +113,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnavailable(c *tc.C) {
 	}
 
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
 	c.Check(err, tc.ErrorMatches, `.*availability zone "a-zone" is DOWN`)
@@ -127,7 +125,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *tc.C) {
 	}
 
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
 	c.Check(err, tc.ErrorIs, errors.NotFound)
@@ -146,7 +144,7 @@ func (s *environPolSuite) testPrecheckInstanceVolumeAvailZone(c *tc.C, placement
 		google.NewZone("away-zone", google.StatusUp, "", ""),
 	}
 
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:      version.DefaultSupportedLTSBase(),
 		Placement: placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
@@ -161,7 +159,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *tc.C) 
 		google.NewZone("away-zone", google.StatusUp, "", ""),
 	}
 
-	err := s.Env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:      version.DefaultSupportedLTSBase(),
 		Placement: "zone=away-zone",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
@@ -173,7 +171,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *tc.C) 
 }
 
 func (s *environPolSuite) TestConstraintsValidator(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(context.Background())
+	validator, err := s.Env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -183,7 +181,7 @@ func (s *environPolSuite) TestConstraintsValidator(c *tc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(context.Background())
+	validator, err := s.Env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -193,7 +191,7 @@ func (s *environPolSuite) TestConstraintsValidatorEmpty(c *tc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(context.Background())
+	validator, err := s.Env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
@@ -204,7 +202,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(context.Background())
+	validator, err := s.Env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=foo")
@@ -214,7 +212,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *tc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(context.Background())
+	validator, err := s.Env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("container=lxd")
@@ -224,7 +222,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *tc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorConflicts(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(context.Background())
+	validator, err := s.Env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-2")
@@ -240,7 +238,7 @@ func (s *environPolSuite) TestConstraintsValidatorConflicts(c *tc.C) {
 }
 
 func (s *environPolSuite) TestSupportNetworks(c *tc.C) {
-	isSupported := s.Env.SupportNetworks(context.Background())
+	isSupported := s.Env.SupportNetworks(c.Context())
 
 	c.Check(isSupported, tc.IsFalse)
 }

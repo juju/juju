@@ -4,7 +4,6 @@
 package tools_test
 
 import (
-	"context"
 	"encoding/json"
 	"time"
 
@@ -250,7 +249,7 @@ var proposedToolMetadataForTesting = []*tools.ToolsMetadata{
 }
 
 func (s *marshalSuite) TestMarshalIndex(c *tc.C) {
-	index, legacyIndex, err := tools.MarshalToolsMetadataIndexJSON(context.Background(), s.streamMetadata, time.Unix(0, 0).UTC())
+	index, legacyIndex, err := tools.MarshalToolsMetadataIndexJSON(c.Context(), s.streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, tc.ErrorIsNil)
 	assertIndex(c, index, expectedIndex)
 	assertIndex(c, legacyIndex, expectedLegacyIndex)

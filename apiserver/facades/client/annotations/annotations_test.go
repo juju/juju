@@ -104,7 +104,7 @@ func (s *annotationSuite) TestGetAnnotationsNoError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
-	s.annotationService.EXPECT().GetAnnotations(c.Context(), annotations.ID{
+	s.annotationService.EXPECT().GetAnnotations(gomock.Any(), annotations.ID{
 		Kind: annotations.KindModel,
 		Name: s.uuid,
 	}).Return(map[string]string{"foo": "bar"}, errors.New("boom"))

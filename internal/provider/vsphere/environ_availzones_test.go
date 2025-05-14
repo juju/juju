@@ -57,7 +57,7 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *tc.C) {
 
 	c.Assert(s.env, tc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
-	zones, err := zonedEnviron.AvailabilityZones(context.Background())
+	zones, err := zonedEnviron.AvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(zones), tc.Equals, 6)
 	// No zones for the empty resource.
@@ -84,7 +84,7 @@ func (s *environAvailzonesSuite) TestAvailabilityZonesInFolder(c *tc.C) {
 
 	c.Assert(s.env, tc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
-	zones, err := zonedEnviron.AvailabilityZones(context.Background())
+	zones, err := zonedEnviron.AvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(zones), tc.Equals, 3)
 	c.Assert(zones[0].Name(), tc.Equals, "Folder/z1")
@@ -123,7 +123,7 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *tc.C) {
 	ids := []instance.Id{"inst-0", "inst-1", "inst-2", "inst-3", "inst-4"}
 
 	zonedEnviron := s.env.(common.ZonedEnviron)
-	zones, err := zonedEnviron.InstanceAvailabilityZoneNames(context.Background(), ids)
+	zones, err := zonedEnviron.InstanceAvailabilityZoneNames(c.Context(), ids)
 	c.Assert(err, tc.Equals, environs.ErrPartialInstances)
 	c.Assert(zones, tc.DeepEquals, map[instance.Id]string{
 		"inst-0": "z2",
@@ -135,7 +135,7 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *tc.C) {
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNamesNoInstances(c *tc.C) {
 	s.client.folders = makeFolders("/DC/host")
 	zonedEnviron := s.env.(common.ZonedEnviron)
-	_, err := zonedEnviron.InstanceAvailabilityZoneNames(context.Background(), []instance.Id{"inst-0"})
+	_, err := zonedEnviron.InstanceAvailabilityZoneNames(c.Context(), []instance.Id{"inst-0"})
 	c.Assert(err, tc.Equals, environs.ErrNoInstances)
 }
 
@@ -152,7 +152,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZones(c *tc.C) {
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
 	zones, err := zonedEnviron.DeriveAvailabilityZones(
-		context.Background(),
+		c.Context(),
 		environs.StartInstanceParams{Placement: "zone=test-available"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zones, tc.DeepEquals, []string{"test-available"})
@@ -164,7 +164,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesUnknown(c *tc.C) {
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
 	zones, err := zonedEnviron.DeriveAvailabilityZones(
-		context.Background(),
+		c.Context(),
 		environs.StartInstanceParams{Placement: "zone=test-unknown"})
 	c.Assert(err, tc.ErrorMatches, `availability zone "test-unknown" not found`)
 	c.Assert(zones, tc.HasLen, 0)
@@ -176,7 +176,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
 	zones, err := zonedEnviron.DeriveAvailabilityZones(
-		context.Background(),
+		c.Context(),
 		environs.StartInstanceParams{
 			Placement: "invalid-placement",
 		})

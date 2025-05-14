@@ -45,7 +45,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerDBIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker()
+	w, err := s.newTrackedDBWorker(c)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -67,7 +67,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker()
+	w, err := s.newTrackedDBWorker(c)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -98,7 +98,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker()
+	w, err := s.newTrackedDBWorker(c)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -122,7 +122,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBReplWorkerSuite) newTrackedDBWorker() (TrackedDB, error) {
+func (s *trackedDBReplWorkerSuite) newTrackedDBWorker(c *tc.C) (TrackedDB, error) {
 	return newTrackedDBWorker(c.Context(),
 		s.states,
 		s.dbApp, "controller",

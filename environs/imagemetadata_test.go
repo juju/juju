@@ -4,8 +4,6 @@
 package environs_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -44,7 +42,7 @@ func (s *ImageMetadataSuite) env(c *tc.C, imageMetadataURL, stream string, defau
 	}
 	env, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(context.Background(), c),
+		envtesting.BootstrapContext(c.Context(), c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),

@@ -217,7 +217,7 @@ func (s *BaseSuiteUnpatched) initNet(c *tc.C) {
 
 func (s *BaseSuiteUnpatched) setConfig(c *tc.C, cfg *config.Config) {
 	s.Config = cfg
-	ecfg, err := newValidConfig(context.Background(), cfg)
+	ecfg, err := newValidConfig(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	s.EnvConfig = ecfg
 	uuid := cfg.UUID()
@@ -764,7 +764,7 @@ func (s *EnvironSuite) NewEnviron(c *tc.C,
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	eCfg, err := newValidConfig(context.Background(), cfg)
+	eCfg, err := newValidConfig(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	namespace, err := instance.NewNamespace(cfg.UUID())
@@ -793,7 +793,7 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *tc.C,
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	eCfg, err := newValidConfig(context.Background(), cfg)
+	eCfg, err := newValidConfig(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	namespace, err := instance.NewNamespace(cfg.UUID())

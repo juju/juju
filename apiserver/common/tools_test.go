@@ -80,7 +80,7 @@ func (s *getToolsSuite) TestTools(c *tc.C) {
 		Return(coreagentbinary.Version{}, machineerrors.MachineNotFound)
 
 	current := coretesting.CurrentVersion()
-	s.toolsFinder.EXPECT().FindAgents(context.Background(), common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number: current.Number,
 		OSType: os.Ubuntu.String(),
 		Arch:   current.Arch,
@@ -89,7 +89,7 @@ func (s *getToolsSuite) TestTools(c *tc.C) {
 		URL:     "tools:" + current.String(),
 	}}, nil)
 
-	result, err := tg.Tools(context.Background(), args)
+	result, err := tg.Tools(c.Context(), args)
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 3)
@@ -117,7 +117,7 @@ func (s *getToolsSuite) TestToolsError(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-42"}},
 	}
-	result, err := tg.Tools(context.Background(), args)
+	result, err := tg.Tools(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "splat")
 	c.Assert(result.Results, tc.HasLen, 1)
 }
@@ -196,7 +196,7 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *tc.C) {
 
 	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
 
-	result, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
+	result, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
 		OSType:       "windows",
@@ -251,7 +251,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *tc.C) {
 	s.expectMatchingStorageTools(storageMetadata, nil)
 
 	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
-	result, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
+	result, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
 		OSType:       "windows",
@@ -285,7 +285,7 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *tc.C) {
 	s.expectMatchingStorageTools([]binarystorage.Metadata{}, nil)
 
 	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, nil, s.store, s.mockAgentBinaryService)
-	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
+	_, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{})
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -295,7 +295,7 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *tc.C) {
 	s.expectMatchingStorageTools(nil, errors.New("AllMetadata failed"))
 
 	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
-	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
+	_, err := toolsFinder.FindAgents(c.Context(), common.FindAgentsParams{})
 	// ToolsStorage errors always cause FindAgents to bail. Only
 	// if AllMetadata succeeds but returns nothing that matches
 	// do we continue on to searching simplestreams.
@@ -323,7 +323,7 @@ func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *tc.C) {
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, nil)
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
-	_, err := g.ToolsURLs(context.Background(), coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
+	_, err := g.ToolsURLs(c.Context(), coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
 	c.Assert(err, tc.ErrorMatches, "no suitable API server address to pick from")
 }
 
@@ -333,7 +333,7 @@ func (s *getUrlSuite) TestToolsURLGetterAPIHostPortsError(c *tc.C) {
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, errors.New("oh noes"))
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
-	_, err := g.ToolsURLs(context.Background(), coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
+	_, err := g.ToolsURLs(c.Context(), coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
 	c.Assert(err, tc.ErrorMatches, "oh noes")
 }
 
@@ -346,7 +346,7 @@ func (s *getUrlSuite) TestToolsURLGetter(c *tc.C) {
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	current := coretesting.CurrentVersion()
-	urls, err := g.ToolsURLs(context.Background(), coretesting.FakeControllerConfig(), current)
+	urls, err := g.ToolsURLs(c.Context(), coretesting.FakeControllerConfig(), current)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(urls, tc.DeepEquals, []string{
 		"https://0.1.2.3:1234/model/my-uuid/tools/" + current.String(),

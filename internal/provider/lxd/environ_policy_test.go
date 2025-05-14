@@ -31,7 +31,7 @@ var _ = tc.Suite(&environPolicySuite{})
 
 func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase()})
+	err := s.env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase()})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -40,7 +40,7 @@ func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *tc.C) {
 
 	cons := constraints.MustParse("instance-type=some-instance-type")
 	err := s.env.PrecheckInstance(
-		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
+		c.Context(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -50,7 +50,7 @@ func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *tc.C) {
 
 	cons := constraints.MustParse("root-disk=1G")
 	err := s.env.PrecheckInstance(
-		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
+		c.Context(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -60,7 +60,7 @@ func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
 
 	cons := constraints.MustParse("arch=arm64")
 	err := s.env.PrecheckInstance(
-		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
+		c.Context(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -87,7 +87,7 @@ func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *tc.C) {
 
 	placement := "zone=a-zone"
 	err := s.env.PrecheckInstance(
-		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Placement: placement})
+		c.Context(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
 	c.Check(err, tc.ErrorMatches, `availability zone "a-zone" not valid`)
 }
@@ -95,7 +95,7 @@ func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *tc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorArch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -118,7 +118,7 @@ func (s *environPolicySuite) TestConstraintsValidatorArchWithUnsupportedArches(c
 
 	s.env = s.NewEnviron(c, s.svr, nil, environscloudspec.CloudSpec{}, invalidator)
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	for _, arches := range []string{"arm64", "amd64"} {
@@ -133,7 +133,7 @@ func (s *environPolicySuite) TestConstraintsValidatorArchWithUnsupportedArches(c
 func (s *environPolicySuite) TestConstraintsValidatorVirtType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("virt-type=container")
@@ -146,7 +146,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVirtType(c *tc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorEmptyVirtType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("virt-type=")
@@ -159,7 +159,7 @@ func (s *environPolicySuite) TestConstraintsValidatorEmptyVirtType(c *tc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -171,7 +171,7 @@ func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *tc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{
@@ -196,7 +196,7 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -208,7 +208,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *tc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorVocabArchUnknown(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
@@ -222,7 +222,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *tc
 
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("container=lxd")
@@ -234,7 +234,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *tc
 func (s *environPolicySuite) TestConstraintsValidatorConflicts(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-1")
@@ -252,7 +252,7 @@ func (s *environPolicySuite) TestSupportNetworks(c *tc.C) {
 
 	isSupported := s.env.(interface {
 		SupportNetworks(context.Context) bool
-	}).SupportNetworks(context.Background())
+	}).SupportNetworks(c.Context())
 
 	c.Check(isSupported, tc.IsFalse)
 }

@@ -4,8 +4,6 @@
 package maas
 
 import (
-	"context"
-
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
 
@@ -25,7 +23,7 @@ type configSuite struct {
 var _ = tc.Suite(&configSuite{})
 
 // newConfig creates a MAAS environment config from attributes.
-func newConfig(values map[string]interface{}) (*maasModelConfig, error) {
+func newConfig(c *tc.C, values map[string]interface{}) (*maasModelConfig, error) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"name": "testmodel",
 		"type": "maas",
@@ -34,7 +32,7 @@ func newConfig(values map[string]interface{}) (*maasModelConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return providerInstance.newConfig(context.Background(), cfg)
+	return providerInstance.newConfig(c.Context(), cfg)
 }
 
 func (s *configSuite) SetUpTest(c *tc.C) {
@@ -49,13 +47,13 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *tc.C) {
 	// The base Validate() function will not allow an environment to
 	// change its name.  Trigger that error so as to prove that the
 	// environment provider's Validate() calls the base Validate().
-	oldCfg, err := newConfig(nil)
+	oldCfg, err := newConfig(c, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	newName := oldCfg.Name() + "-but-different"
 	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = EnvironProvider{}.Validate(context.Background(), newCfg, oldCfg.Config)
+	_, err = EnvironProvider{}.Validate(c.Context(), newCfg, oldCfg.Config)
 
 	c.Assert(err, tc.NotNil)
 	c.Check(err, tc.ErrorMatches, ".*cannot change name.*")

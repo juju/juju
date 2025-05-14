@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -133,7 +132,7 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *tc.C) 
 	password := "hunter2"
 	accessService := s.ControllerDomainServices(c).Access()
 	userName := usertesting.GenNewName(c, "bobbrown")
-	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := accessService.AddUser(c.Context(), service.AddUserArg{
 		Name:        userName,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,

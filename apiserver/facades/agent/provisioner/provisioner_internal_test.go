@@ -4,8 +4,6 @@
 package provisioner
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -54,7 +52,7 @@ func (s *provisionerSuite) TestContainerManagerConfig(c *tc.C) {
 	s.agentProvisionerService.EXPECT().ContainerNetworkingMethod(gomock.Any()).
 		Return(containermanager.NetworkingMethodProvider, nil)
 
-	containerManagerConfig, err := api.ContainerManagerConfig(context.Background(),
+	containerManagerConfig, err := api.ContainerManagerConfig(c.Context(),
 		params.ContainerManagerConfigParams{Type: instance.LXD},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -93,7 +91,7 @@ func (s *provisionerSuite) TestContainerConfig(c *tc.C) {
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR bar-key",
 	}, nil)
 
-	containerManagerConfig, err := api.ContainerConfig(context.Background())
+	containerManagerConfig, err := api.ContainerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(containerManagerConfig, tc.DeepEquals, params.ContainerConfig{
 		UpdateBehavior: &params.UpdateBehavior{

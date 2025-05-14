@@ -50,7 +50,7 @@ func (s *MachineWatcherSuite) TestWatchForRebootEventCannotGetUUID(c *tc.C) {
 	rebootWatcher := common.NewMachineRebootWatcher(s.mockWatchRebootService, s.watcherRegistry, getMachineUUID)
 
 	// Act
-	_, err := rebootWatcher.WatchForRebootEvent(context.Background())
+	_, err := rebootWatcher.WatchForRebootEvent(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, errMachineNotFound)
@@ -68,7 +68,7 @@ func (s *MachineWatcherSuite) TestWatchForRebootEventErrorStartWatcher(c *tc.C) 
 	s.mockWatchRebootService.EXPECT().WatchMachineReboot(gomock.Any(), machine.UUID("machine-uuid")).Return(nil, errStartWatcher)
 
 	// Act
-	_, err := rebootWatcher.WatchForRebootEvent(context.Background())
+	_, err := rebootWatcher.WatchForRebootEvent(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, errStartWatcher)
@@ -85,7 +85,7 @@ func (s *MachineWatcherSuite) TestWatchForRebootEvent(c *tc.C) {
 	s.mockWatchRebootService.EXPECT().WatchMachineReboot(gomock.Any(), machine.UUID("machine-uuid")).Return(apiservertesting.NewFakeNotifyWatcher(), nil)
 
 	// Act
-	result, err := rebootWatcher.WatchForRebootEvent(context.Background())
+	result, err := rebootWatcher.WatchForRebootEvent(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

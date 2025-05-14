@@ -271,7 +271,7 @@ func (s *providerSuite) TestFinalizeCloud(c *tc.C) {
 	server.EXPECT().LocalBridgeName().Return("lxdbr0")
 	deps.factory.EXPECT().LocalServerAddress().Return("1.2.3.4:1234", nil)
 
-	ctx := mockContext{Context: context.Background()}
+	ctx := mockContext{Context: c.Context()}
 	out, err := finalizer.FinalizeCloud(&ctx, cloud.Cloud{
 		Name:      "localhost",
 		Type:      "lxd",
@@ -305,7 +305,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *tc.C) {
 	deps := s.createProvider(ctrl)
 	finalizer := deps.provider.(environs.CloudFinalizer)
 
-	ctx := mockContext{Context: context.Background()}
+	ctx := mockContext{Context: c.Context()}
 	out, err := finalizer.FinalizeCloud(&ctx, cloud.Cloud{
 		Name:      "nuc8",
 		Type:      "lxd",
@@ -460,7 +460,7 @@ func (s *providerSuite) TestValidate(c *tc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	validCfg, err := deps.provider.Validate(context.Background(), s.Config, nil)
+	validCfg, err := deps.provider.Validate(c.Context(), s.Config, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	validAttrs := validCfg.AllAttrs()
 
@@ -478,7 +478,7 @@ func (s *providerSuite) TestValidateWithInvalidConfig(c *tc.C) {
 	})
 	c.Assert(err, tc.IsNil)
 
-	_, err = deps.provider.Validate(context.Background(), config, nil)
+	_, err = deps.provider.Validate(c.Context(), config, nil)
 	c.Assert(err, tc.NotNil)
 }
 
@@ -508,7 +508,7 @@ func (s *providerSuite) TestPingFailWithNoEndpoint(c *tc.C) {
 
 	p, err := environs.Provider("lxd")
 	c.Assert(err, tc.ErrorIsNil)
-	err = p.Ping(context.Background(), server.URL)
+	err = p.Ping(c.Context(), server.URL)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
 		"no lxd server running at %[1]s: Failed to fetch %[1]s/1.0: 404 Not Found",
 		server.URL))
@@ -520,7 +520,7 @@ func (s *providerSuite) TestPingFailWithHTTP(c *tc.C) {
 
 	p, err := environs.Provider("lxd")
 	c.Assert(err, tc.ErrorIsNil)
-	err = p.Ping(context.Background(), server.URL)
+	err = p.Ping(c.Context(), server.URL)
 	httpsURL := "https://" + strings.TrimPrefix(server.URL, "http://")
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
 		`no lxd server running at %[1]s: Get "%[1]s/1.0": http: server gave HTTP response to HTTPS client`,
@@ -546,7 +546,7 @@ func (s *ProviderFunctionalSuite) TestOpen(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
+	env, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  lxdCloudSpec(),
 		Config: s.Config,
 	}, environs.NoopCredentialInvalidator())
@@ -560,7 +560,7 @@ func (s *ProviderFunctionalSuite) TestValidateCloud(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	err := s.provider.ValidateCloud(context.Background(), lxdCloudSpec())
+	err := s.provider.ValidateCloud(c.Context(), lxdCloudSpec())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -570,7 +570,7 @@ func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedEndpointScheme(c *
 
 	cloudSpec := lxdCloudSpec()
 	cloudSpec.Endpoint = "unix://foo"
-	err := s.provider.ValidateCloud(context.Background(), cloudSpec)
+	err := s.provider.ValidateCloud(c.Context(), cloudSpec)
 	c.Assert(err, tc.ErrorMatches, `validating cloud spec: invalid URL "unix://foo": only HTTPS is supported`)
 }
 
@@ -579,7 +579,7 @@ func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedAuthType(c *tc.C) 
 	defer ctrl.Finish()
 
 	cred := cloud.NewCredential("foo", nil)
-	err := s.provider.ValidateCloud(context.Background(), environscloudspec.CloudSpec{
+	err := s.provider.ValidateCloud(c.Context(), environscloudspec.CloudSpec{
 		Type:       "lxd",
 		Name:       "remotehost",
 		Credential: &cred,
@@ -592,7 +592,7 @@ func (s *ProviderFunctionalSuite) TestValidateCloudInvalidCertificateAttrs(c *tc
 	defer ctrl.Finish()
 
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{})
-	err := s.provider.ValidateCloud(context.Background(), environscloudspec.CloudSpec{
+	err := s.provider.ValidateCloud(c.Context(), environscloudspec.CloudSpec{
 		Type:       "lxd",
 		Name:       "remotehost",
 		Credential: &cred,
@@ -605,7 +605,7 @@ func (s *ProviderFunctionalSuite) TestValidateCloudEmptyAuthNonLocal(c *tc.C) {
 	defer ctrl.Finish()
 
 	cred := cloud.NewEmptyCredential()
-	err := s.provider.ValidateCloud(context.Background(), environscloudspec.CloudSpec{
+	err := s.provider.ValidateCloud(c.Context(), environscloudspec.CloudSpec{
 		Type:       "lxd",
 		Name:       "remotehost",
 		Endpoint:   "8.8.8.8",

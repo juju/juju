@@ -1603,12 +1603,12 @@ func (s *serviceSuite) TestSecretsRotated(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().SecretRotated(ctx, uri, gomock.Any()).DoAndReturn(
+	s.state.EXPECT().SecretRotated(gomock.Any(), uri, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, uri *coresecrets.URI, next time.Time) error {
 			c.Assert(next, tc.Almost, nextRotateTime)
 			return errors.New("boom")
 		})
-	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
+	s.state.EXPECT().GetRotationExpiryInfo(gomock.Any(), uri).Return(&domainsecret.RotationExpiryInfo{
 		RotatePolicy:   coresecrets.RotateHourly,
 		LatestRevision: 667,
 	}, nil)
@@ -1634,12 +1634,12 @@ func (s *serviceSuite) TestSecretsRotatedRetry(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().SecretRotated(ctx, uri, gomock.Any()).DoAndReturn(
+	s.state.EXPECT().SecretRotated(gomock.Any(), uri, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, uri *coresecrets.URI, next time.Time) error {
 			c.Assert(next, tc.Almost, nextRotateTime)
 			return errors.New("boom")
 		})
-	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
+	s.state.EXPECT().GetRotationExpiryInfo(gomock.Any(), uri).Return(&domainsecret.RotationExpiryInfo{
 		RotatePolicy:   coresecrets.RotateHourly,
 		LatestRevision: 666,
 	}, nil)
@@ -1665,12 +1665,12 @@ func (s *serviceSuite) TestSecretsRotatedForce(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().SecretRotated(ctx, uri, gomock.Any()).DoAndReturn(
+	s.state.EXPECT().SecretRotated(gomock.Any(), uri, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, uri *coresecrets.URI, next time.Time) error {
 			c.Assert(next, tc.Almost, nextRotateTime)
 			return errors.New("boom")
 		})
-	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
+	s.state.EXPECT().GetRotationExpiryInfo(gomock.Any(), uri).Return(&domainsecret.RotationExpiryInfo{
 		RotatePolicy:     coresecrets.RotateHourly,
 		LatestExpireTime: ptr(s.clock.Now().Add(50 * time.Minute)),
 		LatestRevision:   667,
@@ -1696,7 +1696,7 @@ func (s *serviceSuite) TestSecretsRotatedThenNever(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
+	s.state.EXPECT().GetRotationExpiryInfo(gomock.Any(), uri).Return(&domainsecret.RotationExpiryInfo{
 		RotatePolicy:   coresecrets.RotateNever,
 		LatestRevision: 667,
 	}, nil)

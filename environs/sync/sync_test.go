@@ -153,10 +153,10 @@ func (s *syncSuite) TestSyncing(c *tc.C) {
 			test.ctx.TargetToolsFinder = mockToolsFinder{}
 			test.ctx.TargetToolsUploader = &uploader
 
-			err := sync.SyncTools(context.Background(), test.ctx)
+			err := sync.SyncTools(c.Context(), test.ctx)
 			c.Assert(err, tc.ErrorIsNil)
 
-			ds, err := sync.SelectSourceDatasource(context.Background(), test.ctx)
+			ds, err := sync.SelectSourceDatasource(c.Context(), test.ctx)
 			c.Assert(err, tc.ErrorIsNil)
 
 			// This data source does not require to contain signed data.
@@ -184,7 +184,7 @@ func (s *syncSuite) TestSyncToolsOldPatchVersion(c *tc.C) {
 	// Add some extra tools for the newer patch versions
 	toolstesting.MakeTools(c, s.localStorage, "released", []string{"1.8.3-ubuntu-amd64"})
 
-	err := sync.SyncTools(context.Background(), &sync.SyncContext{
+	err := sync.SyncTools(c.Context(), &sync.SyncContext{
 		Source: s.localStorage,
 		// Request an older patch version of the current series (1.8.x)
 		ChosenVersion: semversion.MustParse("1.8.0"),
@@ -464,7 +464,7 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *tc.C, writeMirrors
 	}
 
 	err = uploader.UploadTools(
-		context.Background(),
+		c.Context(),
 		"released",
 		"released",
 		&coretools.Tools{

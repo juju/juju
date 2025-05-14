@@ -42,7 +42,7 @@ var _ = tc.Suite(&ClientSuite{})
 
 func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *testhelpers.Stub) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.BestVersionCaller{APICallerFunc: apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return errors.New("boom")
 	}), BestVersion: 2}
@@ -61,7 +61,7 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	bytes, err := description.Serialize(modelDescription)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = client.Prechecks(context.Background(), coremigration.ModelInfo{
+	err = client.Prechecks(c.Context(), coremigration.ModelInfo{
 		UUID:                   "uuid",
 		Owner:                  ownerTag,
 		Name:                   "name",
@@ -92,11 +92,11 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 func (s *ClientSuite) TestImport(c *tc.C) {
 	client, stub := s.getClientAndStub()
 
-	err := client.Import(context.Background(), []byte("foo"))
+	err := client.Import(c.Context(), []byte("foo"))
 
 	expectedArg := params.SerializedModel{Bytes: []byte("foo")}
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationTarget.Import", Args: []interface{}{"", expectedArg}},
+		{FuncName: "MigrationTarget.Import", Args: []any{"", expectedArg}},
 	})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
@@ -105,7 +105,7 @@ func (s *ClientSuite) TestAbort(c *tc.C) {
 	client, stub := s.getClientAndStub()
 
 	uuid := "fake"
-	err := client.Abort(context.Background(), uuid)
+	err := client.Abort(c.Context(), uuid)
 	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Abort", err, true)
 }
 
@@ -120,7 +120,7 @@ func (s *ClientSuite) TestActivate(c *tc.C) {
 		CACert:          "cacert",
 	}
 	relatedModels := []string{"related-model-uuid"}
-	err := client.Activate(context.Background(), uuid, sourceInfo, relatedModels)
+	err := client.Activate(c.Context(), uuid, sourceInfo, relatedModels)
 	expectedArg := params.ActivateModelArgs{
 		ModelTag:        names.NewModelTag(uuid).String(),
 		ControllerTag:   coretesting.ControllerTag.String(),
@@ -130,7 +130,7 @@ func (s *ClientSuite) TestActivate(c *tc.C) {
 		CrossModelUUIDs: relatedModels,
 	}
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationTarget.Activate", Args: []interface{}{"", expectedArg}},
+		{FuncName: "MigrationTarget.Activate", Args: []any{"", expectedArg}},
 	})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
@@ -138,7 +138,7 @@ func (s *ClientSuite) TestActivate(c *tc.C) {
 func (s *ClientSuite) TestOpenLogTransferStream(c *tc.C) {
 	caller := fakeConnector{Stub: &testhelpers.Stub{}}
 	client := migrationtarget.NewClient(caller)
-	stream, err := client.OpenLogTransferStream(context.Background(), "bad-dad")
+	stream, err := client.OpenLogTransferStream(c.Context(), "bad-dad")
 	c.Assert(stream, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "sound hound")
 
@@ -152,7 +152,7 @@ func (s *ClientSuite) TestLatestLogTime(c *tc.C) {
 	var stub testhelpers.Stub
 	t1 := time.Date(2016, 12, 1, 10, 31, 0, 0, time.UTC)
 
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		target, ok := result.(*time.Time)
 		c.Assert(ok, tc.IsTrue)
 		*target = t1
@@ -160,7 +160,7 @@ func (s *ClientSuite) TestLatestLogTime(c *tc.C) {
 		return nil
 	})
 	client := migrationtarget.NewClient(apiCaller)
-	result, err := client.LatestLogTime(context.Background(), "fake")
+	result, err := client.LatestLogTime(c.Context(), "fake")
 
 	c.Assert(result, tc.Equals, t1)
 	s.AssertModelCall(c, &stub, names.NewModelTag("fake"), "LatestLogTime", err, false)
@@ -168,7 +168,7 @@ func (s *ClientSuite) TestLatestLogTime(c *tc.C) {
 
 func (s *ClientSuite) TestLatestLogTimeError(c *tc.C) {
 	client, stub := s.getClientAndStub()
-	result, err := client.LatestLogTime(context.Background(), "fake")
+	result, err := client.LatestLogTime(c.Context(), "fake")
 
 	c.Assert(result, tc.Equals, time.Time{})
 	s.AssertModelCall(c, stub, names.NewModelTag("fake"), "LatestLogTime", err, true)
@@ -176,7 +176,7 @@ func (s *ClientSuite) TestLatestLogTimeError(c *tc.C) {
 
 func (s *ClientSuite) TestAdoptResources(c *tc.C) {
 	client, stub := s.getClientAndStub()
-	err := client.AdoptResources(context.Background(), "the-model")
+	err := client.AdoptResources(c.Context(), "the-model")
 	c.Assert(err, tc.ErrorMatches, "boom")
 	stub.CheckCall(c, 0, "MigrationTarget.AdoptResources", "", params.AdoptResourcesArgs{
 		ModelTag:                "model-the-model",
@@ -186,7 +186,7 @@ func (s *ClientSuite) TestAdoptResources(c *tc.C) {
 
 func (s *ClientSuite) TestCheckMachines(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		target, ok := result.(*params.ErrorResults)
 		c.Assert(ok, tc.IsTrue)
 		*target = params.ErrorResults{Results: []params.ErrorResult{
@@ -197,7 +197,7 @@ func (s *ClientSuite) TestCheckMachines(c *tc.C) {
 		return nil
 	})
 	client := migrationtarget.NewClient(apiCaller)
-	results, err := client.CheckMachines(context.Background(), "django")
+	results, err := client.CheckMachines(c.Context(), "django")
 	c.Assert(results, tc.HasLen, 2)
 	c.Assert(results[0], tc.ErrorMatches, "oops")
 	c.Assert(results[1], tc.ErrorMatches, "oh no")
@@ -210,10 +210,11 @@ func (s *ClientSuite) TestUploadCharm(c *tc.C) {
 	charmRef := "foo-abcdef0"
 	doer := newFakeDoer(c, "", map[string]string{params.JujuCharmURLHeader: curl})
 	caller := &fakeHTTPCaller{
+		c:          c,
 		httpClient: &httprequest.Client{Doer: doer},
 	}
 	client := migrationtarget.NewClient(caller)
-	outCurl, err := client.UploadCharm(context.Background(), "uuid", curl, charmRef, strings.NewReader(charmBody))
+	outCurl, err := client.UploadCharm(c.Context(), "uuid", curl, charmRef, strings.NewReader(charmBody))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(outCurl, tc.DeepEquals, curl)
 	c.Assert(doer.method, tc.Equals, "PUT")
@@ -228,10 +229,11 @@ func (s *ClientSuite) TestUploadCharmHubCharm(c *tc.C) {
 	charmRef := "juju-qa-test-abcdef0"
 	doer := newFakeDoer(c, "", map[string]string{params.JujuCharmURLHeader: curl})
 	caller := &fakeHTTPCaller{
+		c:          c,
 		httpClient: &httprequest.Client{Doer: doer},
 	}
 	client := migrationtarget.NewClient(caller)
-	outCurl, err := client.UploadCharm(context.Background(), "uuid", curl, charmRef, strings.NewReader(charmBody))
+	outCurl, err := client.UploadCharm(c.Context(), "uuid", curl, charmRef, strings.NewReader(charmBody))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(outCurl, tc.DeepEquals, curl)
 	c.Assert(doer.method, tc.Equals, "PUT")
@@ -248,11 +250,12 @@ func (s *ClientSuite) TestUploadTools(c *tc.C) {
 		ToolsList: []*tools.Tools{someTools},
 	}, nil)
 	caller := &fakeHTTPCaller{
+		c:          c,
 		httpClient: &httprequest.Client{Doer: doer},
 	}
 	client := migrationtarget.NewClient(caller)
 	toolsList, err := client.UploadTools(
-		context.Background(),
+		c.Context(),
 		"uuid",
 		strings.NewReader(toolsBody),
 		vers,
@@ -269,6 +272,7 @@ func (s *ClientSuite) TestUploadResource(c *tc.C) {
 	const resourceBody = "resourceful"
 	doer := newFakeDoer(c, "", nil)
 	caller := &fakeHTTPCaller{
+		c:          c,
 		httpClient: &httprequest.Client{Doer: doer},
 	}
 	client := migrationtarget.NewClient(caller)
@@ -276,7 +280,7 @@ func (s *ClientSuite) TestUploadResource(c *tc.C) {
 	res := resourcetesting.NewResource(c, nil, "blob", "app", resourceBody).Resource
 	res.Revision = 1
 
-	err := client.UploadResource(context.Background(), "uuid", res, strings.NewReader(resourceBody))
+	err := client.UploadResource(c.Context(), "uuid", res, strings.NewReader(resourceBody))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(doer.method, tc.Equals, "POST")
 	expectedURL := fmt.Sprintf("/migrate/resources?application=app&fingerprint=%s&name=blob&origin=upload&revision=1&size=11&timestamp=%d&type=file&user=a-user", res.Fingerprint.Hex(), res.Timestamp.UnixNano())
@@ -285,7 +289,7 @@ func (s *ClientSuite) TestUploadResource(c *tc.C) {
 }
 
 func (s *ClientSuite) TestCACert(c *tc.C) {
-	call := func(objType string, version int, id, request string, args, response interface{}) error {
+	call := func(objType string, version int, id, request string, args, response any) error {
 		c.Check(objType, tc.Equals, "MigrationTarget")
 		c.Check(request, tc.Equals, "CACert")
 		c.Check(args, tc.Equals, nil)
@@ -294,7 +298,7 @@ func (s *ClientSuite) TestCACert(c *tc.C) {
 		return nil
 	}
 	client := migrationtarget.NewClient(apitesting.APICallerFunc(call))
-	r, err := client.CACert(context.Background())
+	r, err := client.CACert(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r, tc.Equals, "foo cert")
 }
@@ -302,7 +306,7 @@ func (s *ClientSuite) TestCACert(c *tc.C) {
 func (s *ClientSuite) AssertModelCall(c *tc.C, stub *testhelpers.Stub, tag names.ModelTag, call string, err error, expectError bool) {
 	expectedArg := params.ModelArgs{ModelTag: tag.String()}
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationTarget." + call, Args: []interface{}{"", expectedArg}},
+		{FuncName: "MigrationTarget." + call, Args: []any{"", expectedArg}},
 	})
 	if expectError {
 		c.Assert(err, tc.ErrorMatches, "boom")
@@ -330,21 +334,22 @@ type fakeHTTPCaller struct {
 	base.APICaller
 	httpClient *httprequest.Client
 	err        error
+	c          *tc.C
 }
 
 func (fakeHTTPCaller) BestFacadeVersion(string) int {
 	return 0
 }
 
-func (c fakeHTTPCaller) RootHTTPClient() (*httprequest.Client, error) {
-	return c.httpClient, c.err
+func (f *fakeHTTPCaller) RootHTTPClient() (*httprequest.Client, error) {
+	return f.httpClient, f.err
 }
 
-func (*fakeHTTPCaller) Context() context.Context {
-	return context.Background()
+func (f *fakeHTTPCaller) Context() context.Context {
+	return f.c.Context()
 }
 
-func newFakeDoer(c *tc.C, respBody interface{}, respHeaders map[string]string) *fakeDoer {
+func newFakeDoer(c *tc.C, respBody any, respHeaders map[string]string) *fakeDoer {
 	body, err := json.Marshal(respBody)
 	c.Assert(err, tc.ErrorIsNil)
 	resp := &http.Response{

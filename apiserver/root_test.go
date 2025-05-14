@@ -161,14 +161,14 @@ func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *tc.C) {
 	// fine
 	caller, err := srvRoot.FindMethod("my-testing-facade", 1, "Exposed")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = caller.Call(context.Background(), "", reflect.Value{})
+	_, err = caller.Call(c.Context(), "", reflect.Value{})
 	c.Check(err, tc.ErrorMatches, "Exposed was bogus")
 
 	// However, myBadFacade returns the wrong type, so trying to access it
 	// should create an error
 	caller, err = srvRoot.FindMethod("my-testing-facade", 0, "Exposed")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = caller.Call(context.Background(), "", reflect.Value{})
+	_, err = caller.Call(c.Context(), "", reflect.Value{})
 	c.Check(err, tc.ErrorMatches,
 		`internal error, my-testing-facade\(0\) claimed to return \*apiserver_test.testingType but returned \*apiserver_test.badType`)
 
@@ -176,7 +176,7 @@ func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *tc.C) {
 	// error, but that shouldn't trigger the type checking code.
 	caller, err = srvRoot.FindMethod("my-testing-facade", 2, "Exposed")
 	c.Assert(err, tc.ErrorIsNil)
-	res, err := caller.Call(context.Background(), "", reflect.Value{})
+	res, err := caller.Call(c.Context(), "", reflect.Value{})
 	c.Check(err, tc.ErrorMatches, `you shall not pass`)
 	c.Check(res.IsValid(), tc.IsFalse)
 }
@@ -199,7 +199,7 @@ func (ct *countingType) AltCount() stringVar {
 }
 
 func assertCallResult(c *tc.C, caller rpcreflect.MethodCaller, id string, expected string) {
-	v, err := caller.Call(context.Background(), id, reflect.Value{})
+	v, err := caller.Call(c.Context(), id, reflect.Value{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(v.Interface(), tc.Equals, stringVar{expected})
 }
@@ -323,10 +323,10 @@ func (r *rootSuite) TestFindMethodCacheRaceSafe(c *tc.C) {
 	// This is designed to trigger the race detector
 	var wg sync.WaitGroup
 	wg.Add(4)
-	go func() { caller.Call(context.Background(), "first", reflect.Value{}); wg.Done() }()
-	go func() { caller.Call(context.Background(), "second", reflect.Value{}); wg.Done() }()
-	go func() { caller.Call(context.Background(), "first", reflect.Value{}); wg.Done() }()
-	go func() { caller.Call(context.Background(), "second", reflect.Value{}); wg.Done() }()
+	go func() { caller.Call(c.Context(), "first", reflect.Value{}); wg.Done() }()
+	go func() { caller.Call(c.Context(), "second", reflect.Value{}); wg.Done() }()
+	go func() { caller.Call(c.Context(), "first", reflect.Value{}); wg.Done() }()
+	go func() { caller.Call(c.Context(), "second", reflect.Value{}); wg.Done() }()
 	wg.Wait()
 	// Once we're done, we should have only instantiated 2 different
 	// objects. If we pass a different Id, we should be at 3 total count.

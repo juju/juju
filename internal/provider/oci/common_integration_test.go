@@ -4,7 +4,6 @@
 package oci_test
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -300,7 +299,7 @@ func (s *commonSuite) SetUpTest(c *tc.C) {
 	s.spec = fakeCloudSpec()
 
 	config := newConfig(c, jujutesting.Attrs{"compartment-id": s.testCompartment})
-	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
+	env, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: config,
 	}, environs.NoopCredentialInvalidator())
@@ -324,7 +323,7 @@ func (s *commonSuite) SetUpTest(c *tc.C) {
 	s.ociInstance.FreeformTags = s.tags
 }
 
-func (e *commonSuite) setupListInstancesExpectations(instanceId string, state ociCore.InstanceLifecycleStateEnum, times int) {
+func (e *commonSuite) setupListInstancesExpectations(c *tc.C, instanceId string, state ociCore.InstanceLifecycleStateEnum, times int) {
 	listInstancesRequest, listInstancesResponse := makeListInstancesRequestResponse(
 		[]ociCore.Instance{
 			{
@@ -339,8 +338,8 @@ func (e *commonSuite) setupListInstancesExpectations(instanceId string, state oc
 			},
 		},
 	)
-	expect := e.compute.EXPECT().ListInstances(
-		context.Background(), listInstancesRequest.CompartmentId).Return(
+	expect := e.compute.EXPECT().ListInstances(gomock.Any(),
+		listInstancesRequest.CompartmentId).Return(
 		listInstancesResponse.Items, nil)
 	if times == 0 {
 		expect.AnyTimes()

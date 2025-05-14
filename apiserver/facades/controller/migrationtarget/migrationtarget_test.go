@@ -93,7 +93,7 @@ func (s *Suite) TestFacadeRegistered(c *tc.C) {
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 3)
 	c.Assert(err, tc.ErrorIsNil)
 
-	api, err := aFactory(context.Background(), &facadetest.MultiModelContext{
+	api, err := aFactory(c.Context(), &facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
 			State_: s.State,
 			Auth_:  s.authorizer,
@@ -105,7 +105,7 @@ func (s *Suite) TestFacadeRegistered(c *tc.C) {
 
 func (s *Suite) importModel(c *tc.C, api *migrationtarget.API) names.ModelTag {
 	uuid, bytes := s.makeExportedModel(c)
-	err := api.Import(context.Background(), params.SerializedModel{Bytes: bytes})
+	err := api.Import(c.Context(), params.SerializedModel{Bytes: bytes})
 	c.Assert(err, tc.ErrorIsNil)
 	return names.NewModelTag(uuid)
 }
@@ -114,7 +114,7 @@ func (s *Suite) TestCACert(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	api := s.mustNewAPI(c, c.MkDir())
-	r, err := api.CACert(context.Background())
+	r, err := api.CACert(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(r.Result), tc.Equals, jujutesting.CACert)
 }
@@ -132,7 +132,7 @@ func (s *Suite) TestPrechecks(c *tc.C) {
 		AgentVersion:           s.controllerVersion(c),
 		ControllerAgentVersion: s.controllerVersion(c),
 	}
-	err := api.Prechecks(context.Background(), args)
+	err := api.Prechecks(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -149,7 +149,7 @@ func (s *Suite) TestPrechecksIsUpgrading(c *tc.C) {
 		AgentVersion:           s.controllerVersion(c),
 		ControllerAgentVersion: s.controllerVersion(c),
 	}
-	err := api.Prechecks(context.Background(), args)
+	err := api.Prechecks(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `upgrade in progress`)
 }
 
@@ -166,7 +166,7 @@ func (s *Suite) TestPrechecksFail(c *tc.C) {
 	args := params.MigrationModelInfo{
 		AgentVersion: modelVersion,
 	}
-	err := api.Prechecks(context.Background(), args)
+	err := api.Prechecks(c.Context(), args)
 	c.Assert(err, tc.NotNil)
 }
 
@@ -180,7 +180,7 @@ func (s *Suite) TestPrechecksFacadeVersionsFail(c *tc.C) {
 		AgentVersion:           controllerVersion,
 		ControllerAgentVersion: controllerVersion,
 	}
-	err := api.Prechecks(context.Background(), args)
+	err := api.Prechecks(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `
 Source controller does not support required facades for performing migration.
 Upgrade the controller to a newer version of .* or migrate to a controller
@@ -200,7 +200,7 @@ func (s *Suite) TestPrechecksFacadeVersionsWithPatchFail(c *tc.C) {
 		AgentVersion:           controllerVersion,
 		ControllerAgentVersion: controllerVersion,
 	}
-	err := api.Prechecks(context.Background(), args)
+	err := api.Prechecks(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `
 Source controller does not support required facades for performing migration.
 Upgrade the controller to a newer version of .* or migrate to a controller
@@ -234,7 +234,7 @@ func (s *Suite) TestAbort(c *tc.C) {
 	api := s.mustNewAPI(c, c.MkDir())
 	tag := s.importModel(c, api)
 
-	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: tag.String()})
+	err := api.Abort(c.Context(), params.ModelArgs{ModelTag: tag.String()})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The model should no longer exist.
@@ -247,7 +247,7 @@ func (s *Suite) TestAbortNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	api := s.mustNewAPI(c, c.MkDir())
-	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: "not-a-tag"})
+	err := api.Abort(c.Context(), params.ModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, tc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
@@ -256,7 +256,7 @@ func (s *Suite) TestAbortMissingModel(c *tc.C) {
 
 	api := s.mustNewAPI(c, c.MkDir())
 	newUUID := uuid.MustNewUUID().String()
-	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
+	err := api.Abort(c.Context(), params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, tc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
@@ -269,7 +269,7 @@ func (s *Suite) TestAbortNotImportingModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c, c.MkDir())
-	err = api.Abort(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
+	err = api.Abort(c.Context(), params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, tc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
@@ -302,7 +302,7 @@ func (s *Suite) TestActivate(c *tc.C) {
 		sourceModel,
 	).Times(1).Return(&expectedCI, nil)
 
-	err = api.Activate(context.Background(), params.ActivateModelArgs{
+	err = api.Activate(c.Context(), params.ActivateModelArgs{
 		ModelTag:        tag.String(),
 		ControllerTag:   jujutesting.ControllerTag.String(),
 		ControllerAlias: "mycontroller",
@@ -328,7 +328,7 @@ func (s *Suite) TestActivateNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	api := s.mustNewAPI(c, c.MkDir())
-	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: "not-a-tag"})
+	err := api.Activate(c.Context(), params.ActivateModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, tc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
@@ -337,7 +337,7 @@ func (s *Suite) TestActivateMissingModel(c *tc.C) {
 
 	api := s.mustNewAPI(c, c.MkDir())
 	newUUID := uuid.MustNewUUID().String()
-	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
+	err := api.Activate(c.Context(), params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, tc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
@@ -350,7 +350,7 @@ func (s *Suite) TestActivateNotImportingModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c, c.MkDir())
-	err = api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: model.ModelTag().String()})
+	err = api.Activate(c.Context(), params.ActivateModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, tc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
@@ -372,7 +372,7 @@ func (s *Suite) TestLatestLogTime(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c, logDir)
-	latest, err := api.LatestLogTime(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
+	latest, err := api.LatestLogTime(c.Context(), params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(latest, tc.Equals, t)
 }
@@ -386,7 +386,7 @@ func (s *Suite) TestLatestLogTimeNeverSet(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c, c.MkDir())
-	latest, err := api.LatestLogTime(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
+	latest, err := api.LatestLogTime(c.Context(), params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(latest, tc.Equals, time.Time{})
 }
@@ -403,7 +403,7 @@ func (s *Suite) TestAdoptIAASResources(c *tc.C) {
 	m, err := st.Model()
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = api.AdoptResources(context.Background(), params.AdoptResourcesArgs{
+	err = api.AdoptResources(c.Context(), params.AdoptResourcesArgs{
 		ModelTag:                m.ModelTag().String(),
 		SourceControllerVersion: semversion.MustParse("3.2.1"),
 	})
@@ -422,7 +422,7 @@ func (s *Suite) TestAdoptCAASResources(c *tc.C) {
 	m, err := st.Model()
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = api.AdoptResources(context.Background(), params.AdoptResourcesArgs{
+	err = api.AdoptResources(c.Context(), params.AdoptResourcesArgs{
 		ModelTag:                m.ModelTag().String(),
 		SourceControllerVersion: semversion.MustParse("3.2.1"),
 	})

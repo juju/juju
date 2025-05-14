@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -64,9 +63,9 @@ func (s *pingerSuite) TestPing(c *tc.C) {
 
 	conn, _ := s.OpenAPIAsNewMachine(c)
 
-	c.Assert(pingConn(conn), tc.ErrorIsNil)
+	c.Assert(pingConn(c, conn), tc.ErrorIsNil)
 	c.Assert(conn.Close(), tc.ErrorIsNil)
-	c.Assert(errors.Cause(pingConn(conn)), tc.Equals, rpc.ErrShutdown)
+	c.Assert(errors.Cause(pingConn(c, conn)), tc.Equals, rpc.ErrShutdown)
 
 	// Make sure that ping messages have not been logged.
 	for _, m := range tw.Log() {
@@ -85,7 +84,7 @@ func (s *pingerSuite) TestClientNoNeedToPing(c *tc.C) {
 
 	s.Clock.Advance(apiserver.MaxClientPingInterval * 2)
 	time.Sleep(coretesting.ShortWait)
-	c.Assert(pingConn(conn), tc.ErrorIsNil)
+	c.Assert(pingConn(c, conn), tc.ErrorIsNil)
 }
 
 func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *tc.C) {
@@ -104,7 +103,7 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *tc.C) {
 	attemptDelay := apiserver.MaxClientPingInterval / 2
 	for i := 0; i < 10; i++ {
 		s.Clock.Advance(attemptDelay)
-		c.Assert(pingConn(conn), tc.ErrorIsNil)
+		c.Assert(pingConn(c, conn), tc.ErrorIsNil)
 	}
 
 	// However, once we stop pinging for too long, the connection dies
@@ -115,7 +114,7 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *tc.C) {
 func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *tc.C) {
 	conn, _ := s.OpenAPIAsNewMachine(c)
 
-	err := pingConn(conn)
+	err := pingConn(c, conn)
 	c.Assert(err, tc.ErrorIsNil)
 	s.Server.Kill()
 
@@ -130,7 +129,7 @@ func checkConnectionDies(c *tc.C, conn api.Connection) {
 	}
 }
 
-func pingConn(conn api.Connection) error {
+func pingConn(c *tc.C, conn api.Connection) error {
 	version := conn.BestFacadeVersion("Pinger")
-	return conn.APICall(context.Background(), "Pinger", version, "", "Ping", nil, nil)
+	return conn.APICall(c.Context(), "Pinger", version, "", "Ping", nil, nil)
 }

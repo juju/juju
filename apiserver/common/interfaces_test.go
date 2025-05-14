@@ -4,8 +4,6 @@
 package common_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -46,7 +44,7 @@ func (s *AuthFuncSuite) TestAuthFuncForMachineAgent(c *tc.C) {
 
 	authFunc := common.AuthFuncForMachineAgent(s.authorizer)
 
-	fn, err := authFunc(context.Background())
+	fn, err := authFunc(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(fn(machineTag), tc.IsTrue)
 }
@@ -59,7 +57,7 @@ func (s *AuthFuncSuite) TestAuthFuncForMachineAgentInvalidMachineTag(c *tc.C) {
 	authFunc := common.AuthFuncForMachineAgent(s.authorizer)
 	invalidTag := names.NewUserTag("user-bob@foo")
 
-	fn, err := authFunc(context.Background())
+	fn, err := authFunc(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(fn(invalidTag), tc.IsFalse)
 }
@@ -72,7 +70,7 @@ func (s *AuthFuncSuite) TestAuthFuncForMachineAgentInvalidAuthTag(c *tc.C) {
 	authFunc := common.AuthFuncForMachineAgent(s.authorizer)
 	machineTag := names.NewMachineTag("machine-test/0")
 
-	fn, err := authFunc(context.Background())
+	fn, err := authFunc(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(fn(machineTag), tc.IsFalse)
 }

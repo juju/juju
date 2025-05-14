@@ -147,7 +147,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 
-	s.objectStore.EXPECT().Get(c.Context(), s.resource.UUID.String()).Return(s.file, s.resource.Size, nil)
+	s.objectStore.EXPECT().Get(gomock.Any(), s.resource.UUID.String()).Return(s.file, s.resource.Size, nil)
 
 	reader, size, err := store.Get(c.Context(), s.resource.UUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -169,7 +169,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStoreRemove(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 
-	s.objectStore.EXPECT().Remove(c.Context(), s.resource.UUID.String()).Return(nil)
+	s.objectStore.EXPECT().Remove(gomock.Any(), s.resource.UUID.String()).Return(nil)
 
 	err := store.Remove(c.Context(), s.resource.UUID.String())
 	c.Assert(err, tc.ErrorIsNil)

@@ -720,7 +720,7 @@ func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *tc.C, wanted []strin
 	s.mockRegistry.EXPECT().Initialise(gomock.Any()).Return(nil)
 	token.EXPECT().Check().Return(nil)
 
-	s.mockRegistry.EXPECT().RestrictedConfig(c.Context(), &adminCfg, false, false, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	s.mockRegistry.EXPECT().RestrictedConfig(gomock.Any(), &adminCfg, false, false, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	listGranted := func(
 		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secretservice.SecretAccessor,
@@ -837,7 +837,7 @@ func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *tc.C) {
 	s.mockRegistry.EXPECT().Initialise(gomock.Any()).Return(nil)
 	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
 
-	s.mockRegistry.EXPECT().RestrictedConfig(c.Context(), &adminCfg, true, false, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	s.mockRegistry.EXPECT().RestrictedConfig(gomock.Any(), &adminCfg, true, false, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	listGranted := func(
 		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secretservice.SecretAccessor,
@@ -954,7 +954,7 @@ func (s *serviceSuite) TestDrainBackendConfigInfo(c *tc.C) {
 	s.mockRegistry.EXPECT().Initialise(gomock.Any()).Return(nil)
 	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
 
-	s.mockRegistry.EXPECT().RestrictedConfig(c.Context(), &adminCfg, true, true, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	s.mockRegistry.EXPECT().RestrictedConfig(gomock.Any(), &adminCfg, true, true, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	listGranted := func(
 		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secretservice.SecretAccessor,

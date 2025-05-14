@@ -38,7 +38,7 @@ var _ = tc.Suite(&stateSuite{})
 // runQuery executes the provided SQL query string using the current state's database connection.
 //
 // It is a convenient function to setup test with a specific database state
-func (s *stateSuite) runQuery(query string) error {
+func (s *stateSuite) runQuery(c *tc.C, query string) error {
 	db, err := s.state.DB()
 	if err != nil {
 		return err

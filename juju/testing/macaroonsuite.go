@@ -67,7 +67,7 @@ func (s *MacaroonSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	err := s.ControllerDomainServices(c).Access().AddExternalUser(
-		context.Background(),
+		c.Context(),
 		permission.EveryoneUserName,
 		"",
 		s.AdminUserUUID,
@@ -95,7 +95,7 @@ func (s *MacaroonSuite) AddModelUser(c *tc.C, username user.Name) {
 	}
 
 	accessService := s.ControllerDomainServices(c).Access()
-	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+	err := accessService.UpdatePermission(c.Context(), access.UpdatePermissionArgs{
 		Subject: username,
 		Change:  permission.Grant,
 		AccessSpec: permission.AccessSpec{
@@ -121,7 +121,7 @@ func (s *MacaroonSuite) AddControllerUser(c *tc.C, username user.Name, accessLev
 		},
 	}
 
-	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+	err := accessService.UpdatePermission(c.Context(), access.UpdatePermissionArgs{
 		Subject:    username,
 		Change:     permission.Grant,
 		AccessSpec: perm,
@@ -142,7 +142,7 @@ func (s *MacaroonSuite) OpenAPI(c *tc.C, info *api.Info, jar http.CookieJar) api
 	if jar != nil {
 		bakeryClient.Client.Jar = jar
 	}
-	conn, err := api.Open(context.Background(), info, api.DialOpts{
+	conn, err := api.Open(c.Context(), info, api.DialOpts{
 		BakeryClient: bakeryClient,
 	})
 	c.Assert(err, tc.IsNil)

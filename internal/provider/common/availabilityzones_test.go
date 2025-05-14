@@ -58,7 +58,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstanc
 			"inst2": "az2",
 		}, nil
 	})
-	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, c.Context(), nil)
 	c.Assert(called, tc.Equals, 1)
 	c.Assert(err, tc.ErrorIsNil)
 	// az0 is unavailable, so az1 and az2 come out as equal best;
@@ -77,7 +77,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstanc
 	s.PatchValue(&s.env.allInstances, func(context.Context) ([]instances.Instance, error) {
 		return nil, resultErr
 	})
-	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, c.Context(), nil)
 	c.Assert(err, tc.Equals, resultErr)
 	c.Assert(zoneInstances, tc.HasLen, 0)
 }
@@ -89,7 +89,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(
 		called++
 		return map[instance.Id]string{"inst1": "az1", "inst2": "az1"}, environs.ErrPartialInstances
 	})
-	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), []instance.Id{"nichts", "inst1", "null", "inst2"})
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, c.Context(), []instance.Id{"nichts", "inst1", "null", "inst2"})
 	c.Assert(called, tc.Equals, 1)
 	c.Assert(err, tc.ErrorIsNil)
 	// az2 has fewer instances, so comes first.
@@ -108,7 +108,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabil
 		called++
 		return nil, returnErr
 	})
-	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, c.Context(), nil)
 	c.Assert(called, tc.Equals, 1)
 	c.Assert(err, tc.Equals, returnErr)
 	c.Assert(zoneInstances, tc.HasLen, 0)
@@ -120,7 +120,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabil
 		called++
 		return nil, environs.ErrNoInstances
 	})
-	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, c.Context(), nil)
 	c.Assert(called, tc.Equals, 1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zoneInstances, tc.HasLen, 2)
@@ -137,7 +137,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *tc.C) 
 		calls = append(calls, "AvailabilityZones")
 		return network.AvailabilityZones{}, nil
 	})
-	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, c.Context(), nil)
 	c.Assert(calls, tc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zoneInstances, tc.HasLen, 0)
@@ -155,7 +155,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *tc.C) {
 		calls = append(calls, "AvailabilityZones")
 		return nil, resultErr
 	})
-	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, context.Background(), nil)
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, c.Context(), nil)
 	c.Assert(calls, tc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
 	c.Assert(err, tc.Equals, resultErr)
 	c.Assert(zoneInstances, tc.HasLen, 0)

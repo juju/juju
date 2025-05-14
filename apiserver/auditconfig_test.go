@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"context"
 	"math"
 	"time"
 
@@ -39,7 +38,7 @@ func (s *auditConfigSuite) openAPIWithoutLogin(c *tc.C) api.Connection {
 	info.Password = ""
 	info.Macaroons = nil
 	info.SkipLogin = true
-	conn, err := api.Open(context.Background(), info, api.DialOpts{})
+	conn, err := api.Open(c.Context(), info, api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
 	return conn
 }
@@ -65,7 +64,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *tc.C) {
 		ClientVersion: jujuversion.Current.String(),
 	}
 	loginTime := s.Clock.Now()
-	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.UserInfo, tc.NotNil)
 	// Nothing's logged at this point because there haven't been any
@@ -79,7 +78,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *tc.C) {
 		}},
 	}
 	addMachinesTime := s.Clock.Now()
-	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall(c.Context(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, tc.ErrorIsNil)
 
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
@@ -142,7 +141,7 @@ func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *tc.C) 
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
 	// No error yet since logging the conversation is deferred until
 	// something happens.
 	c.Assert(err, tc.ErrorIsNil)
@@ -153,7 +152,7 @@ func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *tc.C) 
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall(c.Context(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, tc.ErrorMatches, "bad news bears")
 }
 
@@ -178,7 +177,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *tc.C) {
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.UserInfo, tc.NotNil)
 	// Nothing's logged at this point because there haven't been any
@@ -191,7 +190,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *tc.C) {
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall(c.Context(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Still nothing logged - the AddMachines call has been filtered out.
@@ -201,7 +200,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *tc.C) {
 	destroyReq := &params.DestroyMachinesParams{
 		MachineTags: []string{addResults.Machines[0].Machine},
 	}
-	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "DestroyMachineWithParams", destroyReq, nil)
+	err = conn.APICall(c.Context(), "MachineManager", machineManagerFacadeVersion, "", "DestroyMachineWithParams", destroyReq, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now the conversation and both requests are logged.
@@ -221,7 +220,7 @@ func (s *auditConfigSuite) TestNewServerValidatesConfig(c *tc.C) {
 	cfg.GetAuditConfig = nil
 	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 
-	srv, err := apiserver.NewServer(context.Background(), cfg)
+	srv, err := apiserver.NewServer(c.Context(), cfg)
 	c.Assert(err, tc.ErrorMatches, "missing GetAuditConfig not valid")
 	c.Assert(srv, tc.IsNil)
 }
@@ -229,7 +228,7 @@ func (s *auditConfigSuite) TestNewServerValidatesConfig(c *tc.C) {
 func (s *auditConfigSuite) createModelAdminUser(c *tc.C, userTag names.UserTag, password string) {
 	accessService := s.ControllerDomainServices(c).Access()
 
-	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := accessService.AddUser(c.Context(), service.AddUserArg{
 		Name:        user.NameFromTag(userTag),
 		DisplayName: userTag.Name(),
 		CreatorUUID: s.AdminUserUUID,
@@ -244,7 +243,7 @@ func (s *auditConfigSuite) createModelAdminUser(c *tc.C, userTag names.UserTag, 
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+	_, err = accessService.CreatePermission(c.Context(), permission.UserAccessSpec{
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Model,

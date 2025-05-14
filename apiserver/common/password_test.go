@@ -37,7 +37,7 @@ func (s *passwordSuite) TestSetPasswordsForUnit(c *tc.C) {
 		Return(nil)
 
 	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
-	results, err := changer.SetPasswords(context.Background(), params.EntityPasswords{
+	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
 			Password: "password",
@@ -59,7 +59,7 @@ func (s *passwordSuite) TestSetPasswordsForUnitError(c *tc.C) {
 		Return(internalerrors.Errorf("boom"))
 
 	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
-	results, err := changer.SetPasswords(context.Background(), params.EntityPasswords{
+	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
 			Password: "password",
@@ -81,7 +81,7 @@ func (s *passwordSuite) TestSetPasswordsForUnitNotFoundError(c *tc.C) {
 		Return(agentpassworderrors.UnitNotFound)
 
 	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
-	results, err := changer.SetPasswords(context.Background(), params.EntityPasswords{
+	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
 			Password: "password",

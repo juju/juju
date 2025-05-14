@@ -4,8 +4,6 @@
 package provisioner_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -55,7 +53,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
-	aProvisioner, err := provisioner.MakeProvisionerAPI(context.Background(), facadetest.ModelContext{
+	aProvisioner, err := provisioner.MakeProvisionerAPI(c.Context(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
@@ -79,7 +77,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 			Tag: "unit-mysql-0", // not a valid machine tag
 		}}}
 	// Only machine 0 can have its containers updated.
-	results, err := aProvisioner.PrepareContainerInterfaceInfo(context.Background(), args)
+	results, err := aProvisioner.PrepareContainerInterfaceInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "dummy provider network config not supported")
 	// Overall request is ok
 	c.Assert(err, tc.ErrorIsNil)
@@ -112,7 +110,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *tc
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
-	aProvisioner, err := provisioner.MakeProvisionerAPI(context.Background(), facadetest.ModelContext{
+	aProvisioner, err := provisioner.MakeProvisionerAPI(c.Context(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
@@ -136,7 +134,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *tc
 			Tag: "unit-mysql-0", // not a valid machine tag
 		}}}
 	// Only machine 0 can have it's containers updated.
-	results, err := aProvisioner.HostChangesForContainers(context.Background(), args)
+	results, err := aProvisioner.HostChangesForContainers(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "dummy provider network config not supported")
 
 	// Overall request is ok

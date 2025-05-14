@@ -38,7 +38,7 @@ func (f *fakeUserAccess) call(ctx context.Context, userName user.Name, target pe
 func (r *PermissionSuite) TestNoUserTagLacksPermission(c *tc.C) {
 	nonUser := names.NewModelTag("beef1beef1-0000-0000-000011112222")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
-	hasPermission, err := common.HasPermission(context.Background(), (&fakeUserAccess{}).call, nonUser, permission.ReadAccess, target)
+	hasPermission, err := common.HasPermission(c.Context(), (&fakeUserAccess{}).call, nonUser, permission.ReadAccess, target)
 	c.Assert(hasPermission, tc.IsFalse)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -154,7 +154,7 @@ func (r *PermissionSuite) TestHasPermission(c *tc.C) {
 			access: t.userGetterAccess,
 		}
 		c.Logf("HasPermission test n %d: %s", i, t.title)
-		hasPermission, err := common.HasPermission(context.Background(), userGetter.call, t.user, t.access, t.target)
+		hasPermission, err := common.HasPermission(c.Context(), userGetter.call, t.user, t.access, t.target)
 		c.Assert(hasPermission, tc.Equals, t.expected)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -168,7 +168,7 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *tc.C) {
 		access: permission.NoAccess,
 		err:    accesserrors.AccessNotFound,
 	}
-	hasPermission, err := common.HasPermission(context.Background(), userGetter.call, userTag, permission.ReadAccess, target)
+	hasPermission, err := common.HasPermission(c.Context(), userGetter.call, userTag, permission.ReadAccess, target)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hasPermission, tc.IsFalse)
 	c.Assert(userGetter.userNames, tc.HasLen, 1)

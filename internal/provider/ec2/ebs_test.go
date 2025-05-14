@@ -73,7 +73,7 @@ func (s *ebsSuite) ebsProvider(c *tc.C) storage.Provider {
 		return s.srv.ec2srv, nil
 	}
 
-	ctx := context.WithValue(context.Background(), ec2.AWSClientContextKey, clientFunc)
+	ctx := context.WithValue(c.Context(), ec2.AWSClientContextKey, clientFunc)
 	env, err := environs.Open(ctx, provider, environs.OpenParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type:       "ec2",
@@ -210,7 +210,7 @@ func (s *ebsSuite) createVolumesParams(c *tc.C, instanceId string) []storage.Vol
 }
 
 func (s *ebsSuite) createVolumes(c *tc.C, vs storage.VolumeSource, instanceId string) ([]storage.CreateVolumesResult, error) {
-	return vs.CreateVolumes(context.Background(), s.createVolumesParams(c, instanceId))
+	return vs.CreateVolumes(c.Context(), s.createVolumesParams(c, instanceId))
 }
 
 func (s *ebsSuite) assertCreateVolumes(c *tc.C, vs storage.VolumeSource, instanceId string) {
@@ -266,7 +266,7 @@ func (s *ebsSuite) assertCreateVolumes(c *tc.C, vs storage.VolumeSource, instanc
 		},
 	})
 	ec2Client := ec2.StorageEC2(vs)
-	ec2Vols, err := ec2Client.DescribeVolumes(context.Background(), nil)
+	ec2Vols, err := ec2Client.DescribeVolumes(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ec2Vols.Volumes, tc.HasLen, 6)
 	sortBySize(ec2Vols.Volumes)
@@ -366,7 +366,7 @@ func (s *ebsSuite) TestVolumeTags(c *tc.C) {
 		},
 	})
 	ec2Client := ec2.StorageEC2(vs)
-	ec2Vols, err := ec2Client.DescribeVolumes(context.Background(), nil)
+	ec2Vols, err := ec2Client.DescribeVolumes(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ec2Vols.Volumes, tc.HasLen, 6)
 	sortBySize(ec2Vols.Volumes)
@@ -429,13 +429,13 @@ func (s *ebsSuite) TestVolumeTypeAliases(c *tc.C) {
 		if alias[1] == "io1" {
 			params[0].Attributes["iops"] = 30
 		}
-		results, err := vs.CreateVolumes(context.Background(), params)
+		results, err := vs.CreateVolumes(c.Context(), params)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(results, tc.HasLen, 1)
 		c.Assert(results[0].Error, tc.ErrorIsNil)
 		c.Assert(results[0].Volume.VolumeId, tc.Equals, fmt.Sprintf("vol-%d", i))
 	}
-	ec2Vols, err := ec2Client.DescribeVolumes(context.Background(), nil)
+	ec2Vols, err := ec2Client.DescribeVolumes(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ec2Vols.Volumes, tc.HasLen, len(aliases))
 	sort.Sort(volumeSorter{ec2Vols.Volumes, func(i, j types.Volume) bool {
@@ -448,7 +448,7 @@ func (s *ebsSuite) TestVolumeTypeAliases(c *tc.C) {
 
 func (s *ebsSuite) TestDestroyVolumesNotFoundReturnsNil(c *tc.C) {
 	vs := s.volumeSource(c, nil)
-	results, err := vs.DestroyVolumes(context.Background(), []string{"vol-42"})
+	results, err := vs.DestroyVolumes(c.Context(), []string{"vol-42"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0], tc.ErrorIsNil)
@@ -461,7 +461,7 @@ func (s *ebsSuite) TestDestroyVolumesCredentialError(c *tc.C) {
 	s.srv.ec2srv.SetAPIError("DeleteVolume", &smithy.GenericAPIError{Code: "Blocked"})
 
 	in := []string{"vol-0"}
-	results, err := vs.DestroyVolumes(context.Background(), in)
+	results, err := vs.DestroyVolumes(c.Context(), in)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(in))
 	for i, result := range results {
@@ -473,12 +473,12 @@ func (s *ebsSuite) TestDestroyVolumesCredentialError(c *tc.C) {
 func (s *ebsSuite) TestDestroyVolumes(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	errs, err := vs.DestroyVolumes(context.Background(), []string{"vol-0"})
+	errs, err := vs.DestroyVolumes(c.Context(), []string{"vol-0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil})
 
 	ec2Client := ec2.StorageEC2(vs)
-	ec2Vols, err := ec2Client.DescribeVolumes(context.Background(), nil)
+	ec2Vols, err := ec2Client.DescribeVolumes(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ec2Vols.Volumes, tc.HasLen, 5)
 	sortBySize(ec2Vols.Volumes)
@@ -491,14 +491,14 @@ func (s *ebsSuite) TestDestroyVolumes(c *tc.C) {
 func (s *ebsSuite) TestDestroyVolumesStillAttached(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	_, err := vs.AttachVolumes(context.Background(), params)
+	_, err := vs.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
-	errs, err := vs.DestroyVolumes(context.Background(), []string{"vol-0"})
+	errs, err := vs.DestroyVolumes(c.Context(), []string{"vol-0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil})
 
 	ec2Client := ec2.StorageEC2(vs)
-	ec2Vols, err := ec2Client.DescribeVolumes(context.Background(), nil)
+	ec2Vols, err := ec2Client.DescribeVolumes(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ec2Vols.Volumes, tc.HasLen, 5)
 	sortBySize(ec2Vols.Volumes)
@@ -510,12 +510,12 @@ func (s *ebsSuite) TestDestroyVolumesStillAttached(c *tc.C) {
 func (s *ebsSuite) TestReleaseVolumes(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	errs, err := vs.ReleaseVolumes(context.Background(), []string{"vol-0"})
+	errs, err := vs.ReleaseVolumes(c.Context(), []string{"vol-0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil})
 
 	ec2Client := ec2.StorageEC2(vs)
-	ec2Vols, err := ec2Client.DescribeVolumes(context.Background(), &awsec2.DescribeVolumesInput{
+	ec2Vols, err := ec2Client.DescribeVolumes(c.Context(), &awsec2.DescribeVolumesInput{
 		VolumeIds: []string{"vol-0"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -533,7 +533,7 @@ func (s *ebsSuite) TestReleaseVolumesCredentialError(c *tc.C) {
 
 	s.srv.ec2srv.SetAPIError("DescribeVolumes", &smithy.GenericAPIError{Code: "Blocked"})
 	in := []string{"vol-0"}
-	results, err := vs.ReleaseVolumes(context.Background(), in)
+	results, err := vs.ReleaseVolumes(c.Context(), in)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(in))
 	for i, result := range results {
@@ -545,15 +545,15 @@ func (s *ebsSuite) TestReleaseVolumesCredentialError(c *tc.C) {
 func (s *ebsSuite) TestReleaseVolumesStillAttached(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	_, err := vs.AttachVolumes(context.Background(), params)
+	_, err := vs.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
-	errs, err := vs.ReleaseVolumes(context.Background(), []string{"vol-0"})
+	errs, err := vs.ReleaseVolumes(c.Context(), []string{"vol-0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.HasLen, 1)
 	c.Assert(errs[0], tc.ErrorMatches, `cannot release volume "vol-0": attachments still active`)
 
 	ec2Client := ec2.StorageEC2(vs)
-	ec2Vols, err := ec2Client.DescribeVolumes(context.Background(), &awsec2.DescribeVolumesInput{
+	ec2Vols, err := ec2Client.DescribeVolumes(c.Context(), &awsec2.DescribeVolumesInput{
 		VolumeIds: []string{"vol-0"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -570,7 +570,7 @@ func (s *ebsSuite) TestAttachVolumesCredentialError(c *tc.C) {
 
 	s.srv.ec2srv.SetAPIError("AttachVolume", &smithy.GenericAPIError{Code: "Blocked"})
 
-	results, err := vs.AttachVolumes(context.Background(), params)
+	results, err := vs.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0].Error, tc.ErrorIs, common.ErrorCredentialNotValid)
@@ -578,7 +578,7 @@ func (s *ebsSuite) TestAttachVolumesCredentialError(c *tc.C) {
 
 func (s *ebsSuite) TestReleaseVolumesNotFound(c *tc.C) {
 	vs := s.volumeSource(c, nil)
-	errs, err := vs.ReleaseVolumes(context.Background(), []string{"vol-42"})
+	errs, err := vs.ReleaseVolumes(c.Context(), []string{"vol-42"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.HasLen, 1)
 	c.Assert(errs[0], tc.ErrorMatches, `cannot release volume "vol-42": vol-42 not found`)
@@ -588,7 +588,7 @@ func (s *ebsSuite) TestDescribeVolumes(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	s.assertCreateVolumes(c, vs, "")
 
-	vols, err := vs.DescribeVolumes(context.Background(), []string{"vol-0", "vol-1"})
+	vols, err := vs.DescribeVolumes(c.Context(), []string{"vol-0", "vol-1"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(vols, tc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{
@@ -607,7 +607,7 @@ func (s *ebsSuite) TestDescribeVolumes(c *tc.C) {
 
 func (s *ebsSuite) TestDescribeVolumesNotFound(c *tc.C) {
 	vs := s.volumeSource(c, nil)
-	vols, err := vs.DescribeVolumes(context.Background(), []string{"vol-42"})
+	vols, err := vs.DescribeVolumes(c.Context(), []string{"vol-42"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(vols, tc.HasLen, 1)
 	c.Assert(vols[0].Error, tc.ErrorMatches, "vol-42 not found")
@@ -618,7 +618,7 @@ func (s *ebsSuite) TestDescribeVolumesCredentialError(c *tc.C) {
 
 	s.srv.ec2srv.SetAPIError("DescribeVolumes", &smithy.GenericAPIError{Code: "Blocked"})
 
-	results, err := vs.DescribeVolumes(context.Background(), []string{"vol-42"})
+	results, err := vs.DescribeVolumes(c.Context(), []string{"vol-42"})
 	c.Assert(err, tc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(results, tc.IsNil)
 }
@@ -629,7 +629,7 @@ func (s *ebsSuite) TestListVolumes(c *tc.C) {
 
 	// Only one volume created by assertCreateVolumes has
 	// the model-uuid tag with the expected value.
-	volIds, err := vs.ListVolumes(context.Background())
+	volIds, err := vs.ListVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(volIds, tc.SameContents, []string{"vol-0"})
 }
@@ -639,7 +639,7 @@ func (s *ebsSuite) TestListVolumesCredentialError(c *tc.C) {
 
 	s.srv.ec2srv.SetAPIError("DescribeVolumes", &smithy.GenericAPIError{Code: "Blocked"})
 
-	results, err := vs.ListVolumes(context.Background())
+	results, err := vs.ListVolumes(c.Context())
 	c.Assert(err, tc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(results, tc.IsNil)
 }
@@ -649,7 +649,7 @@ func (s *ebsSuite) TestListVolumesIgnoresRootDisks(c *tc.C) {
 	s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Pending, nil)
 
 	// Tag the root disk with the model UUID.
-	_, err := s.srv.ec2srv.CreateTags(context.Background(), &awsec2.CreateTagsInput{
+	_, err := s.srv.ec2srv.CreateTags(c.Context(), &awsec2.CreateTagsInput{
 		Resources: []string{"vol-0"},
 		Tags: []types.Tag{
 			{Key: aws.String(tags.JujuModel), Value: aws.String(s.modelConfig.UUID())},
@@ -658,7 +658,7 @@ func (s *ebsSuite) TestListVolumesIgnoresRootDisks(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	vs := s.volumeSource(c, nil)
-	volIds, err := vs.ListVolumes(context.Background())
+	volIds, err := vs.ListVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(volIds, tc.HasLen, 0)
 }
@@ -860,7 +860,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 		},
 		err: `"throughput" cannot be specified when volume type is "gp2"`,
 	}} {
-		results, err := vs.CreateVolumes(context.Background(), []storage.VolumeParams{test.params})
+		results, err := vs.CreateVolumes(c.Context(), []storage.VolumeParams{test.params})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(results, tc.HasLen, 1)
 		c.Check(results[0].Error, tc.ErrorMatches, test.err)
@@ -873,7 +873,7 @@ func (s *ebsSuite) TestCreateVolumesCredentialError(c *tc.C) {
 
 	s.srv.ec2srv.SetAPIError("CreateVolume", &smithy.GenericAPIError{Code: "Blocked"})
 
-	results, err := vs.CreateVolumes(context.Background(), params)
+	results, err := vs.CreateVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	for i, result := range results {
 		c.Logf("checking volume creation %d", i)
@@ -919,7 +919,7 @@ func (s *ebsSuite) TestAttachVolumesNotRunning(c *tc.C) {
 func (s *ebsSuite) TestAttachVolumes(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	result, err := vs.AttachVolumes(context.Background(), params)
+	result, err := vs.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Assert(result[0].Error, tc.ErrorIsNil)
@@ -934,7 +934,7 @@ func (s *ebsSuite) TestAttachVolumes(c *tc.C) {
 	})
 
 	ec2Client := ec2.StorageEC2(vs)
-	ec2Vols, err := ec2Client.DescribeVolumes(context.Background(), nil)
+	ec2Vols, err := ec2Client.DescribeVolumes(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ec2Vols.Volumes, tc.HasLen, 6)
 	sortBySize(ec2Vols.Volumes)
@@ -946,7 +946,7 @@ func (s *ebsSuite) TestAttachVolumes(c *tc.C) {
 	}})
 
 	// Test idempotency.
-	result, err = vs.AttachVolumes(context.Background(), params)
+	result, err = vs.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Assert(result[0].Error, tc.ErrorIsNil)
@@ -972,7 +972,7 @@ func (s *ebsSuite) TestAttachVolumesCreating(c *tc.C) {
 		out.(*awsec2.DescribeVolumesOutput).Volumes[0].State = "available"
 		calls++
 	})
-	result, err := vs.AttachVolumes(context.Background(), params)
+	result, err := vs.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Assert(result[0].Error, tc.ErrorIsNil)
@@ -989,7 +989,7 @@ func (s *ebsSuite) TestAttachVolumesDetaching(c *tc.C) {
 			InstanceId: aws.String("something else"),
 		})
 	})
-	result, err := vs.AttachVolumes(context.Background(), params)
+	result, err := vs.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Assert(result[0].Error, tc.ErrorMatches, "volume vol-0 is attached to something else")
@@ -998,21 +998,21 @@ func (s *ebsSuite) TestAttachVolumesDetaching(c *tc.C) {
 func (s *ebsSuite) TestDetachVolumes(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	_, err := vs.AttachVolumes(context.Background(), params)
+	_, err := vs.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
-	errs, err := vs.DetachVolumes(context.Background(), params)
+	errs, err := vs.DetachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil})
 
 	ec2Client := ec2.StorageEC2(vs)
-	ec2Vols, err := ec2Client.DescribeVolumes(context.Background(), nil)
+	ec2Vols, err := ec2Client.DescribeVolumes(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ec2Vols.Volumes, tc.HasLen, 6)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Attachments, tc.HasLen, 0)
 
 	// Test idempotent
-	errs, err = vs.DetachVolumes(context.Background(), params)
+	errs, err = vs.DetachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil})
 }
@@ -1028,12 +1028,12 @@ func (s *ebsSuite) TestDetachVolumesAttachmentNotFound(c *tc.C) {
 func (s *ebsSuite) testDetachVolumesDetachedState(c *tc.C, errorCode string) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	_, err := vs.AttachVolumes(context.Background(), params)
+	_, err := vs.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.srv.ec2srv.SetAPIError("DetachVolume", &smithy.GenericAPIError{Code: errorCode})
 
-	errs, err := vs.DetachVolumes(context.Background(), params)
+	errs, err := vs.DetachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil})
 }
@@ -1042,7 +1042,7 @@ func (s *ebsSuite) TestImportVolume(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	c.Assert(vs, tc.Implements, new(storage.VolumeImporter))
 
-	resp, err := s.srv.ec2srv.CreateVolume(context.Background(), &awsec2.CreateVolumeInput{
+	resp, err := s.srv.ec2srv.CreateVolume(c.Context(), &awsec2.CreateVolumeInput{
 		Size:             aws.Int32(1),
 		VolumeType:       "gp2",
 		AvailabilityZone: aws.String("us-east-1a"),
@@ -1050,7 +1050,7 @@ func (s *ebsSuite) TestImportVolume(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	volID := aws.ToString(resp.VolumeId)
-	volInfo, err := vs.(storage.VolumeImporter).ImportVolume(context.Background(), volID, map[string]string{
+	volInfo, err := vs.(storage.VolumeImporter).ImportVolume(c.Context(), volID, map[string]string{
 		"foo": "bar",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1060,7 +1060,7 @@ func (s *ebsSuite) TestImportVolume(c *tc.C) {
 		Persistent: true,
 	})
 
-	volumes, err := s.srv.ec2srv.DescribeVolumes(context.Background(), &awsec2.DescribeVolumesInput{
+	volumes, err := s.srv.ec2srv.DescribeVolumes(c.Context(), &awsec2.DescribeVolumesInput{
 		VolumeIds: []string{volID},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1073,7 +1073,7 @@ func (s *ebsSuite) TestImportVolume(c *tc.C) {
 func (s *ebsSuite) TestImportVolumeCredentialError(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	c.Assert(vs, tc.Implements, new(storage.VolumeImporter))
-	resp, err := s.srv.ec2srv.CreateVolume(context.Background(), &awsec2.CreateVolumeInput{
+	resp, err := s.srv.ec2srv.CreateVolume(c.Context(), &awsec2.CreateVolumeInput{
 		Size:             aws.Int32(1),
 		VolumeType:       "gp2",
 		AvailabilityZone: aws.String("us-east-1a"),
@@ -1082,7 +1082,7 @@ func (s *ebsSuite) TestImportVolumeCredentialError(c *tc.C) {
 
 	s.srv.ec2srv.SetAPIError("CreateTags", &smithy.GenericAPIError{Code: "Blocked"})
 
-	_, err = vs.(storage.VolumeImporter).ImportVolume(context.Background(), aws.ToString(resp.VolumeId), map[string]string{
+	_, err = vs.(storage.VolumeImporter).ImportVolume(c.Context(), aws.ToString(resp.VolumeId), map[string]string{
 		"foo": "bar",
 	})
 	c.Assert(err, tc.ErrorIs, common.ErrorCredentialNotValid)
@@ -1093,11 +1093,11 @@ func (s *ebsSuite) TestImportVolumeInUse(c *tc.C) {
 	c.Assert(vs, tc.Implements, new(storage.VolumeImporter))
 
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	_, err := vs.AttachVolumes(context.Background(), params)
+	_, err := vs.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	volId := params[0].VolumeId
-	_, err = vs.(storage.VolumeImporter).ImportVolume(context.Background(), volId, map[string]string{})
+	_, err = vs.(storage.VolumeImporter).ImportVolume(c.Context(), volId, map[string]string{})
 	c.Assert(err, tc.ErrorMatches, `cannot import volume with status "in-use"`)
 }
 

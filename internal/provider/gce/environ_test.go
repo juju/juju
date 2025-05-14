@@ -4,7 +4,6 @@
 package gce_test
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/tc"
@@ -48,7 +47,7 @@ func (s *environSuite) TestRegion(c *tc.C) {
 }
 
 func (s *environSuite) TestSetConfig(c *tc.C) {
-	err := s.Env.SetConfig(context.Background(), s.Config)
+	err := s.Env.SetConfig(c.Context(), s.Config)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(gce.ExposeEnvConfig(s.Env), tc.DeepEquals, s.EnvConfig)
@@ -56,7 +55,7 @@ func (s *environSuite) TestSetConfig(c *tc.C) {
 }
 
 func (s *environSuite) TestSetConfigFake(c *tc.C) {
-	err := s.Env.SetConfig(context.Background(), s.Config)
+	err := s.Env.SetConfig(c.Context(), s.Config)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 0)
@@ -170,19 +169,19 @@ func (s *environSuite) TestBootstrapCommon(c *tc.C) {
 func (s *environSuite) TestDestroyInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	err := s.Env.Destroy(context.Background())
+	err := s.Env.Destroy(c.Context())
 	c.Check(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environSuite) TestDestroy(c *tc.C) {
-	err := s.Env.Destroy(context.Background())
+	err := s.Env.Destroy(c.Context())
 
 	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *environSuite) TestDestroyAPI(c *tc.C) {
-	err := s.Env.Destroy(context.Background())
+	err := s.Env.Destroy(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)

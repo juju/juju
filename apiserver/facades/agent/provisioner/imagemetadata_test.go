@@ -4,7 +4,6 @@
 package provisioner_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -65,7 +64,7 @@ func (s *ImageMetadataSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ImageMetadataSuite) TestMetadataNone(c *tc.C) {
-	api, err := provisioner.MakeProvisionerAPI(context.Background(), facadetest.ModelContext{
+	api, err := provisioner.MakeProvisionerAPI(c.Context(), facadetest.ModelContext{
 		Auth_:           s.authorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -75,7 +74,7 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := api.ProvisioningInfo(context.Background(), s.getTestMachinesTags(c))
+	result, err := api.ProvisioningInfo(c.Context(), s.getTestMachinesTags(c))
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected := make([][]params.CloudImageMetadata, len(s.machines))
@@ -89,7 +88,7 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	domainServices := s.ControllerDomainServices(c)
 	metadataService := domainServices.CloudImageMetadata()
-	api, err := provisioner.MakeProvisionerAPI(context.Background(), facadetest.ModelContext{
+	api, err := provisioner.MakeProvisionerAPI(c.Context(), facadetest.ModelContext{
 		Auth_:           s.authorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
@@ -104,11 +103,11 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *tc.C) {
 	// Write metadata to state.
 	metadata := s.convertCloudImageMetadata(expected[0])
 	for _, m := range metadata {
-		err := metadataService.SaveMetadata(context.Background(), []cloudimagemetadata.Metadata{m})
+		err := metadataService.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{m})
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	result, err := api.ProvisioningInfo(context.Background(), s.getTestMachinesTags(c))
+	result, err := api.ProvisioningInfo(c.Context(), s.getTestMachinesTags(c))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertImageMetadataResults(c, result, expected...)

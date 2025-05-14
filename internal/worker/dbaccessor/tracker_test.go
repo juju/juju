@@ -77,7 +77,7 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -100,7 +100,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -132,7 +132,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -171,7 +171,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 		return nil
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
+	w, err := s.newTrackedDBWorker(c, pingFn)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -208,7 +208,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) 
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
+	w, err := s.newTrackedDBWorker(c, pingFn)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -243,7 +243,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *tc.C) {
 		return nil
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
+	w, err := s.newTrackedDBWorker(c, pingFn)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -286,7 +286,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
+	w, err := s.newTrackedDBWorker(c, pingFn)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -330,7 +330,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *tc.C) {
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
+	w, err := s.newTrackedDBWorker(c, pingFn)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -354,7 +354,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -393,7 +393,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -434,7 +434,7 @@ func (s *trackedDBWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
+func (s *trackedDBWorkerSuite) newTrackedDBWorker(c *tc.C, pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
 	collector := NewMetricsCollector()
 	return newTrackedDBWorker(c.Context(),
 		s.states,

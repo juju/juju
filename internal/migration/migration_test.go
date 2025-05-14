@@ -78,7 +78,7 @@ func (s *ExportSuite) TestExportValidates(c *tc.C) {
 		nil, nil,
 	)
 
-	_, err := exporter.Export(context.Background(), s.model)
+	_, err := exporter.Export(c.Context(), s.model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -100,7 +100,7 @@ func (s *ExportSuite) TestExportValidationFails(c *tc.C) {
 		nil, nil,
 	)
 
-	_, err := exporter.Export(context.Background(), s.model)
+	_, err := exporter.Export(c.Context(), s.model)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -134,7 +134,7 @@ func (s *ImportSuite) TestBadBytes(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)
-	model, st, err := importer.ImportModel(context.Background(), bytes)
+	model, st, err := importer.ImportModel(c.Context(), bytes)
 	c.Check(st, tc.IsNil)
 	c.Check(model, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "yaml: unmarshal errors:\n.*")
@@ -278,7 +278,7 @@ func (s *ImportSuite) TestBinariesMigration(c *tc.C) {
 		ResourceDownloader: downloader,
 		ResourceUploader:   uploader,
 	}
-	err := migration.UploadBinaries(context.Background(), config, loggertesting.WrapCheckLog(c))
+	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedCurls := []string{
@@ -334,7 +334,7 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *tc.C) {
 		ResourceDownloader: downloader,
 		ResourceUploader:   uploader,
 	}
-	err := migration.UploadBinaries(context.Background(), config, loggertesting.WrapCheckLog(c))
+	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorMatches,
 		"cannot upload charms: charm ch:foo/bar-2 unexpectedly assigned ch:foo/bar-100")
 }

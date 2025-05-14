@@ -52,7 +52,7 @@ func (s *statusSetterSuite) TestUnauthorised(c *tc.C) {
 
 	tag := names.NewMachineTag("42")
 	s.badTag = tag
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Executing.String(),
 	}}})
@@ -64,7 +64,7 @@ func (s *statusSetterSuite) TestUnauthorised(c *tc.C) {
 func (s *statusSetterSuite) TestNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    "not a tag",
 		Status: status.Executing.String(),
 	}}})
@@ -79,7 +79,7 @@ func (s *statusSetterSuite) TestNotFound(c *tc.C) {
 	tag := names.NewMachineTag("42")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(nil, errors.NotFoundf("machine 42"))
 
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Down.String(),
 	}}})
@@ -101,7 +101,7 @@ func (s *statusSetterSuite) TestSetMachineStatus(c *tc.C) {
 	tag := names.NewMachineTag("42")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
 
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Started.String(),
 	}}})
@@ -124,7 +124,7 @@ func (s *statusSetterSuite) TestSetUnitStatus(c *tc.C) {
 	tag := names.NewUnitTag("wordpress/1")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
 
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
@@ -145,7 +145,7 @@ func (s *statusSetterSuite) TestSetApplicationStatus(c *tc.C) {
 	tag := names.NewApplicationTag("wordpress")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
 
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
@@ -159,7 +159,7 @@ func (s *statusSetterSuite) TestBulk(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.badTag = names.NewMachineTag("42")
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    s.badTag.String(),
 		Status: status.Active.String(),
 	}, {

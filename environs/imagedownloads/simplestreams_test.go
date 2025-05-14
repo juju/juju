@@ -4,7 +4,6 @@
 package imagedownloads_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -78,7 +77,7 @@ func (*Suite) TestFetchManyDefaultFilter(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
+	got, resolveInfo, err := imagedownloads.Fetch(c.Context(), ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, tc.IsTrue)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(got), tc.DeepEquals, 27)
@@ -105,7 +104,7 @@ func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
+	got, resolveInfo, err := imagedownloads.Fetch(c.Context(), ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, tc.IsTrue)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(got), tc.DeepEquals, 27)
@@ -132,7 +131,7 @@ func (*Suite) TestFetchSingleDefaultFilter(c *tc.C) {
 			Arches:   []string{"ppc64el"},
 			Releases: []string{"16.04"},
 		}}
-	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
+	got, resolveInfo, err := imagedownloads.Fetch(c.Context(), ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, tc.IsTrue)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(got), tc.DeepEquals, 8)
@@ -155,7 +154,7 @@ func (*Suite) TestFetchOneWithFilter(c *tc.C) {
 			Arches:   []string{"ppc64el"},
 			Releases: []string{"16.04"},
 		}}
-	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, imagedownloads.Filter("disk1.img"))
+	got, resolveInfo, err := imagedownloads.Fetch(c.Context(), ss, tds, constraints, imagedownloads.Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, tc.IsTrue)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(got), tc.DeepEquals, 1)
@@ -182,7 +181,7 @@ func (*Suite) TestFetchManyWithFilter(c *tc.C) {
 			Arches:   []string{"amd64", "arm64", "ppc64el"},
 			Releases: []string{"16.04"},
 		}}
-	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, imagedownloads.Filter("disk1.img"))
+	got, resolveInfo, err := imagedownloads.Fetch(c.Context(), ss, tds, constraints, imagedownloads.Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, tc.IsTrue)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(len(got), tc.DeepEquals, 3)
@@ -204,7 +203,7 @@ func (*Suite) TestOneAmd64XenialTarGz(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := imagedownloads.One(context.Background(), ss, "amd64", "22.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
+	got, err := imagedownloads.One(c.Context(), ss, "amd64", "22.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "amd64",
@@ -221,7 +220,7 @@ func (*Suite) TestOneArm64JammyImg(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := imagedownloads.One(context.Background(), ss, "arm64", "22.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := imagedownloads.One(c.Context(), ss, "arm64", "22.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "arm64",
@@ -238,7 +237,7 @@ func (*Suite) TestOneArm64FocalImg(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := imagedownloads.One(context.Background(), ss, "arm64", "20.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := imagedownloads.One(c.Context(), ss, "arm64", "20.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "arm64",
@@ -269,7 +268,7 @@ func (*Suite) TestOneErrors(c *tc.C) {
 	defer ts.Close()
 	for i, test := range table {
 		c.Logf("test % 1d: %s\n", i+1, test.description)
-		_, err := imagedownloads.One(context.Background(), ss, test.arch, test.version, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
+		_, err := imagedownloads.One(c.Context(), ss, test.arch, test.version, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
 		c.Check(err, tc.ErrorMatches, test.errorMatch)
 	}
 }

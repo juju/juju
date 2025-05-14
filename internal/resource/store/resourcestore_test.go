@@ -50,7 +50,7 @@ func (s *resourceStoreSuite) TestGetResourceStoreNotFound(c *tc.C) {
 func (s *resourceStoreSuite) TestGetResourceStoreTypeContainerImage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.resourceStore.EXPECT().Remove(c.Context(), gomock.Any()).Return(nil)
+	s.resourceStore.EXPECT().Remove(gomock.Any(), gomock.Any()).Return(nil)
 
 	store, err := s.factory().GetResourceStore(c.Context(), charmresource.TypeContainerImage)
 	c.Assert(err, tc.ErrorIsNil)

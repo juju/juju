@@ -77,7 +77,7 @@ func (s *ModelSuite) AssertChangeStreamIdle(c *tc.C) {
 // This is only for tests as we depend on the change stream to have at least
 // some data, other wise we can't detect if the change stream is idle.
 func (s *ModelSuite) PrimeChangeStream(c *tc.C) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO change_log_namespace (id, namespace, description) VALUES (666, 'test', 'all your bases are belong to us')
 `); err != nil {

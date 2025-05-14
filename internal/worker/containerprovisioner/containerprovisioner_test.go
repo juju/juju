@@ -108,7 +108,7 @@ func (s *lxdProvisionerSuite) newLXDProvisioner(c *tc.C, ctrl *gomock.Controller
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.containersCh = make(chan []string)
-	m0 := &testMachine{containersCh: s.containersCh}
+	m0 := &testMachine{c: c, containersCh: s.containersCh}
 	s.machinesAPI.EXPECT().Machines(gomock.Any(), mTag).Return([]apiprovisioner.MachineResult{{
 		Machine: m0,
 	}}, nil)
@@ -165,7 +165,7 @@ func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *tc.C) {
 
 	cTag := names.NewMachineTag("0/lxd/666")
 
-	c666 := &testMachine{id: "0/lxd/666"}
+	c666 := &testMachine{c: c, id: "0/lxd/666"}
 	s.broker.EXPECT().AllRunningInstances(gomock.Any()).Return([]instances.Instance{&testInstance{id: "inst-666"}}, nil).Times(2)
 	s.machinesAPI.EXPECT().Machines(gomock.Any(), cTag).Return([]apiprovisioner.MachineResult{{
 		Machine: c666,
@@ -455,6 +455,8 @@ func (i *testInstance) Id() instance.Id {
 type testMachine struct {
 	*apiprovisioner.Machine
 
+	c *tc.C
+
 	mu sync.Mutex
 
 	id             string
@@ -510,7 +512,7 @@ func (m *testMachine) InstanceId(context.Context) (instance.Id, error) {
 }
 
 func (m *testMachine) InstanceNames() (instance.Id, string, error) {
-	instId, err := m.InstanceId(c.Context())
+	instId, err := m.InstanceId(m.c.Context())
 	return instId, "", err
 }
 

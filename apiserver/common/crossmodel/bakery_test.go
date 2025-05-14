@@ -50,7 +50,7 @@ func (s *bakerySuite) getLocalOfferBakery(c *tc.C) (*crossmodel.OfferBakery, *go
 	b, err := crossmodel.NewLocalOfferBakery("", key, mockExpirableStorage, mockFirstPartyCaveatChecker, clock.WallClock)
 	c.Assert(err, tc.IsNil)
 	c.Assert(b, tc.NotNil)
-	url, err := b.RefreshDischargeURL(context.Background(), "https://example.com/offeraccess")
+	url, err := b.RefreshDischargeURL(c.Context(), "https://example.com/offeraccess")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url, tc.Equals, "https://example.com/offeraccess")
 	return b, ctrl
@@ -109,7 +109,7 @@ func (s *bakerySuite) getJaaSOfferBakery(c *tc.C) (*crossmodel.JaaSOfferBakery, 
 	)
 
 	b, err := crossmodel.NewJaaSOfferBakery(
-		context.Background(),
+		c.Context(),
 		"https://example.com/.well-known/jwks.json", "",
 		clock.WallClock,
 		mockBakeryConfig, mockExpirableStorage, mockFirstPartyCaveatChecker,
@@ -124,7 +124,7 @@ func (s *bakerySuite) TestRefreshDischargeURL(c *tc.C) {
 	offerBakery, ctrl := s.getLocalOfferBakery(c)
 	defer ctrl.Finish()
 
-	result, err := offerBakery.RefreshDischargeURL(context.Background(), "https://example-1.com/offeraccess")
+	result, err := offerBakery.RefreshDischargeURL(c.Context(), "https://example-1.com/offeraccess")
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, "https://example-1.com/offeraccess")
 }
@@ -135,13 +135,13 @@ func (s *bakerySuite) TestRefreshDischargeURLJaaS(c *tc.C) {
 
 	// Test with no prefixed path segments
 	s.setMockRoundTripperRoundTrip(c, `https://example-1.com/macaroons/discharge/info`)
-	result, err := offerBakery.RefreshDischargeURL(context.Background(), "https://example-1.com/.well-known/jwks.json")
+	result, err := offerBakery.RefreshDischargeURL(c.Context(), "https://example-1.com/.well-known/jwks.json")
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, "https://example-1.com/macaroons")
 
 	// Test with prefixed path segments and assert they're maintained (i.e., ingress rule defines /my-prefix/)
 	s.setMockRoundTripperRoundTrip(c, `https://example-2.com/my-prefix/macaroons/discharge/info`)
-	result, err = offerBakery.RefreshDischargeURL(context.Background(), "https://example-2.com/my-prefix/.well-known/jwks.json")
+	result, err = offerBakery.RefreshDischargeURL(c.Context(), "https://example-2.com/my-prefix/.well-known/jwks.json")
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, "https://example-2.com/my-prefix/macaroons")
 }
@@ -236,7 +236,7 @@ permission: consume
 		},
 	)
 	_, err := offerBakery.CreateDischargeMacaroon(
-		context.Background(), "https://example.com/offeraccess", "mary",
+		c.Context(), "https://example.com/offeraccess", "mary",
 		map[string]string{
 			"relation-key":      "mediawiki:db mysql:server",
 			"username":          "mary",
@@ -285,7 +285,7 @@ func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *tc.C) {
 		},
 	)
 	_, err := offerBakery.CreateDischargeMacaroon(
-		context.Background(), "https://example.com/macaroons", "mary",
+		c.Context(), "https://example.com/macaroons", "mary",
 		map[string]string{
 			"relation-key":      "mediawiki:db mysql:server",
 			"username":          "mary",

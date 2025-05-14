@@ -4,8 +4,6 @@
 package testing
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
@@ -26,7 +24,7 @@ func NewObjectStore(c *tc.C, modelUUID string) coreobjectstore.ObjectStore {
 // NewObjectStoreWithMetadataService creates a new object store for testing.
 func NewObjectStoreWithMetadataService(c *tc.C, modelUUID string, metadataService objectstore.MetadataService) coreobjectstore.ObjectStore {
 	store, err := objectstore.ObjectStoreFactory(
-		context.Background(),
+		c.Context(),
 		objectstore.DefaultBackendType(),
 		modelUUID,
 		objectstore.WithRootDir(c.MkDir()),

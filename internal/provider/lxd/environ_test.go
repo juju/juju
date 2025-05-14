@@ -4,8 +4,6 @@
 package lxd_test
 
 import (
-	"context"
-
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -48,7 +46,7 @@ func (s *environSuite) TestProvider(c *tc.C) {
 func (s *environSuite) TestSetConfigOkay(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
-	err := s.Env.SetConfig(context.Background(), s.Config)
+	err := s.Env.SetConfig(c.Context(), s.Config)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(lxd.ExposeEnvConfig(s.Env), tc.DeepEquals, s.EnvConfig)
@@ -59,7 +57,7 @@ func (s *environSuite) TestSetConfigOkay(c *tc.C) {
 func (s *environSuite) TestSetConfigNoAPI(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
-	err := s.Env.SetConfig(context.Background(), s.Config)
+	err := s.Env.SetConfig(c.Context(), s.Config)
 
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -88,7 +86,7 @@ func (s *environSuite) TestBootstrapOkay(c *tc.C) {
 		ControllerConfig:        coretesting.FakeControllerConfig(),
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	}
-	result, err := s.Env.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), params)
+	result, err := s.Env.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(result.Arch, tc.Equals, "amd64")
@@ -103,7 +101,7 @@ func (s *environSuite) TestBootstrapOkay(c *tc.C) {
 func (s *environSuite) TestBootstrapAPI(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
-	ctx := envtesting.BootstrapContext(context.Background(), c)
+	ctx := envtesting.BootstrapContext(c.Context(), c)
 	params := environs.BootstrapParams{
 		ControllerConfig:        coretesting.FakeControllerConfig(),
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
@@ -137,7 +135,7 @@ func (s *environSuite) TestDestroy(c *tc.C) {
 		}},
 	}
 
-	callCtx := context.Background()
+	callCtx := c.Context()
 	err := s.Env.Destroy(callCtx)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -157,7 +155,7 @@ func (s *environSuite) TestDestroyInvalidCredentials(c *tc.C) {
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
 
 	s.Client.Stub.SetErrors(errTestUnAuth)
-	err := s.Env.Destroy(context.Background())
+	err := s.Env.Destroy(c.Context())
 	c.Assert(err, tc.ErrorMatches, "not authorized")
 }
 
@@ -177,7 +175,7 @@ func (s *environSuite) TestDestroyInvalidCredentialsDestroyingFileSystems(c *tc.
 			},
 		}},
 	}
-	err := s.Env.Destroy(context.Background())
+	err := s.Env.Destroy(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".* not authorized")
 	// Nil the call context as if fails DeepEquals.
 	calls := s.Stub.Calls()
@@ -232,7 +230,7 @@ func (s *environSuite) TestDestroyController(c *tc.C) {
 
 	s.Client.Containers = append(s.Client.Containers, *machine0, *machine1, *machine2)
 
-	callCtx := context.Background()
+	callCtx := c.Context()
 	err := s.Env.DestroyController(callCtx, s.Config.UUID())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -281,7 +279,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *tc
 	// RemoveContainers will error not-auth.
 	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, errTestUnAuth)
 
-	err := s.Env.DestroyController(context.Background(), s.Config.UUID())
+	err := s.Env.DestroyController(c.Context(), s.Config.UUID())
 	c.Assert(err, tc.ErrorMatches, "not authorized")
 
 	// Nil the call context as if fails DeepEquals.
@@ -336,7 +334,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 	// RemoveContainers will error not-auth.
 	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, errTestUnAuth)
 
-	err := s.Env.DestroyController(context.Background(), s.Config.UUID())
+	err := s.Env.DestroyController(c.Context(), s.Config.UUID())
 	c.Assert(err, tc.ErrorMatches, ".*not authorized")
 
 	// Nil the call context as if fails DeepEquals.
@@ -365,7 +363,7 @@ func (s *environSuite) TestAvailabilityZonesInvalidCredentials(c *tc.C) {
 
 	// GetClusterMembers will return un-auth error
 	s.Client.Stub.SetErrors(errTestUnAuth)
-	_, err := s.Env.AvailabilityZones(context.Background())
+	_, err := s.Env.AvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*not authorized")
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
@@ -383,7 +381,7 @@ func (s *environSuite) TestInstanceAvailabilityZoneNamesInvalidCredentials(c *tc
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	// the call to Instances takes care of updating invalid credential details
-	_, err := s.Env.InstanceAvailabilityZoneNames(context.Background(), []instance.Id{"not-valid"})
+	_, err := s.Env.InstanceAvailabilityZoneNames(c.Context(), []instance.Id{"not-valid"})
 	c.Assert(err, tc.ErrorMatches, ".*not authorized")
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
@@ -405,7 +403,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *tc.C) {
 	s.expectHasProfileFalse("juju-controller")
 	s.expectCreateProfile("juju-controller", nil)
 
-	err := s.cloudSpecEnv.SetCloudSpec(context.Background(), lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(c.Context(), lxdCloudSpec())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -414,7 +412,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 	s.expectForProfileCreateRace("juju-controller")
 	s.expectCreateProfile("juju-controller", errors.New("The profile already exists"))
 
-	err := s.cloudSpecEnv.SetCloudSpec(context.Background(), lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(c.Context(), lxdCloudSpec())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -423,7 +421,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *tc.C
 	s.expectHasProfileFalse("juju-controller")
 	s.expectCreateProfile("juju-controller", nil)
 
-	err := s.cloudSpecEnv.SetCloudSpec(context.Background(), lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(c.Context(), lxdCloudSpec())
 	c.Assert(err, tc.ErrorIsNil)
 }
 

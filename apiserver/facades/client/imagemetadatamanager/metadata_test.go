@@ -28,7 +28,7 @@ func (s *metadataSuite) TestFindNil(c *tc.C) {
 
 	s.metadataService.EXPECT().FindMetadata(gomock.Any(), cloudimagemetadata.MetadataFilter{}).Return(nil, nil)
 
-	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
+	found, err := s.api.List(c.Context(), params.ImageMetadataFilter{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Result, tc.HasLen, 0)
 }
@@ -38,7 +38,7 @@ func (s *metadataSuite) TestFindEmpty(c *tc.C) {
 
 	s.metadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).Return(map[string][]cloudimagemetadata.Metadata{}, nil)
 
-	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
+	found, err := s.api.List(c.Context(), params.ImageMetadataFilter{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Result, tc.HasLen, 0)
 }
@@ -51,7 +51,7 @@ func (s *metadataSuite) TestFindEmptyGroups(c *tc.C) {
 		"custom": {},
 	}, nil)
 
-	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
+	found, err := s.api.List(c.Context(), params.ImageMetadataFilter{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Result, tc.HasLen, 0)
 }
@@ -62,7 +62,7 @@ func (s *metadataSuite) TestFindError(c *tc.C) {
 	expectedError := errors.New("find error")
 	s.metadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).Return(nil, expectedError)
 
-	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
+	found, err := s.api.List(c.Context(), params.ImageMetadataFilter{})
 	c.Assert(err, tc.ErrorMatches, expectedError.Error())
 	c.Assert(found.Result, tc.HasLen, 0)
 }
@@ -86,7 +86,7 @@ func (s *metadataSuite) TestFindOrder(c *tc.C) {
 		},
 	}, nil)
 
-	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
+	found, err := s.api.List(c.Context(), params.ImageMetadataFilter{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Result, tc.HasLen, 4)
 
@@ -107,7 +107,7 @@ func (s *metadataSuite) TestSaveEmpty(c *tc.C) {
 		}, nil,
 	)
 
-	errs, err := s.api.Save(context.Background(), params.MetadataSaveParams{})
+	errs, err := s.api.Save(c.Context(), params.MetadataSaveParams{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, 0)
 }
@@ -151,7 +151,7 @@ func (s *metadataSuite) TestSave(c *tc.C) {
 		return errors.New(msg)
 	}).Times(3)
 
-	errs, err := s.api.Save(context.Background(), params.MetadataSaveParams{
+	errs, err := s.api.Save(c.Context(), params.MetadataSaveParams{
 		Metadata: []params.CloudImageMetadataList{{
 			Metadata: []params.CloudImageMetadata{m1},
 		}, {
@@ -187,7 +187,7 @@ func (s *metadataSuite) TestSaveModelCfgFailed(c *tc.C) {
 		}, nil,
 	)
 
-	errs, err := s.api.Save(context.Background(), ms)
+	errs, err := s.api.Save(c.Context(), ms)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
 	c.Assert(errs.Results, tc.HasLen, 0)
 }
@@ -195,7 +195,7 @@ func (s *metadataSuite) TestSaveModelCfgFailed(c *tc.C) {
 func (s *metadataSuite) TestDeleteEmpty(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
-	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{})
+	errs, err := s.api.Delete(c.Context(), params.MetadataImageIds{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, 0)
 }
@@ -210,7 +210,7 @@ func (s *metadataSuite) TestDelete(c *tc.C) {
 	s.metadataService.EXPECT().DeleteMetadataWithImageID(gomock.Any(), idFail).Return(errors.New(msg))
 	s.metadataService.EXPECT().DeleteMetadataWithImageID(gomock.Any(), idOk).Return(nil)
 
-	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{[]string{idOk, idFail}})
+	errs, err := s.api.Delete(c.Context(), params.MetadataImageIds{[]string{idOk, idFail}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs.Results, tc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, tc.IsNil)

@@ -4,8 +4,6 @@
 package uniter_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -31,7 +29,7 @@ func (s *uniterAPIErrorSuite) SetupTest(c *tc.C) {
 	domainServices := s.ControllerDomainServices(c)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	err := domainServices.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
+	err := domainServices.Credential().UpdateCloudCredential(c.Context(), testing.DefaultCredentialId, cred)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -65,6 +63,6 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *tc.C) {
 		ModelProviderService:    domainServices.ModelProvider(),
 	}
 
-	_, err := uniter.NewUniterAPIWithServices(context.Background(), facadeContext, services)
+	_, err := uniter.NewUniterAPIWithServices(c.Context(), facadeContext, services)
 	c.Assert(err, tc.ErrorMatches, "kaboom")
 }

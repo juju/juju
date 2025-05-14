@@ -50,7 +50,7 @@ func (s *baseProviderSuite) setupFakeTools(c *tc.C) {
 
 func (s *baseProviderSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap(c)
 	s.AddCleanup(func(*tc.C) {
 		restoreFinishBootstrap()
 	})

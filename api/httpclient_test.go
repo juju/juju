@@ -4,7 +4,6 @@
 package api_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -47,7 +46,7 @@ func (s *httpSuite) SetUpTest(c *tc.C) {
 		ModelTag:       testing.ModelTag,
 	}
 	var err error
-	s.conn, err = api.Open(context.Background(), info, api.DialOpts{})
+	s.conn, err = api.Open(c.Context(), info, api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { c.Assert(s.conn.Close(), tc.ErrorIsNil) })
 	client, err := s.conn.HTTPClient()
@@ -174,7 +173,7 @@ func (s *httpSuite) TestHTTPClient(c *tc.C) {
 		if test.expectResponse != nil {
 			resp = reflect.New(reflect.TypeOf(test.expectResponse).Elem()).Interface()
 		}
-		err := s.client.Get(context.Background(), "/", resp)
+		err := s.client.Get(c.Context(), "/", resp)
 		if test.expectError != "" {
 			c.Check(err, tc.ErrorMatches, test.expectError)
 			c.Check(params.ErrCode(err), tc.Equals, test.expectErrorCode)
@@ -210,7 +209,7 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *tc.C) {
 		Nonce:          nonce,
 	}
 
-	conn, err := api.Open(context.Background(), info, api.DialOpts{})
+	conn, err := api.Open(c.Context(), info, api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
 	httpClient, err := conn.HTTPClient()
 	c.Assert(err, tc.ErrorIsNil)
@@ -233,7 +232,7 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *tc.C) {
 	defer httpSrv.Close()
 	httpClient.BaseURL = httpSrv.URL
 	var out map[string]string
-	c.Assert(httpClient.Get(context.Background(), "/", &out), tc.ErrorIsNil)
+	c.Assert(httpClient.Get(c.Context(), "/", &out), tc.ErrorIsNil)
 	c.Assert(out, tc.DeepEquals, map[string]string{
 		"username": "machine-1",
 		"password": "password",

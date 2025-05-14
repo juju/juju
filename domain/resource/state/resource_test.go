@@ -185,7 +185,7 @@ LEFT JOIN application_resource AS ar ON r.uuid = ar.resource_uuid`)
 					Name: resName})
 		}
 		// fetch resource_retrieved_by
-		err = s.runQuery(`SELECT resource_uuid from resource_retrieved_by`)
+		err = s.runQuery(c, `SELECT resource_uuid from resource_retrieved_by`)
 		if errors.Is(err, sql.ErrNoRows) {
 			noRowsInResourceRetrievedBy = true
 			return nil
@@ -1109,7 +1109,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	retrievedByType2 := coreresource.User
 	size2 := int64(422)
 	hash2 := "hash2"
-	err = s.addContainerImage(storageKey2)
+	err = s.addContainerImage(c, storageKey2)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
 	// Act: try to store a second resource.
@@ -1155,7 +1155,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *tc.C) {
 	retrievedByType2 := coreresource.Unit
 	size2 := int64(422)
 	hash2 := "hash2"
-	err = s.addObjectStoreBlobMetadata(objectStoreUUID2)
+	err = s.addObjectStoreBlobMetadata(c, objectStoreUUID2)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
 	// Act: try and store the second resource.
@@ -1589,9 +1589,9 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *tc.C) {
 
 	// Assert: an error is returned, nothing is updated in the db
 	c.Check(err, tc.ErrorIs, resourceerrors.UnitNotFound)
-	err = s.runQuery(`SELECT * FROM unit_resource`)
+	err = s.runQuery(c, `SELECT * FROM unit_resource`)
 	c.Check(err, tc.ErrorIs, sql.ErrNoRows, tc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-	err = s.runQuery(`SELECT * FROM resource_retrieved_by`)
+	err = s.runQuery(c, `SELECT * FROM resource_retrieved_by`)
 	c.Check(err, tc.ErrorIs, sql.ErrNoRows, tc.Commentf("(Assert) resource_retrieved_by table has been updated: %v", errors.ErrorStack(err)))
 }
 
@@ -2110,7 +2110,7 @@ func (s *resourceSuite) TestAddResourcesBeforeApplication(c *tc.C) {
 	c.Check(obtainedUUIDs, tc.HasLen, 2)
 	for i, resID := range obtainedUUIDs {
 		s.checkPendingApplication(c, resID.String(), args.ApplicationName)
-		obtainedResource, err := s.getPendingResource(resID.String())
+		obtainedResource, err := s.getPendingResource(c, resID.String())
 		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
@@ -2153,7 +2153,7 @@ func (s *resourceSuite) TestAddResourcesBeforeApplicationNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, resourceerrors.CharmResourceNotFound)
 }
 
-func (s *resourceSuite) getPendingResource(resID string) (pendingResourceTest, error) {
+func (s *resourceSuite) getPendingResource(c *tc.C, resID string) (pendingResourceTest, error) {
 	retVal := pendingResourceTest{}
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -3324,7 +3324,7 @@ func (s *resourceSuite) createFileResourceAndBlob(c *tc.C) (_ coreresource.UUID,
 	// Arrange: add a blob to the object store.
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
-	err = s.addObjectStoreBlobMetadata(objectStoreUUID)
+	err = s.addObjectStoreBlobMetadata(c, objectStoreUUID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
 	return resID, storeID, 42, hash
@@ -3349,13 +3349,13 @@ func (s *resourceSuite) createContainerImageResourceAndBlob(c *tc.C) (_ corereso
 	// Arrange: add a container image using the resource UUID as the storage key.
 	storageKey := resID.String()
 	storeID := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey)
-	err = s.addContainerImage(storageKey)
+	err = s.addContainerImage(c, storageKey)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
 	return resID, storeID, 24, "hash"
 }
 
-func (s *resourceSuite) addContainerImage(storageKey string) error {
+func (s *resourceSuite) addContainerImage(c *tc.C, storageKey string) error {
 	return s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO resource_container_image_metadata_store (storage_key, registry_path)
@@ -3364,7 +3364,7 @@ VALUES      (?, 'testing@sha256:beef-deed')`, storageKey)
 	})
 }
 
-func (s *resourceSuite) addObjectStoreBlobMetadata(uuid objectstore.UUID) error {
+func (s *resourceSuite) addObjectStoreBlobMetadata(c *tc.C, uuid objectstore.UUID) error {
 	return s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Use the uuid as the hash to avoid uniqueness issues while testing.
 		_, err := tx.ExecContext(ctx, `
@@ -3384,7 +3384,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 ) error {
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
-	err := s.addObjectStoreBlobMetadata(objectStoreUUID)
+	err := s.addObjectStoreBlobMetadata(c, objectStoreUUID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 	err = s.state.RecordStoredResource(
 		c.Context(),
@@ -3683,7 +3683,7 @@ VALUES (?, ?, ?, ?)`, d.UUID, d.ContainerImageStorageKey, d.Size, d.SHA384); err
 }
 
 // runQuery executes a SQL query within a transaction and discards the result.
-func (s *resourceSuite) runQuery(query string) error {
+func (s *resourceSuite) runQuery(c *tc.C, query string) error {
 	var discard string
 	return s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(query).Scan(&discard)

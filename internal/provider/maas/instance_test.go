@@ -4,8 +4,6 @@
 package maas
 
 import (
-	"context"
-
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
 
@@ -74,7 +72,7 @@ func (s *maasInstanceSuite) TestAddresses(c *tc.C) {
 		machines: []gomaasapi.Machine{machine},
 	}
 	instance := &maasInstance{machine: machine, environ: s.makeEnviron(c, controller)}
-	addresses, err := instance.Addresses(context.Background())
+	addresses, err := instance.Addresses(c.Context())
 
 	expectedAddresses := network.ProviderAddresses{newAddressOnSpaceWithId(
 		"freckles", "4567", "192.168.10.1", network.WithCIDR(subnet.cidr), network.WithConfigType(network.ConfigStatic),
@@ -95,14 +93,14 @@ func (s *maasInstanceSuite) TestZone(c *tc.C) {
 func (s *maasInstanceSuite) TestStatusSuccess(c *tc.C) {
 	machine := &fakeMachine{statusMessage: "Wexler", statusName: "Deploying"}
 	thing := &maasInstance{machine: machine}
-	result := thing.Status(context.Background())
+	result := thing.Status(c.Context())
 	c.Assert(result, tc.DeepEquals, instance.Status{status.Allocating, "Deploying: Wexler"})
 }
 
 func (s *maasInstanceSuite) TestStatusError(c *tc.C) {
 	machine := &fakeMachine{statusMessage: "", statusName: ""}
 	thing := &maasInstance{machine: machine}
-	result := thing.Status(context.Background())
+	result := thing.Status(c.Context())
 	c.Assert(result, tc.DeepEquals, instance.Status{"", "error in getting status"})
 }
 

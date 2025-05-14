@@ -41,7 +41,7 @@ type precheckBaseSuite struct {
 }
 
 func (s *precheckBaseSuite) checkRebootRequired(c *tc.C, runPrecheck precheckRunner) {
-	err := runPrecheck(newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService,
+	err := runPrecheck(c, newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService,
 		s.applicationService, s.relationService, s.statusService, s.agentService)
 	c.Assert(err, tc.ErrorMatches, "machine 0 is scheduled to reboot")
 }

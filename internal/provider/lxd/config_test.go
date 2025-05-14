@@ -4,8 +4,6 @@
 package lxd_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -139,7 +137,7 @@ func (s *configSuite) TestNewModelConfig(c *tc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(context.Background(), environs.OpenParams{
+		environ, err := environs.New(c.Context(), environs.OpenParams{
 			Cloud:  lxdCloudSpec(),
 			Config: testConfig,
 		}, environs.NoopCredentialInvalidator())
@@ -158,7 +156,7 @@ func (s *configSuite) TestValidateNewConfig(c *tc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := s.provider.Validate(context.Background(), testConfig, nil)
+		validatedConfig, err := s.provider.Validate(c.Context(), testConfig, nil)
 
 		// Check the result
 		if test.err != "" {
@@ -176,14 +174,14 @@ func (s *configSuite) TestValidateOldConfig(c *tc.C) {
 
 		oldcfg := test.newConfig(c)
 		var err error
-		oldcfg, err = s.provider.Validate(context.Background(), oldcfg, nil)
+		oldcfg, err = s.provider.Validate(c.Context(), oldcfg, nil)
 		c.Assert(err, tc.ErrorIsNil)
 		newcfg := test.fixCfg(c, s.config)
 		expected := updateAttrs(lxd.ConfigAttrs, test.insert)
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		validatedConfig, err := s.provider.Validate(context.Background(), newcfg, oldcfg)
+		validatedConfig, err := s.provider.Validate(c.Context(), newcfg, oldcfg)
 
 		// Check the result.
 		if test.err != "" {
@@ -214,7 +212,7 @@ func (s *configSuite) TestValidateChange(c *tc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := s.provider.Validate(context.Background(), testConfig, s.config)
+		validatedConfig, err := s.provider.Validate(c.Context(), testConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {
@@ -229,19 +227,19 @@ func (s *configSuite) TestSetConfig(c *tc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(context.Background(), environs.OpenParams{
+		environ, err := environs.New(c.Context(), environs.OpenParams{
 			Cloud:  lxdCloudSpec(),
 			Config: s.config,
 		}, environs.NoopCredentialInvalidator())
 		c.Assert(err, tc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)
-		err = environ.SetConfig(context.Background(), testConfig)
+		err = environ.SetConfig(c.Context(), testConfig)
 
 		// Check the result.
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid config change")
-			expected, err := s.provider.Validate(context.Background(), s.config, nil)
+			expected, err := s.provider.Validate(c.Context(), s.config, nil)
 			c.Assert(err, tc.ErrorIsNil)
 			test.checkAttrs(c, environ.Config().AllAttrs(), expected)
 		} else {

@@ -157,7 +157,7 @@ func (s *controllerSuite) TearDownTest(c *tc.C) {
 // It provides custom service getter functions and mock services
 // to allow test-level control over their behavior.
 func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
-	stdCtx := context.Background()
+	stdCtx := c.Context()
 	ctx := s.context
 	var (
 		st             = ctx.State()
@@ -262,7 +262,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *tc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := controller.LatestAPI(context.Background(), facadetest.MultiModelContext{
+	endPoint, err := controller.LatestAPI(c.Context(), facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
 			State_:          s.State,
 			Resources_:      s.resources,
@@ -301,7 +301,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 			UUID:      s.ControllerModelUUID,
 		}, nil,
 	)
-	results, err := s.controller.HostedModelConfigs(context.Background())
+	results, err := s.controller.HostedModelConfigs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(results.Models), tc.Equals, 2)
 
@@ -349,7 +349,7 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *tc.C) {
 		Name: "second", Owner: remoteUserTag})
 	defer func() { _ = st2.Close() }()
 
-	results, err := s.controller.HostedModelConfigs(context.Background())
+	results, err := s.controller.HostedModelConfigs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(results.Models), tc.Equals, 2)
 
@@ -359,7 +359,7 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *tc.C) {
 		cfg, err := config.New(config.NoDefaults, model.Config)
 		c.Assert(err, tc.ErrorIsNil)
 		spec := s.makeCloudSpec(c, model.CloudSpec)
-		_, err = environs.New(context.Background(), environs.OpenParams{
+		_, err = environs.New(c.Context(), environs.OpenParams{
 			Cloud:  spec,
 			Config: cfg,
 		}, environs.NoopCredentialInvalidator())
@@ -371,9 +371,9 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	otherDomainServices := s.DefaultModelDomainServices(c)
 	otherBlockCommands := otherDomainServices.BlockCommand()
-	err := otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "ChangeBlock")
+	err := otherBlockCommands.SwitchBlockOn(c.Context(), blockcommand.ChangeBlock, "ChangeBlock")
 	c.Assert(err, tc.ErrorIsNil)
-	err = otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "DestroyBlock")
+	err = otherBlockCommands.SwitchBlockOn(c.Context(), blockcommand.DestroyBlock, "DestroyBlock")
 	c.Assert(err, tc.ErrorIsNil)
 	models := []model.Model{
 		{
@@ -387,7 +387,7 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 		models, nil,
 	)
 
-	list, err := s.controller.ListBlockedModels(context.Background())
+	list, err := s.controller.ListBlockedModels(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(list.Models, tc.DeepEquals, []params.ModelBlockInfo{
@@ -409,19 +409,19 @@ func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *tc.C) {
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		nil, nil,
 	)
-	list, err := s.controller.ListBlockedModels(context.Background())
+	list, err := s.controller.ListBlockedModels(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(list.Models, tc.HasLen, 0)
 }
 
 func (s *controllerSuite) TestControllerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	cfg, err := s.controller.ControllerConfig(context.Background())
+	cfg, err := s.controller.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
-	cfgFromDB, err := controllerConfigService.ControllerConfig(context.Background())
+	cfgFromDB, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], tc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(cfg.Config["state-port"], tc.Equals, cfgFromDB.StatePort())
@@ -435,7 +435,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *tc.C) {
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
 	controller, err := controller.LatestAPI(
-		context.Background(),
+		c.Context(),
 		facadetest.MultiModelContext{
 			ModelContext: facadetest.ModelContext{
 				State_:          st,
@@ -446,12 +446,12 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *tc.C) {
 			},
 		})
 	c.Assert(err, tc.ErrorIsNil)
-	cfg, err := controller.ControllerConfig(context.Background())
+	cfg, err := controller.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
-	cfgFromDB, err := controllerConfigService.ControllerConfig(context.Background())
+	cfgFromDB, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], tc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(cfg.Config["state-port"], tc.Equals, cfgFromDB.StatePort())
@@ -463,10 +463,10 @@ func (s *controllerSuite) TestRemoveBlocks(c *tc.C) {
 
 	otherDomainServices := s.ModelDomainServices(c, s.DefaultModelUUID)
 	otherBlockCommands := otherDomainServices.BlockCommand()
-	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "TestChangeBlock")
-	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "TestChangeBlock")
+	otherBlockCommands.SwitchBlockOn(c.Context(), blockcommand.ChangeBlock, "TestChangeBlock")
+	otherBlockCommands.SwitchBlockOn(c.Context(), blockcommand.DestroyBlock, "TestChangeBlock")
 
-	otherBlocks, err := otherBlockCommands.GetBlocks(context.Background())
+	otherBlocks, err := otherBlockCommands.GetBlocks(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(otherBlocks, tc.HasLen, 2)
 
@@ -475,17 +475,17 @@ func (s *controllerSuite) TestRemoveBlocks(c *tc.C) {
 			s.DefaultModelUUID,
 		}, nil,
 	)
-	err = s.controller.RemoveBlocks(context.Background(), params.RemoveBlocksArgs{All: true})
+	err = s.controller.RemoveBlocks(c.Context(), params.RemoveBlocksArgs{All: true})
 	c.Assert(err, tc.ErrorIsNil)
 
-	otherBlocks, err = otherBlockCommands.GetBlocks(context.Background())
+	otherBlocks, err = otherBlockCommands.GetBlocks(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(otherBlocks, tc.HasLen, 0)
 }
 
 func (s *controllerSuite) TestRemoveBlocksNotAll(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	err := s.controller.RemoveBlocks(context.Background(), params.RemoveBlocksArgs{})
+	err := s.controller.RemoveBlocks(c.Context(), params.RemoveBlocksArgs{})
 	c.Assert(err, tc.ErrorMatches, "not supported")
 }
 
@@ -551,7 +551,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		},
 	}
 
-	out, err := s.controller.InitiateMigration(context.Background(), args)
+	out, err := s.controller.InitiateMigration(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 2)
 
@@ -609,7 +609,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
 			OwnerName: user.NameFromTag(m.Owner()),
 		}, nil,
 	)
-	out, err := s.controller.InitiateMigration(context.Background(), args)
+	out, err := s.controller.InitiateMigration(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 1)
 	result := out.Results[0]
@@ -657,7 +657,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
 			},
 		},
 	}
-	out, err := s.controller.InitiateMigration(context.Background(), args)
+	out, err := s.controller.InitiateMigration(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 2)
 
@@ -697,7 +697,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 			OwnerName: user.NameFromTag(m.Owner()),
 		}, nil,
 	)
-	out, err := s.controller.InitiateMigration(context.Background(), args)
+	out, err := s.controller.InitiateMigration(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 1)
 	result := out.Results[0]
@@ -739,7 +739,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 			},
 		}},
 	}
-	out, err := s.controller.InitiateMigration(context.Background(), args)
+	out, err := s.controller.InitiateMigration(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 1)
 	c.Check(out.Results[0].Error, tc.ErrorMatches, "boom")
@@ -812,7 +812,7 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *tc.C) {
 				Access:  string(permission.SuperuserAccess),
 			}}}
 
-		result, err := s.controller.ModifyControllerAccess(context.Background(), args)
+		result, err := s.controller.ModifyControllerAccess(c.Context(), args)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(result.OneError(), tc.ErrorMatches, expectedErr)
 	}
@@ -821,7 +821,7 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *tc.C) {
 func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Check that we don't err out immediately if a model errs.
-	results, err := s.controller.ModelStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	results, err := s.controller.ModelStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
 	}, {
 		Tag: s.Model.ModelTag().String(),
@@ -831,7 +831,7 @@ func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
-	results, err = s.controller.ModelStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	results, err = s.controller.ModelStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: s.Model.ModelTag().String(),
 	}, {
 		Tag: "bad-tag",
@@ -841,7 +841,7 @@ func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	c.Assert(results.Results[1].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we return successfully if no errors.
-	results, err = s.controller.ModelStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	results, err = s.controller.ModelStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: s.Model.ModelTag().String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -852,18 +852,18 @@ func (s *controllerSuite) TestConfigSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
-	config, err := controllerConfigService.ControllerConfig(context.Background())
+	config, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	// Sanity check.
 	c.Assert(config.AuditingEnabled(), tc.Equals, false)
 	c.Assert(config.SSHServerPort(), tc.Equals, 17022)
 
-	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"auditing-enabled": true,
 	}})
 	c.Assert(err, tc.ErrorIsNil)
 
-	config, err = controllerConfigService.ControllerConfig(context.Background())
+	config, err = controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config.AuditingEnabled(), tc.Equals, true)
 }
@@ -873,7 +873,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *tc.C) {
 		Tag: names.NewUserTag("username"),
 	}
 	endpoint, err := controller.LatestAPI(
-		context.Background(),
+		c.Context(),
 		facadetest.MultiModelContext{
 			ModelContext: facadetest.ModelContext{
 				State_:          s.State,
@@ -885,7 +885,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = endpoint.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = endpoint.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"something": 23,
 	}})
 
@@ -897,45 +897,45 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *tc.C) {
 	// TODO(dqlite): move this test when ConfigSet CAASImageRepo logic moves.
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
-	config, err := controllerConfigService.ControllerConfig(context.Background())
+	config, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config.CAASImageRepo(), tc.Equals, "")
 
-	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": "juju-repo.local",
 	}})
 	c.Assert(err, tc.ErrorMatches, `cannot change caas-image-repo as it is not currently set`)
 
 	err = controllerConfigService.UpdateControllerConfig(
-		context.Background(),
+		c.Context(),
 		map[string]interface{}{
 			"caas-image-repo": "jujusolutions",
 		}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": "juju-repo.local",
 	}})
 	c.Assert(err, tc.ErrorMatches, `cannot change caas-image-repo: repository read-only, only authentication can be updated`)
 
-	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
 	}})
 	c.Assert(err, tc.ErrorMatches, `cannot change caas-image-repo: unable to add authentication details`)
 
 	err = controllerConfigService.UpdateControllerConfig(
-		context.Background(),
+		c.Context(),
 		map[string]interface{}{
 			"caas-image-repo": `{"repository":"jujusolutions","username":"bar","password":"foo"}`,
 		}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.controller.ConfigSet(context.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
 	}})
 	c.Assert(err, tc.ErrorIsNil)
 
-	config, err = controllerConfigService.ControllerConfig(context.Background())
+	config, err = controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	repoDetails, err := docker.NewImageRepoDetails(config.CAASImageRepo())
 	c.Assert(err, tc.ErrorIsNil)
@@ -950,7 +950,7 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *tc.C) {
 
 func (s *controllerSuite) TestMongoVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	result, err := s.controller.MongoVersion(context.Background())
+	result, err := s.controller.MongoVersion(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var resErr *params.Error
@@ -970,7 +970,7 @@ func (s *controllerSuite) TestIdentityProviderURL(c *tc.C) {
 
 	ctrl := s.setupMocks(c)
 	// Our default test configuration does not specify an IdentityURL
-	urlRes, err := s.controller.IdentityProviderURL(context.Background())
+	urlRes, err := s.controller.IdentityProviderURL(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(urlRes.Result, tc.Equals, "")
 	ctrl.Finish()
@@ -988,7 +988,7 @@ func (s *controllerSuite) TestIdentityProviderURL(c *tc.C) {
 	ctrl = s.setupMocks(c)
 	defer ctrl.Finish()
 
-	urlRes, err = s.controller.IdentityProviderURL(context.Background())
+	urlRes, err = s.controller.IdentityProviderURL(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(urlRes.Result, tc.Equals, expURL)
 }
@@ -1006,14 +1006,14 @@ func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *tc.C) {
 	// TODO(dqlite) - implement me
 	c.Skip("watch model summaries to be implemented")
 	// Default authorizer is an admin.
-	result, err := s.controller.WatchAllModelSummaries(context.Background())
+	result, err := s.controller.WatchAllModelSummaries(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
 
 	resultC := make(chan params.SummaryWatcherNextResults)
 	go func() {
-		result, err := watcherAPI.Next(context.Background())
+		result, err := watcherAPI.Next(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 		resultC <- result
 	}()
@@ -1043,7 +1043,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *tc.C) {
 		Tag: names.NewLocalUserTag("bob"),
 	}
 	endPoint, err := controller.LatestAPI(
-		context.Background(),
+		c.Context(),
 		facadetest.MultiModelContext{
 			ModelContext: facadetest.ModelContext{
 				State_:          s.State,
@@ -1055,7 +1055,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = endPoint.WatchAllModelSummaries(context.Background())
+	_, err = endPoint.WatchAllModelSummaries(c.Context())
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -1066,14 +1066,14 @@ func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *tc.C) {
 
 	// Default authorizer is an admin. As a user, admin can't see
 	// Bob's model.
-	result, err := s.controller.WatchModelSummaries(context.Background())
+	result, err := s.controller.WatchModelSummaries(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
 
 	resultC := make(chan params.SummaryWatcherNextResults)
 	go func() {
-		result, err := watcherAPI.Next(context.Background())
+		result, err := watcherAPI.Next(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 		resultC <- result
 	}()
@@ -1143,7 +1143,7 @@ func (s *accessSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 
 	api, err := controller.NewControllerAPI(
-		context.Background(),
+		c.Context(),
 		s.State,
 		s.StatePool,
 		s.authorizer,
@@ -1198,7 +1198,7 @@ func (s *accessSuite) TestModifyControllerAccess(c *tc.C) {
 		Access:  string(permission.SuperuserAccess),
 	}}}
 
-	result, err := s.controllerAPI(c).ModifyControllerAccess(context.Background(), args)
+	result, err := s.controllerAPI(c).ModifyControllerAccess(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 }
@@ -1226,7 +1226,7 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *tc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: userTag.String()}, {Tag: names.NewUserTag(differentUser).String()}},
 	}
-	results, err := s.controllerAPI(c).GetControllerAccess(context.Background(), req)
+	results, err := s.controllerAPI(c).GetControllerAccess(c.Context(), req)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(*results.Results[0].Result, tc.DeepEquals, params.UserAccess{
@@ -1273,7 +1273,7 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	// api user owner is "test-admin"
 	s.accessService.EXPECT().LastModelLogin(gomock.Any(), user.NameFromTag(testAdmin), gomock.Any()).Times(4)
 
-	response, err := s.controllerAPI(c).AllModels(context.Background())
+	response, err := s.controllerAPI(c).AllModels(c.Context())
 	slices.SortFunc(response.UserModels, func(x params.UserModel, y params.UserModel) int {
 		return strings.Compare(x.Name, y.Name)
 	})

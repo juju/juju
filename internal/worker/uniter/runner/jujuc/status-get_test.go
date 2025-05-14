@@ -43,7 +43,7 @@ var statusGetTests = []struct {
 	{[]string{"--format", "yaml"}, formatYaml, map[string]interface{}{"status": "error"}},
 }
 
-func setFakeStatus(ctx *Context) {
+func setFakeStatus(c *tc.C, ctx *Context) {
 	ctx.SetUnitStatus(c.Context(), jujuc.StatusInfo{
 		Status: statusAttributes["status"].(string),
 		Info:   statusAttributes["message"].(string),
@@ -70,7 +70,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *tc.C) {
 	for i, t := range statusGetTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
-		setFakeStatus(hctx)
+		setFakeStatus(c, hctx)
 		com, err := jujuc.NewCommand(hctx, "status-get")
 		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
@@ -96,7 +96,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *tc.C) {
 
 func (s *statusGetSuite) TestOutputPath(c *tc.C) {
 	hctx := s.GetStatusHookContext(c)
-	setFakeStatus(hctx)
+	setFakeStatus(c, hctx)
 	com, err := jujuc.NewCommand(hctx, "status-get")
 	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)

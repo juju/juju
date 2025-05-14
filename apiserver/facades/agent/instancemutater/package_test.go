@@ -4,7 +4,6 @@
 package instancemutater
 
 import (
-	"context"
 	"testing"
 
 	"github.com/juju/tc"
@@ -58,7 +57,7 @@ func NewTestAPI(
 // NewTestLxdProfileWatcher is used by the lxd profile tests.
 func NewTestLxdProfileWatcher(c *tc.C, machine Machine, backend InstanceMutaterState, machineService MachineService, applicationService ApplicationService) *machineLXDProfileWatcher {
 	w, err := newMachineLXDProfileWatcher(
-		context.Background(),
+		c.Context(),
 		MachineLXDProfileWatcherConfig{
 			backend:            backend,
 			machine:            machine,

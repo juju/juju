@@ -61,7 +61,7 @@ func (s *agentEntityWatcherSuite) TestWatch(c *tc.C) {
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"},
 	}}
-	result, err := a.Watch(context.Background(), entities)
+	result, err := a.Watch(c.Context(), entities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -82,7 +82,7 @@ func (*agentEntityWatcherSuite) TestWatchError(c *tc.C) {
 		nil,
 		getCanWatch,
 	)
-	_, err := a.Watch(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
+	_, err := a.Watch(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
 	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
@@ -95,7 +95,7 @@ func (*agentEntityWatcherSuite) TestWatchNoArgsNoError(c *tc.C) {
 		nil,
 		getCanWatch,
 	)
-	result, err := a.Watch(context.Background(), params.Entities{})
+	result, err := a.Watch(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
 }

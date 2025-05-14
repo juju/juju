@@ -4,7 +4,6 @@
 package lxd_test
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 
@@ -88,7 +87,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *tc.C) {
 	)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
+	_, err := env.StartInstance(c.Context(), s.GetStartInstanceArgs(c))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -129,7 +128,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *tc.C) {
 	)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
+	_, err := env.StartInstance(c.Context(), s.GetStartInstanceArgs(c))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -222,7 +221,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
 			"subnet-lxdbr0-10.99.0.0/24": {"locutus"},
 		},
 	}
-	_, err := env.StartInstance(context.Background(), startArgs)
+	_, err := env.StartInstance(c.Context(), startArgs)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -284,7 +283,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *tc.C) {
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node01"
 
-	_, err = env.StartInstance(context.Background(), args)
+	_, err = env.StartInstance(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -312,7 +311,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *tc.C) {
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node03"
 
-	_, err := env.StartInstance(context.Background(), args)
+	_, err := env.StartInstance(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `availability zone "node03" not valid`)
 }
 
@@ -340,7 +339,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *tc.C)
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node01"
 
-	_, err := env.StartInstance(context.Background(), args)
+	_, err := env.StartInstance(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "zone \"node01\" is unavailable")
 }
 
@@ -360,7 +359,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *tc.C) 
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "breakfast=eggs"
 
-	_, err := env.StartInstance(context.Background(), args)
+	_, err := env.StartInstance(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "unknown placement directive.*")
 }
 
@@ -404,7 +403,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *tc.C) {
 	}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(context.Background(), args)
+	_, err := env.StartInstance(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -448,7 +447,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *tc.C
 	}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(context.Background(), args)
+	_, err := env.StartInstance(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -488,7 +487,7 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *tc.C) {
 	args.CharmLXDProfiles = []string{"juju-model-test-0"}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(context.Background(), args)
+	_, err := env.StartInstance(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -503,7 +502,7 @@ func (s *environBrokerSuite) TestStartInstanceNoTools(c *tc.C) {
 	exp.HostArch().Return(arch.PPC64EL)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
+	_, err := env.StartInstance(c.Context(), s.GetStartInstanceArgs(c))
 	c.Assert(err, tc.ErrorMatches, "no matching agent binaries available")
 }
 
@@ -526,7 +525,7 @@ func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *tc.C) {
 	invalidator.EXPECT().InvalidateCredentials(gomock.Any(), environs.CredentialInvalidReason("cloud denied access: not authorized")).Return(nil)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
+	_, err := env.StartInstance(c.Context(), s.GetStartInstanceArgs(c))
 	c.Assert(err, tc.ErrorMatches, "not authorized")
 }
 
@@ -540,7 +539,7 @@ func (s *environBrokerSuite) TestStopInstances(c *tc.C) {
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"})
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	err := env.StopInstances(context.Background(), "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
+	err := env.StopInstances(c.Context(), "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -555,7 +554,7 @@ func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *tc.C) {
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(fmt.Errorf("not authorized"))
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	err := env.StopInstances(context.Background(), "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
+	err := env.StopInstances(c.Context(), "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
 	c.Assert(err, tc.ErrorMatches, "not authorized")
 }
 

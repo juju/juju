@@ -27,7 +27,7 @@ var _ = tc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestGetStorageRegistry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.storageRegistryGetter.EXPECT().GetStorageRegistry(c.Context()).Return(s.storageRegistry, nil)
+	s.storageRegistryGetter.EXPECT().GetStorageRegistry(gomock.Any()).Return(s.storageRegistry, nil)
 
 	reg, err := s.service.GetStorageRegistry(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -37,7 +37,7 @@ func (s *serviceSuite) TestGetStorageRegistry(c *tc.C) {
 func (s *serviceSuite) TestStorageRegistryError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.storageRegistryGetter.EXPECT().GetStorageRegistry(c.Context()).Return(nil, errors.Errorf("boom"))
+	s.storageRegistryGetter.EXPECT().GetStorageRegistry(gomock.Any()).Return(nil, errors.Errorf("boom"))
 
 	_, err := s.service.GetStorageRegistry(c.Context())
 	c.Assert(err, tc.ErrorMatches, "getting storage registry: boom")

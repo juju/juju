@@ -48,14 +48,14 @@ func FakeAPIInfo(machineId string) *api.Info {
 
 // WaitInstanceAddresses waits until the specified instance has addresses, and returns them.
 func WaitInstanceAddresses(
-	env environs.Environ, instId instance.Id,
+	c *tc.C, env environs.Environ, instId instance.Id,
 ) (corenetwork.ProviderAddresses, error) {
 	for a := testing.LongAttempt.Start(); a.Next(); {
-		insts, err := env.Instances(context.Background(), []instance.Id{instId})
+		insts, err := env.Instances(c.Context(), []instance.Id{instId})
 		if err != nil {
 			return nil, err
 		}
-		addresses, err := insts[0].Addresses(context.Background())
+		addresses, err := insts[0].Addresses(c.Context())
 		if err != nil {
 			return nil, err
 		}
@@ -75,9 +75,9 @@ func AssertStartControllerInstance(
 	instances.Instance, *instance.HardwareCharacteristics,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID}
-	err := FillInStartInstanceParams(env, machineId, true, &params)
+	err := FillInStartInstanceParams(c, env, machineId, true, &params)
 	c.Assert(err, tc.ErrorIsNil)
-	result, err := env.StartInstance(context.Background(), params)
+	result, err := env.StartInstance(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	return result.Instance, result.Hardware
 }
@@ -89,7 +89,7 @@ func AssertStartInstance(
 ) (
 	instances.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, err := StartInstance(env, controllerUUID, machineId)
+	inst, hc, _, err := StartInstance(c, env, controllerUUID, machineId)
 	c.Assert(err, tc.ErrorIsNil)
 	return inst, hc
 }
@@ -97,11 +97,11 @@ func AssertStartInstance(
 // StartInstance is a test helper function that starts an instance with a plausible
 // but invalid configuration, and returns the result of Environ.StartInstance.
 func StartInstance(
-	env environs.Environ, controllerUUID, machineId string,
+	c *tc.C, env environs.Environ, controllerUUID, machineId string,
 ) (
 	instances.Instance, *instance.HardwareCharacteristics, corenetwork.InterfaceInfos, error,
 ) {
-	return StartInstanceWithConstraints(env, controllerUUID, machineId, constraints.Value{})
+	return StartInstanceWithConstraints(c, env, controllerUUID, machineId, constraints.Value{})
 }
 
 // AssertStartInstanceWithConstraints is a test helper function that starts an instance
@@ -113,7 +113,7 @@ func AssertStartInstanceWithConstraints(
 ) (
 	instances.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, err := StartInstanceWithConstraints(env, controllerUUID, machineId, cons)
+	inst, hc, _, err := StartInstanceWithConstraints(c, env, controllerUUID, machineId, cons)
 	c.Assert(err, tc.ErrorIsNil)
 	return inst, hc
 }
@@ -122,13 +122,14 @@ func AssertStartInstanceWithConstraints(
 // with the given constraints, and a plausible but invalid configuration, and returns
 // the result of Environ.StartInstance.
 func StartInstanceWithConstraints(
+	c *tc.C,
 	env environs.Environ,
 	controllerUUID, machineId string, cons constraints.Value,
 ) (
 	instances.Instance, *instance.HardwareCharacteristics, corenetwork.InterfaceInfos, error,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID, Constraints: cons, StatusCallback: fakeCallback}
-	result, err := StartInstanceWithParams(env, machineId, params)
+	result, err := StartInstanceWithParams(c, env, machineId, params)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
@@ -140,21 +141,22 @@ func StartInstanceWithConstraints(
 // returns the result of Environ.StartInstance. The provided params's
 // InstanceConfig and Tools field values will be ignored.
 func StartInstanceWithParams(
+	c *tc.C,
 	env environs.Environ,
 	machineId string,
 	params environs.StartInstanceParams,
 ) (
 	*environs.StartInstanceResult, error,
 ) {
-	if err := FillInStartInstanceParams(env, machineId, false, &params); err != nil {
+	if err := FillInStartInstanceParams(c, env, machineId, false, &params); err != nil {
 		return nil, err
 	}
-	return env.StartInstance(context.Background(), params)
+	return env.StartInstance(c.Context(), params)
 }
 
 // FillInStartInstanceParams prepares the instance parameters for starting
 // the instance.
-func FillInStartInstanceParams(env environs.Environ, machineId string, isController bool, params *environs.StartInstanceParams) error {
+func FillInStartInstanceParams(c *tc.C, env environs.Environ, machineId string, isController bool, params *environs.StartInstanceParams) error {
 	if params.ControllerUUID == "" {
 		return errors.New("missing controller UUID in start instance parameters")
 	}
@@ -175,7 +177,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	}
 	streams := tools.PreferredStreams(&agentVersion, env.Config().Development(), env.Config().AgentStream())
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	possibleTools, err := tools.FindTools(context.Background(), ss, env, -1, -1, streams, filter)
+	possibleTools, err := tools.FindTools(c.Context(), ss, env, -1, -1, streams, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -184,6 +186,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 
 	if params.ImageMetadata == nil {
 		if err := SetImageMetadata(
+			c,
 			env,
 			ss,
 			[]string{preferredBase.Channel.Track},
@@ -221,7 +224,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	return nil
 }
 
-func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsFetcher, release, arches []string, out *[]*imagemetadata.ImageMetadata) error {
+func SetImageMetadata(c *tc.C, env environs.Environ, fetcher imagemetadata.SimplestreamsFetcher, release, arches []string, out *[]*imagemetadata.ImageMetadata) error {
 	hasRegion, ok := env.(simplestreams.HasRegion)
 	if !ok {
 		return nil
@@ -243,7 +246,7 @@ func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsF
 	if err != nil {
 		return errors.Trace(err)
 	}
-	imageMetadata, _, err := imagemetadata.Fetch(context.Background(), fetcher, sources, imageConstraint)
+	imageMetadata, _, err := imagemetadata.Fetch(c.Context(), fetcher, sources, imageConstraint)
 	if err != nil {
 		return errors.Trace(err)
 	}

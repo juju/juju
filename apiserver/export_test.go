@@ -116,11 +116,11 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 // anything real. It's enough to let test some basic functionality though.
 func TestingAPIHandler(c *tc.C, pool *state.StatePool, st *state.State, sf services.DomainServices) (*apiHandler, *common.Resources) {
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, st, loggertesting.WrapCheckLog(c))
-	modelInfo, err := sf.ModelInfo().GetModelInfo(context.Background())
+	modelInfo, err := sf.ModelInfo().GetModelInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
-		context.Background(),
+		c.Context(),
 		pool,
 		modelInfo.UUID,
 		sf.ControllerConfig(),
@@ -132,7 +132,7 @@ func TestingAPIHandler(c *tc.C, pool *state.StatePool, st *state.State, sf servi
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	offerAuthCtxt, err := newOfferAuthContext(context.Background(), pool, clock.WallClock, sf.Access(), sf.ModelInfo(), sf.ControllerConfig(), sf.Macaroon())
+	offerAuthCtxt, err := newOfferAuthContext(c.Context(), pool, clock.WallClock, sf.Access(), sf.ModelInfo(), sf.ControllerConfig(), sf.Macaroon())
 	c.Assert(err, tc.ErrorIsNil)
 
 	srv := &Server{
@@ -146,7 +146,7 @@ func TestingAPIHandler(c *tc.C, pool *state.StatePool, st *state.State, sf servi
 		tag: names.NewMachineTag("0"),
 	}
 	h, err := newAPIHandler(
-		context.Background(),
+		c.Context(),
 		srv,
 		st,
 		nil,
@@ -306,7 +306,7 @@ type Patcher interface {
 }
 
 func AssertHasPermission(c *tc.C, handler *apiHandler, access permission.Access, tag names.Tag, expect bool) {
-	err := handler.HasPermission(context.Background(), access, tag)
+	err := handler.HasPermission(c.Context(), access, tag)
 	c.Assert(err == nil, tc.Equals, expect)
 	if expect {
 		c.Assert(err, tc.ErrorIsNil)

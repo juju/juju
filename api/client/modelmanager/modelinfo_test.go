@@ -4,8 +4,6 @@
 package modelmanager_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -46,7 +44,7 @@ func (s *modelInfoSuite) assertExpectedModelInfo(c *tc.C, expectedInfo params.Mo
 	for i := 0; i < len(expectedInfo.Results); i++ {
 		input = append(input, testing.ModelTag)
 	}
-	info, err := client.ModelInfo(context.Background(), input)
+	info, err := client.ModelInfo(c.Context(), input)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, expectedInfo.Results)
 }
@@ -112,6 +110,6 @@ func (s *modelInfoSuite) TestInvalidResultCount(c *tc.C) {
 		},
 	)
 	client := modelmanager.NewClient(apiCaller)
-	_, err := client.ModelInfo(context.Background(), []names.ModelTag{testing.ModelTag, testing.ModelTag})
+	_, err := client.ModelInfo(c.Context(), []names.ModelTag{testing.ModelTag, testing.ModelTag})
 	c.Assert(err, tc.ErrorMatches, "expected 2 result\\(s\\), got 1")
 }

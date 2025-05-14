@@ -139,11 +139,13 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *tc.C)
 	}
 
 	m0 := &testMachine{
+		c:        c,
 		id:       "0",
 		life:     life.Dead,
 		instance: i0,
 	}
 	m1 := &testMachine{
+		c:            c,
 		id:           "1",
 		life:         life.Dead,
 		instance:     i1,
@@ -180,7 +182,7 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *tc.C)
 func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	m0 := &testMachine{id: "0"}
+	m0 := &testMachine{c: c, id: "0"}
 	s.machinesAPI.EXPECT().MachinesWithTransientErrors(gomock.Any()).Return(
 		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil)
 	s.expectProvisioningInfo(m0)
@@ -213,7 +215,7 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *tc.C) {
 
 func (s *ProvisionerTaskSuite) waitForProvisioned(c *tc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		_, err := m.InstanceId(context.Background())
+		_, err := m.InstanceId(c.Context())
 		if err == nil {
 			if m.GetPassword() == "" {
 				c.Fatalf("provisioned machine %q does not have a password", m.id)
@@ -235,7 +237,7 @@ func (s *ProvisionerTaskSuite) waitForRemovalMark(c *tc.C, m *testMachine) {
 
 func (s *ProvisionerTaskSuite) waitForInstanceStatus(c *tc.C, m *testMachine, status status.Status) string {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		instStatus, info, err := m.InstanceStatus(context.Background())
+		instStatus, info, err := m.InstanceStatus(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 		if instStatus == status {
 			return info
@@ -273,7 +275,7 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *tc.C) {
 	)
 	defer workertest.CleanKill(c, task)
 
-	m0 := &testMachine{id: "0"}
+	m0 := &testMachine{c: c, id: "0"}
 	vers := semversion.MustParse("2.99.0")
 	res := params.ProvisioningInfoResult{
 		Result: &params.ProvisioningInfo{
@@ -331,6 +333,7 @@ func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvail
 	defer workertest.CleanKill(c, task)
 
 	m0 := &testMachine{
+		c:            c,
 		id:           "0",
 		agentVersion: semversion.MustParse("6.6.6"),
 	}
@@ -351,12 +354,16 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *tc.C) {
 	// There are 3 available usedZones, so test with 4 machines
 	// to ensure even spread across usedZones.
 	machines := []*testMachine{{
+		c:  c,
 		id: "0",
 	}, {
+		c:  c,
 		id: "1",
 	}, {
+		c:  c,
 		id: "2",
 	}, {
+		c:  c,
 		id: "3",
 	}}
 	broker := s.setUpZonedEnviron(ctrl, machines...)
@@ -422,6 +429,7 @@ func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *tc.C) {
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
+		c:           c,
 		id:          "0",
 		constraints: "spaces=alpha,beta",
 		topology: params.ProvisioningNetworkTopology{
@@ -484,6 +492,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *tc.C) {
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
+		c:           c,
 		id:          "0",
 		constraints: "zones=az9",
 	}
@@ -511,6 +520,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *tc.C) {
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
+		c:           c,
 		id:          "0",
 		constraints: "zones=az1",
 	}
@@ -542,6 +552,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *tc
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
+		c:           c,
 		id:          "0",
 		constraints: "zones=az1",
 	}
@@ -576,6 +587,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *tc.C)
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
+		c:           c,
 		id:          "0",
 		constraints: "zones=az1,az2",
 	}
@@ -614,6 +626,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
+		c:           c,
 		id:          "0",
 		constraints: "zones=az1,az2",
 	}
@@ -652,6 +665,7 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 	defer ctrl.Finish()
 
 	m0 := &testMachine{
+		c:           c,
 		id:          "0",
 		constraints: "zones=az2",
 	}
@@ -714,6 +728,7 @@ func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *tc.C) {
 	i0 := &testInstance{id: "0"}
 	s.instances = []instances.Instance{i0}
 	m0 := &testMachine{
+		c:        c,
 		id:       "0",
 		life:     life.Dead,
 		instance: i0,
@@ -795,6 +810,7 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 
 	// m0 is a machine that should be started.
 	m0 := &testMachine{
+		c:           c,
 		id:          "0",
 		life:        life.Alive,
 		constraints: "zones=az1",
@@ -914,7 +930,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C
 	defer ctrl.Finish()
 
 	s.instances = []instances.Instance{&testInstance{id: "0"}}
-	m0 := &testMachine{id: "0", life: life.Alive}
+	m0 := &testMachine{c: c, id: "0", life: life.Alive}
 	s.expectMachines(m0)
 	s.expectProvisioningInfo(m0)
 
@@ -1008,7 +1024,7 @@ func (s *ProvisionerTaskSuite) TestHarvestUnknownReapsOnlyUnknown(c *tc.C) {
 	defer ctrl.Finish()
 
 	inst0 := &testInstance{id: "0"}
-	m0 := &testMachine{id: "0", life: life.Alive, instance: inst0}
+	m0 := &testMachine{c: c, id: "0", life: life.Alive, instance: inst0}
 	instUnknown := &testInstance{id: "unknown"}
 	s.instances = []instances.Instance{inst0, instUnknown}
 
@@ -1033,7 +1049,7 @@ func (s *ProvisionerTaskSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *tc.C) {
 	defer ctrl.Finish()
 
 	inst0 := &testInstance{id: "0"}
-	m0 := &testMachine{id: "0", life: life.Alive, instance: inst0}
+	m0 := &testMachine{c: c, id: "0", life: life.Alive, instance: inst0}
 	instUnknown := &testInstance{id: "unknown"}
 	s.instances = []instances.Instance{inst0, instUnknown}
 
@@ -1061,7 +1077,7 @@ func (s *ProvisionerTaskSuite) TestHarvestAllReapsAllTheThings(c *tc.C) {
 	defer ctrl.Finish()
 
 	inst0 := &testInstance{id: "0"}
-	m0 := &testMachine{id: "0", life: life.Alive, instance: inst0}
+	m0 := &testMachine{c: c, id: "0", life: life.Alive, instance: inst0}
 	instUnknown := &testInstance{id: "unknown"}
 	s.instances = []instances.Instance{inst0, instUnknown}
 
@@ -1084,7 +1100,7 @@ func (s *ProvisionerTaskSuite) TestHarvestAllReapsAllTheThings(c *tc.C) {
 func (s *ProvisionerTaskSuite) TestProvisionerStopRetryingIfDying(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	m0 := &testMachine{id: "0"}
+	m0 := &testMachine{c: c, id: "0"}
 	s.machinesAPI.EXPECT().MachinesWithTransientErrors(gomock.Any()).Return(
 		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil)
 	s.expectProvisioningInfo(m0)
@@ -1114,10 +1130,10 @@ func (s *ProvisionerTaskSuite) TestProvisionerStopRetryingIfDying(c *tc.C) {
 	c.Assert(m0.password, tc.Not(tc.Equals), "")
 	s.instanceBroker.CheckCallNames(c, "StartInstance")
 
-	statusInfo, _, err := m0.Status(context.Background())
+	statusInfo, _, err := m0.Status(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(statusInfo, tc.Equals, status.Pending)
-	statusInfo, _, err = m0.InstanceStatus(context.Background())
+	statusInfo, _, err = m0.InstanceStatus(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	if statusInfo != status.Pending && statusInfo != status.Provisioning {
 		c.Errorf("statusInfo.Status was %q not one of %q or %q",
@@ -1155,7 +1171,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedRootDisk(c *
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
-	m0 := &testMachine{id: "0", life: life.Alive}
+	m0 := &testMachine{c: c, id: "0", life: life.Alive}
 	s.expectMachines(m0)
 
 	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), []names.MachineTag{names.NewMachineTag("0")}).Return(
@@ -1195,7 +1211,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *t
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
-	m0 := &testMachine{id: "0", life: life.Alive}
+	m0 := &testMachine{c: c, id: "0", life: life.Alive}
 	s.expectMachines(m0)
 
 	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), []names.MachineTag{names.NewMachineTag("0")}).Return(
@@ -1287,7 +1303,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningDoesNotProvisionTheSameMachineAft
 	// Start with an already provisioned machine.
 	inst0 := &testInstance{id: "0"}
 	s.instances = []instances.Instance{inst0}
-	m0 := &testMachine{id: "0", life: life.Alive, instance: inst0}
+	m0 := &testMachine{c: c, id: "0", life: life.Alive, instance: inst0}
 
 	broker := environmocks.NewMockEnviron(ctrl)
 	exp := broker.EXPECT()
@@ -1323,10 +1339,10 @@ func (s *ProvisionerTaskSuite) TestDyingMachines(c *tc.C) {
 
 	// Start with an already dying provisioned machine.
 	inst0 := &testInstance{id: "0"}
-	m0 := &testMachine{id: "0", life: life.Dying, instance: inst0}
+	m0 := &testMachine{c: c, id: "0", life: life.Dying, instance: inst0}
 
 	// And a dying unprovisioned one.
-	m1 := &testMachine{id: "1", life: life.Dying}
+	m1 := &testMachine{c: c, id: "1", life: life.Dying}
 
 	s.instances = []instances.Instance{inst0}
 
@@ -1600,6 +1616,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *tc.C) {
 
 		c.Logf("%s: %s", id, t.description)
 		machine := testMachine{
+			c:             c,
 			life:          t.life,
 			instStatus:    t.status,
 			machineStatus: t.status,
@@ -1608,7 +1625,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *tc.C) {
 			ensureDeadErr: s2e(t.ensureDeadErr),
 			statusErr:     s2e(t.statusErr),
 		}
-		classification, err := provisionertask.ClassifyMachine(context.Background(), loggertesting.WrapCheckLog(c), &machine)
+		classification, err := provisionertask.ClassifyMachine(c.Context(), loggertesting.WrapCheckLog(c), &machine)
 		if err != nil {
 			c.Assert(err, tc.ErrorMatches, fmt.Sprintf(t.expectErrFmt, machine.Id()))
 		} else {
@@ -1662,6 +1679,8 @@ func (i *testInstance) Id() instance.Id {
 
 type testMachine struct {
 	*apiprovisioner.Machine
+
+	c *tc.C
 
 	mu sync.Mutex
 
@@ -1724,7 +1743,7 @@ func (m *testMachine) InstanceId(context.Context) (instance.Id, error) {
 }
 
 func (m *testMachine) InstanceNames() (instance.Id, string, error) {
-	instId, err := m.InstanceId(context.Background())
+	instId, err := m.InstanceId(m.c.Context())
 	return instId, "", err
 }
 

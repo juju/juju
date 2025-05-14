@@ -4,7 +4,6 @@
 package crossmodelsecrets_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -85,7 +84,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *tc.C) {
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	content, backend, latestRevision, draining, err := client.GetRemoteSecretContentInfo(context.Background(), uri, 665, true, true, coretesting.ControllerTag.Id(), "token", 666, macs)
+	content, backend, latestRevision, draining, err := client.GetRemoteSecretContentInfo(c.Context(), uri, 665, true, true, coretesting.ControllerTag.Id(), "token", 666, macs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(latestRevision, tc.Equals, 666)
 	c.Assert(draining, tc.IsTrue)
@@ -119,7 +118,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	content, backend, _, _, err := client.GetRemoteSecretContentInfo(context.Background(), coresecrets.NewURI(), 665, false, false, coretesting.ControllerTag.Id(), "token", 666, nil)
+	content, backend, _, _, err := client.GetRemoteSecretContentInfo(c.Context(), coresecrets.NewURI(), 665, false, false, coretesting.ControllerTag.Id(), "token", 666, nil)
 	c.Assert(err, tc.ErrorMatches, "attempt count exceeded: boom")
 	c.Assert(content, tc.IsNil)
 	c.Assert(backend, tc.IsNil)
@@ -149,7 +148,7 @@ func (s *CrossControllerSuite) TestGetSecretAccessScope(c *tc.C) {
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	scope, err := client.GetSecretAccessScope(context.Background(), uri, "app-token", 666)
+	scope, err := client.GetSecretAccessScope(c.Context(), uri, "app-token", 666)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(scope, tc.Equals, "scope-token")
 }

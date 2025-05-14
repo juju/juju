@@ -52,7 +52,7 @@ func (s *instanceIdGetterSuite) TestInstanceId(c *tc.C) {
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"}, {Tag: "unit-x-4"},
 	}}
-	results, err := ig.InstanceId(context.Background(), entities)
+	results, err := ig.InstanceId(c.Context(), entities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -70,6 +70,6 @@ func (s *instanceIdGetterSuite) TestInstanceIdError(c *tc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	ig := common.NewInstanceIdGetter(s.machineService, getCanRead)
-	_, err := ig.InstanceId(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "unit-x-0"}}})
+	_, err := ig.InstanceId(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "unit-x-0"}}})
 	c.Assert(err, tc.ErrorMatches, "pow")
 }

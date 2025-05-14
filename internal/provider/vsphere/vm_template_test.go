@@ -4,7 +4,6 @@
 package vsphere_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -139,7 +138,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedButImageExist
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(c.Context(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tpl, tc.NotNil)
 	c.Assert(arch, tc.Equals, "amd64")
@@ -154,7 +153,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedAndImageDoesN
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	_, _, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@16.04"), "amd64")
+	_, _, err := tplMgr.EnsureTemplate(c.Context(), base.MustParseBaseFromString("ubuntu@16.04"), "amd64")
 	c.Assert(err, tc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 	c.Assert(err.Error(), tc.Matches, "no matching images found for given constraints.*")
 	v.client.CheckCallNames(c, "ListVMTemplates", "EnsureVMFolder")
@@ -176,7 +175,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateWithImageMetadataSupplied(c *tc.C) {
 		v.datastore, v.statusUpdateParams, "",
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(c.Context(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tpl, tc.DeepEquals, v.client.virtualMachineTemplates[0].vm)
 	c.Assert(arch, tc.Equals, "amd64")
@@ -202,7 +201,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageNotFoundLocally(c *tc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 	// jammy exists in the image-download simplestreams
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(c.Context(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tpl, tc.NotNil)
 	c.Assert(arch, tc.Equals, "amd64")
@@ -219,7 +218,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImage(c *tc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(c.Context(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tpl, tc.NotNil)
 	c.Assert(arch, tc.Equals, "amd64")
@@ -235,7 +234,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImageNoArch(c *tc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(c.Context(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tpl, tc.NotNil)
 	c.Assert(arch, tc.Equals, "")

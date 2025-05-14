@@ -4,8 +4,6 @@
 package common_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -28,34 +26,34 @@ func (s *blockCheckerSuite) TestDestroyBlockChecker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.DestroyBlock).Return("block", nil)
-	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(context.Background()), "block")
+	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(c.Context()), "block")
 
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.DestroyBlock).Return("", blockcommanderrors.NotFound)
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.RemoveBlock).Return("remove", nil)
-	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(context.Background()), "remove")
+	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(c.Context()), "remove")
 
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.DestroyBlock).Return("", blockcommanderrors.NotFound)
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.RemoveBlock).Return("", blockcommanderrors.NotFound)
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("change", nil)
-	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(context.Background()), "change")
+	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(c.Context()), "change")
 }
 
 func (s *blockCheckerSuite) TestRemoveBlockChecker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.RemoveBlock).Return("remove", nil)
-	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(context.Background()), "remove")
+	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(c.Context()), "remove")
 
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.RemoveBlock).Return("", blockcommanderrors.NotFound)
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("change", nil)
-	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(context.Background()), "change")
+	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(c.Context()), "change")
 }
 
 func (s *blockCheckerSuite) TestChangeBlockChecker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.service.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("change", nil)
-	s.assertErrorBlocked(c, true, s.blockchecker.ChangeAllowed(context.Background()), "change")
+	s.assertErrorBlocked(c, true, s.blockchecker.ChangeAllowed(c.Context()), "change")
 }
 
 func (s *blockCheckerSuite) setupMocks(c *tc.C) *gomock.Controller {

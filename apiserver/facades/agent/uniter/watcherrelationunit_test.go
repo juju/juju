@@ -63,7 +63,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongUnitTag(c *tc.C)
 	unitTag := "##error##"
 
 	// Act
-	_, err := s.uniter.watchOneRelationUnit(context.Background(), func(tag names.Tag) bool {
+	_, err := s.uniter.watchOneRelationUnit(c.Context(), func(tag names.Tag) bool {
 		return true
 	}, params.RelationUnit{
 		Relation: relationKey,
@@ -81,7 +81,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitCannotAccess(c *tc.C)
 	unitTag := "unit-app1-0"
 
 	// Act
-	_, err := s.uniter.watchOneRelationUnit(context.Background(), func(tag names.Tag) bool {
+	_, err := s.uniter.watchOneRelationUnit(c.Context(), func(tag names.Tag) bool {
 		return false // cannot access
 	}, params.RelationUnit{
 		Relation: relationKey,
@@ -99,7 +99,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongRelationKey(c *t
 	unitTag := "unit-app1-0"
 
 	// Act
-	_, err := s.uniter.watchOneRelationUnit(context.Background(), func(tag names.Tag) bool {
+	_, err := s.uniter.watchOneRelationUnit(c.Context(), func(tag names.Tag) bool {
 		return true
 	}, params.RelationUnit{
 		Relation: relationKey,
@@ -120,7 +120,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyNotFound(c *tc.C) 
 		gomock.Any(), corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2")).Return("", relationerrors.RelationNotFound)
 
 	// Act
-	_, err := s.uniter.watchOneRelationUnit(context.Background(), func(tag names.Tag) bool {
+	_, err := s.uniter.watchOneRelationUnit(c.Context(), func(tag names.Tag) bool {
 		return true
 	}, params.RelationUnit{
 		Relation: relationKey,
@@ -142,7 +142,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyDomainError(c *tc.
 		gomock.Any(), corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2")).Return("", domainError)
 
 	// Act
-	_, err := s.uniter.watchOneRelationUnit(context.Background(), func(tag names.Tag) bool {
+	_, err := s.uniter.watchOneRelationUnit(c.Context(), func(tag names.Tag) bool {
 		return true
 	}, params.RelationUnit{
 		Relation: relationKey,
@@ -217,7 +217,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *tc.C) {
 	})
 
 	// Act:
-	result, err := s.uniter.watchOneRelationUnit(context.Background(), func(tag names.Tag) bool {
+	result, err := s.uniter.watchOneRelationUnit(c.Context(), func(tag names.Tag) bool {
 		return true
 	}, params.RelationUnit{
 		Relation: relationKey,

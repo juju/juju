@@ -211,7 +211,7 @@ func (s *InterfaceSuite) TestSetUnitStatus(c *tc.C) {
 	err := ctx.SetUnitStatus(c.Context(), status)
 	c.Check(err, tc.ErrorIsNil)
 
-	s.unit.EXPECT().UnitStatus(c.Context()).Return(params.StatusResult{
+	s.unit.EXPECT().UnitStatus(gomock.Any()).Return(params.StatusResult{
 		Status: "maintenance",
 		Info:   "doing work",
 		Data:   map[string]interface{}{},

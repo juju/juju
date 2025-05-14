@@ -49,7 +49,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *tc.C) {
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, tc.ErrorIsNil)
-	ctx := envtesting.BootstrapContext(context.Background(), c)
+	ctx := envtesting.BootstrapContext(c.Context(), c)
 	cache := jujuclient.NewMemStore()
 	controllerCfg := testing.FakeControllerConfig()
 	bootstrapEnviron, err := bootstrap.PrepareController(false, ctx, cache, bootstrap.PrepareParams{
@@ -83,7 +83,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *tc.C) {
 
 func (s *OpenSuite) TestUpdateEnvInfo(c *tc.C) {
 	store := jujuclient.NewMemStore()
-	ctx := envtesting.BootstrapContext(context.Background(), c)
+	ctx := envtesting.BootstrapContext(c.Context(), c)
 	uuid := uuid.MustNewUUID().String()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "dummy",
@@ -114,7 +114,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *tc.C) {
 }
 
 func (*OpenSuite) TestNewUnknownEnviron(c *tc.C) {
-	env, err := environs.New(context.Background(), environs.OpenParams{
+	env, err := environs.New(c.Context(), environs.OpenParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type: "wondercloud",
 		},
@@ -131,7 +131,7 @@ func (*OpenSuite) TestNew(c *tc.C) {
 		},
 	))
 	c.Assert(err, tc.ErrorIsNil)
-	ctx := context.Background()
+	ctx := c.Context()
 	e, err := environs.New(ctx, environs.OpenParams{
 		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
@@ -153,7 +153,7 @@ func (*OpenSuite) TestDestroy(c *tc.C) {
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
 	controllerCfg := testing.FakeControllerConfig()
-	ctx := envtesting.BootstrapContext(context.Background(), c)
+	ctx := envtesting.BootstrapContext(c.Context(), c)
 	bootstrapEnviron, err := bootstrap.PrepareController(false, ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
@@ -166,12 +166,12 @@ func (*OpenSuite) TestDestroy(c *tc.C) {
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = environs.Destroy("controller-name", e, context.Background(), store)
+	err = environs.Destroy("controller-name", e, c.Context(), store)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the environment has actually been destroyed
 	// and that the controller details been removed too.
-	_, err = e.ControllerInstances(context.Background(), controllerCfg.ControllerUUID())
+	_, err = e.ControllerInstances(c.Context(), controllerCfg.ControllerUUID())
 	c.Assert(err, tc.ErrorMatches, "model is not prepared")
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
@@ -180,7 +180,7 @@ func (*OpenSuite) TestDestroy(c *tc.C) {
 func (*OpenSuite) TestDestroyNotFound(c *tc.C) {
 	var env destroyControllerEnv
 	store := jujuclient.NewMemStore()
-	err := environs.Destroy("fnord", &env, context.Background(), store)
+	err := environs.Destroy("fnord", &env, c.Context(), store)
 	c.Assert(err, tc.ErrorIsNil)
 	env.CheckCallNames(c) // no controller details, no call
 }

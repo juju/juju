@@ -106,7 +106,7 @@ func (s *ContextSuite) setupFactory(c *tc.C, ctrl *gomock.Controller) {
 	s.setupUniter(ctrl)
 
 	s.unit.EXPECT().PrincipalName(gomock.Any()).Return("", false, nil).AnyTimes()
-	s.uniter.EXPECT().Model(c.Context()).Return(&types.Model{
+	s.uniter.EXPECT().Model(gomock.Any()).Return(&types.Model{
 		Name:      "test-model",
 		UUID:      coretesting.ModelTag.Id(),
 		ModelType: types.IAAS,

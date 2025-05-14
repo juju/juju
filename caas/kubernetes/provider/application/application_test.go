@@ -1173,7 +1173,7 @@ func (s *applicationSuite) TestDeleteStateful(c *tc.C) {
 		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 	)
 	c.Assert(app.Delete(), tc.ErrorIsNil)
 }
@@ -1191,7 +1191,7 @@ func (s *applicationSuite) TestDeleteStateless(c *tc.C) {
 		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 	)
 	c.Assert(app.Delete(), tc.ErrorIsNil)
 }
@@ -1209,7 +1209,7 @@ func (s *applicationSuite) TestDeleteDaemon(c *tc.C) {
 		s.applier.EXPECT().Delete(resources.NewClusterRoleBinding("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewClusterRole("test-gitlab", nil)),
 		s.applier.EXPECT().Delete(resources.NewServiceAccount("gitlab", "test", nil)),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 	)
 	c.Assert(app.Delete(), tc.ErrorIsNil)
 }
@@ -1539,7 +1539,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *tc.C)
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Apply(resources.NewDeployment("gitlab", "test", updatedMainResource)),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -1668,7 +1668,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *tc.C) 
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Apply(resources.NewStatefulSet("gitlab", "test", updatedMainResource)),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -1757,7 +1757,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *tc.C) {
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
 		s.applier.EXPECT().Apply(resources.NewDaemonSet("gitlab", "test", updatedMainResource)),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -1848,10 +1848,10 @@ func (s *applicationSuite) TestUpdatePortsWithExistingPorts(c *tc.C) {
 
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 
 		s.applier.EXPECT().Apply(updatedSvcResource2nd),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		// Added ports: 8080 and 8888.
@@ -1902,7 +1902,7 @@ func (s *applicationSuite) TestUpdatePortsStateless(c *tc.C) {
 
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -1936,7 +1936,7 @@ func (s *applicationSuite) TestUpdatePortsStateful(c *tc.C) {
 
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{
@@ -1970,7 +1970,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *tc.C) {
 
 	gomock.InOrder(
 		s.applier.EXPECT().Apply(updatedSvcResource),
-		s.applier.EXPECT().Run(c.Context(), s.client, false).Return(nil),
+		s.applier.EXPECT().Run(gomock.Any(), s.client, false).Return(nil),
 	)
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
 		{

@@ -340,7 +340,7 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 	// Check that an instance is provisioned when the machine is created...
 
 	mTag := names.NewMachineTag("666")
-	m666 := &testMachine{id: "666"}
+	m666 := &testMachine{c: c, id: "666"}
 
 	s.broker.EXPECT().AllRunningInstances(gomock.Any()).Return([]instances.Instance{&testInstance{id: "inst-666"}}, nil).Times(2)
 	s.machinesAPI.EXPECT().Machines(gomock.Any(), mTag).Return([]apiprovisioner.MachineResult{{
@@ -525,6 +525,8 @@ func (i *testInstance) Id() instance.Id {
 type testMachine struct {
 	*apiprovisioner.Machine
 
+	c *tc.C
+
 	mu sync.Mutex
 
 	id             string
@@ -580,7 +582,7 @@ func (m *testMachine) InstanceId(context.Context) (instance.Id, error) {
 }
 
 func (m *testMachine) InstanceNames() (instance.Id, string, error) {
-	instId, err := m.InstanceId(c.Context())
+	instId, err := m.InstanceId(m.c.Context())
 	return instId, "", err
 }
 

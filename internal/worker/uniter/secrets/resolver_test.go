@@ -154,7 +154,7 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *tc.C) {
 	s.mockCallbacks.EXPECT().PrepareHook(gomock.Any(), hi).Return("", nil)
 	s.mockFactory.EXPECT().NewHookRunner(gomock.Any(), hi).Return(s.mockRunner, nil)
 	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
-	s.mockContext.EXPECT().Prepare(c.Context()).Return(nil)
+	s.mockContext.EXPECT().Prepare(gomock.Any()).Return(nil)
 	s.mockContext.EXPECT().SecretMetadata().Return(map[string]jujuc.SecretMetadata{
 		uri.ID: {
 			LatestRevision: 666,
@@ -212,13 +212,13 @@ func (s *triggerSecretsSuite) TestExpireCommit(c *tc.C) {
 		SecretRevision: 666,
 	}
 	s.mockCallbacks.EXPECT().PrepareHook(gomock.Any(), hi).Return("", nil)
-	s.mockFactory.EXPECT().NewHookRunner(c.Context(), hi).Return(s.mockRunner, nil)
+	s.mockFactory.EXPECT().NewHookRunner(gomock.Any(), hi).Return(s.mockRunner, nil)
 	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
 	s.mockContext.EXPECT().Prepare(gomock.Any()).Return(nil)
 	_, err = op.Prepare(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.mockCallbacks.EXPECT().CommitHook(c.Context(), hi).Return(nil)
+	s.mockCallbacks.EXPECT().CommitHook(gomock.Any(), hi).Return(nil)
 
 	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)

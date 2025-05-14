@@ -104,7 +104,7 @@ func (s *unitStateSuite) TestState(c *tc.C) {
 			{Tag: "unit-notfound-0"},
 		},
 	}
-	result, err := s.api.State(context.Background(), args)
+	result, err := s.api.State(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.UnitStateResults{
 		Results: []params.UnitStateResult{
@@ -142,7 +142,7 @@ func (s *unitStateSuite) TestSetStateUniterState(c *tc.C) {
 	}
 	s.unitStateService.EXPECT().SetState(gomock.Any(), expectedState).Return(nil)
 
-	result, err := s.api.SetState(context.Background(), args)
+	result, err := s.api.SetState(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

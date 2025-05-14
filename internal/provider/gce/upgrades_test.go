@@ -4,8 +4,6 @@
 package gce_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
@@ -26,14 +24,14 @@ func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *tc.C) {
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationsInvalidCredentialError(c *tc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	ops := s.Env.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})
-	err := ops[0].Steps[0].Run(context.Background())
+	ops := s.Env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{})
+	err := ops[0].Steps[0].Run(c.Context())
 	c.Assert(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *tc.C) {
-	ops := s.Env.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})
+	ops := s.Env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{})
 	c.Assert(ops, tc.HasLen, 1)
 	c.Assert(ops[0].TargetVersion, tc.Equals, 1)
 	c.Assert(ops[0].Steps, tc.HasLen, 1)
@@ -45,10 +43,10 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabels(c *tc.C) 
 	delete(s.BaseDisk.Labels, "juju-controller-uuid")
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
 
-	op0 := s.Env.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{
+	op0 := s.Env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{
 		ControllerUUID: "yup",
 	})[0]
-	c.Assert(op0.Steps[0].Run(context.Background()), tc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(c.Context()), tc.ErrorIsNil)
 
 	setDiskLabelsCalled, calls := s.FakeConn.WasCalled("SetDiskLabels")
 	c.Assert(setDiskLabelsCalled, tc.IsTrue)
@@ -69,10 +67,10 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsNoDescript
 	s.BaseDisk.Description = ""
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
 
-	op0 := s.Env.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{
+	op0 := s.Env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{
 		ControllerUUID: "yup",
 	})[0]
-	c.Assert(op0.Steps[0].Run(context.Background()), tc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(c.Context()), tc.ErrorIsNil)
 
 	setDiskLabelsCalled, _ := s.FakeConn.WasCalled("SetDiskLabels")
 	c.Assert(setDiskLabelsCalled, tc.IsTrue)
@@ -83,10 +81,10 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsIdempotent
 	// so we should not see a call to SetDiskLabels.
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
 
-	op0 := s.Env.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{
+	op0 := s.Env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{
 		ControllerUUID: "yup",
 	})[0]
-	c.Assert(op0.Steps[0].Run(context.Background()), tc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(c.Context()), tc.ErrorIsNil)
 
 	setDiskLabelsCalled, _ := s.FakeConn.WasCalled("SetDiskLabels")
 	c.Assert(setDiskLabelsCalled, tc.IsFalse)

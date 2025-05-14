@@ -4,8 +4,6 @@
 package firewaller_test
 
 import (
-	"context"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -107,7 +105,7 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *tc.C) {
 	s.st.EXPECT().KeyRelation("remote-db2:db django:db").Return(db2Relation, nil)
 
 	result, err := s.api.WatchIngressAddressesForRelations(
-		context.Background(),
+		c.Context(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
 		}}},
@@ -135,7 +133,7 @@ func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *tc.C) {
 	s.st.EXPECT().GetMacaroon(entity).Return(mac, nil)
 
 	result, err := s.api.MacaroonForRelations(
-		context.Background(),
+		c.Context(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: entity.String(),
 		}}},
@@ -158,7 +156,7 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *tc.C) {
 	s.st.EXPECT().KeyRelation("remote-db2:db django:db").Return(db2Relation, nil)
 
 	result, err := s.api.SetRelationsStatus(
-		context.Background(),
+		c.Context(),
 		params.SetStatus{Entities: []params.EntityStatusArgs{{
 			Tag:    entity.String(),
 			Status: "suspended",
@@ -253,7 +251,7 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *tc.C) {
 		false, nil,
 	)
 
-	rules, err := s.api.ModelFirewallRules(context.Background())
+	rules, err := s.api.ModelFirewallRules(c.Context())
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
@@ -280,7 +278,7 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *tc.C) {
 	s.modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(
 		true, nil,
 	)
-	rules, err := s.api.ModelFirewallRules(context.Background())
+	rules, err := s.api.ModelFirewallRules(c.Context())
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
@@ -310,7 +308,7 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *tc.C) {
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
-	result, err := s.api.WatchModelFirewallRules(context.Background())
+	result, err := s.api.WatchModelFirewallRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.NotifyWatcherId, tc.Equals, "1")
@@ -350,7 +348,7 @@ func (s *FirewallerSuite) TestAllSpaceInfos(c *tc.C) {
 	req := params.SpaceInfosParams{
 		FilterBySpaceIDs: []string{network.AlphaSpaceId, "42"},
 	}
-	res, err := s.api.SpaceInfos(context.Background(), req)
+	res, err := s.api.SpaceInfos(c.Context(), req)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Hydrate a network.SpaceInfos from the response
@@ -375,7 +373,7 @@ func (s *FirewallerSuite) TestWatchSubnets(c *tc.C) {
 			Tag: names.NewSubnetTag("0195847b-95bb-7ca1-a7ee-2211d802d5b3").String(),
 		}},
 	}
-	got, err := s.api.WatchSubnets(context.Background(), entities)
+	got, err := s.api.WatchSubnets(c.Context(), entities)
 	c.Assert(err, tc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",

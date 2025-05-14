@@ -538,7 +538,7 @@ func FuzzGetUser(f *testing.F) {
 			nil,
 		).AnyTimes()
 
-		usr, err := NewService(state).GetUserByName(c.Context(), name)
+		usr, err := NewService(state).GetUserByName(t.Context(), name)
 		if err != nil {
 			t.Errorf("unexpected error %v when fuzzing GetUser with %q",
 				err, username,

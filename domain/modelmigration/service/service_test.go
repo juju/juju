@@ -141,7 +141,7 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 			},
 		},
 			nil)
-	s.state.EXPECT().GetAllInstanceIDs(c.Context()).
+	s.state.EXPECT().GetAllInstanceIDs(gomock.Any()).
 		Return(set.NewStrings("instance0"), nil)
 
 	_, err := NewService(
@@ -165,7 +165,7 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 			},
 		},
 			nil)
-	s.state.EXPECT().GetAllInstanceIDs(c.Context()).
+	s.state.EXPECT().GetAllInstanceIDs(gomock.Any()).
 		Return(set.NewStrings("instance0", "instance1"), nil)
 
 	_, err := NewService(

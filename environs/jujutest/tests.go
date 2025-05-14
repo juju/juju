@@ -133,7 +133,7 @@ func (t *Tests) SetUpTest(c *tc.C) {
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	ctx := context.WithValue(context.Background(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	ctx := context.WithValue(c.Context(), bootstrap.SimplestreamsFetcherContextKey, ss)
 	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
 }
 
@@ -147,10 +147,10 @@ func (t *Tests) TestStartStop(c *tc.C) {
 		"agent-version": jujuversion.Current.String(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = e.SetConfig(context.Background(), cfg)
+	err = e.SetConfig(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	insts, err := e.Instances(context.Background(), nil)
+	insts, err := e.Instances(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts, tc.HasLen, 0)
 
@@ -166,28 +166,28 @@ func (t *Tests) TestStartStop(c *tc.C) {
 	c.Assert(inst1, tc.NotNil)
 	id1 := inst1.Id()
 
-	insts, err = e.Instances(context.Background(), []instance.Id{id0, id1})
+	insts, err = e.Instances(c.Context(), []instance.Id{id0, id1})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts, tc.HasLen, 2)
 	c.Assert(insts[0].Id(), tc.Equals, id0)
 	c.Assert(insts[1].Id(), tc.Equals, id1)
 
 	// order of results is not specified
-	insts, err = e.AllInstances(context.Background())
+	insts, err = e.AllInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts, tc.HasLen, 2)
 	c.Assert(insts[0].Id(), tc.Not(tc.Equals), insts[1].Id())
 
-	err = e.StopInstances(context.Background(), inst0.Id())
+	err = e.StopInstances(c.Context(), inst0.Id())
 	c.Assert(err, tc.ErrorIsNil)
 
-	insts, err = e.Instances(context.Background(), []instance.Id{id0, id1})
+	insts, err = e.Instances(c.Context(), []instance.Id{id0, id1})
 	c.Assert(err, tc.ErrorIs, environs.ErrPartialInstances)
 	c.Assert(insts, tc.HasLen, 2)
 	c.Assert(insts[0], tc.IsNil)
 	c.Assert(insts[1].Id(), tc.Equals, id1)
 
-	insts, err = e.AllInstances(context.Background())
+	insts, err = e.AllInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts[0].Id(), tc.Equals, id1)
 }
@@ -228,17 +228,17 @@ func (t *Tests) TestBootstrap(c *tc.C) {
 	err := bootstrap.Bootstrap(t.BootstrapContext, e, args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllerInstances, err := e.ControllerInstances(context.Background(), t.ControllerUUID)
+	controllerInstances, err := e.ControllerInstances(c.Context(), t.ControllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllerInstances, tc.Not(tc.HasLen), 0)
 
 	e2 := t.Open(c, t.BootstrapContext, e.Config())
-	controllerInstances2, err := e2.ControllerInstances(context.Background(), t.ControllerUUID)
+	controllerInstances2, err := e2.ControllerInstances(c.Context(), t.ControllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllerInstances2, tc.Not(tc.HasLen), 0)
 	c.Assert(controllerInstances2, tc.SameContents, controllerInstances)
 
-	err = environs.Destroy(e2.Config().Name(), e2, context.Background(), t.ControllerStore)
+	err = environs.Destroy(e2.Config().Name(), e2, c.Context(), t.ControllerStore)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Prepare again because Destroy invalidates old environments.
@@ -247,6 +247,6 @@ func (t *Tests) TestBootstrap(c *tc.C) {
 	err = bootstrap.Bootstrap(t.BootstrapContext, e3, args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = environs.Destroy(e3.Config().Name(), e3, context.Background(), t.ControllerStore)
+	err = environs.Destroy(e3.Config().Name(), e3, c.Context(), t.ControllerStore)
 	c.Assert(err, tc.ErrorIsNil)
 }

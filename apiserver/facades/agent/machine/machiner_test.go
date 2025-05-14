@@ -4,7 +4,6 @@
 package machine_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -47,7 +46,7 @@ func (s *machinerSuite) makeAPI(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPIForState(
-		context.Background(),
+		c.Context(),
 		st,
 		st,
 		clock.WallClock,
@@ -70,7 +69,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *tc.C) {
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
 	st := s.ControllerModel(c).State()
 	aMachiner, err := machine.NewMachinerAPIForState(
-		context.Background(),
+		c.Context(),
 		st,
 		st,
 		clock.WallClock,
@@ -114,7 +113,7 @@ func (s *machinerSuite) TestSetStatus(c *tc.C) {
 			{Tag: "machine-0", Status: status.Stopped.String(), Info: "foobar"},
 			{Tag: "machine-42", Status: status.Started.String(), Info: "blah"},
 		}}
-	result, err := s.machiner.SetStatus(context.Background(), args)
+	result, err := s.machiner.SetStatus(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -151,7 +150,7 @@ func (s *machinerSuite) TestLife(c *tc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
-	result, err := s.machiner.Life(context.Background(), args)
+	result, err := s.machiner.Life(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -175,7 +174,7 @@ func (s *machinerSuite) TestEnsureDead(c *tc.C) {
 		{Tag: "machine-42"},
 	}}
 	s.machineService.EXPECT().EnsureDeadMachine(gomock.Any(), coremachine.Name("1")).Return(nil).Times(2)
-	result, err := s.machiner.EnsureDead(context.Background(), args)
+	result, err := s.machiner.EnsureDead(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -196,7 +195,7 @@ func (s *machinerSuite) TestEnsureDead(c *tc.C) {
 	args = params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	}
-	result, err = s.machiner.EnsureDead(context.Background(), args)
+	result, err = s.machiner.EnsureDead(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
@@ -227,7 +226,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *tc.C) {
 
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
-	result, err := s.machiner.SetMachineAddresses(context.Background(), args)
+	result, err := s.machiner.SetMachineAddresses(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -260,7 +259,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *tc.C) {
 		{Tag: "machine-1", Addresses: params.FromMachineAddresses(addresses...)},
 	}}
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
-	result, err := s.machiner.SetMachineAddresses(context.Background(), args)
+	result, err := s.machiner.SetMachineAddresses(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -272,7 +271,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *tc.C) {
 	c.Assert(s.machine1.MachineAddresses(), tc.HasLen, 2)
 
 	args.MachineAddresses[0].Addresses = nil
-	result, err = s.machiner.SetMachineAddresses(context.Background(), args)
+	result, err = s.machiner.SetMachineAddresses(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -299,7 +298,7 @@ func (s *machinerSuite) TestWatch(c *tc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
-	result, err := s.machiner.Watch(context.Background(), args)
+	result, err := s.machiner.Watch(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -320,7 +319,7 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *tc.C) {
 		{Tag: "machine-42", Hostname: "missing-gem"},
 	}}
 
-	result, err := s.machiner.RecordAgentStartInformation(context.Background(), args)
+	result, err := s.machiner.RecordAgentStartInformation(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

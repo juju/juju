@@ -4,8 +4,6 @@
 package ec2
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
@@ -236,7 +234,7 @@ func (s *specSuite) TestFindInstanceSpec(c *tc.C) {
 		)
 		base := corebase.MakeDefaultBase("ubuntu", test.version)
 		spec, err := findInstanceSpec(
-			context.Background(),
+			c.Context(),
 			false, // non-controller
 			imageMetadata,
 			testInstanceTypes,
@@ -262,7 +260,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *tc.
 
 	c.Check(instanceConstraint.Constraints.CpuPower, tc.IsNil)
 	_, err := findInstanceSpec(
-		context.Background(),
+		c.Context(),
 		false, // non-controller
 		TestImageMetadata,
 		testInstanceTypes,
@@ -306,7 +304,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *tc.C) {
 			c, TestImageMetadata, t.base.Channel.Track, t.arch,
 		)
 		_, err := findInstanceSpec(
-			context.Background(),
+			c.Context(),
 			false, // non-controller
 			imageMetadata,
 			testInstanceTypes,
@@ -338,7 +336,7 @@ func filterImageMetadata(
 }
 
 func (*specSuite) TestFilterImagesAcceptsNil(c *tc.C) {
-	c.Check(filterImages(context.Background(), nil, nil), tc.HasLen, 0)
+	c.Check(filterImages(c.Context(), nil, nil), tc.HasLen, 0)
 }
 
 func (*specSuite) TestFilterImagesReturnsSelectively(c *tc.C) {
@@ -348,7 +346,7 @@ func (*specSuite) TestFilterImagesReturnsSelectively(c *tc.C) {
 	expectation := []*imagemetadata.ImageMetadata{&good}
 
 	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
-	c.Check(filterImages(context.Background(), input, ic), tc.DeepEquals, expectation)
+	c.Check(filterImages(c.Context(), input, ic), tc.DeepEquals, expectation)
 }
 
 func (*specSuite) TestFilterImagesMaintainsOrdering(c *tc.C) {
@@ -358,5 +356,5 @@ func (*specSuite) TestFilterImagesMaintainsOrdering(c *tc.C) {
 		{Id: "three", Storage: "ebs"},
 	}
 	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
-	c.Check(filterImages(context.Background(), input, ic), tc.DeepEquals, input)
+	c.Check(filterImages(c.Context(), input, ic), tc.DeepEquals, input)
 }

@@ -4,8 +4,6 @@
 package maas
 
 import (
-	"context"
-
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -100,7 +98,7 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *tc.C) {
 	}
 	mTag := names.NewMachineTag("1")
 	volumes, attachments, err := instance.volumes(
-		context.Background(),
+		c.Context(),
 		mTag, []names.VolumeTag{
 			names.NewVolumeTag("1"),
 			names.NewVolumeTag("2"),

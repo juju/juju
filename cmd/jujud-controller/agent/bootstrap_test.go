@@ -445,7 +445,7 @@ func (s *BootstrapSuite) makeTestModel(c *tc.C) {
 		Config: cfg,
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, tc.ErrorIsNil)
-	err = env.PrepareForBootstrap(nullContext(), "controller-1")
+	err = env.PrepareForBootstrap(nullContext(c), "controller-1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.AddCleanup(func(c *tc.C) {
@@ -455,7 +455,7 @@ func (s *BootstrapSuite) makeTestModel(c *tc.C) {
 
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	envtesting.UploadFakeTools(c, s.toolsStorage, "released")
-	inst, _, _, err := jujutesting.StartInstance(env, testing.FakeControllerConfig().ControllerUUID(), "0")
+	inst, _, _, err := jujutesting.StartInstance(c, env, testing.FakeControllerConfig().ControllerUUID(), "0")
 	c.Assert(err, tc.ErrorIsNil)
 
 	addresses, err := inst.Addresses(c.Context())
@@ -487,13 +487,14 @@ func (s *BootstrapSuite) writeBootstrapParamsFile(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func nullContext() environs.BootstrapContext {
+func nullContext(c *tc.C) environs.BootstrapContext {
 	ctx, _ := cmd.DefaultContext()
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = io.Discard
 	ctx.Stderr = io.Discard
 	return environscmd.BootstrapContext(c.Context(), ctx)
 }
+
 func getBootstrapDqliteWithDummyCloudTypeWithAssertions(c *tc.C,
 	assertions ...database.BootstrapOpt,
 ) agentbootstrap.DqliteInitializerFunc {

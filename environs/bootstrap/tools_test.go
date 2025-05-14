@@ -41,7 +41,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *tc.C) {
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	arch := arch.PPC64EL
-	validator, err := env.ConstraintsValidator(context.Background())
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arch, nil, validator)
 	c.Assert(err, tc.ErrorMatches, `cannot use agent built for "ppc64el" using a machine running on "amd64"`)
@@ -57,7 +57,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *tc.C) {
 	devVersion.Build = 1234
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	validator, err := env.ConstraintsValidator(context.Background())
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, nil, nil, validator)
 	c.Assert(err, tc.ErrorMatches, `model "foo" of type dummy does not support instances running on "ppc64el"`)
@@ -70,7 +70,7 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *tc.C) {
 	ubuntuFocal := corebase.MustParseBaseFromString("ubuntu@20.04")
 	s.PatchValue(&arch.HostArch, func() string { return arm64 })
 	s.PatchValue(&os.HostOS, func() ostype.OSType { return ostype.Ubuntu })
-	validator, err := env.ConstraintsValidator(context.Background())
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arm64, &ubuntuFocal, validator)
 	c.Assert(err, tc.ErrorIsNil)
@@ -145,7 +145,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *tc.C) {
 			extra["agent-stream"] = test.streams[0]
 		}
 		env := newEnviron("foo", useDefaultKeys, extra)
-		bootstrap.FindBootstrapTools(context.Background(), env, ss, test.version, test.arch, test.base)
+		bootstrap.FindBootstrapTools(c.Context(), env, ss, test.version, test.arch, test.base)
 		c.Assert(called, tc.Equals, i+1)
 		c.Assert(filter, tc.Equals, test.filter)
 		if test.streams != nil {
@@ -167,7 +167,7 @@ func (s *toolsSuite) TestFindAvailableToolsError(c *tc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	_, err := bootstrap.FindPackagedTools(context.Background(), env, ss, nil, nil, nil)
+	_, err := bootstrap.FindPackagedTools(c.Context(), env, ss, nil, nil, nil)
 	c.Assert(err, tc.ErrorMatches, "splat")
 }
 
@@ -179,7 +179,7 @@ func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *tc.C) {
 		"agent-version": "1.17.1",
 	})
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	_, err := bootstrap.FindPackagedTools(context.Background(), env, ss, nil, nil, nil)
+	_, err := bootstrap.FindPackagedTools(c.Context(), env, ss, nil, nil, nil)
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -205,7 +205,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *tc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	toolsVersion := semversion.MustParse("10.11.12")
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	result, err := bootstrap.FindPackagedTools(context.Background(), env, ss, &toolsVersion, nil, nil)
+	result, err := bootstrap.FindPackagedTools(c.Context(), env, ss, &toolsVersion, nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(findToolsCalled, tc.Equals, 1)
 	c.Assert(result, tc.DeepEquals, tools.List{
@@ -235,7 +235,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *tc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	availableTools, err := bootstrap.FindPackagedTools(context.Background(), env, ss, nil, nil, nil)
+	availableTools, err := bootstrap.FindPackagedTools(c.Context(), env, ss, nil, nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(availableTools, tc.HasLen, len(allTools))
 	c.Assert(env.constraintsValidatorCount, tc.Equals, 0)

@@ -4,8 +4,6 @@
 package gce_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
@@ -100,7 +98,7 @@ func (s *ConfigSuite) TestNewModelConfig(c *tc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(context.Background(), environs.OpenParams{
+		environ, err := environs.New(c.Context(), environs.OpenParams{
 			Cloud:  gce.MakeTestCloudSpec(),
 			Config: testConfig,
 		}, environs.NoopCredentialInvalidator())
@@ -120,7 +118,7 @@ func (s *ConfigSuite) TestValidateNewConfig(c *tc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := gce.Provider.Validate(context.Background(), testConfig, nil)
+		validatedConfig, err := gce.Provider.Validate(c.Context(), testConfig, nil)
 
 		// Check the result
 		if test.err != "" {
@@ -139,7 +137,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *tc.C) {
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		_, err := gce.Provider.Validate(context.Background(), s.config, test.newConfig(c))
+		_, err := gce.Provider.Validate(c.Context(), s.config, test.newConfig(c))
 		if test.err != "" {
 			// In this test, we case only about the validating
 			// the old configuration, not about the success cases.
@@ -163,7 +161,7 @@ func (s *ConfigSuite) TestValidateChange(c *tc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := gce.Provider.Validate(context.Background(), testConfig, s.config)
+		validatedConfig, err := gce.Provider.Validate(c.Context(), testConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {
@@ -178,14 +176,14 @@ func (s *ConfigSuite) TestSetConfig(c *tc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(context.Background(), environs.OpenParams{
+		environ, err := environs.New(c.Context(), environs.OpenParams{
 			Cloud:  gce.MakeTestCloudSpec(),
 			Config: s.config,
 		}, environs.NoopCredentialInvalidator())
 		c.Assert(err, tc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)
-		err = environ.SetConfig(context.Background(), testConfig)
+		err = environ.SetConfig(c.Context(), testConfig)
 
 		// Check the result.
 		if test.err != "" {

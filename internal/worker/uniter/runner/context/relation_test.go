@@ -38,7 +38,7 @@ func (s *ContextRelationSuite) setUp(c *tc.C) *gomock.Controller {
 func (s *ContextRelationSuite) assertSettingsCaching(c *tc.C, members ...string) {
 	defer s.setUp(c).Finish()
 
-	s.relUnit.EXPECT().ReadSettings(c.Context(), "u/1").Return(params.Settings{"blib": "blob"}, nil)
+	s.relUnit.EXPECT().ReadSettings(gomock.Any(), "u/1").Return(params.Settings{"blib": "blob"}, nil)
 
 	cache := context.NewRelationCache(s.relUnit.ReadSettings, members)
 	ctx := context.NewContextRelation(s.relUnit, cache, false)

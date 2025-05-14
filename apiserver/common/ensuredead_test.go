@@ -63,7 +63,7 @@ func (*deadEnsurerSuite) TestEnsureDead(c *tc.C) {
 	entities := params.Entities{[]params.Entity{
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"},
 	}}
-	result, err := d.EnsureDead(context.Background(), entities)
+	result, err := d.EnsureDead(c.Context(), entities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -84,7 +84,7 @@ func (*deadEnsurerSuite) TestEnsureDeadError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
-	_, err := d.EnsureDead(context.Background(), params.Entities{[]params.Entity{{"x0"}}})
+	_, err := d.EnsureDead(c.Context(), params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
@@ -95,7 +95,7 @@ func (*deadEnsurerSuite) TestEnsureDeadNoArgsNoError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
-	result, err := d.EnsureDead(context.Background(), params.Entities{})
+	result, err := d.EnsureDead(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
 }

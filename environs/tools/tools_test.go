@@ -4,7 +4,6 @@
 package tools_test
 
 import (
-	stdcontext "context"
 	"os"
 	"path/filepath"
 
@@ -102,7 +101,7 @@ func (s *SimpleStreamsToolsSuite) uploadStreams(c *tc.C, versions toolstesting.S
 func (s *SimpleStreamsToolsSuite) resetEnv(c *tc.C, attrs map[string]interface{}) {
 	jujuversion.Current = s.origCurrentVersion
 	attrs = coretesting.FakeConfig().Merge(attrs)
-	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.Background(), c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c.Context(), c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),

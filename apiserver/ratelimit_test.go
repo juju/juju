@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -45,24 +44,24 @@ func (s *rateLimitSuite) TestRateLimitAgents(c *tc.C) {
 	info := s.ControllerModelApiInfo()
 	// First agent connection is fine.
 	machine1 := s.infoForNewMachine(c, info)
-	conn1, err := api.Open(context.Background(), machine1, fastDialOpts)
+	conn1, err := api.Open(c.Context(), machine1, fastDialOpts)
 	c.Assert(err, tc.ErrorIsNil)
 	defer conn1.Close()
 
 	// Second machine in the same minute gets told to go away and try again.
 	machine2 := s.infoForNewMachine(c, info)
-	_, err = api.Open(context.Background(), machine2, fastDialOpts)
+	_, err = api.Open(c.Context(), machine2, fastDialOpts)
 	c.Assert(err, tc.ErrorMatches, `try again \(try again\)`)
 
 	// If we wait a minute and try again, it is fine.
 	s.Clock.Advance(time.Minute)
-	conn2, err := api.Open(context.Background(), machine2, fastDialOpts)
+	conn2, err := api.Open(c.Context(), machine2, fastDialOpts)
 	c.Assert(err, tc.ErrorIsNil)
 	defer conn2.Close()
 
 	// And the next one is limited.
 	machine3 := s.infoForNewMachine(c, info)
-	_, err = api.Open(context.Background(), machine3, fastDialOpts)
+	_, err = api.Open(c.Context(), machine3, fastDialOpts)
 	c.Assert(err, tc.ErrorMatches, `try again \(try again\)`)
 }
 
@@ -71,18 +70,18 @@ func (s *rateLimitSuite) TestRateLimitNotApplicableToUsers(c *tc.C) {
 
 	// First agent connection is fine.
 	machine1 := s.infoForNewMachine(c, info)
-	conn1, err := api.Open(context.Background(), machine1, fastDialOpts)
+	conn1, err := api.Open(c.Context(), machine1, fastDialOpts)
 	c.Assert(err, tc.ErrorIsNil)
 	defer conn1.Close()
 
 	// User connections are fine.
 	user := s.infoForNewUser(c, info, "fredrikthordendal")
-	conn2, err := api.Open(context.Background(), user, fastDialOpts)
+	conn2, err := api.Open(c.Context(), user, fastDialOpts)
 	c.Assert(err, tc.ErrorIsNil)
 	defer conn2.Close()
 
 	user2 := s.infoForNewUser(c, info, "jenskidman")
-	conn3, err := api.Open(context.Background(), user2, fastDialOpts)
+	conn3, err := api.Open(c.Context(), user2, fastDialOpts)
 	c.Assert(err, tc.ErrorIsNil)
 	defer conn3.Close()
 }
@@ -109,7 +108,7 @@ func (s *rateLimitSuite) infoForNewUser(c *tc.C, info *api.Info, name string) *a
 	accessService := s.ControllerDomainServices(c).Access()
 
 	userTag := names.NewUserTag(name)
-	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := accessService.AddUser(c.Context(), service.AddUserArg{
 		Name:        user.NameFromTag(userTag),
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),
@@ -123,7 +122,7 @@ func (s *rateLimitSuite) infoForNewUser(c *tc.C, info *api.Info, name string) *a
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+	_, err = accessService.CreatePermission(c.Context(), permission.UserAccessSpec{
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Model,

@@ -24,7 +24,7 @@ var logger = internallogger.GetLogger("juju.environs.testing")
 // DisableFinishBootstrap disables common.FinishBootstrap so that tests
 // do not attempt to SSH to non-existent machines. The result is a function
 // that restores finishBootstrap.
-func DisableFinishBootstrap() func() {
+func DisableFinishBootstrap(c *tc.C) func() {
 	f := func(
 		environs.BootstrapContext,
 		ssh.Client,
@@ -33,7 +33,7 @@ func DisableFinishBootstrap() func() {
 		*instancecfg.InstanceConfig,
 		environs.BootstrapDialOpts,
 	) error {
-		logger.Infof(context.Background(), "provider/common.FinishBootstrap is disabled")
+		logger.Infof(c.Context(), "provider/common.FinishBootstrap is disabled")
 		return nil
 	}
 	return testhelpers.PatchValue(&common.FinishBootstrap, f)
@@ -45,5 +45,5 @@ func BootstrapContext(ctx context.Context, c *tc.C) environs.BootstrapContext {
 }
 
 func BootstrapTestContext(c *tc.C) environs.BootstrapContext {
-	return BootstrapContext(context.Background(), c)
+	return BootstrapContext(c.Context(), c)
 }

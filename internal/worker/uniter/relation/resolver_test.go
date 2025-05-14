@@ -1262,7 +1262,7 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationResolverFordRelationNo
 	}
 
 	gomock.InOrder(
-		r.EXPECT().SynchronizeScopes(c.Context(), remoteState).Return(nil),
+		r.EXPECT().SynchronizeScopes(gomock.Any(), remoteState).Return(nil),
 		r.EXPECT().IsImplicit(1).Return(false, nil),
 		// Since the relation is not in scope, RelationCreated will
 		// return false
@@ -1316,7 +1316,7 @@ func (s *mockRelationResolverSuite) newRelationResolver(c *tc.C, stateTracker re
 
 func (s *mockRelationResolverSuite) TestNextOpNothing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectSyncScopesEmpty()
+	s.expectSyncScopesEmpty(c)
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -1352,7 +1352,7 @@ func (s *mockRelationResolverSuite) TestHookRelationJoined(c *tc.C) {
 	}
 
 	defer s.setupMocks(c).Finish()
-	s.expectSyncScopes(remoteState)
+	s.expectSyncScopes(c, remoteState)
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectStateUnknown(1)
@@ -1396,7 +1396,7 @@ func (s *mockRelationResolverSuite) TestHookRelationChangedApplication(c *tc.C) 
 		ChangedPending: "",
 	}
 	defer s.setupMocks(c).Finish()
-	s.expectSyncScopes(remoteState)
+	s.expectSyncScopes(c, remoteState)
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectState(relationState)
@@ -1434,7 +1434,7 @@ func (s *mockRelationResolverSuite) TestHookRelationChangedSuspended(c *tc.C) {
 		ChangedPending: "",
 	}
 	defer s.setupMocks(c).Finish()
-	s.expectSyncScopes(remoteState)
+	s.expectSyncScopes(c, remoteState)
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectState(relationState)
@@ -1473,7 +1473,7 @@ func (s *mockRelationResolverSuite) TestHookRelationDeparted(c *tc.C) {
 		ChangedPending: "",
 	}
 	defer s.setupMocks(c).Finish()
-	s.expectSyncScopes(remoteState)
+	s.expectSyncScopes(c, remoteState)
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectState(relationState)
@@ -1506,7 +1506,7 @@ func (s *mockRelationResolverSuite) TestHookRelationBroken(c *tc.C) {
 
 	defer s.setupMocks(c).Finish()
 
-	s.expectSyncScopes(remoteState)
+	s.expectSyncScopes(c, remoteState)
 
 	relationState1 := relation.State{
 		RelationId:         1,
@@ -1555,7 +1555,7 @@ func (s *mockRelationResolverSuite) TestHookRelationBrokenWhenSuspended(c *tc.C)
 		ChangedPending:     "",
 	}
 	defer s.setupMocks(c).Finish()
-	s.expectSyncScopes(remoteState)
+	s.expectSyncScopes(c, remoteState)
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectState(relationState)
@@ -1590,7 +1590,7 @@ func (s *mockRelationResolverSuite) TestHookRelationBrokenOnlyOnce(c *tc.C) {
 		ChangedPending:     "",
 	}
 	defer s.setupMocks(c).Finish()
-	s.expectSyncScopes(remoteState)
+	s.expectSyncScopes(c, remoteState)
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectState(relationState)
@@ -1620,7 +1620,7 @@ func (s *mockRelationResolverSuite) TestImplicitRelationNoHooks(c *tc.C) {
 		},
 	}
 	defer s.setupMocks(c).Finish()
-	s.expectSyncScopes(remoteState)
+	s.expectSyncScopes(c, remoteState)
 	s.expectIsKnown(1)
 	s.expectIsImplicit(1)
 
@@ -1659,7 +1659,7 @@ func (s *mockRelationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *tc
 	}
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	s.expectSyncScopes(remoteState)
+	s.expectSyncScopes(c, remoteState)
 	s.expectIsKnown(1)
 	s.expectIsImplicitFalse(1)
 	s.expectState(relationState)
@@ -1684,12 +1684,12 @@ func (s *mockRelationResolverSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *mockRelationResolverSuite) expectSyncScopesEmpty() {
+func (s *mockRelationResolverSuite) expectSyncScopesEmpty(c *tc.C) {
 	exp := s.mockRelStTracker.EXPECT()
 	exp.SynchronizeScopes(c.Context(), remotestate.Snapshot{}).Return(nil)
 }
 
-func (s *mockRelationResolverSuite) expectSyncScopes(snapshot remotestate.Snapshot) {
+func (s *mockRelationResolverSuite) expectSyncScopes(c *tc.C, snapshot remotestate.Snapshot) {
 	exp := s.mockRelStTracker.EXPECT()
 	exp.SynchronizeScopes(c.Context(), snapshot).Return(nil)
 }

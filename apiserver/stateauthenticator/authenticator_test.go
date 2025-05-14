@@ -63,7 +63,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(authenticator, tc.NotNil)
 
-	s.accessService.EXPECT().GetUserByAuth(c.Context(), coreusertesting.GenNewName(c, "user"), auth.NewPassword("password")).Return(user, nil).AnyTimes()
+	s.accessService.EXPECT().GetUserByAuth(gomock.Any(), coreusertesting.GenNewName(c, "user"), auth.NewPassword("password")).Return(user, nil).AnyTimes()
 
 	entity, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     tag,

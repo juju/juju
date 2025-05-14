@@ -64,7 +64,7 @@ func (s *bootstrapSuite) TestAddCustomImageMetadata(c *tc.C) {
 	err := AddCustomImageMetadata(clock.WallClock, defaultStream, metadata)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
-	insertedMetadata, err := s.retrieveMetadataFromDB()
+	insertedMetadata, err := s.retrieveMetadataFromDB(c)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insertedMetadata, tc.SameContents,
 		[]cloudimagemetadata.Metadata{
@@ -115,7 +115,7 @@ func (s *bootstrapSuite) TestInitCustomImageMetadataWithNil(c *tc.C) {
 	err := AddCustomImageMetadata(clock.WallClock, "useless", []*imagemetadata.ImageMetadata{nil, nil, nil})(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
-	insertedMetadata, err := s.retrieveMetadataFromDB()
+	insertedMetadata, err := s.retrieveMetadataFromDB(c)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(insertedMetadata, tc.HasLen, 0)
 }
@@ -124,7 +124,7 @@ func (s *bootstrapSuite) TestInitCustomImageMetadataWithNil(c *tc.C) {
 // It joins the architecture table to fetch architecture-related details and returns the metadata slice.
 //
 // It is used in test to keep save and find tests independent of each other
-func (s *bootstrapSuite) retrieveMetadataFromDB() ([]cloudimagemetadata.Metadata, error) {
+func (s *bootstrapSuite) retrieveMetadataFromDB(c *tc.C) ([]cloudimagemetadata.Metadata, error) {
 	var metadata []cloudimagemetadata.Metadata
 	return metadata, s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query(`

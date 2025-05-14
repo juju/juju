@@ -75,7 +75,7 @@ func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `maas provider does not support image metadata validation`)
 }
 
-func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region string, base corebase.Base, endpoint, stream string) error {
+func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *tc.C, id, region string, base corebase.Base, endpoint, stream string) error {
 	im := &imagemetadata.ImageMetadata{
 		Id:     id,
 		Arch:   "amd64",
@@ -166,7 +166,7 @@ func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *tc.C, region, stre
 	c.Assert(err, tc.ErrorIsNil)
 
 	base := corebase.MustParseBaseFromString("ubuntu@22.04")
-	err = s.makeLocalMetadata("1234", region, base, ep.URL, stream)
+	err = s.makeLocalMetadata(c, "1234", region, base, ep.URL, stream)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -231,7 +231,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *tc.C) {
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *tc.C) {
 	base := corebase.MustParseBaseFromString("ubuntu@13.04")
-	err := s.makeLocalMetadata("1234", "region-2", base, "some-auth-url", "")
+	err := s.makeLocalMetadata(c, "1234", "region-2", base, "some-auth-url", "")
 	c.Assert(err, tc.ErrorIsNil)
 	ctx, err := runValidateImageMetadata(c, s.store,
 		"-p", "openstack", "--base", "ubuntu@13.04", "-r", "region-2",
@@ -247,7 +247,7 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *tc.C) {
 	base := corebase.MustParseBaseFromString("ubuntu@13.04")
-	err := s.makeLocalMetadata("1234", "region-2", base, "some-auth-url", "")
+	err := s.makeLocalMetadata(c, "1234", "region-2", base, "some-auth-url", "")
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = runValidateImageMetadata(c, s.store,
 		"-p", "openstack", "--base", "ubuntu@22.04", "-r", "region-2",

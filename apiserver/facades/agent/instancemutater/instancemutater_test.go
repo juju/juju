@@ -4,7 +4,6 @@
 package instancemutater_test
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -133,7 +132,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLife(c *tc.C) {
 	})
 	facade := s.facadeAPIForScenario(c)
 
-	results, err := facade.Life(context.Background(), params.Entities{
+	results, err := facade.Life(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0"}},
 	})
 	c.Assert(err, tc.IsNil)
@@ -154,7 +153,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidType(c *tc.C) {
 	s.expectLife(s.machineTag)
 	facade := s.facadeAPIForScenario(c)
 
-	results, err := facade.Life(context.Background(), params.Entities{
+	results, err := facade.Life(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "user-0"}},
 	})
 	c.Assert(err, tc.IsNil)
@@ -184,7 +183,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithParentId(c *tc.C) {
 	})
 	facade := s.facadeAPIForScenario(c)
 
-	results, err := facade.Life(context.Background(), params.Entities{
+	results, err := facade.Life(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0-lxd-0"}},
 	})
 	c.Assert(err, tc.IsNil)
@@ -207,7 +206,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidParentId(c *tc.C) {
 	s.expectLife(machineTag)
 	facade := s.facadeAPIForScenario(c)
 
-	results, err := facade.Life(context.Background(), params.Entities{
+	results, err := facade.Life(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1-lxd-0"}},
 	})
 	c.Assert(err, tc.IsNil)
@@ -273,7 +272,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *tc
 		Name: "foo",
 	}, nil)
 
-	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
+	results, err := facade.CharmProfilingInfo(c.Context(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(results.Error, tc.IsNil)
 	c.Assert(results.InstanceId, tc.Equals, instance.Id("0"))
@@ -322,7 +321,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 		Name: "foo",
 	}, nil)
 
-	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
+	results, err := facade.CharmProfilingInfo(c.Context(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(results.Error, tc.IsNil)
 	c.Assert(results.InstanceId, tc.Equals, instance.Id("0"))
@@ -363,7 +362,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithIn
 	s.expectFindMachineError(s.machineTag, errors.New("not found"))
 	facade := s.facadeAPIForScenario(c)
 
-	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
+	results, err := facade.CharmProfilingInfo(c.Context(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(results.Error, tc.ErrorMatches, "not found")
 }
@@ -379,7 +378,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid0")).Return("", machineerrors.NotProvisioned)
 
-	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
+	results, err := facade.CharmProfilingInfo(c.Context(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(results.Error, tc.ErrorMatches, ".* not provisioned")
 	c.Assert(results.InstanceId, tc.Equals, instance.Id(""))
@@ -492,7 +491,7 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *tc.C) 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
 	s.machineService.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), machine.UUID("uuid0"), profiles).Return(nil)
 
-	results, err := facade.SetCharmProfiles(context.Background(), params.SetProfileArgs{
+	results, err := facade.SetCharmProfiles(c.Context(), params.SetProfileArgs{
 		Args: []params.SetProfileArg{
 			{
 				Entity:   params.Entity{Tag: "machine-0"},
@@ -518,7 +517,7 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(
 	s.machineService.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), machine.UUID("uuid0"), profiles).Return(nil)
 	s.machineService.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), machine.UUID("uuid0"), profiles).Return(errors.New("Failure"))
 
-	results, err := facade.SetCharmProfiles(context.Background(), params.SetProfileArgs{
+	results, err := facade.SetCharmProfiles(c.Context(), params.SetProfileArgs{
 		Args: []params.SetProfileArg{
 			{
 				Entity:   params.Entity{Tag: "machine-0"},
@@ -567,7 +566,7 @@ func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatus
 	s.expectSetModificationStatus(status.Applied, "applied", nil)
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.SetModificationStatus(context.Background(), params.SetStatus{
+	result, err := facade.SetModificationStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "machine-0", Status: "applied", Info: "applied", Data: nil},
 		},
@@ -589,7 +588,7 @@ func (s *InstanceMutaterAPISetModificationStatusSuite) TestSetModificationStatus
 	s.expectSetModificationStatus(status.Applied, "applied", errors.New("failed"))
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.SetModificationStatus(context.Background(), params.SetStatus{
+	result, err := facade.SetModificationStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "machine-0", Status: "applied", Info: "applied", Data: nil},
 		},
@@ -643,7 +642,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchModelMachines(c *tc.C) {
 	s.expectWatchModelMachinesWithNotify(1)
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.WatchModelMachines(context.Background())
+	result, err := facade.WatchModelMachines(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -660,7 +659,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchModelMachinesWithClosedC
 	s.expectWatchModelMachinesWithClosedChannel()
 	facade := s.facadeAPIForScenario(c)
 
-	_, err := facade.WatchModelMachines(context.Background())
+	_, err := facade.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, "cannot obtain initial model machines")
 }
 
@@ -672,7 +671,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *tc.C) {
 	s.expectWatchMachinesWithNotify(1)
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.WatchMachines(context.Background())
+	result, err := facade.WatchMachines(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -689,7 +688,7 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChanne
 	s.expectWatchMachinesWithClosedChannel()
 	facade := s.facadeAPIForScenario(c)
 
-	_, err := facade.WatchMachines(context.Background())
+	_, err := facade.WatchMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, "cannot obtain initial model machines")
 }
 
@@ -766,10 +765,10 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectWatchLXDProfileVerificationNeededWithNotify(1)
+	s.expectWatchLXDProfileVerificationNeededWithNotify(c, 1)
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.WatchLXDProfileVerificationNeeded(context.Background(), params.Entities{
+	result, err := facade.WatchLXDProfileVerificationNeeded(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
 	c.Assert(err, tc.IsNil)
@@ -788,7 +787,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	s.expectLife(s.machineTag)
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.WatchLXDProfileVerificationNeeded(context.Background(), params.Entities{
+	result, err := facade.WatchLXDProfileVerificationNeeded(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewUserTag("bob@local").String()}},
 	})
 	c.Assert(err, tc.IsNil)
@@ -804,10 +803,10 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectWatchLXDProfileVerificationNeededWithClosedChannel()
+	s.expectWatchLXDProfileVerificationNeededWithClosedChannel(c)
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.WatchLXDProfileVerificationNeeded(context.Background(), params.Entities{
+	result, err := facade.WatchLXDProfileVerificationNeeded(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
 	c.Assert(err, tc.IsNil)
@@ -823,10 +822,10 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectWatchLXDProfileVerificationNeededWithManualMachine()
+	s.expectWatchLXDProfileVerificationNeededWithManualMachine(c)
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.WatchLXDProfileVerificationNeeded(context.Background(), params.Entities{
+	result, err := facade.WatchLXDProfileVerificationNeeded(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
 	c.Assert(err, tc.IsNil)
@@ -842,10 +841,10 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 
 	s.expectAuthMachineAgent()
 	s.expectLife(s.machineTag)
-	s.expectWatchLXDProfileVerificationNeededError()
+	s.expectWatchLXDProfileVerificationNeededError(c)
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.WatchLXDProfileVerificationNeeded(context.Background(), params.Entities{
+	result, err := facade.WatchLXDProfileVerificationNeeded(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
 	c.Assert(err, tc.IsNil)
@@ -856,7 +855,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	})
 }
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithNotify(times int) {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithNotify(c *tc.C, times int) {
 	ch := make(chan struct{})
 
 	go func() {
@@ -868,34 +867,34 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Return(s.watcher, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(gomock.Any(), s.machine, gomock.Any()).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 	s.resources.EXPECT().Register(s.watcher).Return("1")
 }
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithClosedChannel() {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithClosedChannel(c *tc.C) {
 	ch := make(chan struct{})
 	close(ch)
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Return(s.watcher, nil)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(gomock.Any(), s.machine, gomock.Any()).Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 }
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededError() {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededError(c *tc.C) {
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(false, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Return(s.watcher, errors.New("watcher error"))
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(gomock.Any(), s.machine, gomock.Any()).Return(s.watcher, errors.New("watcher error"))
 }
 
-func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithManualMachine() {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithManualMachine(c *tc.C) {
 	ch := make(chan struct{})
 	close(ch)
 
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().IsManual().Return(true, nil)
-	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(context.Background(), s.machine, gomock.Any()).Times(0)
+	s.mutatorWatcher.EXPECT().WatchLXDProfileVerificationForMachine(gomock.Any(), s.machine, gomock.Any()).Times(0)
 }
 
 type InstanceMutaterAPIWatchContainersSuite struct {
@@ -924,7 +923,7 @@ func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainers(c *tc.C) {
 	s.expectWatchContainersWithNotify(1)
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.WatchContainers(context.Background(), params.Entity{Tag: s.machineTag.String()})
+	result, err := facade.WatchContainers(c.Context(), params.Entity{Tag: s.machineTag.String()})
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -940,7 +939,7 @@ func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithInvalidT
 	s.expectLife(s.machineTag)
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.WatchContainers(context.Background(), params.Entity{Tag: names.NewUserTag("bob@local").String()})
+	result, err := facade.WatchContainers(c.Context(), params.Entity{Tag: names.NewUserTag("bob@local").String()})
 	c.Logf("%#v", err)
 	c.Assert(err, tc.ErrorMatches, "\"user-bob\" is not a valid machine tag")
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{})
@@ -954,7 +953,7 @@ func (s *InstanceMutaterAPIWatchContainersSuite) TestWatchContainersWithClosedCh
 	s.expectWatchContainersWithClosedChannel()
 	facade := s.facadeAPIForScenario(c)
 
-	result, err := facade.WatchContainers(context.Background(), params.Entity{Tag: s.machineTag.String()})
+	result, err := facade.WatchContainers(c.Context(), params.Entity{Tag: s.machineTag.String()})
 	c.Assert(err, tc.ErrorMatches, "cannot obtain initial machine containers")
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{})
 }

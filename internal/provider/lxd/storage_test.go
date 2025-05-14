@@ -4,8 +4,6 @@
 package lxd_test
 
 import (
-	"context"
-
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -100,7 +98,7 @@ func (s *storageSuite) TestCreateFilesystems(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	source := s.filesystemSource(c, "source")
-	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(c.Context(), []storage.FilesystemParams{{
 		Tag:      names.NewFilesystemTag("0"),
 		Provider: "lxd",
 		Size:     1024,
@@ -136,7 +134,7 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *tc.C) {
 
 	s.Stub.SetErrors(errors.New("pool already exists"))
 	source := s.filesystemSource(c, "source")
-	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(c.Context(), []storage.FilesystemParams{{
 		Tag:      names.NewFilesystemTag("0"),
 		Provider: "lxd",
 		Size:     1024,
@@ -175,7 +173,7 @@ func (s *storageSuite) TestCreateFilesystemsInvalidCredentials(c *tc.C) {
 
 	source := s.filesystemSource(c, "source")
 	s.Client.Stub.SetErrors(nil, errTestUnAuth)
-	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(c.Context(), []storage.FilesystemParams{{
 		Tag:      names.NewFilesystemTag("0"),
 		Provider: "lxd",
 		Size:     1024,
@@ -198,7 +196,7 @@ func (s *storageSuite) TestDestroyFilesystems(c *tc.C) {
 
 	s.Stub.SetErrors(nil, errors.New("boom"))
 	source := s.filesystemSource(c, "source")
-	results, err := source.DestroyFilesystems(context.Background(), []string{
+	results, err := source.DestroyFilesystems(c.Context(), []string{
 		"filesystem-0",
 		"pool0:filesystem-0",
 		"pool1:filesystem-1",
@@ -222,7 +220,7 @@ func (s *storageSuite) TestDestroyFilesystemsInvalidCredentials(c *tc.C) {
 
 	s.Client.Stub.SetErrors(errTestUnAuth)
 	source := s.filesystemSource(c, "source")
-	results, err := source.DestroyFilesystems(context.Background(), []string{
+	results, err := source.DestroyFilesystems(c.Context(), []string{
 		"pool0:filesystem-0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -251,7 +249,7 @@ func (s *storageSuite) TestReleaseFilesystems(c *tc.C) {
 	}
 
 	source := s.filesystemSource(c, "source")
-	results, err := source.ReleaseFilesystems(context.Background(), []string{
+	results, err := source.ReleaseFilesystems(c.Context(), []string{
 		"filesystem-0",
 		"foo:filesystem-0",
 		"foo:filesystem-1",
@@ -287,7 +285,7 @@ func (s *storageSuite) TestReleaseFilesystemsInvalidCredentials(c *tc.C) {
 	s.Stub.SetErrors(errTestUnAuth)
 
 	source := s.filesystemSource(c, "source")
-	results, err := source.ReleaseFilesystems(context.Background(), []string{
+	results, err := source.ReleaseFilesystems(c.Context(), []string{
 		"foo:filesystem-0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -315,7 +313,7 @@ func (s *storageSuite) TestAttachFilesystems(c *tc.C) {
 	s.Client.Containers = []containerlxd.Container{*container}
 
 	source := s.filesystemSource(c, "pool")
-	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
@@ -395,7 +393,7 @@ func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsInstanceError(c *t
 	s.Client.Containers = []containerlxd.Container{*container}
 
 	source := s.filesystemSource(c, "pool")
-	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
@@ -430,7 +428,7 @@ func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsAttachingFilesyste
 	s.Client.Containers = []containerlxd.Container{*container}
 
 	source := s.filesystemSource(c, "pool")
-	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
@@ -463,7 +461,7 @@ func (s *storageSuite) TestDetachFilesystems(c *tc.C) {
 	s.Client.Containers = []containerlxd.Container{*container}
 
 	source := s.filesystemSource(c, "pool")
-	results, err := source.DetachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
+	results, err := source.DetachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
@@ -516,7 +514,7 @@ func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsInstanceErrors(c *
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	source := s.filesystemSource(c, "pool")
-	results, err := source.DetachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
+	results, err := source.DetachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
@@ -549,7 +547,7 @@ func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsDetachFilesystem(c
 	s.Client.Containers = []containerlxd.Container{*container}
 
 	source := s.filesystemSource(c, "pool")
-	results, err := source.DetachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
+	results, err := source.DetachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
@@ -579,7 +577,7 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 		}},
 	}
 
-	info, err := importer.ImportFilesystem(context.Background(),
+	info, err := importer.ImportFilesystem(c.Context(),
 		"foo:bar", map[string]string{
 			"baz": "qux",
 		})
@@ -612,7 +610,7 @@ func (s *storageSuite) TestImportFilesystemInvalidCredentialsGetPool(c *tc.C) {
 	c.Assert(source, tc.Implements, new(storage.FilesystemImporter))
 	importer := source.(storage.FilesystemImporter)
 
-	info, err := importer.ImportFilesystem(context.Background(),
+	info, err := importer.ImportFilesystem(c.Context(),
 		"foo:bar", map[string]string{
 			"baz": "qux",
 		})
@@ -640,7 +638,7 @@ func (s *storageSuite) TestImportFilesystemInvalidCredentialsUpdatePool(c *tc.C)
 		}},
 	}
 
-	info, err := importer.ImportFilesystem(context.Background(),
+	info, err := importer.ImportFilesystem(c.Context(),
 		"foo:bar", map[string]string{
 			"baz": "qux",
 		})

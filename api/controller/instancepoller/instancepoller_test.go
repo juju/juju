@@ -4,7 +4,6 @@
 package instancepoller_test
 
 import (
-	"context"
 	"errors"
 
 	"github.com/juju/names/v6"
@@ -33,7 +32,7 @@ func (s *InstancePollerSuite) TestNewAPI(c *tc.C) {
 	c.Check(apiCaller.CallCount, tc.Equals, 0)
 
 	// Nothing happens until we actually call something else.
-	m, err := api.Machine(context.Background(), names.MachineTag{})
+	m, err := api.Machine(c.Context(), names.MachineTag{})
 	c.Assert(err, tc.ErrorMatches, "client error!")
 	c.Assert(m, tc.IsNil)
 	c.Check(apiCaller.CallCount, tc.Equals, 1)
@@ -52,7 +51,7 @@ func (s *InstancePollerSuite) TestMachineCallsLife(c *tc.C) {
 	}
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, expectedResults)
 	api := instancepoller.NewAPI(apiCaller)
-	m, err := api.Machine(context.Background(), names.NewMachineTag("42"))
+	m, err := api.Machine(c.Context(), names.NewMachineTag("42"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, tc.Equals, 1)
 	c.Assert(m.Life(), tc.Equals, life.Value("working"))
@@ -77,7 +76,7 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *tc.C) {
 	apiCaller := successAPICaller(c, "WatchModelMachineStartTimes", nil, expectResult)
 
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchModelMachines(context.Background())
+	w, err := api.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, tc.Equals, 1)
 	c.Assert(numWatcherCalls, tc.Equals, 1)
@@ -87,7 +86,7 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *tc.C) {
 func (s *InstancePollerSuite) TestWatchModelMachineStartTimesClientError(c *tc.C) {
 	apiCaller := clientErrorAPICaller(c, "WatchModelMachineStartTimes", nil)
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchModelMachines(context.Background())
+	w, err := api.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, "client error!")
 	c.Assert(w, tc.IsNil)
 	c.Assert(apiCaller.CallCount, tc.Equals, 1)
@@ -100,7 +99,7 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesServerError(c *tc.C
 	apiCaller := successAPICaller(c, "WatchModelMachineStartTimes", nil, expectedResults)
 
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchModelMachines(context.Background())
+	w, err := api.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, "server boom!")
 	c.Assert(apiCaller.CallCount, tc.Equals, 1)
 	c.Assert(w, tc.IsNil)

@@ -4,8 +4,6 @@
 package gce_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -38,7 +36,7 @@ func (s *providerSuite) TestRegistered(c *tc.C) {
 }
 
 func (s *providerSuite) TestOpen(c *tc.C) {
-	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
+	env, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: s.Config,
 	}, environs.NoopCredentialInvalidator())
@@ -65,7 +63,7 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *tc.C) {
 }
 
 func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
+	_, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: s.Config,
 	}, environs.NoopCredentialInvalidator())
@@ -73,12 +71,12 @@ func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec,
 }
 
 func (s *providerSuite) TestValidateCloud(c *tc.C) {
-	err := s.provider.ValidateCloud(context.Background(), gce.MakeTestCloudSpec())
+	err := s.provider.ValidateCloud(c.Context(), gce.MakeTestCloudSpec())
 	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *providerSuite) TestValidate(c *tc.C) {
-	validCfg, err := s.provider.Validate(context.Background(), s.Config, nil)
+	validCfg, err := s.provider.Validate(c.Context(), s.Config, nil)
 	c.Check(err, tc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()

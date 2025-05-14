@@ -4,7 +4,6 @@
 package manual_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 
@@ -111,18 +110,18 @@ func (s *providerSuite) testPrepareForBootstrap(c *tc.C) (environs.BootstrapCont
 	cloudSpec := environscloudspec.CloudSpec{
 		Endpoint: "endpoint",
 	}
-	err = manual.ProviderInstance.ValidateCloud(context.Background(), cloudSpec)
+	err = manual.ProviderInstance.ValidateCloud(c.Context(), cloudSpec)
 	if err != nil {
 		return nil, err
 	}
-	env, err := manual.ProviderInstance.Open(context.Background(), environs.OpenParams{
+	env, err := manual.ProviderInstance.Open(c.Context(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: testConfig,
 	}, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, err
 	}
-	ctx := envtesting.BootstrapContext(context.Background(), c)
+	ctx := envtesting.BootstrapContext(c.Context(), c)
 	return ctx, env.PrepareForBootstrap(ctx, "controller-1")
 }
 
@@ -139,18 +138,18 @@ func (s *providerSuite) testBootstrap(c *tc.C, args testBootstrapArgs) (environs
 		Endpoint: args.endpoint,
 		Region:   "region",
 	}
-	err = manual.ProviderInstance.ValidateCloud(context.Background(), cloudSpec)
+	err = manual.ProviderInstance.ValidateCloud(c.Context(), cloudSpec)
 	if err != nil {
 		return nil, err
 	}
-	env, err := manual.ProviderInstance.Open(context.Background(), environs.OpenParams{
+	env, err := manual.ProviderInstance.Open(c.Context(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: testConfig,
 	}, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, err
 	}
-	ctx := envtesting.BootstrapContext(context.Background(), c)
+	ctx := envtesting.BootstrapContext(c.Context(), c)
 	_, err = env.Bootstrap(ctx, args.params)
 	return ctx, err
 }
@@ -174,7 +173,7 @@ func (s *providerSuite) TestDisablesUpdatesByDefault(c *tc.C) {
 	c.Check(testConfig.EnableOSRefreshUpdate(), tc.IsTrue)
 	c.Check(testConfig.EnableOSUpgrade(), tc.IsTrue)
 
-	validCfg, err := p.Validate(context.Background(), testConfig, nil)
+	validCfg, err := p.Validate(c.Context(), testConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Unless specified, update should default to true,
@@ -193,7 +192,7 @@ func (s *providerSuite) TestDefaultsCanBeOverriden(c *tc.C) {
 
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, tc.ErrorIsNil)
-	validCfg, err := p.Validate(context.Background(), testConfig, nil)
+	validCfg, err := p.Validate(c.Context(), testConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Our preferences should not have been overwritten.
@@ -220,7 +219,7 @@ func (s *providerSuite) TestPingEndpointWithUser(c *tc.C) {
 	})
 	p, err := environs.Provider("manual")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(p.Ping(context.Background(), endpoint), tc.ErrorIsNil)
+	c.Assert(p.Ping(c.Context(), endpoint), tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
 }
 
@@ -239,7 +238,7 @@ func (s *providerSuite) TestPingIP(c *tc.C) {
 	})
 	p, err := environs.Provider("manual")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(p.Ping(context.Background(), endpoint), tc.ErrorIsNil)
+	c.Assert(p.Ping(c.Context(), endpoint), tc.ErrorIsNil)
 	// Expect the call to be made twice.
 	c.Assert(called, tc.Equals, 1)
 }

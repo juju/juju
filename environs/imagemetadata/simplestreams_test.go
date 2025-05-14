@@ -5,7 +5,6 @@ package imagemetadata_test
 
 import (
 	"bytes"
-	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -327,7 +326,7 @@ func (s *simplestreamsSuite) TestFetch(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
-		images, resolveInfo, err := imagemetadata.Fetch(context.Background(), ss,
+		images, resolveInfo, err := imagemetadata.Fetch(c.Context(), ss,
 			[]simplestreams.DataSource{invalidSource, s.Source}, imageConstraint)
 		if !c.Check(err, tc.ErrorIsNil) {
 			continue
@@ -425,7 +424,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *tc.C) {
 		Arches:   []string{"amd64"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	images, resolveInfo, err := imagemetadata.Fetch(context.Background(), ss, []simplestreams.DataSource{signedSource}, imageConstraint)
+	images, resolveInfo, err := imagemetadata.Fetch(c.Context(), ss, []simplestreams.DataSource{signedSource}, imageConstraint)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(images), tc.Equals, 1)
 	c.Assert(images[0].Id, tc.Equals, "ami-123456")
@@ -456,7 +455,7 @@ func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	imagemetadata.SetSigningPublicKey(s.origKey)
-	_, _, err = imagemetadata.Fetch(context.Background(), ss, []simplestreams.DataSource{signedSource}, imageConstraint)
+	_, _, err = imagemetadata.Fetch(c.Context(), ss, []simplestreams.DataSource{signedSource}, imageConstraint)
 	c.Assert(err, tc.ErrorMatches, "cannot read index data.*")
 }
 
