@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	"github.com/juju/worker/v4/workertest"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
@@ -331,7 +332,6 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeRequired(c *
 		BestVersion: 2,
 		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 			var resultErr *params.Error
-			c.Logf("called")
 			switch callCount {
 			case 2, 3: //Watcher Next, Stop
 				return nil
@@ -358,9 +358,11 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeRequired(c *
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchRelationChanges(context.Background(), "token", "app-token", nil)
-	c.Check(callCount, tc.Equals, 2)
-	c.Check(err, tc.ErrorIsNil)
+	w, err := client.WatchRelationChanges(context.Background(), "token", "app-token", nil)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	c.Assert(callCount, tc.Equals, 2)
 	c.Assert(dischargeMac, tc.HasLen, 1)
 	c.Assert(dischargeMac[0].Id(), tc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
@@ -445,9 +447,11 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *t
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchRelationSuspendedStatus(context.Background(), params.RemoteEntityArg{Token: "token"})
+	w, err := client.WatchRelationSuspendedStatus(context.Background(), params.RemoteEntityArg{Token: "token"})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
 	c.Check(callCount, tc.Equals, 2)
-	c.Check(err, tc.ErrorIsNil)
 	c.Assert(dischargeMac, tc.HasLen, 1)
 	c.Assert(dischargeMac[0].Id(), tc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
@@ -617,9 +621,11 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchEgressAddressesForRelation(context.Background(), params.RemoteEntityArg{Token: "token"})
+	w, err := client.WatchEgressAddressesForRelation(context.Background(), params.RemoteEntityArg{Token: "token"})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
 	c.Check(callCount, tc.Equals, 2)
-	c.Check(err, tc.ErrorIsNil)
 	c.Assert(dischargeMac, tc.HasLen, 1)
 	c.Assert(dischargeMac[0].Id(), tc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
@@ -704,9 +710,11 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *tc.C
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchOfferStatus(context.Background(), params.OfferArg{OfferUUID: "offer-uuid"})
+	w, err := client.WatchOfferStatus(context.Background(), params.OfferArg{OfferUUID: "offer-uuid"})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
 	c.Check(callCount, tc.Equals, 2)
-	c.Check(err, tc.ErrorIsNil)
 	c.Assert(dischargeMac, tc.HasLen, 1)
 	c.Assert(dischargeMac[0].Id(), tc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
@@ -784,9 +792,11 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeRequi
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchConsumedSecretsChanges(context.Background(), "app-token", "rel-token", nil)
+	w, err := client.WatchConsumedSecretsChanges(context.Background(), "app-token", "rel-token", nil)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
 	c.Check(callCount, tc.Equals, 2)
-	c.Check(err, tc.ErrorIsNil)
 	c.Assert(dischargeMac, tc.HasLen, 1)
 	c.Assert(dischargeMac[0].Id(), tc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
