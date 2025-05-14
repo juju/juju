@@ -95,20 +95,6 @@ func (m *mockApplication) Endpoints() ([]relation.Endpoint, error) {
 	return m.endpoints, nil
 }
 
-func (m *mockApplication) EndpointBindings() (crossmodel.Bindings, error) {
-	return &mockBindings{bMap: m.bindings}, nil
-}
-
-type mockBindings struct {
-	bMap map[string]string
-}
-
-// TODO (stickupkid): This implementation is wrong, we should move to a newer
-// gomock style setup.
-func (b *mockBindings) MapWithSpaceNames(network.SpaceInfos) (map[string]string, error) {
-	return b.bMap, nil
-}
-
 type mockRelation struct {
 	crossmodel.Relation
 	id       int

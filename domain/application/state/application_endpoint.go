@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -18,8 +17,32 @@ import (
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
+
+// GetApplicationEndpointBindings returns the mapping for each endpoint name and
+// the space ID it is bound to (or empty if unspecified). When no bindings are
+// stored for the application, defaults are returned.
+//
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationEndpointBindings(ctx context.Context, appUUID coreapplication.ID) (map[string]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result map[string]string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		result, err = st.getEndpointBindings(ctx, tx, appUUID)
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return result, nil
+}
 
 // insertApplicationEndpointsParams contains parameters required to insert
 // application endpoints into the database.
@@ -52,41 +75,41 @@ func (st *State) insertApplicationEndpoints(ctx context.Context, tx *sqlair.TX, 
 	// Get charm relation.
 	relations, err := st.getCharmRelationNames(ctx, tx, charmUUID)
 	if err != nil {
-		return internalerrors.Errorf("getting charm relation names: %w", err)
+		return errors.Errorf("getting charm relation names: %w", err)
 	}
 
 	// Get extra bindings
 	extrabindings, err := st.getCharmExtraBindings(ctx, tx, charmUUID)
 	if err != nil {
-		return internalerrors.Errorf("getting charm extra bindings: %w", err)
+		return errors.Errorf("getting charm extra bindings: %w", err)
 	}
 
 	// Check that spaces are valid in binding.
 	if err := st.checkSpaceNames(ctx, tx, slices.Collect(maps.Values(params.bindings))); err != nil {
-		return internalerrors.Errorf("checking space names: %w", err)
+		return errors.Errorf("checking space names: %w", err)
 	}
 	// Check that binding are linked to valid endpoint (either from a charm relation
 	// or an extra binding.
 	if err := st.checkEndpointBindingName(relations, extrabindings, params.bindings); err != nil {
-		return internalerrors.Errorf("checking charm relation: %w", err)
+		return errors.Errorf("checking charm relation: %w", err)
 	}
 
 	// Update default space.
 	if err := st.updateDefaultSpace(ctx, tx, params.appID, params.bindings); err != nil {
-		return internalerrors.Errorf("updating default space: %w", err)
+		return errors.Errorf("updating default space: %w", err)
 	}
 
 	// Insert endpoints.
 	for _, relation := range relations {
 		if err := st.insertApplicationEndpoint(ctx, tx, params.appID, relation, params.bindings); err != nil {
-			return internalerrors.Errorf("inserting application endpoint: %w", err)
+			return errors.Errorf("inserting application endpoint: %w", err)
 		}
 	}
 
 	// Insert extra binding
 	for _, binding := range extrabindings {
 		if err := st.insertApplicationExtraBinding(ctx, tx, params.appID, binding, params.bindings); err != nil {
-			return internalerrors.Errorf("inserting application endpoint: %w", err)
+			return errors.Errorf("inserting application endpoint: %w", err)
 		}
 	}
 
@@ -110,20 +133,20 @@ SELECT $setApplicationEndpoint.uuid,
        sp.uuid
 FROM (
     SELECT uuid FROM space
-	WHERE name = $setApplicationEndpoint.space
-	UNION ALL -- This allows to insert null space_uuid if a null space is provided.
-	SELECT NULL AS uuid
+    WHERE name = $setApplicationEndpoint.space
+    UNION ALL -- This allows to insert null space_uuid if a null space is provided.
+    SELECT NULL AS uuid
 ) AS sp
 LIMIT 1
 `, setApplicationEndpoint{})
 	if err != nil {
-		return internalerrors.Errorf("preparing insert application endpoint: %w", err)
+		return errors.Errorf("preparing insert application endpoint: %w", err)
 	}
 
 	// Generate UUID
 	uuid, err := corerelation.NewEndpointUUID()
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	space := bindings[relation.Name]
@@ -159,14 +182,14 @@ SELECT $setApplicationExtraEndpoint.application_uuid,
        sp.uuid
 FROM (
     SELECT uuid FROM space
-	WHERE name = $setApplicationExtraEndpoint.space
-	UNION ALL -- This allows to insert null space_uuid if a null space is provided.
-	SELECT NULL AS uuid
+    WHERE name = $setApplicationExtraEndpoint.space
+    UNION ALL -- This allows to insert null space_uuid if a null space is provided.
+    SELECT NULL AS uuid
 ) AS sp
 LIMIT 1
 `, setApplicationExtraEndpoint{})
 	if err != nil {
-		return internalerrors.Errorf("preparing insert application extra endpoint: %w", err)
+		return errors.Errorf("preparing insert application extra endpoint: %w", err)
 	}
 
 	space := bindings[binding.Name]
@@ -196,12 +219,12 @@ FROM charm_relation
 WHERE charm_relation.charm_uuid = $charmID.uuid
 `, charmUUID, charmRelationName{})
 	if err != nil {
-		return nil, internalerrors.Errorf("preparing fetch charm relation: %w", err)
+		return nil, errors.Errorf("preparing fetch charm relation: %w", err)
 	}
 	var relations []charmRelationName
 	if err := tx.Query(ctx, fetchCharmRelationStmt, charmUUID).GetAll(&relations); err != nil && !errors.Is(err,
 		sqlair.ErrNoRows) {
-		return nil, internalerrors.Errorf("fetching charm relation: %w", err)
+		return nil, errors.Errorf("fetching charm relation: %w", err)
 	}
 	return relations, nil
 }
@@ -213,11 +236,11 @@ func (st *State) checkSpaceNames(ctx context.Context, tx *sqlair.TX, inputs []ne
 SELECT &spaceName.name
 FROM space`, spaceName{})
 	if err != nil {
-		return internalerrors.Errorf("preparing fetch space: %w", err)
+		return errors.Errorf("preparing fetch space: %w", err)
 	}
 	var spaces []spaceName
 	if err := tx.Query(ctx, fetchStmt).GetAll(&spaces); err != nil {
-		return internalerrors.Errorf("fetching space: %w", err)
+		return errors.Errorf("fetching space: %w", err)
 	}
 	fromInput := set.NewStrings()
 	for _, space := range inputs {
@@ -229,7 +252,7 @@ FROM space`, spaceName{})
 		fromInput.Remove(space.Name)
 	}
 	if fromInput.Size() > 0 {
-		return internalerrors.
+		return errors.
 			Errorf("space(s) %q not found", strings.Join(fromInput.Values(), ",")).
 			Add(applicationerrors.SpaceNotFound)
 	}
@@ -259,7 +282,7 @@ func (st *State) checkEndpointBindingName(
 		fromInput.Remove(binding.Name)
 	}
 	if fromInput.Size() > 0 {
-		return internalerrors.
+		return errors.
 			Errorf("charm relation(s) or extra binding %q not found", strings.Join(fromInput.Values(), ",")).
 			Add(applicationerrors.CharmRelationNotFound)
 	}
@@ -281,12 +304,12 @@ func (st *State) updateDefaultSpace(ctx context.Context, tx *sqlair.TX, appID co
 UPDATE application 
 SET space_uuid = (
     SELECT uuid
-	FROM space
-	WHERE name = $setDefaultSpace.space    
+    FROM space
+    WHERE name = $setDefaultSpace.space    
 )
 WHERE uuid =  $setDefaultSpace.uuid`, app)
 	if err != nil {
-		return internalerrors.Errorf("preparing update default space: %w", err)
+		return errors.Errorf("preparing update default space: %w", err)
 	}
 	return tx.Query(ctx, updateDefaultSpaceStmt, app).Run()
 }
@@ -305,7 +328,7 @@ JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
 WHERE  ae.application_uuid = $applicationID.uuid
 `, getApplicationEndpoint{}, id)
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	// Query application extra endpoints.
@@ -316,7 +339,7 @@ JOIN   charm_extra_binding ceb ON ceb.uuid = aee.charm_extra_binding_uuid
 WHERE  aee.application_uuid = $applicationID.uuid
 `, getApplicationEndpoint{}, id)
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	// Query default endpoint for application.
@@ -327,21 +350,21 @@ FROM   application
 WHERE  uuid = $applicationID.uuid
 `, defaultSpaceUUID, id)
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	// Get application endpoints.
 	var dbEndpoints []getApplicationEndpoint
 	err = tx.Query(ctx, endpointStmt, id).GetAll(&dbEndpoints)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, internalerrors.Errorf("getting application endpoints: %w", err)
+		return nil, errors.Errorf("getting application endpoints: %w", err)
 	}
 
 	// Get application extra endpoints.
 	var dbExtraEndpoints []getApplicationEndpoint
 	err = tx.Query(ctx, extraEndpointStmt, id).GetAll(&dbExtraEndpoints)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, internalerrors.Errorf("getting application endpoints: %w", err)
+		return nil, errors.Errorf("getting application endpoints: %w", err)
 	}
 
 	// Get application default endpoint.
@@ -349,15 +372,23 @@ WHERE  uuid = $applicationID.uuid
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, applicationerrors.ApplicationNotFound
 	} else if err != nil {
-		return nil, internalerrors.Errorf("getting application endpoints: %w", err)
+		return nil, errors.Errorf("getting application endpoints: %w", err)
 	}
 
 	endpoints := make(map[string]string, len(dbEndpoints)+len(dbExtraEndpoints)+1)
 	for _, e := range dbEndpoints {
-		endpoints[e.EndpointName] = e.SpaceUUID
+		if e.SpaceUUID.Valid {
+			endpoints[e.EndpointName] = e.SpaceUUID.V
+		} else {
+			endpoints[e.EndpointName] = defaultSpaceUUID.UUID
+		}
 	}
 	for _, e := range dbExtraEndpoints {
-		endpoints[e.EndpointName] = e.SpaceUUID
+		if e.SpaceUUID.Valid {
+			endpoints[e.EndpointName] = e.SpaceUUID.V
+		} else {
+			endpoints[e.EndpointName] = defaultSpaceUUID.UUID
+		}
 	}
 	endpoints[""] = defaultSpaceUUID.UUID
 

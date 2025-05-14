@@ -10,12 +10,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -76,29 +76,22 @@ func (api *APIBase) getConfig(
 		}
 	}
 
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return params.ApplicationGetResults{}, err
-	}
-	endpoints, err := app.EndpointBindings()
-	if err != nil {
-		return params.ApplicationGetResults{}, err
+	bindings, err := api.applicationService.GetApplicationEndpointBindings(ctx, appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ApplicationGetResults{}, errors.NotFoundf("application %q", args.ApplicationName)
+	} else if err != nil {
+		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
 
 	allSpaceInfosLookup, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
-		return params.ApplicationGetResults{}, apiservererrors.ServerError(err)
+		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
 
-	bindingMap, err := endpoints.MapWithSpaceNames(allSpaceInfosLookup)
+	bindingMap, err := network.MapBindingsWithSpaceNames(bindings, allSpaceInfosLookup)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-
-	var appChannel string
-
-	// If the applications charm origin is from charm-hub, then build the real
-	// channel and send that back.
 
 	origin, err := api.applicationService.GetApplicationCharmOrigin(ctx, args.ApplicationName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
@@ -107,9 +100,12 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
 
+	// If the applications charm origin is from charm-hub, then build the real
+	// channel and send that back.
+	var appChannel string
 	if corecharm.CharmHub.Matches(string(origin.Source)) && origin.Channel != nil {
-		ch := charm.MakePermissiveChannel(origin.Channel.Track, string(origin.Channel.Risk), origin.Channel.Branch)
-		appChannel = ch.String()
+		ch := origin.Channel
+		appChannel = charm.MakePermissiveChannel(ch.Track, string(ch.Risk), ch.Branch).String()
 	}
 	osType, err := encodeOSType(origin.Platform.OSType)
 	if err != nil {

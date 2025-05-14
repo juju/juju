@@ -1045,6 +1045,7 @@ func (s *importSuite) TestImportEndpointBindings40(c *tc.C) {
 			"endpoint0": network.AlphaSpaceId,
 			"endpoint1": space1UUID,
 			"endpoint2": "",
+			"endpoint3": space2UUID,
 			// An empty endpoint name represents the applications default space.
 			"": space2UUID,
 		},

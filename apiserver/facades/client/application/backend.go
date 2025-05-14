@@ -37,11 +37,8 @@ type Backend interface {
 // the same names.
 type Application interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
-	AllUnits() ([]Unit, error)
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
-	EndpointBindings() (Bindings, error)
 	Endpoints() ([]relation.Endpoint, error)
-	IsRemote() bool
 	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
 	SetConstraints(constraints.Value) error
 	UpdateCharmConfig(charm.Settings) error
@@ -94,7 +91,6 @@ type Machine interface {
 type Unit interface {
 	UnitTag() names.UnitTag
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
-	IsPrincipal() bool
 
 	AssignUnit() error
 	AssignWithPlacement(*instance.Placement, network.SpaceInfos) error
@@ -222,10 +218,6 @@ func (a stateApplicationShim) AllUnits() ([]Unit, error) {
 		}
 	}
 	return out, nil
-}
-
-func (a stateApplicationShim) EndpointBindings() (Bindings, error) {
-	return a.Application.EndpointBindings()
 }
 
 func (a stateApplicationShim) SetCharm(

@@ -60,10 +60,6 @@ type applicationShim struct {
 	*state.Application
 }
 
-func (a applicationShim) EndpointBindings() (Bindings, error) {
-	return a.Application.EndpointBindings()
-}
-
 func (st stateShim) Application(name string) (Application, error) {
 	a, err := st.State.Application(name)
 	if err != nil {

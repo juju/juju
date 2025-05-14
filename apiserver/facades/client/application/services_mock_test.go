@@ -1103,6 +1103,45 @@ func (c *MockApplicationServiceGetApplicationConstraintsCall) DoAndReturn(f func
 	return c
 }
 
+// GetApplicationEndpointBindings mocks base method.
+func (m *MockApplicationService) GetApplicationEndpointBindings(arg0 context.Context, arg1 application.ID) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationEndpointBindings", arg0, arg1)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationEndpointBindings indicates an expected call of GetApplicationEndpointBindings.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationEndpointBindings(arg0, arg1 any) *MockApplicationServiceGetApplicationEndpointBindingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationEndpointBindings", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationEndpointBindings), arg0, arg1)
+	return &MockApplicationServiceGetApplicationEndpointBindingsCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationEndpointBindingsCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationEndpointBindingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) Return(arg0 map[string]string, arg1 error) *MockApplicationServiceGetApplicationEndpointBindingsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) Do(f func(context.Context, application.ID) (map[string]string, error)) *MockApplicationServiceGetApplicationEndpointBindingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationEndpointBindingsCall) DoAndReturn(f func(context.Context, application.ID) (map[string]string, error)) *MockApplicationServiceGetApplicationEndpointBindingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationIDByName mocks base method.
 func (m *MockApplicationService) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
 	m.ctrl.T.Helper()
@@ -1764,6 +1803,45 @@ func (c *MockApplicationServiceIsSubordinateApplicationCall) Do(f func(context.C
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceIsSubordinateApplicationCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockApplicationServiceIsSubordinateApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsSubordinateApplicationByName mocks base method.
+func (m *MockApplicationService) IsSubordinateApplicationByName(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSubordinateApplicationByName", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsSubordinateApplicationByName indicates an expected call of IsSubordinateApplicationByName.
+func (mr *MockApplicationServiceMockRecorder) IsSubordinateApplicationByName(arg0, arg1 any) *MockApplicationServiceIsSubordinateApplicationByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSubordinateApplicationByName", reflect.TypeOf((*MockApplicationService)(nil).IsSubordinateApplicationByName), arg0, arg1)
+	return &MockApplicationServiceIsSubordinateApplicationByNameCall{Call: call}
+}
+
+// MockApplicationServiceIsSubordinateApplicationByNameCall wrap *gomock.Call
+type MockApplicationServiceIsSubordinateApplicationByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceIsSubordinateApplicationByNameCall) Return(arg0 bool, arg1 error) *MockApplicationServiceIsSubordinateApplicationByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceIsSubordinateApplicationByNameCall) Do(f func(context.Context, string) (bool, error)) *MockApplicationServiceIsSubordinateApplicationByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceIsSubordinateApplicationByNameCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockApplicationServiceIsSubordinateApplicationByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

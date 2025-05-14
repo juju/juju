@@ -3537,7 +3537,7 @@ func (s *applicationStateSuite) TestGetAddressesHashEmpty(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	// The resulting hash is not the empty string because it always contains
 	// the default bindings.
-	c.Check(hash, tc.Equals, "5ec8be1eeb06c2f67dc76a85843d4461bd51668aab3f27df2af8b3e89a28d703")
+	c.Check(hash, tc.Equals, "8652c267aea387455356c3dc0edf896cab692e6a3db590197e7bec120bdfe234")
 }
 
 func (s *applicationStateSuite) TestGetAddressesHash(c *tc.C) {
@@ -3582,7 +3582,7 @@ func (s *applicationStateSuite) TestGetAddressesHash(c *tc.C) {
 
 	hash, err := s.state.GetAddressesHash(context.Background(), appID, "net-node-uuid")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(hash, tc.Equals, "7166b95ec684e8452e796e2d82bfa7c6f74c7597a4c56af8d763c4be4fcefc77")
+	c.Check(hash, tc.Equals, "740b8e5ae149e6d2e3d962e2d0f7edca886ab2d16bd6e2374eb6b9bdfa9d2850")
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C) {
@@ -3643,7 +3643,7 @@ func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C
 
 	hash, err := s.state.GetAddressesHash(context.Background(), appID, "net-node-uuid")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(hash, tc.Equals, "2b94c712836ade07adcac5d9742f7a77e989d74893168bdbf9aa956f670c8290")
+	c.Check(hash, tc.Equals, "5e5d6453be08912c0cb0585e9d39e6fe21e154c0495c7f05b61137e7f3eab381")
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
@@ -3666,7 +3666,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 
 	hash, err := s.state.GetAddressesHash(context.Background(), appID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(hash, tc.Equals, "aba7ff161442bff8b0b29c4a88599eeb32eaa89b3e53d80a35ee8b4efd367d14")
+	c.Check(hash, tc.Equals, "1736435babfcd8930c0ab8225855eed6296efc9d7db0e2c8aa06c0a58f44e540")
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBindings(c *tc.C) {
@@ -3711,7 +3711,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBind
 
 	hash, err := s.state.GetAddressesHash(context.Background(), appID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(hash, tc.Equals, "7b3da67858305e4297f5cc6968a34e383af675dff6bb85a15c95ff39923ad31d")
+	c.Check(hash, tc.Equals, "e2c67728743f8ed832062d28a75766548ba3ad09e2fe9126268f0de3fb3a8afb")
 }
 
 func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {

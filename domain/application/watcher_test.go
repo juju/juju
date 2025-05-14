@@ -700,7 +700,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *tc.C) {
 	})
 
 	// Hash of the initial state, which only includes the default bindings.
-	harness.Run(c, []string{"09511b3ff5d870167ea4613c5b73f4ef4cb4a6953a828469ac456f31d468c2e7"})
+	harness.Run(c, []string{"58a7406eca6cb5e9324e98f37bd09366d2b622027cb07d3a172992106981dedd"})
 }
 
 func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
@@ -787,7 +787,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	})
 
 	// Hash of the initial state.
-	harness.Run(c, []string{"524100834051ef8c675e3adea593c50cceab2eacbd485f0879100045d273aacf"})
+	harness.Run(c, []string{"eb27bc0dd239e03fd70690f95e3cb9b55013da43cd7606e6c972fb2c3d576f38"})
 }
 
 func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
@@ -847,7 +847,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	})
 
 	// Hash of the initial state.
-	harness.Run(c, []string{"5c83f0f6cd8dbec57a4503b85c7e807564fd2c8bf246f741a1da578aa570dbc2"})
+	harness.Run(c, []string{"722ba9e367e446b51bd7a473ab0a6002f8eb2f848a03169d7dfa63b7a88e3e8a"})
 }
 
 func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *tc.C) {

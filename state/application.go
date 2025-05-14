@@ -83,11 +83,6 @@ func newApplication(st *State, doc *applicationDoc) *Application {
 	return app
 }
 
-// IsRemote returns false for a local application.
-func (a *Application) IsRemote() bool {
-	return false
-}
-
 // Name returns the application name.
 func (a *Application) Name() string {
 	return a.doc.Name
