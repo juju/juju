@@ -83,7 +83,6 @@ import (
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
-	psworker "github.com/juju/juju/internal/worker/pubsub"
 	"github.com/juju/juju/internal/wrench"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
@@ -598,7 +597,6 @@ func (a *MachineAgent) makeEngineCreator(
 		localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
 			Logger: internalpubsub.WrapLogger(internallogger.GetLogger("juju.localhub")),
 		})
-		pubsubReporter := psworker.NewReporter()
 		updateAgentConfLogging := func(loggingConfig string) error {
 			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
 				setter.SetLoggingConfig(loggingConfig)
@@ -636,7 +634,6 @@ func (a *MachineAgent) makeEngineCreator(
 			PrometheusRegisterer:              a.prometheusRegistry,
 			CentralHub:                        a.centralHub,
 			LocalHub:                          localHub,
-			PubSubReporter:                    pubsubReporter,
 			UpdateLoggerConfig:                updateAgentConfLogging,
 			NewAgentStatusSetter:              a.statusSetter,
 			ControllerLeaseDuration:           time.Minute,
@@ -673,12 +670,10 @@ func (a *MachineAgent) makeEngineCreator(
 			AgentDir:           agentConfig.Dir(),
 			Engine:             eng,
 			StatePoolReporter:  &statePoolReporter,
-			PubSubReporter:     pubsubReporter,
 			MachineLock:        a.machineLock,
 			PrometheusGatherer: a.prometheusRegistry,
 			WorkerFunc:         introspection.NewWorker,
 			Clock:              clock.WallClock,
-			CentralHub:         a.centralHub,
 			Logger:             logger.Child("introspection"),
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error
