@@ -15,7 +15,7 @@ type destroyModelSuite struct {
 
 var _ = tc.Suite(&destroyModelSuite{})
 
-func (s *destroyModelSuite) TestStub(c *gc.C) {
+func (s *destroyModelSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Destroy model
 - Destroy model with return error PersistentStorageError

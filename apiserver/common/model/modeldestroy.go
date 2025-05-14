@@ -7,13 +7,12 @@ import (
 	"context"
 	"time"
 
-	interrors "github.com/juju/juju/internal/errors"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/blockcommand"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"

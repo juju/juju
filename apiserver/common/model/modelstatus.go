@@ -40,8 +40,7 @@ type ModelInfoService interface {
 	IsControllerModel(context.Context) (bool, error)
 }
 
-// ModelService provides access to information about the models within the this
-// controller.
+// ModelService provides access to information about the models within the controller.
 type ModelService interface {
 	// ListModelUUIDs returns a list of all model UUIDs in the controller.
 	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
@@ -120,6 +119,8 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 
 	modelUUID := coremodel.UUID(modelTag.Id())
 
+	// TODO: update model DB drop detection logic. Currently, statusServiceGetter.GetModelStatusInfo does not
+	// return NotFound because model data is read from the cache within the same DB connection.
 	statusServiceGetter, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
 		return status, errors.Trace(err)
@@ -129,7 +130,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	case errors.Is(err, modelerrors.NotFound):
 		return status, internalerrors.Errorf(
 			"model for tag %q does not exist", modelTag,
-		)
+		).Add(errors.NotFound)
 	case err != nil:
 		return status, internalerrors.Errorf(
 			"getting model info for tag %q: %w", modelTag, err,
