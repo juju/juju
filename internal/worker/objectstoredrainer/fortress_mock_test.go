@@ -10,9 +10,9 @@
 package objectstoredrainer
 
 import (
+	context "context"
 	reflect "reflect"
 
-	fortress "github.com/juju/juju/internal/worker/fortress"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -40,7 +40,7 @@ func (m *MockGuard) EXPECT() *MockGuardMockRecorder {
 }
 
 // Lockdown mocks base method.
-func (m *MockGuard) Lockdown(arg0 fortress.Abort) error {
+func (m *MockGuard) Lockdown(arg0 context.Context) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Lockdown", arg0)
 	ret0, _ := ret[0].(error)
@@ -66,29 +66,29 @@ func (c *MockGuardLockdownCall) Return(arg0 error) *MockGuardLockdownCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockGuardLockdownCall) Do(f func(fortress.Abort) error) *MockGuardLockdownCall {
+func (c *MockGuardLockdownCall) Do(f func(context.Context) error) *MockGuardLockdownCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockGuardLockdownCall) DoAndReturn(f func(fortress.Abort) error) *MockGuardLockdownCall {
+func (c *MockGuardLockdownCall) DoAndReturn(f func(context.Context) error) *MockGuardLockdownCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Unlock mocks base method.
-func (m *MockGuard) Unlock() error {
+func (m *MockGuard) Unlock(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unlock")
+	ret := m.ctrl.Call(m, "Unlock", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Unlock indicates an expected call of Unlock.
-func (mr *MockGuardMockRecorder) Unlock() *MockGuardUnlockCall {
+func (mr *MockGuardMockRecorder) Unlock(arg0 any) *MockGuardUnlockCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockGuard)(nil).Unlock))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockGuard)(nil).Unlock), arg0)
 	return &MockGuardUnlockCall{Call: call}
 }
 
@@ -104,13 +104,13 @@ func (c *MockGuardUnlockCall) Return(arg0 error) *MockGuardUnlockCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockGuardUnlockCall) Do(f func() error) *MockGuardUnlockCall {
+func (c *MockGuardUnlockCall) Do(f func(context.Context) error) *MockGuardUnlockCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockGuardUnlockCall) DoAndReturn(f func() error) *MockGuardUnlockCall {
+func (c *MockGuardUnlockCall) DoAndReturn(f func(context.Context) error) *MockGuardUnlockCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -4,12 +4,13 @@
 package objectstore
 
 import (
-	"github.com/juju/testing"
 	tc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type phaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 var _ = tc.Suite(&phaseSuite{})
