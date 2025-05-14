@@ -314,6 +314,8 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *tc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *tc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	// Patch out the worker func before starting the agent.
 	started := newSignal()
 	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
