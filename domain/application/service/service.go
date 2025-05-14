@@ -195,14 +195,14 @@ func NewWatchableService(
 }
 
 // WatchApplicationUnitLife returns a watcher that observes changes to the life of any units if an application.
-func (s *WatchableService) WatchApplicationUnitLife(ctx context.Context, appName string) (_ watcher.StringsWatcher, err error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
+func (s *WatchableService) WatchApplicationUnitLife(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
+	lifeGetter := func(ctx context.Context, ids []string) (_ map[string]life.Life, err error) {
+		ctx, span := trace.Start(ctx, trace.NameFromFunc())
+		defer func() {
+			span.RecordError(err)
+			span.End()
+		}()
 
-	lifeGetter := func(ctx context.Context, ids []string) (map[string]life.Life, error) {
 		unitUUIDs, err := transform.SliceOrErr(ids, coreunit.ParseID)
 		if err != nil {
 			return nil, err
@@ -245,6 +245,12 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 
 	mask := changestream.Changed
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		ctx, span := trace.Start(ctx, trace.NameFromFunc())
+		defer func() {
+			span.RecordError(err)
+			span.End()
+		}()
+
 		newScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -270,7 +276,7 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 // WatchApplicationsWithPendingCharms returns a watcher that observes changes to
 // applications that have pending charms.
 func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (_ watcher.StringsWatcher, err error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer func() {
 		span.RecordError(err)
 		span.End()
@@ -449,6 +455,12 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 			return initialResults, nil
 		},
 		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			ctx, span := trace.Start(ctx, trace.NameFromFunc())
+			defer func() {
+				span.RecordError(err)
+				span.End()
+			}()
+
 			// If there are no changes, return no changes.
 			if len(changes) == 0 {
 				return nil, nil
@@ -528,6 +540,12 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 			return initialResults, nil
 		},
 		func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			ctx, span := trace.Start(ctx, trace.NameFromFunc())
+			defer func() {
+				span.RecordError(err)
+				span.End()
+			}()
+
 			// If there are no changes, return no changes.
 			if len(changes) == 0 {
 				return nil, nil
