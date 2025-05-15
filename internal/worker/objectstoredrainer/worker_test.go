@@ -11,7 +11,6 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -22,9 +21,9 @@ type workerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = tc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *gc.C) {
+func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
@@ -56,7 +55,7 @@ func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestObjectStoreDrainingDraining(c *gc.C) {
+func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan struct{})
@@ -88,7 +87,7 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := NewWorker(context.Background(), Config{
 		ObjectStoreService: s.service,
 		Guard:              s.guard,

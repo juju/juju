@@ -63,25 +63,31 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-// Worker implements
+// Worker watches the object store service for changes to the draining
+// phase. If the phase is draining, it locks the guard. If the phase is not
+// draining, it unlocks the guard.
+// The worker will manage the lifecycle of the watcher and will stop
+// watching when the worker is killed or when the context is cancelled.
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 }
 
-// Kill is part of the worker.Worker interface.
+// Kill kills the worker. It will cause the worker to stop if it is
+// not already stopped. The worker will transition to the dying state.
 func (w *Worker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
-// Wait is part of the worker.Worker interface.
+// Wait waits for the worker to finish. It will cause the worker to
+// stop if it is not already stopped. It will return an error if the
+// worker was killed with an error.
 func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
 
 func (w *Worker) loop() error {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
+	ctx := w.catacomb.Context(context.Background())
 
 	service := w.config.ObjectStoreService
 	watcher, err := service.WatchDraining(ctx)
@@ -116,8 +122,4 @@ func (w *Worker) loop() error {
 			}
 		}
 	}
-}
-
-func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
