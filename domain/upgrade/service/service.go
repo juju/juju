@@ -153,10 +153,10 @@ func (s *Service) IsUpgrading(ctx context.Context) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if _, err := s.ActiveUpgrade(ctx); err != nil {
-		return false, errors.Capture(err)
-	} else if errors.Is(err, upgradeerrors.NotFound) {
+	if _, err := s.ActiveUpgrade(ctx); errors.Is(err, upgradeerrors.NotFound) {
 		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
 	}
 
 	return true, nil
