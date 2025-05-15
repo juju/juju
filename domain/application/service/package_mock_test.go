@@ -2730,6 +2730,45 @@ func (c *MockStateGetUnitNamesForNetNodeCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetUnitNetNodes mocks base method.
+func (m *MockState) GetUnitNetNodes(ctx context.Context, uuid unit.UUID) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitNetNodes", ctx, uuid)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitNetNodes indicates an expected call of GetUnitNetNodes.
+func (mr *MockStateMockRecorder) GetUnitNetNodes(ctx, uuid any) *MockStateGetUnitNetNodesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNetNodes", reflect.TypeOf((*MockState)(nil).GetUnitNetNodes), ctx, uuid)
+	return &MockStateGetUnitNetNodesCall{Call: call}
+}
+
+// MockStateGetUnitNetNodesCall wrap *gomock.Call
+type MockStateGetUnitNetNodesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitNetNodesCall) Return(arg0 []string, arg1 error) *MockStateGetUnitNetNodesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitNetNodesCall) Do(f func(context.Context, unit.UUID) ([]string, error)) *MockStateGetUnitNetNodesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitNetNodesCall) DoAndReturn(f func(context.Context, unit.UUID) ([]string, error)) *MockStateGetUnitNetNodesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitPrincipal mocks base method.
 func (m *MockState) GetUnitPrincipal(ctx context.Context, unitName unit.Name) (unit.Name, bool, error) {
 	m.ctrl.T.Helper()
@@ -3706,6 +3745,44 @@ func (c *MockStateNamespaceForWatchCharmCall) Do(f func() string) *MockStateName
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateNamespaceForWatchCharmCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchCharmCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForWatchNetNodeAddress mocks base method.
+func (m *MockState) NamespaceForWatchNetNodeAddress() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchNetNodeAddress")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchNetNodeAddress indicates an expected call of NamespaceForWatchNetNodeAddress.
+func (mr *MockStateMockRecorder) NamespaceForWatchNetNodeAddress() *MockStateNamespaceForWatchNetNodeAddressCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchNetNodeAddress", reflect.TypeOf((*MockState)(nil).NamespaceForWatchNetNodeAddress))
+	return &MockStateNamespaceForWatchNetNodeAddressCall{Call: call}
+}
+
+// MockStateNamespaceForWatchNetNodeAddressCall wrap *gomock.Call
+type MockStateNamespaceForWatchNetNodeAddressCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchNetNodeAddressCall) Return(arg0 string) *MockStateNamespaceForWatchNetNodeAddressCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchNetNodeAddressCall) Do(f func() string) *MockStateNamespaceForWatchNetNodeAddressCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchNetNodeAddressCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchNetNodeAddressCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

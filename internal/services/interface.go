@@ -62,7 +62,7 @@ type ControllerDomainServices interface {
 	// ControllerConfig returns the controller configuration service.
 	ControllerConfig() *controllerconfigservice.WatchableService
 	// ControllerNode returns the controller node service.
-	ControllerNode() *controllernodeservice.Service
+	ControllerNode() *controllernodeservice.WatchableService
 	// Model returns the model service.
 	Model() *modelservice.WatchableService
 	//ModelDefaults returns the modeldefaults service.

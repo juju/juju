@@ -72,6 +72,7 @@ type CredentialService interface {
 	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 }
 
+// ControllerNodeService provides access to controller nodes.
 type ControllerNodeService interface {
 	// SetControllerNodeReportedAgentVersion sets the agent version for the
 	// supplied controllerID. Version represents the version of the controller

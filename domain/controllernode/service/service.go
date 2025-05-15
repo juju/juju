@@ -5,10 +5,17 @@ package service
 
 import (
 	"context"
+	"net"
+	"strconv"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -37,6 +44,67 @@ type State interface {
 	// controllerID. Version represents the version of the controller node's
 	// agent binary.
 	SetRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
+
+	// NamespaceForWatchControllerNodes returns the namespace for watching
+	// controller nodes.
+	NamespaceForWatchControllerNodes() string
+
+	// SetAPIAddresses sets the addresses for the provided controller node. It
+	// replaces any existing addresses and stores them in the api_controller_address
+	// table, with the format "host:port" as a string, as well as the is_agent flag
+	// indicating whether the address is available for agents.
+	//
+	// The following errors can be expected:
+	// - [controllernodeerrors.NotFound] if the controller node does not exist.
+	SetAPIAddresses(ctx context.Context, ctrlID string, addrs []controllernode.APIAddress) error
+
+	// GetControllerIDs returns the list of controller IDs from the controller node
+	// records.
+	GetControllerIDs(ctx context.Context) ([]string, error)
+}
+
+// WatcherFactory instances return watchers for a given namespace and UUID.
+type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+}
+
+// WatchableService provides the API for working with controller nodes and the
+// ability to create watchers.
+type WatchableService struct {
+	*Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the input state.
+func NewWatchableService(
+	st State,
+	watcherFactory WatcherFactory,
+) *WatchableService {
+	return &WatchableService{
+		Service:        &Service{st},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchControllerNodes returns a watcher that observes changes to the
+// controller nodes.
+func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchControllerNodes(),
+			changestream.All,
+			eventsource.AlwaysPredicate,
+		),
+	)
 }
 
 // Service provides the API for working with controller nodes.
@@ -130,4 +198,39 @@ func (s *Service) IsControllerNode(ctx context.Context, nodeID string) (bool, er
 		return false, errors.Errorf("checking is controller node: %w", err)
 	}
 	return isController, nil
+}
+
+// SetAPIAddresses sets the provided addresses associated with the provided
+// controller ID.
+//
+// The following errors can be expected:
+// - [controllernodeerrors.NotFound] if the controller node does not exist.
+func (s *Service) SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace network.SpaceInfo) error {
+	// We map the SpaceHostPorts addresses to controller api addresses by
+	// checking if the address is available for agents (this is the case if the
+	// space ID of the address matches the management space ID), and also by
+	// joining the address host and port to a string "host:port".
+	addresses := make([]controllernode.APIAddress, 0, len(addrs))
+	for _, spHostPort := range addrs {
+		// Check if the address is available for agents.
+		isAvailableForAgents := spHostPort.SpaceID == mgmtSpace.ID
+		// Join the address host and port to a string "host:port".
+		address := net.JoinHostPort(spHostPort.Host(), strconv.Itoa(spHostPort.Port()))
+		addresses = append(addresses, controllernode.APIAddress{
+			Address: address,
+			IsAgent: isAvailableForAgents,
+		})
+	}
+
+	return s.st.SetAPIAddresses(ctx, controllerID, addresses)
+}
+
+// GetControllerIDs returns the list of controller IDs from the controller node
+// records.
+func (s *Service) GetControllerIDs(ctx context.Context) ([]string, error) {
+	res, err := s.st.GetControllerIDs(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return res, nil
 }

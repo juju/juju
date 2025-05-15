@@ -188,6 +188,7 @@ CREATE TABLE ip_address (
     -- The value of the configured IP address.
     -- e.g. 192.168.1.2 or 2001:db8:0000:0000:0000:0000:0000:00001.
     address_value TEXT NOT NULL,
+    net_node_uuid TEXT NOT NULL,
     -- NOTE (manadart 2025-03--25): The fact that this is nullable is a wart
     -- from our Kubernetes provider. There is nothing to say we couldn't do
     -- subnet discovery on K8s by listing nodes, then accumulating
@@ -213,6 +214,9 @@ CREATE TABLE ip_address (
     CONSTRAINT fk_ip_address_link_layer_device
     FOREIGN KEY (device_uuid)
     REFERENCES link_layer_device (uuid),
+    CONSTRAINT fk_ip_address_net_node
+    FOREIGN KEY (net_node_uuid)
+    REFERENCES net_node (uuid),
     CONSTRAINT fk_ip_address_subnet
     FOREIGN KEY (subnet_uuid)
     REFERENCES subnet (uuid),
@@ -229,6 +233,12 @@ CREATE TABLE ip_address (
     FOREIGN KEY (scope_id)
     REFERENCES ip_address_scope (id)
 );
+
+CREATE INDEX idx_ip_address_device_uuid
+ON ip_address (device_uuid);
+
+CREATE INDEX idx_ip_address_subnet_uuid
+ON ip_address (subnet_uuid);
 
 CREATE TABLE provider_ip_address (
     provider_id TEXT NOT NULL PRIMARY KEY,

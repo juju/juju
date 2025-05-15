@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -101,8 +102,7 @@ func (st *State) UpdateDqliteNode(ctx context.Context, controllerID string, node
 UPDATE controller_node 
 SET    dqlite_node_id = $dbControllerNode.dqlite_node_id,
        dqlite_bind_address = $dbControllerNode.dqlite_bind_address 
-WHERE  controller_id = $dbControllerNode.controller_id
-AND    (dqlite_node_id != $dbControllerNode.dqlite_node_id OR dqlite_bind_address != $dbControllerNode.dqlite_bind_address)`
+WHERE  controller_id = $dbControllerNode.controller_id`
 	stmt, err := st.Prepare(q, controllerNode)
 	if err != nil {
 		return errors.Errorf("preparing update controller node statement: %w", err)
@@ -270,4 +270,118 @@ WHERE controller_id = $dbControllerNode.controller_id`, controllerNode, dbContro
 		return false, errors.Errorf("multiple controller nodes with ID %q", nodeID)
 	}
 	return result.Count == 1, nil
+}
+
+// NamespaceForWatchControllerNodes returns the namespace for watching
+// controller nodes.
+func (st *State) NamespaceForWatchControllerNodes() string {
+	return "controller_node"
+}
+
+// SetAPIAddresses sets the addresses for the provided controller node. It
+// replaces any existing addresses and stores them in the api_controller_address
+// table, with the format "host:port" as a string, as well as the is_agent flag
+// indicating whether the address is available for agents.
+//
+// The following errors can be expected:
+// - [controllernodeerrors.NotFound] if the controller node does not exist.
+func (st *State) SetAPIAddresses(ctx context.Context, ctrlID string, addrs []controllernode.APIAddress) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	ident := controllerID{ID: ctrlID}
+
+	checkControllerExistsStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count 
+FROM controller_node 
+WHERE controller_id = $controllerID.controller_id
+`, countResult{}, ident)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteExistingAddressesStmt, err := st.Prepare(`
+DELETE FROM controller_api_address
+WHERE controller_id = $controllerID.controller_id
+	`, ident)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	controllerAPIAddresses := encodeAPIAddresses(ctrlID, addrs)
+
+	insertAddrStmt, err := st.Prepare(`
+INSERT INTO controller_api_address (*) VALUES ($controllerAPIAddress.*)
+`, controllerAPIAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var countResult countResult
+		if err := tx.Query(ctx, checkControllerExistsStmt, ident).Get(&countResult); err != nil {
+			return errors.Errorf("checking if controller node %q exists: %w", ctrlID, err)
+		}
+		if countResult.Count == 0 {
+			return errors.Errorf("controller node %q does not exist", ctrlID).Add(controllernodeerrors.NotFound)
+		}
+
+		if err := tx.Query(ctx, deleteExistingAddressesStmt, ident).Run(); err != nil {
+			return errors.Errorf("deleting existing api addresses for controller node %q: %w", ctrlID, err)
+		}
+		if err := tx.Query(ctx, insertAddrStmt, controllerAPIAddresses).Run(); err != nil {
+			return errors.Errorf("setting api address for controller node %q: %w", ctrlID, err)
+		}
+		return nil
+	}))
+}
+
+func encodeAPIAddresses(controllerID string, addrs []controllernode.APIAddress) []controllerAPIAddress {
+	result := make([]controllerAPIAddress, 0, len(addrs))
+	for _, addr := range addrs {
+		result = append(result, controllerAPIAddress{
+			ControllerID: controllerID,
+			Address:      addr.Address,
+			IsAgent:      addr.IsAgent,
+		})
+	}
+	return result
+}
+
+// GetControllerIDs returns the list of controller IDs from the controller node
+// records.
+func (st *State) GetControllerIDs(ctx context.Context) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &controllerID.* 
+FROM controller_node
+`, controllerID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var controllerIDs []controllerID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&controllerIDs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return controllernodeerrors.EmptyControllerIDs
+		} else if err != nil {
+			return errors.Errorf("getting controller node ids: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	res := make([]string, len(controllerIDs))
+	for i, c := range controllerIDs {
+		res[i] = c.ID
+	}
+	return res, nil
 }

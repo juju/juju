@@ -1009,7 +1009,7 @@ WHERE  nn.uuid = $cloudService.net_node_uuid
 	if err := st.deleteCloudServiceAddresses(ctx, tx, serviceInfo.ApplicationUUID, serviceInfo.ProviderID); err != nil {
 		return errors.Capture(err)
 	}
-	if err := st.insertCloudServiceAddresses(ctx, tx, lldUUIDStr, addresses); err != nil {
+	if err := st.insertCloudServiceAddresses(ctx, tx, lldUUIDStr, serviceInfo.NetNodeUUID, addresses); err != nil {
 		return errors.Errorf("inserting cloud service addresses for application %q: %w", applicationName, err)
 	}
 	return nil
@@ -1069,7 +1069,7 @@ WHERE device_uuid IN (
 	return nil
 }
 
-func (st *State) insertCloudServiceAddresses(ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, addresses network.SpaceAddresses) error {
+func (st *State) insertCloudServiceAddresses(ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, netNodeUUID string, addresses network.SpaceAddresses) error {
 	if len(addresses) == 0 {
 		return nil
 	}
@@ -1084,6 +1084,7 @@ func (st *State) insertCloudServiceAddresses(ctx context.Context, tx *sqlair.TX,
 		ipAddresses[i] = ipAddress{
 			AddressUUID:  addrUUID.String(),
 			Value:        address.Value,
+			NetNodeUUID:  netNodeUUID,
 			ConfigTypeID: int(ipaddress.MarshallConfigType(address.ConfigType)),
 			TypeID:       int(ipaddress.MarshallAddressType(address.AddressType())),
 			OriginID:     int(ipaddress.MarshallOrigin(network.OriginProvider)),
@@ -2957,6 +2958,12 @@ func (*State) NamespaceForWatchApplicationExposed() (string, string) {
 // third is the namespace for the unit's resolved mode.
 func (*State) NamespaceForWatchUnitForLegacyUniter() (string, string, string) {
 	return "unit", "unit_principal", "unit_resolved"
+}
+
+// NamespaceForWatchNetNodeAddress returns the namespace identifier for
+// net node address changes, which is the ip_address table.
+func (*State) NamespaceForWatchNetNodeAddress() string {
+	return "ip_address"
 }
 
 // decodeConstraints flattens and maps the list of rows of applicatioConstraint

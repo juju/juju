@@ -60,10 +60,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`
 		}
 
 		insertIPAddress := `
-INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) 
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid, net_node_uuid) 
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-		_, err = tx.ExecContext(ctx, insertIPAddress, addrUUID, devUUID, "10.0.0.1", 0, 0, 0, 0, subUUID)
+		_, err = tx.ExecContext(ctx, insertIPAddress, addrUUID, devUUID, "10.0.0.1", 0, 0, 0, 0, subUUID, nodeUUID)
 		if err != nil {
 			return err
 		}

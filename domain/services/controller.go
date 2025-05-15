@@ -87,9 +87,10 @@ func (s *ControllerServices) ControllerConfig() *controllerconfigservice.Watchab
 }
 
 // ControllerNode returns the controller node service.
-func (s *ControllerServices) ControllerNode() *controllernodeservice.Service {
-	return controllernodeservice.NewService(
+func (s *ControllerServices) ControllerNode() *controllernodeservice.WatchableService {
+	return controllernodeservice.NewWatchableService(
 		controllernodestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.controllerWatcherFactory("controllernode"),
 	)
 }
 

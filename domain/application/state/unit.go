@@ -1893,6 +1893,55 @@ WHERE     n.uuid = $unitUUID.uuid
 	return encodeIpAddresses(address), nil
 }
 
+// GetUnitNetNodes returns the net node UUIDs associated with the specified
+// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
+// the union of the net nodes of the cloud service (if any) and the net node
+// of the unit.
+//
+// The following errors may be returned:
+// - [uniterrors.UnitNotFound] if the unit does not exist
+func (st *State) GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ident := unitUUID{UnitUUID: uuid}
+	stmt, err := st.Prepare(`
+SELECT &unitNetNodeUUID.*
+FROM (
+    SELECT s.net_node_uuid, u.uuid
+    FROM unit u
+    JOIN k8s_service s on s.application_uuid = u.application_uuid
+    UNION
+    SELECT net_node_uuid, uuid FROM unit
+) AS n
+WHERE n.uuid = $unitUUID.uuid
+`, unitNetNodeUUID{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var netNodeUUIDs []unitNetNodeUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, ident).GetAll(&netNodeUUIDs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w: %s", applicationerrors.UnitNotFound, uuid)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	netNodeUUIDstrs := make([]string, len(netNodeUUIDs))
+	for i, n := range netNodeUUIDs {
+		netNodeUUIDstrs[i] = n.NetNodeUUID
+	}
+
+	return netNodeUUIDstrs, nil
+}
+
 func (st *State) setUnitConstraints(ctx context.Context, tx *sqlair.TX, inUnitUUID coreunit.UUID, cons constraints.Constraints) error {
 	cUUID, err := uuid.NewUUID()
 	if err != nil {
@@ -2147,7 +2196,7 @@ WHERE unit_uuid = $cloudContainer.unit_uuid
 }
 
 func (st *State) upsertCloudContainerAddress(
-	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, netNodeID string, address application.ContainerAddress,
+	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, netNodeUUID string, address application.ContainerAddress,
 ) error {
 	// First ensure the address link layer device is upserted.
 	// For cloud containers, the device is a placeholder without
@@ -2155,7 +2204,7 @@ func (st *State) upsertCloudContainerAddress(
 	// net node corresponding to the cloud container.
 	cloudContainerDeviceInfo := cloudContainerDevice{
 		Name:              address.Device.Name,
-		NetNodeID:         netNodeID,
+		NetNodeID:         netNodeUUID,
 		DeviceTypeID:      int(address.Device.DeviceTypeID),
 		VirtualPortTypeID: int(address.Device.VirtualPortTypeID),
 	}
@@ -2196,6 +2245,7 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 	// Now process the address details.
 	ipAddr := ipAddress{
 		Value:        address.Value,
+		NetNodeUUID:  netNodeUUID,
 		ConfigTypeID: int(address.ConfigType),
 		TypeID:       int(address.AddressType),
 		OriginID:     int(address.Origin),
