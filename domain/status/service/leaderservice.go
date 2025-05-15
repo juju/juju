@@ -32,6 +32,7 @@ type LeadershipService struct {
 // input state.
 func NewLeadershipService(
 	st State,
+	controllerState ControllerState,
 	leaderEnsurer leadership.Ensurer,
 	modelUUID model.UUID,
 	statusHistory StatusHistory,
@@ -42,6 +43,7 @@ func NewLeadershipService(
 	return &LeadershipService{
 		Service: NewService(
 			st,
+			controllerState,
 			modelUUID,
 			statusHistory,
 			statusHistoryReaderFn,

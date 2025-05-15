@@ -91,6 +91,18 @@ type ModelStatusInfo struct {
 	Type coremodel.ModelType
 }
 
+// ModelState describes the state of a model.
+type ModelState struct {
+	// Destroying is a boolean value that indicates if the model is being destroyed.
+	Destroying bool
+	// Migrating is a boolean value that indicates if the model is being migrated.
+	Migrating bool
+	// HasInvalidCloudCredential is a boolean value that indicates if the model's cloud credential is invalid.
+	HasInvalidCloudCredential bool
+	// InvalidCloudCredentialReason is a string that describes the reason for the model's cloud credential being invalid.
+	InvalidCloudCredentialReason string
+}
+
 type RelationStatusInfo struct {
 	RelationUUID corerelation.UUID
 	RelationID   int

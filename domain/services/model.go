@@ -239,6 +239,7 @@ func (s *ModelServices) Status() *statusservice.LeadershipService {
 	logger := s.logger.Child("status")
 	return statusservice.NewLeadershipService(
 		statusstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
+		statusstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewLeaseService(s.leaseManager),
 		s.modelUUID,
 		domain.NewStatusHistory(logger, s.clock),
