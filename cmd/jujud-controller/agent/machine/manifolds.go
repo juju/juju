@@ -95,6 +95,7 @@ import (
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/objectstoredrainer"
+	"github.com/juju/juju/internal/worker/objectstorefacade"
 	"github.com/juju/juju/internal/worker/objectstoreflag"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/objectstoreservices"
@@ -602,7 +603,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuditConfigUpdaterName: auditConfigUpdaterName,
 			HTTPClientName:         httpClientName,
 			TraceName:              traceName,
-			ObjectStoreName:        objectStoreName,
+			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
 
 			// Note that although there is a transient dependency on dbaccessor
@@ -650,7 +651,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
-			ObjectStoreName:             objectStoreName,
+			ObjectStoreName:             objectStoreFacadeName,
 			StorageRegistryName:         storageRegistryName,
 			HTTPClientName:              httpClientName,
 			LeaseManagerName:            leaseManagerName,
@@ -821,6 +822,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			IsBootstrapController:      internalbootstrap.IsBootstrapController,
 		})),
 
+		objectStoreFacadeName: objectstorefacade.Manifold(objectstorefacade.ManifoldConfig{
+			ObjectStoreName: objectStoreName,
+			FortressName:    objectStoreFortressName,
+		}),
+
 		objectStoreServicesName: objectstoreservices.Manifold(objectstoreservices.ManifoldConfig{
 			ChangeStreamName:             changeStreamName,
 			Logger:                       internallogger.GetLogger("juju.worker.objectstoreservices"),
@@ -921,7 +927,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
 			AgentName:               agentName,
 			StateName:               stateName,
-			ObjectStoreName:         objectStoreName,
+			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
@@ -1135,7 +1141,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
 			AgentName:               agentName,
 			StateName:               stateName,
-			ObjectStoreName:         objectStoreName,
+			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
@@ -1350,6 +1356,7 @@ const (
 	objectStoreS3CallerName       = "object-store-s3-caller"
 	objectStoreServicesName       = "object-store-services"
 	objectStoreFortressName       = "object-store-fortress"
+	objectStoreFacadeName         = "object-store-facade"
 	objectStoreDrainingFlagName   = "object-store-draining-flag"
 	objectStoreDrainerName        = "object-store-drainer"
 	peergrouperName               = "peer-grouper"

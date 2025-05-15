@@ -4,7 +4,7 @@
 package objectstore
 
 import (
-	tc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
