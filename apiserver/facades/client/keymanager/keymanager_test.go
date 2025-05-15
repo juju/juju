@@ -581,7 +581,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //	defer s.setup(c).Finish()
 //	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(errors.OperationBlockedError("TestDeleteKeys"))
 //
-//	_, err := s.api.DeleteKeys(context.Background(), params.ModifyUserSSHKeys{})
+//	_, err := s.api.DeleteKeys(c.Context(), params.ModifyUserSSHKeys{})
 //
 //	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
 //}
@@ -604,7 +604,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //		User: names.NewUserTag("admin").Name(),
 //		Keys: []string{"juju-client-key", config.JujuSystemKey},
 //	}
-//	results, err := s.api.DeleteKeys(context.Background(), args)
+//	results, err := s.api.DeleteKeys(c.Context(), args)
 //	c.Assert(err, tc.ErrorIsNil)
 //	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 //		Results: []params.ErrorResult{
@@ -628,7 +628,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //		User: names.NewUserTag("admin").String(),
 //		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, "user@host"},
 //	}
-//	_, err := s.api.DeleteKeys(context.Background(), args)
+//	_, err := s.api.DeleteKeys(c.Context(), args)
 //	c.Assert(err, tc.ErrorMatches, "cannot delete all keys")
 //}
 //
@@ -662,7 +662,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //			"lp:multionedup",
 //		},
 //	}
-//	results, err := s.api.ImportKeys(context.Background(), args)
+//	results, err := s.api.ImportKeys(c.Context(), args)
 //
 //	c.Assert(err, tc.ErrorIsNil)
 //	c.Assert(results.Results, tc.HasLen, 8)
@@ -713,7 +713,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //	s.apiUser = names.NewUserTag("fred")
 //	defer s.setup(c).Finish()
 //
-//	_, err := s.api.ImportKeys(context.Background(), params.ModifyUserSSHKeys{})
+//	_, err := s.api.ImportKeys(c.Context(), params.ModifyUserSSHKeys{})
 //	c.Assert(err, tc.ErrorMatches, "permission denied")
 //	c.Assert(params.ErrCode(err), tc.Equals, params.CodeUnauthorized)
 //}
@@ -733,7 +733,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //		User: names.NewUserTag("admin").String(),
 //		Keys: []string{"lp:systemkey"},
 //	}
-//	results, err := s.api.ImportKeys(context.Background(), args)
+//	results, err := s.api.ImportKeys(c.Context(), args)
 //	c.Assert(err, tc.IsNil)
 //	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 //		Results: []params.ErrorResult{
@@ -746,7 +746,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *tc.C) {
 //	defer s.setup(c).Finish()
 //	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.OperationBlockedError("TestImportKeys"))
 //
-//	_, err := s.api.ImportKeys(context.Background(), params.ModifyUserSSHKeys{})
+//	_, err := s.api.ImportKeys(c.Context(), params.ModifyUserSSHKeys{})
 //
 //	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
 //}

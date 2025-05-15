@@ -487,7 +487,7 @@ func (s *stateSuite) TestGetActiveDrainingPhase(c *tc.C) {
 	_, _, err := st.GetActiveDrainingPhase(context.Background())
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
 
-	err = st.SetDrainingPhase(context.Background(), "foo", coreobjectstore.PhaseDraining)
+	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, phase, err := st.GetActiveDrainingPhase(context.Background())
@@ -498,14 +498,14 @@ func (s *stateSuite) TestGetActiveDrainingPhase(c *tc.C) {
 func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := st.SetDrainingPhase(context.Background(), "foo", coreobjectstore.PhaseDraining)
+	err := st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, phase, err := st.GetActiveDrainingPhase(context.Background())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(phase, tc.Equals, coreobjectstore.PhaseDraining)
 
-	err = st.SetDrainingPhase(context.Background(), "foo", coreobjectstore.PhaseCompleted)
+	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = st.GetActiveDrainingPhase(context.Background())
@@ -515,13 +515,13 @@ func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
 func (s *stateSuite) TestSetDrainingPhaseWithMultipleActive(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := st.SetDrainingPhase(context.Background(), "foo", coreobjectstore.PhaseDraining)
+	err := st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, phase, err := st.GetActiveDrainingPhase(context.Background())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(phase, tc.Equals, coreobjectstore.PhaseDraining)
 
-	err = st.SetDrainingPhase(context.Background(), "bar", coreobjectstore.PhaseDraining)
+	err = st.SetDrainingPhase(c.Context(), "bar", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
 }
