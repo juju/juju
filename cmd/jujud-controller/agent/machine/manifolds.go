@@ -96,7 +96,6 @@ import (
 	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/objectstoredrainer"
 	"github.com/juju/juju/internal/worker/objectstorefacade"
-	"github.com/juju/juju/internal/worker/objectstoreflag"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/objectstoreservices"
 	"github.com/juju/juju/internal/worker/peergrouper"
@@ -647,7 +646,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            peergrouper.New,
 		})),
 
-		domainServicesName: ifNotObjectStoreDraining(workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
+		domainServicesName: workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
@@ -663,7 +662,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewDomainServicesGetter:     workerdomainservices.NewDomainServicesGetter,
 			NewControllerDomainServices: workerdomainservices.NewControllerDomainServices,
 			NewModelDomainServices:      workerdomainservices.NewProviderTrackerModelDomainServices,
-		})),
+		}),
 
 		providerDomainServicesName: providerservices.Manifold(providerservices.ManifoldConfig{
 			ChangeStreamName:          changeStreamName,
@@ -790,17 +789,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// between underlying object stores (s3 compatible). They are used to
 		// drain; and to create a mechanism for running other workers so they
 		// can't accidentally interfere with a draining in progress. Such a
-		// manifold should (1) depend on the objectstore draining flag, to know
-		// when to start or die; and (2) occupy the objectstore-fortress, so as
-		// to avoid possible interference with the minion (which will not take
-		// action until it's gained sole control of the fortress).
-		objectStoreFortressName: fortress.Manifold(),
-		objectStoreDrainingFlagName: objectstoreflag.Manifold(objectstoreflag.ManifoldConfig{
-			ObjectStoreServicesName: objectStoreServicesName,
-			Check:                   objectstoreflag.CheckPhase,
-			GeObjectStoreServicesFn: objectstoreflag.GeObjectStoreServices,
-			NewWorker:               objectstoreflag.NewWorker,
-		}),
+		// manifold should depend on the objectstore facade, which will guard
+		// against any objectstore operations while the draining is in progress.
+		objectStoreFortressName: ifController(fortress.Manifold()),
 		objectStoreDrainerName: objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
 			ObjectStoreServicesName: objectStoreServicesName,
 			FortressName:            objectStoreFortressName,
@@ -822,6 +813,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			IsBootstrapController:      internalbootstrap.IsBootstrapController,
 		})),
 
+		// The objectstore facade is a thin wrapper around the objectstore
+		// worker. It guards against any objectstore operations while the
+		// draining is in progress.
 		objectStoreFacadeName: objectstorefacade.Manifold(objectstorefacade.ManifoldConfig{
 			ObjectStoreName: objectStoreName,
 			FortressName:    objectStoreFortressName,
@@ -1276,13 +1270,6 @@ var ifDatabaseUpgradeComplete = engine.Housing{
 	Flags: []string{
 		upgradeDatabaseFlagName,
 	},
-}.Decorate
-
-var ifNotObjectStoreDraining = engine.Housing{
-	Flags: []string{
-		objectStoreDrainingFlagName,
-	},
-	Occupy: objectStoreFortressName,
 }.Decorate
 
 const (
