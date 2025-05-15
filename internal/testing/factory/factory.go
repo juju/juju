@@ -4,7 +4,6 @@
 package factory
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"sync/atomic"
@@ -382,7 +381,7 @@ func (factory *Factory) MakeCAASModel(c *tc.C, params *ModelParams) *state.State
 
 func NewObjectStore(c *tc.C, modelUUID string, metadataService internalobjectstore.MetadataService, claimer internalobjectstore.Claimer) objectstore.ObjectStore {
 	store, err := internalobjectstore.ObjectStoreFactory(
-		context.Background(),
+		c.Context(),
 		internalobjectstore.DefaultBackendType(),
 		modelUUID,
 		internalobjectstore.WithRootDir(c.MkDir()),

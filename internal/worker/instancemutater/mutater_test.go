@@ -55,7 +55,7 @@ func (s *mutaterSuite) TestProcessMachineProfileChanges(c *tc.C) {
 	s.expectModificationStatusApplied()
 
 	info := s.info(startingProfiles, 1, true)
-	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, info)
+	err := instancemutater.ProcessMachineProfileChanges(c, s.mutaterMachine, info)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -67,7 +67,7 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesMachineDead(c *tc.C) {
 	s.expectRefreshLifeDead()
 
 	info := s.info(startingProfiles, 1, false)
-	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, info)
+	err := instancemutater.ProcessMachineProfileChanges(c, s.mutaterMachine, info)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
@@ -83,14 +83,14 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesError(c *tc.C) {
 	s.expectModificationStatusError()
 
 	info := s.info(startingProfiles, 1, true)
-	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, info)
+	err := instancemutater.ProcessMachineProfileChanges(c, s.mutaterMachine, info)
 	c.Assert(err, tc.ErrorMatches, "fail me")
 }
 
 func (s *mutaterSuite) TestProcessMachineProfileChangesNilInfo(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, &apiinstancemutater.UnitProfileInfo{})
+	err := instancemutater.ProcessMachineProfileChanges(c, s.mutaterMachine, &apiinstancemutater.UnitProfileInfo{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 

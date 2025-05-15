@@ -4,7 +4,6 @@
 package oci_test
 
 import (
-	stdcontext "context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -195,14 +194,14 @@ func (s *credentialsSuite) TestDetectCredentialsMultiSectionInvalidConfig(c *tc.
 }
 
 func (s *credentialsSuite) TestOpen(c *tc.C) {
-	env, err := environs.Open(stdcontext.Background(), s.provider, environs.OpenParams{
+	env, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: newConfig(c, jujutesting.Attrs{"compartment-id": "fake"}),
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env, tc.NotNil)
 
-	env, err = environs.Open(stdcontext.Background(), s.provider, environs.OpenParams{
+	env, err = environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: newConfig(c, nil),
 	}, environs.NoopCredentialInvalidator())

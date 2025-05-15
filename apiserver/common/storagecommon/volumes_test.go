@@ -4,8 +4,6 @@
 package storagecommon_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -38,7 +36,7 @@ func (s *volumesSuite) TestVolumeParamsAlreadyProvisioned(c *tc.C) {
 func (*volumesSuite) testVolumeParams(c *tc.C, volumeParams *state.VolumeParams, info *state.VolumeInfo) {
 	tag := names.NewVolumeTag("100")
 	p, err := storagecommon.VolumeParams(
-		context.Background(),
+		c.Context(),
 		&fakeVolume{tag: tag, params: volumeParams, info: info},
 		nil, // StorageInstance
 		testing.ModelTag.Id(),
@@ -68,7 +66,7 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *tc.C) {
 	storageTag := names.NewStorageTag("mystore/0")
 	unitTag := names.NewUnitTag("mysql/123")
 	p, err := storagecommon.VolumeParams(
-		context.Background(),
+		c.Context(),
 		&fakeVolume{tag: volumeTag, params: &state.VolumeParams{
 			Pool: "loop", Size: 1024,
 		}},

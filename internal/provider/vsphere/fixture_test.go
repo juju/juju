@@ -67,7 +67,7 @@ func (s *EnvironFixture) SetUpTest(c *tc.C) {
 		s.ProviderFixture.client.invalidReason = string(reason)
 		return nil
 	}
-	env, err := s.provider.Open(context.Background(), environs.OpenParams{
+	env, err := s.provider.Open(c.Context(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServer.URL,
@@ -145,7 +145,7 @@ func AssertInvalidatesCredential(c *tc.C, client *mockClient, f func(context.Con
 			Fault types.AnyType `xml:",any,typeattr"`
 		}{Fault: types.NoPermission{}},
 	}), errors.New("find folder failed"))
-	err := f(context.Background())
+	err := f(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*ServerFaultCode: No way José$")
 	c.Assert(client.invalid, tc.IsTrue)
 }

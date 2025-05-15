@@ -52,7 +52,7 @@ func (*lifeSuite) TestLife(c *tc.C) {
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"}, {Tag: "unit-x-4"},
 	}}
-	results, err := lg.Life(context.Background(), entities)
+	results, err := lg.Life(c.Context(), entities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -70,7 +70,7 @@ func (*lifeSuite) TestLifeError(c *tc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
-	_, err := lg.Life(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
+	_, err := lg.Life(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
 	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
@@ -79,7 +79,7 @@ func (*lifeSuite) TestLifeNoArgsNoError(c *tc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
-	result, err := lg.Life(context.Background(), params.Entities{})
+	result, err := lg.Life(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
 }

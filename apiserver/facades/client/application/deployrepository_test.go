@@ -4,7 +4,6 @@
 package application
 
 import (
-	"context"
 	"errors"
 
 	"github.com/juju/tc"
@@ -57,7 +56,7 @@ func (s *deployRepositorySuite) TestResolveResourcesNoResourcesOverride(c *tc.C)
 
 	// Act
 	result, resourceToUpload, err := validator.resolveResources(
-		context.Background(),
+		c.Context(),
 		charmURL,
 		origin,
 		map[string]string{},
@@ -120,7 +119,7 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c 
 
 	// Act
 	result, resourcesToUpload, err := validator.resolveResources(
-		context.Background(),
+		c.Context(),
 		charmURL,
 		origin,
 		deployResArg,
@@ -150,7 +149,7 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharm
 	validator := s.expectValidator()
 
 	// Act
-	_, _, err := validator.resolveResources(context.Background(), charmURL, origin, map[string]string{}, resMeta)
+	_, _, err := validator.resolveResources(c.Context(), charmURL, origin, map[string]string{}, resMeta)
 
 	// Assert
 	c.Check(err, tc.ErrorIs, mockRepoError,

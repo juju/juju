@@ -4,7 +4,6 @@
 package azure_test
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -19,7 +18,7 @@ import (
 func (s *environSuite) TestSupportsInstanceRole(c *tc.C) {
 	env, ok := s.openEnviron(c).(environs.InstanceRole)
 	c.Assert(ok, tc.IsTrue)
-	c.Assert(env.SupportsInstanceRoles(context.Background()), tc.IsTrue)
+	c.Assert(env.SupportsInstanceRoles(c.Context()), tc.IsTrue)
 }
 
 func (s *environSuite) TestCreateAutoInstanceRole(c *tc.C) {
@@ -45,7 +44,7 @@ func (s *environSuite) TestCreateAutoInstanceRole(c *tc.C) {
 			controller.ControllerUUIDKey: testing.ControllerTag.Id(),
 		},
 	}
-	res, err := env.CreateAutoInstanceRole(context.Background(), p)
+	res, err := env.CreateAutoInstanceRole(c.Context(), p)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.Equals, fmt.Sprintf("%s/%s", resourceGroupName, "juju-controller-"+testing.ControllerTag.Id()))
 }

@@ -46,7 +46,7 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -133,7 +133,7 @@ func (s *baseSuite) addApplicationArgForResources(c *tc.C,
 
 func (s *baseSuite) createObjectStoreBlob(c *tc.C, path string) objectstore.UUID {
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo', 'bar', 42)
 `, uuid.String())
@@ -222,7 +222,7 @@ func (s *baseSuite) createApplication(c *tc.C, name string, l life.Life, units .
 		Risk:   "stable",
 		Branch: "branch",
 	}
-	ctx := context.Background()
+	ctx := c.Context()
 
 	appID, err := state.CreateApplication(ctx, name, application.AddApplicationArg{
 		Platform: platform,
@@ -294,7 +294,7 @@ func (s *baseSuite) createApplication(c *tc.C, name string, l life.Life, units .
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		if err != nil {
 			return err
@@ -321,7 +321,7 @@ func (s *baseSuite) createScalingApplication(c *tc.C, name string, l life.Life, 
 		Risk:   "stable",
 		Branch: "branch",
 	}
-	ctx := context.Background()
+	ctx := c.Context()
 
 	appID, err := state.CreateApplication(ctx, name, application.AddApplicationArg{
 		Platform: platform,
@@ -358,7 +358,7 @@ func (s *baseSuite) createScalingApplication(c *tc.C, name string, l life.Life, 
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		return err
 	})
@@ -384,7 +384,7 @@ func (s *baseSuite) assertApplication(
 		gotScale     application.ScaleState
 		gotAvailable bool
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid, charm_uuid, name FROM application WHERE name=?", name).Scan(&gotUUID, &gotCharmUUID, &gotName)
 		if err != nil {
 			return err

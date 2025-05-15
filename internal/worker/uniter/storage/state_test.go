@@ -4,8 +4,6 @@
 package storage_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -127,7 +125,7 @@ func (s *stateOpsSuite) TestRead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectState(c)
 	ops := storage.NewStateOps(s.mockStateOps)
-	obtainedSt, err := ops.Read(context.Background())
+	obtainedSt, err := ops.Read(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storage.Storage(obtainedSt), tc.DeepEquals, storage.Storage(s.storSt))
 }
@@ -136,7 +134,7 @@ func (s *stateOpsSuite) TestReadNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateNotFound()
 	ops := storage.NewStateOps(s.mockStateOps)
-	obtainedSt, err := ops.Read(context.Background())
+	obtainedSt, err := ops.Read(c.Context())
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(obtainedSt, tc.NotNil)
 }
@@ -145,7 +143,7 @@ func (s *stateOpsSuite) TestWrite(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSetState(c, "")
 	ops := storage.NewStateOps(s.mockStateOps)
-	err := ops.Write(context.Background(), s.storSt)
+	err := ops.Write(c.Context(), s.storSt)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -153,13 +151,13 @@ func (s *stateOpsSuite) TestWriteEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSetStateEmpty(c)
 	ops := storage.NewStateOps(s.mockStateOps)
-	err := ops.Write(context.Background(), storage.NewState())
+	err := ops.Write(c.Context(), storage.NewState())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateOpsSuite) TestWriteNilState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	ops := storage.NewStateOps(s.mockStateOps)
-	err := ops.Write(context.Background(), nil)
+	err := ops.Write(c.Context(), nil)
 	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }

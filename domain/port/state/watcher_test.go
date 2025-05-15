@@ -34,7 +34,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -45,9 +45,9 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
-	err = machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machine.UUID(machineUUIDs[0]))
+	err = machineSt.CreateMachine(c.Context(), "0", netNodeUUIDs[0], machine.UUID(machineUUIDs[0]))
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machine.UUID(machineUUIDs[1]))
+	err = machineSt.CreateMachine(c.Context(), "1", netNodeUUIDs[1], machine.UUID(machineUUIDs[1]))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.appUUIDs[0] = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
@@ -71,7 +71,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	machineUUIDsForEndpoint, err := st.GetMachineNamesForUnits(ctx, s.unitUUIDs[:])
 	c.Assert(err, tc.ErrorIsNil)
@@ -84,7 +84,7 @@ func (s *watcherSuite) TestGetMachinesForUnitEndpoints(c *tc.C) {
 
 func (s *watcherSuite) TestFilterEndpointForApplication(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	filteredUnits, err := st.FilterUnitUUIDsForApplication(ctx, s.unitUUIDs[:], s.appUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)

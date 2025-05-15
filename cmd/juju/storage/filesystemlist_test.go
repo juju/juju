@@ -73,7 +73,7 @@ func (s *ListSuite) TestFilesystemListJSON(c *tc.C) {
 func (s *ListSuite) TestFilesystemListWithErrorResults(c *tc.C) {
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
 		var emptyMockAPI mockListAPI
-		results, _ := emptyMockAPI.ListFilesystems(context.Background(), nil)
+		results, _ := emptyMockAPI.ListFilesystems(c.Context(), nil)
 		results = append(results, params.FilesystemDetailsListResult{
 			Error: &params.Error{Message: "bad"},
 		})
@@ -104,7 +104,7 @@ func (s *ListSuite) TestFilesystemListTabular(c *tc.C) {
 	// Do it again, reversing the results returned by the API.
 	// We should get everything sorted in the appropriate order.
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
-		results, _ := mockListAPI{}.ListFilesystems(context.Background(), nil)
+		results, _ := mockListAPI{}.ListFilesystems(c.Context(), nil)
 		n := len(results)
 		for i := 0; i < n/2; i++ {
 			results[i], results[n-i-1] = results[n-i-1], results[i]
@@ -184,7 +184,7 @@ func (s *ListSuite) assertUnmarshalledOutput(c *tc.C, unmarshal unmarshaller, ex
 // expect returns the FilesystemInfo mapping we should expect to unmarshal
 // from rendered YAML or JSON.
 func (s *ListSuite) expect(c *tc.C, machines []string) map[string]storage.FilesystemInfo {
-	all, err := s.mockAPI.ListFilesystems(context.Background(), machines)
+	all, err := s.mockAPI.ListFilesystems(c.Context(), machines)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var valid []params.FilesystemDetails

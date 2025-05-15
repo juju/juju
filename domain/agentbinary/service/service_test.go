@@ -87,7 +87,7 @@ func (s *serviceSuite) TestListAgentBinaries(c *tc.C) {
 	s.mockModelState.EXPECT().ListAgentBinaries(gomock.Any()).Return(modelBinaries, nil)
 
 	svc := NewAgentBinaryService(s.mockControllerState, s.mockModelState, nil, nil, nil)
-	result, err := svc.ListAgentBinaries(context.Background())
+	result, err := svc.ListAgentBinaries(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.SameContents, expected)
 }
@@ -145,7 +145,7 @@ func (s *serviceSuite) TestGetEnvironAgentBinariesFinder(c *tc.C) {
 		getPreferredSimpleStreams, agentBinaryFilter,
 	)
 	finder := svc.GetEnvironAgentBinariesFinder()
-	result, err := finder(context.Background(),
+	result, err := finder(c.Context(),
 		4, 0, semversion.MustParse("4.0.1"), "", coretools.Filter{Arch: "amd64"},
 	)
 	c.Assert(called, tc.Equals, 2)

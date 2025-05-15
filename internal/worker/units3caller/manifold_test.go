@@ -4,8 +4,6 @@
 package units3caller
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
@@ -71,7 +69,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	s.apiConn.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil)
 
-	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
+	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
@@ -83,7 +81,7 @@ func (s *manifoldSuite) TestOutput(c *tc.C) {
 	s.apiConn.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil)
 
 	manifold := Manifold(s.getConfig())
-	w, err := manifold.Start(context.Background(), s.newGetter())
+	w, err := manifold.Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 

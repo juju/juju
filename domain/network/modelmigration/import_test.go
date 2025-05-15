@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -60,7 +58,7 @@ func (s *importSuite) TestImportSubnetWithoutSpaces(c *tc.C) {
 	})
 
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -95,7 +93,7 @@ func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *tc.C) {
 	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo)
 
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -143,6 +141,6 @@ func (s *importSuite) TestImportSpaceWithSubnet(c *tc.C) {
 	})
 
 	op := s.newImportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }

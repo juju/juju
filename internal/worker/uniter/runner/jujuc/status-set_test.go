@@ -4,8 +4,6 @@
 package jujuc_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -59,7 +57,7 @@ func (s *statusSetSuite) TestStatus(c *tc.C) {
 		c.Assert(code, tc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
-		status, err := hctx.UnitStatus(context.Background())
+		status, err := hctx.UnitStatus(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(status.Status, tc.Equals, args[0])
 		c.Assert(status.Info, tc.Equals, args[1])
@@ -80,7 +78,7 @@ func (s *statusSetSuite) TestApplicationStatus(c *tc.C) {
 		c.Assert(code, tc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
-		status, err := hctx.ApplicationStatus(context.Background())
+		status, err := hctx.ApplicationStatus(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(status.Application.Status, tc.Equals, args[1])
 		c.Assert(status.Application.Info, tc.Equals, args[2])

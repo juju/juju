@@ -47,7 +47,7 @@ var (
 // ensureNetNode inserts a row into the net_node table, mostly used as a foreign key for entries in
 // other tables (e.g. machine)
 func (s *stateSuite) ensureNetNode(c *tc.C, uuid string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO net_node (uuid)
 			VALUES (?)`, uuid)
@@ -58,7 +58,7 @@ func (s *stateSuite) ensureNetNode(c *tc.C, uuid string) {
 
 func (s *stateSuite) ensureMachine(c *tc.C, name coremachine.Name, uuid string) {
 	s.ensureNetNode(c, "node2")
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 		INSERT INTO machine (uuid, net_node_uuid, name, life_id)
 		VALUES (?, "node2", ?, "0")`, uuid, name)
@@ -79,7 +79,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 // error is returned.
 func (s *stateSuite) TestCheckMachineExists(c *tc.C) {
 	err := NewState(s.TxnRunnerFactory()).CheckMachineExists(
-		context.Background(),
+		c.Context(),
 		s.machineName,
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -89,7 +89,7 @@ func (s *stateSuite) TestCheckMachineExists(c *tc.C) {
 // doesn't exist we get back [machineerrors.MachineNotFound] error.
 func (s *stateSuite) TestCheckMachineDoesNotExist(c *tc.C) {
 	err := NewState(s.TxnRunnerFactory()).CheckMachineExists(
-		context.Background(),
+		c.Context(),
 		coremachine.Name("100"),
 	)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
@@ -112,10 +112,10 @@ func (s *stateSuite) TestGetModelId(c *tc.C) {
 		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	}
-	err := mst.Create(context.Background(), args)
+	err := mst.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	rval, err := NewState(s.TxnRunnerFactory()).GetModelUUID(context.Background())
+	rval, err := NewState(s.TxnRunnerFactory()).GetModelUUID(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, modelUUID)
 }

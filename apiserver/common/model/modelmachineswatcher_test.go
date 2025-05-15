@@ -4,8 +4,6 @@
 package model_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -42,7 +40,7 @@ func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *tc.C) {
 		resources,
 		authorizer,
 	)
-	result, err := e.WatchModelMachines(context.Background())
+	result, err := e.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{StringsWatcherId: "1", Changes: []string{"foo"}, Error: nil})
 	c.Assert(resources.Count(), tc.Equals, 1)
@@ -60,7 +58,7 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *tc.C) {
 		resources,
 		authorizer,
 	)
-	_, err := e.WatchModelMachines(context.Background())
+	_, err := e.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 	c.Assert(resources.Count(), tc.Equals, 0)
 }

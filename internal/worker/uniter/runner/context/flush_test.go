@@ -4,8 +4,6 @@
 package context_test
 
 import (
-	stdcontext "context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -44,17 +42,17 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *tc.C) {
 	// Mess with multiple relation settings.
 	relCtx0, err := ctx.Relation(0)
 	c.Assert(err, tc.ErrorIsNil)
-	node0, err := relCtx0.Settings(stdcontext.Background())
+	node0, err := relCtx0.Settings(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	node0.Set("foo", "1")
 	relCtx1, err := ctx.Relation(1)
 	c.Assert(err, tc.ErrorIsNil)
-	node1, err := relCtx1.Settings(stdcontext.Background())
+	node1, err := relCtx1.Settings(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	node1.Set("bar", "2")
 
 	// Flush the context with a failure.
-	err = ctx.Flush(stdcontext.Background(), "some badge", errors.New("blam pow"))
+	err = ctx.Flush(c.Context(), "some badge", errors.New("blam pow"))
 	c.Assert(err, tc.ErrorMatches, "blam pow")
 }
 
@@ -67,12 +65,12 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *tc.C) {
 	// Mess with multiple relation settings.
 	relCtx0, err := ctx.Relation(0)
 	c.Assert(err, tc.ErrorIsNil)
-	node0, err := relCtx0.Settings(stdcontext.Background())
+	node0, err := relCtx0.Settings(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	node0.Set("baz", "3")
 	relCtx1, err := ctx.Relation(1)
 	c.Assert(err, tc.ErrorIsNil)
-	node1, err := relCtx1.Settings(stdcontext.Background())
+	node1, err := relCtx1.Settings(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	node1.Set("qux", "4")
 
@@ -96,7 +94,7 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *tc.C) {
 	}}).Return(nil)
 
 	// Flush the context with a success.
-	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
+	err = ctx.Flush(c.Context(), "some badge", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -112,13 +110,13 @@ func (s *FlushContextSuite) TestRebootAfterHook(c *tc.C) {
 
 	// Flush the context with an error and check that reboot is not triggered.
 	expErr := errors.New("hook execution failed")
-	err = ctx.Flush(stdcontext.Background(), "some badge", expErr)
+	err = ctx.Flush(c.Context(), "some badge", expErr)
 	c.Assert(err, tc.Equals, expErr)
 
 	// Flush the context without an error and check that reboot is triggered.
 	s.unit.EXPECT().SetAgentStatus(gomock.Any(), status.Rebooting, "", nil).Return(nil)
 	s.unit.EXPECT().RequestReboot(gomock.Any()).Return(nil)
-	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
+	err = ctx.Flush(c.Context(), "some badge", nil)
 	c.Assert(err, tc.Equals, context.ErrReboot)
 }
 
@@ -142,7 +140,7 @@ func (s *FlushContextSuite) TestRebootWhenHookFails(c *tc.C) {
 
 	// Flush the context with an error and check that reboot is not triggered.
 	expErr := errors.New("hook execution failed")
-	err = ctx.Flush(stdcontext.Background(), "some badge", expErr)
+	err = ctx.Flush(c.Context(), "some badge", expErr)
 	c.Assert(err, tc.ErrorMatches, "hook execution failed")
 }
 
@@ -169,7 +167,7 @@ func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *tc.C) {
 	s.unit.EXPECT().RequestReboot(gomock.Any()).Return(nil)
 
 	expErr := errors.New("hook execution failed")
-	err = ctx.Flush(stdcontext.Background(), "some badge", expErr)
+	err = ctx.Flush(c.Context(), "some badge", expErr)
 	c.Assert(err, tc.Equals, context.ErrRequeueAndReboot)
 }
 
@@ -195,7 +193,7 @@ func (s *FlushContextSuite) TestRebootNow(c *tc.C) {
 	s.unit.EXPECT().SetAgentStatus(gomock.Any(), status.Rebooting, "", nil).Return(nil)
 	s.unit.EXPECT().RequestReboot(gomock.Any()).Return(nil)
 
-	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
+	err = ctx.Flush(c.Context(), "some badge", nil)
 	c.Assert(err, tc.Equals, context.ErrRequeueAndReboot)
 }
 
@@ -276,7 +274,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *tc.C) {
 	}}).Return(nil)
 
 	// Flush the context with a success.
-	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
+	err = ctx.Flush(c.Context(), "some badge", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -346,7 +344,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *tc.C) {
 	}}).Return(nil)
 
 	// Flush the context with a success.
-	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
+	err = ctx.Flush(c.Context(), "some badge", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -4,8 +4,6 @@
 package applicationoffers_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,12 +22,12 @@ const (
 	someOffer = "user/prod.hosted-mysql"
 )
 
-func accessCall(client *applicationoffers.Client, action params.OfferAction, user, access string, offerURLs ...string) error {
+func accessCall(c *tc.C, client *applicationoffers.Client, action params.OfferAction, user, access string, offerURLs ...string) error {
 	switch action {
 	case params.GrantOfferAccess:
-		return client.GrantOffer(context.Background(), user, access, offerURLs...)
+		return client.GrantOffer(c.Context(), user, access, offerURLs...)
 	case params.RevokeOfferAccess:
-		return client.RevokeOffer(context.Background(), user, access, offerURLs...)
+		return client.RevokeOffer(c.Context(), user, access, offerURLs...)
 	default:
 		panic(action)
 	}
@@ -65,7 +63,7 @@ func (s *accessSuite) readOnlyUser(c *tc.C, action params.OfferAction) {
 
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	err := accessCall(client, action, "bob", "read", someOffer)
+	err := accessCall(c, client, action, "bob", "read", someOffer)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -98,7 +96,7 @@ func (s *accessSuite) adminUser(c *tc.C, action params.OfferAction) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyOfferAccess", args, res).SetArg(3, ress).Return(nil)
 
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
-	err := accessCall(client, action, "bob", "consume", someOffer)
+	err := accessCall(c, client, action, "bob", "consume", someOffer)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -143,7 +141,7 @@ func (s *accessSuite) threeOffers(c *tc.C, action params.OfferAction) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyOfferAccess", args, res).SetArg(3, ress).Return(nil)
 
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
-	err := accessCall(client, action, "carol", "read", someOffer, someOffer, someOffer)
+	err := accessCall(c, client, action, "carol", "read", someOffer, someOffer, someOffer)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -177,7 +175,7 @@ func (s *accessSuite) errorResult(c *tc.C, action params.OfferAction) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyOfferAccess", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	err := accessCall(client, action, "aaa", "consume", someOffer)
+	err := accessCall(c, client, action, "aaa", "consume", someOffer)
 	c.Assert(err, tc.ErrorMatches, "unfortunate mishap")
 }
 
@@ -208,6 +206,6 @@ func (s *accessSuite) TestInvalidResultCount(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyOfferAccess", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.GrantOffer(context.Background(), "bob", "consume", someOffer, someOffer)
+	err := client.GrantOffer(c.Context(), "bob", "consume", someOffer, someOffer)
 	c.Assert(err, tc.ErrorMatches, "expected 2 results, got 0")
 }

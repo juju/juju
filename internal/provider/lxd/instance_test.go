@@ -4,8 +4,6 @@
 package lxd_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -43,7 +41,7 @@ func (s *instanceSuite) TestStatus(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	instanceStatus := s.Instance.Status(context.Background())
+	instanceStatus := s.Instance.Status(c.Context())
 
 	c.Check(instanceStatus.Message, tc.Equals, "Running")
 	s.CheckNoAPI(c)
@@ -53,7 +51,7 @@ func (s *instanceSuite) TestAddresses(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	addresses, err := s.Instance.Addresses(context.Background())
+	addresses, err := s.Instance.Addresses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(addresses, tc.DeepEquals, s.Addresses)

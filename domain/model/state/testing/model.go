@@ -30,8 +30,8 @@ func CreateInternalSecretBackend(c *tc.C, runner database.TxnRunner) {
 	backendUUID, err := corecredential.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(context.Background(),
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(c.Context(),
 			`
 			INSERT INTO secret_backend (uuid, name, backend_type_id)
 			VALUES (?, ?, ?)
@@ -49,8 +49,8 @@ func CreateKubernetesSecretBackend(c *tc.C, runner database.TxnRunner) {
 	backendUUID, err := corecredential.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(context.Background(),
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(c.Context(),
 			`
 			INSERT INTO secret_backend (uuid, name, backend_type_id)
 			VALUES (?, ?, ?)
@@ -91,7 +91,7 @@ func CreateTestModel(
 
 	CreateInternalSecretBackend(c, runner)
 
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -147,7 +147,7 @@ func CreateTestModel(
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewState(txnRunner)
 	err = modelSt.Create(
-		context.Background(),
+		c.Context(),
 		modelUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
@@ -165,7 +165,7 @@ func CreateTestModel(
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = modelSt.Activate(context.Background(), modelUUID)
+	err = modelSt.Activate(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return modelUUID

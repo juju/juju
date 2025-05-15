@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -47,7 +45,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	}, nil)
 
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(dst.Blocks(), tc.DeepEquals, map[string]string{
@@ -65,7 +63,7 @@ func (s *exportSuite) TestExportEmptyBlocks(c *tc.C) {
 	s.service.EXPECT().GetBlocks(gomock.Any()).Return([]blockcommand.Block{}, nil)
 
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(dst.Blocks(), tc.DeepEquals, map[string]string{})

@@ -60,7 +60,7 @@ func (s *watcherSuite) getFacade(
 	dispose func(),
 ) interface{} {
 	factory := getFacadeFactory(c, name, version)
-	facade, err := factory(context.Background(), s.facadeContext(c, id, dispose))
+	facade, err := factory(c.Context(), s.facadeContext(c, id, dispose))
 	c.Assert(err, tc.ErrorIsNil)
 	return facade
 }
@@ -91,7 +91,7 @@ func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *tc.C) {
 
 	ch <- []string{"0:1", "1:2"}
 	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
-	result, err := facade.Next(context.Background())
+	result, err := facade.Next(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result, tc.DeepEquals, params.MachineStorageIdsWatchResult{
@@ -109,7 +109,7 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *tc.C) {
 
 	ch <- []string{"0:1", "1:2"}
 	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
-	result, err := facade.Next(context.Background())
+	result, err := facade.Next(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result, tc.DeepEquals, params.MachineStorageIdsWatchResult{
@@ -129,7 +129,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *tc.C) {
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
 	defer c.Check(facade.Stop(), tc.ErrorIsNil)
-	result, err := facade.Next(context.Background())
+	result, err := facade.Next(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.MigrationStatus{
 		MigrationId:    "id",
@@ -151,7 +151,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *tc.C) {
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
 	defer c.Check(facade.Stop(), tc.ErrorIsNil)
-	result, err := facade.Next(context.Background())
+	result, err := facade.Next(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.MigrationStatus{
 		Phase: "NONE",
@@ -164,7 +164,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *tc.C) {
 
 	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = factory(context.Background(), facadetest.MultiModelContext{
+	_, err = factory(c.Context(), facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
 			Resources_:      s.resources,
 			Auth_:           s.authorizer,

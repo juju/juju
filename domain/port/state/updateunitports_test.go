@@ -38,7 +38,7 @@ func (s *updateUnitPortsSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -48,9 +48,9 @@ func (s *updateUnitPortsSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
-	err = machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machine.UUID(machineUUIDs[0]))
+	err = machineSt.CreateMachine(c.Context(), "0", netNodeUUIDs[0], machine.UUID(machineUUIDs[0]))
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machine.UUID(machineUUIDs[1]))
+	err = machineSt.CreateMachine(c.Context(), "1", netNodeUUIDs[1], machine.UUID(machineUUIDs[1]))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.appUUID = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
@@ -58,7 +58,7 @@ func (s *updateUnitPortsSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *updateUnitPortsSuite) initialiseOpenPort(c *tc.C, st *State) {
-	ctx := context.Background()
+	ctx := c.Context()
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
 		"ep0": {
 			{Protocol: "tcp", FromPort: 80, ToPort: 80},
@@ -73,7 +73,7 @@ func (s *updateUnitPortsSuite) initialiseOpenPort(c *tc.C, st *State) {
 
 func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsSingleUnit(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	db, err := st.DB()
@@ -94,7 +94,7 @@ func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsSingleUnit(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsMultipleUnits(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
@@ -126,7 +126,7 @@ func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsMultipleUnits(c *tc.C)
 
 func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsMultipleUnitsOnNetNodes(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[1], appNames[0])
@@ -156,7 +156,7 @@ func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsMultipleUnitsOnNetNode
 
 func (s *updateUnitPortsSuite) TestGetWildcardEndpointOpenedPorts(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
 		network.WildcardEndpoint: {network.MustParsePortRange("100-200/tcp")},
@@ -179,7 +179,7 @@ func (s *updateUnitPortsSuite) TestGetWildcardEndpointOpenedPorts(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestGetWildcardEndpointOpenedPortsIgnoresOtherEndpoints(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	db, err := st.DB()
@@ -197,7 +197,7 @@ func (s *updateUnitPortsSuite) TestGetWildcardEndpointOpenedPortsIgnoresOtherEnd
 
 func (s *updateUnitPortsSuite) TestGetEndpointsForPopulatedUnit(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	db, err := st.DB()
@@ -215,7 +215,7 @@ func (s *updateUnitPortsSuite) TestGetEndpointsForPopulatedUnit(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestGetEndpointsForUnpopulatedUnit(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	db, err := st.DB()
 	c.Assert(err, tc.ErrorIsNil)
@@ -232,7 +232,7 @@ func (s *updateUnitPortsSuite) TestGetEndpointsForUnpopulatedUnit(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPort(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"ep0": {{Protocol: "tcp", FromPort: 1000, ToPort: 1500}}}, network.GroupedPortRanges{})
@@ -252,7 +252,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPort(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortWildcardEndpoint(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
 		network.WildcardEndpoint: {{Protocol: "tcp", FromPort: 1000, ToPort: 1500}},
@@ -268,7 +268,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortWildcardEndpoint(c *tc
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenOnInvalidEndpoint(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
 		"invalid": {{Protocol: "tcp", FromPort: 1000, ToPort: 1500}},
@@ -278,7 +278,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenOnInvalidEndpoint(c *tc.C)
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePort(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
@@ -306,7 +306,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePort(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortRangeAdjacent(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"ep0": {{Protocol: "udp", FromPort: 1501, ToPort: 2000}}}, network.GroupedPortRanges{})
@@ -326,7 +326,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortRangeAdjacent(c *tc.C)
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortRange(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{"ep0": {{Protocol: "udp", FromPort: 1000, ToPort: 1500}}})
@@ -344,7 +344,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortRange(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortEndpoint(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{
@@ -365,7 +365,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortEndpoint(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenCloseICMP(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"ep0": {{Protocol: "icmp"}}}, network.GroupedPortRanges{})
@@ -398,7 +398,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenCloseICMP(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortRangeMixedEndpoints(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
@@ -425,7 +425,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortRangeMixedEndpoints(c 
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortRangeMixedEndpoints(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
@@ -458,7 +458,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortRangeMixedEndpoints(c
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortRangesOpenAlreadyOpenAcrossUnits(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 	unit1UUID, unit1Name := s.createUnit(c, netNodeUUIDs[0], appNames[0])
 
@@ -488,7 +488,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortRangesOpenAlreadyOpenAcrossUnit
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsMatchingRangeAcrossEndpoints(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"ep2": {{Protocol: "udp", FromPort: 1000, ToPort: 1500}}}, network.GroupedPortRanges{})
@@ -511,7 +511,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsMatchingRangeAcrossEndpoints(c
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortRangesCloseAlreadyClosed(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{
@@ -533,7 +533,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortRangesCloseAlreadyClosed(c *tc.
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortRangeClosePortRangeWrongEndpoint(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{
@@ -555,7 +555,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortRangeClosePortRangeWrongEndpoin
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortRangeAlreadyOpened(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{"ep0": {{Protocol: "tcp", FromPort: 80, ToPort: 80}}}, network.GroupedPortRanges{})
@@ -575,7 +575,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortRangeAlreadyOpened(c *
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsNilOpenPort(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -583,7 +583,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsNilOpenPort(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsSameRangeAcrossEndpoints(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
 		"ep0": {network.MustParsePortRange("80/tcp"), network.MustParsePortRange("443/tcp")},
@@ -609,7 +609,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsSameRangeAcrossEndpoints(c *tc
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortConflictColocated(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Open some co-located ports.
 	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
@@ -631,7 +631,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortConflictColocated(c *t
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortConflictColocated(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Open some co-located ports.
 	unit1UUID, _ := s.createUnit(c, netNodeUUIDs[0], appNames[0])
@@ -653,7 +653,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortConflictColocated(c *
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenWildcard(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Open port ranges on the specific endpoints.
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
@@ -680,7 +680,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenWildcard(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortRangeOpenOnWildcard(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Open port ranges on the wildcard endpoint.
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
@@ -704,7 +704,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortRangeOpenOnWildcard(c 
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsCloseWildcard(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Open some port ranges on specific endpoints.
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
@@ -727,7 +727,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsCloseWildcard(c *tc.C) {
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortRangeOpenOnWildcard(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Open port ranges on the wildcard endpoint.
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
@@ -757,7 +757,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortRangeOpenOnWildcard(c
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenWildcardAndOtherRangeOnEndpoint(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Open some port ranges on specific endpoints.
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
@@ -789,7 +789,7 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenWildcardAndOtherRangeOnEnd
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortRangeOnWildcardAndOtherSameTime(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err := st.UpdateUnitPorts(ctx, s.unitUUID, network.GroupedPortRanges{
 		network.WildcardEndpoint: {network.MustParsePortRange("100-200/tcp")},

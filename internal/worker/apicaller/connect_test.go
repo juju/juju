@@ -52,7 +52,7 @@ func testEntityFine(c *tc.C, life apiagent.Life) {
 	// use an entity that doesn't correspond to an agent at all.
 	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(context.Background(), &mockAgent{
+		return apicaller.ScaryConnect(c.Context(), &mockAgent{
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
@@ -81,7 +81,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *tc.C) {
 
 	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(context.Background(), &mockAgent{
+		return apicaller.ScaryConnect(c.Context(), &mockAgent{
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
@@ -110,7 +110,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *tc.C) {
 
 	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(context.Background(), &mockAgent{
+		return apicaller.ScaryConnect(c.Context(), &mockAgent{
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
@@ -138,7 +138,7 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *tc.C) {
 
 	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(context.Background(), &mockAgent{
+		return apicaller.ScaryConnect(c.Context(), &mockAgent{
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
@@ -252,7 +252,7 @@ func checkChangePassword(c *tc.C, stub *testhelpers.Stub) error {
 
 	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(context.Background(), &mockAgent{
+		return apicaller.ScaryConnect(c.Context(), &mockAgent{
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,

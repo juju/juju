@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -41,7 +39,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	}
 
 	// Act
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -61,7 +59,7 @@ func (s *importSuite) TestImportNoRelations(c *tc.C) {
 	}
 
 	// Act
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -85,7 +83,7 @@ func (s *importSuite) TestImportBadKey(c *tc.C) {
 	}
 
 	// Act
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 
 	// Assert
 	c.Assert(err, tc.Not(tc.ErrorIsNil))

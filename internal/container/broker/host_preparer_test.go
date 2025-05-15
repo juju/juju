@@ -126,7 +126,7 @@ func (s *hostPreparerSuite) createPreparer(c *tc.C, bridges []network.DeviceToBr
 func (s *hostPreparerSuite) TestPrepareHostNoChanges(c *tc.C) {
 	preparer := s.createPreparer(c, nil, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
-	err := preparer.Prepare(context.Background(), containerTag)
+	err := preparer.Prepare(c.Context(), containerTag)
 	c.Assert(err, tc.ErrorIsNil)
 	// If HostChangesForContainer returns nothing to change, then we don't
 	// instantiate a Bridger, or do any bridging.
@@ -182,7 +182,7 @@ func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *tc.C) {
 	}}
 	preparer := s.createPreparer(c, devices, cannedObservedNetworkConfig)
 	containerTag := names.NewMachineTag("1/lxd/0")
-	err := preparer.Prepare(context.Background(), containerTag)
+	err := preparer.Prepare(c.Context(), containerTag)
 	c.Assert(err, tc.ErrorIsNil)
 	// This should be the normal flow if there are changes necessary. We read
 	// the changes, grab a bridger, then acquire a lock, do the bridging,
@@ -215,7 +215,7 @@ func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *tc.C) {
 	observed := []params.NetworkConfig(nil)
 	preparer := s.createPreparer(c, devices, observed)
 	containerTag := names.NewMachineTag("1/lxd/0")
-	err := preparer.Prepare(context.Background(), containerTag)
+	err := preparer.Prepare(c.Context(), containerTag)
 	c.Assert(err, tc.ErrorIsNil)
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
@@ -246,7 +246,7 @@ func (s *hostPreparerSuite) TestPrepareHostChangesUnsupported(c *tc.C) {
 	)
 	preparer := s.createPreparer(c, nil, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
-	err := preparer.Prepare(context.Background(), containerTag)
+	err := preparer.Prepare(c.Context(), containerTag)
 	c.Assert(err, tc.ErrorMatches, "unable to setup network: container address allocation not supported")
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
@@ -273,7 +273,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *tc.C) {
 	}}
 	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
-	err := preparer.Prepare(context.Background(), containerTag)
+	err := preparer.Prepare(c.Context(), containerTag)
 	c.Check(err, tc.ErrorMatches, ".*unable to find python interpreter")
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
@@ -301,7 +301,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoLock(c *tc.C) {
 	}}
 	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
-	err := preparer.Prepare(context.Background(), containerTag)
+	err := preparer.Prepare(c.Context(), containerTag)
 	c.Check(err, tc.ErrorMatches, `failed to acquire machine lock for bridging: timeout acquiring mutex`)
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
@@ -323,7 +323,7 @@ func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *tc.C) {
 	}}
 	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
-	err := preparer.Prepare(context.Background(), containerTag)
+	err := preparer.Prepare(c.Context(), containerTag)
 	c.Check(err, tc.ErrorMatches, `failed to bridge devices: script invocation error: IOError`)
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
@@ -358,7 +358,7 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *tc.C) {
 	}}
 	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
-	err := preparer.Prepare(context.Background(), containerTag)
+	err := preparer.Prepare(c.Context(), containerTag)
 	c.Check(err, tc.ErrorMatches, `cannot discover observed network config: cannot get network interfaces: enoent`)
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
@@ -392,7 +392,7 @@ func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *tc.C) {
 	}}
 	preparer := s.createPreparer(c, devices, cannedObservedNetworkConfig)
 	containerTag := names.NewMachineTag("1/lxd/0")
-	err := preparer.Prepare(context.Background(), containerTag)
+	err := preparer.Prepare(c.Context(), containerTag)
 	c.Check(err, tc.ErrorMatches, `failure`)
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{
@@ -439,7 +439,7 @@ func (s *hostPreparerSuite) TestPrepareHostCancel(c *tc.C) {
 	preparer := broker.NewHostPreparer(args)
 	// Now when we prepare, we should fail with "cancelled".
 	containerTag := names.NewMachineTag("1/lxd/0")
-	err := preparer.Prepare(context.Background(), containerTag)
+	err := preparer.Prepare(c.Context(), containerTag)
 	c.Check(err, tc.ErrorMatches, `failed to acquire machine lock for bridging: AcquireLock cancelled`)
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
 		{

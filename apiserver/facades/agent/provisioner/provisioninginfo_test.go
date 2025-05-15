@@ -4,8 +4,6 @@
 package provisioner_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -27,7 +25,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *tc.C) {
 	svc := s.ControllerDomainServices(c)
 	storageService := svc.Storage()
 
-	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
+	err := storageService.CreateStoragePool(c.Context(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("cores=123 mem=8G")
@@ -48,11 +46,11 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *tc.C) {
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: placementMachine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
+	result, err := s.provisioner.ProvisioningInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	domainServices := s.ControllerDomainServices(c)
-	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
+	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected := params.ProvisioningInfoResults{
@@ -127,7 +125,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *tc.C) {
 	svc := s.ControllerDomainServices(c)
 	storageService := svc.Storage()
 
-	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
+	err := storageService.CreateStoragePool(c.Context(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, tc.ErrorIsNil)
 	template := state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
@@ -140,7 +138,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *tc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: machine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
+	result, err := s.provisioner.ProvisioningInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 	c.Assert(result.Results[0].Result, tc.NotNil)
@@ -169,13 +167,13 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 		{Tag: placementMachine.Tag().String()},
 	}}
 
-	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
+	result, err := s.provisioner.ProvisioningInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 
 	domainServices := s.ControllerDomainServices(c)
-	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
+	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected := &params.ProvisioningInfo{
@@ -239,13 +237,13 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *tc.C) network.SpaceInfos
 	space2 := network.SpaceInfo{
 		Name: "space2",
 	}
-	sp1ID, err := networkService.AddSpace(context.Background(), space1)
+	sp1ID, err := networkService.AddSpace(c.Context(), space1)
 	c.Assert(err, tc.ErrorIsNil)
-	sp2ID, err := networkService.AddSpace(context.Background(), space2)
+	sp2ID, err := networkService.AddSpace(c.Context(), space2)
 	c.Assert(err, tc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
-	_, err = networkService.AddSubnet(context.Background(), network.SubnetInfo{
+	_, err = networkService.AddSubnet(c.Context(), network.SubnetInfo{
 		SpaceID:           string(sp1ID),
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        "subnet-0",
@@ -254,7 +252,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *tc.C) network.SpaceInfos
 		AvailabilityZones: []string{"zone0"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = networkService.AddSubnet(context.Background(), network.SubnetInfo{
+	_, err = networkService.AddSubnet(c.Context(), network.SubnetInfo{
 		SpaceID:           string(sp2ID),
 		CIDR:              "10.0.1.0/24",
 		ProviderId:        "subnet-1",
@@ -263,7 +261,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *tc.C) network.SpaceInfos
 		AvailabilityZones: []string{"zone1"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = networkService.AddSubnet(context.Background(), network.SubnetInfo{
+	_, err = networkService.AddSubnet(c.Context(), network.SubnetInfo{
 		SpaceID:           string(sp2ID),
 		CIDR:              "10.0.2.0/24",
 		ProviderId:        "subnet-2",
@@ -316,7 +314,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 	spaceEmpty := network.SpaceInfo{
 		Name: "empty",
 	}
-	_, err := networkService.AddSpace(context.Background(), spaceEmpty)
+	_, err := networkService.AddSpace(c.Context(), spaceEmpty)
 	c.Assert(err, tc.ErrorIsNil)
 
 	consEmptySpace := constraints.MustParse("cores=123 mem=8G spaces=empty")
@@ -340,7 +338,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 		{Tag: placementMachines[0].Tag().String()},
 		{Tag: placementMachines[1].Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
+	result, err := s.provisioner.ProvisioningInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedErrorEmptySpace := `matching subnets to zones: ` +
@@ -371,11 +369,11 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *tc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: placementMachine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
+	result, err := s.provisioner.ProvisioningInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	domainServices := s.ControllerDomainServices(c)
-	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
+	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result, tc.DeepEquals, params.ProvisioningInfoResults{
@@ -441,7 +439,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *tc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: machine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
+	result, err := s.provisioner.ProvisioningInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, tc.IsNil)
 	c.Assert(result.Results[0].Result, tc.NotNil)
@@ -473,7 +471,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *tc.C) {
 
 func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *tc.C) {
 	attrs := map[string]interface{}{"cloudinit-userdata": validCloudInitUserData}
-	err := s.domainServices.Config().UpdateModelConfig(context.Background(), attrs, nil)
+	err := s.domainServices.Config().UpdateModelConfig(c.Context(), attrs, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
@@ -486,7 +484,7 @@ func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *tc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
+	result, err := s.provisioner.ProvisioningInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Result.CloudInitUserData, tc.DeepEquals, map[string]interface{}{
 		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
@@ -515,7 +513,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *tc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.MakeProvisionerAPI(context.Background(), facadetest.ModelContext{
+	aProvisioner, err := provisioner.MakeProvisionerAPI(c.Context(), facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -536,10 +534,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *tc.C) {
 	}}
 
 	// Only machine 0 and containers therein can be accessed.
-	results, err := aProvisioner.ProvisioningInfo(context.Background(), args)
+	results, err := aProvisioner.ProvisioningInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
+	controllerCfg, err := domainServices.ControllerConfig().ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.DeepEquals, params.ProvisioningInfoResults{

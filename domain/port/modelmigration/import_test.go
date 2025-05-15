@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -54,7 +52,7 @@ func (s *importSuite) TestNoModelUserPermissions(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -104,7 +102,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	}, nil)
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -126,6 +124,6 @@ func (s *importSuite) TestImportUnitNotFound(c *tc.C) {
 	s.portService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("unit/1")).Return("", porterrors.UnitNotFound)
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, porterrors.UnitNotFound)
 }

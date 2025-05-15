@@ -258,7 +258,7 @@ func (ctx *testContext) expectHookContext(c *tc.C) {
 
 	cfg := coretesting.ModelConfig(c)
 	ctx.api.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
-	m, err := ctx.unit.AssignedMachine(context.Background())
+	m, err := ctx.unit.AssignedMachine(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	ctx.api.EXPECT().OpenedMachinePortRangesByEndpoint(gomock.Any(), m).Return(nil, nil).AnyTimes()
 	ctx.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(nil, nil).AnyTimes()
@@ -481,11 +481,11 @@ func (waitAddresses) step(c *tc.C, ctx *testContext) {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
 		case <-time.After(coretesting.ShortWait):
-			private, _ := ctx.unit.PrivateAddress(context.Background())
+			private, _ := ctx.unit.PrivateAddress(c.Context())
 			if private != dummyPrivateAddress.Value {
 				continue
 			}
-			public, _ := ctx.unit.PublicAddress(context.Background())
+			public, _ := ctx.unit.PublicAddress(c.Context())
 			if public != dummyPublicAddress.Value {
 				continue
 			}
@@ -2107,7 +2107,7 @@ func (s changeSecret) step(c *tc.C, ctx *testContext) {
 type getSecret struct{}
 
 func (s getSecret) step(c *tc.C, ctx *testContext) {
-	val, err := ctx.secretBackends.GetContent(context.Background(), ctx.createdSecretURI, "foorbar", false, false)
+	val, err := ctx.secretBackends.GetContent(c.Context(), ctx.createdSecretURI, "foorbar", false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), tc.DeepEquals, map[string]string{"foo": "bar"})
 }

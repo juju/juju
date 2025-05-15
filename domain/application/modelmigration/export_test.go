@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
@@ -38,7 +36,7 @@ func (s *exportApplicationSuite) TestApplicationExportEmpty(c *tc.C) {
 	exportOp := s.newExportOperation()
 
 	model := description.NewModel(description.ModelArgs{})
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model.Applications(), tc.HasLen, 0)
 }
@@ -51,7 +49,7 @@ func (s *exportApplicationSuite) TestApplicationExportError(c *tc.C) {
 	exportOp := s.newExportOperation()
 
 	model := description.NewModel(description.ModelArgs{})
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 	c.Check(model.Applications(), tc.HasLen, 0)
 }
@@ -70,7 +68,7 @@ func (s *exportApplicationSuite) TestApplicationExportNoLocator(c *tc.C) {
 	exportOp := s.newExportOperation()
 
 	model := description.NewModel(description.ModelArgs{})
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, `.*exporting charm URL: unsupported source ""`)
 	c.Check(model.Applications(), tc.HasLen, 0)
 }
@@ -125,7 +123,7 @@ func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *tc
 	exportOp := s.newExportOperation()
 
 	model := description.NewModel(description.ModelArgs{})
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 2)
 
@@ -178,7 +176,7 @@ func (s *exportApplicationSuite) TestApplicationExportUnits(c *tc.C) {
 	// Act:
 	exportOp := s.newExportOperation()
 	model := description.NewModel(description.ModelArgs{})
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -231,7 +229,7 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 1)
 
@@ -293,7 +291,7 @@ func (s *exportApplicationSuite) TestExportScalingState(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 1)
 
@@ -326,7 +324,7 @@ func (s *exportApplicationSuite) TestApplicationExportExposedEndpoints(c *tc.C) 
 
 	model := description.NewModel(description.ModelArgs{})
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(model.Applications(), tc.HasLen, 1)
 
@@ -370,7 +368,7 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) 
 	// Act:
 	exportOp := s.newExportOperation()
 	model := description.NewModel(description.ModelArgs{})
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)

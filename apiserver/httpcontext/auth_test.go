@@ -73,7 +73,7 @@ func (s *BasicAuthHandlerSuite) Authorize(ctx context.Context, authInfo authenti
 }
 
 func (s *BasicAuthHandlerSuite) TestRequestAuthInfoNoContext(c *tc.C) {
-	_, ok := httpcontext.RequestAuthInfo(context.Background())
+	_, ok := httpcontext.RequestAuthInfo(c.Context())
 	c.Assert(ok, tc.IsFalse)
 }
 

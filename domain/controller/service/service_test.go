@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -32,7 +30,7 @@ func (s *serviceSuite) TestControllerModelUUID(c *tc.C) {
 	st := NewService(s.state)
 	controllerModelUUID := model.UUID(jujutesting.ModelTag.Id())
 	s.state.EXPECT().ControllerModelUUID(gomock.Any()).Return(controllerModelUUID, nil)
-	uuid, err := st.ControllerModelUUID(context.Background())
+	uuid, err := st.ControllerModelUUID(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uuid, tc.Equals, controllerModelUUID)
 }

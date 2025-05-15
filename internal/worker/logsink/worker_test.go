@@ -4,7 +4,6 @@
 package logsink
 
 import (
-	context "context"
 	"sync/atomic"
 	"time"
 
@@ -44,7 +43,7 @@ func (s *workerSuite) TestKilledGetLogger(c *tc.C) {
 	w.Kill()
 
 	worker := w.(*LogSink)
-	_, err := worker.GetLogWriter(context.Background(), id)
+	_, err := worker.GetLogWriter(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, logger.ErrLoggerDying)
 }
 
@@ -61,7 +60,7 @@ func (s *workerSuite) TestKilledGetLoggerContext(c *tc.C) {
 	w.Kill()
 
 	worker := w.(*LogSink)
-	_, err := worker.GetLoggerContext(context.Background(), id)
+	_, err := worker.GetLoggerContext(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, logger.ErrLoggerDying)
 }
 
@@ -76,7 +75,7 @@ func (s *workerSuite) TestGetLogWriter(c *tc.C) {
 	s.ensureStartup(c)
 
 	worker := w.(*LogSink)
-	logger, err := worker.GetLogWriter(context.Background(), id)
+	logger, err := worker.GetLogWriter(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(logger, tc.NotNil)
 
@@ -96,7 +95,7 @@ func (s *workerSuite) TestGetLogWriterIsCached(c *tc.C) {
 	worker := w.(*LogSink)
 
 	for i := 0; i < 10; i++ {
-		logger, err := worker.GetLogWriter(context.Background(), id)
+		logger, err := worker.GetLogWriter(c.Context(), id)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(logger, tc.NotNil)
 	}
@@ -118,7 +117,7 @@ func (s *workerSuite) TestGetLoggerContext(c *tc.C) {
 
 	worker := w.(*LogSink)
 
-	logger, err := worker.GetLoggerContext(context.Background(), id)
+	logger, err := worker.GetLoggerContext(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(logger, tc.NotNil)
 
@@ -138,7 +137,7 @@ func (s *workerSuite) TestGetLoggerContextIsCached(c *tc.C) {
 	worker := w.(*LogSink)
 
 	for i := 0; i < 10; i++ {
-		logger, err := worker.GetLoggerContext(context.Background(), id)
+		logger, err := worker.GetLoggerContext(c.Context(), id)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(logger, tc.NotNil)
 	}
@@ -164,12 +163,12 @@ func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *tc.
 
 	for i := 0; i < 10; i++ {
 		if i%2 == 0 {
-			_, err := worker.GetLogWriter(context.Background(), id)
+			_, err := worker.GetLogWriter(c.Context(), id)
 			c.Assert(err, tc.ErrorIsNil)
 			continue
 		}
 
-		_, err := worker.GetLoggerContext(context.Background(), id)
+		_, err := worker.GetLoggerContext(c.Context(), id)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 

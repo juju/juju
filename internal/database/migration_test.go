@@ -4,8 +4,6 @@
 package database
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/database/schema"
@@ -28,7 +26,7 @@ func (s *migrationSuite) TestMigrationSuccess(c *tc.C) {
 
 	db := s.DB()
 	m := NewDBMigration(&txnRunner{db: db}, loggertesting.WrapCheckLog(c), patches)
-	c.Assert(m.Apply(context.Background()), tc.ErrorIsNil)
+	c.Assert(m.Apply(c.Context()), tc.ErrorIsNil)
 
 	rows, err := db.Query("SELECT * from band;")
 	c.Assert(err, tc.ErrorIsNil)

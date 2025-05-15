@@ -72,7 +72,7 @@ func (s *providerWorkerSuite) TestKilledMultiWorkerProviderErrDying(c *tc.C) {
 	workertest.DirtyKill(c, w)
 
 	worker := w.(*providerWorker)
-	_, err := worker.ProviderForModel(context.Background(), "hunter2")
+	_, err := worker.ProviderForModel(c.Context(), "hunter2")
 	c.Assert(err, tc.ErrorIs, ErrProviderWorkerDying)
 }
 
@@ -106,7 +106,7 @@ func (s *providerWorkerSuite) TestSingularFailsForMultiModels(c *tc.C) {
 	s.ensureStartup(c)
 
 	worker := w.(*providerWorker)
-	_, err := worker.ProviderForModel(context.Background(), "hunter2")
+	_, err := worker.ProviderForModel(c.Context(), "hunter2")
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
@@ -123,7 +123,7 @@ func (s *providerWorkerSuite) TestControllerNamespaceFails(c *tc.C) {
 	s.ensureStartup(c)
 
 	worker := w.(*providerWorker)
-	_, err := worker.ProviderForModel(context.Background(), database.ControllerNS)
+	_, err := worker.ProviderForModel(c.Context(), database.ControllerNS)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
@@ -184,7 +184,7 @@ func (s *providerWorkerSuite) TestProviderForModel(c *tc.C) {
 
 	worker := w.(*providerWorker)
 
-	provider, err := worker.ProviderForModel(context.Background(), "hunter2")
+	provider, err := worker.ProviderForModel(c.Context(), "hunter2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provider, tc.NotNil)
 }
@@ -234,7 +234,7 @@ func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespa
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("hunter-%d", i)
 
-		_, err := worker.ProviderForModel(context.Background(), name)
+		_, err := worker.ProviderForModel(c.Context(), name)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -269,7 +269,7 @@ func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *tc.C) {
 			defer wg.Done()
 			name := fmt.Sprintf("hunter-%d", i)
 
-			_, err := worker.ProviderForModel(context.Background(), name)
+			_, err := worker.ProviderForModel(c.Context(), name)
 			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}
@@ -291,7 +291,7 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfig(c *tc.C) {
 
 	worker := w.(*providerWorker)
 
-	provider, err := worker.EphemeralProviderFromConfig(context.Background(), providertracker.EphemeralProviderConfig{})
+	provider, err := worker.EphemeralProviderFromConfig(c.Context(), providertracker.EphemeralProviderConfig{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provider, tc.NotNil)
 }
@@ -307,7 +307,7 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfigIsNotCachedForDiffe
 	worker := w.(*providerWorker)
 	for i := 0; i < 10; i++ {
 
-		_, err := worker.EphemeralProviderFromConfig(context.Background(), providertracker.EphemeralProviderConfig{})
+		_, err := worker.EphemeralProviderFromConfig(c.Context(), providertracker.EphemeralProviderConfig{})
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -333,7 +333,7 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfigConcurrently(c *tc.
 		go func(i int) {
 			defer wg.Done()
 
-			_, err := worker.EphemeralProviderFromConfig(context.Background(), providertracker.EphemeralProviderConfig{})
+			_, err := worker.EphemeralProviderFromConfig(c.Context(), providertracker.EphemeralProviderConfig{})
 			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}

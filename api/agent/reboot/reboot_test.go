@@ -7,7 +7,6 @@
 package reboot_test
 
 import (
-	"context"
 	stdtesting "testing"
 
 	"github.com/juju/names/v6"
@@ -45,7 +44,7 @@ func (s *machineRebootSuite) TestWatchForRebootEvent(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
-	_, err := client.WatchForRebootEvent(context.Background())
+	_, err := client.WatchForRebootEvent(c.Context())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -66,7 +65,7 @@ func (s *machineRebootSuite) TestRequestReboot(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
-	err := client.RequestReboot(context.Background())
+	err := client.RequestReboot(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -87,7 +86,7 @@ func (s *machineRebootSuite) TestRequestRebootError(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
-	err := client.RequestReboot(context.Background())
+	err := client.RequestReboot(c.Context())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -110,7 +109,7 @@ func (s *machineRebootSuite) TestGetRebootAction(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
-	rAction, err := client.GetRebootAction(context.Background())
+	rAction, err := client.GetRebootAction(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rAction, tc.Equals, params.ShouldDoNothing)
 }
@@ -136,7 +135,7 @@ func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
-	_, err := client.GetRebootAction(context.Background())
+	_, err := client.GetRebootAction(c.Context())
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }
 
@@ -157,7 +156,7 @@ func (s *machineRebootSuite) TestClearReboot(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
-	err := client.ClearReboot(context.Background())
+	err := client.ClearReboot(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -178,6 +177,6 @@ func (s *machineRebootSuite) TestClearRebootError(c *tc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := reboot.NewClient(apiCaller, tag)
-	err := client.ClearReboot(context.Background())
+	err := client.ClearReboot(c.Context())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }

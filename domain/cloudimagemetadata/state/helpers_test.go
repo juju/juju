@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/internal/errors"
@@ -17,9 +18,9 @@ import (
 // It joins the architecture table to fetch architecture-related details and returns the metadata slice.
 //
 // It is used in test to keep save and find tests independent of each other
-func (s *stateSuite) retrieveMetadataFromDB() ([]cloudimagemetadata.Metadata, error) {
+func (s *stateSuite) retrieveMetadataFromDB(c *tc.C) ([]cloudimagemetadata.Metadata, error) {
 	var metadata []cloudimagemetadata.Metadata
-	return metadata, s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	return metadata, s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query(`
 SELECT 
 created_at,
@@ -65,7 +66,7 @@ image_id
 // runQuery executes the provided SQL query string using the current state's database connection.
 //
 // It is a convenient function to set up test with a specific database state.
-func (s *stateSuite) runQuery(query string) error {
+func (s *stateSuite) runQuery(c *tc.C, query string) error {
 	db, err := s.state.DB()
 	if err != nil {
 		return err
@@ -74,7 +75,7 @@ func (s *stateSuite) runQuery(query string) error {
 	if err != nil {
 		return err
 	}
-	return db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	return db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).Run()
 	})
 }

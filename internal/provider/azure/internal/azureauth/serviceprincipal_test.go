@@ -175,7 +175,7 @@ func (s *InteractiveSuite) TestInteractive(c *tc.C) {
 	}
 
 	var stderr bytes.Buffer
-	sdkCtx := context.Background()
+	sdkCtx := c.Context()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
 		CloudName:      "AzureCloud",
@@ -235,7 +235,7 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *tc.C) {
 	}
 
 	var stderr bytes.Buffer
-	sdkCtx := context.Background()
+	sdkCtx := c.Context()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
 		CloudName:      "AzureCloud",
@@ -308,7 +308,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *tc.C) {
 	}
 
 	var stderr bytes.Buffer
-	sdkCtx := context.Background()
+	sdkCtx := c.Context()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
 		CloudName:      "AzureCloud",
@@ -370,7 +370,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *tc.C) 
 	}
 
 	var stderr bytes.Buffer
-	sdkCtx := context.Background()
+	sdkCtx := c.Context()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
 		CloudName:      "AzureCloud",
@@ -426,7 +426,7 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *tc.C) {
 	}
 
 	var stderr bytes.Buffer
-	sdkCtx := context.Background()
+	sdkCtx := c.Context()
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
 		CloudName:      "AzureCloud",
 		SubscriptionId: subscriptionId,

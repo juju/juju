@@ -121,7 +121,7 @@ func (s *DomainServicesSuite) SeedControllerConfig(c *tc.C) {
 		s.ControllerConfig,
 		s.ControllerModelUUID,
 	)
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -139,12 +139,12 @@ func (s *DomainServicesSuite) SeedAdminUser(c *tc.C) {
 		},
 	)
 	s.AdminUserUUID = uuid
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *DomainServicesSuite) SeedCloudAndCredential(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err := cloudstate.AllowCloudType(ctx, s.ControllerTxnRunner(), 99, "dummy")
 	c.Assert(err, tc.ErrorIsNil)
@@ -181,7 +181,7 @@ func (s *DomainServicesSuite) SeedCloudAndCredential(c *tc.C) {
 // SeedModelDatabases makes sure that model's for both the controller and default
 // model have been created in the database.
 func (s *DomainServicesSuite) SeedModelDatabases(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	controllerUUID, err := uuid.UUIDFromString(jujutesting.ControllerTag.Id())
 	c.Assert(err, tc.ErrorIsNil)

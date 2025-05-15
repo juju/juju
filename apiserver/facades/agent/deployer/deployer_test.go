@@ -49,7 +49,7 @@ func (s *deployerSuite) TestSetUnitPassword(c *tc.C) {
 		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
 	}
 
-	result, err := api.SetPasswords(context.Background(), params.EntityPasswords{
+	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{
 				Tag:      names.NewUnitTag("foo/1").String(),
@@ -78,7 +78,7 @@ func (s *deployerSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
 	}
 
-	result, err := api.SetPasswords(context.Background(), params.EntityPasswords{
+	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{
 				Tag:      names.NewUnitTag("foo/1").String(),

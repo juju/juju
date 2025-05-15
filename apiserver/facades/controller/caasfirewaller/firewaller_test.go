@@ -98,7 +98,7 @@ func (s *firewallerSuite) TestWatchApplications(c *tc.C) {
 
 	applicationNames := []string{"db2", "hadoop"}
 	s.applicationsChanges <- applicationNames
-	result, err := s.facade.WatchApplications(context.Background())
+	result, err := s.facade.WatchApplications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.StringsWatcherId, tc.Equals, "1")
@@ -112,7 +112,7 @@ func (s *firewallerSuite) TestWatchApplication(c *tc.C) {
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
-	results, err := s.facade.Watch(context.Background(), params.Entities{
+	results, err := s.facade.Watch(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
@@ -135,7 +135,7 @@ func (s *firewallerSuite) TestIsExposed(c *tc.C) {
 	s.appService.EXPECT().IsApplicationExposed(gomock.Any(), "gitlab").Return(true, nil)
 
 	s.st.application.exposed = true
-	results, err := s.facade.IsExposed(context.Background(), params.Entities{
+	results, err := s.facade.IsExposed(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
@@ -158,7 +158,7 @@ func (s *firewallerSuite) TestLife(c *tc.C) {
 
 	s.appService.EXPECT().GetApplicationLife(gomock.Any(), "gitlab").Return(life.Alive, nil)
 
-	results, err := s.facade.Life(context.Background(), params.Entities{
+	results, err := s.facade.Life(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "machine-0"},
@@ -180,7 +180,7 @@ func (s *firewallerSuite) TestLife(c *tc.C) {
 func (s *firewallerSuite) TestApplicationConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	results, err := s.facade.ApplicationsConfig(context.Background(), params.Entities{
+	results, err := s.facade.ApplicationsConfig(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},

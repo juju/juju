@@ -4,7 +4,6 @@
 package rpc_test
 
 import (
-	"context"
 	"reflect"
 
 	"github.com/juju/tc"
@@ -111,6 +110,7 @@ func (*reflectSuite) TestFindMethod(c *tc.C) {
 	// used in the implementation of the rpc server,
 	// so just a simple sanity check test here.
 	root := &Root{
+		c:      c,
 		simple: make(map[string]*SimpleMethods),
 	}
 	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
@@ -131,13 +131,14 @@ func (*reflectSuite) TestFindMethod(c *tc.C) {
 	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeOf(stringVal{}))
 	c.Assert(m.ResultType(), tc.Equals, reflect.TypeOf(stringVal{}))
 
-	ret, err := m.Call(context.Background(), "a99", reflect.ValueOf(stringVal{"foo"}))
+	ret, err := m.Call(c.Context(), "a99", reflect.ValueOf(stringVal{"foo"}))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ret.Interface(), tc.Equals, stringVal{"Call1r1e ret"})
 }
 
 func (*reflectSuite) TestFindMethodAcceptsAnyVersion(c *tc.C) {
 	root := &Root{
+		c:      c,
 		simple: make(map[string]*SimpleMethods),
 	}
 	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}

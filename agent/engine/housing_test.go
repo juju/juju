@@ -45,7 +45,7 @@ func (*HousingSuite) TestEmptyHousingPopulatedManifold(c *tc.C) {
 
 	c.Check(manifold.Inputs, tc.DeepEquals, []string{"x", "y", "z"})
 	c.Check(func() {
-		manifold.Start(context.Background(), nil)
+		manifold.Start(c.Context(), nil)
 	}, tc.PanicMatches, "panicStart")
 	c.Check(func() {
 		manifold.Output(nil, nil)
@@ -110,7 +110,7 @@ func (*HousingSuite) TestFlagMissing(c *tc.C) {
 		"flag": dependency.ErrMissing,
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -123,7 +123,7 @@ func (*HousingSuite) TestFlagBadType(c *tc.C) {
 		"flag": false,
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "cannot set false into .*")
 }
@@ -136,7 +136,7 @@ func (*HousingSuite) TestFlagBadValue(c *tc.C) {
 		"flag": flag{false},
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -154,7 +154,7 @@ func (*HousingSuite) TestFlagSuccess(c *tc.C) {
 		"flag": flag{true},
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.Equals, expectWorker)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -191,7 +191,7 @@ func (*HousingSuite) TestFlagBlocksOccupy(c *tc.C) {
 		"fortress": errors.New("never happen"),
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -204,7 +204,7 @@ func (*HousingSuite) TestOccupyMissing(c *tc.C) {
 		"fortress": dependency.ErrMissing,
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -217,7 +217,7 @@ func (*HousingSuite) TestOccupyBadType(c *tc.C) {
 		"fortress": false,
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "cannot set false into .*")
 }
@@ -227,7 +227,7 @@ func (*HousingSuite) TestOccupyLocked(c *tc.C) {
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	getter := dt.StubGetter(map[string]interface{}{
 		"fortress": newGuest(false),
 	})
@@ -276,7 +276,7 @@ func (*HousingSuite) TestOccupySuccess(c *tc.C) {
 	started := make(chan struct{})
 	go func() {
 		defer close(started)
-		worker, err := manifold.Start(context.Background(), getter)
+		worker, err := manifold.Start(c.Context(), getter)
 		c.Check(worker, tc.Equals, expectWorker)
 		c.Check(err, tc.ErrorIsNil)
 	}()

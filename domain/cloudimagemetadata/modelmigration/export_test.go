@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
@@ -93,7 +91,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 
 	// Act
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
@@ -114,7 +112,7 @@ func (s *exportSuite) TestExportFailGetAllImage(c *tc.C) {
 
 	// Act
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expected)

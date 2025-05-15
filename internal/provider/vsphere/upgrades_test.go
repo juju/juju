@@ -25,7 +25,7 @@ func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *tc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *tc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	ops := upgrader.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})
+	ops := upgrader.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{})
 	c.Assert(ops, tc.HasLen, 1)
 	c.Assert(ops[0].TargetVersion, tc.Equals, 1)
 	c.Assert(ops[0].Steps, tc.HasLen, 2)
@@ -35,7 +35,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *tc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationUpdateExtraConfig(c *tc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	step := upgrader.UpgradeOperations(context.Background(),
+	step := upgrader.UpgradeOperations(c.Context(),
 		environs.UpgradeOperationsParams{
 			ControllerUUID: "foo",
 		})[0].Steps[0]
@@ -45,7 +45,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationUpdateExtraConfig(c *tc
 	vm3 := buildVM("vm-2").vm()
 	s.client.virtualMachines = []*mo.VirtualMachine{vm1, vm2, vm3}
 
-	err := step.Run(context.Background())
+	err := step.Run(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "VirtualMachines", "UpdateVirtualMachineExtraConfig", "UpdateVirtualMachineExtraConfig", "Close")
@@ -68,7 +68,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationUpdateExtraConfig(c *tc
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationModelFolders(c *tc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	step := upgrader.UpgradeOperations(context.Background(),
+	step := upgrader.UpgradeOperations(c.Context(),
 		environs.UpgradeOperationsParams{
 			ControllerUUID: "foo",
 		})[0].Steps[1]
@@ -78,7 +78,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationModelFolders(c *tc.C) {
 	vm3 := buildVM("vm-3").vm()
 	s.client.virtualMachines = []*mo.VirtualMachine{vm1, vm2, vm3}
 
-	err := step.Run(context.Background())
+	err := step.Run(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "EnsureVMFolder", "VirtualMachines", "MoveVMsInto", "Close")
@@ -95,7 +95,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationModelFolders(c *tc.C) {
 
 func (s *environUpgradeSuite) TestExtraConfigPermissionError(c *tc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	step := upgrader.UpgradeOperations(context.Background(),
+	step := upgrader.UpgradeOperations(c.Context(),
 		environs.UpgradeOperationsParams{
 			ControllerUUID: "foo",
 		})[0].Steps[0]
@@ -105,7 +105,7 @@ func (s *environUpgradeSuite) TestExtraConfigPermissionError(c *tc.C) {
 }
 func (s *environUpgradeSuite) TestModelFoldersPermissionError(c *tc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	step := upgrader.UpgradeOperations(context.Background(),
+	step := upgrader.UpgradeOperations(c.Context(),
 		environs.UpgradeOperationsParams{
 			ControllerUUID: "foo",
 		})[0].Steps[1]

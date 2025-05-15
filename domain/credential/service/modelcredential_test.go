@@ -74,7 +74,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesSuccess(c *tc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -89,7 +89,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesInstancesMissing(c *tc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machine1.Id())).Return("deadbeef-1", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("birds", nil)
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 1)
@@ -108,7 +108,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesExtraInstances(c *tc.C) {
 		return []instances.Instance{s.instance, instance2}, nil
 	}
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.IsNil)
 }
@@ -124,7 +124,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesExtraInstancesWhenMigrating(c *tc.
 	s.provider.allInstancesFunc = func(ctx context.Context) ([]instances.Instance, error) {
 		return []instances.Instance{s.instance, instance2}, nil
 	}
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, true)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 1)
@@ -136,7 +136,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachines(c *tc.C) {
 
 	s.machineState.EXPECT().AllMachines().Return(nil, errors.New("boom"))
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorMatches, "boom")
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -152,7 +152,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingInstances(c *tc.C) {
 		return nil, errors.New("kaboom")
 	}
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorMatches, "kaboom")
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -166,7 +166,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesContainers(c *tc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -180,7 +180,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesManual(c *tc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -194,7 +194,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesManualFailure(c *tc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef")).Return("wind-up", nil)
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorMatches, "manual retrieval failure")
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -210,7 +210,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *t
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machine1.Id())).Return("deadbeef-1", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("", errors.New("retrieval failure"))
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 	c.Check(results[0], tc.ErrorMatches, "getting instance id for machine 2: retrieval failure")
@@ -228,7 +228,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machine1.Id())).Return("deadbeef-1", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("", errors.New("retrieval failure"))
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 2)
 	c.Check(results[0], tc.ErrorMatches, "getting instance id for machine 1: retrieval failure")
@@ -247,7 +247,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machine1.Id())).Return("deadbeef-1", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("deadbeef-1")).Return("", errors.New("retrieval failure"))
 
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, true)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, true)
 	c.Assert(err, tc.ErrorIsNil)
 	// There should be 3 errors here:
 	// * 2 of them because failing to get an instance id from one machine should not stop the processing the rest of the machines;
@@ -270,7 +270,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *tc.C) {
 
 	// We should ignore the unprovisioned machine - we wouldn't expect
 	// the cloud to know about it.
-	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
+	results, err := checkMachineInstances(c.Context(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -312,7 +312,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialUnknownModelType(c 
 
 	v := NewCredentialValidator()
 	results, err := v.Validate(
-		context.Background(),
+		c.Context(),
 		s.context,
 		corecredential.Key{
 			Cloud: "dummy",
@@ -330,7 +330,7 @@ func (s *ModelCredentialSuite) TestOpeningProviderFails(c *tc.C) {
 	s.PatchValue(&newEnv, func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error) {
 		return nil, errors.New("explosive")
 	})
-	results, err := checkIAASModelCredential(context.Background(), s.machineState, s.machineService, environs.OpenParams{}, false)
+	results, err := checkIAASModelCredential(c.Context(), s.machineState, s.machineService, environs.OpenParams{}, false)
 	c.Assert(err, tc.ErrorMatches, "explosive")
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -342,7 +342,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialForIAASModel(c *tc.
 	s.ensureEnvForIAASModel()
 	v := NewCredentialValidator()
 	results, err := v.Validate(
-		context.Background(),
+		c.Context(),
 		s.context,
 		corecredential.Key{
 			Cloud: "dummy",
@@ -358,7 +358,7 @@ func (s *ModelCredentialSuite) TestValidateModelCredentialCloudMismatch(c *tc.C)
 	s.ensureEnvForIAASModel()
 	v := NewCredentialValidator()
 	_, err := v.Validate(
-		context.Background(),
+		c.Context(),
 		s.context,
 		corecredential.Key{
 			Cloud: "other",
@@ -373,7 +373,7 @@ func (s *ModelCredentialSuite) TestOpeningCAASBrokerFails(c *tc.C) {
 	s.PatchValue(&newCAASBroker, func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 		return nil, errors.New("explosive")
 	})
-	results, err := checkCAASModelCredential(context.Background(), environs.OpenParams{})
+	results, err := checkCAASModelCredential(c.Context(), environs.OpenParams{})
 	c.Assert(err, tc.ErrorMatches, "explosive")
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -384,7 +384,7 @@ func (s *ModelCredentialSuite) TestCAASCredentialCheckFailed(c *tc.C) {
 			namespacesFunc: func() ([]string, error) { return nil, errors.New("fail auth") },
 		}, nil
 	})
-	results, err := checkCAASModelCredential(context.Background(), environs.OpenParams{})
+	results, err := checkCAASModelCredential(c.Context(), environs.OpenParams{})
 	c.Assert(err, tc.ErrorMatches, "fail auth")
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -395,7 +395,7 @@ func (s *ModelCredentialSuite) TestCAASCredentialCheckSucceeds(c *tc.C) {
 			namespacesFunc: func() ([]string, error) { return []string{}, nil },
 		}, nil
 	})
-	results, err := checkCAASModelCredential(context.Background(), environs.OpenParams{})
+	results, err := checkCAASModelCredential(c.Context(), environs.OpenParams{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -407,7 +407,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialForCAASModel(c *tc.
 	s.ensureEnvForCAASModel()
 	v := NewCredentialValidator()
 	results, err := v.Validate(
-		context.Background(),
+		c.Context(),
 		s.context,
 		corecredential.Key{
 			Cloud: "dummy",

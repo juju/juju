@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/juju/tc"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
@@ -68,6 +69,8 @@ var (
 
 type mockRoundTripper struct {
 	testhelpers.Stub
+
+	c *tc.C
 
 	serverURL string
 	roundTrip func(ctx context.Context, req, res soap.HasFault) error
@@ -324,7 +327,7 @@ func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *ty
 		typeNames = append(typeNames, prop.Type)
 	}
 	r.MethodCall(r, "RetrieveProperties", args...)
-	logger.Debugf(context.Background(), "RetrieveProperties for %s expecting %v", args, typeNames)
+	logger.Debugf(r.c.Context(), "RetrieveProperties for %s expecting %v", args, typeNames)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var contents []types.ObjectContent
@@ -342,7 +345,7 @@ func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *ty
 			}
 		}
 	}
-	logger.Debugf(context.Background(), "received %s", contents)
+	logger.Debugf(r.c.Context(), "received %s", contents)
 	return &types.RetrievePropertiesResponse{Returnval: contents}
 }
 

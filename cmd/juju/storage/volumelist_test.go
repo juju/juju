@@ -74,7 +74,7 @@ func (s *ListSuite) TestVolumeListJSON(c *tc.C) {
 func (s *ListSuite) TestVolumeListWithErrorResults(c *tc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
 		var emptyMockAPI mockListAPI
-		results, _ := emptyMockAPI.ListVolumes(context.Background(), nil)
+		results, _ := emptyMockAPI.ListVolumes(c.Context(), nil)
 		results = append(results, params.VolumeDetailsListResult{
 			Error: &params.Error{Message: "bad"},
 		})
@@ -106,7 +106,7 @@ func (s *ListSuite) TestVolumeListTabular(c *tc.C) {
 	// We should get everything sorted in the appropriate order.
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
 		var emptyMockAPI mockListAPI
-		results, _ := emptyMockAPI.ListVolumes(context.Background(), nil)
+		results, _ := emptyMockAPI.ListVolumes(c.Context(), nil)
 		n := len(results)
 		for i := 0; i < n/2; i++ {
 			results[i], results[n-i-1] = results[n-i-1], results[i]
@@ -186,7 +186,7 @@ func (s *ListSuite) assertUnmarshalledVolumeOutput(c *tc.C, unmarshal unmarshall
 // expect returns the VolumeInfo mapping we should expect to unmarshal
 // from rendered YAML or JSON.
 func (s *ListSuite) expectVolume(c *tc.C, machines []string) map[string]storage.VolumeInfo {
-	all, err := s.mockAPI.ListVolumes(context.Background(), machines)
+	all, err := s.mockAPI.ListVolumes(c.Context(), machines)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var valid []params.VolumeDetails

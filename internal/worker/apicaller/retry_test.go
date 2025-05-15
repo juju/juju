@@ -4,7 +4,6 @@
 package apicaller_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -53,7 +52,7 @@ func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *tc.C) {
 		nil,               // success on second strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return apicaller.OnlyConnect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
+		return apicaller.OnlyConnect(c.Context(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
 	})
 	checkOpenCalls(c, stub, "new", "new", "new")
 	c.Check(conn, tc.NotNil)
@@ -69,7 +68,7 @@ func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *tc.C) {
 		nil,               // second strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return apicaller.OnlyConnect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
+		return apicaller.OnlyConnect(c.Context(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
 	})
 	checkOpenCalls(c, stub, "new", "old", "old", "old")
 	c.Check(err, tc.ErrorIsNil)
@@ -97,7 +96,7 @@ func checkWaitProvisionedError(c *tc.C, connect apicaller.ConnectFunc) (api.Conn
 		errors.New("splat pow"), // third strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return connect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
+		return connect(c.Context(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
 	})
 	checkOpenCalls(c, stub, "new", "new", "new", "new")
 	return conn, err
@@ -124,7 +123,7 @@ func checkWaitNeverProvisioned(c *tc.C, connect apicaller.ConnectFunc) (api.Conn
 		errNotProvisioned, // third strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return connect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
+		return connect(c.Context(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggertesting.WrapCheckLog(c))
 	})
 	checkOpenCalls(c, stub, "new", "new", "new", "new")
 	return conn, err

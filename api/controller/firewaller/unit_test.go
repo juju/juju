@@ -4,8 +4,6 @@
 package firewaller_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -40,7 +38,7 @@ func (s *unitSuite) TestUnit(c *tc.C) {
 	tag := names.NewUnitTag("mysql/666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, tc.ErrorIsNil)
-	u, err := client.Unit(context.Background(), tag)
+	u, err := client.Unit(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(u.Life(), tc.Equals, life.Alive)
 	c.Assert(u.Name(), tc.DeepEquals, "mysql/666")
@@ -70,9 +68,9 @@ func (s *unitSuite) TestRefresh(c *tc.C) {
 	tag := names.NewUnitTag("mysql/666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, tc.ErrorIsNil)
-	u, err := client.Unit(context.Background(), tag)
+	u, err := client.Unit(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
-	err = u.Refresh(context.Background())
+	err = u.Refresh(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(u.Life(), tc.Equals, life.Dead)
 	c.Assert(calls, tc.Equals, 2)
@@ -106,9 +104,9 @@ func (s *unitSuite) TestAssignedMachine(c *tc.C) {
 	tag := names.NewUnitTag("mysql/666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, tc.ErrorIsNil)
-	u, err := client.Unit(context.Background(), tag)
+	u, err := client.Unit(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
-	m, err := u.AssignedMachine(context.Background())
+	m, err := u.AssignedMachine(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.Id(), tc.Equals, "666")
 	c.Assert(calls, tc.Equals, 2)
@@ -132,7 +130,7 @@ func (s *unitSuite) TestApplication(c *tc.C) {
 	tag := names.NewUnitTag("mysql/666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, tc.ErrorIsNil)
-	u, err := client.Unit(context.Background(), tag)
+	u, err := client.Unit(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	app, err := u.Application()
 	c.Assert(err, tc.ErrorIsNil)

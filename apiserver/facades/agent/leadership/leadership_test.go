@@ -106,7 +106,7 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *tc.C) {
 	}
 
 	ldrSvc := newLeadershipService(c, claimer, nil)
-	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(c.Context(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -136,7 +136,7 @@ func (s *leadershipSuite) TestClaimLeadershipApplicationAgent(c *tc.C) {
 		tag: names.NewApplicationTag(StubAppNm),
 	}
 	ldrSvc := newLeadershipService(c, claimer, authorizer)
-	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(c.Context(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -163,7 +163,7 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *tc.C) {
 	}
 
 	ldrSvc := newLeadershipService(c, claimer, nil)
-	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(c.Context(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -181,7 +181,7 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *tc.C) {
 func (s *leadershipSuite) TestClaimLeadershipBadService(c *tc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
-	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(c.Context(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  "application-bad/0",
@@ -198,7 +198,7 @@ func (s *leadershipSuite) TestClaimLeadershipBadService(c *tc.C) {
 func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *tc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
-	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(c.Context(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -215,7 +215,7 @@ func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *tc.C) {
 func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *tc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
-	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(c.Context(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -232,7 +232,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *tc.C) {
 func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *tc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
-	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(c.Context(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -256,7 +256,7 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *tc.C) {
 
 	ldrSvc := newLeadershipService(c, claimer, nil)
 	result, err := ldrSvc.BlockUntilLeadershipReleased(
-		context.Background(),
+		c.Context(),
 		names.NewApplicationTag(StubAppNm),
 	)
 
@@ -265,7 +265,7 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *tc.C) {
 }
 
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedContext(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 	claimer := &stubClaimer{
 		BlockUntilLeadershipReleasedFn: func(ctx context.Context, sid string) error {
@@ -291,7 +291,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *tc.C) {
 	}
 
 	ldrSvc := newLeadershipService(c, nil, authorizer)
-	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(c.Context(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -309,7 +309,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *tc.C) {
 
 func (s *leadershipSuite) TestClaimLeadershipFailBadService(c *tc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
-	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(c.Context(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag("lol-different").String(),

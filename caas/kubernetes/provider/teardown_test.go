@@ -281,7 +281,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 		close(done)
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 	go s.broker.DeleteClusterScopeResourcesModelTeardown(ctx, &wg, errCh)
 
@@ -486,7 +486,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 		close(done)
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(c.Context(), 500*time.Millisecond)
 	defer cancel()
 	go s.broker.DeleteClusterScopeResourcesModelTeardown(ctx, &wg, errCh)
 
@@ -536,7 +536,7 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *tc.C) {
 		close(done)
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 	go s.broker.DeleteNamespaceModelTeardown(ctx, &wg, errCh)
 
@@ -591,7 +591,7 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardownFailed(c *tc.C) {
 		close(done)
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 	go s.broker.DeleteNamespaceModelTeardown(ctx, &wg, errCh)
 

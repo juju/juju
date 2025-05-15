@@ -4,7 +4,6 @@
 package caasunitprovisioner_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -102,7 +101,7 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
 	s.applicationService.EXPECT().WatchApplicationScale(gomock.Any(), "gitlab").Return(w, nil)
 
-	results, err := s.facade.WatchApplicationsScale(context.Background(), params.Entities{
+	results, err := s.facade.WatchApplicationsScale(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
@@ -123,7 +122,7 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *tc.C) {
 
 	s.settingsChanges <- []string{"hash"}
 
-	results, err := s.facade.WatchApplicationsTrustHash(context.Background(), params.Entities{
+	results, err := s.facade.WatchApplicationsTrustHash(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
@@ -146,7 +145,7 @@ func (s *CAASProvisionerSuite) TestApplicationScale(c *tc.C) {
 
 	s.applicationService.EXPECT().GetApplicationScale(gomock.Any(), "gitlab").Return(5, nil)
 
-	results, err := s.facade.ApplicationsScale(context.Background(), params.Entities{
+	results, err := s.facade.ApplicationsScale(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},

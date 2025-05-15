@@ -4,8 +4,6 @@
 package apiserver_test
 
 import (
-	"context"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -81,7 +79,7 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(model.Model{
 		UUID: s.controllerModelUUID,
 	}, nil)
-	w, err := apiserver.NewWorker(context.Background(), s.config)
+	w, err := apiserver.NewWorker(c.Context(), s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

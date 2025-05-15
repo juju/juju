@@ -5,7 +5,6 @@ package service
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"time"
 
@@ -52,16 +51,16 @@ func (s *resourceServiceSuite) TestDeleteApplicationResources(c *tc.C) {
 	s.state.EXPECT().DeleteApplicationResources(gomock.Any(),
 		appUUID).Return(nil)
 
-	err := s.service.DeleteApplicationResources(context.
-		Background(), appUUID)
+	err := s.service.DeleteApplicationResources(c.Context(),
+		appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *resourceServiceSuite) TestDeleteApplicationResourcesBadArgs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.DeleteApplicationResources(context.
-		Background(), "not an application ID")
+	err := s.service.DeleteApplicationResources(c.Context(),
+		"not an application ID")
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationIDNotValid,
 		tc.Commentf("Application ID should be stated as not valid"))
 }
@@ -76,8 +75,8 @@ func (s *resourceServiceSuite) TestDeleteApplicationResourcesUnexpectedError(c *
 	s.state.EXPECT().DeleteApplicationResources(gomock.Any(),
 		appUUID).Return(stateError)
 
-	err := s.service.DeleteApplicationResources(context.
-		Background(), appUUID)
+	err := s.service.DeleteApplicationResources(c.Context(),
+		appUUID)
 	c.Assert(err, tc.ErrorIs, stateError,
 		tc.Commentf("Should return underlying error"))
 }
@@ -90,16 +89,16 @@ func (s *resourceServiceSuite) TestDeleteUnitResources(c *tc.C) {
 	s.state.EXPECT().DeleteUnitResources(gomock.Any(),
 		unitUUID).Return(nil)
 
-	err := s.service.DeleteUnitResources(context.
-		Background(), unitUUID)
+	err := s.service.DeleteUnitResources(c.Context(),
+		unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *resourceServiceSuite) TestDeleteUnitResourcesBadArgs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.DeleteUnitResources(context.
-		Background(), "not an unit UUID")
+	err := s.service.DeleteUnitResources(c.Context(),
+		"not an unit UUID")
 	c.Assert(err, tc.ErrorIs, resourceerrors.UnitUUIDNotValid,
 		tc.Commentf("Unit UUID should be stated as not valid"))
 }
@@ -113,8 +112,8 @@ func (s *resourceServiceSuite) TestDeleteUnitResourcesUnexpectedError(c *tc.C) {
 	s.state.EXPECT().DeleteUnitResources(gomock.Any(),
 		unitUUID).Return(stateError)
 
-	err := s.service.DeleteUnitResources(context.
-		Background(), unitUUID)
+	err := s.service.DeleteUnitResources(c.Context(),
+		unitUUID)
 	c.Assert(err, tc.ErrorIs, stateError,
 		tc.Commentf("Should return underlying error"))
 }
@@ -129,7 +128,7 @@ func (s *resourceServiceSuite) TestGetApplicationResourceID(c *tc.C) {
 	}
 	s.state.EXPECT().GetApplicationResourceID(gomock.Any(), args).Return(retID, nil)
 
-	ret, err := s.service.GetApplicationResourceID(context.Background(), args)
+	ret, err := s.service.GetApplicationResourceID(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ret, tc.Equals, retID)
 }
@@ -141,7 +140,7 @@ func (s *resourceServiceSuite) TestGetApplicationResourceIDBadID(c *tc.C) {
 		ApplicationID: "",
 		Name:          "test-resource",
 	}
-	_, err := s.service.GetApplicationResourceID(context.Background(), args)
+	_, err := s.service.GetApplicationResourceID(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -152,7 +151,7 @@ func (s *resourceServiceSuite) TestGetApplicationResourceIDBadName(c *tc.C) {
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 		Name:          "",
 	}
-	_, err := s.service.GetApplicationResourceID(context.Background(), args)
+	_, err := s.service.GetApplicationResourceID(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }
 
@@ -162,7 +161,7 @@ func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceName(c
 	retID := resourcetesting.GenResourceUUID(c)
 	s.state.EXPECT().GetResourceUUIDByApplicationAndResourceName(gomock.Any(), "app-id", "res-name").Return(retID, nil)
 
-	ret, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "app-id", "res-name")
+	ret, err := s.service.GetResourceUUIDByApplicationAndResourceName(c.Context(), "app-id", "res-name")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ret, tc.Equals, retID)
 }
@@ -173,7 +172,7 @@ func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameRe
 	retID := resourcetesting.GenResourceUUID(c)
 	s.state.EXPECT().GetResourceUUIDByApplicationAndResourceName(gomock.Any(), "app-id", "res-name").Return(retID, resourceerrors.ResourceNotFound)
 
-	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "app-id", "res-name")
+	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(c.Context(), "app-id", "res-name")
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
 }
 
@@ -182,28 +181,28 @@ func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameAp
 
 	retID := resourcetesting.GenResourceUUID(c)
 	s.state.EXPECT().GetResourceUUIDByApplicationAndResourceName(gomock.Any(), "app-id", "res-name").Return(retID, resourceerrors.ApplicationNotFound)
-	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "app-id", "res-name")
+	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(c.Context(), "app-id", "res-name")
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound)
 }
 
 func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameEmptyAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "", "res-name")
+	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(c.Context(), "", "res-name")
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNameNotValid)
 }
 
 func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameBadAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "9", "res-name")
+	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(c.Context(), "9", "res-name")
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNameNotValid)
 }
 
 func (s *resourceServiceSuite) TestGetResourceUUIDByApplicationAndResourceNameBadName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(context.Background(), "app-id", "")
+	_, err := s.service.GetResourceUUIDByApplicationAndResourceName(c.Context(), "app-id", "")
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }
 
@@ -218,14 +217,14 @@ func (s *resourceServiceSuite) TestListResources(c *tc.C) {
 	}
 	s.state.EXPECT().ListResources(gomock.Any(), id).Return(expectedList, nil)
 
-	obtainedList, err := s.service.ListResources(context.Background(), id)
+	obtainedList, err := s.service.ListResources(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedList, tc.DeepEquals, expectedList)
 }
 
 func (s *resourceServiceSuite) TestGetResourcesByApplicationIDBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	_, err := s.service.GetResourcesByApplicationID(context.Background(), "")
+	_, err := s.service.GetResourcesByApplicationID(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationIDNotValid)
 }
 
@@ -238,14 +237,14 @@ func (s *resourceServiceSuite) TestGetResourcesByApplicationID(c *tc.C) {
 	}}
 	s.state.EXPECT().GetResourcesByApplicationID(gomock.Any(), id).Return(expectedList, nil)
 
-	obtainedList, err := s.service.GetResourcesByApplicationID(context.Background(), id)
+	obtainedList, err := s.service.GetResourcesByApplicationID(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedList, tc.DeepEquals, expectedList)
 }
 
 func (s *resourceServiceSuite) TestListResourcesBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	_, err := s.service.ListResources(context.Background(), "")
+	_, err := s.service.ListResources(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationIDNotValid)
 }
 
@@ -258,14 +257,14 @@ func (s *resourceServiceSuite) TestGetResource(c *tc.C) {
 	}
 	s.state.EXPECT().GetResource(gomock.Any(), id).Return(expectedRes, nil)
 
-	obtainedRes, err := s.service.GetResource(context.Background(), id)
+	obtainedRes, err := s.service.GetResource(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedRes, tc.DeepEquals, expectedRes)
 }
 
 func (s *resourceServiceSuite) TestGetResourceBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	_, err := s.service.GetResource(context.Background(), "")
+	_, err := s.service.GetResource(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -278,7 +277,7 @@ func (s *resourceServiceSuite) TestSetApplicationResource(c *tc.C) {
 	s.state.EXPECT().SetApplicationResource(gomock.Any(), resourceUUID)
 
 	err := s.service.SetApplicationResource(
-		context.Background(),
+		c.Context(),
 		resourceUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -287,7 +286,7 @@ func (s *resourceServiceSuite) TestSetApplicationResource(c *tc.C) {
 func (s *resourceServiceSuite) TestSetApplicationResourceBadResourceUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.SetApplicationResource(context.Background(), "bad-uuid")
+	err := s.service.SetApplicationResource(c.Context(), "bad-uuid")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -336,7 +335,7 @@ func (s *resourceServiceSuite) TestStoreResource(c *tc.C) {
 	})
 
 	err = s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourceUUID,
 			Reader:          reader,
@@ -400,7 +399,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *tc.C) {
 	s.resourceStore.EXPECT().Remove(gomock.Any(), resourceUUID.String())
 
 	err = s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourceUUID,
 			Reader:          reader,
@@ -446,7 +445,7 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobContain
 
 	// Act:
 	err = s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourceUUID,
 			Reader:       reader,
@@ -490,7 +489,7 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobFile(c 
 
 	// Act:
 	err = s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourceUUID,
 			Reader:       reader,
@@ -506,7 +505,7 @@ func (s *resourceServiceSuite) TestStoreResourceBadUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: "bad-uuid",
 		},
@@ -518,7 +517,7 @@ func (s *resourceServiceSuite) TestStoreResourceNilReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
 			Reader:       nil,
@@ -531,7 +530,7 @@ func (s *resourceServiceSuite) TestStoreResourceNegativeSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
 			Reader:       bytes.NewBufferString("spam"),
@@ -545,7 +544,7 @@ func (s *resourceServiceSuite) TestStoreResourceZeroFingerprint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
 			Reader:       bytes.NewBufferString("spam"),
@@ -561,7 +560,7 @@ func (s *resourceServiceSuite) TestStoreResourceBadRetrievedBy(c *tc.C) {
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
 			Reader:          bytes.NewBufferString("spam"),
@@ -581,7 +580,7 @@ func (s *resourceServiceSuite) TestStoreResourceRevisionNotValidOriginUpload(c *
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
 			Reader:          bytes.NewBufferString("spam"),
@@ -601,7 +600,7 @@ func (s *resourceServiceSuite) TestStoreResourceRevisionNotValidOriginStore(c *t
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.service.StoreResource(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
 			Reader:          bytes.NewBufferString("spam"),
@@ -658,7 +657,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	})
 
 	err = s.service.StoreResourceAndIncrementCharmModifiedVersion(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourceUUID,
 			Reader:          reader,
@@ -675,7 +674,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: "bad-uuid",
 		},
@@ -687,7 +686,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
 			Reader:       nil,
@@ -700,7 +699,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
 			Reader:       bytes.NewBufferString("spam"),
@@ -714,7 +713,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
 			Reader:       bytes.NewBufferString("spam"),
@@ -730,7 +729,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.service.StoreResourceAndIncrementCharmModifiedVersion(
-		context.Background(),
+		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
 			Reader:          bytes.NewBufferString("spam"),
@@ -750,7 +749,7 @@ func (s *resourceServiceSuite) TestSetUnitResource(c *tc.C) {
 
 	s.state.EXPECT().SetUnitResource(gomock.Any(), resourceUUID, unitUUID).Return(nil)
 
-	err := s.service.SetUnitResource(context.Background(), resourceUUID, unitUUID)
+	err := s.service.SetUnitResource(c.Context(), resourceUUID, unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -759,7 +758,7 @@ func (s *resourceServiceSuite) TestSetUnitResourceBadResourceUUID(c *tc.C) {
 
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	err := s.service.SetUnitResource(context.Background(), "bad-uuid", unitUUID)
+	err := s.service.SetUnitResource(c.Context(), "bad-uuid", unitUUID)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -768,7 +767,7 @@ func (s *resourceServiceSuite) TestSetUnitResourceBadUnitUUID(c *tc.C) {
 
 	resourceUUID := resourcetesting.GenResourceUUID(c)
 
-	err := s.service.SetUnitResource(context.Background(), resourceUUID, "bad-uuid")
+	err := s.service.SetUnitResource(c.Context(), resourceUUID, "bad-uuid")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -799,7 +798,7 @@ func (s *resourceServiceSuite) TestOpenResource(c *tc.C) {
 		id.String(),
 	).Return(reader, size, nil)
 
-	obtainedRes, obtainedReader, err := s.service.OpenResource(context.Background(), id)
+	obtainedRes, obtainedReader, err := s.service.OpenResource(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedRes, tc.DeepEquals, res)
 	c.Assert(obtainedReader, tc.DeepEquals, reader)
@@ -830,7 +829,7 @@ func (s *resourceServiceSuite) TestOpenResourceFileNotFound(c *tc.C) {
 		id.String(),
 	).Return(nil, 0, objectstoreerrors.ObjectNotFound)
 
-	_, _, err = s.service.OpenResource(context.Background(), id)
+	_, _, err = s.service.OpenResource(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, resourceerrors.StoredResourceNotFound)
 }
 
@@ -859,7 +858,7 @@ func (s *resourceServiceSuite) TestOpenResourceContainerImageNotFound(c *tc.C) {
 		id.String(),
 	).Return(nil, 0, containerimageresourcestoreerrors.ContainerImageMetadataNotFound)
 
-	_, _, err = s.service.OpenResource(context.Background(), id)
+	_, _, err = s.service.OpenResource(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, resourceerrors.StoredResourceNotFound)
 }
 
@@ -890,14 +889,14 @@ func (s *resourceServiceSuite) TestOpenResourceUnexpectedSize(c *tc.C) {
 		id.String(),
 	).Return(nil, size-1, nil)
 
-	_, _, err = s.service.OpenResource(context.Background(), id)
+	_, _, err = s.service.OpenResource(c.Context(), id)
 	c.Assert(err, tc.ErrorMatches, "unexpected size for stored resource.*")
 }
 
 func (s *resourceServiceSuite) TestOpenResourceBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, _, err := s.service.OpenResource(context.Background(), "id")
+	_, _, err := s.service.OpenResource(c.Context(), "id")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -926,7 +925,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResources(c *tc.C) {
 	}
 	s.state.EXPECT().SetRepositoryResources(gomock.Any(), args).Return(nil)
 
-	err = s.service.SetRepositoryResources(context.Background(), args)
+	err = s.service.SetRepositoryResources(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -940,7 +939,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationError(c *tc.
 	s.state.EXPECT().SetRepositoryResources(gomock.Any(), gomock.Any()).Return(expectedErr)
 
 	// Act
-	err = s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+	err = s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 		CharmID:       charmtesting.GenCharmID(c),
 		Info: []charmresource.Resource{{
@@ -966,7 +965,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationIDNotValid(c
 	defer s.setupMocks(c).Finish()
 
 	// Act
-	err := s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: "Not-valid",
 	})
 
@@ -978,7 +977,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesCharmIDNotValid(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	// Act
-	err := s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 		CharmID:       "Not-valid",
 	})
@@ -995,7 +994,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationNoLastPolled
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+	err = s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 		CharmID:       charmtesting.GenCharmID(c),
 		Info: []charmresource.Resource{{
@@ -1021,7 +1020,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationNoInfo(c *tc
 	defer s.setupMocks(c).Finish()
 
 	// Act
-	err := s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 		CharmID:       charmtesting.GenCharmID(c),
 		Info:          nil,
@@ -1036,7 +1035,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationInvalidInfo(
 	defer s.setupMocks(c).Finish()
 
 	// Act
-	err := s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
 		CharmID:       charmtesting.GenCharmID(c),
 		Info:          []charmresource.Resource{{}, {}}, // Invalid resources
@@ -1068,7 +1067,7 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionFile(c *tc.C) {
 		ResourceUUID: resUUID,
 		Revision:     4,
 	}
-	newUUID, err := s.service.UpdateResourceRevision(context.Background(), args)
+	newUUID, err := s.service.UpdateResourceRevision(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newUUID, tc.Equals, expectedUUID)
 }
@@ -1094,7 +1093,7 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionImage(c *tc.C) {
 		ResourceUUID: resUUID,
 		Revision:     4,
 	}
-	newUUID, err := s.service.UpdateResourceRevision(context.Background(), args)
+	newUUID, err := s.service.UpdateResourceRevision(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newUUID, tc.Equals, expectedUUID)
 }
@@ -1120,7 +1119,7 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionNoOldBlobToRemoveContai
 		ResourceUUID: oldUUID,
 		Revision:     4,
 	}
-	newUUID, err := s.service.UpdateResourceRevision(context.Background(), args)
+	newUUID, err := s.service.UpdateResourceRevision(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newUUID, tc.Equals, expectedUUID)
 }
@@ -1146,7 +1145,7 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionNoOldBlobToRemoveFile(c
 		ResourceUUID: oldUUID,
 		Revision:     4,
 	}
-	newUUID, err := s.service.UpdateResourceRevision(context.Background(), args)
+	newUUID, err := s.service.UpdateResourceRevision(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newUUID, tc.Equals, expectedUUID)
 }
@@ -1161,7 +1160,7 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionNotValid(c *tc.C) {
 		Revision:     4,
 	}
 
-	_, err := s.service.UpdateResourceRevision(context.Background(), args)
+	_, err := s.service.UpdateResourceRevision(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -1175,7 +1174,7 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionRevisionNotValid(c *tc.
 		Revision:     -1,
 	}
 
-	_, err := s.service.UpdateResourceRevision(context.Background(), args)
+	_, err := s.service.UpdateResourceRevision(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ArgumentNotValid)
 }
 
@@ -1206,7 +1205,7 @@ func (s *resourceServiceSuite) testUpdateUploadResource(c *tc.C, resourceType ch
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Remove(gomock.Any(), oldResUUID.String()).Return(nil)
 
-	obtainedResourceUUID, err := s.service.UpdateUploadResource(context.Background(), oldResUUID)
+	obtainedResourceUUID, err := s.service.UpdateUploadResource(c.Context(), oldResUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedResourceUUID, tc.Equals, newResUUID)
 }
@@ -1234,7 +1233,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplication(c *tc.C) {
 	retVal := []coreresource.UUID{resourcetesting.GenResourceUUID(c), resourcetesting.GenResourceUUID(c)}
 	s.state.EXPECT().AddResourcesBeforeApplication(gomock.Any(), args).Return(retVal, nil)
 
-	uuids, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	uuids, err := s.service.AddResourcesBeforeApplication(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uuids, tc.HasLen, 2)
 }
@@ -1248,7 +1247,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationAppNameNotValid(
 		CharmLocator: charm.CharmLocator{Name: "testcharm", Source: charm.CharmHubSource},
 	}
 
-	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	_, err := s.service.AddResourcesBeforeApplication(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNameNotValid)
 }
 
@@ -1267,7 +1266,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationResNameNotValid(
 		},
 	}
 
-	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	_, err := s.service.AddResourcesBeforeApplication(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }
 
@@ -1278,7 +1277,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationArgNotValid(c *t
 
 	args := resource.AddResourcesBeforeApplicationArgs{}
 
-	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	_, err := s.service.AddResourcesBeforeApplication(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ArgumentNotValid)
 }
 
@@ -1298,7 +1297,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationArgumentNotValid
 		},
 	}
 
-	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	_, err := s.service.AddResourcesBeforeApplication(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ArgumentNotValid)
 }
 
@@ -1320,7 +1319,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationArgumentNotValid
 		},
 	}
 
-	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	_, err := s.service.AddResourcesBeforeApplication(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ArgumentNotValid)
 }
 
@@ -1335,7 +1334,7 @@ func (s *resourceServiceSuite) TestDeleteResourcesAddedBeforeApplication(c *tc.C
 	}
 	s.state.EXPECT().DeleteResourcesAddedBeforeApplication(gomock.Any(), resourceUUIDs).Return(nil)
 
-	err := s.service.DeleteResourcesAddedBeforeApplication(context.Background(), resourceUUIDs)
+	err := s.service.DeleteResourcesAddedBeforeApplication(c.Context(), resourceUUIDs)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1347,7 +1346,7 @@ func (s *resourceServiceSuite) TestDeleteResourcesAddedBeforeApplicationNotValid
 
 	resourceUUIDs := []coreresource.UUID{resourcetesting.GenResourceUUID(c), "deadbeef"}
 
-	err := s.service.DeleteResourcesAddedBeforeApplication(context.Background(), resourceUUIDs)
+	err := s.service.DeleteResourcesAddedBeforeApplication(c.Context(), resourceUUIDs)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -1398,7 +1397,7 @@ func (s *resourceServiceSuite) TestImportResources(c *tc.C) {
 	s.state.EXPECT().ImportResources(gomock.Any(), args)
 
 	// Act:
-	err := s.service.ImportResources(context.Background(), args)
+	err := s.service.ImportResources(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1407,7 +1406,7 @@ func (s *resourceServiceSuite) TestImportResourcesResourceNotFound(c *tc.C) {
 
 	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any()).Return(resourceerrors.ResourceNotFound)
 
-	err := s.service.ImportResources(context.Background(), nil)
+	err := s.service.ImportResources(c.Context(), nil)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
 }
 
@@ -1416,7 +1415,7 @@ func (s *resourceServiceSuite) TestImportResourcesApplicationNotFound(c *tc.C) {
 
 	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any()).Return(resourceerrors.ApplicationNotFound)
 
-	err := s.service.ImportResources(context.Background(), nil)
+	err := s.service.ImportResources(c.Context(), nil)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound)
 }
 
@@ -1425,7 +1424,7 @@ func (s *resourceServiceSuite) TestImportResourcesUnitNotFound(c *tc.C) {
 
 	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any()).Return(resourceerrors.UnitNotFound)
 
-	err := s.service.ImportResources(context.Background(), nil)
+	err := s.service.ImportResources(c.Context(), nil)
 	c.Assert(err, tc.ErrorIs, resourceerrors.UnitNotFound)
 }
 
@@ -1442,7 +1441,7 @@ func (s *resourceServiceSuite) TestImportResourcesOriginNotValid(c *tc.C) {
 	}}
 
 	// Act:
-	err := s.service.ImportResources(context.Background(), args)
+	err := s.service.ImportResources(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, resourceerrors.OriginNotValid)
@@ -1460,7 +1459,7 @@ func (s *resourceServiceSuite) TestImportResourcesResourceNameNotValid(c *tc.C) 
 	}}
 
 	// Act:
-	err := s.service.ImportResources(context.Background(), args)
+	err := s.service.ImportResources(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
@@ -1482,7 +1481,7 @@ func (s *resourceServiceSuite) TestImportResourcesDuplicateResourceNames(c *tc.C
 	}}
 
 	// Act:
-	err := s.service.ImportResources(context.Background(), args)
+	err := s.service.ImportResources(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
@@ -1508,7 +1507,7 @@ func (s *resourceServiceSuite) TestImportResourcesDuplicateResourceNamesDifferen
 	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any())
 
 	// Act:
-	err := s.service.ImportResources(context.Background(), args)
+	err := s.service.ImportResources(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -1531,7 +1530,7 @@ func (s *resourceServiceSuite) TestExportResource(c *tc.C) {
 
 	s.state.EXPECT().ExportResources(gomock.Any(), "app-name").Return(expected, nil)
 
-	exportedResources, err := s.service.ExportResources(context.Background(), "app-name")
+	exportedResources, err := s.service.ExportResources(c.Context(), "app-name")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(exportedResources, tc.DeepEquals, expected)
 }
@@ -1539,7 +1538,7 @@ func (s *resourceServiceSuite) TestExportResource(c *tc.C) {
 func (s *resourceServiceSuite) TestExportResourceEmptyName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.ExportResources(context.Background(), "")
+	_, err := s.service.ExportResources(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, resourceerrors.ArgumentNotValid)
 }
 

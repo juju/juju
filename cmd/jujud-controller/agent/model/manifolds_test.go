@@ -4,8 +4,6 @@
 package model_test
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -171,7 +169,7 @@ func (s *ManifoldsSuite) TestClockWrapper(c *tc.C) {
 	})
 	manifold, ok := manifolds["clock"]
 	c.Assert(ok, tc.IsTrue)
-	worker, err := manifold.Start(context.Background(), nil)
+	worker, err := manifold.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CheckKill(c, worker)
 

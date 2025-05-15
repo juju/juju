@@ -4,7 +4,6 @@
 package kubernetes_test
 
 import (
-	"context"
 	"net"
 	"os"
 	"strings"
@@ -370,7 +369,7 @@ func (s *providerSuite) assertRestrictedConfig(c *tc.C, accessor secrets.Accesso
 		BackendConfig:  cfg,
 	}
 
-	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, sameController, false, accessor,
+	backendCfg, err := p.RestrictedConfig(c.Context(), adminCfg, sameController, false, accessor,
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
 	)
@@ -480,7 +479,7 @@ func (s *providerSuite) TestCleanupModel(c *tc.C) {
 		BackendConfig:  s.backendConfig(),
 	}
 
-	err = p.CleanupModel(context.Background(), adminCfg)
+	err = p.CleanupModel(c.Context(), adminCfg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -500,7 +499,7 @@ func (s *providerSuite) TestCleanupSecrets(c *tc.C) {
 		BackendConfig:  s.backendConfig(),
 	}
 
-	err = p.CleanupSecrets(context.Background(), adminCfg,
+	err = p.CleanupSecrets(c.Context(), adminCfg,
 		secrets.Accessor{Kind: secrets.UnitAccessor, ID: "gitlab/0"},
 		provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
 	c.Assert(err, tc.ErrorIsNil)
@@ -542,7 +541,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *tc.C
 		BackendConfig:  s.backendConfig(),
 	}
 
-	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, false, false, secrets.Accessor{
+	backendCfg, err := p.RestrictedConfig(c.Context(), adminCfg, false, false, secrets.Accessor{
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
 	},
@@ -652,7 +651,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *tc.C) {
 		BackendConfig:  s.backendConfig(),
 	}
 
-	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, false, false, secrets.Accessor{
+	backendCfg, err := p.RestrictedConfig(c.Context(), adminCfg, false, false, secrets.Accessor{
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
 	},
@@ -689,7 +688,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelUpdate(c *tc.C
 		BackendConfig:  s.backendConfig(),
 	}
 
-	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, false, false, secrets.Accessor{
+	backendCfg, err := p.RestrictedConfig(c.Context(), adminCfg, false, false, secrets.Accessor{
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
 	},
@@ -737,7 +736,7 @@ func (s *providerSuite) TestGetContent(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	content, err := b.GetContent(context.Background(), uri.ID+"-1")
+	content, err := b.GetContent(c.Context(), uri.ID+"-1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(content.EncodedValues(), tc.DeepEquals, map[string]string{"foo": "YmFy"})
 }
@@ -778,7 +777,7 @@ func (s *providerSuite) TestSaveContent(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	name, err := b.SaveContent(context.Background(), uri, 1, secrets.NewSecretValue(map[string]string{"foo": "YmFy"}))
+	name, err := b.SaveContent(c.Context(), uri, 1, secrets.NewSecretValue(map[string]string{"foo": "YmFy"}))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(name, tc.Equals, uri.ID+"-1")
 }
@@ -808,7 +807,7 @@ func (s *providerSuite) TestDeleteContent(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = b.DeleteContent(context.Background(), uri.ID+"-1")
+	err = b.DeleteContent(c.Context(), uri.ID+"-1")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -835,7 +834,7 @@ func (s *providerSuite) TestRefreshAuth(c *tc.C) {
 	cfg.Config["service-account"] = "default"
 
 	validFor := time.Hour
-	newCfg, err := r.RefreshAuth(context.Background(), cfg, validFor)
+	newCfg, err := r.RefreshAuth(c.Context(), cfg, validFor)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newCfg.Config["token"], tc.Equals, "token2")
 }

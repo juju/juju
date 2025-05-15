@@ -65,7 +65,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
 
-	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			CREATE TABLE some_namespace (
 				uuid TEXT NOT NULL PRIMARY KEY
@@ -100,7 +100,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
 
-	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			CREATE TABLE some_namespace (
 				uuid TEXT NOT NULL PRIMARY KEY

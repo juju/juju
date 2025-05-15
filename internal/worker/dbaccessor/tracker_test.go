@@ -40,7 +40,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := NewTrackedDBWorker(c.Context(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
@@ -54,7 +54,7 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := NewTrackedDBWorker(c.Context(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -77,11 +77,11 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	err = w.StdTxn(context.Background(), func(_ context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(c.Context(), func(_ context.Context, tx *sql.Tx) error {
 		if tx == nil {
 			return errors.New("nil transaction")
 		}
@@ -100,12 +100,12 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	done := make(chan struct{})
-	err = w.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = w.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		defer close(done)
 
 		if tx == nil {
@@ -132,12 +132,12 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	done := make(chan struct{})
-	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		defer close(done)
 
 		if tx == nil {
@@ -171,7 +171,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 		return nil
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
+	w, err := s.newTrackedDBWorker(c, pingFn)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -208,7 +208,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) 
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
+	w, err := s.newTrackedDBWorker(c, pingFn)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -243,7 +243,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *tc.C) {
 		return nil
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
+	w, err := s.newTrackedDBWorker(c, pingFn)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -286,7 +286,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
+	w, err := s.newTrackedDBWorker(c, pingFn)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -330,7 +330,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *tc.C) {
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
+	w, err := s.newTrackedDBWorker(c, pingFn)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -339,7 +339,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *tc.C) {
 	c.Assert(w.Wait(), tc.ErrorMatches, "boom")
 
 	// Ensure that the DB is dead.
-	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		c.Fatal("failed if called")
 		return nil
 	})
@@ -354,7 +354,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -370,7 +370,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *tc.C) {
 	}()
 
 	// Ensure that the DB is dead.
-	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		close(sync)
 
 		select {
@@ -393,7 +393,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -409,7 +409,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *tc.C) {
 	}()
 
 	// Ensure that the DB is dead.
-	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		close(sync)
 
 		select {
@@ -434,9 +434,9 @@ func (s *trackedDBWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
+func (s *trackedDBWorkerSuite) newTrackedDBWorker(c *tc.C, pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
 	collector := NewMetricsCollector()
-	return newTrackedDBWorker(context.Background(),
+	return newTrackedDBWorker(c.Context(),
 		s.states,
 		s.dbApp, "controller",
 		WithClock(s.clock),
@@ -468,7 +468,7 @@ func readTableNames(c *tc.C, w coredatabase.TxnRunner) []string {
 	// Attempt to use the new db, note there shouldn't be any leases in this
 	// db.
 	var tables []string
-	err := w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT tbl_name FROM sqlite_schema")
 		if err != nil {
 			return err

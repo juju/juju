@@ -90,7 +90,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *tc.C) {
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
-	m, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
+	m, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m, tc.NotNil)
 }
@@ -109,7 +109,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotK
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
-	_, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
+	_, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
 	c.Assert(err, tc.ErrorIs, errors.NotYetAvailable)
 }
 
@@ -127,7 +127,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSup
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
-	_, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
+	_, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
 	c.Assert(err, tc.ErrorMatches, "resource permanently unavailable")
 }
 
@@ -144,7 +144,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineDead(c 
 		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 	}
-	_, err := containerprovisioner.MachineSupportsContainers(cfg, s.getter, tag)
+	_, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
 	c.Assert(err, tc.ErrorMatches, "resource permanently unavailable")
 }
 

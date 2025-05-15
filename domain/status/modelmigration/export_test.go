@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
@@ -49,7 +47,7 @@ func (s *exportSuite) TestExportEmpty(c *tc.C) {
 		clock: clock.WallClock,
 	}
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -87,7 +85,7 @@ func (s *exportSuite) TestExportApplicationStatuses(c *tc.C) {
 		clock: clock.WallClock,
 	}
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(app.Status().Message(), tc.Equals, "it's active")
@@ -123,7 +121,7 @@ func (s *exportSuite) TestExportApplicationStatusesMissing(c *tc.C) {
 		clock: clock.WallClock,
 	}
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(app.Status().Value(), tc.Equals, "")
@@ -186,7 +184,7 @@ func (s *exportSuite) TestExportUnitStatuses(c *tc.C) {
 		},
 		clock: clock.WallClock,
 	}
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(app.Status().NeverSet(), tc.IsTrue)
@@ -242,7 +240,7 @@ func (s *exportSuite) TestExportRelationStatuses(c *tc.C) {
 		},
 		clock: clock.WallClock,
 	}
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(rel1.Status().Value(), tc.Equals, corestatus.Joining.String())

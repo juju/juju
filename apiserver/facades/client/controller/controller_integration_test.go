@@ -4,8 +4,6 @@
 package controller_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/controller/controller"
@@ -36,7 +34,7 @@ func (s *ControllerIntegrationSuite) SetUpTest(c *tc.C) {
 func (s *ControllerIntegrationSuite) TestWatchModelSummaries(c *tc.C) {
 	c.Skip("TODO (alvin) - reimplement when facade moved off of mongo")
 	// TODO(dqlite) - implement me
-	watcher, err := s.client.WatchModelSummaries(context.Background())
+	watcher, err := s.client.WatchModelSummaries(c.Context())
 	c.Assert(watcher, tc.IsNil)
 	c.Assert(err, tc.NotNil)
 }
@@ -44,7 +42,7 @@ func (s *ControllerIntegrationSuite) TestWatchModelSummaries(c *tc.C) {
 func (s *ControllerIntegrationSuite) TestWatchAllModelSummaries(c *tc.C) {
 	c.Skip("TODO (alvin) - reimplement when facade moved off of mongo")
 	// TODO(dqlite) - implement me
-	watcher, err := s.client.WatchAllModelSummaries(context.Background())
+	watcher, err := s.client.WatchAllModelSummaries(c.Context())
 	c.Assert(watcher, tc.IsNil)
 	c.Assert(err, tc.NotNil)
 }

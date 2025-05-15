@@ -27,7 +27,7 @@ func (testsuite) TestAssignUnits(c *tc.C) {
 		}}}
 	api := New(f)
 	ids := []names.UnitTag{names.NewUnitTag("mysql/0"), names.NewUnitTag("mysql/1")}
-	errs, err := api.AssignUnits(context.Background(), ids)
+	errs, err := api.AssignUnits(c.Context(), ids)
 	c.Assert(f.request, tc.Equals, "AssignUnits")
 	c.Assert(f.params, tc.DeepEquals,
 		params.Entities{[]params.Entity{
@@ -46,7 +46,7 @@ func (testsuite) TestAssignUnitsNotFound(c *tc.C) {
 		}}}
 	api := New(f)
 	ids := []names.UnitTag{names.NewUnitTag("mysql/0")}
-	errs, err := api.AssignUnits(context.Background(), ids)
+	errs, err := api.AssignUnits(c.Context(), ids)
 	f.Lock()
 	c.Assert(f.request, tc.Equals, "AssignUnits")
 	c.Assert(f.params, tc.DeepEquals,
@@ -65,7 +65,7 @@ func (testsuite) TestWatchUnitAssignment(c *tc.C) {
 		response: params.StringsWatchResult{},
 	}
 	api := New(f)
-	w, err := api.WatchUnitAssignments(context.Background())
+	w, err := api.WatchUnitAssignments(c.Context())
 	f.Lock()
 	c.Assert(f.request, tc.Equals, "WatchUnitAssignments")
 	c.Assert(f.params, tc.IsNil)
@@ -133,10 +133,10 @@ func (f *fakeWatchCaller) APICall(ctx context.Context, objType string, version i
 	return f.err
 }
 
-func (*fakeWatchCaller) BestFacadeVersion(facade string) int {
+func (f *fakeWatchCaller) BestFacadeVersion(facade string) int {
 	return 1
 }
 
-func (*fakeWatchCaller) Context() context.Context {
-	return context.Background()
+func (f *fakeWatchCaller) Context() context.Context {
+	return f.c.Context()
 }

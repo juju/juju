@@ -80,7 +80,7 @@ func (s *resourceSuite) SetUpTest(c *tc.C) {
 	}
 
 	// Populate DB with two application and a charm
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		fakeNetNodeUUID := "fake-net-node-uuid"
 
@@ -145,9 +145,9 @@ func (s *resourceSuite) TestDeleteApplicationResources(c *tc.C) {
 		Name:            "res3",
 		ApplicationUUID: s.constants.fakeApplicationUUID2,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		for _, input := range []resourceData{res1, res2, other} {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -156,14 +156,14 @@ func (s *resourceSuite) TestDeleteApplicationResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
-	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+	err = s.state.DeleteApplicationResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check that resources have been deleted in expected tables
 	// without errors
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to delete resources from application 1: %v", errors.ErrorStack(err)))
 	var remainingResources []resourceData
 	var noRowsInResourceRetrievedBy bool
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
 		rows, err := tx.Query(`
 SELECT uuid, charm_resource_name, application_uuid
@@ -185,7 +185,7 @@ LEFT JOIN application_resource AS ar ON r.uuid = ar.resource_uuid`)
 					Name: resName})
 		}
 		// fetch resource_retrieved_by
-		err = s.runQuery(`SELECT resource_uuid from resource_retrieved_by`)
+		err = s.runQuery(c, `SELECT resource_uuid from resource_retrieved_by`)
 		if errors.Is(err, sql.ErrNoRows) {
 			noRowsInResourceRetrievedBy = true
 			return nil
@@ -215,18 +215,18 @@ func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingUnits(c *tc.
 		// Populate table resource_unit
 		UnitUUID: s.constants.fakeUnitUUID1,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
-		return input.insert(context.Background(), tx)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		return input.insert(c.Context(), tx)
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
-	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+	err = s.state.DeleteApplicationResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
 	c.Check(err, tc.ErrorIs, resourceerrors.CleanUpStateNotValid,
 		tc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
 		var discard string
 		return tx.QueryRow(`
@@ -249,9 +249,9 @@ func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingObjectStoreD
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Name:            "res1",
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// Insert the data
-		if err := input.insert(context.Background(), tx); err != nil {
+		if err := input.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		// Insert some data linked to the resource
@@ -270,12 +270,12 @@ VALUES (?,'store-uuid')`, input.UUID); err != nil {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
-	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+	err = s.state.DeleteApplicationResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
 	c.Check(err, tc.ErrorIs, resourceerrors.CleanUpStateNotValid,
 		tc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
 		var discard string
 		return tx.QueryRow(`
@@ -298,9 +298,9 @@ func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingImageStoreDa
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Name:            "res1",
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// Insert the data
-		if err := input.insert(context.Background(), tx); err != nil {
+		if err := input.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		// Insert some data linked to the resource
@@ -319,12 +319,12 @@ VALUES (?,'store-uuid')`, input.UUID); err != nil {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
-	err = s.state.DeleteApplicationResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+	err = s.state.DeleteApplicationResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
 	c.Check(err, tc.ErrorIs, resourceerrors.CleanUpStateNotValid,
 		tc.Commentf("(Assert) unexpected error: %v", errors.ErrorStack(err)))
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
 		var discard string
 		return tx.QueryRow(`
@@ -354,9 +354,9 @@ func (s *resourceSuite) TestDeleteUnitResources(c *tc.C) {
 		// Populate table resource_unit
 		UnitUUID: s.constants.fakeUnitUUID2,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		for _, input := range []resourceData{resUnit1, other} {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -365,7 +365,7 @@ func (s *resourceSuite) TestDeleteUnitResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
-	err = s.state.DeleteUnitResources(context.Background(), unit.UUID(s.constants.fakeUnitUUID1))
+	err = s.state.DeleteUnitResources(c.Context(), unit.UUID(s.constants.fakeUnitUUID1))
 
 	// Assert: check that resources link to unit 1 have been deleted in expected tables
 	// without errors
@@ -373,7 +373,7 @@ func (s *resourceSuite) TestDeleteUnitResources(c *tc.C) {
 		tc.Commentf("(Assert) failed to delete resources link to unit 1: %v",
 			errors.ErrorStack(err)))
 	var obtained []resourceData
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
 		rows, err := tx.Query(`
 SELECT uuid, name, application_uuid, unit_uuid
@@ -418,9 +418,9 @@ func (s *resourceSuite) TestGetApplicationResourceID(c *tc.C) {
 		Name:            "resource-name-other",
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		for _, input := range []resourceData{found, other} {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -429,7 +429,7 @@ func (s *resourceSuite) TestGetApplicationResourceID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: Get application resource ID
-	id, err := s.state.GetApplicationResourceID(context.Background(), resource.GetApplicationResourceIDArgs{
+	id, err := s.state.GetApplicationResourceID(c.Context(), resource.GetApplicationResourceIDArgs{
 		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
 		Name:          found.Name,
 	})
@@ -444,7 +444,7 @@ func (s *resourceSuite) TestGetApplicationResourceID(c *tc.C) {
 func (s *resourceSuite) TestGetApplicationResourceIDNotFound(c *tc.C) {
 	// Arrange: No resources
 	// Act: Get application resource ID
-	_, err := s.state.GetApplicationResourceID(context.Background(), resource.GetApplicationResourceIDArgs{
+	_, err := s.state.GetApplicationResourceID(c.Context(), resource.GetApplicationResourceIDArgs{
 		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
 		Name:          "resource-name-not-found",
 	})
@@ -463,9 +463,9 @@ func (s *resourceSuite) TestGetApplicationResourceIDCannotGetPotentialResource(c
 		State:           resource.StatePotential.String(),
 		Revision:        2,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		for _, input := range []resourceData{potentialRes} {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -475,7 +475,7 @@ func (s *resourceSuite) TestGetApplicationResourceIDCannotGetPotentialResource(c
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: Get application resource ID.
-	_, err = s.state.GetApplicationResourceID(context.Background(), resource.GetApplicationResourceIDArgs{
+	_, err = s.state.GetApplicationResourceID(c.Context(), resource.GetApplicationResourceIDArgs{
 		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
 		Name:          "potential-resource-name",
 	})
@@ -498,9 +498,9 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceName(c *tc.C)
 		Name:            "resource-name-other",
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		for _, input := range []resourceData{found, other} {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -510,7 +510,7 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceName(c *tc.C)
 
 	// Act: Get application resource ID
 	id, err := s.state.GetResourceUUIDByApplicationAndResourceName(
-		context.Background(),
+		c.Context(),
 		s.constants.fakeApplicationName1,
 		found.Name,
 	)
@@ -525,7 +525,7 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameNotFound(
 	// Arrange: No resources
 	// Act: Get application resource ID
 	_, err := s.state.GetResourceUUIDByApplicationAndResourceName(
-		context.Background(),
+		c.Context(),
 		s.constants.fakeApplicationName1,
 		"resource-name-not-found",
 	)
@@ -539,7 +539,7 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameApplicati
 	// Arrange: No resources
 	// Act: Get application resource ID
 	_, err := s.state.GetResourceUUIDByApplicationAndResourceName(
-		context.Background(),
+		c.Context(),
 		"bad-app-name",
 		"resource-name-found",
 	)
@@ -558,9 +558,9 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameCannotGet
 		State:           resource.StatePotential.String(),
 		Revision:        2,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		for _, input := range []resourceData{potentialRes} {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -570,7 +570,7 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameCannotGet
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: Get application resource ID.
-	_, err = s.state.GetResourceUUIDByApplicationAndResourceName(context.Background(),
+	_, err = s.state.GetResourceUUIDByApplicationAndResourceName(c.Context(),
 		s.constants.fakeApplicationName1,
 		"potential-resource-name",
 	)
@@ -586,7 +586,7 @@ func (s *resourceSuite) TestGetResourceNotFound(c *tc.C) {
 	resID := coreresource.UUID("resource-id")
 
 	// Act
-	_, err := s.state.GetResource(context.Background(), resID)
+	_, err := s.state.GetResource(c.Context(), resID)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound, tc.Commentf("(Assert) unexpected error"))
@@ -630,14 +630,14 @@ func (s *resourceSuite) TestGetResource(c *tc.C) {
 		RetrievedByType: coreresource.Application.String(),
 		RetrievedByName: expected.RetrievedBy,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := input.insert(context.Background(), tx)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(c.Context(), tx)
 		return errors.Capture(err)
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	obtained, err := s.state.GetResource(context.Background(), resID)
+	obtained, err := s.state.GetResource(c.Context(), resID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
 
 	// Assert
@@ -670,14 +670,14 @@ func (s *resourceSuite) TestGetResourceWithStoredFile(c *tc.C) {
 		Size:            int(expected.Size),
 		SHA384:          expected.Fingerprint.String(),
 	}
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := input.insert(context.Background(), tx)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(c.Context(), tx)
 		return errors.Capture(err)
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	obtained, err := s.state.GetResource(context.Background(), resID)
+	obtained, err := s.state.GetResource(c.Context(), resID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
 
 	// Assert
@@ -710,14 +710,14 @@ func (s *resourceSuite) TestGetResourceWithStoredImage(c *tc.C) {
 		Size:                     int(expected.Size),
 		SHA384:                   expected.Fingerprint.String(),
 	}
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := input.insert(context.Background(), tx)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(c.Context(), tx)
 		return errors.Capture(err)
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	obtained, err := s.state.GetResource(context.Background(), resID)
+	obtained, err := s.state.GetResource(c.Context(), resID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
 
 	// Assert
@@ -760,7 +760,7 @@ func (s *resourceSuite) TestSetRepositoryResource(c *tc.C) {
 
 	newCharmUUID := "new-charm-uuid"
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// add the new charm
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, reference_name, architecture_id, revision) VALUES (?, 'app',0, 1)
@@ -780,7 +780,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		}
 
 		for _, input := range append(notPolled, alreadyPolled...) {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -789,7 +789,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: update resource 1 and 2 (not 3)
-	err = s.state.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+	err = s.state.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
 		CharmID:       charm.ID(newCharmUUID),
 		Info: []charmresource.Resource{{
@@ -815,7 +815,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		LastPolled   *time.Time
 	}
 	var obtained []obtainedRow
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query(`SELECT uuid, revision, charm_uuid, last_polled FROM resource WHERE state_id = 1`)
 		if err != nil {
 			return err
@@ -866,7 +866,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 // repository resources for unknown resources logs the correct errors.
 func (s *resourceSuite) TestSetRepositoryResourceUnknownResource(c *tc.C) {
 	// Act: update non-existent resources
-	err := s.state.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+	err := s.state.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
 		Info: []charmresource.Resource{{
 			Meta: charmresource.Meta{
@@ -892,7 +892,7 @@ func (s *resourceSuite) TestSetRepositoryResourceUnknownResource(c *tc.C) {
 // resources for a non-existent application results in an ApplicationNotFound error.
 func (s *resourceSuite) TestSetRepositoryResourceApplicationNotFound(c *tc.C) {
 	// Act: request a non-existent application.
-	err := s.state.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+	err := s.state.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: "not-an-application",
 		Info:          []charmresource.Resource{{}}, // Non empty info
 		LastPolled:    time.Now(),                   // not used
@@ -912,7 +912,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *tc.C) {
 	retrievedBy := "retrieved-by-app"
 	retrievedByType := coreresource.Application
 	err := s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
 			StorageID:       storeID,
@@ -930,7 +930,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *tc.C) {
 		foundStorageKey, foundHash string
 		foundSize                  int64
 	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT store_storage_key, size, sha384 FROM resource_image_store
 WHERE resource_uuid = ?`, resID).Scan(&foundStorageKey, &foundSize, &foundHash)
@@ -942,7 +942,7 @@ WHERE resource_uuid = ?`, resID).Scan(&foundStorageKey, &foundSize, &foundHash)
 
 	// Assert: Check that retrieved by has been set.
 	var foundRetrievedByType, foundRetrievedBy string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT rrb.name, rrbt.name AS type
 FROM   resource_retrieved_by rrb
@@ -966,7 +966,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *tc.C) {
 	retrievedBy := "retrieved-by-unit"
 	retrievedByType := coreresource.Unit
 	err := s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
 			StorageID:       storeID,
@@ -984,7 +984,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *tc.C) {
 		foundStoreUUID, foundHash string
 		foundSize                 int64
 	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT store_uuid, size, sha384 FROM resource_file_store
 WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID, &foundSize, &foundHash)
@@ -998,7 +998,7 @@ WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID, &foundSize, &foundHash)
 
 	// Assert: Check that retrieved by has been set.
 	var foundRetrievedByType, foundRetrievedBy string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT rrb.name, rrbt.name AS type
 FROM   resource_retrieved_by rrb
@@ -1022,7 +1022,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 
 	// Act: store the resource and increment the CMV.
 	err := s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:                  resID,
 			StorageID:                     storeID,
@@ -1037,7 +1037,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 	foundCharmModifiedVersion1 := s.getCharmModifiedVersion(c, resID.String())
 
 	err = s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:                  resID2,
 			StorageID:                     storeID2,
@@ -1066,7 +1066,7 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 
 	// Act: store the resource.
 	err := s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
 			StorageID:    storeID,
@@ -1090,7 +1090,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 
 	// Arrange: store the first resource.
 	err := s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
 			StorageID:       storeID1,
@@ -1109,12 +1109,12 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	retrievedByType2 := coreresource.User
 	size2 := int64(422)
 	hash2 := "hash2"
-	err = s.addContainerImage(storageKey2)
+	err = s.addContainerImage(c, storageKey2)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
 	// Act: try to store a second resource.
 	err = s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
 			StorageID:       storeID2,
@@ -1136,7 +1136,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *tc.C) {
 
 	// Arrange: store the first resource.
 	err := s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
 			StorageID:       storeID1,
@@ -1155,12 +1155,12 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *tc.C) {
 	retrievedByType2 := coreresource.Unit
 	size2 := int64(422)
 	hash2 := "hash2"
-	err = s.addObjectStoreBlobMetadata(objectStoreUUID2)
+	err = s.addObjectStoreBlobMetadata(c, objectStoreUUID2)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
 	// Act: try and store the second resource.
 	err = s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
 			StorageID:       storeID2,
@@ -1180,7 +1180,7 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerIm
 
 	// Arrange: store the first resource.
 	err := s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
 			StorageID:    storeID,
@@ -1193,7 +1193,7 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerIm
 
 	// Act: try to store the same resource again.
 	err = s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
 			StorageID:    storeID,
@@ -1213,7 +1213,7 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *tc.
 
 	// Arrange: store the first resource.
 	err := s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
 			StorageID:    storeID,
@@ -1226,7 +1226,7 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *tc.
 
 	// Act: try to store the same resource again.
 	err = s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
 			StorageID:    storeID,
@@ -1250,7 +1250,7 @@ func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObje
 
 	// Act: try and store the resource.
 	err := s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
 			StorageID:    storeID,
@@ -1267,7 +1267,7 @@ func (s *resourceSuite) TestRecordStoredResourceContainerImageStoredResourceNotF
 
 	// Act: try and store the resource.
 	err := s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
 			StorageID:    storeID,
@@ -1317,7 +1317,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByNotSet(c *tc.C) {
 	retrievedByType := coreresource.Unknown
 	err := s.setWithRetrievedBy(c, resourceUUID, retrievedBy, retrievedByType)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT rrb.name, rrbt.name AS type
 FROM   resource_retrieved_by rrb
@@ -1339,8 +1339,8 @@ func (s *resourceSuite) TestSetUnitResource(c *tc.C) {
 		Name:            "resource-name",
 		Type:            charmresource.TypeFile,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input.insert(context.Background(), tx); err != nil {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := input.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1349,7 +1349,7 @@ func (s *resourceSuite) TestSetUnitResource(c *tc.C) {
 
 	// Act set supplied by with application type
 	err = s.state.SetUnitResource(
-		context.Background(),
+		c.Context(),
 		coreresource.UUID(resID),
 		unit.UUID(s.constants.fakeUnitUUID1),
 	)
@@ -1357,7 +1357,7 @@ func (s *resourceSuite) TestSetUnitResource(c *tc.C) {
 
 	// Assert: check the unit resource has been added.
 	var addedAt time.Time
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT added_at FROM unit_resource
 WHERE resource_uuid = ? and unit_uuid = ?`,
@@ -1389,11 +1389,11 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExisting(c *tc.C) {
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Type:            charmresource.TypeFile,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input1.insert(context.Background(), tx); err != nil {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := input1.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
-		if err := input2.insert(context.Background(), tx); err != nil {
+		if err := input2.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1402,7 +1402,7 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExisting(c *tc.C) {
 
 	// Act set unit resource and check the old resource has been reset.
 	err = s.state.SetUnitResource(
-		context.Background(),
+		c.Context(),
 		coreresource.UUID(resID2),
 		unit.UUID(s.constants.fakeUnitUUID1),
 	)
@@ -1411,7 +1411,7 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExisting(c *tc.C) {
 	// Assert: check the unit resource has been added and the old one removed.
 	var addedAts []time.Time
 	var uuids []string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query(`
 SELECT added_at, resource_uuid FROM unit_resource
 WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1)
@@ -1468,14 +1468,14 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExistingOtherUnits(c *tc.C) {
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Type:            charmresource.TypeFile,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := inputUnit1.insert(context.Background(), tx); err != nil {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := inputUnit1.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
-		if err := inputUnit2.insert(context.Background(), tx); err != nil {
+		if err := inputUnit2.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
-		if err := inputNewResource.insert(context.Background(), tx); err != nil {
+		if err := inputNewResource.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1484,7 +1484,7 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExistingOtherUnits(c *tc.C) {
 
 	// Act set unit resource, this should remove the old resource from unit 1.
 	err = s.state.SetUnitResource(
-		context.Background(),
+		c.Context(),
 		coreresource.UUID(resID2),
 		unit.UUID(s.constants.fakeUnitUUID1),
 	)
@@ -1495,7 +1495,7 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExistingOtherUnits(c *tc.C) {
 	var unit1ResUUID string
 	var unit2AddedAt time.Time
 	var unit2ResUUID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
 SELECT added_at, resource_uuid FROM unit_resource
 WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1).Scan(&unit1AddedAt, &unit1ResUUID)
@@ -1517,7 +1517,7 @@ WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID2).Scan(&unit2AddedAt, &unit2ResU
 func (s *resourceSuite) TestSetUnitResourceNotFound(c *tc.C) {
 	// Act set supplied by with application type
 	err := s.state.SetUnitResource(
-		context.Background(),
+		c.Context(),
 		"bad-uuid",
 		unit.UUID(s.constants.fakeUnitUUID1),
 	)
@@ -1540,13 +1540,13 @@ func (s *resourceSuite) TestSetUnitResourceAlreadySet(c *tc.C) {
 		UnitUUID:        s.constants.fakeUnitUUID1,
 		AddedAt:         previousInsertTime,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return errors.Capture(input.insert(context.Background(), tx))
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return errors.Capture(input.insert(c.Context(), tx))
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act set supplied by with user type
-	err = s.state.SetUnitResource(context.Background(),
+	err = s.state.SetUnitResource(c.Context(),
 		coreresource.UUID(resID),
 		unit.UUID(s.constants.fakeUnitUUID1),
 	)
@@ -1554,7 +1554,7 @@ func (s *resourceSuite) TestSetUnitResourceAlreadySet(c *tc.C) {
 
 	// Assert
 	var addedAt time.Time
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT added_at FROM unit_resource
 WHERE resource_uuid = ? and unit_uuid = ?`,
@@ -1576,22 +1576,22 @@ func (s *resourceSuite) TestSetUnitResourceUnitNotFound(c *tc.C) {
 		CreatedAt:       now,
 		Name:            "resource-name",
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return errors.Capture(input.insert(context.Background(), tx))
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return errors.Capture(input.insert(c.Context(), tx))
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act set supplied by with unexpected unit
-	err = s.state.SetUnitResource(context.Background(),
+	err = s.state.SetUnitResource(c.Context(),
 		coreresource.UUID(resID),
 		"unexpected-unit-id",
 	)
 
 	// Assert: an error is returned, nothing is updated in the db
 	c.Check(err, tc.ErrorIs, resourceerrors.UnitNotFound)
-	err = s.runQuery(`SELECT * FROM unit_resource`)
+	err = s.runQuery(c, `SELECT * FROM unit_resource`)
 	c.Check(err, tc.ErrorIs, sql.ErrNoRows, tc.Commentf("(Assert) unit_resource table has been updated: %v", errors.ErrorStack(err)))
-	err = s.runQuery(`SELECT * FROM resource_retrieved_by`)
+	err = s.runQuery(c, `SELECT * FROM resource_retrieved_by`)
 	c.Check(err, tc.ErrorIs, sql.ErrNoRows, tc.Commentf("(Assert) resource_retrieved_by table has been updated: %v", errors.ErrorStack(err)))
 }
 
@@ -1605,8 +1605,8 @@ func (s *resourceSuite) TestSetApplicationResource(c *tc.C) {
 		Name:            "resource-name",
 		Type:            charmresource.TypeContainerImage,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input.insert(context.Background(), tx); err != nil {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := input.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1616,14 +1616,14 @@ func (s *resourceSuite) TestSetApplicationResource(c *tc.C) {
 	addedAt := time.Now().Truncate(time.Second).UTC()
 	// Act set application resource.
 	err = s.state.SetApplicationResource(
-		context.Background(),
+		c.Context(),
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute SetApplicationResource: %v", errors.ErrorStack(err)))
 
 	// Assert
 	var foundAddedAt time.Time
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT added_at FROM kubernetes_application_resource
 WHERE resource_uuid = ?`,
@@ -1636,7 +1636,7 @@ WHERE resource_uuid = ?`,
 func (s *resourceSuite) TestSetApplicationResourceNotFound(c *tc.C) {
 	// Act set supplied by with application type
 	err := s.state.SetApplicationResource(
-		context.Background(),
+		c.Context(),
 		"bad-uuid",
 	)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
@@ -1650,8 +1650,8 @@ func (s *resourceSuite) TestGetResourceTypeContainerImage(c *tc.C) {
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Type:            charmresource.TypeContainerImage,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input.insert(context.Background(), tx); err != nil {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := input.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1660,7 +1660,7 @@ func (s *resourceSuite) TestGetResourceTypeContainerImage(c *tc.C) {
 
 	// Act: Get the resource type.
 	resourceType, err := s.state.GetResourceType(
-		context.Background(),
+		c.Context(),
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1675,8 +1675,8 @@ func (s *resourceSuite) TestGetResourceTypeFile(c *tc.C) {
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Type:            charmresource.TypeFile,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input.insert(context.Background(), tx); err != nil {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := input.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1685,7 +1685,7 @@ func (s *resourceSuite) TestGetResourceTypeFile(c *tc.C) {
 
 	// Act: Get the resource type.
 	resourceType, err := s.state.GetResourceType(
-		context.Background(),
+		c.Context(),
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1698,7 +1698,7 @@ func (s *resourceSuite) TestGetResourceTypeNotFound(c *tc.C) {
 
 	// Act: Get the resource type.
 	_, err := s.state.GetResourceType(
-		context.Background(),
+		c.Context(),
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
@@ -1716,8 +1716,8 @@ func (s *resourceSuite) TestSetApplicationResourceDoesNothingIfAlreadyExists(c *
 		Name:            "resource-name",
 		Type:            charmresource.TypeContainerImage,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input.insert(context.Background(), tx); err != nil {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := input.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1726,7 +1726,7 @@ func (s *resourceSuite) TestSetApplicationResourceDoesNothingIfAlreadyExists(c *
 
 	// Set initial application resource.
 	err = s.state.SetApplicationResource(
-		context.Background(),
+		c.Context(),
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to execute SetApplicationResource: %v", errors.ErrorStack(err)))
@@ -1734,7 +1734,7 @@ func (s *resourceSuite) TestSetApplicationResourceDoesNothingIfAlreadyExists(c *
 	// Act: set application resource a second time.
 	inbetweenTime := time.Now()
 	err = s.state.SetApplicationResource(
-		context.Background(),
+		c.Context(),
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute second SetApplicationResource: %v", errors.ErrorStack(err)))
@@ -1742,7 +1742,7 @@ func (s *resourceSuite) TestSetApplicationResourceDoesNothingIfAlreadyExists(c *
 	// Assert: check that the application resource has the original added by
 	// time.
 	var foundAddedAt time.Time
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT added_at FROM kubernetes_application_resource
 WHERE resource_uuid = ?`,
@@ -1758,7 +1758,7 @@ WHERE resource_uuid = ?`,
 func (s *resourceSuite) TestListResourcesNoResources(c *tc.C) {
 	// Arrange: No resources
 	// Act
-	results, err := s.state.ListResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+	results, err := s.state.ListResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
 	c.Check(results.UnitResources, tc.DeepEquals, []coreresource.UnitResources{
@@ -1850,7 +1850,7 @@ func (s *resourceSuite) TestListResources(c *tc.C) {
 		UnitUUID:        s.constants.fakeUnitUUID1,
 	}
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, input := range []resourceData{
 			noUnitPotentialNoRevRes,
 			noUnitAvailableRes,
@@ -1859,7 +1859,7 @@ func (s *resourceSuite) TestListResources(c *tc.C) {
 			withUnit2AvailableRes,
 			withUnitPotentialRes,
 			withUnitBisAvailableRes} {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -1868,7 +1868,7 @@ func (s *resourceSuite) TestListResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	results, err := s.state.ListResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+	results, err := s.state.ListResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert
 	// the application, even if not directly linked to this unit resource, should be properly retrieved
@@ -1912,7 +1912,7 @@ func (s *resourceSuite) TestListResources(c *tc.C) {
 func (s *resourceSuite) TestGetResourcesByApplicationIDWrongApplicationID(c *tc.C) {
 	// Arrange: No resources
 	// Act
-	_, err := s.state.GetResourcesByApplicationID(context.Background(), "not-an-application-id")
+	_, err := s.state.GetResourcesByApplicationID(c.Context(), "not-an-application-id")
 	// Assert
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound,
 		tc.Commentf("(Assert) should fails with specific error: %v",
@@ -1925,7 +1925,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationIDWrongApplicationID(c *tc.
 func (s *resourceSuite) TestGetResourcesByApplicationIDNoResources(c *tc.C) {
 	// Arrange: No resources
 	// Act
-	results, err := s.state.GetResourcesByApplicationID(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+	results, err := s.state.GetResourcesByApplicationID(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
 	c.Assert(results, tc.HasLen, 0)
@@ -1979,9 +1979,9 @@ func (s *resourceSuite) TestGetResourcesByApplicationID(c *tc.C) {
 		AddedAt:         now,
 		Type:            charmresource.TypeFile,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, input := range []resourceData{simpleRes, polledRes, unitRes, bothRes, anotherUnitRes} {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -1990,7 +1990,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	results, err := s.state.GetResourcesByApplicationID(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+	results, err := s.state.GetResourcesByApplicationID(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
@@ -2028,9 +2028,9 @@ func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *tc.
 		State:           "potential",
 	}
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, input := range []resourceData{availableRes, potentialRes} {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -2039,7 +2039,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *tc.
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	results, err := s.state.GetResourcesByApplicationID(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
+	results, err := s.state.GetResourcesByApplicationID(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
@@ -2070,7 +2070,7 @@ func (s *resourceSuite) TestAddResourcesBeforeApplication(c *tc.C) {
 			Description: "testing",
 		},
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		if err = insertCharmStateWithRevision(ctx, tx, charmUUID.String(), 42); err != nil {
 			return err
 		}
@@ -2105,12 +2105,12 @@ func (s *resourceSuite) TestAddResourcesBeforeApplication(c *tc.C) {
 	}
 
 	// Run the command and validate results.
-	obtainedUUIDs, err := s.state.AddResourcesBeforeApplication(context.Background(), args)
+	obtainedUUIDs, err := s.state.AddResourcesBeforeApplication(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedUUIDs, tc.HasLen, 2)
 	for i, resID := range obtainedUUIDs {
 		s.checkPendingApplication(c, resID.String(), args.ApplicationName)
-		obtainedResource, err := s.getPendingResource(resID.String())
+		obtainedResource, err := s.getPendingResource(c, resID.String())
 		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
@@ -2149,13 +2149,13 @@ func (s *resourceSuite) TestAddResourcesBeforeApplicationNotFound(c *tc.C) {
 	}
 
 	// Run the command and validate the error.
-	_, err := s.state.AddResourcesBeforeApplication(context.Background(), args)
+	_, err := s.state.AddResourcesBeforeApplication(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, resourceerrors.CharmResourceNotFound)
 }
 
-func (s *resourceSuite) getPendingResource(resID string) (pendingResourceTest, error) {
+func (s *resourceSuite) getPendingResource(c *tc.C, resID string) (pendingResourceTest, error) {
 	retVal := pendingResourceTest{}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT r.uuid, r.charm_uuid, r.charm_resource_name, IFNULL(r.revision , 0) , rot.name
 FROM   resource r
@@ -2178,7 +2178,7 @@ type pendingResourceTest struct {
 
 func (s *resourceSuite) checkPendingApplication(c *tc.C, resID, expectedAppName string) {
 	var obtainedAppName string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		// fetch resources
 		return tx.QueryRow(`
 SELECT application_name
@@ -2222,8 +2222,8 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFile(c *t
 		Size:            int(expected.Size),
 		SHA384:          expected.Fingerprint.String(),
 	}
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := input.insert(context.Background(), tx)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(c.Context(), tx)
 		return errors.Capture(err)
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
@@ -2234,7 +2234,7 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFile(c *t
 		Revision:     5,
 	}
 
-	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
+	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(c.Context(), args, charmresource.TypeFile)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedUUID, tc.Not(tc.Equals), resID)
 
@@ -2250,7 +2250,7 @@ func (s *resourceSuite) checkResourceFileStore(c *tc.C, resID coreresource.UUID)
 	var (
 		foundStoreUUID string
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT store_uuid
 FROM   resource_file_store
@@ -2289,8 +2289,8 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImage(c *
 		Size:                     int(expected.Size),
 		SHA384:                   expected.Fingerprint.String(),
 	}
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := input.insert(context.Background(), tx)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(c.Context(), tx)
 		return errors.Capture(err)
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
@@ -2301,7 +2301,7 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImage(c *
 		Revision:     5,
 	}
 
-	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
+	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(c.Context(), args, charmresource.TypeContainerImage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedUUID, tc.Not(tc.Equals), resID)
 
@@ -2316,7 +2316,7 @@ func (s *resourceSuite) checkResourceImageStore(c *tc.C, resID coreresource.UUID
 	var (
 		foundStoreUUID string
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT store_storage_key
 FROM   resource_image_store
@@ -2343,7 +2343,7 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFileNotSt
 	var (
 		foundStoreUUID string
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT store_uuid
 FROM   resource_file_store
@@ -2351,7 +2351,7 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	})
 	c.Assert(err, tc.ErrorIs, sqlair.ErrNoRows)
 
-	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
+	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(c.Context(), args, charmresource.TypeFile)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedUUID, tc.Not(tc.Equals), resID)
 
@@ -2378,7 +2378,7 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImageNotS
 	var (
 		foundStoreUUID string
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT store_storage_key
 FROM   resource_image_store
@@ -2386,7 +2386,7 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	})
 	c.Check(err, tc.ErrorMatches, "sql: no rows in result set")
 
-	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
+	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(c.Context(), args, charmresource.TypeContainerImage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedUUID, tc.Not(tc.Equals), resID)
 
@@ -2423,8 +2423,8 @@ func (s *resourceSuite) testUpdateUploadResourceAndDeletePriorVersion(c *tc.C, o
 		Size:                     42,
 		SHA384:                   fp.String(),
 	}
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := input.insert(context.Background(), tx)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(c.Context(), tx)
 		return errors.Capture(err)
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
@@ -2435,7 +2435,7 @@ func (s *resourceSuite) testUpdateUploadResourceAndDeletePriorVersion(c *tc.C, o
 	}
 
 	// Act: update resource to expect upload.
-	obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(context.Background(), args)
+	obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to update resource: %v", errors.ErrorStack(err)))
@@ -2453,7 +2453,7 @@ func (s *resourceSuite) checkApplicationResourceUpdated(c *tc.C, appID, expected
 		foundOrigin string
 		foundUUID   string
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT uuid, origin_type
 FROM   v_application_resource
@@ -2481,8 +2481,8 @@ func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c
 		Size:            42,
 		SHA384:          fp.String(),
 	}
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := input.insert(context.Background(), tx)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(c.Context(), tx)
 		return errors.Capture(err)
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
@@ -2493,7 +2493,7 @@ func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c
 	}
 
 	// Act: update resource to expect upload.
-	obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(context.Background(), args)
+	obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to update resource: %v", errors.ErrorStack(err)))
@@ -2511,7 +2511,7 @@ func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c
 func (s *resourceSuite) TestDeleteResourcesAddedBeforeApplication(c *tc.C) {
 	resourceUUID := coreresourcetesting.GenResourceUUID(c)
 	resourceName := "testResource"
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		_, err = tx.Exec(`
 INSERT INTO charm_resource (charm_uuid, name, kind_id, path, description)
 VALUES (?, ?, ?, ?, ?)`,
@@ -2543,7 +2543,7 @@ VALUES (?, ?)`, resourceUUID.String(), "test-app")
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
-	err = s.state.DeleteResourcesAddedBeforeApplication(context.Background(), []coreresource.UUID{resourceUUID})
+	err = s.state.DeleteResourcesAddedBeforeApplication(c.Context(), []coreresource.UUID{resourceUUID})
 	c.Assert(err, tc.ErrorIsNil)
 	s.checkPendingApplicationDeleted(c, resourceUUID.String())
 	s.checkResourceDeleted(c, resourceUUID.String())
@@ -2606,7 +2606,7 @@ func (s *resourceSuite) TestImportResources(c *tc.C) {
 	}}
 
 	// Act: Set the resources.
-	err := s.state.ImportResources(context.Background(), args)
+	err := s.state.ImportResources(c.Context(), args)
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2665,7 +2665,7 @@ func (s *resourceSuite) TestImportResourcesOnLocalCharm(c *tc.C) {
 	}}
 
 	// Act: Set the resources.
-	err := s.state.ImportResources(context.Background(), args)
+	err := s.state.ImportResources(c.Context(), args)
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2727,7 +2727,7 @@ func (s *resourceSuite) TestImportResourcesUnitResourceNotMatchingApplicationRes
 	}}
 
 	// Act: Set the resources.
-	err := s.state.ImportResources(context.Background(), args)
+	err := s.state.ImportResources(c.Context(), args)
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2753,7 +2753,7 @@ func (s *resourceSuite) TestImportResourcesUnitResourceNotMatchingApplicationRes
 
 func (s *resourceSuite) TestImportResourcesEmpty(c *tc.C) {
 	// Act:
-	err := s.state.ImportResources(context.Background(), nil)
+	err := s.state.ImportResources(c.Context(), nil)
 
 	// Assert:
 	c.Check(err, tc.ErrorIsNil)
@@ -2769,7 +2769,7 @@ func (s *resourceSuite) TestImportResourcesApplicationNotFound(c *tc.C) {
 	}}
 
 	// Act: Set the resources.
-	err := s.state.ImportResources(context.Background(), args)
+	err := s.state.ImportResources(c.Context(), args)
 
 	// Assert:
 	c.Check(err, tc.ErrorIs, resourceerrors.ApplicationNotFound)
@@ -2792,7 +2792,7 @@ func (s *resourceSuite) TestImportResourcesResourceNotFound(c *tc.C) {
 	}}
 
 	// Act: Set the resources.
-	err := s.state.ImportResources(context.Background(), args)
+	err := s.state.ImportResources(c.Context(), args)
 
 	// Assert:
 	c.Check(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
@@ -2824,7 +2824,7 @@ func (s *resourceSuite) TestImportResourcesUnitNotFound(c *tc.C) {
 	}}
 
 	// Act: Set the resources.
-	err := s.state.ImportResources(context.Background(), args)
+	err := s.state.ImportResources(c.Context(), args)
 
 	// Assert:
 	c.Check(err, tc.ErrorIs, resourceerrors.UnitNotFound)
@@ -2851,7 +2851,7 @@ func (s *resourceSuite) TestImportResourcesOriginNotValid(c *tc.C) {
 	}}
 
 	// Act: Set the resources.
-	err := s.state.ImportResources(context.Background(), args)
+	err := s.state.ImportResources(c.Context(), args)
 
 	// Assert:
 	c.Check(err, tc.ErrorIs, resourceerrors.OriginNotValid)
@@ -2912,14 +2912,14 @@ func (s *resourceSuite) TestExportResources(c *tc.C) {
 		SHA384:                   fp.String(),
 	}
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, input := range []resourceData{
 			resource1,
 			unit1Resource1,
 			unit2Resource1,
 			resource2,
 		} {
-			if err := input.insert(context.Background(), tx); err != nil {
+			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -2928,7 +2928,7 @@ func (s *resourceSuite) TestExportResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	exportedResources, err := s.state.ExportResources(context.Background(), s.constants.fakeApplicationName1)
+	exportedResources, err := s.state.ExportResources(c.Context(), s.constants.fakeApplicationName1)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
@@ -2962,7 +2962,7 @@ func (s *resourceSuite) TestExportResources(c *tc.C) {
 func (s *resourceSuite) TestExportResourcesNoResources(c *tc.C) {
 	// Arrange: No resources
 	// Act
-	exportedResources, err := s.state.ExportResources(context.Background(), s.constants.fakeApplicationName1)
+	exportedResources, err := s.state.ExportResources(c.Context(), s.constants.fakeApplicationName1)
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
 	c.Check(exportedResources.Resources, tc.IsNil)
@@ -2985,7 +2985,7 @@ func (s *resourceSuite) TestExportResourcesNoResources(c *tc.C) {
 func (s *resourceSuite) TestExportResourcesApplicationNotFound(c *tc.C) {
 	// Arrange: No resources
 	// Act
-	_, err := s.state.ExportResources(context.Background(), "bad-app-name")
+	_, err := s.state.ExportResources(c.Context(), "bad-app-name")
 	// Assert
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound)
 }
@@ -3049,12 +3049,12 @@ func (s *resourceSuite) TestDeleteImportedApplicationResources(c *tc.C) {
 	}}
 
 	// Arrange: Import the resources.
-	err := s.state.ImportResources(context.Background(), args)
+	err := s.state.ImportResources(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: Delete imported resources.
 	err = s.state.DeleteImportedResources(
-		context.Background(),
+		c.Context(),
 		[]string{s.constants.fakeApplicationName1, s.constants.fakeApplicationName2},
 	)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to delete resources: %v", errors.ErrorStack(err)))
@@ -3064,7 +3064,7 @@ func (s *resourceSuite) TestDeleteImportedApplicationResources(c *tc.C) {
 }
 
 func (s *resourceSuite) addLocalCharmAndApp(c *tc.C, charmUUID, appName, appUUID string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, 'app', 0 /* local */)
 `, charmUUID)
@@ -3084,7 +3084,7 @@ INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?,
 }
 
 func (s *resourceSuite) addCharmResource(c *tc.C, charmUUID string, m charmresource.Meta) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 INSERT INTO charm_resource (charm_uuid, name, kind_id, path, description)
 VALUES (?, ?, ?, ?, ?)`,
@@ -3106,7 +3106,7 @@ func (s *resourceSuite) checkResourceSet(
 		uuid      string
 		createdAt time.Time
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT uuid, created_at
 FROM   resource
@@ -3132,7 +3132,7 @@ func (s *resourceSuite) checkApplicationResourceSet(
 	uuid string,
 ) {
 	var appID string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT application_uuid
 FROM   application_resource
@@ -3156,7 +3156,7 @@ func (s *resourceSuite) checkRepoResourceSet(
 		originTypeID     int
 		lastPolled       sql.NullTime
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT uuid, revision, origin_type_id, last_polled
 FROM   resource
@@ -3172,7 +3172,7 @@ AND    state_id = 1 -- "potential"
 	c.Check(lastPolled.Valid, tc.IsFalse)
 
 	var appID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT application_uuid
 FROM   application_resource
@@ -3189,7 +3189,7 @@ func (s *resourceSuite) checkKubernetesResourceSet(
 	res resource.ImportResourceInfo,
 ) {
 	var addedAt time.Time
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT added_at
 FROM   kubernetes_application_resource
@@ -3210,7 +3210,7 @@ func (s *resourceSuite) checkUnitResourceSet(
 		unitUUID string
 		addedAt  time.Time
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT unit_uuid, added_at
 FROM   unit_resource
@@ -3230,7 +3230,7 @@ func (s *resourceSuite) checkRepoResourceNotSet(
 	res resource.ImportResourceInfo,
 ) {
 	var repoResourceUUID string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT uuid
 FROM   resource
@@ -3246,7 +3246,7 @@ func (s *resourceSuite) checkResourceTablesEmpty(
 	c *tc.C,
 ) {
 	var uuid string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT uuid
 FROM   resource
@@ -3254,7 +3254,7 @@ FROM   resource
 	})
 	c.Check(err, tc.ErrorIs, sql.ErrNoRows)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT resource_uuid
 FROM   application_resource
@@ -3262,7 +3262,7 @@ FROM   application_resource
 	})
 	c.Check(err, tc.ErrorIs, sql.ErrNoRows)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT resource_uuid
 FROM   unit_resource
@@ -3270,7 +3270,7 @@ FROM   unit_resource
 	})
 	c.Check(err, tc.ErrorIs, sql.ErrNoRows)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT resource_uuid
 FROM   kubernetes_application_resource
@@ -3295,8 +3295,8 @@ func (s *resourceSuite) addResourceWithOrigin(c *tc.C, resType charmresource.Typ
 		Type:            resType,
 		OriginType:      origin,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input.insert(context.Background(), tx); err != nil {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := input.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -3313,8 +3313,8 @@ func (s *resourceSuite) createFileResourceAndBlob(c *tc.C) (_ coreresource.UUID,
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Type:            charmresource.TypeFile,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input.insert(context.Background(), tx); err != nil {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := input.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -3324,7 +3324,7 @@ func (s *resourceSuite) createFileResourceAndBlob(c *tc.C) (_ coreresource.UUID,
 	// Arrange: add a blob to the object store.
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
-	err = s.addObjectStoreBlobMetadata(objectStoreUUID)
+	err = s.addObjectStoreBlobMetadata(c, objectStoreUUID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
 	return resID, storeID, 42, hash
@@ -3338,8 +3338,8 @@ func (s *resourceSuite) createContainerImageResourceAndBlob(c *tc.C) (_ corereso
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Type:            charmresource.TypeContainerImage,
 	}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := input.insert(context.Background(), tx); err != nil {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := input.insert(c.Context(), tx); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -3349,14 +3349,14 @@ func (s *resourceSuite) createContainerImageResourceAndBlob(c *tc.C) (_ corereso
 	// Arrange: add a container image using the resource UUID as the storage key.
 	storageKey := resID.String()
 	storeID := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey)
-	err = s.addContainerImage(storageKey)
+	err = s.addContainerImage(c, storageKey)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
 	return resID, storeID, 24, "hash"
 }
 
-func (s *resourceSuite) addContainerImage(storageKey string) error {
-	return s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+func (s *resourceSuite) addContainerImage(c *tc.C, storageKey string) error {
+	return s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO resource_container_image_metadata_store (storage_key, registry_path)
 VALUES      (?, 'testing@sha256:beef-deed')`, storageKey)
@@ -3364,8 +3364,8 @@ VALUES      (?, 'testing@sha256:beef-deed')`, storageKey)
 	})
 }
 
-func (s *resourceSuite) addObjectStoreBlobMetadata(uuid objectstore.UUID) error {
-	return s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+func (s *resourceSuite) addObjectStoreBlobMetadata(c *tc.C, uuid objectstore.UUID) error {
+	return s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Use the uuid as the hash to avoid uniqueness issues while testing.
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, ?, ?, 42)
@@ -3384,10 +3384,10 @@ func (s *resourceSuite) setWithRetrievedBy(
 ) error {
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
-	err := s.addObjectStoreBlobMetadata(objectStoreUUID)
+	err := s.addObjectStoreBlobMetadata(c, objectStoreUUID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 	err = s.state.RecordStoredResource(
-		context.Background(),
+		c.Context(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resourceUUID,
 			StorageID:       storeID,
@@ -3401,7 +3401,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 
 func (s *resourceSuite) getRetrievedByType(c *tc.C, resourceUUID coreresource.UUID) (retrievedBy string,
 	retrievedByType coreresource.RetrievedByType) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT rrb.name, rrbt.name AS type
 FROM   resource_retrieved_by rrb
@@ -3414,7 +3414,7 @@ WHERE  resource_uuid = ?`, resourceUUID.String()).Scan(&retrievedBy, &retrievedB
 
 func (s *resourceSuite) getCharmModifiedVersion(c *tc.C, resID string) int {
 	var charmModifiedVersion sql.NullInt64
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT a.charm_modified_version
 FROM   application a
@@ -3434,7 +3434,7 @@ func (s *resourceSuite) checkResourceOriginAndRevision(c *tc.C, resID, expectedO
 		obtainedOrigin   string
 		obtainedRevision int
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT rot.name, r.revision
 FROM   resource r
@@ -3448,7 +3448,7 @@ WHERE  r.uuid = ?`, resID).Scan(&obtainedOrigin, &obtainedRevision)
 
 func (s *resourceSuite) checkPendingApplicationDeleted(c *tc.C, resID string) {
 	var foundAppName string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT application_name
 FROM   pending_application_resource
@@ -3459,7 +3459,7 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundAppName)
 
 func (s *resourceSuite) checkResourceDeleted(c *tc.C, resID string) {
 	var foundResName string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT charm_resource_name
 FROM   resource
@@ -3683,9 +3683,9 @@ VALUES (?, ?, ?, ?)`, d.UUID, d.ContainerImageStorageKey, d.Size, d.SHA384); err
 }
 
 // runQuery executes a SQL query within a transaction and discards the result.
-func (s *resourceSuite) runQuery(query string) error {
+func (s *resourceSuite) runQuery(c *tc.C, query string) error {
 	var discard string
-	return s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	return s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(query).Scan(&discard)
 	})
 }

@@ -4,8 +4,6 @@
 package secretsbackendmanager_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base/testing"
@@ -42,7 +40,7 @@ func (s *SecretBackendsSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 		return nil
 	})
 	client := secretsbackendmanager.NewClient(apiCaller)
-	_, err := client.WatchTokenRotationChanges(context.Background())
+	_, err := client.WatchTokenRotationChanges(c.Context())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -64,6 +62,6 @@ func (s *SecretBackendsSuite) TestRotateBackendTokens(c *tc.C) {
 		return nil
 	})
 	client := secretsbackendmanager.NewClient(apiCaller)
-	err := client.RotateBackendTokens(context.Background(), "backend-id")
+	err := client.RotateBackendTokens(c.Context(), "backend-id")
 	c.Assert(err, tc.ErrorMatches, "boom")
 }

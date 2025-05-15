@@ -4,8 +4,6 @@
 package gate_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -26,7 +24,7 @@ var _ = tc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.manifold = gate.Manifold()
-	w, err := s.manifold.Start(context.Background(), nil)
+	w, err := s.manifold.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	s.worker = w
 }
@@ -65,7 +63,7 @@ func (s *ManifoldSuite) TestRestartLocks(c *tc.C) {
 	u.Unlock()
 
 	workertest.CleanKill(c, s.worker)
-	worker, err := s.manifold.Start(context.Background(), nil)
+	worker, err := s.manifold.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 
@@ -76,11 +74,11 @@ func (s *ManifoldSuite) TestRestartLocks(c *tc.C) {
 func (s *ManifoldSuite) TestManifoldWithLockWorkersConnected(c *tc.C) {
 	lock := gate.NewLock()
 	manifold := gate.ManifoldEx(lock)
-	worker, err := manifold.Start(context.Background(), nil)
+	worker, err := manifold.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 
-	worker2, err := manifold.Start(context.Background(), nil)
+	worker2, err := manifold.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker2)
 
@@ -104,7 +102,7 @@ func (s *ManifoldSuite) TestLockOutput(c *tc.C) {
 
 func (s *ManifoldSuite) TestDifferentManifoldWorkersUnconnected(c *tc.C) {
 	manifold2 := gate.Manifold()
-	worker2, err := manifold2.Start(context.Background(), nil)
+	worker2, err := manifold2.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	defer checkStop(c, worker2)
 
@@ -127,7 +125,7 @@ func (s *ManifoldSuite) TestManifoldEx(c *tc.C) {
 	var waiter1 gate.Waiter = lock
 	var unlocker1 gate.Unlocker = lock
 
-	worker, err := manifold.Start(context.Background(), nil)
+	worker, err := manifold.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	defer checkStop(c, worker)
 	waiter2 := waiter(c, manifold, worker)

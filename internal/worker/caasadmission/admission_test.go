@@ -80,7 +80,7 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 
-	cleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration(context.Background())
+	cleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ensureWebhookCalled, tc.IsTrue)
 

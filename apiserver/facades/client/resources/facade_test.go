@@ -4,8 +4,6 @@
 package resources
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -77,7 +75,7 @@ func (s *resourcesSuite) TestListResourcesOkay(c *tc.C) {
 			},
 		}, nil)
 
-	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
+	results, err := s.newFacade(c).ListResources(c.Context(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
 			Tag: appTag.String(),
 		}},
@@ -122,7 +120,7 @@ func (s *resourcesSuite) TestListResourcesEmpty(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
 	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(resource.ApplicationResources{}, nil)
 
-	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
+	results, err := s.newFacade(c).ListResources(c.Context(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
 			Tag: tag.String(),
 		}},
@@ -140,7 +138,7 @@ func (s *resourcesSuite) TestListResourcesErrorGetAppID(c *tc.C) {
 	tag := names.NewApplicationTag("a-application")
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("", failure)
 
-	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
+	results, err := s.newFacade(c).ListResources(c.Context(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
 			Tag: tag.String(),
 		}},
@@ -163,7 +161,7 @@ func (s *resourcesSuite) TestListResourcesError(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
 	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(resource.ApplicationResources{}, failure)
 
-	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
+	results, err := s.newFacade(c).ListResources(c.Context(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
 			Tag: tag.String(),
 		}},
@@ -309,7 +307,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesBeforeApplication(c *tc
 			},
 		},
 	}
-	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
+	results, err := s.newFacade(c).AddPendingResources(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Error, tc.IsNil)
 	c.Assert(results.ErrorResult.Error, tc.IsNil)
@@ -348,7 +346,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateStoreResource(c *
 		ErrorResult: params.ErrorResult{},
 		PendingIDs:  []string{newUUIDTwo.String()},
 	}
-	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
+	results, err := s.newFacade(c).AddPendingResources(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, expectedResults)
 }
@@ -380,7 +378,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateUploadResource(c 
 		ErrorResult: params.ErrorResult{},
 		PendingIDs:  []string{newUUIDTwo.String()},
 	}
-	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
+	results, err := s.newFacade(c).AddPendingResources(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, expectedResults)
 }

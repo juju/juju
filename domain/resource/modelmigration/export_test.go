@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -43,7 +42,7 @@ func (s *exportSuite) TestResourceExportEmpty(c *tc.C) {
 		service: s.exportService,
 	}
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -133,7 +132,7 @@ func (s *exportSuite) TestResourceExport(c *tc.C) {
 	exportOp := exportOperation{
 		service: s.exportService,
 	}
-	err = exportOp.Execute(context.Background(), model)
+	err = exportOp.Execute(c.Context(), model)
 
 	// Assert: check no errors occurred.
 	c.Assert(err, tc.ErrorIsNil)

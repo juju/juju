@@ -4,7 +4,6 @@
 package authentication_test
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/cookiejar"
@@ -49,7 +48,7 @@ func (s *InteractorSuite) SetUpTest(c *tc.C) {
 func (s *InteractorSuite) TestNotSupportedInteract(c *tc.C) {
 	v := authentication.NewNotSupportedInteractor()
 	c.Assert(v.Kind(), tc.Equals, "juju_userpass")
-	_, err := v.Interact(context.Background(), nil, "", nil)
+	_, err := v.Interact(c.Context(), nil, "", nil)
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
@@ -66,7 +65,7 @@ func (s *InteractorSuite) TestLegacyInteract(c *tc.C) {
 		formUser = r.Form.Get("user")
 		formPassword = r.Form.Get("password")
 	})
-	err := lv.LegacyInteract(context.Background(), s.client, "", mustParseURL(s.server.URL))
+	err := lv.LegacyInteract(c.Context(), s.client, "", mustParseURL(s.server.URL))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(formUser, tc.Equals, "bob")
 	c.Assert(formPassword, tc.Equals, "hunter2")
@@ -86,7 +85,7 @@ func (s *InteractorSuite) TestLegacyInteractErrorResult(c *tc.C) {
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"Message":"bleh"}`, http.StatusInternalServerError)
 	})
-	err := lv.LegacyInteract(context.Background(), s.client, "", mustParseURL(s.server.URL))
+	err := lv.LegacyInteract(c.Context(), s.client, "", mustParseURL(s.server.URL))
 	c.Assert(err, tc.ErrorMatches, "bleh")
 }
 
@@ -100,7 +99,7 @@ func (s *InteractorSuite) TestInteract(c *tc.C) {
 		reqParams := httprequest.Params{
 			Response: w,
 			Request:  r,
-			Context:  context.Background(),
+			Context:  c.Context(),
 		}
 		loginRequest := form.LoginRequest{}
 		err := httprequest.Unmarshal(reqParams, &loginRequest)
@@ -121,7 +120,7 @@ func (s *InteractorSuite) TestInteract(c *tc.C) {
 	infoData, err := json.Marshal(info)
 	msgData := json.RawMessage(infoData)
 	c.Assert(err, tc.ErrorIsNil)
-	token, err := v.Interact(context.Background(), s.client, "", &httpbakery.Error{
+	token, err := v.Interact(c.Context(), s.client, "", &httpbakery.Error{
 		Code: httpbakery.ErrInteractionRequired,
 		Info: &httpbakery.ErrorInfo{
 			InteractionMethods: map[string]*json.RawMessage{
@@ -149,7 +148,7 @@ func (s *InteractorSuite) TestInteractErrorResult(c *tc.C) {
 	infoData, err := json.Marshal(info)
 	c.Assert(err, tc.ErrorIsNil)
 	msgData := json.RawMessage(infoData)
-	_, err = v.Interact(context.Background(), s.client, "", &httpbakery.Error{
+	_, err = v.Interact(c.Context(), s.client, "", &httpbakery.Error{
 		Code: httpbakery.ErrInteractionRequired,
 		Info: &httpbakery.ErrorInfo{
 			InteractionMethods: map[string]*json.RawMessage{

@@ -30,26 +30,26 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetFlagNotFound(c *tc.C) {
-	value, err := s.state.GetFlag(context.Background(), "foo")
+	value, err := s.state.GetFlag(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Assert(value, tc.IsFalse)
 }
 
 func (s *stateSuite) TestGetFlagFound(c *tc.C) {
-	err := s.state.SetFlag(context.Background(), "foo", true, "foo set to true")
+	err := s.state.SetFlag(c.Context(), "foo", true, "foo set to true")
 	c.Assert(err, tc.ErrorIsNil)
 
-	value, err := s.state.GetFlag(context.Background(), "foo")
+	value, err := s.state.GetFlag(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value, tc.IsTrue)
 }
 
 func (s *stateSuite) TestSetFlag(c *tc.C) {
-	err := s.state.SetFlag(context.Background(), "foo", true, "foo set to true")
+	err := s.state.SetFlag(c.Context(), "foo", true, "foo set to true")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var flag dbFlag
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		stmt, err := sqlair.Prepare(`
 SELECT (value, description) AS (&dbFlag.*) 
 FROM   flag 
@@ -72,17 +72,17 @@ WHERE  name = 'foo'`, flag)
 }
 
 func (s *stateSuite) TestSetFlagAlreadyFound(c *tc.C) {
-	err := s.state.SetFlag(context.Background(), "foo", true, "foo set to true")
+	err := s.state.SetFlag(c.Context(), "foo", true, "foo set to true")
 	c.Assert(err, tc.ErrorIsNil)
 
-	value, err := s.state.GetFlag(context.Background(), "foo")
+	value, err := s.state.GetFlag(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value, tc.IsTrue)
 
-	err = s.state.SetFlag(context.Background(), "foo", false, "foo set to false")
+	err = s.state.SetFlag(c.Context(), "foo", false, "foo set to false")
 	c.Assert(err, tc.ErrorIsNil)
 
-	value, err = s.state.GetFlag(context.Background(), "foo")
+	value, err = s.state.GetFlag(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(value, tc.IsFalse)
 }

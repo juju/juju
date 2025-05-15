@@ -4,8 +4,6 @@
 package bootstrap
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -48,7 +46,7 @@ func (s *deployerCAASSuite) TestControllerAddress(c *tc.C) {
 	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	address, err := deployer.ControllerAddress(context.Background())
+	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "10.0.0.1:0")
 }
@@ -64,7 +62,7 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddresses(c *tc.C) {
 	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	address, err := deployer.ControllerAddress(context.Background())
+	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "10.0.0.1:0")
 }
@@ -80,7 +78,7 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddressesScopeNonLocal(
 	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	address, err := deployer.ControllerAddress(context.Background())
+	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "10.0.0.2:0")
 }
@@ -97,7 +95,7 @@ func (s *deployerCAASSuite) TestControllerAddressScopeNonLocal(c *tc.C) {
 	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	address, err := deployer.ControllerAddress(context.Background())
+	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "2.201.120.241:0")
 }
@@ -111,7 +109,7 @@ func (s *deployerCAASSuite) TestControllerAddressNoAddresses(c *tc.C) {
 	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	address, err := deployer.ControllerAddress(context.Background())
+	address, err := deployer.ControllerAddress(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.Equals, "")
 }
@@ -138,7 +136,7 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *tc.C) {
 	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	err := deployer.CompleteProcess(context.Background(), unitName)
+	err := deployer.CompleteProcess(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

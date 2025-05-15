@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"context"
 	"regexp"
 
 	"github.com/juju/description/v9"
@@ -55,7 +54,7 @@ func (s *importSuite) TestEmptyCredential(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	// No import executed.
 	s.service.EXPECT().UpdateCloudCredential(gomock.All(), gomock.Any(), gomock.Any()).Times(0)
@@ -81,7 +80,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	s.service.EXPECT().UpdateCloudCredential(gomock.Any(), key, cred).Times(1)
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -104,7 +103,7 @@ func (s *importSuite) TestImportExistingMatches(c *tc.C) {
 	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -127,7 +126,7 @@ func (s *importSuite) TestImportExistingAuthTypeMisMatch(c *tc.C) {
 	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, `credential auth type mismatch: "access-key" != "userpass"`)
 }
 
@@ -150,6 +149,6 @@ func (s *importSuite) TestImportExistingAttributesMisMatch(c *tc.C) {
 	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta(`credential attribute mismatch: map[goodbye:world] != map[hello:world]`))
 }

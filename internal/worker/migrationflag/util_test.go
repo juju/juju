@@ -140,7 +140,7 @@ func checkNotValid(c *tc.C, config migrationflag.Config, expect string) {
 	err := config.Validate()
 	check(err)
 
-	worker, err := migrationflag.New(context.Background(), config)
+	worker, err := migrationflag.New(c.Context(), config)
 	c.Check(worker, tc.IsNil)
 	check(err)
 }
@@ -160,7 +160,7 @@ func validManifoldConfig() migrationflag.ManifoldConfig {
 // a manifold that cannot be started.
 func checkManifoldNotValid(c *tc.C, config migrationflag.ManifoldConfig, expect string) {
 	manifold := migrationflag.Manifold(config)
-	worker, err := manifold.Start(context.Background(), dt.StubGetter(nil))
+	worker, err := manifold.Start(c.Context(), dt.StubGetter(nil))
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, expect)
 	c.Check(err, tc.ErrorIs, errors.NotValid)

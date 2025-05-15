@@ -51,7 +51,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *tc.C) {
 
 func (s *CAASProvisionerSuite) TestUpgradeOperator(c *tc.C) {
 	vers := semversion.MustParse("6.6.6")
-	result, err := s.api.UpgradeOperator(context.Background(), params.KubernetesUpgradeArg{
+	result, err := s.api.UpgradeOperator(c.Context(), params.KubernetesUpgradeArg{
 		AgentTag: s.authorizer.Tag.String(),
 		Version:  vers,
 	})
@@ -70,7 +70,7 @@ func (s *CAASProvisionerSuite) assertUpgradeController(c *tc.C, tag names.Tag) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	vers := semversion.MustParse("6.6.6")
-	result, err := api.UpgradeOperator(context.Background(), params.KubernetesUpgradeArg{
+	result, err := api.UpgradeOperator(c.Context(), params.KubernetesUpgradeArg{
 		AgentTag: s.authorizer.Tag.String(),
 		Version:  vers,
 	})

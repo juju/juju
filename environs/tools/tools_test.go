@@ -4,7 +4,6 @@
 package tools_test
 
 import (
-	stdcontext "context"
 	"os"
 	"path/filepath"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"golang.org/x/net/context"
 
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
@@ -102,7 +100,7 @@ func (s *SimpleStreamsToolsSuite) uploadStreams(c *tc.C, versions toolstesting.S
 func (s *SimpleStreamsToolsSuite) resetEnv(c *tc.C, attrs map[string]interface{}) {
 	jujuversion.Current = s.origCurrentVersion
 	attrs = coretesting.FakeConfig().Merge(attrs)
-	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.Background(), c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c.Context(), c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
@@ -177,7 +175,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *tc.C) {
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
 		streams := envtools.PreferredStreams(&jujuversion.Current, s.env.Config().Development(), s.env.Config().AgentStream())
-		actual, err := envtools.FindTools(context.Background(), ss, s.env, test.major, test.minor, streams, coretools.Filter{})
+		actual, err := envtools.FindTools(c.Context(), ss, s.env, test.major, test.minor, streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf("%s", actual.String())
@@ -207,7 +205,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *tc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	_, err := envtools.FindTools(context.Background(), ss,
+	_, err := envtools.FindTools(c.Context(), ss,
 		s.env, 1, -1, []string{"released"}, coretools.Filter{Number: semversion.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
@@ -277,7 +275,7 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *tc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindExactTools(context.Background(), ss, s.env, test.seek.Number, test.seek.Release, test.seek.Arch)
+		actual, err := envtools.FindExactTools(c.Context(), ss, s.env, test.seek.Number, test.seek.Release, test.seek.Arch)
 		if test.err == nil {
 			if !c.Check(err, tc.ErrorIsNil) {
 				continue
@@ -360,7 +358,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *tc.C) {
 			"proposed": test.proposed,
 			"released": test.released,
 		})
-		actual, err := envtools.FindTools(context.Background(), ss,
+		actual, err := envtools.FindTools(c.Context(), ss,
 			s.env, test.major, test.minor, test.streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {

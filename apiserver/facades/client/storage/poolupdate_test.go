@@ -4,7 +4,6 @@
 package storage_test
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/tc"
@@ -37,7 +36,7 @@ func (s *poolUpdateSuite) TestUpdatePool(c *tc.C) {
 			Attrs: newAttrs,
 		}},
 	}
-	results, err := s.api.UpdatePool(context.Background(), args)
+	results, err := s.api.UpdatePool(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
@@ -54,7 +53,7 @@ func (s *poolUpdateSuite) TestUpdatePoolError(c *tc.C) {
 	}
 	s.storageService.EXPECT().ReplaceStoragePool(gomock.Any(), poolName, internalstorage.ProviderType(""), nil).Return(storageerrors.PoolNotFoundError)
 
-	results, err := s.api.UpdatePool(context.Background(), args)
+	results, err := s.api.UpdatePool(c.Context(), args)
 	c.Assert(err, tc.IsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "storage pool is not found")

@@ -4,7 +4,6 @@
 package proxy_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -28,7 +27,7 @@ func (i *infoSuite) SetUpTest(c *tc.C) {
 	i.clock = testclock.NewClock(time.Time{})
 
 	i.client = fake.NewSimpleClientset()
-	_, err := i.client.CoreV1().Namespaces().Create(context.Background(),
+	_, err := i.client.CoreV1().Namespaces().Create(c.Context(),
 		&core.Namespace{
 			ObjectMeta: meta.ObjectMeta{
 				Name: testNamespace,
@@ -48,7 +47,7 @@ func (i *infoSuite) TestGetControllerProxier(c *tc.C) {
 	}
 
 	// fake k8s client does not populate the token for secret, so we have to do it manually.
-	_, err := i.client.CoreV1().Secrets(testNamespace).Create(context.Background(), &core.Secret{
+	_, err := i.client.CoreV1().Secrets(testNamespace).Create(c.Context(), &core.Secret{
 		ObjectMeta: meta.ObjectMeta{
 			Labels: labels.Set{},
 			Name:   config.Name,
@@ -63,7 +62,7 @@ func (i *infoSuite) TestGetControllerProxier(c *tc.C) {
 	}, meta.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
-		context.Background(),
+		c.Context(),
 		config,
 		labels.Set{},
 		i.clock,
@@ -76,7 +75,7 @@ func (i *infoSuite) TestGetControllerProxier(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = proxy.GetControllerProxy(
-		context.Background(),
+		c.Context(),
 		config.Name,
 		"https://localhost:8123",
 		i.client.CoreV1().ConfigMaps(testNamespace),

@@ -137,7 +137,7 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *tc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, tc.ErrorIsNil)
 
-	_, err := broker.StartInstance(context.Background(), environs.StartInstanceParams{
+	_, err := broker.StartInstance(c.Context(), environs.StartInstanceParams{
 		Tools: coretools.List{{
 			// non-host-arch tools should be filtered out by StartInstance
 			Version: semversion.MustParseBinary("2.3.4-ubuntu-arm64"),

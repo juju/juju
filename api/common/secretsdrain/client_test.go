@@ -4,8 +4,6 @@
 package secretsdrain_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -56,7 +54,7 @@ func (s *secretsDrainSuite) TestGetSecretsToDrain(c *tc.C) {
 	).Return(nil)
 
 	client := secretsdrain.NewClient(apiCaller)
-	result, err := client.GetSecretsToDrain(context.Background())
+	result, err := client.GetSecretsToDrain(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	for _, info := range result {
@@ -111,7 +109,7 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *tc.C) {
 
 	client := secretsdrain.NewClient(apiCaller)
 	result, err := client.ChangeSecretBackend(
-		context.Background(),
+		c.Context(),
 		[]secretsdrain.ChangeSecretBackendArg{
 			{
 				URI:      uri,
@@ -141,6 +139,6 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *tc.C) {
 	).Return(nil)
 
 	client := secretsdrain.NewClient(apiCaller)
-	_, err := client.WatchSecretBackendChanged(context.Background())
+	_, err := client.WatchSecretBackendChanged(c.Context())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }

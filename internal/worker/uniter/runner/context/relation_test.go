@@ -4,8 +4,6 @@
 package context_test
 
 import (
-	stdcontext "context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -40,19 +38,19 @@ func (s *ContextRelationSuite) setUp(c *tc.C) *gomock.Controller {
 func (s *ContextRelationSuite) assertSettingsCaching(c *tc.C, members ...string) {
 	defer s.setUp(c).Finish()
 
-	s.relUnit.EXPECT().ReadSettings(stdcontext.Background(), "u/1").Return(params.Settings{"blib": "blob"}, nil)
+	s.relUnit.EXPECT().ReadSettings(gomock.Any(), "u/1").Return(params.Settings{"blib": "blob"}, nil)
 
 	cache := context.NewRelationCache(s.relUnit.ReadSettings, members)
 	ctx := context.NewContextRelation(s.relUnit, cache, false)
 
 	// Check that uncached settings are read once.
-	m, err := ctx.ReadSettings(stdcontext.Background(), "u/1")
+	m, err := ctx.ReadSettings(c.Context(), "u/1")
 	c.Assert(err, tc.ErrorIsNil)
 	expectSettings := convertMap(map[string]interface{}{"blib": "blob"})
 	c.Assert(m, tc.DeepEquals, expectSettings)
 
 	// Check that another call does not hit the api.
-	m, err = ctx.ReadSettings(stdcontext.Background(), "u/1")
+	m, err = ctx.ReadSettings(c.Context(), "u/1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m, tc.DeepEquals, expectSettings)
 }
@@ -87,7 +85,7 @@ func (s *ContextRelationSuite) TestSetStatus(c *tc.C) {
 	s.rel.EXPECT().SetStatus(gomock.Any(), relation.Suspended).Return(nil)
 
 	ctx := context.NewContextRelation(s.relUnit, nil, false)
-	err := ctx.SetStatus(stdcontext.Background(), relation.Suspended)
+	err := ctx.SetStatus(c.Context(), relation.Suspended)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

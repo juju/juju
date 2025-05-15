@@ -61,7 +61,7 @@ func (s *unitSetStatusSuite) TestSetStatusUnauthorised(c *tc.C) {
 	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
-	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Executing.String(),
 	}}})
@@ -76,7 +76,7 @@ func (s *unitSetStatusSuite) TestSetStatusNotATag(c *tc.C) {
 	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
-	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    "not a tag",
 		Status: status.Executing.String(),
 	}}})
@@ -93,7 +93,7 @@ func (s *unitSetStatusSuite) TestSetStatusNotAUnitTag(c *tc.C) {
 	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
-	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Executing.String(),
 	}}})
@@ -112,7 +112,7 @@ func (s *unitSetStatusSuite) TestSetStatusUnitNotFound(c *tc.C) {
 	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
-	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Executing.String(),
 	}}})
@@ -142,7 +142,7 @@ func (s *unitSetStatusSuite) TestSetStatus(c *tc.C) {
 		return s.authFunc, nil
 	})
 
-	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := setter.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 		Info:   "msg",
@@ -170,7 +170,7 @@ func (s *unitGetStatusSuite) TestStatusUnauthorised(c *tc.C) {
 	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
-	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := getter.Status(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -184,7 +184,7 @@ func (s *unitGetStatusSuite) TestStatusNotATag(c *tc.C) {
 	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
-	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := getter.Status(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "not a tag",
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -200,7 +200,7 @@ func (s *unitGetStatusSuite) TestStatusNotAUnitTag(c *tc.C) {
 	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
-	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := getter.Status(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -218,7 +218,7 @@ func (s *unitGetStatusSuite) TestStatusUnitNotFound(c *tc.C) {
 	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
-	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := getter.Status(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -243,7 +243,7 @@ func (s *unitGetStatusSuite) TestStatus(c *tc.C) {
 	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
-	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := getter.Status(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)

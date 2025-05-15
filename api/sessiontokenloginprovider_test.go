@@ -131,7 +131,7 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *tc.C) 
 		func(sessionToken string) {
 			obtainedSessionToken = sessionToken
 		})
-	apiState, err := api.Open(context.Background(), &api.Info{
+	apiState, err := api.Open(c.Context(), &api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,
@@ -158,7 +158,7 @@ func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c 
 	})
 
 	var output bytes.Buffer
-	_, err := api.Open(context.Background(), &api.Info{
+	_, err := api.Open(c.Context(), &api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,

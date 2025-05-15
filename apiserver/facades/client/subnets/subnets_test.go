@@ -4,8 +4,6 @@
 package subnets
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -67,7 +65,7 @@ func (s *SubnetsSuite) TestSubnetsByCIDR(c *tc.C) {
 	)
 
 	arg := params.CIDRParams{CIDRS: cidrs}
-	res, err := s.facade.SubnetsByCIDR(context.Background(), arg)
+	res, err := s.facade.SubnetsByCIDR(c.Context(), arg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	results := res.Results
@@ -124,7 +122,7 @@ func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *tc.C) {
 
 	s.mockNetworkService.EXPECT().GetProviderAvailabilityZones(gomock.Any()).Return(zoneResults, nil)
 
-	results, err := s.facade.AllZones(context.Background())
+	results, err := s.facade.AllZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected := make([]params.ZoneResult, len(zoneResults))
@@ -176,27 +174,27 @@ func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *tc.C) {
 				AvailabilityZones: []string{"zone1", "zone3"},
 			},
 		}, nil).Times(4)
-	subnets, err := s.facade.ListSubnets(context.Background(), args)
+	subnets, err := s.facade.ListSubnets(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subnets.Results, tc.DeepEquals, expected)
 
 	// Filter by space only.
 	args.SpaceTag = "space-dmz"
-	subnets, err = s.facade.ListSubnets(context.Background(), args)
+	subnets, err = s.facade.ListSubnets(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subnets.Results, tc.DeepEquals, expected[1:])
 
 	// Filter by zone only.
 	args.SpaceTag = ""
 	args.Zone = "zone3"
-	subnets, err = s.facade.ListSubnets(context.Background(), args)
+	subnets, err = s.facade.ListSubnets(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subnets.Results, tc.DeepEquals, expected[1:])
 
 	// Filter by both space and zone.
 	args.SpaceTag = "space-private"
 	args.Zone = "zone1"
-	subnets, err = s.facade.ListSubnets(context.Background(), args)
+	subnets, err = s.facade.ListSubnets(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subnets.Results, tc.DeepEquals, expected[:1])
 }
@@ -205,7 +203,7 @@ func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	args := params.SubnetsFilters{SpaceTag: "invalid"}
 	s.mockNetworkService.EXPECT().GetAllSubnets(gomock.Any())
-	_, err := s.facade.ListSubnets(context.Background(), args)
+	_, err := s.facade.ListSubnets(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
@@ -213,6 +211,6 @@ func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	boom := errors.New("no subnets for you")
 	s.mockNetworkService.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, boom)
-	_, err := s.facade.ListSubnets(context.Background(), params.SubnetsFilters{})
+	_, err := s.facade.ListSubnets(c.Context(), params.SubnetsFilters{})
 	c.Assert(err, tc.ErrorMatches, "no subnets for you")
 }

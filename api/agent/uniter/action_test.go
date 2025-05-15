@@ -4,8 +4,6 @@
 package uniter_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -46,7 +44,7 @@ func (s *actionSuite) TestAction(c *tc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
-	a, err := client.Action(context.Background(), names.NewActionTag("666"))
+	a, err := client.Action(c.Context(), names.NewActionTag("666"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(a.ID(), tc.Equals, "666")
 	c.Assert(a.Name(), tc.Equals, actionResult.Action.Name)
@@ -70,7 +68,7 @@ func (s *actionSuite) TestActionError(c *tc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
-	_, err := client.Action(context.Background(), names.NewActionTag("666"))
+	_, err := client.Action(c.Context(), names.NewActionTag("666"))
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -86,7 +84,7 @@ func (s *actionSuite) TestActionBegin(c *tc.C) {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	err := client.ActionBegin(context.Background(), names.NewActionTag("666"))
+	err := client.ActionBegin(c.Context(), names.NewActionTag("666"))
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -107,7 +105,7 @@ func (s *actionSuite) TestActionFinish(c *tc.C) {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	err := client.ActionFinish(context.Background(), names.NewActionTag("666"), "failed", map[string]interface{}{"foo": "bar"}, "oops")
+	err := client.ActionFinish(c.Context(), names.NewActionTag("666"), "failed", map[string]interface{}{"foo": "bar"}, "oops")
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -123,7 +121,7 @@ func (s *actionSuite) TestActionStatus(c *tc.C) {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	status, err := client.ActionStatus(context.Background(), names.NewActionTag("666"))
+	status, err := client.ActionStatus(c.Context(), names.NewActionTag("666"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(status, tc.Equals, "failed")
 }
@@ -145,7 +143,7 @@ func (s *actionSuite) TestLogActionMessage(c *tc.C) {
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.LogActionMessage(context.Background(), names.NewActionTag("666"), "hello")
+	err := unit.LogActionMessage(c.Context(), names.NewActionTag("666"), "hello")
 	c.Assert(err, tc.ErrorMatches, "biff")
 }
 
@@ -172,7 +170,7 @@ func (s *actionSuite) TestWatchActionNotifications(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchActionNotifications(context.Background())
+	w, err := unit.WatchActionNotifications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
@@ -188,7 +186,7 @@ func (s *actionSuite) TestWatchActionNotificationsError(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, err := unit.WatchActionNotifications(context.Background())
+	_, err := unit.WatchActionNotifications(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -208,7 +206,7 @@ func (s *actionSuite) TestWatchActionNotificationsErrorResults(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, err := unit.WatchActionNotifications(context.Background())
+	_, err := unit.WatchActionNotifications(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -221,7 +219,7 @@ func (s *actionSuite) TestWatchActionNotificationsNoResults(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, err := unit.WatchActionNotifications(context.Background())
+	_, err := unit.WatchActionNotifications(c.Context())
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 0")
 }
 
@@ -236,6 +234,6 @@ func (s *actionSuite) TestWatchActionNotificationsMoreResults(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, err := unit.WatchActionNotifications(context.Background())
+	_, err := unit.WatchActionNotifications(c.Context())
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }

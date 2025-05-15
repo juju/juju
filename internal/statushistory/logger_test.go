@@ -4,8 +4,6 @@
 package statushistory
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -39,7 +37,7 @@ func (s *loggerSuite) TestRecord(c *tc.C) {
 	s.logger.EXPECT().Logf(gomock.Any(), logger.INFO, labels, "status-history (status: %q, status-message: %q)", "active", "foo")
 
 	logger := NewLogRecorder(s.logger)
-	err := logger.Record(context.Background(), Record{
+	err := logger.Record(c.Context(), Record{
 		Kind:    status.KindApplication,
 		ID:      "123",
 		Status:  "active",

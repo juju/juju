@@ -4,7 +4,6 @@
 package mongo_test
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -216,7 +215,7 @@ func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *tc.C) {
 
 	configDir := c.MkDir()
 	err = mongo.SysctlEditableEnsureServer(
-		context.Background(),
+		c.Context(),
 		makeEnsureServerParams(dataDir, configDir),
 		map[string]string{dataFilePath: "new value"},
 	)
@@ -241,7 +240,7 @@ func (s *MongoSuite) TestEnsureServerInstalledLocalSnap(c *tc.C) {
 		return nil
 	})
 
-	err := mongo.EnsureServerInstalled(context.Background(), makeEnsureServerParams(dataDir, configDir))
+	err := mongo.EnsureServerInstalled(c.Context(), makeEnsureServerParams(dataDir, configDir))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -258,7 +257,7 @@ func (s *MongoSuite) TestEnsureServerInstalledError(c *tc.C) {
 		return failure
 	})
 
-	err := mongo.EnsureServerInstalled(context.Background(), makeEnsureServerParams(dataDir, configDir))
+	err := mongo.EnsureServerInstalled(c.Context(), makeEnsureServerParams(dataDir, configDir))
 	c.Assert(errors.Cause(err), tc.Equals, failure, tc.Commentf("unexpected error: %v", err))
 }
 
@@ -273,7 +272,7 @@ func (s *MongoSuite) assertEnsureServerIPv6(c *tc.C, ipv6 bool) string {
 		return ipv6
 	})
 	testParams := makeEnsureServerParams(dataDir, configDir)
-	err := mongo.EnsureServerInstalled(context.Background(), testParams)
+	err := mongo.EnsureServerInstalled(c.Context(), testParams)
 	c.Assert(err, tc.ErrorIsNil)
 	return dataDir
 }
@@ -288,7 +287,7 @@ func (s *MongoSuite) TestNoMongoDir(c *tc.C) {
 
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
 	configDir := c.MkDir()
-	err := mongo.EnsureServerInstalled(context.Background(), makeEnsureServerParams(dataDir, configDir))
+	err := mongo.EnsureServerInstalled(c.Context(), makeEnsureServerParams(dataDir, configDir))
 	c.Check(err, tc.ErrorIsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))

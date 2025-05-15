@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -96,7 +94,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 
 	// Act:
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert:
@@ -128,7 +126,7 @@ func (s *exportSuite) TestExportEmpty(c *tc.C) {
 
 	// Act:
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert:
@@ -146,7 +144,7 @@ func (s *exportSuite) TestExportServiceError(c *tc.C) {
 
 	// Act:
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, boom)

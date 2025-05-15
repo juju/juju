@@ -67,7 +67,7 @@ func (s *lxdProfileSuite) TestWatchInstanceData(c *tc.C) {
 	}
 
 	api := s.newAPI(c)
-	results, err := api.WatchInstanceData(context.Background(), args)
+	results, err := api.WatchInstanceData(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -94,7 +94,7 @@ func (s *lxdProfileSuite) TestLXDProfileName(c *tc.C) {
 	}
 
 	api := s.newAPI(c)
-	results, err := api.LXDProfileName(context.Background(), args)
+	results, err := api.LXDProfileName(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -131,7 +131,7 @@ func (s *lxdProfileSuite) TestLXDProfileRequired(c *tc.C) {
 	}
 
 	api := s.newAPI(c)
-	results, err := api.LXDProfileRequired(context.Background(), args)
+	results, err := api.LXDProfileRequired(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -155,7 +155,7 @@ func (s *lxdProfileSuite) TestCanApplyLXDProfileUnauthorized(c *tc.C) {
 		},
 	}
 	api := s.newAPI(c)
-	results, err := api.CanApplyLXDProfile(context.Background(), args)
+	results, err := api.CanApplyLXDProfile(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -231,7 +231,7 @@ func (s *lxdProfileSuite) testCanApplyLXDProfile(c *tc.C, result bool) {
 		},
 	}
 	api := s.newAPI(c)
-	results, err := api.CanApplyLXDProfile(context.Background(), args)
+	results, err := api.CanApplyLXDProfile(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{{Result: result, Error: nil}},

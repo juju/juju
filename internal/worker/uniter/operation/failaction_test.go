@@ -4,8 +4,6 @@
 package operation_test
 
 import (
-	stdcontext "context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -26,7 +24,7 @@ func (s *FailActionSuite) TestPrepare(c *tc.C) {
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, tc.ErrorIsNil)
 
-	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
+	newState, err := op.Prepare(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newState, tc.DeepEquals, &operation.State{
 		Kind:     operation.RunAction,
@@ -65,11 +63,11 @@ func (s *FailActionSuite) TestExecuteSuccess(c *tc.C) {
 		factory := newOpFactory(c, nil, callbacks)
 		op, err := factory.NewFailAction(someActionId)
 		c.Assert(err, tc.ErrorIsNil)
-		midState, err := op.Prepare(stdcontext.Background(), test.before)
+		midState, err := op.Prepare(c.Context(), test.before)
 		c.Assert(midState, tc.NotNil)
 		c.Assert(err, tc.ErrorIsNil)
 
-		newState, err := op.Execute(stdcontext.Background(), *midState)
+		newState, err := op.Execute(c.Context(), *midState)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(newState, tc.DeepEquals, &test.after)
 		c.Assert(*callbacks.MockFailAction.gotMessage, tc.Equals, "action terminated")
@@ -87,11 +85,11 @@ func (s *FailActionSuite) TestExecuteFail(c *tc.C) {
 	factory := newOpFactory(c, nil, callbacks)
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, tc.ErrorIsNil)
-	midState, err := op.Prepare(stdcontext.Background(), st)
+	midState, err := op.Prepare(c.Context(), st)
 	c.Assert(midState, tc.NotNil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = op.Execute(stdcontext.Background(), *midState)
+	_, err = op.Execute(c.Context(), *midState)
 	c.Assert(err, tc.ErrorMatches, "squelch")
 }
 
@@ -144,7 +142,7 @@ func (s *FailActionSuite) TestCommit(c *tc.C) {
 		op, err := factory.NewFailAction(someActionId)
 		c.Assert(err, tc.ErrorIsNil)
 
-		newState, err := op.Commit(stdcontext.Background(), test.before)
+		newState, err := op.Commit(c.Context(), test.before)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(newState, tc.DeepEquals, &test.after)
 	}

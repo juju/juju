@@ -4,8 +4,6 @@
 package google
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -18,7 +16,7 @@ type authSuite struct {
 var _ = tc.Suite(&authSuite{})
 
 func (s *authSuite) TestNewComputeService(c *tc.C) {
-	_, err := newComputeService(context.Background(), s.Credentials, jujuhttp.NewClient())
+	_, err := newComputeService(c.Context(), s.Credentials, jujuhttp.NewClient())
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -4,8 +4,6 @@
 package highavailability_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -47,7 +45,7 @@ func (s *clientSuite) TestClientEnableHA(c *tc.C) {
 	mockClient := basemocks.NewMockClientFacade(ctrl)
 	client := highavailability.NewClientFromCaller(mockFacadeCaller, mockClient)
 
-	result, err := client.EnableHA(context.Background(), 3, emptyCons, nil)
+	result, err := client.EnableHA(c.Context(), 3, emptyCons, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result.Maintained, tc.DeepEquals, []string{"machine-0"})
@@ -72,7 +70,7 @@ func (s *clientSuite) TestControllerDetails(c *tc.C) {
 	mockClient.EXPECT().BestAPIVersion().Return(3)
 	client := highavailability.NewClientFromCaller(mockFacadeCaller, mockClient)
 
-	result, err := client.ControllerDetails(context.Background())
+	result, err := client.ControllerDetails(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, map[string]highavailability.ControllerDetails{
 		"666": {

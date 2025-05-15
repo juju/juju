@@ -30,7 +30,7 @@ func (s *LogSenderSuite) TestNewAPI(c *tc.C) {
 		c: c,
 	}
 	a := logsender.NewAPI(conn)
-	w, err := a.LogWriter(context.Background())
+	w, err := a.LogWriter(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	msg := new(params.LogRecord)
@@ -51,7 +51,7 @@ func (s *LogSenderSuite) TestNewAPIWriteLogError(c *tc.C) {
 		connectError: errors.New("foo"),
 	}
 	a := logsender.NewAPI(conn)
-	w, err := a.LogWriter(context.Background())
+	w, err := a.LogWriter(c.Context())
 	c.Assert(err, tc.ErrorMatches, "cannot connect to /logsink: foo")
 	c.Assert(w, tc.Equals, nil)
 }
@@ -62,7 +62,7 @@ func (s *LogSenderSuite) TestNewAPIWriteError(c *tc.C) {
 		writeError: errors.New("foo"),
 	}
 	a := logsender.NewAPI(conn)
-	w, err := a.LogWriter(context.Background())
+	w, err := a.LogWriter(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	err = w.WriteLog(new(params.LogRecord))
@@ -78,7 +78,7 @@ func (s *LogSenderSuite) TestNewAPIReadError(c *tc.C) {
 		writeError: errors.New("closed yo"),
 	}
 	a := logsender.NewAPI(conn)
-	w, err := a.LogWriter(context.Background())
+	w, err := a.LogWriter(c.Context())
 	c.Assert(err, tc.IsNil)
 	select {
 	case <-conn.closed:

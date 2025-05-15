@@ -4,8 +4,6 @@
 package rpc_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -31,7 +29,7 @@ func (*multiplexerSuite) TestServerReply_CallsAllObservers(c *tc.C) {
 		hdr  rpc.Header
 		body string
 	)
-	o.ServerReply(context.Background(), req, &hdr, body)
+	o.ServerReply(c.Context(), req, &hdr, body)
 
 	for _, f := range observers {
 		f.CheckCall(c, 0, "ServerReply", req, &hdr, body)
@@ -49,7 +47,7 @@ func (*multiplexerSuite) TestServerRequest_CallsAllObservers(c *tc.C) {
 		hdr  rpc.Header
 		body string
 	)
-	o.ServerRequest(context.Background(), &hdr, body)
+	o.ServerRequest(c.Context(), &hdr, body)
 
 	for _, f := range observers {
 		f.CheckCall(c, 0, "ServerRequest", &hdr, body)

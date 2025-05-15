@@ -98,7 +98,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 
 	s.expectAgentConfig(c)
 
-	w, err := Manifold(s.newConfig()).Start(context.Background(), s.newGetter())
+	w, err := Manifold(s.newConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
@@ -120,7 +120,7 @@ func (s *ManifoldSuite) TestWorkerBounceOnStart(c *tc.C) {
 		},
 	}
 
-	_, err := Manifold(config).Start(context.Background(), s.newGetter())
+	_, err := Manifold(config).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 }
 

@@ -26,7 +26,7 @@ func (s *stateSuite) TestCheckApplicationNameAvailable(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNameAvailable(ctx, tx, "foo")
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationAlreadyExists)
@@ -35,7 +35,7 @@ func (s *stateSuite) TestCheckApplicationNameAvailable(c *tc.C) {
 func (s *stateSuite) TestCheckApplicationNameAvailableNoApplication(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNameAvailable(ctx, tx, "foo")
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -46,7 +46,7 @@ func (s *stateSuite) TestCheckApplication(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNotDead(ctx, tx, id)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -55,7 +55,7 @@ func (s *stateSuite) TestCheckApplication(c *tc.C) {
 func (s *stateSuite) TestCheckApplicationExistsNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNotDead(ctx, tx, "foo")
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -66,7 +66,7 @@ func (s *stateSuite) TestCheckApplicationDying(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNotDead(ctx, tx, id)
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -77,7 +77,7 @@ func (s *stateSuite) TestCheckApplicationExistsDead(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationNotDead(ctx, tx, id)
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
@@ -88,7 +88,7 @@ func (s *stateSuite) TestCheckApplicationExistsAlive(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return st.checkApplicationAlive(ctx, tx, id)
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)

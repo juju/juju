@@ -54,7 +54,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 		config.AgentVersionKey: "4.0.0",
 	}))
 
-	info, err := m.api.ModelOperatorProvisioningInfo(context.Background())
+	info, err := m.api.ModelOperatorProvisioningInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConf, err := m.state.ControllerConfig()
@@ -93,7 +93,7 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *tc.C) {
 	apiHostPortsForAgentsChanged <- struct{}{}
 	modelConfigChanged <- []string{}
 
-	results, err := m.api.WatchModelOperatorProvisioningInfo(context.Background())
+	results, err := m.api.WatchModelOperatorProvisioningInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Error, tc.IsNil)
 	res := m.resources.Get("1")
@@ -111,7 +111,7 @@ func (s *ModelOperatorSuite) TestSetUnitPassword(c *tc.C) {
 		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
 	}
 
-	result, err := api.SetPasswords(context.Background(), params.EntityPasswords{
+	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{
 				Tag:      names.NewUnitTag("foo/1").String(),
@@ -140,7 +140,7 @@ func (s *ModelOperatorSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
 	}
 
-	result, err := api.SetPasswords(context.Background(), params.EntityPasswords{
+	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{
 				Tag:      names.NewUnitTag("foo/1").String(),

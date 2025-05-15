@@ -4,8 +4,6 @@
 package objectstore
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -28,7 +26,7 @@ func (s *objectStoreFactorySuite) TestNewObjectStore(c *tc.C) {
 	// Ensure we can create an object store with the default backend.
 
 	obj, err := ObjectStoreFactory(
-		context.Background(),
+		c.Context(),
 		DefaultBackendType(),
 		"inferi",
 		WithLogger(loggertesting.WrapCheckLog(c)),
@@ -44,7 +42,7 @@ func (s *objectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := ObjectStoreFactory(
-		context.Background(),
+		c.Context(),
 		objectstore.BackendType("blah"),
 		"inferi",
 		WithLogger(loggertesting.WrapCheckLog(c)),

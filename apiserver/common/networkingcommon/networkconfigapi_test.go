@@ -4,8 +4,6 @@
 package networkingcommon_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
@@ -54,7 +52,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissi
 	s.state.EXPECT().Machine("1").Return(nil, errors.NotFoundf("nope"))
 
 	err := s.NewNetworkConfigAPI(s.state, s.networkService, s.getModelOp).SetObservedNetworkConfig(
-		context.Background(),
+		c.Context(),
 		params.SetMachineNetworkConfig{
 			Tag:    "machine-1",
 			Config: nil,
@@ -588,7 +586,7 @@ func (s *networkConfigSuite) expectMachine() {
 
 func (s *networkConfigSuite) callAPI(c *tc.C, config []params.NetworkConfig) {
 	c.Assert(s.NewNetworkConfigAPI(s.state, s.networkService, s.getModelOp).SetObservedNetworkConfig(
-		context.Background(),
+		c.Context(),
 		params.SetMachineNetworkConfig{
 			Tag:    s.tag.String(),
 			Config: config,

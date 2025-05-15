@@ -4,7 +4,6 @@
 package resources_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 
@@ -44,7 +43,7 @@ func (s *ContextSuite) TestDownloadOutOfDate(c *tc.C) {
 		ResourcesDir: resourceDir,
 		Logger:       loggertesting.WrapCheckLog(c),
 	}
-	path, err := ctx.DownloadResource(context.Background(), "spam")
+	path, err := ctx.DownloadResource(c.Context(), "spam")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Read", "Read", "Close")
@@ -73,7 +72,7 @@ func (s *ContextSuite) TestContextDownloadUpToDate(c *tc.C) {
 		ResourcesDir: resourceDir,
 		Logger:       loggertesting.WrapCheckLog(c),
 	}
-	path, err := ctx.DownloadResource(context.Background(), "spam")
+	path, err := ctx.DownloadResource(c.Context(), "spam")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Close")

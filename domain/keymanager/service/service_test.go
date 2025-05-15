@@ -4,7 +4,6 @@
 package service
 
 import (
-	"context"
 	"net/url"
 
 	"github.com/juju/tc"
@@ -84,7 +83,7 @@ func (s *serviceSuite) TestAddKeysForInvalidUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := NewService(s.modelUUID, s.state).
-		AddPublicKeysForUser(context.Background(), user.UUID("notvalid"), "key")
+		AddPublicKeysForUser(c.Context(), user.UUID("notvalid"), "key")
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -110,7 +109,7 @@ func (s *serviceSuite) TestAddKeysForNonExistentUser(c *tc.C) {
 	).Return(accesserrors.UserNotFound)
 
 	svc := NewService(s.modelUUID, s.state)
-	err = svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys[0])
+	err = svc.AddPublicKeysForUser(c.Context(), s.userID, testingPublicKeys[0])
 	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
@@ -137,7 +136,7 @@ func (s *serviceSuite) TestAddKeysForNonExistentModel(c *tc.C) {
 	).Return(modelerrors.NotFound)
 
 	svc := NewService(badModelId, s.state)
-	err = svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys[0])
+	err = svc.AddPublicKeysForUser(c.Context(), s.userID, testingPublicKeys[0])
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -149,17 +148,17 @@ func (s *serviceSuite) TestAddInvalidPublicKeys(c *tc.C) {
 
 	svc := NewService(s.modelUUID, s.state)
 
-	err := svc.AddPublicKeysForUser(context.Background(), s.userID, "notvalid")
+	err := svc.AddPublicKeysForUser(c.Context(), s.userID, "notvalid")
 	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
 
-	err = svc.AddPublicKeysForUser(context.Background(), s.userID, "notvalid", testingPublicKeys[0])
+	err = svc.AddPublicKeysForUser(c.Context(), s.userID, "notvalid", testingPublicKeys[0])
 	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
 
-	err = svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys[0], "notvalid")
+	err = svc.AddPublicKeysForUser(c.Context(), s.userID, testingPublicKeys[0], "notvalid")
 	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
 
 	err = svc.AddPublicKeysForUser(
-		context.Background(),
+		c.Context(),
 		s.userID,
 		testingPublicKeys[0],
 		"notvalid",
@@ -176,11 +175,11 @@ func (s *serviceSuite) TestAddReservedPublicKeys(c *tc.C) {
 
 	svc := NewService(s.modelUUID, s.state)
 
-	err := svc.AddPublicKeysForUser(context.Background(), s.userID, reservedPublicKeys...)
+	err := svc.AddPublicKeysForUser(c.Context(), s.userID, reservedPublicKeys...)
 	c.Check(err, tc.ErrorIs, keyserrors.ReservedCommentViolation)
 
 	err = svc.AddPublicKeysForUser(
-		context.Background(),
+		c.Context(),
 		s.userID,
 		testingPublicKeys[0],
 		reservedPublicKeys[0],
@@ -214,7 +213,7 @@ func (s *serviceSuite) TestAddExistingKeysForUser(c *tc.C) {
 	).Return(keyserrors.PublicKeyAlreadyExists)
 
 	err = svc.AddPublicKeysForUser(
-		context.Background(),
+		c.Context(),
 		s.userID,
 		existingUserPublicKeys[1],
 	)
@@ -243,7 +242,7 @@ func (s *serviceSuite) TestAddExistingKeysForUser(c *tc.C) {
 	).Return(keyserrors.PublicKeyAlreadyExists)
 
 	err = svc.AddPublicKeysForUser(
-		context.Background(),
+		c.Context(),
 		s.userID,
 		testingPublicKeys[1],
 		existingUserPublicKeys[1],
@@ -276,7 +275,7 @@ func (s *serviceSuite) TestAddKeysForUser(c *tc.C) {
 
 	svc := NewService(s.modelUUID, s.state)
 
-	err := svc.AddPublicKeysForUser(context.Background(), s.userID, testingPublicKeys...)
+	err := svc.AddPublicKeysForUser(c.Context(), s.userID, testingPublicKeys...)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -287,7 +286,7 @@ func (s *serviceSuite) TestListKeysForInvalidUserId(c *tc.C) {
 
 	svc := NewService(s.modelUUID, s.state)
 
-	_, err := svc.ListPublicKeysForUser(context.Background(), user.UUID("not-valid"))
+	_, err := svc.ListPublicKeysForUser(c.Context(), user.UUID("not-valid"))
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -301,7 +300,7 @@ func (s *serviceSuite) TestListKeysForNonExistentUser(c *tc.C) {
 		Return(nil, accesserrors.UserNotFound).AnyTimes()
 	svc := NewService(s.modelUUID, s.state)
 
-	_, err := svc.ListPublicKeysForUser(context.Background(), s.userID)
+	_, err := svc.ListPublicKeysForUser(c.Context(), s.userID)
 	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
@@ -322,7 +321,7 @@ func (s *serviceSuite) TestListKeysForUser(c *tc.C) {
 		Return(publicKeys, nil)
 	svc := NewService(s.modelUUID, s.state)
 
-	keys, err := svc.ListPublicKeysForUser(context.Background(), s.userID)
+	keys, err := svc.ListPublicKeysForUser(c.Context(), s.userID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(keys, tc.DeepEquals, publicKeys)
 }
@@ -333,7 +332,7 @@ func (s *serviceSuite) TestDeleteKeysForInvalidUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := NewService(s.modelUUID, s.state).
-		DeleteKeysForUser(context.Background(), user.UUID("notvalid"), "key")
+		DeleteKeysForUser(c.Context(), user.UUID("notvalid"), "key")
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -351,7 +350,7 @@ func (s *serviceSuite) TestDeleteKeysForUserNotFound(c *tc.C) {
 	).Return(accesserrors.UserNotFound)
 
 	err := NewService(s.modelUUID, s.state).
-		DeleteKeysForUser(context.Background(), s.userID, testingPublicKeys[0])
+		DeleteKeysForUser(c.Context(), s.userID, testingPublicKeys[0])
 	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
@@ -368,7 +367,7 @@ func (s *serviceSuite) TestDeleteKeysForUserWithFingerprint(c *tc.C) {
 	).Return(nil)
 
 	err = NewService(s.modelUUID, s.state).
-		DeleteKeysForUser(context.Background(), s.userID, key.Fingerprint())
+		DeleteKeysForUser(c.Context(), s.userID, key.Fingerprint())
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -388,7 +387,7 @@ func (s *serviceSuite) TestDeleteKeysForUserWithComment(c *tc.C) {
 	).Return(nil)
 
 	err = NewService(s.modelUUID, s.state).
-		DeleteKeysForUser(context.Background(), s.userID, key.Comment)
+		DeleteKeysForUser(c.Context(), s.userID, key.Comment)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -405,7 +404,7 @@ func (s *serviceSuite) TestDeleteKeysForUserData(c *tc.C) {
 	).Return(nil)
 
 	err := NewService(s.modelUUID, s.state).
-		DeleteKeysForUser(context.Background(), s.userID, existingUserPublicKeys[0])
+		DeleteKeysForUser(c.Context(), s.userID, existingUserPublicKeys[0])
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -427,7 +426,7 @@ func (s *serviceSuite) TestDeleteKeysForUserCombination(c *tc.C) {
 
 	err = NewService(s.modelUUID, s.state).
 		DeleteKeysForUser(
-			context.Background(),
+			c.Context(),
 			s.userID,
 			key.Comment,
 			existingUserPublicKeys[1],
@@ -446,7 +445,7 @@ func (s *serviceSuite) TestImportKeysForUnknownSource(c *tc.C) {
 	).Return(nil, importererrors.NoResolver)
 
 	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
-		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
+		ImportPublicKeysForUser(c.Context(), s.userID, s.subjectURI)
 	c.Check(err, tc.ErrorIs, keyserrors.UnknownImportSource)
 }
 
@@ -462,7 +461,7 @@ func (s *serviceSuite) TestImportKeysForUnknownSubject(c *tc.C) {
 	).Return(nil, importererrors.SubjectNotFound)
 
 	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
-		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
+		ImportPublicKeysForUser(c.Context(), s.userID, s.subjectURI)
 	c.Check(err, tc.ErrorIs, keyserrors.ImportSubjectNotFound)
 }
 
@@ -477,7 +476,7 @@ func (s *serviceSuite) TestImportKeysInvalidPublicKeys(c *tc.C) {
 	).Return([]string{"bad"}, nil)
 
 	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
-		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
+		ImportPublicKeysForUser(c.Context(), s.userID, s.subjectURI)
 	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
 }
 
@@ -493,7 +492,7 @@ func (s *serviceSuite) TestImportKeysWithReservedComment(c *tc.C) {
 	).Return(reservedPublicKeys, nil)
 
 	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
-		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
+		ImportPublicKeysForUser(c.Context(), s.userID, s.subjectURI)
 	c.Check(err, tc.ErrorIs, keyserrors.ReservedCommentViolation)
 }
 
@@ -527,7 +526,7 @@ func (s *serviceSuite) TestImportPublicKeysForUser(c *tc.C) {
 	).Return(nil)
 
 	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
-		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
+		ImportPublicKeysForUser(c.Context(), s.userID, s.subjectURI)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -551,7 +550,7 @@ func (s *serviceSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 		nil,
 	)
 
-	allKeys, err := NewService(s.modelUUID, s.state).GetAllUsersPublicKeys(context.Background())
+	allKeys, err := NewService(s.modelUUID, s.state).GetAllUsersPublicKeys(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(allKeys, tc.DeepEquals, map[user.Name][]string{
 		usertesting.GenNewName(c, "tlm"): {
@@ -575,7 +574,7 @@ func (s *serviceSuite) TestGetAllUsersPublicKeysEmpty(c *tc.C) {
 		map[user.Name][]string{}, nil,
 	)
 
-	allKeys, err := NewService(s.modelUUID, s.state).GetAllUsersPublicKeys(context.Background())
+	allKeys, err := NewService(s.modelUUID, s.state).GetAllUsersPublicKeys(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(allKeys), tc.Equals, 0)
 }

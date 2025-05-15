@@ -4,7 +4,6 @@
 package agent_test
 
 import (
-	"context"
 	stdtesting "testing"
 
 	"github.com/juju/names/v6"
@@ -51,7 +50,7 @@ func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 	})
 	client, err := agent.NewClient(apiCaller)
 	c.Assert(err, tc.ErrorIsNil)
-	info, err := client.StateServingInfo(context.Background())
+	info, err := client.StateServingInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, controller.StateServingInfo{
 		APIPort:           666,
@@ -66,7 +65,7 @@ func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 }
 
 func (s *clientSuite) TestIsControllerShortCircuits(c *tc.C) {
-	result, err := agent.IsController(context.Background(), nil, names.NewControllerAgentTag("0"))
+	result, err := agent.IsController(c.Context(), nil, names.NewControllerAgentTag("0"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.IsTrue)
 }
@@ -92,7 +91,7 @@ func (s *clientSuite) TestMachineEntity(c *tc.C) {
 	tag := names.NewMachineTag("42")
 	client, err := agent.NewClient(apiCaller)
 	c.Assert(err, tc.ErrorIsNil)
-	m, err := client.Entity(context.Background(), tag)
+	m, err := client.Entity(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.Tag(), tc.Equals, tag.String())
 	c.Assert(m.Life(), tc.Equals, life.Alive)

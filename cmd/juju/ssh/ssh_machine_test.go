@@ -217,7 +217,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c 
 		}, nil
 	}
 
-	err := new(sshMachine).maybePopulateTargetViaField(context.Background(), target, statusGetter)
+	err := new(sshMachine).maybePopulateTargetViaField(c.Context(), target, statusGetter)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(target.via, tc.IsNil, tc.Commentf("expected target.via not to be populated for a non-container target"))
@@ -248,7 +248,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 		}, nil
 	}
 
-	err := new(sshMachine).maybePopulateTargetViaField(context.Background(), target, statusGetter)
+	err := new(sshMachine).maybePopulateTargetViaField(c.Context(), target, statusGetter)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(target.via, tc.Not(tc.IsNil), tc.Commentf("expected target.via to be populated for container target"))

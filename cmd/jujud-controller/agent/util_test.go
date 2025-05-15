@@ -171,10 +171,10 @@ func (s *commonMachineSuite) primeAgent(c *tc.C, jobs ...state.MachineJob) (
 //	db := s.DB()
 //
 //	netNodeUUID := uuid.MustNewUUID().String()
-//	_, err := db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+//	_, err := db.ExecContext(c.Context(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
 //	c.Assert(err, tc.ErrorIsNil)
 //	machineUUID := uuid.MustNewUUID().String()
-//	_, err = db.ExecContext(context.Background(), `
+//	_, err = db.ExecContext(c.Context(), `
 //INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
 //VALUES (?, ?, ?, ?)
 //`, machineUUID, life.Alive, machineId, netNodeUUID)
@@ -207,9 +207,9 @@ func (s *commonMachineSuite) configureMachine(c *tc.C, machineId string, vers se
 	c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), tc.ErrorIsNil)
 	// Double write to machine domain.
 	machineService := s.ControllerDomainServices(c).Machine()
-	machineUUID, err := machineService.CreateMachine(context.Background(), machine.Name(m.Id()))
+	machineUUID, err := machineService.CreateMachine(c.Context(), machine.Name(m.Id()))
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, inst.Id(), "", nil)
+	err = machineService.SetMachineCloudInstance(c.Context(), machineUUID, inst.Id(), "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add an address for the tests in case the initiateMongoServer
@@ -313,7 +313,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *tc.C, machine *state.Mac
 	// Set the addresses in the environ instance as well so that if the instance poller
 	// runs it won't overwrite them.
 	c.Assert(err, tc.ErrorIsNil)
-	insts, err := s.Environ.Instances(context.Background(), []instance.Id{instanceId})
+	insts, err := s.Environ.Instances(c.Context(), []instance.Id{instanceId})
 	c.Assert(err, tc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], network.NewMachineAddresses([]string{"0.1.2.3"}).AsProviderAddresses())
 }

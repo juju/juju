@@ -42,27 +42,27 @@ func (s *jwtParserSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *jwtParserSuite) TestCacheRegistration(c *tc.C) {
-	ctx, done := context.WithCancel(context.Background())
+	ctx, done := context.WithCancel(c.Context())
 	defer done()
 	authenticator := NewParserWithHTTPClient(ctx, s.client)
-	err := authenticator.SetJWKSCache(context.Background(), s.url)
+	err := authenticator.SetJWKSCache(c.Context(), s.url)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *jwtParserSuite) TestCacheRegistrationFailureWithBadURL(c *tc.C) {
-	ctx, done := context.WithCancel(context.Background())
+	ctx, done := context.WithCancel(c.Context())
 	defer done()
 	authenticator := NewParserWithHTTPClient(ctx, s.client)
-	err := authenticator.SetJWKSCache(context.Background(), "noexisturl")
+	err := authenticator.SetJWKSCache(c.Context(), "noexisturl")
 	// We want to make sure that we get an error for a bad url.
 	c.Assert(err, tc.NotNil)
 }
 
 func (s *jwtParserSuite) TestParseJWT(c *tc.C) {
-	ctx, done := context.WithCancel(context.Background())
+	ctx, done := context.WithCancel(c.Context())
 	defer done()
 	authenticator := NewParserWithHTTPClient(ctx, s.client)
-	err := authenticator.SetJWKSCache(context.Background(), s.url)
+	err := authenticator.SetJWKSCache(c.Context(), s.url)
 	c.Assert(err, tc.ErrorIsNil)
 
 	params := JWTParams{
@@ -74,7 +74,7 @@ func (s *jwtParserSuite) TestParseJWT(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	base64jwt := base64.StdEncoding.EncodeToString(jwt)
 
-	token, err := authenticator.Parse(context.Background(), base64jwt)
+	token, err := authenticator.Parse(c.Context(), base64jwt)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(token, tc.NotNil)
 

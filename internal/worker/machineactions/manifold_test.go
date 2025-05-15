@@ -5,8 +5,6 @@
 package machineactions_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -82,7 +80,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *tc.C) {
 		"wut": dependency.ErrMissing,
 	})
 
-	w, err := manifold.Start(context.Background(), getter)
+	w, err := manifold.Start(c.Context(), getter)
 	c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	c.Assert(w, tc.IsNil)
 }
@@ -97,7 +95,7 @@ func (s *ManifoldSuite) TestStartMissingAPI(c *tc.C) {
 		"exactly": dependency.ErrMissing,
 	})
 
-	w, err := manifold.Start(context.Background(), getter)
+	w, err := manifold.Start(c.Context(), getter)
 	c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	c.Assert(w, tc.IsNil)
 }
@@ -111,7 +109,7 @@ func (s *ManifoldSuite) TestStartWorkerError(c *tc.C) {
 		MachineLock:   s.fakeLock,
 	})
 
-	w, err := manifold.Start(context.Background(), s.getter)
+	w, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "blam")
 	c.Assert(w, tc.IsNil)
 }
@@ -126,7 +124,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 		MachineLock:   s.fakeLock,
 	})
 
-	w, err := manifold.Start(context.Background(), s.getter)
+	w, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.Equals, fakeWorker)
 }
@@ -145,7 +143,7 @@ func (s *ManifoldSuite) TestInvalidTag(c *tc.C) {
 		"exactly": s.fakeCaller,
 	})
 
-	w, err := manifold.Start(context.Background(), getter)
+	w, err := manifold.Start(c.Context(), getter)
 	c.Assert(err, tc.ErrorMatches, "this manifold can only be used inside a machine")
 	c.Assert(w, tc.IsNil)
 }

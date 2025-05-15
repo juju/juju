@@ -4,8 +4,6 @@
 package secrets_test
 
 import (
-	"context"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -37,7 +35,7 @@ func (s *deleteBackendSuite) TestGetContent(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
-	_, err := client.GetContent(context.Background(), uri, "", false, false)
+	_, err := client.GetContent(c.Context(), uri, "", false, false)
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
@@ -53,7 +51,7 @@ func (s *deleteBackendSuite) TestSaveContent(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
-	_, err := client.SaveContent(context.Background(), uri, 666, coresecrets.NewSecretValue(nil))
+	_, err := client.SaveContent(c.Context(), uri, 666, coresecrets.NewSecretValue(nil))
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
@@ -68,7 +66,7 @@ func (s *deleteBackendSuite) TestDeleteExternalContent(c *tc.C) {
 	}
 
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
-	err := client.DeleteExternalContent(context.Background(), coresecrets.ValueRef{})
+	err := client.DeleteExternalContent(c.Context(), coresecrets.ValueRef{})
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
@@ -83,7 +81,7 @@ func (s *deleteBackendSuite) TestGetBackend(c *tc.C) {
 	}
 
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
-	_, _, err := client.GetBackend(context.Background(), ptr("someid"), false)
+	_, _, err := client.GetBackend(c.Context(), ptr("someid"), false)
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
@@ -99,7 +97,7 @@ func (s *deleteBackendSuite) TestGetRevisionContent(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
-	_, err := client.GetRevisionContent(context.Background(), uri, 666)
+	_, err := client.GetRevisionContent(c.Context(), uri, 666)
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
@@ -139,7 +137,7 @@ func (s *deleteBackendSuite) TestDeleteContent(c *tc.C) {
 	}, nil)
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 
-	err := client.DeleteContent(context.Background(), uri, 666)
+	err := client.DeleteContent(c.Context(), uri, 666)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -186,7 +184,7 @@ func (s *deleteBackendSuite) TestDeleteContentDraining(c *tc.C) {
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(secreterrors.SecretRevisionNotFound)
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 
-	err := client.DeleteContent(context.Background(), uri, 666)
+	err := client.DeleteContent(c.Context(), uri, 666)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -206,6 +204,6 @@ func (s *deleteBackendSuite) TestDeleteInternalContentNoop(c *tc.C) {
 	uri := coresecrets.NewURI()
 	state.EXPECT().GetSecretValue(uri, 666).Return(coresecrets.NewSecretValue(nil), nil, nil)
 
-	err := client.DeleteContent(context.Background(), uri, 666)
+	err := client.DeleteContent(c.Context(), uri, 666)
 	c.Assert(err, tc.ErrorIsNil)
 }

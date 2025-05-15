@@ -4,7 +4,6 @@
 package machine_test
 
 import (
-	"context"
 	"sort"
 
 	"github.com/juju/collections/set"
@@ -484,7 +483,7 @@ func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 }
 
 func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
-	w, err := manifold.Start(context.Background(), nil)
+	w, err := manifold.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(w)
 

@@ -54,7 +54,7 @@ func (s *CrossControllerSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *CrossControllerSuite) TestControllerInfo(c *tc.C) {
-	results, err := s.api.ControllerInfo(context.Background())
+	results, err := s.api.ControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ControllerAPIInfoResults{
 		Results: []params.ControllerAPIInfoResult{{
@@ -66,7 +66,7 @@ func (s *CrossControllerSuite) TestControllerInfo(c *tc.C) {
 
 func (s *CrossControllerSuite) TestControllerInfoWithDNSAddress(c *tc.C) {
 	s.publicDnsAddress = "publicDNSaddr"
-	results, err := s.api.ControllerInfo(context.Background())
+	results, err := s.api.ControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ControllerAPIInfoResults{
 		Results: []params.ControllerAPIInfoResult{{
@@ -80,7 +80,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 	s.localControllerInfo = func() ([]string, string, error) {
 		return nil, "", errors.New("nope")
 	}
-	results, err := s.api.ControllerInfo(context.Background())
+	results, err := s.api.ControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ControllerAPIInfoResults{
 		Results: []params.ControllerAPIInfoResult{{
@@ -91,7 +91,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 
 func (s *CrossControllerSuite) TestWatchControllerInfo(c *tc.C) {
 	s.watcher.changes <- struct{}{} // initial value
-	results, err := s.api.WatchControllerInfo(context.Background())
+	results, err := s.api.WatchControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
@@ -105,7 +105,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
 	s.watcher.tomb.Kill(errors.New("nope"))
 	close(s.watcher.changes)
 
-	results, err := s.api.WatchControllerInfo(context.Background())
+	results, err := s.api.WatchControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{

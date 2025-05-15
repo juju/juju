@@ -52,7 +52,7 @@ func (s *MachineSuite) TestNonFacadeMethods(c *tc.C) {
 
 // methodWrapper wraps a Machine method call and returns the error,
 // ignoring the result (if any).
-type methodWrapper func(*instancepoller.Machine, context.Context) error
+type methodWrapper func(context.Context, *instancepoller.Machine) error
 
 // machineErrorTests contains all the necessary information to test
 // how each Machine method handles client- and server-side API errors,
@@ -63,47 +63,49 @@ var machineErrorTests = []struct {
 	wrapper    methodWrapper
 	resultsRef interface{} // an instance of the server-side method's result type
 }{{
-	method:     "Refresh",
-	wrapper:    (*instancepoller.Machine).Refresh,
+	method: "Refresh",
+	wrapper: func(ctx context.Context, machine *instancepoller.Machine) error {
+		return machine.Refresh(ctx)
+	},
 	resultsRef: params.LifeResults{},
 }, {
 	method: "IsManual",
-	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
-		_, err := m.IsManual(context.Background())
+	wrapper: func(ctx context.Context, m *instancepoller.Machine) error {
+		_, err := m.IsManual(ctx)
 		return err
 	},
 	resultsRef: params.BoolResults{},
 }, {
 	method: "InstanceId",
-	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
-		_, err := m.InstanceId(context.Background())
+	wrapper: func(ctx context.Context, m *instancepoller.Machine) error {
+		_, err := m.InstanceId(ctx)
 		return err
 	},
 	resultsRef: params.StringResults{},
 }, {
 	method: "Status",
-	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
-		_, err := m.Status(context.Background())
+	wrapper: func(ctx context.Context, m *instancepoller.Machine) error {
+		_, err := m.Status(ctx)
 		return err
 	},
 	resultsRef: params.StatusResults{},
 }, {
 	method: "InstanceStatus",
-	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
-		_, err := m.InstanceStatus(context.Background())
+	wrapper: func(ctx context.Context, m *instancepoller.Machine) error {
+		_, err := m.InstanceStatus(ctx)
 		return err
 	},
 	resultsRef: params.StatusResults{},
 }, {
 	method: "SetInstanceStatus",
-	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
-		return m.SetInstanceStatus(context.Background(), "", "", nil)
+	wrapper: func(ctx context.Context, m *instancepoller.Machine) error {
+		return m.SetInstanceStatus(ctx, "", "", nil)
 	},
 	resultsRef: params.ErrorResults{},
 }, {
 	method: "SetProviderNetworkConfig",
-	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
-		_, _, err := m.SetProviderNetworkConfig(context.Background(), nil)
+	wrapper: func(ctx context.Context, m *instancepoller.Machine) error {
+		_, _, err := m.SetProviderNetworkConfig(ctx, nil)
 		return err
 	},
 	resultsRef: params.SetProviderNetworkConfigResults{},
@@ -142,7 +144,7 @@ func (s *MachineSuite) TestRefreshSuccess(c *tc.C) {
 	}
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	c.Check(machine.Refresh(context.Background()), tc.ErrorIsNil)
+	c.Check(machine.Refresh(c.Context()), tc.ErrorIsNil)
 	c.Check(machine.Life(), tc.Equals, life.Dying)
 	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
@@ -165,7 +167,7 @@ func (s *MachineSuite) TestStatusSuccess(c *tc.C) {
 	results := params.StatusResults{Results: []params.StatusResult{expectStatus}}
 	apiCaller := successAPICaller(c, "Status", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	status, err := machine.Status(context.Background())
+	status, err := machine.Status(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(status, tc.DeepEquals, expectStatus)
 	c.Check(apiCaller.CallCount, tc.Equals, 1)
@@ -177,7 +179,7 @@ func (s *MachineSuite) TestIsManualSuccess(c *tc.C) {
 	}
 	apiCaller := successAPICaller(c, "AreManuallyProvisioned", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	isManual, err := machine.IsManual(context.Background())
+	isManual, err := machine.IsManual(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(isManual, tc.IsTrue)
 	c.Check(apiCaller.CallCount, tc.Equals, 1)
@@ -189,7 +191,7 @@ func (s *MachineSuite) TestInstanceIdSuccess(c *tc.C) {
 	}
 	apiCaller := successAPICaller(c, "InstanceId", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	instId, err := machine.InstanceId(context.Background())
+	instId, err := machine.InstanceId(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(instId, tc.Equals, instance.Id("i-foo"))
 	c.Check(apiCaller.CallCount, tc.Equals, 1)
@@ -203,7 +205,7 @@ func (s *MachineSuite) TestInstanceStatusSuccess(c *tc.C) {
 	}
 	apiCaller := successAPICaller(c, "InstanceStatus", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	statusResult, err := machine.InstanceStatus(context.Background())
+	statusResult, err := machine.InstanceStatus(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(statusResult.Status, tc.DeepEquals, status.Provisioning.String())
 	c.Check(apiCaller.CallCount, tc.Equals, 1)
@@ -220,7 +222,7 @@ func (s *MachineSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	}
 	apiCaller := successAPICaller(c, "SetInstanceStatus", expectArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	err := machine.SetInstanceStatus(context.Background(), "RUNNING", "", nil)
+	err := machine.SetInstanceStatus(c.Context(), "RUNNING", "", nil)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
@@ -243,7 +245,7 @@ func (s *MachineSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {
 	}
 	apiCaller := successAPICaller(c, "SetProviderNetworkConfig", expectArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	_, _, err := machine.SetProviderNetworkConfig(context.Background(), cfg)
+	_, _, err := machine.SetProviderNetworkConfig(c.Context(), cfg)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
@@ -251,14 +253,14 @@ func (s *MachineSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {
 func (s *MachineSuite) CheckClientError(c *tc.C, wf methodWrapper) {
 	apiCaller := clientErrorAPICaller(c, "", nil)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	c.Check(wf(machine, context.Background()), tc.ErrorMatches, "client error!")
+	c.Check(wf(c.Context(), machine), tc.ErrorMatches, "client error!")
 	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 
 func (s *MachineSuite) CheckServerError(c *tc.C, wf methodWrapper, expectErr string, serverResults interface{}) {
 	apiCaller := successAPICaller(c, "", nil, serverResults)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	c.Check(wf(machine, context.Background()), tc.ErrorMatches, expectErr)
+	c.Check(wf(c.Context(), machine), tc.ErrorMatches, expectErr)
 	c.Check(apiCaller.CallCount, tc.Equals, 1)
 }
 

@@ -71,7 +71,7 @@ func (s *loggoSuite) TestLog(c *tc.C) {
 		logContext.AddWriter("test", writer)
 
 		logger := WrapLoggoContext(logContext)
-		t.fn(context.Background(), logger.GetLogger("foo"))
+		t.fn(c.Context(), logger.GetLogger("foo"))
 
 		log := writer.Log()
 		c.Assert(log, tc.HasLen, 1)
@@ -132,7 +132,7 @@ func (s *loggoSuite) TestLogWithTrace(c *tc.C) {
 		logContext := loggo.NewContext(loggo.TRACE)
 		logContext.AddWriter("test", writer)
 
-		ctx := trace.WithTraceScope(context.Background(), "traceid", "", 0)
+		ctx := trace.WithTraceScope(c.Context(), "traceid", "", 0)
 
 		logger := WrapLoggoContext(logContext)
 		t.fn(ctx, logger.GetLogger("foo"))

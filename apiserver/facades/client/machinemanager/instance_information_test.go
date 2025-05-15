@@ -4,8 +4,6 @@
 package machinemanager
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -52,7 +50,7 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *tc.C) {
 		Constraints: []params.ModelInstanceTypesConstraint{{Value: &itCons}, {Value: &failureCons}, {}},
 	}
 
-	r, err := instanceTypes(context.Background(), s.instanceTypesFetcher, cons)
+	r, err := instanceTypes(c.Context(), s.instanceTypesFetcher, cons)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Results, tc.HasLen, 3)
 	expected := []params.InstanceTypesResult{

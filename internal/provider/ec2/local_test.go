@@ -187,7 +187,7 @@ func bootstrapContextWithClientFunc(
 ) environs.BootstrapContext {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx = context.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
 	if clientFunc != nil {
 		ctx = context.WithValue(ctx, ec2.AWSClientContextKey, clientFunc)
@@ -375,11 +375,11 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances(context.Background(), t.ControllerUUID)
+	instanceIds, err := env.ControllerInstances(c.Context(), t.ControllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instanceIds, tc.HasLen, 1)
 
-	insts, err := env.AllRunningInstances(context.Background())
+	insts, err := env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts, tc.HasLen, 1)
 	c.Check(insts[0].Id(), tc.Equals, instanceIds[0])
@@ -390,7 +390,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *tc.C)
 	// happens after the machine is brought up.
 	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, tc.NotNil)
-	addresses, err := insts[0].Addresses(context.Background())
+	addresses, err := insts[0].Addresses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addresses, tc.Not(tc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
@@ -429,10 +429,10 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *tc.C)
 	CheckScripts(c, userDataMap, "/var/lib/juju/agents/machine-1/agent.conf", true)
 	// TODO check for provisioning agent
 
-	err = env.Destroy(context.Background())
+	err = env.Destroy(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = env.ControllerInstances(context.Background(), t.ControllerUUID)
+	_, err = env.ControllerInstances(c.Context(), t.ControllerUUID)
 	c.Assert(err, tc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -447,7 +447,7 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	insts, err := env.AllRunningInstances(context.Background())
+	insts, err := env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	idsToStop := make([]instance.Id, len(insts)+1)
 	for i, one := range insts {
@@ -455,7 +455,7 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *tc.C) {
 	}
 	idsToStop[len(insts)] = instance.Id("i-am-not-found")
 
-	err = env.StopInstances(context.Background(), idsToStop...)
+	err = env.StopInstances(c.Context(), idsToStop...)
 	// NotFound should be ignored
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -468,7 +468,7 @@ func (t *localServerSuite) TestDestroyErr(c *tc.C) {
 		return nil, errors.New(msg)
 	})
 
-	err := env.Destroy(context.Background())
+	err := env.Destroy(c.Context())
 	c.Assert(errors.Cause(err).Error(), tc.Contains, msg)
 }
 
@@ -477,28 +477,28 @@ func (t *localServerSuite) TestIAMRoleCleanup(c *tc.C) {
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
 	env := t.prepareAndBootstrap(c)
 
-	res, err := t.iamClient.ListInstanceProfiles(context.Background(), &iam.ListInstanceProfilesInput{
+	res, err := t.iamClient.ListInstanceProfiles(c.Context(), &iam.ListInstanceProfilesInput{
 		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(res.InstanceProfiles), tc.Equals, 1)
 
-	res1, err := t.iamClient.ListRoles(context.Background(), &iam.ListRolesInput{
+	res1, err := t.iamClient.ListRoles(c.Context(), &iam.ListRolesInput{
 		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(res1.Roles), tc.Equals, 1)
 
-	err = env.DestroyController(context.Background(), t.ControllerUUID)
+	err = env.DestroyController(c.Context(), t.ControllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	res, err = t.iamClient.ListInstanceProfiles(context.Background(), &iam.ListInstanceProfilesInput{
+	res, err = t.iamClient.ListInstanceProfiles(c.Context(), &iam.ListInstanceProfilesInput{
 		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(res.InstanceProfiles), tc.Equals, 0)
 
-	res1, err = t.iamClient.ListRoles(context.Background(), &iam.ListRolesInput{
+	res1, err = t.iamClient.ListRoles(c.Context(), &iam.ListRolesInput{
 		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -511,7 +511,7 @@ func (t *localServerSuite) TestIAMRolePermissionProblems(c *tc.C) {
 	defer t.srv.iamsrv.ProducePermissionError(false)
 	env := t.prepareAndBootstrap(c)
 
-	err := env.DestroyController(context.Background(), t.ControllerUUID)
+	err := env.DestroyController(c.Context(), t.ControllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -539,10 +539,10 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		return nil, errors.New("terminate instances error")
 	})
-	err = env.Destroy(context.Background())
+	err = env.Destroy(c.Context())
 	c.Assert(err, tc.NotNil)
 
-	terminated, err := ec2.TerminatedInstances(env)
+	terminated, err := ec2.TerminatedInstances(c, env)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(terminated, tc.HasLen, 1)
 	c.Assert(terminated[0].Id(), tc.DeepEquals, inst1.Id())
@@ -551,19 +551,19 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *tc.C) {
 func (t *localServerSuite) TestInstanceSecurityGroupsWithInstanceStatusFilter(c *tc.C) {
 	env := t.prepareAndBootstrap(c)
 
-	insts, err := env.AllRunningInstances(context.Background())
+	insts, err := env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	ids := make([]instance.Id, len(insts))
 	for i, one := range insts {
 		ids[i] = one.Id()
 	}
 
-	groupsNoInstanceFilter, err := ec2.InstanceSecurityGroups(env, context.Background(), ids)
+	groupsNoInstanceFilter, err := ec2.InstanceSecurityGroups(env, c.Context(), ids)
 	c.Assert(err, tc.ErrorIsNil)
 	// get all security groups for test instances
 	c.Assert(groupsNoInstanceFilter, tc.HasLen, 2)
 
-	groupsFilteredForTerminatedInstances, err := ec2.InstanceSecurityGroups(env, context.Background(), ids, "shutting-down", "terminated")
+	groupsFilteredForTerminatedInstances, err := ec2.InstanceSecurityGroups(env, c.Context(), ids, "shutting-down", "terminated")
 	c.Assert(err, tc.ErrorIsNil)
 	// get all security groups for terminated test instances
 	c.Assert(groupsFilteredForTerminatedInstances, tc.HasLen, 0)
@@ -577,7 +577,7 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 	) error {
 		return errors.New(msg)
 	})
-	err := env.DestroyController(context.Background(), t.ControllerUUID)
+	err := env.DestroyController(c.Context(), t.ControllerUUID)
 	c.Assert(err, tc.ErrorMatches, "destroying managed models: "+msg)
 }
 
@@ -595,7 +595,7 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 	) error {
 		return errors.New(msg)
 	})
-	err = hostedEnv.Destroy(context.Background())
+	err = hostedEnv.Destroy(c.Context())
 	c.Assert(err, tc.ErrorMatches, "cannot delete model security groups: "+msg)
 }
 
@@ -621,7 +621,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	c.Assert(err, tc.ErrorIsNil)
 	vs, err := ebsProvider.VolumeSource(nil)
 	c.Assert(err, tc.ErrorIsNil)
-	volumeResults, err := vs.CreateVolumes(context.Background(), []storage.VolumeParams{{
+	volumeResults, err := vs.CreateVolumes(c.Context(), []storage.VolumeParams{{
 		Tag:      names.NewVolumeTag("0"),
 		Size:     1024,
 		Provider: ec2.EBS_ProviderType,
@@ -640,7 +640,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	c.Assert(volumeResults[0].Error, tc.ErrorIsNil)
 
 	assertInstances := func(expect ...instance.Id) {
-		insts, err := env.AllRunningInstances(context.Background())
+		insts, err := env.AllRunningInstances(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 		ids := make([]instance.Id, len(insts))
 		for i, inst := range insts {
@@ -649,12 +649,12 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		c.Assert(ids, tc.SameContents, expect)
 	}
 	assertVolumes := func(expect ...string) {
-		volIds, err := vs.ListVolumes(context.Background())
+		volIds, err := vs.ListVolumes(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(volIds, tc.SameContents, expect)
 	}
 	assertGroups := func(expect ...string) {
-		groupsResp, err := t.client.DescribeSecurityGroups(context.Background(), nil)
+		groupsResp, err := t.client.DescribeSecurityGroups(c.Context(), nil)
 		c.Assert(err, tc.ErrorIsNil)
 		names := make([]string, len(groupsResp.SecurityGroups))
 		for i, group := range groupsResp.SecurityGroups {
@@ -675,7 +675,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 
 	// Destroy the controller resources. This should destroy the hosted
 	// model too.
-	err = controllerEnv.DestroyController(context.Background(), t.ControllerUUID)
+	err = controllerEnv.DestroyController(c.Context(), t.ControllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	assertInstances()
@@ -696,7 +696,7 @@ func (t *localServerSuite) TestInstanceStatus(c *tc.C) {
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(inst.Status(context.Background()).Message, tc.Equals, "terminated")
+	c.Assert(inst.Status(c.Context()).Message, tc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestInstancesCreatedWithIMDSv2(c *tc.C) {
@@ -704,7 +704,7 @@ func (t *localServerSuite) TestInstancesCreatedWithIMDSv2(c *tc.C) {
 	t.prepareAndBootstrap(c)
 
 	output, err := t.srv.ec2srv.DescribeInstances(
-		context.Background(), &awsec2.DescribeInstancesInput{
+		c.Context(), &awsec2.DescribeInstancesInput{
 			Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, t.ControllerUUID)},
 		})
 	c.Assert(err, tc.ErrorIsNil)
@@ -747,7 +747,7 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *tc.C, zone string) (ins
 	env := t.prepareAndBootstrap(c)
 
 	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, AvailabilityZone: zone, StatusCallback: fakeCallback}
-	result, err := testing.StartInstanceWithParams(env, "1", params)
+	result, err := testing.StartInstanceWithParams(c, env, "1", params)
 	if err != nil {
 		return nil, err
 	}
@@ -756,7 +756,7 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *tc.C, zone string) (ins
 
 func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *tc.C) {
 	env := t.prepareAndBootstrap(c)
-	resp, err := t.client.CreateVolume(context.Background(), &awsec2.CreateVolumeInput{
+	resp, err := t.client.CreateVolume(c.Context(), &awsec2.CreateVolumeInput{
 		Size:             aws.Int32(1),
 		VolumeType:       "gp2",
 		AvailabilityZone: aws.String("volume-zone"),
@@ -775,7 +775,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *tc.C) 
 			VolumeId: aws.ToString(resp.VolumeId),
 		}},
 	}
-	result, err := testing.StartInstanceWithParams(env, "1", args)
+	result, err := testing.StartInstanceWithParams(c, env, "1", args)
 	c.Assert(err, tc.ErrorIsNil)
 	ec2Inst := ec2.InstanceSDKEC2(result.Instance)
 	c.Assert(aws.ToString(ec2Inst.Placement.AvailabilityZone), tc.Equals, "volume-zone")
@@ -783,7 +783,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *tc.C) 
 
 func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZonePlacementConflicts(c *tc.C) {
 	env := t.prepareAndBootstrap(c)
-	resp, err := t.client.CreateVolume(context.Background(), &awsec2.CreateVolumeInput{
+	resp, err := t.client.CreateVolume(c.Context(), &awsec2.CreateVolumeInput{
 		Size:             aws.Int32(1),
 		VolumeType:       "gp2",
 		AvailabilityZone: aws.String("volume-zone"),
@@ -803,7 +803,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZonePlacementC
 			VolumeId: aws.ToString(resp.VolumeId),
 		}},
 	}
-	_, err = testing.StartInstanceWithParams(env, "1", args)
+	_, err = testing.StartInstanceWithParams(c, env, "1", args)
 	c.Assert(err, tc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
 }
 
@@ -815,7 +815,7 @@ func (t *localServerSuite) TestStartInstanceZoneIndependent(c *tc.C) {
 		AvailabilityZone: "test-available",
 		Placement:        "nonsense",
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorMatches, "unknown placement directive: nonsense")
 	// The returned error should indicate that it is independent
 	// of the availability zone specified.
@@ -855,13 +855,13 @@ func (t *localServerSuite) testStartInstanceSubnet(c *tc.C, subnet string) (inst
 		}},
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
-	zones, err := zonedEnviron.DeriveAvailabilityZones(context.Background(), params)
+	zones, err := zonedEnviron.DeriveAvailabilityZones(c.Context(), params)
 	if err != nil {
 		return nil, err
 	}
 	if len(zones) > 0 {
 		params.AvailabilityZone = zones[0]
-		result, err := testing.StartInstanceWithParams(env, "1", params)
+		result, err := testing.StartInstanceWithParams(c, env, "1", params)
 		if err != nil {
 			return nil, err
 		}
@@ -884,7 +884,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *tc.C) {
 		}},
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
-	_, err := zonedEnviron.DeriveAvailabilityZones(context.Background(), params)
+	_, err := zonedEnviron.DeriveAvailabilityZones(c.Context(), params)
 	c.Assert(err, tc.ErrorMatches, `unable to find subnet "10.1.2.0/24" in .* for vpi-id "vpc-0"`)
 }
 
@@ -900,14 +900,14 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *tc.C) {
 	env := t.Prepare(c).(common.ZonedEnviron)
 
 	resultErr = fmt.Errorf("failed to get availability zones")
-	zones, err := env.AvailabilityZones(context.Background())
+	zones, err := env.AvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIs, resultErr)
 	c.Assert(zones, tc.IsNil)
 
 	resultErr = nil
 	resultZones = make([]types.AvailabilityZone, 1)
 	resultZones[0].ZoneName = aws.String("whatever")
-	zones, err = env.AvailabilityZones(context.Background())
+	zones, err = env.AvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zones, tc.HasLen, 1)
 	c.Assert(zones[0].Name(), tc.Equals, "whatever")
@@ -927,7 +927,7 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *tc.C) {
 	resultZones[1].ZoneName = aws.String("az2")
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
-	zones, err := env.AvailabilityZones(context.Background())
+	zones, err := env.AvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zones, tc.HasLen, 2)
 	c.Assert(zones[0].Name(), tc.Equals, "az1")
@@ -951,7 +951,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZones(c *tc.C) {
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
 
-	zones, err := env.DeriveAvailabilityZones(context.Background(), environs.StartInstanceParams{Placement: "zone=az1"})
+	zones, err := env.DeriveAvailabilityZones(c.Context(), environs.StartInstanceParams{Placement: "zone=az1"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zones, tc.DeepEquals, []string{"az1"})
 }
@@ -971,13 +971,13 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesImpaired(c *tc.C) {
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
 
-	zones, err := env.DeriveAvailabilityZones(context.Background(), environs.StartInstanceParams{Placement: "zone=az2"})
+	zones, err := env.DeriveAvailabilityZones(c.Context(), environs.StartInstanceParams{Placement: "zone=az2"})
 	c.Assert(err, tc.ErrorMatches, "availability zone \"az2\" is \"impaired\"")
 	c.Assert(zones, tc.HasLen, 0)
 }
 
 func (t *localServerSuite) TestDeriveAvailabilityZonesConflictVolume(c *tc.C) {
-	resp, err := t.client.CreateVolume(context.Background(), &awsec2.CreateVolumeInput{
+	resp, err := t.client.CreateVolume(c.Context(), &awsec2.CreateVolumeInput{
 		Size:             aws.Int32(1),
 		VolumeType:       "gp2",
 		AvailabilityZone: aws.String("volume-zone"),
@@ -998,13 +998,13 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesConflictVolume(c *tc.C) {
 		}},
 	}
 	env := t.Prepare(c).(common.ZonedEnviron)
-	zones, err := env.DeriveAvailabilityZones(context.Background(), args)
+	zones, err := env.DeriveAvailabilityZones(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
 	c.Assert(zones, tc.HasLen, 0)
 }
 
 func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *tc.C) {
-	resp, err := t.client.CreateVolume(context.Background(), &awsec2.CreateVolumeInput{
+	resp, err := t.client.CreateVolume(c.Context(), &awsec2.CreateVolumeInput{
 		Size:             aws.Int32(1),
 		VolumeType:       "gp2",
 		AvailabilityZone: aws.String("volume-zone"),
@@ -1024,7 +1024,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *tc.C)
 		}},
 	}
 	env := t.Prepare(c).(common.ZonedEnviron)
-	zones, err := env.DeriveAvailabilityZones(context.Background(), args)
+	zones, err := env.DeriveAvailabilityZones(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(zones, tc.DeepEquals, []string{"volume-zone"})
 }
@@ -1082,7 +1082,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *tc.C, run
 		AvailabilityZone: "test-available",
 	}
 
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(c, env, "1", params)
 	// All AZConstrained failures should return an error that does
 	// Is(err, environs.ErrAvailabilityZoneIndependent)
 	// so the caller knows to try a new zone, rather than fail.
@@ -1400,7 +1400,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *tc.C) 
 		}},
 		StatusCallback: fakeCallback,
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.Not(tc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
 	c.Assert(errors.Details(err), tc.Matches, `.*subnets in AZ "test-available" not found.*`)
 }
@@ -1420,12 +1420,12 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *tc.C) {
 		}},
 		StatusCallback: fakeCallback,
 	}
-	res, err := testing.StartInstanceWithParams(env, "1", params)
+	res, err := testing.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Here we're asserting that the placement happened in the backend.
 	// The post condition.
-	instances, err := t.client.DescribeInstances(context.Background(), &awsec2.DescribeInstancesInput{
+	instances, err := t.client.DescribeInstances(c.Context(), &awsec2.DescribeInstancesInput{
 		InstanceIds: []string{string(res.Instance.Id())},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1441,7 +1441,7 @@ func (t *localServerSuite) TestIPv6SubnetSelectionWithVPC(c *tc.C) {
 
 	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId})
 
-	instances, err := t.client.DescribeInstances(context.Background(), &awsec2.DescribeInstancesInput{
+	instances, err := t.client.DescribeInstances(c.Context(), &awsec2.DescribeInstancesInput{
 		Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, t.ControllerUUID)},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1463,12 +1463,12 @@ func (t *localServerSuite) TestIPv6SubnetSelectionWithVPC(c *tc.C) {
 		ControllerUUID:   t.ControllerUUID,
 		StatusCallback:   fakeCallback,
 	}
-	res, err := testing.StartInstanceWithParams(env, "1", params)
+	res, err := testing.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Here we're asserting that the placement happened in the backend.
 	// The post condition.
-	instances, err = t.client.DescribeInstances(context.Background(), &awsec2.DescribeInstancesInput{
+	instances, err = t.client.DescribeInstances(c.Context(), &awsec2.DescribeInstancesInput{
 		InstanceIds: []string{string(res.Instance.Id())},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1484,7 +1484,7 @@ func (t *localServerSuite) TestSingleStackIPv6(c *tc.C) {
 
 	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId})
 
-	instances, err := t.client.DescribeInstances(context.Background(), &awsec2.DescribeInstancesInput{
+	instances, err := t.client.DescribeInstances(c.Context(), &awsec2.DescribeInstancesInput{
 		Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, t.ControllerUUID)},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1507,10 +1507,10 @@ func (t *localServerSuite) TestSingleStackIPv6(c *tc.C) {
 		ControllerUUID:   t.ControllerUUID,
 		StatusCallback:   fakeCallback,
 	}
-	res, err := testing.StartInstanceWithParams(env, "1", params)
+	res, err := testing.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorIsNil)
 
-	addresses, err := res.Instance.Addresses(context.Background())
+	addresses, err := res.Instance.Addresses(c.Context())
 	hasV6Address := false
 	for _, address := range addresses {
 		if hasV6Address = address.MachineAddress.Type == network.IPv6Address; hasV6Address {
@@ -1548,22 +1548,22 @@ func (t *localServerSuite) assertStartInstanceWithParamsFindAZ(
 	params environs.StartInstanceParams,
 ) {
 	zonedEnviron := env.(common.ZonedEnviron)
-	zones, err := zonedEnviron.DeriveAvailabilityZones(context.Background(), params)
+	zones, err := zonedEnviron.DeriveAvailabilityZones(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	if len(zones) > 0 {
 		params.AvailabilityZone = zones[0]
-		_, err = testing.StartInstanceWithParams(env, "1", params)
+		_, err = testing.StartInstanceWithParams(c, env, "1", params)
 		c.Assert(err, tc.ErrorIsNil)
 		return
 	}
-	availabilityZones, err := zonedEnviron.AvailabilityZones(context.Background())
+	availabilityZones, err := zonedEnviron.AvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	for _, zone := range availabilityZones {
 		if !zone.Available() {
 			continue
 		}
 		params.AvailabilityZone = zone.Name()
-		_, err = testing.StartInstanceWithParams(env, "1", params)
+		_, err = testing.StartInstanceWithParams(c, env, "1", params)
 		if err == nil {
 			return
 		} else if !errors.Is(err, environs.ErrAvailabilityZoneIndependent) {
@@ -1590,7 +1590,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *tc.C) {
 	}
 	// _, err := testing.StartInstanceWithParams(env, "1", params)
 	zonedEnviron := env.(common.ZonedEnviron)
-	_, err := zonedEnviron.DeriveAvailabilityZones(context.Background(), params)
+	_, err := zonedEnviron.DeriveAvailabilityZones(c.Context(), params)
 	c.Assert(err, tc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 
@@ -1602,10 +1602,10 @@ func (t *localServerSuite) TestStartInstanceNoPublicIP(c *tc.C) {
 		Constraints:    constraints.MustParse("allocate-public-ip=false"),
 		StatusCallback: fakeCallback,
 	}
-	inst, err := testing.StartInstanceWithParams(env, "1", params)
+	inst, err := testing.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorIsNil)
 
-	nics, err := t.srv.ec2srv.DescribeNetworkInterfaces(context.Background(), &awsec2.DescribeNetworkInterfacesInput{
+	nics, err := t.srv.ec2srv.DescribeNetworkInterfaces(c.Context(), &awsec2.DescribeNetworkInterfacesInput{
 		Filters: []types.Filter{makeFilter("attachment.instance-id", string(inst.Instance.Id()))},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1644,14 +1644,14 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *tc.C, run
 
 	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID}
 	zonedEnviron := env.(common.ZonedEnviron)
-	availabilityZones, err := zonedEnviron.AvailabilityZones(context.Background())
+	availabilityZones, err := zonedEnviron.AvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	for _, zone := range availabilityZones {
 		if !zone.Available() {
 			continue
 		}
 		params.AvailabilityZone = zone.Name()
-		_, err = testing.StartInstanceWithParams(env, "1", params)
+		_, err = testing.StartInstanceWithParams(c, env, "1", params)
 		if err == nil {
 			break
 		} else if !errors.Is(err, environs.ErrAvailabilityZoneIndependent) {
@@ -1679,7 +1679,7 @@ func (t *localServerSuite) TestStartInstanceWithImageIDErr(c *tc.C) {
 		}
 	})
 
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorMatches, ".*The image id (.)* does not exist")
 }
 
@@ -1692,7 +1692,7 @@ func (t *localServerSuite) TestStartInstanceWithImageID(c *tc.C) {
 		Constraints:    constraints.Value{ImageID: expectedImageID},
 	}
 
-	instance, err := testing.StartInstanceWithParams(env, "1", params)
+	instance, err := testing.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var instanceID string
@@ -1705,7 +1705,7 @@ func (t *localServerSuite) TestStartInstanceWithImageID(c *tc.C) {
 func (t *localServerSuite) TestAddresses(c *tc.C) {
 	env := t.prepareAndBootstrap(c)
 	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
-	addrs, err := inst.Addresses(context.Background())
+	addrs, err := inst.Addresses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Expected values use Address type but really contain a regexp for
@@ -1727,7 +1727,7 @@ func (t *localServerSuite) TestAddresses(c *tc.C) {
 
 func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	env := t.Prepare(c)
-	validator, err := env.ConstraintsValidator(context.Background())
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=lxd")
 	unsupported, err := validator.Validate(cons)
@@ -1737,7 +1737,7 @@ func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 
 func (t *localServerSuite) TestConstraintsValidatorVocab(c *tc.C) {
 	env := t.Prepare(c)
-	validator, err := env.ConstraintsValidator(context.Background())
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	cons := constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
@@ -1746,7 +1746,7 @@ func (t *localServerSuite) TestConstraintsValidatorVocab(c *tc.C) {
 
 func (t *localServerSuite) TestConstraintsValidatorVocabDefaultVPC(c *tc.C) {
 	env := t.Prepare(c)
-	assertVPCInstanceTypeAvailable(c, env, context.Background())
+	assertVPCInstanceTypeAvailable(c, env, c.Context())
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocabSpecifiedVPC(c *tc.C) {
@@ -1758,7 +1758,7 @@ func (t *localServerSuite) TestConstraintsValidatorVocabSpecifiedVPC(c *tc.C) {
 	defer delete(t.TestConfig, "vpc-id")
 
 	env := t.Prepare(c)
-	assertVPCInstanceTypeAvailable(c, env, context.Background())
+	assertVPCInstanceTypeAvailable(c, env, c.Context())
 }
 
 func assertVPCInstanceTypeAvailable(c *tc.C, env environs.Environ, ctx context.Context) {
@@ -1770,7 +1770,7 @@ func assertVPCInstanceTypeAvailable(c *tc.C, env environs.Environ, ctx context.C
 
 func (t *localServerSuite) TestConstraintsMerge(c *tc.C) {
 	env := t.Prepare(c)
-	validator, err := env.ConstraintsValidator(context.Background())
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	consA := constraints.MustParse("arch=arm64 mem=1G cpu-power=10 cores=2 tags=bar")
 	consB := constraints.MustParse("arch=amd64 instance-type=m1.small")
@@ -1781,7 +1781,7 @@ func (t *localServerSuite) TestConstraintsMerge(c *tc.C) {
 
 func (t *localServerSuite) TestConstraintsConflict(c *tc.C) {
 	env := t.Prepare(c)
-	validator, err := env.ConstraintsValidator(context.Background())
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = validator.Validate(constraints.MustParse("arch=amd64 instance-type=m1.small"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -1792,7 +1792,7 @@ func (t *localServerSuite) TestConstraintsConflict(c *tc.C) {
 func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *tc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
-	err := env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:        jujuversion.DefaultSupportedLTSBase(),
 		Constraints: cons,
 	})
@@ -1802,7 +1802,7 @@ func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *tc.C) {
 func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *tc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
-	err := env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:        jujuversion.DefaultSupportedLTSBase(),
 		Constraints: cons,
 	})
@@ -1812,7 +1812,7 @@ func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *tc.C) {
 func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=arm64")
-	err := env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:        jujuversion.DefaultSupportedLTSBase(),
 		Constraints: cons,
 	})
@@ -1822,7 +1822,7 @@ func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *tc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 	})
@@ -1832,7 +1832,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *tc.C) {
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *tc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 	})
@@ -1842,7 +1842,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *tc.C) {
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *tc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 	})
@@ -1859,14 +1859,14 @@ func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZoneSameZonePlacement(
 
 func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *tc.C, placement string) {
 	env := t.Prepare(c)
-	resp, err := t.client.CreateVolume(context.Background(), &awsec2.CreateVolumeInput{
+	resp, err := t.client.CreateVolume(c.Context(), &awsec2.CreateVolumeInput{
 		Size:             aws.Int32(1),
 		VolumeType:       "gp2",
 		AvailabilityZone: aws.String("test-available"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err = env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
@@ -1882,14 +1882,14 @@ func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *tc.C, placemen
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *tc.C) {
 	env := t.Prepare(c)
-	resp, err := t.client.CreateVolume(context.Background(), &awsec2.CreateVolumeInput{
+	resp, err := t.client.CreateVolume(c.Context(), &awsec2.CreateVolumeInput{
 		Size:             aws.Int32(1),
 		VolumeType:       "gp2",
 		AvailabilityZone: aws.String("volume-zone"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err = env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: "zone=test-available",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
@@ -1917,7 +1917,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *tc.C) {
 	params.Endpoint = "http://foo"
 	params.Sources, err = environs.ImageMetadataSources(env, ss)
 	c.Assert(err, tc.ErrorIsNil)
-	image_ids, _, err := imagemetadata.ValidateImageMetadata(context.Background(), ss, params)
+	image_ids, _, err := imagemetadata.ValidateImageMetadata(c.Context(), ss, params)
 	c.Assert(err, tc.ErrorIsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, tc.DeepEquals, []string{"ami-02404133", "ami-02404135", "ami-02404139"})
@@ -1951,7 +1951,7 @@ func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *tc.C) (environs.Networ
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	instanceIds, err := env.ControllerInstances(context.Background(), t.ControllerUUID)
+	instanceIds, err := env.ControllerInstances(c.Context(), t.ControllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	return env, instanceIds[0]
 }
@@ -1964,7 +1964,7 @@ func (t *localServerSuite) TestNetworkInterfacesForMultipleInstances(c *tc.C) {
 	testing.AssertStartInstance(c, env, t.ControllerUUID, "3")
 
 	// Get a list of running instance IDs
-	instances, err := env.AllInstances(context.Background())
+	instances, err := env.AllInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	var ids = make([]instance.Id, len(instances))
 	for i, inst := range instances {
@@ -1974,14 +1974,14 @@ func (t *localServerSuite) TestNetworkInterfacesForMultipleInstances(c *tc.C) {
 	// Sort instance list so we always get consistent results
 	sort.Slice(ids, func(l, r int) bool { return ids[l] < ids[r] })
 
-	ifLists, err := env.NetworkInterfaces(context.Background(), ids)
+	ifLists, err := env.NetworkInterfaces(c.Context(), ids)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that each entry in the list contains the right set of interfaces
 	for i, id := range ids {
 		c.Logf("comparing entry %d in result list with network interface list for instance %v", i, id)
 
-		list, err := env.NetworkInterfaces(context.Background(), []instance.Id{id})
+		list, err := env.NetworkInterfaces(c.Context(), []instance.Id{id})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(list, tc.HasLen, 1)
 		instIfList := list[0]
@@ -1999,7 +1999,7 @@ func (t *localServerSuite) TestPartialInterfacesForMultipleInstances(c *tc.C) {
 	env := t.prepareEnviron(c)
 	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 
-	infoLists, err := env.NetworkInterfaces(context.Background(), []instance.Id{inst.Id(), instance.Id("bogus")})
+	infoLists, err := env.NetworkInterfaces(c.Context(), []instance.Id{inst.Id(), instance.Id("bogus")})
 	c.Log(infoLists)
 	c.Assert(err, tc.ErrorIs, environs.ErrPartialInstances)
 	c.Assert(infoLists, tc.HasLen, 2)
@@ -2028,7 +2028,7 @@ func (t *localServerSuite) TestStartInstanceIsAtomic(c *tc.C) {
 func (t *localServerSuite) TestNetworkInterfaces(c *tc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	_, _ = t.addTestingNetworkInterfaceToInstance(c, instId)
-	infoLists, err := env.NetworkInterfaces(context.Background(), []instance.Id{instId})
+	infoLists, err := env.NetworkInterfaces(c.Context(), []instance.Id{instId})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infoLists, tc.HasLen, 1)
 
@@ -2087,13 +2087,13 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *tc.C, expIfaceID, expDev
 
 func (t *localServerSuite) TestSubnetsWithSubnetId(c *tc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	interfaceList, err := env.NetworkInterfaces(context.Background(), []instance.Id{instId})
+	interfaceList, err := env.NetworkInterfaces(c.Context(), []instance.Id{instId})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(interfaceList, tc.HasLen, 1)
 	interfaces := interfaceList[0]
 	c.Assert(interfaces, tc.HasLen, 1)
 
-	subnets, err := env.Subnets(context.Background(), []network.Id{interfaces[0].ProviderSubnetId})
+	subnets, err := env.Subnets(c.Context(), []network.Id{interfaces[0].ProviderSubnetId})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subnets, tc.HasLen, 1)
 	c.Assert(subnets[0].ProviderId, tc.Equals, interfaces[0].ProviderSubnetId)
@@ -2104,12 +2104,12 @@ func (t *localServerSuite) TestInstanceInformation(c *tc.C) {
 	// TODO(macgreagoir) Where do these magic length numbers come from?
 	c.Skip("Hard-coded InstanceTypes counts without explanation")
 	env := t.prepareEnviron(c)
-	types, err := env.InstanceTypes(context.Background(), constraints.Value{})
+	types, err := env.InstanceTypes(c.Context(), constraints.Value{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, tc.HasLen, 53)
 
 	cons := constraints.MustParse("mem=4G")
-	types, err = env.InstanceTypes(context.Background(), cons)
+	types, err = env.InstanceTypes(c.Context(), cons)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, tc.HasLen, 48)
 }
@@ -2159,12 +2159,12 @@ func validateSubnets(c *tc.C, subnets []network.SubnetInfo, vpcId network.Id) {
 func (t *localServerSuite) TestSubnets(c *tc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	subnets, err := env.Subnets(context.Background(), []network.Id{"subnet-0"})
+	subnets, err := env.Subnets(c.Context(), []network.Id{"subnet-0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subnets, tc.HasLen, 1)
 	validateSubnets(c, subnets, "vpc-0")
 
-	subnets, err = env.Subnets(context.Background(), nil)
+	subnets, err = env.Subnets(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subnets, tc.HasLen, 4)
 	validateSubnets(c, subnets, "vpc-0")
@@ -2173,14 +2173,14 @@ func (t *localServerSuite) TestSubnets(c *tc.C) {
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *tc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	_, err := env.Subnets(context.Background(), []network.Id{"subnet-0", "Missing"})
+	_, err := env.Subnets(c.Context(), []network.Id{"subnet-0", "Missing"})
 	c.Assert(err, tc.ErrorMatches, `failed to find the following subnet ids: \[Missing\]`)
 }
 
 func (t *localServerSuite) TestInstanceTags(c *tc.C) {
 	env := t.prepareAndBootstrap(c)
 
-	instances, err := env.AllRunningInstances(context.Background())
+	instances, err := env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.HasLen, 1)
 
@@ -2206,12 +2206,12 @@ func (t *localServerSuite) TestInstanceTags(c *tc.C) {
 func (t *localServerSuite) TestRootDiskTags(c *tc.C) {
 	env := t.prepareAndBootstrap(c)
 
-	instances, err := env.AllRunningInstances(context.Background())
+	instances, err := env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.HasLen, 1)
 
 	ec2conn := ec2.EnvironEC2Client(env)
-	resp, err := ec2conn.DescribeVolumes(context.Background(), nil)
+	resp, err := ec2conn.DescribeVolumes(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.Volumes, tc.Not(tc.HasLen), 0)
 
@@ -2239,7 +2239,7 @@ func (t *localServerSuite) TestRootDiskTags(c *tc.C) {
 
 func (s *localServerSuite) TestBootstrapInstanceConstraints(c *tc.C) {
 	env := s.prepareAndBootstrap(c)
-	inst, err := env.AllRunningInstances(context.Background())
+	inst, err := env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(inst, tc.HasLen, 1)
 	ec2inst := ec2.InstanceSDKEC2(inst[0])
@@ -2254,14 +2254,14 @@ func makeFilter(key string, values ...string) types.Filter {
 
 func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 	controllerEnv := s.prepareAndBootstrap(c)
-	controllerInsts, err := controllerEnv.AllRunningInstances(context.Background())
+	controllerInsts, err := controllerEnv.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllerInsts, tc.HasLen, 1)
 
-	controllerVolumes, err := ec2.AllModelVolumes(controllerEnv, context.Background())
+	controllerVolumes, err := ec2.AllModelVolumes(controllerEnv, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllerGroups, err := ec2.AllModelGroups(controllerEnv, context.Background())
+	controllerGroups, err := ec2.AllModelGroups(controllerEnv, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create a hosted model with an instance and a volume.
@@ -2285,7 +2285,7 @@ func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	vs, err := ebsProvider.VolumeSource(nil)
 	c.Assert(err, tc.ErrorIsNil)
-	volumeResults, err := vs.CreateVolumes(context.Background(), []storage.VolumeParams{{
+	volumeResults, err := vs.CreateVolumes(c.Context(), []storage.VolumeParams{{
 		Tag:      names.NewVolumeTag("0"),
 		Size:     1024,
 		Provider: ec2.EBS_ProviderType,
@@ -2303,12 +2303,12 @@ func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 	c.Assert(volumeResults, tc.HasLen, 1)
 	c.Assert(volumeResults[0].Error, tc.ErrorIsNil)
 
-	modelVolumes, err := ec2.AllModelVolumes(env, context.Background())
+	modelVolumes, err := ec2.AllModelVolumes(env, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	allVolumes := append([]string{}, controllerVolumes...)
 	allVolumes = append(allVolumes, modelVolumes...)
 
-	modelGroups, err := ec2.AllModelGroups(env, context.Background())
+	modelGroups, err := ec2.AllModelGroups(env, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	allGroups := append([]string{}, controllerGroups...)
 	allGroups = append(allGroups, modelGroups...)
@@ -2319,7 +2319,7 @@ func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 
 	checkInstanceTags := func(controllerUUID string, expectedIds ...string) {
 		resp, err := ec2conn.DescribeInstances(
-			context.Background(), &awsec2.DescribeInstancesInput{
+			c.Context(), &awsec2.DescribeInstancesInput{
 				Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, controllerUUID)},
 			})
 		c.Assert(err, tc.ErrorIsNil)
@@ -2334,7 +2334,7 @@ func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 
 	checkVolumeTags := func(controllerUUID string, expectedIds ...string) {
 		resp, err := ec2conn.DescribeVolumes(
-			context.Background(), &awsec2.DescribeVolumesInput{
+			c.Context(), &awsec2.DescribeVolumesInput{
 				Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, controllerUUID)},
 			})
 		c.Assert(err, tc.ErrorIsNil)
@@ -2347,7 +2347,7 @@ func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 
 	checkGroupTags := func(controllerUUID string, expectedIds ...string) {
 		resp, err := ec2conn.DescribeSecurityGroups(
-			context.Background(), &awsec2.DescribeSecurityGroupsInput{
+			c.Context(), &awsec2.DescribeSecurityGroupsInput{
 				Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, controllerUUID)},
 			})
 		c.Assert(err, tc.ErrorIsNil)
@@ -2362,7 +2362,7 @@ func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 	checkVolumeTags(origController, allVolumes...)
 	checkGroupTags(origController, allGroups...)
 
-	err = env.AdoptResources(context.Background(), "new-controller", semversion.MustParse("0.0.1"))
+	err = env.AdoptResources(c.Context(), "new-controller", semversion.MustParse("0.0.1"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	checkInstanceTags("new-controller", string(inst.Id()))
@@ -2376,7 +2376,7 @@ func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 func patchEC2ForTesting(c *tc.C, region types.Region) func() {
 	ec2.UseTestImageData(c, ec2.MakeTestImageStreamsData(region))
 	restoreRetryTimeouts := envtesting.PatchRetryStrategies(ec2.ShortRetryStrategy)
-	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap(c)
 	return func() {
 		restoreFinishBootstrap()
 		restoreRetryTimeouts()
@@ -2447,19 +2447,19 @@ func CheckPackage(c *tc.C, userDataMap map[string]interface{}, pkg string, match
 func (t *localServerSuite) TestInstanceAttributes(c *tc.C) {
 	t.Prepare(c)
 	inst, hc := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "30")
-	defer t.Env.StopInstances(context.Background(), inst.Id())
+	defer t.Env.StopInstances(c.Context(), inst.Id())
 	// Sanity check for hardware characteristics.
 	c.Assert(hc.Arch, tc.NotNil)
 	c.Assert(hc.Mem, tc.NotNil)
 	c.Assert(hc.RootDisk, tc.NotNil)
 	c.Assert(hc.CpuCores, tc.NotNil)
 	c.Assert(hc.CpuPower, tc.NotNil)
-	addresses, err := testing.WaitInstanceAddresses(t.Env, inst.Id())
+	addresses, err := testing.WaitInstanceAddresses(c, t.Env, inst.Id())
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(addresses, tc.Not(tc.HasLen), 0)
 
-	insts, err := t.Env.Instances(context.Background(), []instance.Id{inst.Id()})
+	insts, err := t.Env.Instances(c.Context(), []instance.Id{inst.Id()})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(insts), tc.Equals, 1)
 
@@ -2472,7 +2472,7 @@ func (t *localServerSuite) TestStartInstanceConstraints(c *tc.C) {
 	t.Prepare(c)
 	cons := constraints.MustParse("mem=4G")
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, t.ControllerUUID, "30", cons)
-	defer t.Env.StopInstances(context.Background(), inst.Id())
+	defer t.Env.StopInstances(c.Context(), inst.Id())
 	ec2inst := ec2.InstanceSDKEC2(inst)
 	c.Assert(ec2inst.InstanceType, tc.Equals, types.InstanceType("m6i.large"))
 	c.Assert(*hc.Arch, tc.Equals, "amd64")
@@ -2483,25 +2483,25 @@ func (t *localServerSuite) TestStartInstanceConstraints(c *tc.C) {
 
 func (t *localServerSuite) TestControllerInstances(c *tc.C) {
 	t.prepareAndBootstrap(c)
-	allInsts, err := t.Env.AllRunningInstances(context.Background())
+	allInsts, err := t.Env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(allInsts, tc.HasLen, 1) // bootstrap instance
 	bootstrapInstId := allInsts[0].Id()
 
 	inst0, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "98")
-	defer t.Env.StopInstances(context.Background(), inst0.Id())
+	defer t.Env.StopInstances(c.Context(), inst0.Id())
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "99")
-	defer t.Env.StopInstances(context.Background(), inst1.Id())
+	defer t.Env.StopInstances(c.Context(), inst1.Id())
 
-	insts, err := t.Env.ControllerInstances(context.Background(), t.ControllerUUID)
+	insts, err := t.Env.ControllerInstances(c.Context(), t.ControllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts, tc.DeepEquals, []instance.Id{bootstrapInstId})
 }
 
 func (t *localServerSuite) TestInstanceGroups(c *tc.C) {
 	t.prepareAndBootstrap(c)
-	allInsts, err := t.Env.AllRunningInstances(context.Background())
+	allInsts, err := t.Env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(allInsts, tc.HasLen, 1) // bootstrap instance
 	bootstrapInstId := allInsts[0].Id()
@@ -2518,11 +2518,11 @@ func (t *localServerSuite) TestInstanceGroups(c *tc.C) {
 	// Create a group with the same name as the juju group
 	// but with different permissions, to check that it's deleted
 	// and recreated correctly.
-	oldJujuGroup := createGroup(c, ec2conn, context.Background(), aws.ToString(groups[0].GroupName), "old juju group")
+	oldJujuGroup := createGroup(c, ec2conn, c.Context(), aws.ToString(groups[0].GroupName), "old juju group")
 
 	// Add a permission.
 	// N.B. this is unfortunately sensitive to the actual set of permissions used.
-	_, err = ec2conn.AuthorizeSecurityGroupIngress(context.Background(), &awsec2.AuthorizeSecurityGroupIngressInput{
+	_, err = ec2conn.AuthorizeSecurityGroupIngress(c.Context(), &awsec2.AuthorizeSecurityGroupIngressInput{
 		GroupId: oldJujuGroup.GroupId,
 		IpPermissions: []types.IpPermission{
 			{
@@ -2536,21 +2536,21 @@ func (t *localServerSuite) TestInstanceGroups(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	inst0, _ := testing.AssertStartControllerInstance(c, t.Env, t.ControllerUUID, "98")
-	defer t.Env.StopInstances(context.Background(), inst0.Id())
+	defer t.Env.StopInstances(c.Context(), inst0.Id())
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
-	oldMachineGroup := createGroup(c, ec2conn, context.Background(), aws.ToString(groups[2].GroupName), "old machine group")
+	oldMachineGroup := createGroup(c, ec2conn, c.Context(), aws.ToString(groups[2].GroupName), "old machine group")
 
 	inst1, _ := testing.AssertStartControllerInstance(c, t.Env, t.ControllerUUID, "99")
-	defer t.Env.StopInstances(context.Background(), inst1.Id())
+	defer t.Env.StopInstances(c.Context(), inst1.Id())
 
 	groupNames := make([]string, len(groups))
 	for i, g := range groups {
 		g := g
 		groupNames[i] = aws.ToString(g.GroupName)
 	}
-	groupsResp, err := ec2conn.DescribeSecurityGroups(context.Background(), &awsec2.DescribeSecurityGroupsInput{
+	groupsResp, err := ec2conn.DescribeSecurityGroups(c.Context(), &awsec2.DescribeSecurityGroupsInput{
 		GroupNames: groupNames,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2592,7 +2592,7 @@ func (t *localServerSuite) TestInstanceGroups(c *tc.C) {
 	c.Check(aws.ToString(groups[2].GroupId), tc.Equals, aws.ToString(oldMachineGroup.GroupId))
 
 	// Check that each instance is part of the correct groups.
-	resp, err := ec2conn.DescribeInstances(context.Background(), &awsec2.DescribeInstancesInput{
+	resp, err := ec2conn.DescribeInstances(c.Context(), &awsec2.DescribeInstancesInput{
 		InstanceIds: []string{string(inst0.Id()), string(inst1.Id())},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2623,10 +2623,10 @@ func (t *localServerSuite) TestInstanceGroups(c *tc.C) {
 		}
 		return ids
 	}
-	insts, err := t.Env.Instances(context.Background(), instIds)
+	insts, err := t.Env.Instances(c.Context(), instIds)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instIds, tc.SameContents, idsFromInsts(insts))
-	allInsts, err = t.Env.AllRunningInstances(context.Background())
+	allInsts, err = t.Env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	// ignore the bootstrap instance
 	for i, inst := range allInsts {
@@ -2673,7 +2673,7 @@ func (t *localServerSuite) TestStopInstances(c *tc.C) {
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 	inst2, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "41")
 
-	err := t.Env.StopInstances(context.Background(), inst0.Id(), inst1.Id(), inst2.Id())
+	err := t.Env.StopInstances(c.Context(), inst0.Id(), inst1.Id(), inst2.Id())
 	c.Check(err, tc.ErrorIsNil)
 
 	var insts []instances.Instance
@@ -2683,7 +2683,7 @@ func (t *localServerSuite) TestStopInstances(c *tc.C) {
 	// if it succeeds.
 	retryStrategy := ec2.ShortRetryStrategy
 	retryStrategy.Func = func() error {
-		insts, err = t.Env.Instances(context.Background(), []instance.Id{inst0.Id(), inst2.Id()})
+		insts, err = t.Env.Instances(c.Context(), []instance.Id{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
 			return err
@@ -2706,7 +2706,7 @@ func (t *localServerSuite) TestPrechecker(c *tc.C) {
 	// return nil for empty constraints (excluding the
 	// manual provider).
 	t.Prepare(c)
-	err := t.Env.PrecheckInstance(context.Background(),
+	err := t.Env.PrecheckInstance(c.Context(),
 		environs.PrecheckInstanceParams{
 			Base: jujuversion.DefaultSupportedLTSBase(),
 		})
@@ -2718,11 +2718,11 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "1")
 	c.Assert(inst1, tc.NotNil)
-	defer func() { _ = t.Env.StopInstances(context.Background(), inst1.Id()) }()
+	defer func() { _ = t.Env.StopInstances(c.Context(), inst1.Id()) }()
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, tc.Equals, true)
 
-	rules, err := fwInst1.IngressRules(context.Background(), "1")
+	rules, err := fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.HasLen, 0)
 
@@ -2730,13 +2730,13 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 	c.Assert(inst2, tc.NotNil)
 	fwInst2, ok := inst2.(instances.InstanceFirewaller)
 	c.Assert(ok, tc.Equals, true)
-	rules, err = fwInst2.IngressRules(context.Background(), "2")
+	rules, err = fwInst2.IngressRules(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.HasLen, 0)
-	defer func() { _ = t.Env.StopInstances(context.Background(), inst2.Id()) }()
+	defer func() { _ = t.Env.StopInstances(c.Context(), inst2.Id()) }()
 
 	// Open some ports and check they're there.
-	err = fwInst1.OpenPorts(context.Background(),
+	err = fwInst1.OpenPorts(c.Context(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
@@ -2744,7 +2744,7 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 		})
 
 	c.Assert(err, tc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(context.Background(), "1")
+	rules, err = fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -2754,11 +2754,11 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
-	rules, err = fwInst2.IngressRules(context.Background(), "2")
+	rules, err = fwInst2.IngressRules(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.HasLen, 0)
 
-	err = fwInst2.OpenPorts(context.Background(),
+	err = fwInst2.OpenPorts(c.Context(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
@@ -2767,7 +2767,7 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check there's no crosstalk to another machine
-	rules, err = fwInst2.IngressRules(context.Background(), "2")
+	rules, err = fwInst2.IngressRules(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -2777,7 +2777,7 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
-	rules, err = fwInst1.IngressRules(context.Background(), "1")
+	rules, err = fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -2789,30 +2789,30 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 	)
 
 	// Check that opening the same port again is ok.
-	oldRules, err := fwInst2.IngressRules(context.Background(), "2")
+	oldRules, err := fwInst2.IngressRules(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
-	err = fwInst2.OpenPorts(context.Background(),
+	err = fwInst2.OpenPorts(c.Context(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 		})
 	c.Assert(err, tc.ErrorIsNil)
-	err = fwInst2.OpenPorts(context.Background(),
+	err = fwInst2.OpenPorts(c.Context(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
 		})
 	c.Assert(err, tc.ErrorIsNil)
-	rules, err = fwInst2.IngressRules(context.Background(), "2")
+	rules, err = fwInst2.IngressRules(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.DeepEquals, oldRules)
 
 	// Check that opening the same port again and another port is ok.
-	err = fwInst2.OpenPorts(context.Background(),
+	err = fwInst2.OpenPorts(c.Context(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
 		})
 	c.Assert(err, tc.ErrorIsNil)
-	rules, err = fwInst2.IngressRules(context.Background(), "2")
+	rules, err = fwInst2.IngressRules(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -2823,7 +2823,7 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
-	err = fwInst2.ClosePorts(context.Background(),
+	err = fwInst2.ClosePorts(c.Context(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
@@ -2832,7 +2832,7 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
-	rules, err = fwInst2.IngressRules(context.Background(), "2")
+	rules, err = fwInst2.IngressRules(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -2840,7 +2840,7 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
-	rules, err = fwInst1.IngressRules(context.Background(), "1")
+	rules, err = fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -2852,26 +2852,26 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 	)
 
 	// Check that we can close multiple ports.
-	err = fwInst1.ClosePorts(context.Background(),
+	err = fwInst1.ClosePorts(c.Context(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp")),
 		})
 	c.Assert(err, tc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(context.Background(), "1")
+	rules, err = fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = fwInst2.ClosePorts(context.Background(),
+	err = fwInst2.ClosePorts(c.Context(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("600-700/tcp")),
 		})
 	c.Assert(err, tc.ErrorIsNil)
-	rules, err = fwInst2.IngressRules(context.Background(), "2")
+	rules, err = fwInst2.IngressRules(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -2883,13 +2883,13 @@ func (t *localServerSuite) TestPorts(c *tc.C) {
 	// Check errors when acting on environment.
 	fwEnv, ok := t.Env.(environs.Firewaller)
 	c.Assert(ok, tc.Equals, true)
-	err = fwEnv.OpenPorts(context.Background(), firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
+	err = fwEnv.OpenPorts(c.Context(), firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "instance" for opening ports on model`)
 
-	err = fwEnv.ClosePorts(context.Background(), firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
+	err = fwEnv.ClosePorts(c.Context(), firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "instance" for closing ports on model`)
 
-	_, err = fwEnv.IngressRules(context.Background())
+	_, err = fwEnv.IngressRules(c.Context())
 	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "instance" for retrieving ingress rules from model`)
 }
 
@@ -2899,7 +2899,7 @@ func (t *localServerSuite) TestGlobalPorts(c *tc.C) {
 	// Change configuration.
 	oldConfig := t.Env.Config()
 	defer func() {
-		err := t.Env.SetConfig(context.Background(), oldConfig)
+		err := t.Env.SetConfig(c.Context(), oldConfig)
 		c.Assert(err, tc.ErrorIsNil)
 	}()
 
@@ -2916,27 +2916,27 @@ func (t *localServerSuite) TestGlobalPorts(c *tc.C) {
 	attrs["firewall-mode"] = config.FwGlobal
 	newConfig, err := t.Env.Config().Apply(attrs)
 	c.Assert(err, tc.ErrorIsNil)
-	err = t.Env.SetConfig(context.Background(), newConfig)
+	err = t.Env.SetConfig(c.Context(), newConfig)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create instances and check open ports on both instances.
 	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "1")
-	defer func() { _ = t.Env.StopInstances(context.Background(), inst1.Id()) }()
+	defer func() { _ = t.Env.StopInstances(c.Context(), inst1.Id()) }()
 
 	fwEnv, ok := t.Env.(environs.Firewaller)
 	c.Assert(ok, tc.Equals, true)
 
-	rules, err := fwEnv.IngressRules(context.Background())
+	rules, err := fwEnv.IngressRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.HasLen, 0)
 
 	inst2, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "2")
-	rules, err = fwEnv.IngressRules(context.Background())
+	rules, err = fwEnv.IngressRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.HasLen, 0)
-	defer func() { _ = t.Env.StopInstances(context.Background(), inst2.Id()) }()
+	defer func() { _ = t.Env.StopInstances(c.Context(), inst2.Id()) }()
 
-	err = fwEnv.OpenPorts(context.Background(),
+	err = fwEnv.OpenPorts(c.Context(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
@@ -2946,7 +2946,7 @@ func (t *localServerSuite) TestGlobalPorts(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	rules, err = fwEnv.IngressRules(context.Background())
+	rules, err = fwEnv.IngressRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -2960,14 +2960,14 @@ func (t *localServerSuite) TestGlobalPorts(c *tc.C) {
 	)
 
 	// Check closing some ports.
-	err = fwEnv.ClosePorts(context.Background(),
+	err = fwEnv.ClosePorts(c.Context(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	rules, err = fwEnv.IngressRules(context.Background())
+	rules, err = fwEnv.IngressRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -2979,7 +2979,7 @@ func (t *localServerSuite) TestGlobalPorts(c *tc.C) {
 	)
 
 	// Check that we can close ports that aren't there.
-	err = fwEnv.ClosePorts(context.Background(),
+	err = fwEnv.ClosePorts(c.Context(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
@@ -2987,7 +2987,7 @@ func (t *localServerSuite) TestGlobalPorts(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	rules, err = fwEnv.IngressRules(context.Background())
+	rules, err = fwEnv.IngressRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -3001,15 +3001,15 @@ func (t *localServerSuite) TestGlobalPorts(c *tc.C) {
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, tc.Equals, true)
 	// Check errors when acting on instances.
-	err = fwInst1.OpenPorts(context.Background(),
+	err = fwInst1.OpenPorts(c.Context(),
 		"1", firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
 
-	err = fwInst1.ClosePorts(context.Background(),
+	err = fwInst1.ClosePorts(c.Context(),
 		"1", firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
 
-	_, err = fwInst1.IngressRules(context.Background(), "1")
+	_, err = fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "global" for retrieving ingress rules from instance`)
 }
 
@@ -3019,7 +3019,7 @@ func (t *localServerSuite) TestModelPorts(c *tc.C) {
 	fwModelEnv, ok := t.Env.(models.ModelFirewaller)
 	c.Assert(ok, tc.Equals, true)
 
-	rules, err := fwModelEnv.ModelIngressRules(context.Background())
+	rules, err := fwModelEnv.ModelIngressRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -3027,7 +3027,7 @@ func (t *localServerSuite) TestModelPorts(c *tc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR),
 	})
 
-	err = fwModelEnv.OpenModelPorts(context.Background(),
+	err = fwModelEnv.OpenModelPorts(c.Context(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
@@ -3035,7 +3035,7 @@ func (t *localServerSuite) TestModelPorts(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	rules, err = fwModelEnv.ModelIngressRules(context.Background())
+	rules, err = fwModelEnv.ModelIngressRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -3047,14 +3047,14 @@ func (t *localServerSuite) TestModelPorts(c *tc.C) {
 	})
 
 	// Check closing some ports.
-	err = fwModelEnv.CloseModelPorts(context.Background(),
+	err = fwModelEnv.CloseModelPorts(c.Context(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	rules, err = fwModelEnv.ModelIngressRules(context.Background())
+	rules, err = fwModelEnv.ModelIngressRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -3064,7 +3064,7 @@ func (t *localServerSuite) TestModelPorts(c *tc.C) {
 	})
 
 	// Check that we can close ports that aren't there.
-	err = fwModelEnv.CloseModelPorts(context.Background(),
+	err = fwModelEnv.CloseModelPorts(c.Context(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
@@ -3072,7 +3072,7 @@ func (t *localServerSuite) TestModelPorts(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	rules, err = fwModelEnv.ModelIngressRules(context.Background())
+	rules, err = fwModelEnv.ModelIngressRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -3088,9 +3088,9 @@ func (t *localServerSuite) TestBootstrapMultiple(c *tc.C) {
 	t.prepareAndBootstrap(c)
 
 	c.Logf("destroy env")
-	err := environs.Destroy(t.Env.Config().Name(), t.Env, context.Background(), t.ControllerStore)
+	err := environs.Destroy(t.Env.Config().Name(), t.Env, c.Context(), t.ControllerStore)
 	c.Assert(err, tc.ErrorIsNil)
-	err = t.Env.Destroy(context.Background()) // Again, should work fine and do nothing.
+	err = t.Env.Destroy(c.Context()) // Again, should work fine and do nothing.
 	c.Assert(err, tc.ErrorIsNil)
 
 	// check that we can bootstrap after destroy
@@ -3121,6 +3121,7 @@ func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *tc.C) {
 		StatusCallback: fakeCallback,
 	}
 	err = testing.SetImageMetadata(
+		c,
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
 		[]string{"24.04"},
@@ -3128,9 +3129,9 @@ func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *tc.C) {
 		&params.ImageMetadata,
 	)
 	c.Check(err, tc.ErrorIsNil)
-	result, err := t.Env.StartInstance(context.Background(), params)
+	result, err := t.Env.StartInstance(c.Context(), params)
 	if result != nil && result.Instance != nil {
-		err := t.Env.StopInstances(context.Background(), result.Instance.Id())
+		err := t.Env.StopInstances(c.Context(), result.Instance.Id())
 		c.Check(err, tc.ErrorIsNil)
 	}
 	c.Assert(result, tc.IsNil)
@@ -3142,17 +3143,17 @@ func (t *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *tc.C) {
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "1")
 	c.Assert(inst1, tc.NotNil)
-	defer func() { _ = t.Env.StopInstances(context.Background(), inst1.Id()) }()
+	defer func() { _ = t.Env.StopInstances(c.Context(), inst1.Id()) }()
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, tc.Equals, true)
 
-	rules, err := fwInst1.IngressRules(context.Background(), "1")
+	rules, err := fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rules, tc.HasLen, 0)
 
 	// Open ports with different CIDRs. Check that rules with same port range
 	// get merged.
-	err = fwInst1.OpenPorts(context.Background(),
+	err = fwInst1.OpenPorts(c.Context(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "10.0.0.0/24"),
@@ -3160,7 +3161,7 @@ func (t *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *tc.C) {
 		})
 
 	c.Assert(err, tc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(context.Background(), "1")
+	rules, err = fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -3172,13 +3173,13 @@ func (t *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *tc.C) {
 
 	// Open same port with different CIDRs and check that the CIDR gets
 	// appended to the existing rule's CIDR list.
-	err = fwInst1.OpenPorts(context.Background(),
+	err = fwInst1.OpenPorts(c.Context(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "192.168.0.0/24"),
 		})
 
 	c.Assert(err, tc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(context.Background(), "1")
+	rules, err = fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -3190,13 +3191,13 @@ func (t *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *tc.C) {
 
 	// Close port on a subset of the CIDRs and ensure that that CIDR gets
 	// removed from the ingress rules
-	err = fwInst1.ClosePorts(context.Background(),
+	err = fwInst1.ClosePorts(c.Context(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "192.168.0.0/24"),
 		})
 
 	c.Assert(err, tc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(context.Background(), "1")
+	rules, err = fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,
@@ -3208,13 +3209,13 @@ func (t *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *tc.C) {
 
 	// Remove all CIDRs from the rule and check that rules without CIDRs
 	// get dropped.
-	err = fwInst1.ClosePorts(context.Background(),
+	err = fwInst1.ClosePorts(c.Context(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
 		})
 
 	c.Assert(err, tc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(context.Background(), "1")
+	rules, err = fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		rules, tc.DeepEquals,

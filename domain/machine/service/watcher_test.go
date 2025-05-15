@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -52,7 +50,7 @@ func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 	service := s.getService()
 
 	// Act
-	changesOut, err := service.uuidToNameMapper(noContainersFilter)(context.Background(), changesIn)
+	changesOut, err := service.uuidToNameMapper(noContainersFilter)(c.Context(), changesIn)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

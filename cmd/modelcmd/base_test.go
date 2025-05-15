@@ -74,7 +74,7 @@ func (s *BaseCommandSuite) assertUnknownModel(c *tc.C, baseCmd *modelcmd.ModelCo
 	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
 	baseCmd.SetModelIdentifier("foo:admin/badmodel", false)
-	conn, err := baseCmd.NewAPIRoot(context.Background())
+	conn, err := baseCmd.NewAPIRoot(c.Context())
 	c.Assert(conn, tc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(msg, tc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.`)
@@ -185,7 +185,7 @@ To access it run 'juju switch bar:admin/badmodel'.`,
 			spec.setupFn()
 		}
 
-		_, err := baseCmd.NewAPIRoot(context.Background())
+		_, err := baseCmd.NewAPIRoot(c.Context())
 		c.Assert(err, tc.Not(tc.IsNil))
 		c.Assert(err.Error(), tc.Equals, spec.expErr)
 	}
@@ -225,7 +225,7 @@ func (s *BaseCommandSuite) TestNewAPIRootExternalUser(c *tc.C) {
 
 	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), tc.ErrorIsNil)
 
-	_, err := baseCmd.NewAPIRoot(context.Background())
+	_, err := baseCmd.NewAPIRoot(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -289,7 +289,7 @@ func (s *BaseCommandSuite) TestLoginWithOIDC(c *tc.C) {
 
 	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), tc.ErrorIsNil)
 
-	_, err := baseCmd.NewAPIRoot(context.Background())
+	_, err := baseCmd.NewAPIRoot(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.store.Accounts["foo"].SessionToken, tc.Equals, "new-token")
@@ -449,7 +449,7 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFunc(c *tc.C) {
 		return nil, nil
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
-	_, err := openFunc(context.Background(), expected, api.DialOpts{})
+	_, err := openFunc(c.Context(), expected, api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(received, tc.DeepEquals, expected)
 }
@@ -466,7 +466,7 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoPassword(c *tc.C) {
 		return nil, nil
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
-	_, err := openFunc(context.Background(), expected, api.DialOpts{})
+	_, err := openFunc(c.Context(), expected, api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(received, tc.DeepEquals, expected)
 }
@@ -483,7 +483,7 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoMacaroons(c *tc.C) {
 		return nil, nil
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
-	_, err := openFunc(context.Background(), expected, api.DialOpts{})
+	_, err := openFunc(c.Context(), expected, api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(received, tc.DeepEquals, expected)
 }
@@ -509,7 +509,7 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStore(c *tc.C) {
 		return nil, nil
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
-	_, err = openFunc(context.Background(), &api.Info{
+	_, err = openFunc(c.Context(), &api.Info{
 		ControllerUUID: "foo",
 	}, api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -538,7 +538,7 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStoreWithSNIHost(c *tc.C) {
 		return nil, nil
 	}
 	openFunc := modelcmd.OpenAPIFuncWithMacaroons(origin, s.store, "foo")
-	_, err = openFunc(context.Background(), &api.Info{
+	_, err = openFunc(c.Context(), &api.Info{
 		SNIHostName:    "foo",
 		ControllerUUID: "bar",
 	}, api.DialOpts{})

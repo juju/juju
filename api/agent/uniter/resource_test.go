@@ -46,7 +46,7 @@ func (s *ResourcesFacadeClientSuite) TestGetResource(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	cl.HTTPDoer = s.api
 
-	info, content, err := cl.GetResource(context.Background(), "spam")
+	info, content, err := cl.GetResource(c.Context(), "spam")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Do", "GetResourceInfo")
@@ -61,7 +61,7 @@ func (s *ResourcesFacadeClientSuite) TestUnitDoer(c *tc.C) {
 	var resp *http.Response
 	doer := uniter.NewUnitHTTPClient(s.api, "spam/1")
 
-	err = doer.Do(context.Background(), req, &resp)
+	err = doer.Do(c.Context(), req, &resp)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Do")

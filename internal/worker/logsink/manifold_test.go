@@ -4,7 +4,6 @@
 package logsink
 
 import (
-	"context"
 	"maps"
 
 	"github.com/juju/clock"
@@ -118,7 +117,7 @@ func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 		getter := s.newGetter(c, map[string]any{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context.Background(), getter)
+		_, err := s.manifold.Start(c.Context(), getter)
 		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
@@ -137,7 +136,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w

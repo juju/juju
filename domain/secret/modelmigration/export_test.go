@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -322,7 +321,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		Return(forExport, nil)
 
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 
 	actualSecrets := dst.Secrets()

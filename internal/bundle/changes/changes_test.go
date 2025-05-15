@@ -194,7 +194,7 @@ func (s *changesSuite) TestBundleURLAnnotationSet(c *tc.C) {
 	err = data.Verify(nil, nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// Retrieve the changes, and convert them to a sequence of records.
-	changes, err := bundlechanges.FromData(context.Background(),
+	changes, err := bundlechanges.FromData(c.Context(),
 		bundlechanges.ChangesConfig{
 			Bundle:    data,
 			BundleURL: "ch:bundle/blog",
@@ -2684,7 +2684,7 @@ func (s *changesSuite) assertParseDataWithModel(c *tc.C, model *bundlechanges.Mo
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the changes, and convert them to a sequence of records.
-	changes, err := bundlechanges.FromData(context.Background(), bundlechanges.ChangesConfig{
+	changes, err := bundlechanges.FromData(c.Context(), bundlechanges.ChangesConfig{
 		Model:  model,
 		Bundle: data,
 		Logger: loggertesting.WrapCheckLog(c),
@@ -2730,7 +2730,7 @@ func (s *changesSuite) assertParseDataWithDevices(c *tc.C, content string, expec
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the changes, and convert them to a sequence of records.
-	changes, err := bundlechanges.FromData(context.Background(), bundlechanges.ChangesConfig{
+	changes, err := bundlechanges.FromData(c.Context(), bundlechanges.ChangesConfig{
 		Bundle: data,
 		Logger: loggertesting.WrapCheckLog(c),
 	})
@@ -5151,7 +5151,7 @@ func (s *changesSuite) checkBundleImpl(c *tc.C,
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the changes, and convert them to a sequence of records.
-	changes, err := bundlechanges.FromData(context.Background(), bundlechanges.ChangesConfig{
+	changes, err := bundlechanges.FromData(c.Context(), bundlechanges.ChangesConfig{
 		Bundle:           data,
 		Model:            existingModel,
 		Logger:           loggertesting.WrapCheckLog(c),

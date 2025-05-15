@@ -4,8 +4,6 @@
 package context
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
@@ -80,24 +78,24 @@ func NewHookContext(c *tc.C, hcParams HookContextParams) (*HookContext, error) {
 	}
 	// Get and cache the addresses.
 	var err error
-	ctx.publicAddress, err = hcParams.Unit.PublicAddress(context.Background())
+	ctx.publicAddress, err = hcParams.Unit.PublicAddress(c.Context())
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
-	ctx.privateAddress, err = hcParams.Unit.PrivateAddress(context.Background())
+	ctx.privateAddress, err = hcParams.Unit.PrivateAddress(c.Context())
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
-	ctx.availabilityZone, err = hcParams.Unit.AvailabilityZone(context.Background())
+	ctx.availabilityZone, err = hcParams.Unit.AvailabilityZone(c.Context())
 	if err != nil {
 		return nil, err
 	}
-	machPorts, err := hcParams.Uniter.OpenedMachinePortRangesByEndpoint(context.Background(), ctx.assignedMachineTag)
+	machPorts, err := hcParams.Uniter.OpenedMachinePortRangesByEndpoint(c.Context(), ctx.assignedMachineTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	appPortRanges, err := hcParams.Uniter.OpenedPortRangesByEndpoint(context.Background())
+	appPortRanges, err := hcParams.Uniter.OpenedPortRangesByEndpoint(c.Context())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

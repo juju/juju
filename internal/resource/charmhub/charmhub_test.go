@@ -4,7 +4,6 @@
 package charmhub_test
 
 import (
-	"context"
 	"io"
 	"net/url"
 	"strings"
@@ -50,7 +49,7 @@ func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 	curl, _ := charm.ParseURL("ch:postgresql")
 	rev := 42
 	result, err := cl.GetResource(
-		context.Background(),
+		c.Context(),
 		charmhub.ResourceRequest{
 			CharmID: charmhub.CharmID{
 				URL: curl,

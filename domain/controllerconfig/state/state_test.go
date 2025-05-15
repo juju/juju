@@ -4,8 +4,6 @@
 package state
 
 import (
-	ctx "context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
@@ -30,7 +28,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 		controller.CACertKey:         jujutesting.CACert,
 	}
 	controllerModelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
-	err := bootstrap.InsertInitialControllerConfig(cfg, controllerModelUUID)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err := bootstrap.InsertInitialControllerConfig(cfg, controllerModelUUID)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -47,10 +45,10 @@ func (s *stateSuite) TestControllerConfigRead(c *tc.C) {
 		controller.APIPortOpenDelay:    "100ms",
 	}
 
-	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerConfig, tc.DeepEquals, ctrlConfig)
 }
@@ -58,7 +56,7 @@ func (s *stateSuite) TestControllerConfigRead(c *tc.C) {
 func (s *stateSuite) TestControllerConfigReadWithoutData(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// This is set at bootstrap time.
@@ -81,13 +79,13 @@ func (s *stateSuite) TestControllerConfigUpdateTwice(c *tc.C) {
 		controller.APIPortOpenDelay:    "100ms",
 	}
 
-	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerConfig, tc.DeepEquals, ctrlConfig)
 }
@@ -105,15 +103,15 @@ func (s *stateSuite) TestControllerConfigUpdate(c *tc.C) {
 		controller.APIPortOpenDelay:    "100ms",
 	}
 
-	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlConfig[controller.AuditLogMaxBackups] = "11"
 
-	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerConfig, tc.DeepEquals, ctrlConfig)
 }
@@ -131,27 +129,27 @@ func (s *stateSuite) TestControllerConfigUpdateTwiceWithDifferentControllerUUID(
 		controller.APIPortOpenDelay:    "100ms",
 	}
 
-	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// This is just ignored, the service layer will not allow this.
 
 	ctrlConfig[controller.ControllerUUIDKey] = "new-controller-uuid"
 
-	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestUpdateControllerConfigNewData(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := st.UpdateControllerConfig(ctx.Background(), map[string]string{
+	err := st.UpdateControllerConfig(c.Context(), map[string]string{
 		controller.PublicDNSAddress: "controller.test.com:1234",
 		controller.APIPortOpenDelay: "100ms",
 	}, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.UpdateControllerConfig(ctx.Background(), map[string]string{
+	err = st.UpdateControllerConfig(c.Context(), map[string]string{
 		controller.AuditLogMaxBackups: "10",
 	}, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
@@ -178,14 +176,14 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplace(c *tc.C) {
 	}
 
 	// Initial values.
-	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now with different DNS address and API port open delay.
 	ctrlConfig[controller.PublicDNSAddress] = "updated-controller.test.com:1234"
 	ctrlConfig[controller.APIPortOpenDelay] = "200ms"
 
-	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
 	db := s.DB()
@@ -222,7 +220,7 @@ func (s *stateSuite) TestControllerConfigRemove(c *tc.C) {
 		controller.APIPortOpenDelay:    "100ms",
 	}
 
-	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlConfig[controller.AuditLogMaxBackups] = "11"
@@ -232,13 +230,13 @@ func (s *stateSuite) TestControllerConfigRemove(c *tc.C) {
 	delete(ctrlConfig, controller.APIPortOpenDelay)
 	delete(ctrlConfig, controller.AuditLogCaptureArgs)
 
-	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, []string{
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, []string{
 		controller.APIPortOpenDelay,
 		controller.AuditLogCaptureArgs,
 	}, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerConfig, tc.DeepEquals, map[string]string{
 		controller.ControllerUUIDKey:  jujutesting.ControllerTag.Id(),
@@ -262,7 +260,7 @@ func (s *stateSuite) TestControllerConfigRemoveWithAdditionalValues(c *tc.C) {
 		controller.APIPortOpenDelay:    "100ms",
 	}
 
-	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlConfig[controller.AuditLogMaxBackups] = "11"
@@ -270,13 +268,13 @@ func (s *stateSuite) TestControllerConfigRemoveWithAdditionalValues(c *tc.C) {
 	// Notice that we've asked for two values to be removed, but they're still
 	// in the map. They should still be removed.
 
-	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, []string{
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, []string{
 		controller.APIPortOpenDelay,
 		controller.AuditLogCaptureArgs,
 	}, alwaysValid)
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerConfig, tc.DeepEquals, map[string]string{
 		controller.ControllerUUIDKey:  jujutesting.ControllerTag.Id(),
@@ -296,7 +294,7 @@ func (s *stateSuite) TestUpdateControllerWithValidation(c *tc.C) {
 	}
 
 	// Initial values.
-	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, func(m map[string]string) error {
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, func(m map[string]string) error {
 		return errors.Errorf("boom")
 	})
 	c.Assert(err, tc.ErrorMatches, `boom`)

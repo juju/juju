@@ -4,8 +4,6 @@
 package storageprovisioner_test
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -40,7 +38,7 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *tc.C) {
 		APICallerName:       "api-caller",
 		StorageRegistryName: "environ",
 	})
-	_, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
+	_, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 		"clock":      struct{ clock.Clock }{},
 		"environ":    struct{ environs.Environ }{},
@@ -53,7 +51,7 @@ func (s *ManifoldSuite) TestMissingEnviron(c *tc.C) {
 		APICallerName:       "api-caller",
 		StorageRegistryName: "environ",
 	})
-	_, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
+	_, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"clock":      struct{ clock.Clock }{},
 		"environ":    dependency.ErrMissing,

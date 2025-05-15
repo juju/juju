@@ -47,7 +47,7 @@ func (s *controllerStateSuite) ensureControllerConfigSSHKeys(c *tc.C, keys strin
 INSERT INTO controller_config (key, value) VALUES(?, ?)
 `
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, stmt, controller.SystemSSHKeys, keys)
 		return err
 	})
@@ -78,7 +78,7 @@ func (s *controllerStateSuite) SetUpTest(c *tc.C) {
 	s.modelUUID = modelstatetesting.CreateTestModel(c, s.TxnRunnerFactory(), "keys")
 
 	model, err := modelstate.NewState(s.TxnRunnerFactory()).GetModel(
-		context.Background(), s.modelUUID,
+		c.Context(), s.modelUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	s.userUUID = model.Owner
@@ -88,7 +88,7 @@ func (s *controllerStateSuite) SetUpTest(c *tc.C) {
 // exist in controller config no errors are returned an empty map is returned.
 func (s *controllerStateSuite) TestControllerConfigKeysEmpty(c *tc.C) {
 	kv, err := NewControllerState(s.TxnRunnerFactory()).GetControllerConfigKeys(
-		context.Background(),
+		c.Context(),
 		[]string{"does-not-exist"},
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -100,7 +100,7 @@ func (s *controllerStateSuite) TestControllerConfigKeysEmpty(c *tc.C) {
 func (s *controllerStateSuite) TestControllerConfigKeys(c *tc.C) {
 	s.ensureControllerConfigSSHKeys(c, controllerSSHKeys)
 	kv, err := NewControllerState(s.TxnRunnerFactory()).GetControllerConfigKeys(
-		context.Background(),
+		c.Context(),
 		[]string{controller.SystemSSHKeys},
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -112,7 +112,7 @@ func (s *controllerStateSuite) TestControllerConfigKeys(c *tc.C) {
 // keys on a model that doesn't exist we get back a [modelerrors.NotFound] error.
 func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModelNotFound(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
-	_, err := st.GetUserAuthorizedKeysForModel(context.Background(), modeltesting.GenModelUUID(c))
+	_, err := st.GetUserAuthorizedKeysForModel(c.Context(), modeltesting.GenModelUUID(c))
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -123,13 +123,13 @@ func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *tc.C) {
 	kmSt := keymanagerstate.NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	err := kmSt.AddPublicKeysForUser(context.Background(), s.modelUUID, s.userUUID, keysToAdd[0:1])
+	err := kmSt.AddPublicKeysForUser(c.Context(), s.modelUUID, s.userUUID, keysToAdd[0:1])
 	c.Check(err, tc.ErrorIsNil)
 
 	secondUserId := usertesting.GenUserUUID(c)
 	userSt := userstate.NewUserState(s.TxnRunnerFactory())
 	err = userSt.AddUser(
-		context.Background(),
+		c.Context(),
 		secondUserId,
 		usertesting.GenNewName(c, "second"),
 		"second",
@@ -138,11 +138,11 @@ func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = kmSt.AddPublicKeysForUser(context.Background(), s.modelUUID, secondUserId, keysToAdd[1:3])
+	err = kmSt.AddPublicKeysForUser(c.Context(), s.modelUUID, secondUserId, keysToAdd[1:3])
 	c.Check(err, tc.ErrorIsNil)
 
 	st := NewControllerState(s.TxnRunnerFactory())
-	keys, err := st.GetUserAuthorizedKeysForModel(context.Background(), s.modelUUID)
+	keys, err := st.GetUserAuthorizedKeysForModel(c.Context(), s.modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)

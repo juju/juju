@@ -69,7 +69,7 @@ func (s *LoopSuite) loop(c *tc.C) func(context.Context) (resolver.LocalState, er
 }
 
 func (s *LoopSuite) TestAbort(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	_, err := s.loop(c)(ctx)
@@ -83,7 +83,7 @@ func (s *LoopSuite) TestOnIdle(c *tc.C) {
 		return nil
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	loopFn := s.loop(c)
@@ -114,7 +114,7 @@ func (s *LoopSuite) TestOnIdleError(c *tc.C) {
 		return errors.New("onIdle failed")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	_, err := s.loop(c)(ctx)
@@ -136,7 +136,7 @@ func (s *LoopSuite) TestErrWaitingNoOnIdle(c *tc.C) {
 		return nil, resolver.ErrWaiting
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	_, err := s.loop(c)(ctx)
@@ -156,7 +156,7 @@ func (s *LoopSuite) TestInitialFinalLocalState(c *tc.C) {
 		return nil, resolver.ErrNoOperation
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	lastLocal, err := s.loop(c)(ctx)
@@ -168,7 +168,7 @@ func (s *LoopSuite) TestInitialFinalLocalState(c *tc.C) {
 }
 
 func (s *LoopSuite) TestLoop(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	var resolverCalls int
@@ -209,7 +209,7 @@ func (s *LoopSuite) TestLoop(c *tc.C) {
 }
 
 func (s *LoopSuite) TestLoopWithChange(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	var resolverCalls int
@@ -279,7 +279,7 @@ func (s *LoopSuite) TestLoopWithChange(c *tc.C) {
 }
 
 func (s *LoopSuite) TestRunFails(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	s.executor.SetErrors(errors.New("run fails"))
@@ -296,7 +296,7 @@ func (s *LoopSuite) TestRunFails(c *tc.C) {
 }
 
 func (s *LoopSuite) TestNextOpFails(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	s.resolver = resolver.ResolverFunc(func(
@@ -384,7 +384,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *tc.C) {
 }
 
 func (s *LoopSuite) testCheckCharmUpgradeDoesNothing(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	s.resolver = resolver.ResolverFunc(func(
@@ -484,7 +484,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *tc.C) {
 }
 
 func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *tc.C, op string) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	s.opFactory = &mockOpFactory{
@@ -515,7 +515,7 @@ func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *tc.C, op string) {
 }
 
 func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	s.executor = &mockOpExecutor{

@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -38,7 +36,7 @@ func (s *serviceSuite) TestSetState(c *tc.C) {
 	exp := s.st.EXPECT()
 	exp.SetUnitState(gomock.Any(), as)
 
-	err := NewService(s.st).SetState(context.Background(), as)
+	err := NewService(s.st).SetState(c.Context(), as)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -55,7 +53,7 @@ func (s *serviceSuite) TestSetStateUnitNotFound(c *tc.C) {
 	exp := s.st.EXPECT()
 	exp.SetUnitState(gomock.Any(), as).Return(errors.UnitNotFound)
 
-	err := NewService(s.st).SetState(context.Background(), as)
+	err := NewService(s.st).SetState(c.Context(), as)
 	c.Check(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
@@ -65,7 +63,7 @@ func (s *serviceSuite) TestGetState(c *tc.C) {
 	name := unittesting.GenNewName(c, "unit/0")
 	s.st.EXPECT().GetUnitState(gomock.Any(), name)
 
-	_, err := NewService(s.st).GetState(context.Background(), name)
+	_, err := NewService(s.st).GetState(c.Context(), name)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -75,7 +73,7 @@ func (s *serviceSuite) TestGetStateUnitNotFound(c *tc.C) {
 	name := unittesting.GenNewName(c, "unit/0")
 	s.st.EXPECT().GetUnitState(gomock.Any(), name).Return(unitstate.RetrievedUnitState{}, unitstateerrors.UnitNotFound)
 
-	_, err := NewService(s.st).GetState(context.Background(), name)
+	_, err := NewService(s.st).GetState(c.Context(), name)
 	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 

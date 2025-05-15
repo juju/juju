@@ -4,7 +4,6 @@
 package runner_test
 
 import (
-	stdcontext "context"
 	"strings"
 
 	"github.com/juju/names/v6"
@@ -31,14 +30,14 @@ func (s *FactorySuite) AssertPaths(c *tc.C, rnr runner.Runner) {
 }
 
 func (s *FactorySuite) TestNewCommandRunnerNoRelation(c *tc.C) {
-	rnr, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{RelationId: -1})
+	rnr, err := s.factory.NewCommandRunner(c.Context(), context.CommandInfo{RelationId: -1})
 	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 }
 
 func (s *FactorySuite) TestNewCommandRunnerRelationIdDoesNotExist(c *tc.C) {
 	for _, value := range []bool{true, false} {
-		_, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{
+		_, err := s.factory.NewCommandRunner(c.Context(), context.CommandInfo{
 			RelationId: 12, ForceRemoteUnit: value,
 		})
 		c.Check(err, tc.ErrorMatches, `unknown relation id: 12`)
@@ -47,7 +46,7 @@ func (s *FactorySuite) TestNewCommandRunnerRelationIdDoesNotExist(c *tc.C) {
 
 func (s *FactorySuite) TestNewCommandRunnerRemoteUnitInvalid(c *tc.C) {
 	for _, value := range []bool{true, false} {
-		_, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{
+		_, err := s.factory.NewCommandRunner(c.Context(), context.CommandInfo{
 			RelationId: 0, RemoteUnitName: "blah", ForceRemoteUnit: value,
 		})
 		c.Check(err, tc.ErrorMatches, `invalid remote unit: blah`)
@@ -56,7 +55,7 @@ func (s *FactorySuite) TestNewCommandRunnerRemoteUnitInvalid(c *tc.C) {
 
 func (s *FactorySuite) TestNewCommandRunnerRemoteUnitInappropriate(c *tc.C) {
 	for _, value := range []bool{true, false} {
-		_, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{
+		_, err := s.factory.NewCommandRunner(c.Context(), context.CommandInfo{
 			RelationId: -1, RemoteUnitName: "blah/123", ForceRemoteUnit: value,
 		})
 		c.Check(err, tc.ErrorMatches, `remote unit provided without a relation: blah/123`)
@@ -68,7 +67,7 @@ func (s *FactorySuite) TestNewCommandRunnerEmptyRelation(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupFactory(c, ctrl)
 
-	_, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{RelationId: 1})
+	_, err := s.factory.NewCommandRunner(c.Context(), context.CommandInfo{RelationId: 1})
 	c.Check(err, tc.ErrorMatches, `cannot infer remote unit in empty relation 1`)
 }
 
@@ -78,7 +77,7 @@ func (s *FactorySuite) TestNewCommandRunnerRemoteUnitAmbiguous(c *tc.C) {
 	s.setupFactory(c, ctrl)
 
 	s.membership[1] = []string{"foo/0", "foo/1"}
-	_, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{RelationId: 1})
+	_, err := s.factory.NewCommandRunner(c.Context(), context.CommandInfo{RelationId: 1})
 	c.Check(err, tc.ErrorMatches, `ambiguous remote unit; possibilities are \[foo/0 foo/1\]`)
 }
 
@@ -88,7 +87,7 @@ func (s *FactorySuite) TestNewCommandRunnerRemoteUnitMissing(c *tc.C) {
 	s.setupFactory(c, ctrl)
 
 	s.membership[0] = []string{"foo/0", "foo/1"}
-	_, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{
+	_, err := s.factory.NewCommandRunner(c.Context(), context.CommandInfo{
 		RelationId: 0, RemoteUnitName: "blah/123",
 	})
 	c.Check(err, tc.ErrorMatches, `unknown remote unit blah/123; possibilities are \[foo/0 foo/1\]`)
@@ -99,7 +98,7 @@ func (s *FactorySuite) TestNewCommandRunnerForceNoRemoteUnit(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.setupFactory(c, ctrl)
-	rnr, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{
+	rnr, err := s.factory.NewCommandRunner(c.Context(), context.CommandInfo{
 		RelationId: 0, ForceRemoteUnit: true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -111,7 +110,7 @@ func (s *FactorySuite) TestNewCommandRunnerForceRemoteUnitMissing(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupFactory(c, ctrl)
 
-	_, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{
+	_, err := s.factory.NewCommandRunner(c.Context(), context.CommandInfo{
 		RelationId: 0, RemoteUnitName: "blah/123", ForceRemoteUnit: true,
 	})
 	c.Assert(err, tc.IsNil)
@@ -123,19 +122,19 @@ func (s *FactorySuite) TestNewCommandRunnerInferRemoteUnit(c *tc.C) {
 	s.setupFactory(c, ctrl)
 
 	s.membership[0] = []string{"foo/2"}
-	rnr, err := s.factory.NewCommandRunner(stdcontext.Background(), context.CommandInfo{RelationId: 0})
+	rnr, err := s.factory.NewCommandRunner(c.Context(), context.CommandInfo{RelationId: 0})
 	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 }
 
 func (s *FactorySuite) TestNewHookRunner(c *tc.C) {
-	rnr, err := s.factory.NewHookRunner(stdcontext.Background(), hook.Info{Kind: hooks.ConfigChanged})
+	rnr, err := s.factory.NewHookRunner(c.Context(), hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 }
 
 func (s *FactorySuite) TestNewHookRunnerWithBadHook(c *tc.C) {
-	rnr, err := s.factory.NewHookRunner(stdcontext.Background(), hook.Info{})
+	rnr, err := s.factory.NewHookRunner(c.Context(), hook.Info{})
 	c.Assert(rnr, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, `unknown hook kind ""`)
 }
@@ -150,7 +149,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *tc.C) {
 		Location: "/dev/sdb",
 	}, nil).AnyTimes()
 
-	rnr, err := s.factory.NewHookRunner(stdcontext.Background(), hook.Info{
+	rnr, err := s.factory.NewHookRunner(c.Context(), hook.Info{
 		Kind:      hooks.StorageAttached,
 		StorageId: "data/0",
 	})
@@ -166,7 +165,7 @@ func (s *FactorySuite) TestNewHookRunnerWithRelation(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupFactory(c, ctrl)
 
-	rnr, err := s.factory.NewHookRunner(stdcontext.Background(), hook.Info{
+	rnr, err := s.factory.NewHookRunner(c.Context(), hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	})
@@ -175,7 +174,7 @@ func (s *FactorySuite) TestNewHookRunnerWithRelation(c *tc.C) {
 }
 
 func (s *FactorySuite) TestNewHookRunnerWithBadRelation(c *tc.C) {
-	rnr, err := s.factory.NewHookRunner(stdcontext.Background(), hook.Info{
+	rnr, err := s.factory.NewHookRunner(c.Context(), hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: 12345,
 	})
@@ -230,7 +229,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *tc.C) {
 			"",
 		)
 		s.setCharm(c, test.charmName)
-		rnr, err := s.factory.NewActionRunner(stdcontext.Background(), action, nil)
+		rnr, err := s.factory.NewActionRunner(c.Context(), action, nil)
 		c.Assert(err, tc.ErrorIsNil)
 		s.AssertPaths(c, rnr)
 		ctx := rnr.Context()
@@ -242,7 +241,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *tc.C) {
 			Params:     test.payload,
 			ResultsMap: map[string]interface{}{},
 		})
-		vars, err := ctx.HookVars(stdcontext.Background(), s.paths, context.NewRemoteEnvironmenter(
+		vars, err := ctx.HookVars(c.Context(), s.paths, context.NewRemoteEnvironmenter(
 			func() []string { return []string{} },
 			func(k string) string {
 				switch k {
@@ -276,7 +275,7 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *tc.C) {
 
 	s.setCharm(c, "dummy")
 	action := apiuniter.NewAction("666", "no-such-action", nil, false, "")
-	rnr, err := s.factory.NewActionRunner(stdcontext.Background(), action, nil)
+	rnr, err := s.factory.NewActionRunner(c.Context(), action, nil)
 	c.Check(rnr, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
 	c.Check(err, tc.Satisfies, charmrunner.IsBadActionError)
@@ -291,7 +290,7 @@ func (s *FactorySuite) TestNewActionRunnerBadParams(c *tc.C) {
 	action := apiuniter.NewAction("666", "snapshot", map[string]interface{}{
 		"outfile": 123,
 	}, true, "group")
-	rnr, err := s.factory.NewActionRunner(stdcontext.Background(), action, nil)
+	rnr, err := s.factory.NewActionRunner(c.Context(), action, nil)
 	c.Check(rnr, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "cannot run \"snapshot\" action: .*")
 	c.Check(err, tc.Satisfies, charmrunner.IsBadActionError)
@@ -317,7 +316,7 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *tc.C) {
 		"",
 	)
 	s.setCharm(c, "dummy")
-	rnr, err := s.factory.NewActionRunner(stdcontext.Background(), action, cancel)
+	rnr, err := s.factory.NewActionRunner(c.Context(), action, cancel)
 	c.Assert(err, tc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
@@ -330,7 +329,7 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *tc.C) {
 		ResultsMap: map[string]interface{}{},
 		Cancel:     cancel,
 	})
-	vars, err := ctx.HookVars(stdcontext.Background(), s.paths, context.NewRemoteEnvironmenter(
+	vars, err := ctx.HookVars(c.Context(), s.paths, context.NewRemoteEnvironmenter(
 		func() []string { return []string{} },
 		func(k string) string {
 			switch k {

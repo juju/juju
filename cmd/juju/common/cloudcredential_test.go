@@ -5,7 +5,6 @@ package common_test
 
 import (
 	"bytes"
-	"context"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -80,7 +79,7 @@ func (*cloudCredentialSuite) TestRegisterCredentials(c *tc.C) {
 	stderr := new(bytes.Buffer)
 
 	err := common.RegisterCredentials(&cmd.Context{
-		Context: context.Background(),
+		Context: c.Context(),
 		Stderr:  stderr,
 	}, mockStore, mockProvider, modelcmd.RegisterCredentialsParams{
 		Cloud: cloud.Cloud{

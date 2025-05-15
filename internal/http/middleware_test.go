@@ -50,7 +50,7 @@ func (s *DialContextMiddlewareSuite) TestInsecureClientNoAccess(c *tc.C) {
 		),
 		WithSkipHostnameVerification(true),
 	)
-	_, err := client.Get(context.Background(), "http://0.1.2.3:1234")
+	_, err := client.Get(c.Context(), "http://0.1.2.3:1234")
 	c.Assert(err, tc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
 }
 
@@ -60,7 +60,7 @@ func (s *DialContextMiddlewareSuite) TestSecureClientNoAccess(c *tc.C) {
 			DialContextMiddleware(NewLocalDialBreaker(false)),
 		),
 	)
-	_, err := client.Get(context.Background(), "http://0.1.2.3:1234")
+	_, err := client.Get(c.Context(), "http://0.1.2.3:1234")
 	c.Assert(err, tc.ErrorMatches, `.*access to address "0.1.2.3:1234" not allowed`)
 }
 
@@ -332,7 +332,7 @@ func (s *RetrySuite) TestRetryRequiredContextKilled(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "http://meshuggah.rocks", nil)
 	c.Assert(err, tc.IsNil)

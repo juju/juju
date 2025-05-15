@@ -4,7 +4,6 @@
 package apiconfigwatcher_test
 
 import (
-	"context"
 	"sync"
 
 	"github.com/juju/tc"
@@ -54,7 +53,7 @@ func (s *ManifoldSuite) TestNilAgentConfigChanged(c *tc.C) {
 	manifold := apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 		AgentName: "agent",
 	})
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "nil AgentConfigChanged .+")
 }
 
@@ -62,7 +61,7 @@ func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
-	_, err := s.manifold.Start(context.Background(), getter)
+	_, err := s.manifold.Start(c.Context(), getter)
 	c.Assert(err, tc.Equals, dependency.ErrMissing)
 }
 
@@ -119,7 +118,7 @@ func (s *ManifoldSuite) TestClosedVoyeur(c *tc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w

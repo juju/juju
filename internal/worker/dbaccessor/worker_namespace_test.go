@@ -31,7 +31,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForController(c *tc.C) {
 		dbApp: s.dbApp,
 	}
 
-	err := w.ensureNamespace(context.Background(), database.ControllerNS)
+	err := w.ensureNamespace(c.Context(), database.ControllerNS)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -66,7 +66,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *tc.C) {
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
 
-	err := dbw.ensureNamespace(context.Background(), "foo")
+	err := dbw.ensureNamespace(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, database.ErrDBNotFound)
 
 	workertest.CleanKill(c, w)
@@ -95,13 +95,13 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *tc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
+	ctx, cancel := context.WithTimeout(c.Context(), testhelpers.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	err := dbw.ensureNamespace(context.Background(), "foo")
+	err := dbw.ensureNamespace(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
@@ -130,13 +130,13 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *tc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
+	ctx, cancel := context.WithTimeout(c.Context(), testhelpers.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	err := dbw.ensureNamespace(context.Background(), "foo")
+	err := dbw.ensureNamespace(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
@@ -170,7 +170,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *tc.C) {
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
 	defer workertest.DirtyKill(c, w)
 
-	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
+	ctx, cancel := context.WithTimeout(c.Context(), testhelpers.LongWait)
 	defer cancel()
 
 	var (
@@ -199,11 +199,11 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *tc.C) {
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
 
-	err = dbw.ensureNamespace(context.Background(), "foo")
+	err = dbw.ensureNamespace(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The second query will be cached.
-	err = dbw.ensureNamespace(context.Background(), "foo")
+	err = dbw.ensureNamespace(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(attempt, tc.Equals, 1)
@@ -234,13 +234,13 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *tc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
+	ctx, cancel := context.WithTimeout(c.Context(), testhelpers.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	err := dbw.deleteDatabase(context.Background(), database.ControllerNS)
+	err := dbw.deleteDatabase(c.Context(), database.ControllerNS)
 	c.Assert(err, tc.ErrorMatches, "cannot delete controller database")
 
 	workertest.CleanKill(c, dbw)
@@ -269,11 +269,11 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *tc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
-	db, err := s.DBApp().Open(context.Background(), "foo")
+	db, err := s.DBApp().Open(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	s.dbApp.EXPECT().Open(gomock.Any(), "foo").Return(db, nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
+	ctx, cancel := context.WithTimeout(c.Context(), testhelpers.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
@@ -282,7 +282,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *tc.C) {
 	_, err = dbw.GetDB("foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = dbw.deleteDatabase(context.Background(), "foo")
+	err = dbw.deleteDatabase(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
@@ -311,11 +311,11 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *tc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
-	db, err := s.DBApp().Open(context.Background(), "foo")
+	db, err := s.DBApp().Open(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	s.dbApp.EXPECT().Open(gomock.Any(), "foo").Return(db, nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.LongWait)
+	ctx, cancel := context.WithTimeout(c.Context(), testhelpers.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
@@ -324,7 +324,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *tc.C) {
 	_, err = dbw.GetDB("foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = dbw.deleteDatabase(context.Background(), "foo")
+	err = dbw.deleteDatabase(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
@@ -361,7 +361,7 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *tc.C) {
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
 
-	err := dbw.deleteDatabase(context.Background(), "foo")
+	err := dbw.deleteDatabase(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
 	workertest.CleanKill(c, w)

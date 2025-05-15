@@ -73,7 +73,7 @@ func (s *CleanerSuite) TestWatchCleanupsSuccess(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = api.WatchCleanups(context.Background())
+	_, err = api.WatchCleanups(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
@@ -91,7 +91,7 @@ func (s *CleanerSuite) TestWatchCleanupsFailure(c *tc.C) {
 	s.st.SetErrors(errors.New("boom!"))
 	s.st.watchCleanupsFails = true
 
-	result, err := api.WatchCleanups(context.Background())
+	result, err := api.WatchCleanups(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error.Error(), tc.Equals, "boom!")
 	s.st.CheckCallNames(c, "WatchCleanups")
@@ -108,7 +108,7 @@ func (s *CleanerSuite) TestCleanupSuccess(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = api.Cleanup(context.Background())
+	err = api.Cleanup(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Cleanup")
 }
@@ -125,7 +125,7 @@ func (s *CleanerSuite) TestCleanupFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.st.SetErrors(errors.New("Boom!"))
-	err = api.Cleanup(context.Background())
+	err = api.Cleanup(c.Context())
 	c.Assert(err, tc.ErrorMatches, "Boom!")
 	s.st.CheckCallNames(c, "Cleanup")
 }

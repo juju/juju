@@ -4,7 +4,6 @@
 package refresher
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -45,7 +44,7 @@ func (s *refresherFactorySuite) TestRefresh(c *tc.C) {
 		},
 	}
 
-	charmID2, err := f.Run(context.Background(), cfg)
+	charmID2, err := f.Run(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID2, tc.DeepEquals, charmID)
 }
@@ -70,7 +69,7 @@ func (s *refresherFactorySuite) TestRefreshNotAllowed(c *tc.C) {
 		},
 	}
 
-	_, err := f.Run(context.Background(), cfg)
+	_, err := f.Run(c.Context(), cfg)
 	c.Assert(err, tc.ErrorMatches, `unable to refresh "meshuggah"`)
 }
 
@@ -103,7 +102,7 @@ func (s *refresherFactorySuite) TestRefreshCallsAllRefreshers(c *tc.C) {
 		},
 	}
 
-	charmID2, err := f.Run(context.Background(), cfg)
+	charmID2, err := f.Run(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID2, tc.DeepEquals, charmID)
 }
@@ -144,7 +143,7 @@ func (s *refresherFactorySuite) TestRefreshCallsRefreshersEvenAfterExhaustedErro
 		},
 	}
 
-	charmID2, err := f.Run(context.Background(), cfg)
+	charmID2, err := f.Run(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID2, tc.DeepEquals, charmID)
 }
@@ -176,7 +175,7 @@ func (s *baseRefresherSuite) TestResolveCharm(c *tc.C) {
 		resolveOriginFn: charmHubOriginResolver,
 		logger:          fakeLogger{},
 	}
-	url, obtainedOrigin, err := refresher.ResolveCharm(context.Background())
+	url, obtainedOrigin, err := refresher.ResolveCharm(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(url, tc.DeepEquals, charm.MustParseURL("ch:meshuggah-1"))
 	c.Assert(obtainedOrigin, tc.DeepEquals, origin)
@@ -207,7 +206,7 @@ func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *tc.C) {
 		resolveOriginFn: charmHubOriginResolver,
 		logger:          fakeLogger{},
 	}
-	_, _, err := refresher.ResolveCharm(context.Background())
+	_, _, err := refresher.ResolveCharm(c.Context())
 	c.Assert(err, tc.ErrorMatches, `cannot upgrade from single base "ubuntu@22.04" charm to a charm supporting \["ubuntu@20.04"\]. Use --force-series to override.`)
 }
 
@@ -233,7 +232,7 @@ func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *tc.C) {
 		resolveOriginFn: charmHubOriginResolver,
 		logger:          fakeLogger{},
 	}
-	_, _, err := refresher.ResolveCharm(context.Background())
+	_, _, err := refresher.ResolveCharm(c.Context())
 	c.Assert(err, tc.ErrorMatches, "unexpected charm URL")
 }
 
@@ -265,7 +264,7 @@ func (s *localCharmRefresherSuite) TestRefresh(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmID, err := task.Refresh(context.Background())
+	charmID, err := task.Refresh(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID.URL, tc.Equals, curl)
 	c.Assert(charmID.Origin.Source, tc.Equals, corecharm.Local)
@@ -288,7 +287,7 @@ func (s *localCharmRefresherSuite) TestRefreshBecomesExhausted(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = task.Refresh(context.Background())
+	_, err = task.Refresh(c.Context())
 	c.Assert(err, tc.Equals, ErrExhausted)
 }
 
@@ -309,7 +308,7 @@ func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = task.Refresh(context.Background())
+	_, err = task.Refresh(c.Context())
 	c.Assert(err, tc.ErrorMatches, `no charm found at "local:meshuggah"`)
 }
 
@@ -344,7 +343,7 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmID, err := task.Refresh(context.Background())
+	charmID, err := task.Refresh(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID, tc.DeepEquals, &CharmID{
 		URL:    newCurl,
@@ -377,7 +376,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmID, err := task.Refresh(context.Background())
+	charmID, err := task.Refresh(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(charmID, tc.DeepEquals, &CharmID{
 		URL:    newCurl,
@@ -408,7 +407,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = task.Refresh(context.Background())
+	_, err = task.Refresh(c.Context())
 	c.Assert(err, tc.ErrorMatches, `charm "meshuggah": already up-to-date`)
 }
 
@@ -435,7 +434,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = task.Refresh(context.Background())
+	_, err = task.Refresh(c.Context())
 	c.Assert(err, tc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
 }
 
@@ -470,7 +469,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = task.Refresh(context.Background())
+	_, err = task.Refresh(c.Context())
 	c.Assert(err, tc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
 }
 
@@ -507,7 +506,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = task.Refresh(context.Background())
+	_, err = task.Refresh(c.Context())
 	c.Assert(err, tc.ErrorMatches, `charm "aloupi", revision 1: already up-to-date`)
 }
 
@@ -527,7 +526,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowed(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	allowed, err := task.Allowed(context.Background(), cfg)
+	allowed, err := task.Allowed(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(allowed, tc.IsTrue)
 }
@@ -551,7 +550,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	allowed, err := task.Allowed(context.Background(), cfg)
+	allowed, err := task.Allowed(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(allowed, tc.IsTrue)
 }
@@ -575,7 +574,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *tc.C) {
 	task, err := refresher(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
-	allowed, err := task.Allowed(context.Background(), cfg)
+	allowed, err := task.Allowed(c.Context(), cfg)
 	c.Assert(err, tc.ErrorMatches, "trap")
 	c.Assert(allowed, tc.IsFalse)
 }

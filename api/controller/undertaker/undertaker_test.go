@@ -4,8 +4,6 @@
 package undertaker_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
@@ -31,7 +29,7 @@ func (s *UndertakerSuite) TestModelInfo(c *tc.C) {
 		result.Result = params.UndertakerModelInfo{}
 	})
 
-	result, err := client.ModelInfo(context.Background())
+	result, err := client.ModelInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
 	c.Assert(result, tc.Equals, params.UndertakerModelInfoResult{})
@@ -44,7 +42,7 @@ func (s *UndertakerSuite) TestProcessDyingModel(c *tc.C) {
 		c.Assert(response, tc.IsNil)
 	})
 
-	c.Assert(client.ProcessDyingModel(context.Background()), tc.ErrorIsNil)
+	c.Assert(client.ProcessDyingModel(c.Context()), tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
 }
 
@@ -55,7 +53,7 @@ func (s *UndertakerSuite) TestRemoveModel(c *tc.C) {
 		c.Assert(response, tc.IsNil)
 	})
 
-	err := client.RemoveModel(context.Background())
+	err := client.RemoveModel(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
 }
@@ -117,7 +115,7 @@ func (s *UndertakerSuite) TestWatchModelResourcesCreatesWatcher(c *tc.C) {
 
 	client, err := undertaker.NewClient(apiCaller, newWatcher)
 	c.Assert(err, tc.ErrorIsNil)
-	w, err := client.WatchModelResources(context.Background())
+	w, err := client.WatchModelResources(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatcher)
 }
@@ -130,7 +128,7 @@ func (s *UndertakerSuite) TestWatchModelResourcesError(c *tc.C) {
 		c.Check(ok, tc.IsTrue)
 	})
 
-	w, err := client.WatchModelResources(context.Background())
+	w, err := client.WatchModelResources(c.Context())
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 0")
 	c.Assert(w, tc.IsNil)
 	c.Assert(called, tc.IsTrue)

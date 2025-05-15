@@ -4,8 +4,6 @@
 package uniter_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -100,7 +98,7 @@ func (s *relationUnitSuite) getRelationUnit(c *tc.C) *uniter.RelationUnit {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
-	relUnit, err := rel.Unit(context.Background(), names.NewUnitTag("mysql/0"))
+	relUnit, err := rel.Unit(c.Context(), names.NewUnitTag("mysql/0"))
 	c.Assert(err, tc.ErrorIsNil)
 	return relUnit
 }
@@ -130,19 +128,19 @@ func (s *relationUnitSuite) TestEndpoint(c *tc.C) {
 
 func (s *relationUnitSuite) TestEnterScope(c *tc.C) {
 	relUnit := s.getRelationUnit(c)
-	err := relUnit.EnterScope(context.Background())
+	err := relUnit.EnterScope(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *relationUnitSuite) TestLeaveScope(c *tc.C) {
 	relUnit := s.getRelationUnit(c)
-	err := relUnit.LeaveScope(context.Background())
+	err := relUnit.LeaveScope(c.Context())
 	c.Assert(err, tc.ErrorMatches, "bam")
 }
 
 func (s *relationUnitSuite) TestSettings(c *tc.C) {
 	relUnit := s.getRelationUnit(c)
-	gotSettings, err := relUnit.Settings(context.Background())
+	gotSettings, err := relUnit.Settings(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotSettings.Map(), tc.DeepEquals, params.Settings{
 		"some":  "settings",
@@ -152,7 +150,7 @@ func (s *relationUnitSuite) TestSettings(c *tc.C) {
 
 func (s *relationUnitSuite) TestApplicationSettings(c *tc.C) {
 	relUnit := s.getRelationUnit(c)
-	gotSettings, err := relUnit.ApplicationSettings(context.Background())
+	gotSettings, err := relUnit.ApplicationSettings(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotSettings.Map(), tc.DeepEquals, params.Settings{
 		"foo": "bar",
@@ -186,7 +184,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *tc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
-	w, err := client.WatchRelationUnits(context.Background(), tag, names.NewUnitTag("mysql/0"))
+	w, err := client.WatchRelationUnits(c.Context(), tag, names.NewUnitTag("mysql/0"))
 	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewRelationUnitsWatcherC(c, w)
 	defer wc.AssertStops()

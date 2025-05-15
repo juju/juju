@@ -5,8 +5,6 @@
 package machineactions_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -44,7 +42,7 @@ func (s *ClientSuite) TestWatchFails(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	w, err := client.WatchActionNotifications(context.Background(), tag)
+	w, err := client.WatchActionNotifications(c.Context(), tag)
 	c.Assert(errors.Cause(err), tc.Equals, expectErr)
 	c.Assert(w, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
@@ -74,7 +72,7 @@ func (s *ClientSuite) TestWatchResultError(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	w, err := client.WatchActionNotifications(context.Background(), tag)
+	w, err := client.WatchActionNotifications(c.Context(), tag)
 	c.Assert(errors.Cause(err), tc.Equals, expectErr)
 	c.Assert(w, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
@@ -99,7 +97,7 @@ func (s *ClientSuite) TestWatchResultTooMany(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	w, err := client.WatchActionNotifications(context.Background(), tag)
+	w, err := client.WatchActionNotifications(c.Context(), tag)
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 	c.Assert(w, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
@@ -126,7 +124,7 @@ func (s *ClientSuite) TestActionBeginSuccess(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	err := client.ActionBegin(context.Background(), tag)
+	err := client.ActionBegin(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
@@ -149,7 +147,7 @@ func (s *ClientSuite) TestActionBeginError(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	err := client.ActionBegin(context.Background(), tag)
+	err := client.ActionBegin(c.Context(), tag)
 	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	stub.CheckCalls(c, expectedCalls)
 }
@@ -179,7 +177,7 @@ func (s *ClientSuite) TestActionBeginResultError(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	err := client.ActionBegin(context.Background(), tag)
+	err := client.ActionBegin(c.Context(), tag)
 	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	stub.CheckCalls(c, expectedCalls)
 }
@@ -203,7 +201,7 @@ func (s *ClientSuite) TestActionBeginTooManyResults(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	err := client.ActionBegin(context.Background(), tag)
+	err := client.ActionBegin(c.Context(), tag)
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 	stub.CheckCalls(c, expectedCalls)
 }
@@ -236,7 +234,7 @@ func (s *ClientSuite) TestActionFinishSuccess(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	err := client.ActionFinish(context.Background(), tag, status, actionResults, message)
+	err := client.ActionFinish(c.Context(), tag, status, actionResults, message)
 	c.Assert(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, expectedCalls)
 }
@@ -264,7 +262,7 @@ func (s *ClientSuite) TestActionFinishError(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	err := client.ActionFinish(context.Background(), tag, "", nil, "")
+	err := client.ActionFinish(c.Context(), tag, "", nil, "")
 	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	stub.CheckCalls(c, expectedCalls)
 }
@@ -299,7 +297,7 @@ func (s *ClientSuite) TestActionFinishResultError(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	err := client.ActionFinish(context.Background(), tag, "", nil, "")
+	err := client.ActionFinish(c.Context(), tag, "", nil, "")
 	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	stub.CheckCalls(c, expectedCalls)
 }
@@ -328,7 +326,7 @@ func (s *ClientSuite) TestActionFinishTooManyResults(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	err := client.ActionFinish(context.Background(), tag, "", nil, "")
+	err := client.ActionFinish(c.Context(), tag, "", nil, "")
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 	stub.CheckCalls(c, expectedCalls)
 }
@@ -364,7 +362,7 @@ func (s *ClientSuite) TestGetActionSuccess(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	action, err := client.Action(context.Background(), tag)
+	action, err := client.Action(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(action.Name(), tc.Equals, expectedName)
 	c.Assert(action.Params(), tc.DeepEquals, expectedParams)
@@ -391,7 +389,7 @@ func (s *ClientSuite) TestGetActionError(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	action, err := client.Action(context.Background(), tag)
+	action, err := client.Action(c.Context(), tag)
 	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	c.Assert(action, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
@@ -423,7 +421,7 @@ func (s *ClientSuite) TestGetActionResultError(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	action, err := client.Action(context.Background(), tag)
+	action, err := client.Action(c.Context(), tag)
 	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	c.Assert(action, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
@@ -448,7 +446,7 @@ func (s *ClientSuite) TestGetActionTooManyResults(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	action, err := client.Action(context.Background(), tag)
+	action, err := client.Action(c.Context(), tag)
 	c.Assert(err, tc.ErrorMatches, "expected only 1 action query result, got 2")
 	c.Assert(action, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
@@ -480,7 +478,7 @@ func (s *ClientSuite) TestRunningActionSuccess(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	actions, err := client.RunningActions(context.Background(), tag)
+	actions, err := client.RunningActions(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(actions, tc.DeepEquals, actionsList)
 	stub.CheckCalls(c, expectedCalls)
@@ -504,7 +502,7 @@ func (s *ClientSuite) TestRunningActionsError(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	actions, err := client.RunningActions(context.Background(), tag)
+	actions, err := client.RunningActions(c.Context(), tag)
 	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	c.Assert(actions, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
@@ -536,7 +534,7 @@ func (s *ClientSuite) TestRunningActionsResultError(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	action, err := client.RunningActions(context.Background(), tag)
+	action, err := client.RunningActions(c.Context(), tag)
 	c.Assert(errors.Cause(err), tc.Equals, expectedErr)
 	c.Assert(action, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)
@@ -561,7 +559,7 @@ func (s *ClientSuite) TestRunningActionsTooManyResults(c *tc.C) {
 	})
 
 	client := machineactions.NewClient(apiCaller)
-	actions, err := client.RunningActions(context.Background(), tag)
+	actions, err := client.RunningActions(c.Context(), tag)
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 	c.Assert(actions, tc.IsNil)
 	stub.CheckCalls(c, expectedCalls)

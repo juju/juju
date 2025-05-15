@@ -5,7 +5,6 @@ package openstack
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"html/template"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/go-goose/goose/v5/swift"
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -51,8 +51,8 @@ func MetadataStorage(e environs.Environ) envstorage.Storage {
 	return metadataStorage
 }
 
-func InstanceAddress(publicIP string, addresses map[string][]nova.IPAddress) string {
-	addr, _ := convertNovaAddresses(context.Background(), publicIP, addresses).OneMatchingScope(network.ScopeMatchPublic)
+func InstanceAddress(c *tc.C, publicIP string, addresses map[string][]nova.IPAddress) string {
+	addr, _ := convertNovaAddresses(c.Context(), publicIP, addresses).OneMatchingScope(network.ScopeMatchPublic)
 	return addr.Value
 }
 

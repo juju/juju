@@ -1098,7 +1098,7 @@ func createImageMetadata(c *tc.C) (string, []*imagemetadata.ImageMetadata) {
 	c.Assert(err, tc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	base := corebase.MustParseBaseFromString("ubuntu@22.04")
-	err = imagemetadata.MergeAndWriteMetadata(context.Background(), ss, base, im, cloudSpec, sourceStor)
+	err = imagemetadata.MergeAndWriteMetadata(c.Context(), ss, base, im, cloudSpec, sourceStor)
 	c.Assert(err, tc.ErrorIsNil)
 	return sourceDir, im
 }
@@ -1239,15 +1239,15 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	provider, err := environs.Provider(bootstrapConfig.CloudType)
 	c.Assert(err, tc.ErrorIsNil)
-	err = provider.ValidateCloud(context.Background(), *spec)
+	err = provider.ValidateCloud(c.Context(), *spec)
 	c.Assert(err, tc.ErrorIsNil)
 
-	env, err := environs.New(context.Background(), environs.OpenParams{
+	env, err := environs.New(c.Context(), environs.OpenParams{
 		Cloud:  *spec,
 		Config: cfg,
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, tc.ErrorIsNil)
-	err = env.PrepareForBootstrap(envtesting.BootstrapContext(context.Background(), c), "controller-1")
+	err = env.PrepareForBootstrap(envtesting.BootstrapContext(c.Context(), c), "controller-1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now check the available tools which are the 1.2.0 envtools.
@@ -2264,7 +2264,7 @@ clouds:
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *tc.C, env environs.Environ, expected []semversion.Binary) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	list, err := envtools.FindTools(context.Background(), ss,
+	list, err := envtools.FindTools(c.Context(), ss,
 		env, jujuversion.Current.Major, jujuversion.Current.Minor, []string{"released"}, coretools.Filter{})
 	c.Check(err, tc.ErrorIsNil)
 	c.Logf("found: %s", list.String())

@@ -4,8 +4,6 @@
 package centralhub_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/tc"
@@ -47,7 +45,7 @@ func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *tc.C) {
 		"state-config-watcher": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -57,7 +55,7 @@ func (s *ManifoldSuite) TestStateConfigWatcherNotAStateServer(c *tc.C) {
 		"state-config-watcher": false,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -68,7 +66,7 @@ func (s *ManifoldSuite) TestMissingHub(c *tc.C) {
 		"state-config-watcher": true,
 	})
 
-	worker, err := s.manifold().Start(context.Background(), getter)
+	worker, err := s.manifold().Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.ErrorIs, errors.NotValid)
 }
@@ -79,7 +77,7 @@ func (s *ManifoldSuite) TestHubOutput(c *tc.C) {
 	})
 
 	manifold := s.manifold()
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(worker, tc.NotNil)
 	defer workertest.CleanKill(c, worker)

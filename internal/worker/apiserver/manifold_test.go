@@ -193,7 +193,7 @@ func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 		getter := s.newGetter(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context.Background(), getter)
+		_, err := s.manifold.Start(c.Context(), getter)
 		c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
 
 		// The state tracker must have either no calls, or a Use and a Done.
@@ -267,7 +267,7 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w

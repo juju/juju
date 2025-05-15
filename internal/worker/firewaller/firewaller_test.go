@@ -2349,7 +2349,7 @@ func (s *firewallerBaseSuite) mustOpenPortRanges(c *tc.C, u *mocks.MockUnit, end
 		return
 	}
 
-	m, err := u.AssignedMachine(context.Background())
+	m, err := u.AssignedMachine(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	if s.firewallerStarted {
@@ -2371,7 +2371,7 @@ func (s *firewallerBaseSuite) mustClosePortRanges(c *tc.C, u *mocks.MockUnit, en
 		return
 	}
 
-	m, err := u.AssignedMachine(context.Background())
+	m, err := u.AssignedMachine(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	if s.firewallerStarted {

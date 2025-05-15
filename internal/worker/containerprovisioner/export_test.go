@@ -4,9 +4,8 @@
 package containerprovisioner
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/config"
 )
@@ -26,7 +25,7 @@ func SetObserver(p Provisioner, observer chan<- *config.Config) {
 }
 
 func MachineSupportsContainers(
-	cfg ManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag,
+	c *tc.C, cfg ManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag,
 ) (ContainerMachine, error) {
-	return cfg.machineSupportsContainers(context.Background(), pr, mTag)
+	return cfg.machineSupportsContainers(c.Context(), pr, mTag)
 }

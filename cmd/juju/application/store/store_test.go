@@ -36,7 +36,7 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
-		context.Background(),
+		c.Context(),
 		s.charmAdder,
 		curl,
 		origin,
@@ -55,7 +55,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
-		context.Background(),
+		c.Context(),
 		s.charmAdder,
 		curl,
 		origin,
@@ -77,7 +77,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
-		context.Background(),
+		c.Context(),
 		s.charmAdder,
 		curl,
 		origin,

@@ -34,7 +34,7 @@ func (s *tracerSuite) TestTracer(c *tc.C) {
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
 
-	ctx, span := tracer.Start(context.Background(), "foo")
+	ctx, span := tracer.Start(c.Context(), "foo")
 	c.Check(ctx, tc.NotNil)
 	c.Check(span, tc.NotNil)
 
@@ -49,7 +49,7 @@ func (s *tracerSuite) TestTracerStartContext(c *tc.C) {
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
 
-	ctx, span := tracer.Start(context.Background(), "foo")
+	ctx, span := tracer.Start(c.Context(), "foo")
 	defer span.End()
 
 	select {
@@ -67,7 +67,7 @@ func (s *tracerSuite) TestTracerStartContextShouldBeCanceled(c *tc.C) {
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 
 	// cancel the context straight away
 	cancel()
@@ -92,7 +92,7 @@ func (s *tracerSuite) TestTracerAddEvent(c *tc.C) {
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
 
-	_, span := tracer.Start(context.Background(), "foo")
+	_, span := tracer.Start(c.Context(), "foo")
 	defer span.End()
 
 	span.AddEvent("bar")
@@ -107,7 +107,7 @@ func (s *tracerSuite) TestTracerRecordErrorWithNil(c *tc.C) {
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
 
-	_, span := tracer.Start(context.Background(), "foo")
+	_, span := tracer.Start(c.Context(), "foo")
 	defer span.End()
 
 	span.RecordError(nil)
@@ -124,7 +124,7 @@ func (s *tracerSuite) TestTracerRecordError(c *tc.C) {
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
 
-	_, span := tracer.Start(context.Background(), "foo")
+	_, span := tracer.Start(c.Context(), "foo")
 	defer span.End()
 
 	span.RecordError(errors.Errorf("boom"))
@@ -138,7 +138,7 @@ func (s *tracerSuite) TestBuildRequestContextWithBackgroundContext(c *tc.C) {
 	w := s.newTracer(c)
 	defer workertest.CleanKill(c, w)
 
-	ctx := w.(*tracer).buildRequestContext(context.Background())
+	ctx := w.(*tracer).buildRequestContext(c.Context())
 	c.Check(ctx, tc.NotNil)
 
 	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
@@ -156,7 +156,7 @@ func (s *tracerSuite) TestBuildRequestContextWithBrokenTraceID(c *tc.C) {
 	w := s.newTracer(c)
 	defer workertest.CleanKill(c, w)
 
-	ctx := coretrace.WithTraceScope(context.Background(), "foo", "bar", 0)
+	ctx := coretrace.WithTraceScope(c.Context(), "foo", "bar", 0)
 
 	ctx = w.(*tracer).buildRequestContext(ctx)
 	c.Check(ctx, tc.NotNil)
@@ -176,7 +176,7 @@ func (s *tracerSuite) TestBuildRequestContextWithBrokenSpanID(c *tc.C) {
 	w := s.newTracer(c)
 	defer workertest.CleanKill(c, w)
 
-	ctx := coretrace.WithTraceScope(context.Background(), "80f198ee56343ba864fe8b2a57d3eff7", "bar", 0)
+	ctx := coretrace.WithTraceScope(c.Context(), "80f198ee56343ba864fe8b2a57d3eff7", "bar", 0)
 
 	ctx = w.(*tracer).buildRequestContext(ctx)
 	c.Check(ctx, tc.NotNil)
@@ -196,7 +196,7 @@ func (s *tracerSuite) TestBuildRequestContext(c *tc.C) {
 	w := s.newTracer(c)
 	defer workertest.CleanKill(c, w)
 
-	ctx := coretrace.WithTraceScope(context.Background(), "80f198ee56343ba864fe8b2a57d3eff7", "ff00000000000000", 1)
+	ctx := coretrace.WithTraceScope(c.Context(), "80f198ee56343ba864fe8b2a57d3eff7", "ff00000000000000", 1)
 
 	ctx = w.(*tracer).buildRequestContext(ctx)
 	c.Check(ctx, tc.NotNil)
@@ -216,7 +216,7 @@ func (s *tracerSuite) newTracer(c *tc.C) TrackedTracer {
 	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, bool, float64, time.Duration, logger.Logger) (Client, ClientTracerProvider, ClientTracer, error) {
 		return s.client, s.clientTracerProvider, s.clientTracer, nil
 	}
-	tracer, err := NewTracerWorker(context.Background(), ns, "http://meshuggah.com", false, false, 0.42, time.Second, s.logger, newClient)
+	tracer, err := NewTracerWorker(c.Context(), ns, "http://meshuggah.com", false, false, 0.42, time.Second, s.logger, newClient)
 	c.Assert(err, tc.ErrorIsNil)
 	return tracer
 }

@@ -4,8 +4,6 @@
 package objectstoreservices
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -65,7 +63,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		NewObjectStoreServices:       NewObjectStoreServices,
 		NewObjectStoreServicesGetter: NewObjectStoreServicesGetter,
 	})
-	w, err := manifold.Start(context.Background(), dt.StubGetter(getter))
+	w, err := manifold.Start(c.Context(), dt.StubGetter(getter))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 

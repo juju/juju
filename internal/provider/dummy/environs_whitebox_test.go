@@ -4,8 +4,6 @@
 package dummy
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
@@ -20,7 +18,7 @@ var _ = tc.Suite(&environWhiteboxSuite{})
 type environWhiteboxSuite struct{}
 
 func (s *environWhiteboxSuite) TestSupportsContainerAddresses(c *tc.C) {
-	callCtx := context.Background()
+	callCtx := c.Context()
 
 	env := new(environ)
 	supported, err := env.SupportsContainerAddresses(callCtx)

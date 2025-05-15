@@ -5,7 +5,6 @@ package download_test
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha512"
 	"encoding/hex"
 	"io"
@@ -63,7 +62,7 @@ func (s *ValidateSuite) TestValidateResource(c *tc.C) {
 
 	// Act:
 	reader, err := downloader.Download(
-		context.Background(),
+		c.Context(),
 		io.NopCloser(bytes.NewBuffer(resourceContent)),
 		hash,
 		size,
@@ -100,7 +99,7 @@ func (s *ValidateSuite) TestGetResourceUnexpectedSize(c *tc.C) {
 
 	// Act:
 	reader, err := downloader.Download(
-		context.Background(),
+		c.Context(),
 		io.NopCloser(bytes.NewBuffer(resourceContent)),
 		hash,
 		666,
@@ -130,7 +129,7 @@ func (s *ValidateSuite) TestGetResourceUnexpectedHash(c *tc.C) {
 
 	// Act:
 	reader, err := downloader.Download(
-		context.Background(),
+		c.Context(),
 		io.NopCloser(bytes.NewBuffer(resourceContent)),
 		"bad-hash",
 		size,

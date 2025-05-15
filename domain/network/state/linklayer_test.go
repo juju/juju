@@ -32,7 +32,7 @@ func (s *linkLayerSuite) TestMachineInterfaceViewFitsType(c *tc.C) {
 	subUUID := "sub-uuid"
 	addrUUID := "addr-uuid"
 
-	ctx := context.Background()
+	ctx := c.Context()
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID); err != nil {

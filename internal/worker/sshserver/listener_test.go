@@ -25,6 +25,9 @@ import (
 // error if the underlying listener is already closed.
 type testingSSHServerListener struct {
 	net.Listener
+
+	c *tc.C
+
 	// closeAllowed indicates when the server has reached
 	// a safe point that it can be killed.
 	closeAllowed chan struct{}
@@ -34,9 +37,10 @@ type testingSSHServerListener struct {
 }
 
 // newTestingSSHServerListener returns a listener.
-func newTestingSSHServerListener(l net.Listener, timeout time.Duration) net.Listener {
+func newTestingSSHServerListener(c *tc.C, l net.Listener, timeout time.Duration) net.Listener {
 	return &testingSSHServerListener{
 		Listener:     l,
+		c:            c,
 		closeAllowed: make(chan struct{}),
 		timeout:      timeout,
 	}
@@ -52,7 +56,7 @@ func (l *testingSSHServerListener) Accept() (net.Conn, error) {
 }
 
 func (l *testingSSHServerListener) Close() error {
-	ctx, cancel := context.WithTimeout(context.Background(), l.timeout)
+	ctx, cancel := context.WithTimeout(l.c.Context(), l.timeout)
 	defer cancel()
 
 	select {
@@ -77,7 +81,7 @@ func (s *listenerSuite) TestAcceptOnceListener(c *tc.C) {
 	s.listener.EXPECT().Accept().Return(nil, nil)
 	s.listener.EXPECT().Close()
 
-	acceptOnceListener := newTestingSSHServerListener(s.listener, time.Second)
+	acceptOnceListener := newTestingSSHServerListener(c, s.listener, time.Second)
 
 	done := make(chan struct{})
 
@@ -104,7 +108,7 @@ func (s *listenerSuite) TestAcceptOnceListenerDoesNotStop(c *tc.C) {
 
 	// No calls to the mock listener should have been made.
 
-	acceptOnceListener := newTestingSSHServerListener(s.listener, time.Millisecond*50)
+	acceptOnceListener := newTestingSSHServerListener(c, s.listener, time.Millisecond*50)
 
 	err := acceptOnceListener.Close()
 	c.Assert(err, tc.ErrorIs, context.DeadlineExceeded)

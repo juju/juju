@@ -4,8 +4,6 @@
 package firewaller_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -41,7 +39,7 @@ func (s *machineSuite) TestMachine(c *tc.C) {
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, tc.ErrorIsNil)
-	m, err := client.Machine(context.Background(), tag)
+	m, err := client.Machine(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.Life(), tc.Equals, life.Alive)
 	c.Assert(m.Tag(), tc.DeepEquals, tag)
@@ -75,9 +73,9 @@ func (s *machineSuite) TestInstanceId(c *tc.C) {
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, tc.ErrorIsNil)
-	m, err := client.Machine(context.Background(), tag)
+	m, err := client.Machine(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
-	id, err := m.InstanceId(context.Background())
+	id, err := m.InstanceId(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m.Life(), tc.Equals, life.Alive)
 	c.Assert(id, tc.Equals, instance.Id("inst-666"))
@@ -112,9 +110,9 @@ func (s *machineSuite) TestWatchUnits(c *tc.C) {
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, tc.ErrorIsNil)
-	m, err := client.Machine(context.Background(), tag)
+	m, err := client.Machine(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = m.WatchUnits(context.Background())
+	_, err = m.WatchUnits(c.Context())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 	c.Assert(calls, tc.Equals, 2)
 }
@@ -147,9 +145,9 @@ func (s *machineSuite) TestIsManual(c *tc.C) {
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, tc.ErrorIsNil)
-	m, err := client.Machine(context.Background(), tag)
+	m, err := client.Machine(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
-	result, err := m.IsManual(context.Background())
+	result, err := m.IsManual(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.IsTrue)
 	c.Assert(calls, tc.Equals, 2)

@@ -47,14 +47,14 @@ func oauthCredential(token string) cloud.Credential {
 }
 
 func (s *EnvironProviderSuite) TestValidateCloud(c *tc.C) {
-	err := providerInstance.ValidateCloud(context.Background(), s.cloudSpec())
+	err := providerInstance.ValidateCloud(c.Context(), s.cloudSpec())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *EnvironProviderSuite) TestValidateCloudSkipTLSVerify(c *tc.C) {
 	cloud := s.cloudSpec()
 	cloud.SkipTLSVerify = true
-	err := providerInstance.ValidateCloud(context.Background(), cloud)
+	err := providerInstance.ValidateCloud(c.Context(), cloud)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -62,14 +62,14 @@ func (s *EnvironProviderSuite) TestValidateCloudInvalidOAuth(c *tc.C) {
 	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
-	err := providerInstance.ValidateCloud(context.Background(), spec)
+	err := providerInstance.ValidateCloud(c.Context(), spec)
 	c.Assert(err, tc.ErrorMatches, ".*malformed maas-oauth.*")
 }
 
 func (s *EnvironProviderSuite) TestValidateCloudInvalidEndpoint(c *tc.C) {
 	spec := s.cloudSpec()
 	spec.Endpoint = "This should have been a URL or host."
-	err := providerInstance.ValidateCloud(context.Background(), spec)
+	err := providerInstance.ValidateCloud(c.Context(), spec)
 	c.Assert(err, tc.ErrorMatches,
 		`validating cloud spec: validating endpoint: endpoint "This should have been a URL or host." not valid`,
 	)
@@ -94,7 +94,7 @@ func (s *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *tc.C) {
 	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
-	env, err := providerInstance.Open(context.Background(), environs.OpenParams{
+	env, err := providerInstance.Open(c.Context(), environs.OpenParams{
 		Cloud:  spec,
 		Config: config,
 	}, environs.NoopCredentialInvalidator())
@@ -198,5 +198,5 @@ func ping(c *tc.C, endpoint string, getCapabilities Capabilities) error {
 	m, ok := p.(EnvironProvider)
 	c.Assert(ok, tc.IsTrue)
 	m.GetCapabilities = getCapabilities
-	return m.Ping(context.Background(), endpoint)
+	return m.Ping(c.Context(), endpoint)
 }

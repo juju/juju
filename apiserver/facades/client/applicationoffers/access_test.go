@@ -74,6 +74,7 @@ func (s *offerAccessSuite) setupAPI(c *tc.C) {
 }
 
 func (s *offerAccessSuite) modifyAccess(
+	c *tc.C,
 	user names.UserTag,
 	action params.OfferAction,
 	access params.OfferAccessPermission,
@@ -87,19 +88,19 @@ func (s *offerAccessSuite) modifyAccess(
 			OfferURL: offerURL,
 		}}}
 
-	result, err := s.api.ModifyOfferAccess(context.Background(), args)
+	result, err := s.api.ModifyOfferAccess(c.Context(), args)
 	if err != nil {
 		return err
 	}
 	return result.OneError()
 }
 
-func (s *offerAccessSuite) grant(user names.UserTag, access params.OfferAccessPermission, offerURL string) error {
-	return s.modifyAccess(user, params.GrantOfferAccess, access, offerURL)
+func (s *offerAccessSuite) grant(c *tc.C, user names.UserTag, access params.OfferAccessPermission, offerURL string) error {
+	return s.modifyAccess(c, user, params.GrantOfferAccess, access, offerURL)
 }
 
-func (s *offerAccessSuite) revoke(user names.UserTag, access params.OfferAccessPermission, offerURL string) error {
-	return s.modifyAccess(user, params.RevokeOfferAccess, access, offerURL)
+func (s *offerAccessSuite) revoke(c *tc.C, user names.UserTag, access params.OfferAccessPermission, offerURL string) error {
+	return s.modifyAccess(c, user, params.RevokeOfferAccess, access, offerURL)
 }
 
 func (s *offerAccessSuite) setupOffer(c *tc.C, modelUUID, modelName, owner, offerName string) string {
@@ -146,7 +147,7 @@ func (s *offerAccessSuite) TestGrantMissingUserFails(c *tc.C) {
 		Change:     permission.Grant,
 	}).Return(accesserrors.UserNotFound)
 
-	err := s.grant(user, params.OfferReadAccess, "test.someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
 	expectedErr := `could not grant offer access for "foobar": user not found`
 	c.Assert(err, tc.ErrorMatches, expectedErr)
 }
@@ -157,7 +158,7 @@ func (s *offerAccessSuite) TestGrantMissingOfferFails(c *tc.C) {
 
 	s.setupOffer(c, "uuid", "test", "admin", "differentoffer")
 	user := names.NewUserTag("foobar")
-	err := s.grant(user, params.OfferReadAccess, "test.someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
 	expectedErr := `.*application offer "someoffer" not found`
 	c.Assert(err, tc.ErrorMatches, expectedErr)
 }
@@ -175,7 +176,7 @@ func (s *offerAccessSuite) TestRevokePermission(c *tc.C) {
 		Change:     permission.Revoke,
 	})
 
-	err := s.revoke(user, params.OfferReadAccess, "test.someoffer")
+	err := s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
 	c.Assert(err, tc.IsNil)
 }
 
@@ -193,7 +194,7 @@ func (s *offerAccessSuite) TestGrantPermission(c *tc.C) {
 		Change:     permission.Grant,
 	}).Return(accesserrors.PermissionAccessGreater)
 
-	err := s.grant(user, params.OfferReadAccess, "test.someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
 
 	c.Assert(errors.Cause(err), tc.ErrorMatches, `could not grant offer access for .*: access or greater`)
 }
@@ -215,7 +216,7 @@ func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *tc.C) {
 		Change:     permission.Grant,
 	})
 
-	err := s.grant(user, params.OfferReadAccess, "superuser-bob/test.someoffer")
+	err := s.grant(c, user, params.OfferReadAccess, "superuser-bob/test.someoffer")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -231,7 +232,7 @@ func (s *offerAccessSuite) assertGrantToOffer(c *tc.C, userAccess permission.Acc
 		Key:        offerUUID,
 	}).Return(userAccess, nil)
 
-	err := s.grant(other, params.OfferReadAccess, "bob@remote/test.someoffer")
+	err := s.grant(c, other, params.OfferReadAccess, "bob@remote/test.someoffer")
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -278,7 +279,7 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *tc.C) {
 		Change:     permission.Grant,
 	})
 
-	err := s.grant(other, params.OfferReadAccess, "foobar/test.someoffer")
+	err := s.grant(c, other, params.OfferReadAccess, "foobar/test.someoffer")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -347,7 +348,7 @@ func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *tc.C) {
 				OfferURL: "test.someoffer",
 			}}}
 
-		result, err := s.api.ModifyOfferAccess(context.Background(), args)
+		result, err := s.api.ModifyOfferAccess(c.Context(), args)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(result.OneError(), tc.ErrorMatches, expectedErr)
 	}
@@ -361,7 +362,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessEmptyArgs(c *tc.C) {
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{{OfferURL: "test.someoffer"}}}
 
-	result, err := s.api.ModifyOfferAccess(context.Background(), args)
+	result, err := s.api.ModifyOfferAccess(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	expectedErr := `could not modify offer access: "" offer access not valid`
 	c.Assert(result.OneError(), tc.ErrorMatches, expectedErr)
@@ -382,7 +383,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *tc.C) {
 			OfferURL: "test.someoffer",
 		}}}
 
-	result, err := s.api.ModifyOfferAccess(context.Background(), args)
+	result, err := s.api.ModifyOfferAccess(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), tc.ErrorMatches, expectedErr)
@@ -423,7 +424,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *tc.C)
 			OfferURL: "admin/test.someoffer",
 		}}}
 
-	result, err := s.api.ModifyOfferAccess(context.Background(), args)
+	result, err := s.api.ModifyOfferAccess(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.OneError(), tc.ErrorIsNil)
 }

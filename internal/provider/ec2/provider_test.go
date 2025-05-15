@@ -4,8 +4,6 @@
 package ec2_test
 
 import (
-	"context"
-
 	"github.com/aws/smithy-go"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -50,7 +48,7 @@ func (s *ProviderSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ProviderSuite) TestOpen(c *tc.C) {
-	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
+	env, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	}, environs.NoopCredentialInvalidator())
@@ -70,7 +68,7 @@ func (s *ProviderSuite) TestOpenUnsupportedCredential(c *tc.C) {
 }
 
 func (s *ProviderSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
+	_, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: coretesting.ModelConfig(c),
 	}, environs.NoopCredentialInvalidator())
@@ -78,7 +76,7 @@ func (s *ProviderSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec,
 }
 
 func (s *ProviderSuite) TestVerifyCredentialsErrs(c *tc.C) {
-	err := ec2.VerifyCredentials(context.Background(), nil)
+	err := ec2.VerifyCredentials(c.Context(), nil)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Assert(err, tc.Not(tc.ErrorIs), common.ErrorCredentialNotValid)
 }

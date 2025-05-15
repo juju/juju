@@ -34,14 +34,14 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 func (s *stateSuite) TestCurateNodes(c *tc.C) {
 	db := s.DB()
 
-	_, err := db.ExecContext(context.Background(), "INSERT INTO controller_node (controller_id) VALUES ('1')")
+	_, err := db.ExecContext(c.Context(), "INSERT INTO controller_node (controller_id) VALUES ('1')")
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.CurateNodes(
-		context.Background(), []string{"2", "3"}, []string{"1"})
+		c.Context(), []string{"2", "3"}, []string{"1"})
 	c.Assert(err, tc.ErrorIsNil)
 
-	rows, err := db.QueryContext(context.Background(), "SELECT controller_id FROM controller_node")
+	rows, err := db.QueryContext(c.Context(), "SELECT controller_id FROM controller_node")
 	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
@@ -66,10 +66,10 @@ func (s *stateSuite) TestUpdateDqliteNode(c *tc.C) {
 	nodeID := uint64(15237855465837235027)
 
 	err := s.state.UpdateDqliteNode(
-		context.Background(), "0", nodeID, "192.168.5.60")
+		c.Context(), "0", nodeID, "192.168.5.60")
 	c.Assert(err, tc.ErrorIsNil)
 
-	row := s.DB().QueryRowContext(context.Background(), "SELECT dqlite_node_id, dqlite_bind_address FROM controller_node WHERE controller_id = '0'")
+	row := s.DB().QueryRowContext(c.Context(), "SELECT dqlite_node_id, dqlite_bind_address FROM controller_node WHERE controller_id = '0'")
 	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var (
@@ -87,15 +87,15 @@ func (s *stateSuite) TestUpdateDqliteNode(c *tc.C) {
 // a not found error for namespaces that don't exist.
 func (s *stateSuite) TestSelectDatabaseNamespace(c *tc.C) {
 	db := s.DB()
-	_, err := db.ExecContext(context.Background(), "INSERT INTO namespace_list (namespace) VALUES ('simon!!')")
+	_, err := db.ExecContext(c.Context(), "INSERT INTO namespace_list (namespace) VALUES ('simon!!')")
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.state
-	namespace, err := st.SelectDatabaseNamespace(context.Background(), "simon!!")
+	namespace, err := st.SelectDatabaseNamespace(c.Context(), "simon!!")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(namespace, tc.Equals, "simon!!")
 
-	namespace, err = st.SelectDatabaseNamespace(context.Background(), "SIMon!!")
+	namespace, err = st.SelectDatabaseNamespace(c.Context(), "SIMon!!")
 	c.Check(err, tc.ErrorIs, controllernodeerrors.NotFound)
 	c.Check(namespace, tc.Equals, "")
 }
@@ -107,12 +107,12 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionSuccess(c *tc.C) {
 		Arch:   corearch.ARM64,
 	}
 
-	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Tests insert running agent binary version.
 	err = s.state.SetRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		controllerID,
 		ver,
 	)
@@ -132,7 +132,7 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionSuccess(c *tc.C) {
 	ON c.architecture_id = a.id
 	WHERE controller_id = ?
 			`
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 
 		return tx.QueryRowContext(ctx, selectAgentVerQuery, controllerID).Scan(
 			&obtainedControllerID,
@@ -152,13 +152,13 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionSuccess(c *tc.C) {
 		Arch:   corearch.AMD64,
 	}
 	err = s.state.SetRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		controllerID,
 		updatedVer,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, selectAgentVerQuery, controllerID).Scan(
 			&obtainedControllerID,
 			&obtainedVersion,
@@ -179,11 +179,11 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionControllerNodeNotFound(c *t
 		Arch:   corearch.ARM64,
 	}
 
-	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		controllerID,
 		ver,
 	)
@@ -197,11 +197,11 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionArchNotSupported(c *tc.C) {
 		Arch:   corearch.UnsupportedArches[0],
 	}
 
-	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetRunningAgentBinaryVersion(
-		context.Background(),
+		c.Context(),
 		controllerID,
 		ver,
 	)
@@ -211,14 +211,14 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionArchNotSupported(c *tc.C) {
 func (s *stateSuite) TestIsControllerNode(c *tc.C) {
 	controllerID := "1"
 
-	err := s.state.CurateNodes(context.Background(), []string{controllerID}, nil)
+	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	isControllerNode, err := s.state.IsControllerNode(context.Background(), controllerID)
+	isControllerNode, err := s.state.IsControllerNode(c.Context(), controllerID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isControllerNode, tc.Equals, true)
 
-	isControllerNode, err = s.state.IsControllerNode(context.Background(), "99")
+	isControllerNode, err = s.state.IsControllerNode(c.Context(), "99")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isControllerNode, tc.Equals, false)
 }

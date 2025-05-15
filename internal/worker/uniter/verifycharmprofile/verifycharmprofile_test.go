@@ -4,8 +4,6 @@
 package verifycharmprofile_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
@@ -27,7 +25,7 @@ func (s *verifySuite) TestNextOpNotInstallNorUpgrade(c *tc.C) {
 	remote := remotestate.Snapshot{}
 	res := newVerifyCharmProfileResolver(c)
 
-	op, err := res.NextOp(context.Background(), local, remote, nil)
+	op, err := res.NextOp(c.Context(), local, remote, nil)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	c.Assert(op, tc.IsNil)
 }
@@ -41,7 +39,7 @@ func (s *verifySuite) TestNextOpInstallProfileNotRequired(c *tc.C) {
 	}
 	res := newVerifyCharmProfileResolver(c)
 
-	op, err := res.NextOp(context.Background(), local, remote, nil)
+	op, err := res.NextOp(c.Context(), local, remote, nil)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	c.Assert(op, tc.IsNil)
 }
@@ -55,7 +53,7 @@ func (s *verifySuite) TestNextOpInstallProfileRequiredEmptyName(c *tc.C) {
 	}
 	res := newVerifyCharmProfileResolver(c)
 
-	op, err := res.NextOp(context.Background(), local, remote, nil)
+	op, err := res.NextOp(c.Context(), local, remote, nil)
 	c.Assert(err, tc.Equals, resolver.ErrDoNotProceed)
 	c.Assert(op, tc.IsNil)
 }
@@ -71,7 +69,7 @@ func (s *verifySuite) TestNextOpMisMatchCharmRevisions(c *tc.C) {
 	}
 	res := newVerifyCharmProfileResolver(c)
 
-	op, err := res.NextOp(context.Background(), local, remote, nil)
+	op, err := res.NextOp(c.Context(), local, remote, nil)
 	c.Assert(err, tc.Equals, resolver.ErrDoNotProceed)
 	c.Assert(op, tc.IsNil)
 }
@@ -87,14 +85,14 @@ func (s *verifySuite) TestNextOpMatchingCharmRevisions(c *tc.C) {
 	}
 	res := newVerifyCharmProfileResolver(c)
 
-	op, err := res.NextOp(context.Background(), local, remote, nil)
+	op, err := res.NextOp(c.Context(), local, remote, nil)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	c.Assert(op, tc.IsNil)
 }
 
 func (s *verifySuite) TestNewResolverCAAS(c *tc.C) {
 	r := verifycharmprofile.NewResolver(loggertesting.WrapCheckLog(c), model.CAAS)
-	op, err := r.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, nil)
+	op, err := r.NextOp(c.Context(), resolver.LocalState{}, remotestate.Snapshot{}, nil)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 	c.Assert(op, tc.ErrorIsNil)
 }

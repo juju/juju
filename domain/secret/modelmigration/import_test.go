@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -259,7 +258,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	s.service.EXPECT().ImportSecrets(gomock.Any(), forImport)
 
 	op := s.newImportOperation(c)
-	err = op.Execute(context.Background(), dst)
+	err = op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -282,6 +281,6 @@ func (s *importSuite) TestImportMissingBackend(c *tc.C) {
 	s.backendService.EXPECT().ListBackendIDs(gomock.Any()).Return([]string{"backend-id2"}, nil)
 
 	op := s.newImportOperation(c)
-	err = op.Execute(context.Background(), dst)
+	err = op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIs, secreterrors.MissingSecretBackendID)
 }

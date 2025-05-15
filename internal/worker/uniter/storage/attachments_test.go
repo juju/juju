@@ -4,8 +4,6 @@
 package storage_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -74,7 +72,7 @@ func (s *attachmentsSuite) TestNewAttachments(c *tc.C) {
 		},
 	}
 
-	_, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
+	_, err := storage.NewAttachments(c.Context(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -107,7 +105,7 @@ func (s *attachmentsSuite) assertNewAttachments(c *tc.C, storageTag names.Storag
 		},
 	}
 
-	att, err := storage.NewAttachments(context.Background(), storSt, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(c.Context(), storSt, unitTag, s.mockStateOps, abort)
 	c.Assert(err, tc.ErrorIsNil)
 	return att
 }
@@ -160,7 +158,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *tc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(c.Context(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, tc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
@@ -172,7 +170,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *tc.C) {
 	}}
 	storageTag0 := names.NewStorageTag("data/0")
 	storageTag1 := names.NewStorageTag("data/1")
-	_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
+	_, err = r.NextOp(c.Context(), localState, remotestate.Snapshot{
 		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag0: {
@@ -186,7 +184,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	for _, storageTag := range []names.StorageTag{storageTag0, storageTag1} {
-		_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
+		_, err = r.NextOp(c.Context(), localState, remotestate.Snapshot{
 			Life: life.Alive,
 			Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 				storageTag: {Life: life.Dying},
@@ -225,7 +223,7 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *tc.C, opState operation.Sta
 		},
 	}
 
-	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(c.Context(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, tc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
@@ -233,7 +231,7 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *tc.C, opState operation.Sta
 
 	// Inform the resolver of an attachment.
 	localState := resolver.LocalState{State: opState}
-	op, err := r.NextOp(context.Background(), localState, remotestate.Snapshot{
+	op, err := r.NextOp(c.Context(), localState, remotestate.Snapshot{
 		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
@@ -260,7 +258,7 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *tc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(c.Context(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, tc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
@@ -273,7 +271,7 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *tc.C) {
 		Installed: true,
 		Started:   false,
 	}}
-	_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
+	_, err = r.NextOp(c.Context(), localState, remotestate.Snapshot{
 		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
@@ -306,7 +304,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *tc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(c.Context(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, tc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
@@ -314,7 +312,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *tc.C) {
 	localState := resolver.LocalState{State: operation.State{
 		Kind: operation.Continue,
 	}}
-	_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
+	_, err = r.NextOp(c.Context(), localState, remotestate.Snapshot{
 		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
@@ -330,7 +328,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *tc.C) {
 
 	s.storSt.Attach(storageTag.Id())
 	s.expectSetState(c, "")
-	err = att.CommitHook(context.Background(), hook.Info{
+	err = att.CommitHook(c.Context(), hook.Info{
 		Kind:      hooks.StorageAttached,
 		StorageId: storageTag.Id(),
 	})
@@ -340,7 +338,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.expectSetState(c, "")
 	c.Assert(removed, tc.IsFalse)
-	err = att.CommitHook(context.Background(), hook.Info{
+	err = att.CommitHook(c.Context(), hook.Info{
 		Kind:      hooks.StorageDetaching,
 		StorageId: storageTag.Id(),
 	})
@@ -386,7 +384,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *tc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(c.Context(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(att.Pending(), tc.Equals, 1)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
@@ -397,7 +395,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *tc.C) {
 	localState := resolver.LocalState{State: operation.State{
 		Kind: operation.Continue,
 	}}
-	_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
+	_, err = r.NextOp(c.Context(), localState, remotestate.Snapshot{
 		Life: life.Dying,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
@@ -427,7 +425,7 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *tc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(c.Context(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, tc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
@@ -436,7 +434,7 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *tc.C) {
 			Installed: installed,
 			Kind:      operation.Continue,
 		}}
-		_, err := r.NextOp(context.Background(), localState, remotestate.Snapshot{
+		_, err := r.NextOp(c.Context(), localState, remotestate.Snapshot{
 			Life: life.Alive,
 			Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 				storageTag: {

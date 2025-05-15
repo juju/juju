@@ -4,8 +4,6 @@
 package controlleragentconfig
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -83,7 +81,7 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newContext())
+	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newContext())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 }
@@ -92,7 +90,7 @@ func (s *manifoldSuite) TestOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	man := Manifold(s.getConfig())
-	w, err := man.Start(context.Background(), s.newContext())
+	w, err := man.Start(c.Context(), s.newContext())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

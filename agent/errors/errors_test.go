@@ -99,7 +99,7 @@ func (s *toolSuite) TestConnectionIsFatal(c *tc.C) {
 	for i, conn := range []*testConn{errConn, okConn} {
 		for j, test := range isFatalTests {
 			c.Logf("test %d.%d: %s", i, j, test.err)
-			fatal := agenterrors.ConnectionIsFatal(context.Background(), s.logger, conn)(test.err)
+			fatal := agenterrors.ConnectionIsFatal(c.Context(), s.logger, conn)(test.err)
 			if test.isFatal {
 				c.Check(fatal, tc.IsTrue)
 			} else {
@@ -115,7 +115,7 @@ func (s *toolSuite) TestConnectionIsFatalWithMultipleConns(c *tc.C) {
 
 	someErr := stderrors.New("foo")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, okConn, okConn)(someErr),
 		tc.IsFalse)
 	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, okConn, okConn, okConn)(someErr),

@@ -163,7 +163,7 @@ func (s *modelManagerSuite) setUpAPIWithUser(c *tc.C, user names.UserTag) *gomoc
 
 	cred := cloud.NewEmptyCredential()
 	s.api = modelmanager.NewModelManagerAPI(
-		context.Background(),
+		c.Context(),
 		s.st,
 		user.Name() == "admin",
 		user,
@@ -355,7 +355,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
 	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
 
-	_, err := s.api.CreateModel(context.Background(), args)
+	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -374,7 +374,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
 	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
 
-	_, err := s.api.CreateModel(context.Background(), args)
+	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -393,7 +393,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
 	s.expectCreateModel(c, ctrl, args, credential.Key{}, "dummy", "dummy-region")
 	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
 
-	_, err := s.api.CreateModel(context.Background(), args)
+	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -426,7 +426,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
 	s.modelInfoService.EXPECT().CreateModelWithAgentVersion(gomock.Any(), jujuversion.Current).Return(nil)
 
-	_, err := s.api.CreateModel(context.Background(), args)
+	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -458,7 +458,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
 	s.modelInfoService.EXPECT().CreateModelWithAgentVersionStream(gomock.Any(), jujuversion.Current, coreagentbinary.AgentStreamReleased).Return(nil)
 
-	_, err := s.api.CreateModel(context.Background(), args)
+	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	newModelArgs := s.getModelArgs(c)
@@ -486,7 +486,7 @@ func (s *modelManagerSuite) TestModelDefaults(c *tc.C) {
 		},
 	}, nil)
 
-	results, err := s.api.ModelDefaultsForClouds(context.Background(), params.Entities{
+	results, err := s.api.ModelDefaultsForClouds(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewCloudTag("dummy").String()}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -521,7 +521,7 @@ func (s *modelManagerSuite) TestSetModelCloudDefaults(c *tc.C) {
 	params := params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{CloudTag: "cloud-test", Config: defaults}},
 	}
-	result, err := s.api.SetModelDefaults(context.Background(), params)
+	result, err := s.api.SetModelDefaults(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorIsNil)
 }
@@ -539,7 +539,7 @@ func (s *modelManagerSuite) TestSetModelRegionDefaults(c *tc.C) {
 	params := params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{CloudTag: "cloud-test", CloudRegion: "east", Config: defaults}},
 	}
-	result, err := s.api.SetModelDefaults(context.Background(), params)
+	result, err := s.api.SetModelDefaults(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorIsNil)
 }
@@ -560,7 +560,7 @@ func (s *modelManagerSuite) TestBlockChangesSetModelDefaults(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	s.blockAllChanges(c, "TestBlockChangesSetModelDefaults")
-	_, err := s.api.SetModelDefaults(context.Background(), params.SetModelDefaults{})
+	_, err := s.api.SetModelDefaults(c.Context(), params.SetModelDefaults{})
 	s.assertBlocked(c, err, "TestBlockChangesSetModelDefaults")
 }
 
@@ -575,7 +575,7 @@ func (s *modelManagerSuite) TestUnsetModelCloudDefaults(c *tc.C) {
 			CloudTag: "cloud-test",
 			Keys:     []string{"attr"},
 		}}}
-	result, err := s.api.UnsetModelDefaults(context.Background(), args)
+	result, err := s.api.UnsetModelDefaults(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorIsNil)
 }
@@ -592,7 +592,7 @@ func (s *modelManagerSuite) TestUnsetModelRegionDefaults(c *tc.C) {
 			CloudRegion: "east",
 			Keys:        []string{"attr"},
 		}}}
-	result, err := s.api.UnsetModelDefaults(context.Background(), args)
+	result, err := s.api.UnsetModelDefaults(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorIsNil)
 }
@@ -605,14 +605,14 @@ func (s *modelManagerSuite) TestBlockUnsetModelDefaults(c *tc.C) {
 		Keys: []params.ModelUnsetKeys{{
 			Keys: []string{"abc"},
 		}}}
-	_, err := s.api.UnsetModelDefaults(context.Background(), args)
+	_, err := s.api.UnsetModelDefaults(c.Context(), args)
 	s.assertBlocked(c, err, "TestBlockUnsetModelDefaults")
 }
 
 func (s *modelManagerSuite) TestModelDefaultsAsNormalUser(c *tc.C) {
 	defer s.setUpAPIWithUser(c, names.NewUserTag("charlie")).Finish()
 
-	got, err := s.api.ModelDefaultsForClouds(context.Background(), params.Entities{
+	got, err := s.api.ModelDefaultsForClouds(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewCloudTag("dummy").String()}},
 	})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
@@ -622,7 +622,7 @@ func (s *modelManagerSuite) TestModelDefaultsAsNormalUser(c *tc.C) {
 func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *tc.C) {
 	defer s.setUpAPIWithUser(c, names.NewUserTag("charlie")).Finish()
 
-	got, err := s.api.SetModelDefaults(context.Background(), params.SetModelDefaults{
+	got, err := s.api.SetModelDefaults(c.Context(), params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{
 			Config: map[string]interface{}{
 				"ftp-proxy": "http://charlie",
@@ -636,7 +636,7 @@ func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *tc.C) {
 func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *tc.C) {
 	defer s.setUpAPIWithUser(c, names.NewUserTag("charlie")).Finish()
 
-	got, err := s.api.UnsetModelDefaults(context.Background(), params.UnsetModelDefaults{
+	got, err := s.api.UnsetModelDefaults(c.Context(), params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
 			Keys: []string{"attr2"}}}})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
@@ -655,7 +655,7 @@ func (s *modelManagerSuite) TestDumpModel(c *tc.C) {
 	).Times(1).Return(
 		&fakeModelDescription{ModelUUID: s.st.model.UUID()},
 		nil)
-	results := s.api.DumpModels(context.Background(), params.DumpModelRequest{
+	results := s.api.DumpModels(c.Context(), params.DumpModelRequest{
 		Entities: []params.Entity{{
 			Tag: "bad-tag",
 		}, {
@@ -682,7 +682,7 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *tc.C) {
 	s.st.SetErrors(errors.NotFoundf("boom"))
 	_, modelTag := generateModelUUIDAndTag(c)
 	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: modelTag.String()}}}
-	results := s.api.DumpModels(context.Background(), models)
+	results := s.api.DumpModels(c.Context(), models)
 	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "GetBackend", Args: []interface{}{modelTag.Id()}},
 	})
@@ -699,7 +699,7 @@ func (s *modelManagerSuite) TestDumpModelUsers(c *tc.C) {
 
 	_, modelTag := generateModelUUIDAndTag(c)
 	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: modelTag.String()}}}
-	results := s.api.DumpModels(context.Background(), models)
+	results := s.api.DumpModels(c.Context(), models)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Result, tc.Equals, "")
@@ -714,7 +714,7 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *tc.C) {
 		gomock.Any()).Return("dummy", "dummy-region", nil)
 
 	nonAdminUser := names.NewUserTag("non-admin")
-	_, err := s.api.CreateModel(context.Background(), createArgs(nonAdminUser))
+	_, err := s.api.CreateModel(c.Context(), createArgs(nonAdminUser))
 	c.Assert(err, tc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners")
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
@@ -748,7 +748,7 @@ func (s *modelManagerSuite) TestUpdatedModel(c *tc.C) {
 			},
 		}}
 
-	results, err := s.api.ModifyModelAccess(context.Background(), args)
+	results, err := s.api.ModifyModelAccess(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 1)
 	c.Check(results.OneError(), tc.ErrorIsNil)
@@ -769,7 +769,7 @@ func (s *modelManagerSuite) TestModelStatus(c *tc.C) {
 		},
 	}, nil)
 
-	results, err := s.api.ModelStatus(context.Background(), params.Entities{
+	results, err := s.api.ModelStatus(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: s.st.ModelTag().String()},
 		},
@@ -793,7 +793,7 @@ func (s *modelManagerSuite) TestChangeModelCredential(c *tc.C) {
 		modelUUID,
 		credential.KeyFromTag(credentialTag),
 	).Return(nil)
-	results, err := s.api.ChangeModelCredential(context.Background(), params.ChangeModelCredentialsParams{
+	results, err := s.api.ChangeModelCredential(c.Context(), params.ChangeModelCredentialsParams{
 		Models: []params.ChangeModelCredentialParams{
 			{
 				ModelTag:           modelTag.String(),
@@ -819,7 +819,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *tc.C) 
 		credential.KeyFromTag(credentialTag),
 	).Return(nil)
 	// Check that we don't err out immediately if a model errs.
-	results, err := s.api.ChangeModelCredential(context.Background(), params.ChangeModelCredentialsParams{
+	results, err := s.api.ChangeModelCredential(c.Context(), params.ChangeModelCredentialsParams{
 		Models: []params.ChangeModelCredentialParams{
 			{ModelTag: "bad-model-tag"},
 			{
@@ -835,7 +835,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *tc.C) 
 	c.Check(results.Results[1].Error, tc.IsNil)
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
-	results, err = s.api.ChangeModelCredential(context.Background(), params.ChangeModelCredentialsParams{
+	results, err = s.api.ChangeModelCredential(c.Context(), params.ChangeModelCredentialsParams{
 		Models: []params.ChangeModelCredentialParams{
 			{ModelTag: modelTag.String()},
 			{ModelTag: modelTag.String(), CloudCredentialTag: "bad-credential-tag"},
@@ -853,7 +853,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialUnauthorisedUser(c *tc.C) {
 	_, modelTag := generateModelUUIDAndTag(c)
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 
-	results, err := s.api.ChangeModelCredential(context.Background(), params.ChangeModelCredentialsParams{
+	results, err := s.api.ChangeModelCredential(c.Context(), params.ChangeModelCredentialsParams{
 		Models: []params.ChangeModelCredentialParams{
 			{ModelTag: modelTag.String(), CloudCredentialTag: credentialTag},
 		},
@@ -889,7 +889,7 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 		gomock.Any(), user.NameFromTag(userTag), modelUUIDNotExist).Return(time.Time{}, modelerrors.NotFound)
 
 	results, err := s.api.ListModels(
-		context.Background(),
+		c.Context(),
 		params.Entity{Tag: userTag.String()},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -938,7 +938,7 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 		gomock.Any(), user.NameFromTag(userTag), modelUUIDNotExist).Return(time.Time{}, modelerrors.NotFound)
 
 	results, err := s.api.ListModels(
-		context.Background(),
+		c.Context(),
 		params.Entity{Tag: userTag.String()},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -968,7 +968,7 @@ func (s *modelManagerSuite) TestListModelsDenied(c *tc.C) {
 	defer s.setUpAPIWithUser(c, userTag).Finish()
 
 	_, err := s.api.ListModels(
-		context.Background(),
+		c.Context(),
 		params.Entity{Tag: anotherUserTag.String()},
 	)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -1045,7 +1045,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *tc.C, user names.UserTag) {
 	domainServices := s.ControllerDomainServices(c)
 
 	s.modelmanager = modelmanager.NewModelManagerAPI(
-		context.Background(),
+		c.Context(),
 		mockCredentialShim{ModelManagerBackend: st},
 		user.Name() == "admin",
 		user,
@@ -1103,7 +1103,7 @@ func (s *modelManagerStateSuite) TestModifyModelAccessFailedInvalidModelTag(c *t
 	s.setAPIUser(c, jujutesting.AdminUser)
 	args := params.ModifyModelAccessRequest{Changes: []params.ModifyModelAccess{{}}}
 
-	result, err := s.modelmanager.ModifyModelAccess(context.Background(), args)
+	result, err := s.modelmanager.ModifyModelAccess(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	expectedErr := `could not modify model access: "" is not a valid tag`
 	c.Assert(result.OneError(), tc.ErrorMatches, expectedErr)
@@ -1121,7 +1121,7 @@ func (s *modelManagerStateSuite) TestModifyModelAccessFailedPermissionDenied(c *
 		{ModelTag: modelTag.String()},
 	}}
 
-	result, err := s.modelmanager.ModifyModelAccess(context.Background(), args)
+	result, err := s.modelmanager.ModifyModelAccess(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorMatches, `permission denied`)
 }

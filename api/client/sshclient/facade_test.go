@@ -4,8 +4,6 @@
 package sshclient_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -53,15 +51,15 @@ func (s *FacadeSuite) TestAddresses(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).SetArg(3, ress2).Return(nil)
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	public, err := facade.PublicAddress(context.Background(), "foo/0")
+	public, err := facade.PublicAddress(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(public, tc.Equals, "1.1.1.1")
 
-	private, err := facade.PrivateAddress(context.Background(), "foo/0")
+	private, err := facade.PrivateAddress(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(private, tc.Equals, "1.1.1.1")
 
-	addrs, err := facade.AllAddresses(context.Background(), "foo/0")
+	addrs, err := facade.AllAddresses(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addrs, tc.DeepEquals, []string{"1.1.1.1", "2.2.2.2"})
 
@@ -95,15 +93,15 @@ func (s *FacadeSuite) TestAddressesError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).SetArg(3, ress2).Return(errors.New("boom"))
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	public, err := facade.PublicAddress(context.Background(), "foo/0")
+	public, err := facade.PublicAddress(c.Context(), "foo/0")
 	c.Check(public, tc.Equals, "")
 	c.Check(err, tc.ErrorMatches, "boom")
 
-	private, err := facade.PrivateAddress(context.Background(), "foo/0")
+	private, err := facade.PrivateAddress(c.Context(), "foo/0")
 	c.Check(private, tc.Equals, "")
 	c.Check(err, tc.ErrorMatches, "boom")
 
-	addrs, err := facade.AllAddresses(context.Background(), "foo/0")
+	addrs, err := facade.AllAddresses(c.Context(), "foo/0")
 	c.Check(addrs, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "boom")
 }
@@ -133,15 +131,15 @@ func (s *FacadeSuite) TestAddressesTargetError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).SetArg(3, ress2).Return(nil)
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	public, err := facade.PublicAddress(context.Background(), "foo/0")
+	public, err := facade.PublicAddress(c.Context(), "foo/0")
 	c.Check(public, tc.Equals, "")
 	c.Check(err, tc.ErrorMatches, "boom")
 
-	private, err := facade.PrivateAddress(context.Background(), "foo/0")
+	private, err := facade.PrivateAddress(c.Context(), "foo/0")
 	c.Check(private, tc.Equals, "")
 	c.Check(err, tc.ErrorMatches, "boom")
 
-	addrs, err := facade.AllAddresses(context.Background(), "foo/0")
+	addrs, err := facade.AllAddresses(c.Context(), "foo/0")
 	c.Check(addrs, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "boom")
 }
@@ -163,15 +161,15 @@ func (s *FacadeSuite) TestAddressesMissingResults(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).Return(errors.New(expectedErr))
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	public, err := facade.PublicAddress(context.Background(), "foo/0")
+	public, err := facade.PublicAddress(c.Context(), "foo/0")
 	c.Check(public, tc.Equals, "")
 	c.Check(err, tc.ErrorMatches, expectedErr)
 
-	private, err := facade.PrivateAddress(context.Background(), "foo/0")
+	private, err := facade.PrivateAddress(c.Context(), "foo/0")
 	c.Check(private, tc.Equals, "")
 	c.Check(err, tc.ErrorMatches, expectedErr)
 
-	addrs, err := facade.AllAddresses(context.Background(), "foo/0")
+	addrs, err := facade.AllAddresses(c.Context(), "foo/0")
 	c.Check(addrs, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, expectedErr)
 }
@@ -207,15 +205,15 @@ func (s *FacadeSuite) TestAddressesExtraResults(c *tc.C) {
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 	expectedErr := "expected 1 result, got 2"
 
-	public, err := facade.PublicAddress(context.Background(), "foo/0")
+	public, err := facade.PublicAddress(c.Context(), "foo/0")
 	c.Check(public, tc.Equals, "")
 	c.Check(err, tc.ErrorMatches, expectedErr)
 
-	private, err := facade.PrivateAddress(context.Background(), "foo/0")
+	private, err := facade.PrivateAddress(c.Context(), "foo/0")
 	c.Check(private, tc.Equals, "")
 	c.Check(err, tc.ErrorMatches, expectedErr)
 
-	addrs, err := facade.AllAddresses(context.Background(), "foo/0")
+	addrs, err := facade.AllAddresses(c.Context(), "foo/0")
 	c.Check(addrs, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, expectedErr)
 }
@@ -237,7 +235,7 @@ func (s *FacadeSuite) TestPublicKeys(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", expectedArg, res).SetArg(3, ress).Return(nil)
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	keys, err := facade.PublicKeys(context.Background(), "foo/0")
+	keys, err := facade.PublicKeys(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(keys, tc.DeepEquals, []string{"rsa", "dsa"})
 }
@@ -249,7 +247,7 @@ func (s *FacadeSuite) TestPublicKeysError(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", gomock.Any(), gomock.Any()).Return(errors.New("boom"))
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
-	keys, err := facade.PublicKeys(context.Background(), "foo/0")
+	keys, err := facade.PublicKeys(c.Context(), "foo/0")
 	c.Check(keys, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "boom")
 }
@@ -270,7 +268,7 @@ func (s *FacadeSuite) TestPublicKeysTargetError(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", expectedArg, res).SetArg(3, ress).Return(nil)
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
-	keys, err := facade.PublicKeys(context.Background(), "foo/0")
+	keys, err := facade.PublicKeys(c.Context(), "foo/0")
 	c.Check(keys, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "boom")
 }
@@ -289,7 +287,7 @@ func (s *FacadeSuite) TestPublicKeysMissingResults(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", expectedArg, res).Return(nil)
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	keys, err := facade.PublicKeys(context.Background(), "foo/0")
+	keys, err := facade.PublicKeys(c.Context(), "foo/0")
 	c.Check(keys, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "expected 1 result, got 0")
 }
@@ -314,7 +312,7 @@ func (s *FacadeSuite) TestPublicKeysExtraResults(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", expectedArg, res).SetArg(3, ress).Return(nil)
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	keys, err := facade.PublicKeys(context.Background(), "foo/0")
+	keys, err := facade.PublicKeys(c.Context(), "foo/0")
 	c.Check(keys, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "expected 1 result, got 2")
 }
@@ -337,7 +335,7 @@ func checkProxy(c *tc.C, useProxy bool) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Proxy", nil, res).SetArg(3, ress).Return(nil)
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	result, err := facade.Proxy(context.Background())
+	result, err := facade.Proxy(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, useProxy)
 }
@@ -350,7 +348,7 @@ func (s *FacadeSuite) TestProxyError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Proxy", gomock.Any(), gomock.Any()).Return(errors.New("boom"))
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	_, err := facade.Proxy(context.Background())
+	_, err := facade.Proxy(c.Context())
 	c.Check(err, tc.ErrorMatches, "boom")
 }
 
@@ -384,7 +382,7 @@ func (s *FacadeSuite) TestModelCredentialForSSH(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelCredentialForSSH", nil, res).SetArg(3, ress).Return(nil)
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	spec, err := facade.ModelCredentialForSSH(context.Background())
+	spec, err := facade.ModelCredentialForSSH(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	credential := cloud.NewCredential(
@@ -426,7 +424,7 @@ func (s *FacadeSuite) TestVirtualHostname(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "VirtualHostname", expectedArg, res).SetArg(3, ress1).Return(nil)
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	virtualHostname, err := facade.VirtualHostname(context.Background(), "foo/0", nil)
+	virtualHostname, err := facade.VirtualHostname(c.Context(), "foo/0", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(virtualHostname, tc.Equals, "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local")
 }
@@ -448,6 +446,6 @@ func (s *FacadeSuite) TestVirtualHostnameError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "VirtualHostname", expectedArg, res).SetArg(3, ress1).Return(nil)
 	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
 
-	_, err := facade.VirtualHostname(context.Background(), "foo/0", nil)
+	_, err := facade.VirtualHostname(c.Context(), "foo/0", nil)
 	c.Check(err, tc.ErrorMatches, "boom")
 }

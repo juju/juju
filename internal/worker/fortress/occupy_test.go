@@ -31,7 +31,7 @@ func (*OccupySuite) TestAbort(c *tc.C) {
 	run := func() (worker.Worker, error) {
 		panic("shouldn't happen")
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -61,18 +61,18 @@ func (*OccupySuite) TestAbort(c *tc.C) {
 func (*OccupySuite) TestStartError(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
-	c.Check(fix.Guard(c).Unlock(context.Background()), tc.ErrorIsNil)
+	c.Check(fix.Guard(c).Unlock(c.Context()), tc.ErrorIsNil)
 
 	// Error just passes straight through.
 	run := func() (worker.Worker, error) {
 		return nil, errors.New("splosh")
 	}
-	worker, err := fortress.Occupy(context.Background(), fix.Guest(c), run)
+	worker, err := fortress.Occupy(c.Context(), fix.Guest(c), run)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "splosh")
 
 	// Guard can lock fortress immediately.
-	err = fix.Guard(c).Lockdown(context.Background())
+	err = fix.Guard(c).Lockdown(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	AssertLocked(c, fix.Guest(c))
 }
@@ -80,7 +80,7 @@ func (*OccupySuite) TestStartError(c *tc.C) {
 func (*OccupySuite) TestStartSuccess(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
-	c.Check(fix.Guard(c).Unlock(context.Background()), tc.ErrorIsNil)
+	c.Check(fix.Guard(c).Unlock(c.Context()), tc.ErrorIsNil)
 
 	// Start a worker...
 	expect := workertest.NewErrorWorker(nil)
@@ -88,14 +88,14 @@ func (*OccupySuite) TestStartSuccess(c *tc.C) {
 	run := func() (worker.Worker, error) {
 		return expect, nil
 	}
-	worker, err := fortress.Occupy(context.Background(), fix.Guest(c), run)
+	worker, err := fortress.Occupy(c.Context(), fix.Guest(c), run)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, expect)
 
 	// ...and check we can't lockdown again...
 	locked := make(chan error, 1)
 	go func() {
-		locked <- fix.Guard(c).Lockdown(context.Background())
+		locked <- fix.Guard(c).Lockdown(c.Context())
 	}()
 	select {
 	case err := <-locked:

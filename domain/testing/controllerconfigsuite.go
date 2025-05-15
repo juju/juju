@@ -27,7 +27,7 @@ func SeedControllerConfig(
 	controllerModelUUID coremodel.UUID,
 	provider ControllerTxnProvider,
 ) controller.Config {
-	err := bootstrap.InsertInitialControllerConfig(config, controllerModelUUID)(context.Background(), provider.ControllerTxnRunner(), noopTxnRunner{})
+	err := bootstrap.InsertInitialControllerConfig(config, controllerModelUUID)(c.Context(), provider.ControllerTxnRunner(), noopTxnRunner{})
 	c.Assert(err, tc.ErrorIsNil)
 	return config
 }

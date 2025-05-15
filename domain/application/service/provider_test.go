@@ -157,7 +157,7 @@ func (s *providerServiceSuite) TestCreateApplication(c *tc.C) {
 		},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -237,7 +237,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *tc.
 		Name: "ubuntu",
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -329,7 +329,7 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
 		},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -350,7 +350,7 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
 func (s *providerServiceSuite) TestCreateApplicationWithInvalidApplicationName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.CreateApplication(context.Background(), "666", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "666", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -367,7 +367,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidCharmName(c *tc.C
 		Name: "666",
 	}).AnyTimes()
 
-	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -387,7 +387,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidReferenceName(c *
 		Bases: []charm.Base{{}},
 	}).AnyTimes()
 
-	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -407,7 +407,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoCharmName(c *tc.C) {
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
@@ -418,7 +418,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
 
-	_, err := s.service.CreateApplication(context.Background(), "", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
@@ -429,7 +429,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoMeta(c *tc.C) {
 
 	s.charm.EXPECT().Meta().Return(nil).MinTimes(1)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmMetadataNotValid)
@@ -443,7 +443,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoArchitecture(c *tc.C) 
 		Bases: []charm.Base{{}},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.Platform{Channel: "24.04", OS: "ubuntu"},
 	}, AddApplicationArgs{
@@ -474,7 +474,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllRe
 		}},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	},
@@ -505,7 +505,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourceBothTypes
 		}},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm,
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm,
 		corecharm.Origin{
 			Source:   corecharm.Local,
 			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
@@ -578,7 +578,7 @@ func (s *providerServiceSuite) testCreateApplicationWithInvalidResource(c *tc.C,
 		}},
 	}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	},
@@ -612,7 +612,7 @@ func (s *providerServiceSuite) TestCreateApplicationError(c *tc.C) {
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
@@ -723,7 +723,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *tc.C) {
 	pool := domainstorage.StoragePoolDetails{Name: "loop", Provider: "loop"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -834,7 +834,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped-block"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -949,7 +949,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *tc.
 	pool := domainstorage.StoragePoolDetails{Name: "rootfs", Provider: "rootfs"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -1061,7 +1061,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped"}
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -1101,7 +1101,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithSharedStorageMissingDire
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
@@ -1141,7 +1141,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageValidates(c *tc.C
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").
 		Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError).MaxTimes(1)
 
-	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
+	_, err := s.service.CreateApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
@@ -1267,7 +1267,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *tc.C) {
 
 	s.supportedFeaturesProvider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
 
-	features, err := s.service.GetSupportedFeatures(context.Background())
+	features, err := s.service.GetSupportedFeatures(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var fs assumes.FeatureSet
@@ -1292,7 +1292,7 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *tc.C) {
 	agentVersion := semversion.MustParse("4.0.0")
 	s.agentVersionGetter.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
 
-	features, err := s.service.GetSupportedFeatures(context.Background())
+	features, err := s.service.GetSupportedFeatures(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var fs assumes.FeatureSet
@@ -1307,14 +1307,14 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *tc.C) {
 func (s *providerServiceSuite) TestGetApplicationConstraintsInvalidAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetApplicationConstraints(context.Background(), "bad-app-id")
+	_, err := s.service.GetApplicationConstraints(c.Context(), "bad-app-id")
 	c.Assert(err, tc.ErrorMatches, "application ID: id \"bad-app-id\" not valid")
 }
 
 func (s *providerServiceSuite) TestSetApplicationConstraintsInvalidAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.SetApplicationConstraints(context.Background(), "bad-app-id", coreconstraints.Value{})
+	err := s.service.SetApplicationConstraints(c.Context(), "bad-app-id", coreconstraints.Value{})
 	c.Assert(err, tc.ErrorMatches, "application ID: id \"bad-app-id\" not valid")
 }
 
@@ -1332,7 +1332,7 @@ func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *tc.C) {
 
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{}).Return(nil)
 
-	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{})
+	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1353,7 +1353,7 @@ func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *tc.C) {
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, errors.New("boom"))
 
-	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{})
+	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -1376,7 +1376,7 @@ func (s *providerServiceSuite) TestSetConstraintsValidateError(c *tc.C) {
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
 	validator.EXPECT().Validate(gomock.Any()).Return(nil, errors.New("boom"))
 
-	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{})
+	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -1400,7 +1400,7 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *tc.C) {
 	validator.EXPECT().Validate(gomock.Any()).Return([]string{"arch", "mem"}, nil)
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{Arch: ptr("amd64"), Mem: ptr(uint64(8))}).Return(nil)
 
-	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
+	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
 	c.Assert(err, tc.ErrorIsNil)
 	//c.Check(c.GetTestLog(), tc.Contains, "unsupported constraints: arch,mem")
 }
@@ -1427,7 +1427,7 @@ func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
 	validator.EXPECT().Validate(gomock.Any()).Return(nil, nil)
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{Arch: ptr("amd64"), Mem: ptr(uint64(8))}).Return(nil)
 
-	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
+	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1470,7 +1470,7 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *tc.C) {
 		return []coreunit.Name{"foo/0"}, nil
 	})
 
-	err := s.service.AddUnits(context.Background(), "ubuntu", AddUnitArg{})
+	err := s.service.AddUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
 }
@@ -1539,7 +1539,7 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *tc.C) {
 	a := AddUnitArg{
 		Placement: instance.MustParsePlacement("0/lxd/0"),
 	}
-	err := s.service.AddUnits(context.Background(), "ubuntu", a)
+	err := s.service.AddUnits(c.Context(), "ubuntu", a)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
 }
@@ -1601,7 +1601,7 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *tc.C) {
 		return []coreunit.Name{"foo/0"}, nil
 	})
 
-	err := s.service.AddUnits(context.Background(), "ubuntu", AddUnitArg{})
+	err := s.service.AddUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
 }
@@ -1650,7 +1650,7 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *tc.C) {
 		return []coreunit.Name{"foo/0"}, nil
 	})
 
-	err := s.service.AddUnits(context.Background(), "ubuntu", AddUnitArg{})
+	err := s.service.AddUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(received, tc.DeepEquals, u)
 }
@@ -1668,7 +1668,7 @@ func (s *providerServiceSuite) TestAddUnitsInvalidName(c *tc.C) {
 		})
 	defer ctrl.Finish()
 
-	err := s.service.AddUnits(context.Background(), "!!!", AddUnitArg{})
+	err := s.service.AddUnits(c.Context(), "!!!", AddUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
@@ -1685,7 +1685,7 @@ func (s *providerServiceSuite) TestAddUnitsNoUnits(c *tc.C) {
 		})
 	defer ctrl.Finish()
 
-	err := s.service.AddUnits(context.Background(), "foo")
+	err := s.service.AddUnits(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1706,7 +1706,7 @@ func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, applicationerrors.ApplicationNotFound)
 
-	err := s.service.AddUnits(context.Background(), "ubuntu", AddUnitArg{})
+	err := s.service.AddUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1728,7 +1728,7 @@ func (s *providerServiceSuite) TestAddUnitsGetModelTypeError(c *tc.C) {
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", errors.Errorf("boom"))
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 
-	err := s.service.AddUnits(context.Background(), "ubuntu", AddUnitArg{})
+	err := s.service.AddUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
@@ -1760,7 +1760,7 @@ func (s *providerServiceSuite) TestAddUnitsInvalidPlacement(c *tc.C) {
 	a := AddUnitArg{
 		Placement: placement,
 	}
-	err := s.service.AddUnits(context.Background(), "ubuntu", a)
+	err := s.service.AddUnits(c.Context(), "ubuntu", a)
 	c.Assert(err, tc.ErrorMatches, ".*invalid placement.*")
 }
 
@@ -1769,7 +1769,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSupport
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, errors.Errorf("not supported %w", coreerrors.NotSupported))
 
-	_, err := s.service.mergeApplicationAndModelConstraints(context.Background(), constraints.Constraints{})
+	_, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -1778,7 +1778,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNilValidat
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
 
-	cons, err := s.service.mergeApplicationAndModelConstraints(context.Background(), constraints.Constraints{})
+	cons, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, coreconstraints.Value{})
 }
@@ -1805,7 +1805,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraint
 		constraints.EncodeConstraints(constraints.Constraints{})).
 		Return(coreconstraints.Value{}, nil)
 
-	_, err := s.service.mergeApplicationAndModelConstraints(context.Background(), constraints.Constraints{})
+	_, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 

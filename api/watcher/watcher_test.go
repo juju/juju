@@ -149,10 +149,10 @@ func (s *watcherSuite) TestWatchMachine(c *tc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "Machiner", 666, "", "Watch", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
 	client := machiner.NewClient(caller)
-	m, err := client.Machine(context.Background(), names.NewMachineTag("666"))
+	m, err := client.Machine(c.Context(), names.NewMachineTag("666"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	w, err := m.Watch(context.Background())
+	w, err := m.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -184,10 +184,10 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *tc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "Machiner", 666, "", "Watch", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
 	client := machiner.NewClient(caller)
-	m, err := client.Machine(context.Background(), names.NewMachineTag("666"))
+	m, err := client.Machine(c.Context(), names.NewMachineTag("666"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	w, err := m.Watch(context.Background())
+	w, err := m.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -217,7 +217,7 @@ func (s *watcherSuite) TestWatchUnits(c *tc.C) {
 	m, err := client.Machine(names.NewMachineTag("666"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	w, err := m.WatchUnits(context.Background())
+	w, err := m.WatchUnits(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -258,7 +258,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *tc.C) {
 	m, err := client.Machine(names.NewMachineTag("666"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	w, err := m.WatchUnits(context.Background())
+	w, err := m.WatchUnits(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -291,7 +291,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *tc.C) {
 
 	client, err := storageprovisioner.NewClient(caller)
 	c.Assert(err, tc.ErrorIsNil)
-	w, err := client.WatchVolumeAttachments(context.Background(), names.NewMachineTag("666"))
+	w, err := client.WatchVolumeAttachments(c.Context(), names.NewMachineTag("666"))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -370,7 +370,7 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *tc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "CrossModelRelations", 666, "", "WatchRelationsSuspendedStatus", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
 	client := crossmodelrelations.NewClient(&apicloser{caller})
-	w, err := client.WatchRelationSuspendedStatus(context.Background(), arg)
+	w, err := client.WatchRelationSuspendedStatus(c.Context(), arg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -451,7 +451,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *tc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "CrossModelRelations", 666, "", "WatchOfferStatus", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
 	client := crossmodelrelations.NewClient(&apicloser{caller})
-	w, err := client.WatchOfferStatus(context.Background(), arg)
+	w, err := client.WatchOfferStatus(c.Context(), arg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -519,7 +519,7 @@ func (s *watcherSuite) assertSecretsTriggerWatcher(c *tc.C, caller *apimocks.Moc
 	}
 	caller.EXPECT().APICall(gomock.Any(), "SecretsManager", 666, "", apiName, args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
-	w, err := watchFunc(context.Background(), names.NewApplicationTag("mysql"))
+	w, err := watchFunc(c.Context(), names.NewApplicationTag("mysql"))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -611,7 +611,7 @@ func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *tc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "CrossModelRelations", 666, "", "WatchConsumedSecretsChanges", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
 	client := crossmodelrelations.NewClient(&apicloser{caller})
-	w, err := client.WatchConsumedSecretsChanges(context.Background(), "app-token", "rel-token", mac)
+	w, err := client.WatchConsumedSecretsChanges(c.Context(), "app-token", "rel-token", mac)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -671,7 +671,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *tc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "MigrationMinion", 666, "", "Watch", nil, gomock.Any()).SetArg(6, initialResult).Return(nil)
 
 	client := migrationminion.NewClient(caller)
-	w, err := client.Watch(context.Background())
+	w, err := client.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		c.Assert(worker.Stop(w), tc.ErrorIsNil)

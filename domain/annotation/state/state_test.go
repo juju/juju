@@ -33,7 +33,7 @@ func (s *stateSuite) TestGetAnnotations(c *tc.C) {
 	s.ensureAnnotation(c, "machine", "123", "foo", "5")
 	s.ensureAnnotation(c, "machine", "123", "bar", "6")
 
-	annotations, err := st.GetAnnotations(context.Background(), annotations.ID{
+	annotations, err := st.GetAnnotations(c.Context(), annotations.ID{
 		Kind: annotations.KindMachine,
 		Name: "my-machine",
 	})
@@ -48,7 +48,7 @@ func (s *stateSuite) TestGetCharmAnnotations(c *tc.C) {
 	s.ensureAnnotation(c, "charm", "123", "foo", "5")
 	s.ensureAnnotation(c, "charm", "123", "bar", "6")
 
-	annotations, err := st.GetCharmAnnotations(context.Background(), annotation.GetCharmArgs{
+	annotations, err := st.GetCharmAnnotations(c.Context(), annotation.GetCharmArgs{
 		Source:   "local",
 		Name:     "mycharmurl",
 		Revision: 5,
@@ -63,7 +63,7 @@ func (s *stateSuite) TestGetAnnotationsModel(c *tc.C) {
 	s.ensureAnnotation(c, "model", "", "foo", "5")
 	s.ensureAnnotation(c, "model", "", "bar", "6")
 
-	annotations, err := st.GetAnnotations(context.Background(), annotations.ID{
+	annotations, err := st.GetAnnotations(c.Context(), annotations.ID{
 		Kind: annotations.KindModel,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -81,19 +81,19 @@ func (s *stateSuite) TestSetAnnotations(c *tc.C) {
 		Name: "my-machine",
 	}
 
-	err := st.SetAnnotations(context.Background(), id, map[string]string{"bar": "6", "foo": "15"})
+	err := st.SetAnnotations(c.Context(), id, map[string]string{"bar": "6", "foo": "15"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
-	annotations, err := st.GetAnnotations(context.Background(), id)
+	annotations, err := st.GetAnnotations(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 
-	err = st.SetAnnotations(context.Background(), id, map[string]string{"bar": "6", "baz": "7"})
+	err = st.SetAnnotations(c.Context(), id, map[string]string{"bar": "6", "baz": "7"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
-	annotations, err = st.GetAnnotations(context.Background(), id)
+	annotations, err = st.GetAnnotations(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"bar": "6", "baz": "7"})
 }
@@ -110,20 +110,20 @@ func (s *stateSuite) TestSetCharmAnnotations(c *tc.C) {
 	}
 
 	// Set annotations bar:6 and foo:15
-	err := st.SetCharmAnnotations(context.Background(), args, map[string]string{"bar": "6", "foo": "15"})
+	err := st.SetCharmAnnotations(c.Context(), args, map[string]string{"bar": "6", "foo": "15"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
-	annotations, err := st.GetCharmAnnotations(context.Background(), args)
+	annotations, err := st.GetCharmAnnotations(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 
 	// Set annotations bar:6 and foo:15
-	err = st.SetCharmAnnotations(context.Background(), args, map[string]string{"bar": "6", "baz": "7"})
+	err = st.SetCharmAnnotations(c.Context(), args, map[string]string{"bar": "6", "baz": "7"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
-	annotations, err = st.GetCharmAnnotations(context.Background(), args)
+	annotations, err = st.GetCharmAnnotations(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"bar": "6", "baz": "7"})
 }
@@ -204,16 +204,16 @@ func (s *stateSuite) TestSetAnnotationsUpdateModel(c *tc.C) {
 // {bar:6, foo:15} and validates that it's actually updated.
 func testAnnotationUpdate(c *tc.C, st *State, id annotations.ID) {
 	// Check that we only have the foo:5
-	annotations1, err := st.GetAnnotations(context.Background(), id)
+	annotations1, err := st.GetAnnotations(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations1, tc.DeepEquals, map[string]string{"foo": "5"})
 
 	// Add bar:6 and update foo:15
-	err = st.SetAnnotations(context.Background(), id, map[string]string{"bar": "6", "foo": "15"})
+	err = st.SetAnnotations(c.Context(), id, map[string]string{"bar": "6", "foo": "15"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
-	annotations2, err := st.GetAnnotations(context.Background(), id)
+	annotations2, err := st.GetAnnotations(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations2, tc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 }
@@ -233,16 +233,16 @@ func (s *stateSuite) TestSetAnnotationsUnset(c *tc.C) {
 	}
 
 	// Check that we only have the foo:5
-	annotations1, err := st.GetAnnotations(context.Background(), id)
+	annotations1, err := st.GetAnnotations(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations1, tc.DeepEquals, map[string]string{"foo": "5"})
 
 	// Unset foo
-	err = st.SetAnnotations(context.Background(), id, map[string]string{})
+	err = st.SetAnnotations(c.Context(), id, map[string]string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
-	annotations2, err := st.GetAnnotations(context.Background(), id)
+	annotations2, err := st.GetAnnotations(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(annotations2, tc.HasLen, 0)
 }
@@ -259,11 +259,11 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *tc.C) {
 	}
 
 	// Unset foo
-	err := st.SetAnnotations(context.Background(), id, map[string]string{})
+	err := st.SetAnnotations(c.Context(), id, map[string]string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
-	annotations2, err := st.GetAnnotations(context.Background(), id)
+	annotations2, err := st.GetAnnotations(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(annotations2, tc.HasLen, 0)
 }
@@ -323,7 +323,7 @@ func (s *stateSuite) TestAnnotationTableNameFromID(c *tc.C) {
 // into the annotation_model table.
 func (s *stateSuite) ensureAnnotation(c *tc.C, id, uuid, key, value string) {
 	if id == "model" {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, `
 INSERT INTO annotation_model (key, value)
 VALUES (?, ?)
@@ -332,7 +332,7 @@ VALUES (?, ?)
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	} else {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, fmt.Sprintf(`
 INSERT INTO annotation_%[1]s (uuid, key, value)
 VALUES (?, ?, ?)
@@ -346,7 +346,7 @@ VALUES (?, ?, ?)
 // ensureMachine manually inserts a row into the machine table.
 func (s *stateSuite) ensureMachine(c *tc.C, id, uuid string) {
 	s.ensureNetNode(c, "node2")
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO machine (uuid, net_node_uuid, name, life_id)
 VALUES (?, "node2", ?, "0")`, uuid, id)
@@ -357,7 +357,7 @@ VALUES (?, "node2", ?, "0")`, uuid, id)
 
 // ensureApplication manually inserts a row into the application table.
 func (s *stateSuite) ensureApplication(c *tc.C, name, uuid string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
 VALUES (?, 0, ?, 1, 0)`, uuid, name)
@@ -386,7 +386,7 @@ func (s *stateSuite) ensureUnit(c *tc.C, unitName, uuid string) {
 	s.ensureCharm(c, "local:mycharmurl-5", "mystorage", "345")
 	s.ensureNetNode(c, "456")
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
 VALUES (?, ?, ?, ?, ?, ?)
@@ -406,7 +406,7 @@ func (s *stateSuite) ensureCharm(c *tc.C, url, storageName, uuid string) {
 		source = 1
 	}
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
 VALUES (?, ?, ?, ?, 0)`, uuid, source, parts.Name, parts.Revision)
@@ -437,7 +437,7 @@ VALUES (?, ?, ?, ?, ?)
 
 // ensureStorage inserts a row into the storage_instance table
 func (s *stateSuite) ensureStorage(c *tc.C, name, uuid, charmUUID string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_instance (uuid, storage_id, storage_type, requested_size_mib, charm_uuid, storage_name, life_id)
 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -450,7 +450,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
 // ensureNetNode inserts a row into the net_node table, mostly used as a foreign
 // key for entries in other tables (e.g. machine)
 func (s *stateSuite) ensureNetNode(c *tc.C, uuid string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO net_node (uuid) VALUES (?)`, uuid)
 		return err
 	})

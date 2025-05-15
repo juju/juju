@@ -4,7 +4,6 @@
 package database
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -124,7 +123,7 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *tc.C) {
 	s.AddCleanup(func(*tc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
-	ctx := context.Background()
+	ctx := c.Context()
 
 	// Empty directory indicates we are not the bootstrapped node.
 	asBootstrapped, err := m.IsLoopbackBound(ctx)
@@ -189,7 +188,7 @@ func (s *nodeManagerSuite) TestSetClusterServersSuccess(c *tc.C) {
 	s.AddCleanup(func(*tc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
-	ctx := context.Background()
+	ctx := c.Context()
 
 	dataDir, err := m.EnsureDataDir()
 	c.Assert(err, tc.ErrorIsNil)
@@ -272,7 +271,7 @@ func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *tc.C) {
 	s.AddCleanup(func(*tc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
-	ctx := context.Background()
+	ctx := c.Context()
 
 	_, err := m.EnsureDataDir()
 	c.Assert(err, tc.ErrorIsNil)

@@ -56,7 +56,7 @@ func (s *DownloadSuite) TestDownload(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
-	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name())
+	digest, err := client.Download(c.Context(), serverURL, tmpFile.Name())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(digest, tc.DeepEquals, &Digest{
 		SHA256: "679e21d12ebfd206ba08dd7a3a23b81170d30c8c7cbc0ac2443beb6aac67dfdb",
@@ -94,7 +94,7 @@ func (s *DownloadSuite) TestDownloadWithProgressBar(c *tc.C) {
 	pgBar.EXPECT().Start("dummy", float64(11))
 	pgBar.EXPECT().Finished()
 
-	ctx := context.WithValue(context.Background(), DownloadNameKey, "dummy")
+	ctx := context.WithValue(c.Context(), DownloadNameKey, "dummy")
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
 	digest, err := client.Download(ctx, serverURL, tmpFile.Name(), WithProgressBar(pgBar))
@@ -129,7 +129,7 @@ func (s *DownloadSuite) TestDownloadWithDigest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
-	digest, err := client.Download(context.Background(), serverURL, tmpFile.Name())
+	digest, err := client.Download(c.Context(), serverURL, tmpFile.Name())
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedSHA256 := readSHA256(c, strings.NewReader("hello world"))
@@ -164,7 +164,7 @@ func (s *DownloadSuite) TestDownloadWithNotFoundStatusCode(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
-	_, err = client.Download(context.Background(), serverURL, tmpFile.Name())
+	_, err = client.Download(c.Context(), serverURL, tmpFile.Name())
 	c.Assert(err, tc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
 }
 
@@ -191,7 +191,7 @@ func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	client := NewDownloadClient(httpClient, fileSystem, s.logger)
-	_, err = client.Download(context.Background(), serverURL, tmpFile.Name())
+	_, err = client.Download(c.Context(), serverURL, tmpFile.Name())
 	c.Assert(err, tc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
 }
 

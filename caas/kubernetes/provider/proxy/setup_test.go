@@ -4,7 +4,6 @@
 package proxy_test
 
 import (
-	"context"
 	"encoding/json"
 	"time"
 
@@ -31,7 +30,7 @@ var (
 func (s *setupSuite) SetUpTest(c *tc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 	s.client = fake.NewSimpleClientset()
-	_, err := s.client.CoreV1().Namespaces().Create(context.Background(),
+	_, err := s.client.CoreV1().Namespaces().Create(c.Context(),
 		&core.Namespace{
 			ObjectMeta: meta.ObjectMeta{
 				Name: testNamespace,
@@ -51,7 +50,7 @@ func (s *setupSuite) TestProxyObjCreation(c *tc.C) {
 	}
 
 	// fake k8s client does not populate the token for secret, so we have to do it manually.
-	_, err := s.client.CoreV1().Secrets(testNamespace).Create(context.Background(), &core.Secret{
+	_, err := s.client.CoreV1().Secrets(testNamespace).Create(c.Context(), &core.Secret{
 		ObjectMeta: meta.ObjectMeta{
 			Labels: labels.Set{},
 			Name:   config.Name,
@@ -66,7 +65,7 @@ func (s *setupSuite) TestProxyObjCreation(c *tc.C) {
 	}, meta.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
-		context.Background(),
+		c.Context(),
 		config,
 		labels.Set{},
 		s.clock,
@@ -79,7 +78,7 @@ func (s *setupSuite) TestProxyObjCreation(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	role, err := s.client.RbacV1().Roles(testNamespace).Get(
-		context.Background(),
+		c.Context(),
 		config.Name,
 		meta.GetOptions{},
 	)
@@ -93,7 +92,7 @@ func (s *setupSuite) TestProxyObjCreation(c *tc.C) {
 	c.Assert(role.Rules[2].Verbs, tc.DeepEquals, []string{"create", "get"})
 
 	sa, err := s.client.CoreV1().ServiceAccounts(testNamespace).Get(
-		context.Background(),
+		c.Context(),
 		config.Name,
 		meta.GetOptions{},
 	)
@@ -103,7 +102,7 @@ func (s *setupSuite) TestProxyObjCreation(c *tc.C) {
 	c.Assert(sa.Secrets[0].Name, tc.Equals, config.Name)
 
 	secret, err := s.client.CoreV1().ServiceAccounts(testNamespace).Get(
-		context.Background(),
+		c.Context(),
 		config.Name,
 		meta.GetOptions{},
 	)
@@ -111,7 +110,7 @@ func (s *setupSuite) TestProxyObjCreation(c *tc.C) {
 	c.Assert(secret.Name, tc.Equals, config.Name)
 
 	roleBinding, err := s.client.RbacV1().RoleBindings(testNamespace).Get(
-		context.Background(),
+		c.Context(),
 		config.Name,
 		meta.GetOptions{},
 	)
@@ -119,7 +118,7 @@ func (s *setupSuite) TestProxyObjCreation(c *tc.C) {
 	c.Assert(roleBinding.Name, tc.Equals, config.Name)
 
 	cm, err := s.client.CoreV1().ConfigMaps(testNamespace).Get(
-		context.Background(),
+		c.Context(),
 		config.Name,
 		meta.GetOptions{},
 	)
@@ -136,7 +135,7 @@ func (s *setupSuite) TestProxyConfigMap(c *tc.C) {
 	}
 
 	// fake k8sclient does not populate the token for secret, so we have to do it manually.
-	_, err := s.client.CoreV1().Secrets(testNamespace).Create(context.Background(), &core.Secret{
+	_, err := s.client.CoreV1().Secrets(testNamespace).Create(c.Context(), &core.Secret{
 		ObjectMeta: meta.ObjectMeta{
 			Labels: labels.Set{},
 			Name:   config.Name,
@@ -151,7 +150,7 @@ func (s *setupSuite) TestProxyConfigMap(c *tc.C) {
 	}, meta.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
-		context.Background(),
+		c.Context(),
 		config,
 		labels.Set{},
 		s.clock,
@@ -164,7 +163,7 @@ func (s *setupSuite) TestProxyConfigMap(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	cm, err := s.client.CoreV1().ConfigMaps(testNamespace).Get(
-		context.Background(),
+		c.Context(),
 		config.Name,
 		meta.GetOptions{},
 	)

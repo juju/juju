@@ -4,8 +4,6 @@
 package action_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -109,7 +107,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *tc.C) {
 		mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationsCharmsActions", args, res).SetArg(3, ress).Return(facadeReturn)
 		client := action.NewClientFromCaller(mockFacadeCaller)
 
-		result, err := client.ApplicationCharmActions(context.Background(), "foo")
+		result, err := client.ApplicationCharmActions(c.Context(), "foo")
 		if t.expectedErr != "" {
 			c.Check(err, tc.ErrorMatches, t.expectedErr)
 		} else {
@@ -139,7 +137,7 @@ func (s *actionSuite) TestWatchActionProgress(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "WatchActionsProgress", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
-	w, err := client.WatchActionProgress(context.Background(), "666")
+	w, err := client.WatchActionProgress(c.Context(), "666")
 	c.Assert(w, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
@@ -166,7 +164,7 @@ func (s *actionSuite) TestWatchActionProgressArity(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "WatchActionsProgress", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
-	_, err := client.WatchActionProgress(context.Background(), "666")
+	_, err := client.WatchActionProgress(c.Context(), "666")
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }
 
@@ -203,7 +201,7 @@ func (s *actionSuite) TestListOperations(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListOperations", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
-	result, err := client.ListOperations(context.Background(), action.OperationQueryArgs{
+	result, err := client.ListOperations(c.Context(), action.OperationQueryArgs{
 		Applications: []string{"app"},
 		Units:        []string{"unit/0"},
 		Machines:     []string{"0"},
@@ -248,7 +246,7 @@ func (s *actionSuite) TestOperation(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Operations", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
-	result, err := client.Operation(context.Background(), "666")
+	result, err := client.Operation(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, action.Operation{
 		ID:      "1",
@@ -292,7 +290,7 @@ func (s *actionSuite) TestEnqueueOperation(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnqueueOperation", fArgs, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
-	result, err := client.EnqueueOperation(context.Background(), args)
+	result, err := client.EnqueueOperation(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, action.EnqueuedActions{
 		Actions: []action.ActionResult{{

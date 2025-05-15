@@ -4,8 +4,6 @@
 package observer
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -38,7 +36,7 @@ func (s *AgentPresenceSuite) TestLoginForUnit(c *tc.C) {
 	s.statusService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
 
 	observer := s.newObserver(c)
-	observer.Login(context.Background(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
+	observer.Login(c.Context(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
 }
 
 func (s *AgentPresenceSuite) TestLoginForMachine(c *tc.C) {
@@ -52,7 +50,7 @@ func (s *AgentPresenceSuite) TestLoginForMachine(c *tc.C) {
 	// the machine presence.
 
 	observer := s.newObserver(c)
-	observer.Login(context.Background(), names.NewMachineTag("0"), names.NewModelTag("bar"), uuid, false, "user data")
+	observer.Login(c.Context(), names.NewMachineTag("0"), names.NewModelTag("bar"), uuid, false, "user data")
 }
 
 func (s *AgentPresenceSuite) TestLoginForUser(c *tc.C) {
@@ -61,7 +59,7 @@ func (s *AgentPresenceSuite) TestLoginForUser(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 
 	observer := s.newObserver(c)
-	observer.Login(context.Background(), names.NewUserTag("bob"), names.NewModelTag("bar"), uuid, false, "user data")
+	observer.Login(c.Context(), names.NewUserTag("bob"), names.NewModelTag("bar"), uuid, false, "user data")
 }
 
 func (s *AgentPresenceSuite) TestLeaveForUnit(c *tc.C) {
@@ -75,8 +73,8 @@ func (s *AgentPresenceSuite) TestLeaveForUnit(c *tc.C) {
 	s.statusService.EXPECT().DeleteUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
 
 	observer := s.newObserver(c)
-	observer.Login(context.Background(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
-	observer.Leave(context.Background())
+	observer.Login(c.Context(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
+	observer.Leave(c.Context())
 }
 
 func (s *AgentPresenceSuite) TestLeaveForUser(c *tc.C) {
@@ -85,15 +83,15 @@ func (s *AgentPresenceSuite) TestLeaveForUser(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 
 	observer := s.newObserver(c)
-	observer.Login(context.Background(), names.NewUserTag("bob"), names.NewModelTag("bar"), uuid, false, "user data")
-	observer.Leave(context.Background())
+	observer.Login(c.Context(), names.NewUserTag("bob"), names.NewModelTag("bar"), uuid, false, "user data")
+	observer.Leave(c.Context())
 }
 
 func (s *AgentPresenceSuite) TestLeaveWithoutLogin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	observer := s.newObserver(c)
-	observer.Leave(context.Background())
+	observer.Leave(c.Context())
 }
 
 func (s *AgentPresenceSuite) newObserver(c *tc.C) *AgentPresence {

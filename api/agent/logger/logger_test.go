@@ -4,8 +4,6 @@
 package logger_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -39,7 +37,7 @@ func (s *loggerSuite) TestLoggingConfig(c *tc.C) {
 
 	client := logger.NewClient(apiCaller)
 	tag := names.NewMachineTag("666")
-	result, err := client.LoggingConfig(context.Background(), tag)
+	result, err := client.LoggingConfig(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, "juju.worker=TRACE")
 }
@@ -64,6 +62,6 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *tc.C) {
 
 	client := logger.NewClient(apiCaller)
 	tag := names.NewMachineTag("666")
-	_, err := client.WatchLoggingConfig(context.Background(), tag)
+	_, err := client.WatchLoggingConfig(c.Context(), tag)
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }

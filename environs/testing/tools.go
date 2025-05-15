@@ -5,7 +5,6 @@ package testing
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -108,10 +107,10 @@ func CheckUpgraderReadyError(c *tc.C, obtained error, expected *agenterrors.Upgr
 func PrimeTools(c *tc.C, stor storage.Storage, dataDir, stream string, vers semversion.Binary) *coretools.Tools {
 	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
 	c.Assert(err, tc.ErrorIsNil)
-	agentTools, err := uploadFakeToolsVersion(stor, stream, vers)
+	agentTools, err := uploadFakeToolsVersion(c, stor, stream, vers)
 	c.Assert(err, tc.ErrorIsNil)
 	client := http.NewClient()
-	resp, err := client.Get(context.Background(), agentTools.URL)
+	resp, err := client.Get(c.Context(), agentTools.URL)
 	c.Assert(err, tc.ErrorIsNil)
 	defer resp.Body.Close()
 	err = agenttools.UnpackTools(dataDir, agentTools, resp.Body)
@@ -119,8 +118,8 @@ func PrimeTools(c *tc.C, stor storage.Storage, dataDir, stream string, vers semv
 	return agentTools
 }
 
-func uploadFakeToolsVersion(stor storage.Storage, stream string, vers semversion.Binary) (*coretools.Tools, error) {
-	logger.Infof(context.Background(), "uploading FAKE tools %s", vers)
+func uploadFakeToolsVersion(c *tc.C, stor storage.Storage, stream string, vers semversion.Binary) (*coretools.Tools, error) {
+	logger.Infof(c.Context(), "uploading FAKE tools %s", vers)
 	tgz, checksum := makeFakeTools(vers)
 	size := int64(len(tgz))
 	name := envtools.StorageName(vers, stream)
@@ -154,10 +153,10 @@ func makeFakeTools(vers semversion.Binary) ([]byte, string) {
 }
 
 // UploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
-func UploadFakeToolsVersions(store storage.Storage, stream string, versions ...semversion.Binary) ([]*coretools.Tools, error) {
+func UploadFakeToolsVersions(c *tc.C, store storage.Storage, stream string, versions ...semversion.Binary) ([]*coretools.Tools, error) {
 	// Leave existing tools alone.
 	existingTools := make(map[semversion.Binary]*coretools.Tools)
-	existing, _ := envtools.ReadList(context.Background(), store, stream, 1, -1)
+	existing, _ := envtools.ReadList(c.Context(), store, stream, 1, -1)
 	for _, tools := range existing {
 		existingTools[tools.Version] = tools
 	}
@@ -166,7 +165,7 @@ func UploadFakeToolsVersions(store storage.Storage, stream string, versions ...s
 		if tools, ok := existingTools[version]; ok {
 			agentTools[i] = tools
 		} else {
-			t, err := uploadFakeToolsVersion(store, stream, version)
+			t, err := uploadFakeToolsVersion(c, store, stream, version)
 			if err != nil {
 				return nil, err
 			}
@@ -174,7 +173,7 @@ func UploadFakeToolsVersions(store storage.Storage, stream string, versions ...s
 		}
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	if err := envtools.MergeAndWriteMetadata(context.Background(), ss, store, stream, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
+	if err := envtools.MergeAndWriteMetadata(c.Context(), ss, store, stream, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
 		return nil, err
 	}
 	err := SignTestTools(store)
@@ -226,7 +225,7 @@ func SignFileData(stor storage.Storage, fileName string) error {
 
 // AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
 func AssertUploadFakeToolsVersions(c *tc.C, stor storage.Storage, stream string, versions ...semversion.Binary) []*coretools.Tools {
-	agentTools, err := UploadFakeToolsVersions(stor, stream, versions...)
+	agentTools, err := UploadFakeToolsVersions(c, stor, stream, versions...)
 	c.Assert(err, tc.ErrorIsNil)
 	return agentTools
 }
@@ -256,7 +255,7 @@ func UploadFakeTools(c *tc.C, stor storage.Storage, stream string, arches ...str
 		}
 	}
 	c.Logf("uploading fake tool versions: %v", versions)
-	_, err := UploadFakeToolsVersions(stor, stream, versions...)
+	_, err := UploadFakeToolsVersions(c, stor, stream, versions...)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

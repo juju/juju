@@ -4,8 +4,6 @@
 package modelconfig
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -136,7 +134,7 @@ func (s *modelconfigSuite) TestModelGetModelAdmin(c *tc.C) {
 	// Chck admin access.
 	s.expectModelAdminAccess()
 
-	result, err := api.ModelGet(context.Background())
+	result, err := api.ModelGet(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Config, tc.DeepEquals, map[string]params.ConfigValue{
 		"type":          {Value: "dummy", Source: "model"},
@@ -152,7 +150,7 @@ func (s *modelconfigSuite) TestModelGetControllerAdmin(c *tc.C) {
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).Times(2)
 
-	result, err := api.ModelGet(context.Background())
+	result, err := api.ModelGet(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Config, tc.DeepEquals, map[string]params.ConfigValue{
 		"type":          {Value: "dummy", Source: "model"},
@@ -169,7 +167,7 @@ func (s *modelconfigSuite) TestModelGetReadAccess(c *tc.C) {
 	s.expectModelReadAccess()
 	s.expectNoModelAdminAccess()
 
-	result, err := api.ModelGet(context.Background())
+	result, err := api.ModelGet(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Config, tc.DeepEquals, map[string]params.ConfigValue{
 		"type":          {Value: "dummy", Source: "model"},
@@ -203,7 +201,7 @@ func (s *modelconfigSuite) TestModelSetModelAdmin(c *tc.C) {
 		nil,
 		gomock.Any(),
 	)
-	err := api.ModelSet(context.Background(), params)
+	err := api.ModelSet(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -229,7 +227,7 @@ func (s *modelconfigSuite) TestSetModelConfigAgentStream(c *tc.C) {
 		gomock.Any(),
 	).Return(nil)
 
-	err := api.ModelSet(context.Background(), params.ModelSet{
+	err := api.ModelSet(c.Context(), params.ModelSet{
 		Config: map[string]any{
 			"agent-stream": "released",
 		},
@@ -253,7 +251,7 @@ func (s *modelconfigSuite) TestSetModelConfigAgentStreamInvalid(c *tc.C) {
 		coreagentbinary.AgentStream("invalid"),
 	).Return(coreerrors.NotValid)
 
-	err := api.ModelSet(context.Background(), params.ModelSet{
+	err := api.ModelSet(c.Context(), params.ModelSet{
 		Config: map[string]any{
 			"agent-stream": "invalid",
 		},
@@ -276,7 +274,7 @@ func (s *modelconfigSuite) assertModelSetBlocked(c *tc.C, args map[string]interf
 	s.expectModelWriteAccess()
 	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return(msg, nil)
 
-	err := api.ModelSet(context.Background(), params.ModelSet{Config: args})
+	err := api.ModelSet(c.Context(), params.ModelSet{Config: args})
 	s.assertBlocked(c, err, msg)
 }
 
@@ -304,7 +302,7 @@ func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	cfg, err := LogTracingValidator(true)(context.Background(), newConfig, oldConfig)
+	cfg, err := LogTracingValidator(true)(c.Context(), newConfig, oldConfig)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(cfg.AllAttrs(), tc.DeepEquals, newConfig.AllAttrs())
 }
@@ -327,7 +325,7 @@ func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	cfg, err := LogTracingValidator(true)(context.Background(), newConfig, oldConfig)
+	cfg, err := LogTracingValidator(true)(c.Context(), newConfig, oldConfig)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(cfg.AllAttrs(), tc.DeepEquals, newConfig.AllAttrs())
 }
@@ -339,7 +337,7 @@ func (s *modelconfigSuite) TestModelSetNoWriteAccess(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelUUID.String())).
 		Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
-	err := api.ModelSet(context.Background(), params.ModelSet{})
+	err := api.ModelSet(c.Context(), params.ModelSet{})
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "permission denied")
 }
 
@@ -361,7 +359,7 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = LogTracingValidator(false)(context.Background(), newConfig, oldConfig)
+	_, err = LogTracingValidator(false)(c.Context(), newConfig, oldConfig)
 	var validationErr *config.ValidationError
 	c.Check(errors.As(err, &validationErr), tc.IsTrue)
 	c.Check(*validationErr, tc.DeepEquals, config.ValidationError{
@@ -385,7 +383,7 @@ func (s *modelconfigSuite) TestModelUnset(c *tc.C) {
 	)
 
 	args := params.ModelUnset{Keys: []string{"abc"}}
-	err := api.ModelUnset(context.Background(), args)
+	err := api.ModelUnset(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -397,7 +395,7 @@ func (s *modelconfigSuite) TestBlockModelUnset(c *tc.C) {
 	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockModelUnset", nil)
 
 	args := params.ModelUnset{Keys: []string{"abc"}}
-	err := api.ModelUnset(context.Background(), args)
+	err := api.ModelUnset(c.Context(), args)
 	s.assertBlocked(c, err, "TestBlockModelUnset")
 }
 
@@ -416,7 +414,7 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *tc.C) {
 		gomock.Any(),
 	)
 	args := params.ModelUnset{Keys: []string{"not_there"}}
-	err := api.ModelUnset(context.Background(), args)
+	err := api.ModelUnset(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -432,7 +430,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraints(c *tc.C) {
 	s.expectNoBlocks()
 	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons)
 
-	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
+	err = api.SetModelConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
@@ -450,7 +448,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedModelNotFound(c *t
 	s.expectNoBlocks()
 	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(modelerrors.NotFound)
 
-	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
+	err = api.SetModelConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
@@ -468,7 +466,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedSpaceNotFound(c *t
 	s.expectNoBlocks()
 	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(networkerrors.SpaceNotFound)
 
-	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
+	err = api.SetModelConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
@@ -486,7 +484,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedInvalidContainerTy
 	s.expectNoBlocks()
 	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(machineerrors.InvalidContainerType)
 
-	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
+	err = api.SetModelConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
@@ -504,7 +502,7 @@ func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *tc.C, msg string)
 	s.expectModelWriteAccess()
 	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockChangesClientSetModelConstraints", nil)
 
-	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
+	err = api.SetModelConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
@@ -527,7 +525,7 @@ func (s *modelconfigSuite) TestClientGetModelConstraints(c *tc.C) {
 
 	s.mockModelService.EXPECT().GetModelConstraints(gomock.Any()).Return(cons, nil)
 
-	obtained, err := api.GetModelConstraints(context.Background())
+	obtained, err := api.GetModelConstraints(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained.Constraints, tc.DeepEquals, cons)
 }
@@ -540,7 +538,7 @@ func (s *modelconfigSuite) TestClientGetModelConstraintsFailedModelNotFound(c *t
 
 	s.mockModelService.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Value{}, modelerrors.NotFound)
 
-	_, err := api.GetModelConstraints(context.Background())
+	_, err := api.GetModelConstraints(c.Context())
 	c.Assert(err, tc.Satisfies, params.IsCodeModelNotFound)
 }
 
@@ -552,7 +550,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackendFailedPermissionDenied(c *tc
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission),
 	)
 
-	_, err := facade.GetModelSecretBackend(context.Background())
+	_, err := facade.GetModelSecretBackend(c.Context())
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 	c.Assert(err, tc.ErrorIs, authentication.ErrorEntityMissingPermission)
 }
@@ -564,7 +562,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackendFailedModelNotFound(c *tc.C)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.modelUUID.String()))
 	s.mockModelSecretBackendService.EXPECT().GetModelSecretBackend(gomock.Any()).Return("", modelerrors.NotFound)
 
-	result, err := facade.GetModelSecretBackend(context.Background())
+	result, err := facade.GetModelSecretBackend(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.ErrorMatches, "model not found")
 	c.Assert(result.Error.Code, tc.Equals, params.CodeModelNotFound)
@@ -577,7 +575,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackend(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.modelUUID.String()))
 	s.mockModelSecretBackendService.EXPECT().GetModelSecretBackend(gomock.Any()).Return("myvault", nil)
 
-	result, err := facade.GetModelSecretBackend(context.Background())
+	result, err := facade.GetModelSecretBackend(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Result, tc.Equals, "myvault")
 }
@@ -590,7 +588,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedPermissionDenied(c *tc
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission),
 	)
 
-	_, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{})
+	_, err := facade.SetModelSecretBackend(c.Context(), params.SetModelSecretBackendArg{})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 	c.Assert(err, tc.ErrorIs, authentication.ErrorEntityMissingPermission)
 }
@@ -602,7 +600,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedModelNotFound(c *tc.C)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelUUID.String()))
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(modelerrors.NotFound)
 
-	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
+	result, err := facade.SetModelSecretBackend(c.Context(), params.SetModelSecretBackendArg{
 		SecretBackendName: "myvault",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -617,7 +615,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelUUID.String()))
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(secretbackenderrors.NotFound)
 
-	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
+	result, err := facade.SetModelSecretBackend(c.Context(), params.SetModelSecretBackendArg{
 		SecretBackendName: "myvault",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -632,7 +630,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotValid(
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelUUID.String()))
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(secretbackenderrors.NotValid)
 
-	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
+	result, err := facade.SetModelSecretBackend(c.Context(), params.SetModelSecretBackendArg{
 		SecretBackendName: "myvault",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -647,7 +645,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackend(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelUUID.String()))
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault")
 
-	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
+	result, err := facade.SetModelSecretBackend(c.Context(), params.SetModelSecretBackendArg{
 		SecretBackendName: "myvault",
 	})
 	c.Assert(err, tc.ErrorIsNil)

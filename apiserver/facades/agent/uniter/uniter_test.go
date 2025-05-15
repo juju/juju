@@ -72,7 +72,7 @@ func (s *uniterSuite) TestWatchUnitResolveModeUnauthorised(c *tc.C) {
 
 	s.badTag = names.NewUnitTag("foo/0")
 
-	res, err := s.uniter.WatchUnitResolveMode(context.Background(), params.Entity{
+	res, err := s.uniter.WatchUnitResolveMode(c.Context(), params.Entity{
 		Tag: names.NewUnitTag("foo/0").String(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -85,7 +85,7 @@ func (s *uniterSuite) TestWatchUnitResolveModeNotFound(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	s.resolveService.EXPECT().WatchUnitResolveMode(gomock.Any(), unitName).Return(nil, resolveerrors.UnitNotFound)
 
-	res, err := s.uniter.WatchUnitResolveMode(context.Background(), params.Entity{
+	res, err := s.uniter.WatchUnitResolveMode(c.Context(), params.Entity{
 		Tag: names.NewUnitTag(unitName.String()).String(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -99,7 +99,7 @@ func (s *uniterSuite) TestWatchUnitResolveMode(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	s.expectWatchUnitResolveMode(ctrl, unitName, "1")
 
-	res, err := s.uniter.WatchUnitResolveMode(context.Background(), params.Entity{
+	res, err := s.uniter.WatchUnitResolveMode(c.Context(), params.Entity{
 		Tag: names.NewUnitTag(unitName.String()).String(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -111,7 +111,7 @@ func (s *uniterSuite) TestResolvedUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.badTag = names.NewUnitTag("foo/0")
-	res, err := s.uniter.Resolved(context.Background(), params.Entities{
+	res, err := s.uniter.Resolved(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewUnitTag("foo/0").String(),
 		}},
@@ -127,7 +127,7 @@ func (s *uniterSuite) TestResolvedNotFound(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	s.resolveService.EXPECT().UnitResolveMode(gomock.Any(), unitName).Return("", resolveerrors.UnitNotFound)
 
-	res, err := s.uniter.Resolved(context.Background(), params.Entities{
+	res, err := s.uniter.Resolved(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewUnitTag(unitName.String()).String(),
 		}},
@@ -144,7 +144,7 @@ func (s *uniterSuite) TestResolvedNotResolved(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	s.resolveService.EXPECT().UnitResolveMode(gomock.Any(), unitName).Return("", resolveerrors.UnitNotResolved)
 
-	res, err := s.uniter.Resolved(context.Background(), params.Entities{
+	res, err := s.uniter.Resolved(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewUnitTag(unitName.String()).String(),
 		}},
@@ -161,7 +161,7 @@ func (s *uniterSuite) TestResolvedRetryHooks(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	s.resolveService.EXPECT().UnitResolveMode(gomock.Any(), unitName).Return(resolve.ResolveModeRetryHooks, nil)
 
-	res, err := s.uniter.Resolved(context.Background(), params.Entities{
+	res, err := s.uniter.Resolved(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewUnitTag(unitName.String()).String(),
 		}},
@@ -178,7 +178,7 @@ func (s *uniterSuite) TestResolvedNoRetry(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	s.resolveService.EXPECT().UnitResolveMode(gomock.Any(), unitName).Return(resolve.ResolveModeNoHooks, nil)
 
-	res, err := s.uniter.Resolved(context.Background(), params.Entities{
+	res, err := s.uniter.Resolved(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewUnitTag(unitName.String()).String(),
 		}},
@@ -193,7 +193,7 @@ func (s *uniterSuite) TestClearResolvedUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.badTag = names.NewUnitTag("foo/0")
-	res, err := s.uniter.ClearResolved(context.Background(), params.Entities{
+	res, err := s.uniter.ClearResolved(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewUnitTag("foo/0").String(),
 		}},
@@ -209,7 +209,7 @@ func (s *uniterSuite) TestClearResolvedNotFound(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	s.resolveService.EXPECT().ClearResolved(gomock.Any(), unitName).Return(resolveerrors.UnitNotFound)
 
-	res, err := s.uniter.ClearResolved(context.Background(), params.Entities{
+	res, err := s.uniter.ClearResolved(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewUnitTag(unitName.String()).String(),
 		}},
@@ -225,7 +225,7 @@ func (s *uniterSuite) TestClearResolved(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	s.resolveService.EXPECT().ClearResolved(gomock.Any(), unitName).Return(nil)
 
-	res, err := s.uniter.ClearResolved(context.Background(), params.Entities{
+	res, err := s.uniter.ClearResolved(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewUnitTag(unitName.String()).String(),
 		}},
@@ -244,7 +244,7 @@ func (s *uniterSuite) TestCharmArchiveSha256Local(c *tc.C) {
 		Revision: 1,
 	}).Return("sha256:foo", nil)
 
-	results, err := s.uniter.CharmArchiveSha256(context.Background(), params.CharmURLs{
+	results, err := s.uniter.CharmArchiveSha256(c.Context(), params.CharmURLs{
 		URLs: []params.CharmURL{
 			{URL: "local:foo-1"},
 		},
@@ -266,7 +266,7 @@ func (s *uniterSuite) TestCharmArchiveSha256Charmhub(c *tc.C) {
 		Revision: 1,
 	}).Return("sha256:foo", nil)
 
-	results, err := s.uniter.CharmArchiveSha256(context.Background(), params.CharmURLs{
+	results, err := s.uniter.CharmArchiveSha256(c.Context(), params.CharmURLs{
 		URLs: []params.CharmURL{
 			{URL: "foo-1"},
 		},
@@ -298,7 +298,7 @@ func (s *uniterSuite) TestCharmArchiveSha256Errors(c *tc.C) {
 		Revision: 3,
 	}).Return("", applicationerrors.CharmNotResolved)
 
-	results, err := s.uniter.CharmArchiveSha256(context.Background(), params.CharmURLs{
+	results, err := s.uniter.CharmArchiveSha256(c.Context(), params.CharmURLs{
 		URLs: []params.CharmURL{
 			{URL: "foo-1"},
 			{URL: "ch:foo-2"},
@@ -318,9 +318,9 @@ func (s *uniterSuite) TestCharmArchiveSha256Errors(c *tc.C) {
 func (s *uniterSuite) TestLeadershipSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.uniter.Merge(context.Background(), struct{}{}, struct{}{})
-	s.uniter.Read(context.Background(), struct{}{}, struct{}{})
-	s.uniter.WatchLeadershipSettings(context.Background(), struct{}{}, struct{}{})
+	s.uniter.Merge(c.Context(), struct{}{}, struct{}{})
+	s.uniter.Read(c.Context(), struct{}{}, struct{}{})
+	s.uniter.WatchLeadershipSettings(c.Context(), struct{}{}, struct{}{})
 }
 
 func (s *uniterSuite) TestGetPrincipal(c *tc.C) {
@@ -339,7 +339,7 @@ func (s *uniterSuite) TestGetPrincipal(c *tc.C) {
 	s.expectGetUnitPrincipal("subordinate/0", "principal/0", true, nil)
 	s.expectGetUnitPrincipal("foo/42", "", false, boom)
 
-	result, err := s.uniter.GetPrincipal(context.Background(), args)
+	result, err := s.uniter.GetPrincipal(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringBoolResults{
 		Results: []params.StringBoolResult{
@@ -377,7 +377,7 @@ func (s *uniterSuite) TestAvailabilityZone(c *tc.C) {
 	s.badTag = names.NewUnitTag("foo/0")
 
 	// Act:
-	result, err := s.uniter.AvailabilityZone(context.Background(), args)
+	result, err := s.uniter.AvailabilityZone(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -410,7 +410,7 @@ func (s *uniterSuite) TestAssignedMachine(c *tc.C) {
 	s.badTag = names.NewUnitTag("foo/42")
 
 	// Act:
-	result, err := s.uniter.AssignedMachine(context.Background(), args)
+	result, err := s.uniter.AssignedMachine(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -450,7 +450,7 @@ func (s *uniterSuite) TestWatchConfiSettingsHash(c *tc.C) {
 	// Arrange: expect a state error for postgresql
 	s.applicationService.EXPECT().WatchApplicationConfigHash(gomock.Any(), "postgresql").Return(nil, applicationerrors.UnitNotFound)
 
-	result, err := s.uniter.WatchConfigSettingsHash(context.Background(), args)
+	result, err := s.uniter.WatchConfigSettingsHash(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -487,7 +487,7 @@ func (s *uniterSuite) TestWatchTrustConfiSettingsHash(c *tc.C) {
 	// Arrange: expect a state error for postgresql
 	s.applicationService.EXPECT().WatchApplicationConfigHash(gomock.Any(), "postgresql").Return(nil, applicationerrors.UnitNotFound)
 
-	result, err := s.uniter.WatchTrustConfigSettingsHash(context.Background(), args)
+	result, err := s.uniter.WatchTrustConfigSettingsHash(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -524,7 +524,7 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	// Arrange: expect a state error for postgresql/0
 	s.applicationService.EXPECT().WatchUnitAddressesHash(gomock.Any(), coreunit.Name("postgresql/0")).Return(nil, applicationerrors.UnitNotFound)
 
-	result, err := s.uniter.WatchUnitAddressesHash(context.Background(), args)
+	result, err := s.uniter.WatchUnitAddressesHash(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -619,7 +619,7 @@ func (s *uniterSuite) TestConfigSettings(c *tc.C) {
 	s.badTag = names.NewUnitTag("foo/42")
 
 	// Act:
-	result, err := s.uniter.ConfigSettings(context.Background(), args)
+	result, err := s.uniter.ConfigSettings(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -649,7 +649,7 @@ func (s *uniterSuite) TestHasSubordinates(c *tc.C) {
 	boom := internalerrors.New("boom")
 	s.expectGetHasSubordinates(c, "foo/42", nil, boom)
 
-	result, err := s.uniter.HasSubordinates(context.Background(), args)
+	result, err := s.uniter.HasSubordinates(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -755,7 +755,7 @@ type leadershipUniterSuite struct {
 func (s *leadershipUniterSuite) TestLeadershipSettingsMerge(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	results, err := s.uniter.Merge(context.Background(), params.MergeLeadershipSettingsBulkParams{
+	results, err := s.uniter.Merge(c.Context(), params.MergeLeadershipSettingsBulkParams{
 		Params: []params.MergeLeadershipSettingsParam{
 			{
 				ApplicationTag: "app1",
@@ -774,7 +774,7 @@ func (s *leadershipUniterSuite) TestLeadershipSettingsMerge(c *tc.C) {
 func (s *leadershipUniterSuite) TestLeadershipSettingsRead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	results, err := s.uniter.Read(context.Background(), params.Entities{
+	results, err := s.uniter.Read(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{
 				Tag: "app1",
@@ -790,7 +790,7 @@ func (s *leadershipUniterSuite) TestLeadershipSettingsRead(c *tc.C) {
 func (s *leadershipUniterSuite) TestLeadershipSettingsWatchLeadershipSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	results, err := s.uniter.WatchLeadershipSettings(context.Background(), params.Entities{
+	results, err := s.uniter.WatchLeadershipSettings(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{
 				Tag: "app1",
@@ -893,7 +893,7 @@ func (s *uniterRelationSuite) TestRelation(c *tc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: "unit-wordpress-0"},
 	}}
-	result, err := s.uniter.Relation(context.Background(), args)
+	result, err := s.uniter.Relation(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, params.RelationResultsV2{
 		Results: []params.RelationResultV2{
@@ -945,7 +945,7 @@ func (s *uniterRelationSuite) TestRelationUnauthorized(c *tc.C) {
 			{Relation: relTagFail.String(), Unit: "unit-wordpress-0"},
 		},
 	}
-	result, err := s.uniter.Relation(context.Background(), args)
+	result, err := s.uniter.Relation(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -986,7 +986,7 @@ func (s *uniterRelationSuite) TestRelationById(c *tc.C) {
 			relIDUnexpectedAppName,
 		},
 	}
-	result, err := s.uniter.RelationById(context.Background(), args)
+	result, err := s.uniter.RelationById(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.RelationResultsV2{
 		Results: []params.RelationResultV2{
@@ -1032,7 +1032,7 @@ func (s *uniterRelationSuite) TestReadSettingsApplication(c *tc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: s.wordpressAppTag.String()},
 	}}
-	result, err := s.uniter.ReadSettings(context.Background(), args)
+	result, err := s.uniter.ReadSettings(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1061,7 +1061,7 @@ func (s *uniterRelationSuite) TestReadSettingsUnit(c *tc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()},
 	}}
-	result, err := s.uniter.ReadSettings(context.Background(), args)
+	result, err := s.uniter.ReadSettings(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1111,7 +1111,7 @@ func (s *uniterRelationSuite) TestReadSettingsErrUnauthorized(c *tc.C) {
 		c.Logf("test %d: %s", i, testCase.description)
 		testCase.arrange()
 		args := params.RelationUnits{RelationUnits: []params.RelationUnit{testCase.arg}}
-		result, err := s.uniter.ReadSettings(context.Background(), args)
+		result, err := s.uniter.ReadSettings(c.Context(), args)
 		if c.Check(err, tc.ErrorIsNil) {
 			if !c.Check(result.Results, tc.HasLen, 1) {
 				continue
@@ -1137,7 +1137,7 @@ func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *tc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: s.wordpressAppTag.String()},
 	}}
-	result, err := s.uniter.ReadSettings(context.Background(), args)
+	result, err := s.uniter.ReadSettings(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1189,7 +1189,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsErrUnauthorized(c *tc.C) {
 		c.Logf("test %d: %s", i, testCase.description)
 		testCase.arrange()
 		args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{testCase.arg}}
-		result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
+		result, err := s.uniter.ReadRemoteSettings(c.Context(), args)
 		if c.Check(err, tc.ErrorIsNil) {
 			if !c.Check(result.Results, tc.HasLen, 1) {
 				continue
@@ -1220,7 +1220,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForUnit(c *tc.C) {
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
 		{Relation: relTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: remoteUnitTag.String()},
 	}}
-	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
+	result, err := s.uniter.ReadRemoteSettings(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1254,7 +1254,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *tc.C) {
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
 		{Relation: relTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: remoteAppTag.String()},
 	}}
-	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
+	result, err := s.uniter.ReadRemoteSettings(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1287,7 +1287,7 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
 		{Relation: relTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: s.wordpressAppTag.String()},
 	}}
-	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
+	result, err := s.uniter.ReadRemoteSettings(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1323,7 +1323,7 @@ func (s *uniterRelationSuite) TestRelationStatus(c *tc.C) {
 
 	// act
 	args := params.Entities{Entities: []params.Entity{{Tag: s.wordpressUnitTag.String()}}}
-	result, err := s.uniter.RelationsStatus(context.Background(), args)
+	result, err := s.uniter.RelationsStatus(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1339,7 +1339,7 @@ func (s *uniterRelationSuite) TestRelationStatus(c *tc.C) {
 func (s *uniterRelationSuite) TestRelationsStatusUnitTagNotUnitNorApplication(c *tc.C) {
 	// act
 	args := params.Entities{Entities: []params.Entity{{Tag: "machine-0"}}}
-	result, err := s.uniter.RelationsStatus(context.Background(), args)
+	result, err := s.uniter.RelationsStatus(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1352,7 +1352,7 @@ func (s *uniterRelationSuite) TestRelationsStatusUnitTagNotUnitNorApplication(c 
 func (s *uniterRelationSuite) TestRelationsStatusUnitTagCannotAccess(c *tc.C) {
 	// act
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}}
-	result, err := s.uniter.RelationsStatus(context.Background(), args)
+	result, err := s.uniter.RelationsStatus(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1378,7 +1378,7 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *tc.C) {
 			{UnitTag: s.wordpressUnitTag.String(), RelationId: relID, Status: params.Joined},
 		},
 	}
-	result, err := s.uniter.SetRelationStatus(context.Background(), args)
+	result, err := s.uniter.SetRelationStatus(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1389,7 +1389,7 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *tc.C) {
 func (s *uniterRelationSuite) TestSetRelationStatusUnitTagNotValid(c *tc.C) {
 	// act
 	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{UnitTag: "foo"}}}
-	result, err := s.uniter.SetRelationStatus(context.Background(), args)
+	result, err := s.uniter.SetRelationStatus(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1410,7 +1410,7 @@ func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 		RelationId: relID,
 		Status:     params.Joined,
 	}}}
-	result, err := s.uniter.SetRelationStatus(context.Background(), args)
+	result, err := s.uniter.SetRelationStatus(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1435,7 +1435,7 @@ func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *tc.C) {
 		// authorization on unit tag fails
 		{Relation: relTag.String(), Unit: "unit-mysql-0"},
 	}}
-	result, err := s.uniter.EnterScope(context.Background(), args)
+	result, err := s.uniter.EnterScope(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1462,7 +1462,7 @@ func (s *uniterRelationSuite) TestEnterScope(c *tc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()},
 	}}
-	result, err := s.uniter.EnterScope(context.Background(), args)
+	result, err := s.uniter.EnterScope(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1488,7 +1488,7 @@ func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()},
 	}}
-	result, err := s.uniter.EnterScope(context.Background(), args)
+	result, err := s.uniter.EnterScope(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1517,7 +1517,7 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *tc.C) {
 		// Invalid unit tag
 		{Relation: relTag.String(), Unit: "application-wordpress"},
 	}}
-	result, err := s.uniter.LeaveScope(context.Background(), args)
+	result, err := s.uniter.LeaveScope(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1581,7 +1581,7 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *tc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()}},
 	}
-	result, err := s.uniter.WatchRelationUnits(context.Background(), args)
+	result, err := s.uniter.WatchRelationUnits(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1609,7 +1609,7 @@ func (s *uniterRelationSuite) TestWatchRelationUnitsFails(c *tc.C) {
 		// Invalid unit tag
 		{Relation: relTag.String(), Unit: "application-wordpress"},
 	}}
-	result, err := s.uniter.WatchRelationUnits(context.Background(), args)
+	result, err := s.uniter.WatchRelationUnits(c.Context(), args)
 
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1638,7 +1638,7 @@ func (s *uniterRelationSuite) TestWatchUnitRelations(c *tc.C) {
 	s.expectWatcherRegistry(watcherID, watch, nil)
 
 	// Act
-	results, err := s.uniter.WatchUnitRelations(context.Background(),
+	results, err := s.uniter.WatchUnitRelations(c.Context(),
 		params.Entities{
 			Entities: []params.Entity{
 				{Tag: s.wordpressUnitTag.String()},
@@ -1668,7 +1668,7 @@ func (s *uniterRelationSuite) TestWatchUnitRelationsErrUnauthorized(c *tc.C) {
 	}}
 
 	// Act
-	results, err := s.uniter.WatchUnitRelations(context.Background(), args)
+	results, err := s.uniter.WatchUnitRelations(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1900,7 +1900,7 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *tc.C) {
 	}
 
 	// act
-	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, canAccess)
+	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, canAccess)
 
 	// assert
 	c.Assert(err, tc.IsNil)
@@ -1913,7 +1913,7 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadUnitTag(
 	}
 
 	// act
-	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, nil)
+	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, nil)
 
 	// assert
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -1929,7 +1929,7 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsFailCanAcce
 	}
 
 	// act
-	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, canAccess)
+	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, canAccess)
 
 	// assert
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -1946,7 +1946,7 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadRelation
 	}
 
 	// act
-	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, canAccess)
+	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, canAccess)
 
 	// assert
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)

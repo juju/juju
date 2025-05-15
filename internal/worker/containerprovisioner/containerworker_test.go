@@ -179,7 +179,7 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *tc.C) worker.Worker {
 	watcherFunc := func(context.Context) (watcher.StringsWatcher, error) {
 		return s.stringsWatcher, nil
 	}
-	w, err := containerprovisioner.NewContainerSetupAndProvisioner(context.Background(), cs, watcherFunc)
+	w, err := containerprovisioner.NewContainerSetupAndProvisioner(c.Context(), cs, watcherFunc)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return w

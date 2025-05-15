@@ -4,7 +4,6 @@
 package lxd_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 
@@ -52,7 +51,7 @@ func (s *connectionSuite) TestLxdSocketPathNoSocket(c *tc.C) {
 }
 
 func (s *connectionSuite) TestConnectRemoteBadProtocol(c *tc.C) {
-	svr, err := lxd.ConnectImageRemote(context.Background(), lxd.ServerSpec{Host: "wrong-protocol-server", Protocol: "FOOBAR"})
+	svr, err := lxd.ConnectImageRemote(c.Context(), lxd.ServerSpec{Host: "wrong-protocol-server", Protocol: "FOOBAR"})
 	c.Check(svr, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "bad protocol supplied for connection: FOOBAR")
 }

@@ -37,7 +37,7 @@ var _ = tc.Suite(&userAuthenticatorSuite{})
 func (s *userAuthenticatorSuite) TestMachineLoginFails(c *tc.C) {
 
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	_, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     names.NewMachineTag("0"),
 		Credentials: "I am a machine",
 		Nonce:       "Ya nonce!",
@@ -48,7 +48,7 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *tc.C) {
 func (s *userAuthenticatorSuite) TestUnitLoginFails(c *tc.C) {
 	// Attempt unit login,
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	_, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     names.NewUnitTag("vault/0"),
 		Credentials: "I am a unit",
 	})
@@ -57,7 +57,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *tc.C) {
 
 func (s *userAuthenticatorSuite) TestValidUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        usertesting.GenNewName(c, "bobbrown"),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -75,7 +75,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *tc.C) {
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerDomainServices(c).Access(),
 	}
-	entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	entity, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
@@ -86,7 +86,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *tc.C) {
 func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
 	name := usertesting.GenNewName(c, "bobbrown")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -100,13 +100,13 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = userService.DisableUserAuthentication(context.Background(), name)
+	err = userService.DisableUserAuthentication(c.Context(), name)
 	c.Assert(err, tc.ErrorIsNil)
 
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerDomainServices(c).Access(),
 	}
-	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
@@ -116,7 +116,7 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *tc.C) {
 func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
 	name := usertesting.GenNewName(c, "bobbrown")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -130,14 +130,14 @@ func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = userService.RemoveUser(context.Background(), name)
+	err = userService.RemoveUser(c.Context(), name)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerDomainServices(c).Access(),
 	}
-	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
@@ -147,7 +147,7 @@ func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *tc.C) {
 func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
 	name := usertesting.GenNewName(c, "bobbrown")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -166,7 +166,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *tc.C) {
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerDomainServices(c).Access(),
 	}
-	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     names.NewUserTag(name.Name()),
 		Credentials: "wrongpassword",
 	})
@@ -176,7 +176,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *tc.C) {
 func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
 	name := usertesting.GenNewName(c, "bob")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -203,7 +203,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
 		Bakery:      &bakeryService,
 		Clock:       testclock.NewClock(time.Time{}),
 	}
-	entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	entity, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:   names.NewUserTag(name.Name()),
 		Macaroons: macaroons,
 	})
@@ -218,7 +218,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
 
 func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        usertesting.GenNewName(c, "bobbrown"),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -245,7 +245,7 @@ func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *tc.C) {
 		Bakery:      &bakeryService,
 		Clock:       testclock.NewClock(time.Time{}),
 	}
-	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
@@ -255,7 +255,7 @@ func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *tc.C) {
 func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
 	name := usertesting.GenNewName(c, "bobbrown")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -268,7 +268,7 @@ func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = userService.DisableUserAuthentication(context.Background(), name)
+	err = userService.DisableUserAuthentication(c.Context(), name)
 	c.Assert(err, tc.ErrorIsNil)
 
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
@@ -284,7 +284,7 @@ func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *tc.C) {
 		Bakery:      &bakeryService,
 		Clock:       testclock.NewClock(time.Time{}),
 	}
-	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
@@ -294,7 +294,7 @@ func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *tc.C) {
 func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
 	name := usertesting.GenNewName(c, "bobbrown")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -307,7 +307,7 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = userService.RemoveUser(context.Background(), name)
+	err = userService.RemoveUser(c.Context(), name)
 	c.Assert(err, tc.ErrorIsNil)
 
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
@@ -323,7 +323,7 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *tc.C) {
 		Bakery:      &bakeryService,
 		Clock:       testclock.NewClock(time.Time{}),
 	}
-	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
@@ -332,7 +332,7 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *tc.C) {
 
 func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *tc.C) {
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+	_, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     names.NewRelationTag("this-app:rel that-app:rel"),
 		Credentials: "I am a relation",
 	})
@@ -343,7 +343,7 @@ func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *tc.C) {
 	service := mockBakeryService{}
 	clock := testclock.NewClock(time.Time{})
 	_, err := authentication.CreateLocalLoginMacaroon(
-		context.Background(),
+		c.Context(),
 		names.NewUserTag("bobbrown"), &service, clock, bakery.LatestVersion,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -365,7 +365,7 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *tc.C) {
 
 	service.SetErrors(nil, &bakery.VerificationError{})
 	_, err := authenticator.Authenticate(
-		context.Background(),
+		c.Context(),
 		authentication.AuthParams{
 			AuthTag: names.NewUserTag("bobbrown"),
 		},
@@ -499,16 +499,16 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *tc.C) {
 		}
 
 		// Authenticate once to obtain the macaroon to be discharged.
-		_, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{})
+		_, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{})
 
 		// Discharge the macaroon.
 		dischargeErr := errors.Cause(err).(*apiservererrors.DischargeRequiredError)
 		client := httpbakery.NewClient()
-		ms, err := client.DischargeAll(context.Background(), dischargeErr.Macaroon)
+		ms, err := client.DischargeAll(c.Context(), dischargeErr.Macaroon)
 		c.Assert(err, tc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.
-		entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		entity, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 			Macaroons: []macaroon.Slice{ms},
 		})
 		if test.expectError != "" {

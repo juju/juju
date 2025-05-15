@@ -4,7 +4,6 @@
 package service
 
 import (
-	"context"
 	"errors"
 
 	"github.com/juju/collections/set"
@@ -29,7 +28,7 @@ func (s *exposedServiceSuite) TestApplicationExposedNotFound(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
 
-	_, err := s.service.IsApplicationExposed(context.Background(), "foo")
+	_, err := s.service.IsApplicationExposed(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, "application not found")
 }
 
@@ -40,7 +39,7 @@ func (s *exposedServiceSuite) TestApplicationExposed(c *tc.C) {
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().IsApplicationExposed(gomock.Any(), applicationUUID).Return(true, nil)
 
-	exposed, err := s.service.IsApplicationExposed(context.Background(), "foo")
+	exposed, err := s.service.IsApplicationExposed(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exposed, tc.IsTrue)
 }
@@ -50,7 +49,7 @@ func (s *exposedServiceSuite) TestExposedEndpointsNotFound(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
 
-	_, err := s.service.GetExposedEndpoints(context.Background(), "foo")
+	_, err := s.service.GetExposedEndpoints(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, "application not found")
 }
 
@@ -69,7 +68,7 @@ func (s *exposedServiceSuite) TestExposedEndpoints(c *tc.C) {
 	}
 	s.state.EXPECT().GetExposedEndpoints(gomock.Any(), applicationUUID).Return(expected, nil)
 
-	obtained, err := s.service.GetExposedEndpoints(context.Background(), "foo")
+	obtained, err := s.service.GetExposedEndpoints(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, expected)
 }
@@ -79,7 +78,7 @@ func (s *exposedServiceSuite) TestUnsetExposeSettingsNotFound(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
 
-	err := s.service.UnsetExposeSettings(context.Background(), "foo", set.NewStrings("endpoint0"))
+	err := s.service.UnsetExposeSettings(c.Context(), "foo", set.NewStrings("endpoint0"))
 	c.Assert(err, tc.ErrorMatches, "application not found")
 }
 
@@ -91,7 +90,7 @@ func (s *exposedServiceSuite) TestUnsetExposeSettings(c *tc.C) {
 	exposedEndpoints := set.NewStrings("endpoint0", "endpoint1")
 	s.state.EXPECT().UnsetExposeSettings(gomock.Any(), applicationUUID, exposedEndpoints).Return(nil)
 
-	err := s.service.UnsetExposeSettings(context.Background(), "foo", exposedEndpoints)
+	err := s.service.UnsetExposeSettings(c.Context(), "foo", exposedEndpoints)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -100,7 +99,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsNotFound(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
 
-	err := s.service.MergeExposeSettings(context.Background(), "foo", map[string]application.ExposedEndpoint{
+	err := s.service.MergeExposeSettings(c.Context(), "foo", map[string]application.ExposedEndpoint{
 		"endpoint0": {
 			ExposeToSpaceIDs: set.NewStrings("space0", "space1"),
 		},
@@ -118,7 +117,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsEndpointsExistError(c *tc.C
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().EndpointsExist(gomock.Any(), applicationUUID, set.NewStrings("endpoint0", "endpoint1")).Return(errors.New("boom"))
 
-	err := s.service.MergeExposeSettings(context.Background(), "foo", map[string]application.ExposedEndpoint{
+	err := s.service.MergeExposeSettings(c.Context(), "foo", map[string]application.ExposedEndpoint{
 		"endpoint0": {
 			ExposeToSpaceIDs: set.NewStrings("space0", "space1"),
 		},
@@ -137,7 +136,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsSpacesNotExist(c *tc.C) {
 	s.state.EXPECT().EndpointsExist(gomock.Any(), applicationUUID, set.NewStrings("endpoint0", "endpoint1")).Return(nil)
 	s.state.EXPECT().SpacesExist(gomock.Any(), set.NewStrings("space0", "space1")).Return(errors.New("one or more of the provided spaces \\[space0 space1\\] do not exist"))
 
-	err := s.service.MergeExposeSettings(context.Background(), "foo", map[string]application.ExposedEndpoint{
+	err := s.service.MergeExposeSettings(c.Context(), "foo", map[string]application.ExposedEndpoint{
 		"endpoint0": {
 			ExposeToSpaceIDs: set.NewStrings("space0", "space1"),
 		},
@@ -161,7 +160,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsEmptyEndpointsList(c *tc.C)
 		},
 	}).Return(nil)
 
-	err := s.service.MergeExposeSettings(context.Background(), "foo", map[string]application.ExposedEndpoint{})
+	err := s.service.MergeExposeSettings(c.Context(), "foo", map[string]application.ExposedEndpoint{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -181,7 +180,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
 		},
 	}).Return(nil)
 
-	err := s.service.MergeExposeSettings(context.Background(), "foo", map[string]application.ExposedEndpoint{
+	err := s.service.MergeExposeSettings(c.Context(), "foo", map[string]application.ExposedEndpoint{
 		"": {
 			ExposeToSpaceIDs: set.NewStrings("space0", "space1"),
 		},
@@ -208,7 +207,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettings(c *tc.C) {
 		},
 	}).Return(nil)
 
-	err := s.service.MergeExposeSettings(context.Background(), "foo", map[string]application.ExposedEndpoint{
+	err := s.service.MergeExposeSettings(c.Context(), "foo", map[string]application.ExposedEndpoint{
 		"endpoint0": {
 			ExposeToSpaceIDs: set.NewStrings("space0", "space1"),
 		},

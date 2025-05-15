@@ -53,7 +53,7 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = accessState.AddUserWithPermission(
-		context.Background(), userID,
+		c.Context(), userID,
 		coreuser.AdminUserName,
 		coreuser.AdminUserName.Name(),
 		false,
@@ -75,7 +75,7 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 	})
 
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	credentialName := "test"
@@ -87,7 +87,7 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 		cloud.NewCredential(cloud.EmptyAuthType, nil),
 	)
 
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
@@ -105,11 +105,11 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 	})
 	s.modelID = modelUUID
 
-	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	err = modelFn(c.Context(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
-		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
+		c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 }
 

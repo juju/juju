@@ -55,7 +55,7 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *tc.C) {
 	})
 	s.resources.EXPECT().Register(watcher).Return("1")
 
-	result, err := s.api.WatchApplications(context.Background())
+	result, err := s.api.WatchApplications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.StringsWatcherId, tc.Equals, "1")
 	c.Check(result.Changes, tc.DeepEquals, []string{"application-mariadb"})
@@ -70,7 +70,7 @@ func (s *caasProvisionerSuite) TestWatchApplicationsClosed(c *tc.C) {
 	watcher := watchertest.NewMockStringsWatcher(ch)
 	s.backend.EXPECT().WatchApplications().Return(watcher)
 
-	_, err := s.api.WatchApplications(context.Background())
+	_, err := s.api.WatchApplications(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*tomb: still alive`)
 }
 
@@ -84,7 +84,7 @@ func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *tc.C) {
 	s.storageBackend.EXPECT().RemoveVolumeAttachment(names.NewUnitTag("mysql/2"), names.NewVolumeTag("4"), false).Return(errors.NotFoundf(`removing attachment of volume 4 from unit mysql/2: volume "4" on "unit mysql/2"`))
 	s.storageBackend.EXPECT().RemoveVolumeAttachment(names.NewUnitTag("mariadb/0"), names.NewVolumeTag("42"), false).Return(errors.NotFoundf(`removing attachment of volume 42 from unit mariadb/0: volume "42" on "unit mariadb/0"`))
 
-	results, err := s.api.RemoveAttachment(context.Background(), params.MachineStorageIds{
+	results, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "unit-mariadb-0",
 			AttachmentTag: "volume-0",
@@ -120,7 +120,7 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *tc.C) {
 	s.storageBackend.EXPECT().RemoveFilesystemAttachment(names.NewUnitTag("mysql/2"), names.NewFilesystemTag("4"), false).Return(errors.NotFoundf(`removing attachment of filesystem 4 from unit mysql/2: filesystem "4" on "unit mysql/2"`))
 	s.storageBackend.EXPECT().RemoveFilesystemAttachment(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("42"), false).Return(errors.NotFoundf(`removing attachment of filesystem 42 from unit mariadb/0: filesystem "42" on "unit mariadb/0"`))
 
-	results, err := s.api.RemoveAttachment(context.Background(), params.MachineStorageIds{
+	results, err := s.api.RemoveAttachment(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "unit-mariadb-0",
 			AttachmentTag: "filesystem-0",
@@ -164,7 +164,7 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *tc.C) {
 	}, errors.NotFoundf(`filesystem "42"`))
 
 	args := params.Entities{Entities: []params.Entity{{Tag: "filesystem-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-42"}}}
-	result, err := s.api.Life(context.Background(), args)
+	result, err := s.api.Life(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -196,7 +196,7 @@ func (s *caasProvisionerSuite) TestVolumeLife(c *tc.C) {
 	}, errors.NotFoundf(`volume "42"`))
 
 	args := params.Entities{Entities: []params.Entity{{Tag: "volume-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}}}
-	result, err := s.api.Life(context.Background(), args)
+	result, err := s.api.Life(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -221,7 +221,7 @@ func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *tc.C) {
 
 	s.storageBackend.EXPECT().FilesystemAttachment(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("42")).Return(s.filesystemAttachment, errors.NotFoundf(`filesystem "42" on "unit mariadb/0"`))
 
-	results, err := s.api.AttachmentLife(context.Background(), params.MachineStorageIds{
+	results, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "unit-mariadb-0",
 			AttachmentTag: "filesystem-0",
@@ -254,7 +254,7 @@ func (s *caasProvisionerSuite) TestVolumeAttachmentLife(c *tc.C) {
 
 	s.storageBackend.EXPECT().VolumeAttachment(names.NewUnitTag("mariadb/0"), names.NewVolumeTag("42")).Return(s.volumeAttachment, errors.NotFoundf(`volume "42" on "unit mariadb/0"`))
 
-	results, err := s.api.AttachmentLife(context.Background(), params.MachineStorageIds{
+	results, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "unit-mariadb-0",
 			AttachmentTag: "volume-0",

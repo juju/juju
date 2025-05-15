@@ -51,7 +51,7 @@ func (s *charmsMockSuite) TestListCharmsNoNames(c *tc.C) {
 	}}, nil)
 
 	api := s.api(c)
-	found, err := api.List(context.Background(), params.CharmsList{Names: []string{}})
+	found, err := api.List(c.Context(), params.CharmsList{Names: []string{}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found.CharmURLs, tc.HasLen, 1)
 	c.Check(found, tc.DeepEquals, params.CharmsListResult{
@@ -73,7 +73,7 @@ func (s *charmsMockSuite) TestListCharmsWithNames(c *tc.C) {
 	}}, nil)
 
 	api := s.api(c)
-	found, err := api.List(context.Background(), params.CharmsList{Names: []string{"dummy", "foo"}})
+	found, err := api.List(c.Context(), params.CharmsList{Names: []string{"dummy", "foo"}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found.CharmURLs, tc.HasLen, 1)
 	c.Check(found, tc.DeepEquals, params.CharmsListResult{
@@ -149,7 +149,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *tc.C) {
 			},
 		},
 	}
-	result, err := api.ResolveCharms(context.Background(), args)
+	result, err := api.ResolveCharms(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 3)
 	c.Assert(result.Results, tc.DeepEquals, expected)
@@ -165,7 +165,7 @@ func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *tc.C) {
 		Resolve: []params.ResolveCharmWithChannel{{Reference: curl.String()}},
 	}
 
-	result, err := api.ResolveCharms(context.Background(), args)
+	result, err := api.ResolveCharms(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
@@ -183,7 +183,7 @@ func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *tc.C) {
 		},
 		Force: false,
 	}
-	_, err := api.AddCharm(context.Background(), args)
+	_, err := api.AddCharm(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
 }
 
@@ -247,7 +247,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *tc.C) {
 			Risk:   "edge",
 		},
 	}
-	obtained, err := api.AddCharm(context.Background(), args)
+	obtained, err := api.AddCharm(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
@@ -278,7 +278,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *tc.C) {
 		}},
 	}
 
-	result, err := api.CheckCharmPlacement(context.Background(), args)
+	result, err := api.CheckCharmPlacement(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorIsNil)
 }
@@ -305,7 +305,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *tc.C) {
 		}},
 	}
 
-	result, err := api.CheckCharmPlacement(context.Background(), args)
+	result, err := api.CheckCharmPlacement(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorIsNil)
 }
@@ -334,7 +334,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHomogeneous(c *tc.C) {
 		}},
 	}
 
-	result, err := api.CheckCharmPlacement(context.Background(), args)
+	result, err := api.CheckCharmPlacement(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorIsNil)
 }
@@ -363,7 +363,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *tc.C) {
 		}},
 	}
 
-	result, err := api.CheckCharmPlacement(context.Background(), args)
+	result, err := api.CheckCharmPlacement(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorMatches, "charm can not be placed in a heterogeneous environment")
 }

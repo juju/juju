@@ -4,8 +4,6 @@
 package domainservices
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -133,7 +131,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
 	})
-	w, err := manifold.Start(context.Background(), dt.StubGetter(getter))
+	w, err := manifold.Start(c.Context(), dt.StubGetter(getter))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -269,7 +267,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *tc.C) {
 	)
 	c.Assert(factory, tc.NotNil)
 
-	modelFactory, err := factory.ServicesForModel(context.Background(), "model")
+	modelFactory, err := factory.ServicesForModel(c.Context(), "model")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(modelFactory, tc.NotNil)
 }

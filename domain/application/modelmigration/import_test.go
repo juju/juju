@@ -74,7 +74,7 @@ func (s *importSuite) TestRollback(c *tc.C) {
 
 	s.importService.EXPECT().RemoveImportedApplication(gomock.Any(), "prometheus").Return(nil)
 
-	err := importOp.Rollback(context.Background(), model)
+	err := importOp.Rollback(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -104,7 +104,7 @@ func (s *importSuite) TestRollbackForMultipleApplicationsRollbacksAll(c *tc.C) {
 		s.importService.EXPECT().RemoveImportedApplication(gomock.Any(), "grafana").Return(nil),
 	)
 
-	err := importOp.Rollback(context.Background(), model)
+	err := importOp.Rollback(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, "rollback failed: boom")
 }
 
@@ -169,7 +169,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *tc.C) {
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
@@ -243,7 +243,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForIAAS(c *tc.C) {
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
@@ -311,7 +311,7 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *t
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
@@ -399,7 +399,7 @@ func (s *importSuite) TestApplicationImportWithConstraints(c *tc.C) {
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1012,7 +1012,7 @@ func (s *importSuite) TestImportEndpointBindings36(c *tc.C) {
 		service: s.importService,
 		logger:  loggertesting.WrapCheckLog(c),
 	}
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -1099,7 +1099,7 @@ func (s *importSuite) TestImportEndpointBindings40(c *tc.C) {
 		service: s.importService,
 		logger:  loggertesting.WrapCheckLog(c),
 	}
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -1184,7 +1184,7 @@ func (s *importSuite) TestImportEndpointBindingsDefaultSpace(c *tc.C) {
 		service: s.importService,
 		logger:  loggertesting.WrapCheckLog(c),
 	}
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -1264,7 +1264,7 @@ func (s *importSuite) TestImportExposedEndpointsFrom36(c *tc.C) {
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1336,7 +1336,7 @@ func (s *importSuite) TestImportExposedEndpointsFrom40(c *tc.C) {
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1366,7 +1366,7 @@ func (s *importSuite) TestSpaceNameNotFoundFrom36(c *tc.C) {
 		Name: "beta",
 	})
 
-	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
+	_, err := importOp.importExposedEndpoints(c.Context(), app, model.Spaces())
 	c.Assert(err, tc.ErrorMatches, "endpoint exposed to space \"1\" does not exist")
 }
 
@@ -1397,7 +1397,7 @@ func (s *importSuite) TestSpaceNameNotFoundFrom40(c *tc.C) {
 		Name: "beta",
 	})
 
-	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
+	_, err := importOp.importExposedEndpoints(c.Context(), app, model.Spaces())
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("endpoint exposed to space %q does not exist", spaceUUID.String()))
 }
 
@@ -1430,7 +1430,7 @@ func (s *importSuite) TestSpaceNameNotFoundInDB(c *tc.C) {
 
 	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id(""), errors.Errorf("boom"))
 
-	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
+	_, err := importOp.importExposedEndpoints(c.Context(), app, model.Spaces())
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("getting space UUID by name %q: boom", spaceUUID.String()))
 }
 
@@ -1475,7 +1475,7 @@ func (s *importSuite) TestMultipleSpaceLookupExposedEndpoints(c *tc.C) {
 	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "gamma").Return(network.Id(spaceUUID1.String()), nil)
 	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "delta").Return(network.Id(spaceUUID2.String()), nil)
 
-	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
+	_, err := importOp.importExposedEndpoints(c.Context(), app, model.Spaces())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1532,7 +1532,7 @@ func (s *importSuite) TestApplicationImportSubordinate(c *tc.C) {
 		logger:  loggertesting.WrapCheckLog(c),
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")

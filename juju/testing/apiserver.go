@@ -263,21 +263,21 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 	domainServices := s.ControllerDomainServices(c)
 
 	storageServiceGetter := func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error) {
-		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(context.Background(), modelUUID)
+		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(c.Context(), modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return svc.Storage(), nil
 	}
 	modelConfigServiceGetter := func(modelUUID coremodel.UUID) (stateenvirons.ModelConfigService, error) {
-		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(context.Background(), modelUUID)
+		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(c.Context(), modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return svc.Config(), nil
 	}
 	charmServiceGetter := func(modelUUID coremodel.UUID) (state.CharmService, error) {
-		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(context.Background(), modelUUID)
+		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(c.Context(), modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -325,7 +325,7 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Allow "dummy" cloud.
-	err = InsertDummyCloudType(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err = InsertDummyCloudType(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Seed the test database with the controller cloud and credential etc.
@@ -381,7 +381,7 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(factory.AgentPassword(), systemState, nil)
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
-		context.Background(),
+		c.Context(),
 		cfg.StatePool,
 		cfg.ControllerModelUUID,
 		factory.ControllerConfig(),
@@ -398,7 +398,7 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 	err = authenticator.AddHandlers(s.mux)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.Server, err = apiserver.NewServer(context.Background(), cfg)
+	s.Server, err = apiserver.NewServer(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	s.apiInfo = api.Info{
 		Addrs:  []string{fmt.Sprintf("localhost:%d", s.httpServer.Listener.Addr().(*net.TCPAddr).Port)},
@@ -491,7 +491,7 @@ func (s *ApiServerSuite) URL(path string, queryParams url.Values) *url.URL {
 
 // ObjectStore returns the object store for the given model uuid.
 func (s *ApiServerSuite) ObjectStore(c *tc.C, uuid string) objectstore.ObjectStore {
-	store, err := s.ObjectStoreGetter.GetObjectStore(context.Background(), uuid)
+	store, err := s.ObjectStoreGetter.GetObjectStore(c.Context(), uuid)
 	c.Assert(err, tc.ErrorIsNil)
 	return store
 }
@@ -506,7 +506,7 @@ func (s *ApiServerSuite) openAPIAs(c *tc.C, tag names.Tag, password, nonce strin
 	if modelUUID != "" {
 		apiInfo.ModelTag = names.NewModelTag(modelUUID)
 	}
-	conn, err := api.Open(context.Background(), &apiInfo, api.DialOpts{})
+	conn, err := api.Open(c.Context(), &apiInfo, api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(conn, tc.NotNil)
 	s.apiConns = append(s.apiConns, conn)
@@ -597,7 +597,7 @@ func (s *ApiServerSuite) NewFactory(c *tc.C, modelUUID string) (*factory.Factory
 		st = pooledSt.State
 	}
 
-	modelDomainServices, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), servicefactorytesting.TestingLeaseManager{}).ServicesForModel(context.Background(), coremodel.UUID(modelUUID))
+	modelDomainServices, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), servicefactorytesting.TestingLeaseManager{}).ServicesForModel(c.Context(), coremodel.UUID(modelUUID))
 	c.Assert(err, tc.ErrorIsNil)
 
 	applicationService := modelDomainServices.Application()
@@ -658,7 +658,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *tc.C) {
 	credUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return cloudstate.CreateCloud(ctx, tx, AdminName, cloudUUID.String(), cloud.Cloud{
 			Name:      "caascloud",
 			Type:      "kubernetes",
@@ -666,7 +666,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *tc.C) {
 		})
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), corecredential.Key{
 			Cloud: "caascloud",
 			Owner: AdminName,
@@ -680,7 +680,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *tc.C) {
 // cloud and dummy credentials.
 func SeedDatabase(c *tc.C, controller database.TxnRunner, domainServices services.DomainServices, controllerConfig controller.Config) {
 	bakeryConfigService := domainServices.Macaroon()
-	err := bakeryConfigService.InitialiseBakeryConfig(context.Background())
+	err := bakeryConfigService.InitialiseBakeryConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 

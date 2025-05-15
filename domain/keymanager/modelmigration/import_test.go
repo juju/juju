@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -74,7 +72,7 @@ func (s *importSuite) TestImportFromModelConfig(c *tc.C) {
 	})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -125,6 +123,6 @@ func (s *importSuite) TestImportFromModelDescription(c *tc.C) {
 	})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Check(err, tc.ErrorIsNil)
 }

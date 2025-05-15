@@ -101,7 +101,7 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *tc.C) {
 		},
 	)
 
-	results, err := s.facade.createSecrets(context.Background(), params.CreateSecretArgs{
+	results, err := s.facade.createSecrets(c.Context(), params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
 			OwnerTag: "application-mariadb",
 			UpsertSecretArg: params.UpsertSecretArg{
@@ -152,7 +152,7 @@ func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *tc.C) {
 		fmt.Errorf("dup label %w", secreterrors.SecretLabelAlreadyExists),
 	)
 
-	results, err := s.facade.createSecrets(context.Background(), params.CreateSecretArgs{
+	results, err := s.facade.createSecrets(c.Context(), params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
 			OwnerTag: "application-mariadb",
 			UpsertSecretArg: params.UpsertSecretArg{
@@ -201,7 +201,7 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *tc.C) {
 	s.secretService.EXPECT().UpdateCharmSecret(gomock.Any(), &expectURI, p).Return(nil)
 	s.secretService.EXPECT().UpdateCharmSecret(gomock.Any(), &expectURI, pWithBackendId).Return(nil)
 
-	results, err := s.facade.updateSecrets(context.Background(), params.UpdateSecretArgs{
+	results, err := s.facade.updateSecrets(c.Context(), params.UpdateSecretArgs{
 		Args: []params.UpdateSecretArg{{
 			URI: uri.String(),
 			UpsertSecretArg: params.UpsertSecretArg{
@@ -249,7 +249,7 @@ func (s *UniterSecretsSuite) TestRemoveSecrets(c *tc.C) {
 		},
 	}).Return(nil)
 
-	results, err := s.facade.removeSecrets(context.Background(), params.DeleteSecretArgs{
+	results, err := s.facade.removeSecrets(c.Context(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI: expectURI.String(),
 		}},
@@ -273,7 +273,7 @@ func (s *UniterSecretsSuite) TestRemoveSecretRevision(c *tc.C) {
 		Revisions: []int{666},
 	}).Return(nil)
 
-	results, err := s.facade.removeSecrets(context.Background(), params.DeleteSecretArgs{
+	results, err := s.facade.removeSecrets(c.Context(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
@@ -298,7 +298,7 @@ func (s *UniterSecretsSuite) TestRemoveSecretNotFound(c *tc.C) {
 		Revisions: []int{666},
 	}).Return(secreterrors.SecretNotFound)
 
-	results, err := s.facade.removeSecrets(context.Background(), params.DeleteSecretArgs{
+	results, err := s.facade.removeSecrets(c.Context(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
@@ -324,7 +324,7 @@ func (s *UniterSecretsSuite) TestSecretsGrant(c *tc.C) {
 
 	subjectTag := names.NewUnitTag("wordpress/0")
 	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
-	result, err := s.facade.secretsGrant(context.Background(), params.GrantRevokeSecretArgs{
+	result, err := s.facade.secretsGrant(c.Context(), params.GrantRevokeSecretArgs{
 		Args: []params.GrantRevokeSecretArg{{
 			URI:         uri.String(),
 			ScopeTag:    scopeTag.String(),
@@ -365,7 +365,7 @@ func (s *UniterSecretsSuite) TestSecretsRevoke(c *tc.C) {
 
 	subjectTag := names.NewUnitTag("wordpress/0")
 	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
-	result, err := s.facade.secretsRevoke(context.Background(), params.GrantRevokeSecretArgs{
+	result, err := s.facade.secretsRevoke(c.Context(), params.GrantRevokeSecretArgs{
 		Args: []params.GrantRevokeSecretArg{{
 			URI:         uri.String(),
 			ScopeTag:    scopeTag.String(),
@@ -396,7 +396,7 @@ func (s *UniterSecretsSuite) TestUpdateTrackedRevisions(c *tc.C) {
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().GetConsumedRevision(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), true, false, nil).
 		Return(668, nil)
-	result, err := s.facade.updateTrackedRevisions(context.Background(), []string{uri.ID})
+	result, err := s.facade.updateTrackedRevisions(c.Context(), []string{uri.ID})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
 }

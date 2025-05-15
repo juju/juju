@@ -59,32 +59,32 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 		client: m.client,
 		ensureConfigMap: func(ctx context.Context, cm *core.ConfigMap) ([]func(), error) {
 			ensureConfigMapCalled = true
-			_, err := m.client.CoreV1().ConfigMaps(namespace).Create(context.Background(), cm, meta.CreateOptions{})
+			_, err := m.client.CoreV1().ConfigMaps(namespace).Create(c.Context(), cm, meta.CreateOptions{})
 			return nil, err
 		},
 		ensureDeployment: func(ctx context.Context, d *apps.Deployment) ([]func(), error) {
 			ensureDeploymentCalled = true
-			_, err := m.client.AppsV1().Deployments(namespace).Create(context.Background(), d, meta.CreateOptions{})
+			_, err := m.client.AppsV1().Deployments(namespace).Create(c.Context(), d, meta.CreateOptions{})
 			return nil, err
 		},
 		ensureRole: func(ctx context.Context, r *rbac.Role) ([]func(), error) {
 			ensureRoleCalled = true
-			_, err := m.client.RbacV1().Roles(namespace).Create(context.Background(), r, meta.CreateOptions{})
+			_, err := m.client.RbacV1().Roles(namespace).Create(c.Context(), r, meta.CreateOptions{})
 			return nil, err
 		},
 		ensureRoleBinding: func(ctx context.Context, rb *rbac.RoleBinding) ([]func(), error) {
 			ensureRoleBindingCalled = true
-			_, err := m.client.RbacV1().RoleBindings(namespace).Create(context.Background(), rb, meta.CreateOptions{})
+			_, err := m.client.RbacV1().RoleBindings(namespace).Create(c.Context(), rb, meta.CreateOptions{})
 			return nil, err
 		},
 		ensureServiceAccount: func(ctx context.Context, sa *core.ServiceAccount) ([]func(), error) {
 			ensureServiceAccountCalled = true
-			_, err := m.client.CoreV1().ServiceAccounts(namespace).Create(context.Background(), sa, meta.CreateOptions{})
+			_, err := m.client.CoreV1().ServiceAccounts(namespace).Create(c.Context(), sa, meta.CreateOptions{})
 			return nil, err
 		},
 		ensureService: func(ctx context.Context, s *core.Service) ([]func(), error) {
 			ensureServiceCalled = true
-			_, err := m.client.CoreV1().Services(namespace).Create(context.Background(), s, meta.CreateOptions{})
+			_, err := m.client.CoreV1().Services(namespace).Create(c.Context(), s, meta.CreateOptions{})
 			return nil, err
 		},
 		modelName: model,
@@ -92,7 +92,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 	}
 
 	// fake k8sclient does not populate the token for secret, so we have to do it manually.
-	_, err := m.client.CoreV1().Secrets(namespace).Create(context.Background(), &core.Secret{
+	_, err := m.client.CoreV1().Secrets(namespace).Create(c.Context(), &core.Secret{
 		ObjectMeta: meta.ObjectMeta{
 			Name: ExecRBACResourceName,
 			Annotations: map[string]string{
@@ -109,7 +109,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 
 	errChan := make(chan error)
 	go func() {
-		errChan <- ensureModelOperator(context.Background(), modelUUID, agentPath, m.clock, &config, bridge)
+		errChan <- ensureModelOperator(c.Context(), modelUUID, agentPath, m.clock, &config, bridge)
 	}()
 
 	select {
@@ -119,7 +119,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 		c.Fatalf("timed out waiting for ensureModelOperator return")
 	}
 
-	cm, err := m.client.CoreV1().ConfigMaps(namespace).Get(context.Background(), modelOperatorName, meta.GetOptions{})
+	cm, err := m.client.CoreV1().ConfigMaps(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cm.Name, tc.Equals, modelOperatorName)
 	c.Assert(cm.Namespace, tc.Equals, namespace)
@@ -127,7 +127,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 	c.Assert(ok, tc.Equals, true)
 	c.Assert(conf, tc.DeepEquals, string(config.AgentConf))
 
-	d, err := m.client.AppsV1().Deployments(namespace).Get(context.Background(), modelOperatorName, meta.GetOptions{})
+	d, err := m.client.AppsV1().Deployments(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(d.Name, tc.Equals, modelOperatorName)
 	c.Assert(d.Namespace, tc.Equals, namespace)
@@ -138,7 +138,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 		c.Assert(d.Spec.Template.Spec.ImagePullSecrets[0].Name, tc.Equals, constants.CAASImageRepoSecretName)
 	}
 
-	r, err := m.client.RbacV1().Roles(namespace).Get(context.Background(), modelOperatorName, meta.GetOptions{})
+	r, err := m.client.RbacV1().Roles(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Name, tc.Equals, modelOperatorName)
 	c.Assert(r.Namespace, tc.Equals, namespace)
@@ -150,7 +150,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 		"watch",
 	})
 
-	rb, err := m.client.RbacV1().RoleBindings(namespace).Get(context.Background(), modelOperatorName, meta.GetOptions{})
+	rb, err := m.client.RbacV1().RoleBindings(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rb.Name, tc.Equals, modelOperatorName)
 	c.Assert(rb.Namespace, tc.Equals, namespace)
@@ -158,21 +158,21 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 	c.Assert(rb.RoleRef.Kind, tc.Equals, "Role")
 	c.Assert(rb.RoleRef.Name, tc.Equals, modelOperatorName)
 
-	sa, err := m.client.CoreV1().ServiceAccounts(namespace).Get(context.Background(), modelOperatorName, meta.GetOptions{})
+	sa, err := m.client.CoreV1().ServiceAccounts(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	trueVar := true
 	c.Assert(sa.Name, tc.Equals, modelOperatorName)
 	c.Assert(sa.Namespace, tc.Equals, namespace)
 	c.Assert(sa.AutomountServiceAccountToken, tc.DeepEquals, &trueVar)
 
-	s, err := m.client.CoreV1().Services(namespace).Get(context.Background(), modelOperatorName, meta.GetOptions{})
+	s, err := m.client.CoreV1().Services(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.Name, tc.Equals, modelOperatorName)
 	c.Assert(s.Namespace, tc.Equals, namespace)
 	c.Assert(s.Spec.Ports[0].Port, tc.Equals, config.Port)
 
 	clusterRole, err := m.client.RbacV1().ClusterRoles().Get(
-		context.Background(),
+		c.Context(),
 		"test-model-modeloperator",
 		meta.GetOptions{},
 	)
@@ -192,7 +192,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 	})
 
 	clusterRoleBinding, err := m.client.RbacV1().ClusterRoleBindings().Get(
-		context.Background(),
+		c.Context(),
 		"test-model-modeloperator",
 		meta.GetOptions{},
 	)
@@ -203,7 +203,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 	c.Assert(clusterRoleBinding.RoleRef.Name, tc.Equals, "test-model-modeloperator")
 
 	// The exec service account.
-	sa, err = m.client.CoreV1().ServiceAccounts(namespace).Get(context.Background(), ExecRBACResourceName, meta.GetOptions{})
+	sa, err = m.client.CoreV1().ServiceAccounts(namespace).Get(c.Context(), ExecRBACResourceName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	trueVar = true
 	c.Assert(sa.Name, tc.Equals, ExecRBACResourceName)
@@ -217,7 +217,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 	})
 
 	// The exec role.
-	r, err = m.client.RbacV1().Roles(namespace).Get(context.Background(), ExecRBACResourceName, meta.GetOptions{})
+	r, err = m.client.RbacV1().Roles(namespace).Get(c.Context(), ExecRBACResourceName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Name, tc.Equals, ExecRBACResourceName)
 	c.Assert(r.Namespace, tc.Equals, namespace)
@@ -249,7 +249,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 	})
 
 	// The exec rolebinding.
-	rb, err = m.client.RbacV1().RoleBindings(namespace).Get(context.Background(), ExecRBACResourceName, meta.GetOptions{})
+	rb, err = m.client.RbacV1().RoleBindings(namespace).Get(c.Context(), ExecRBACResourceName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rb.Name, tc.Equals, ExecRBACResourceName)
 	c.Assert(rb.Namespace, tc.Equals, namespace)
@@ -258,7 +258,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 	c.Assert(rb.RoleRef.Name, tc.Equals, ExecRBACResourceName)
 
 	// The exec secret.
-	secret, err := m.client.CoreV1().Secrets(namespace).Get(context.Background(), ExecRBACResourceName, meta.GetOptions{})
+	secret, err := m.client.CoreV1().Secrets(namespace).Get(c.Context(), ExecRBACResourceName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(secret.Name, tc.Equals, ExecRBACResourceName)
 	c.Assert(secret.Type, tc.Equals, core.SecretTypeServiceAccountToken)

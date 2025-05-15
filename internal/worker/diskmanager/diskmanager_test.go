@@ -62,19 +62,19 @@ func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *tc.C) {
 		return []blockdevice.BlockDevice{device}, nil
 	}
 
-	err := diskmanager.DoWork(context.Background(), listDevices, setDevices, &oldDevices)
+	err := diskmanager.DoWork(c.Context(), listDevices, setDevices, &oldDevices)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devicesSet, tc.HasLen, 1)
 
 	// diskmanager only calls the BlockDeviceSetter when it sees a
 	// change in disks. Order of DeviceLinks should not matter.
 	device.DeviceLinks = []string{"b", "a"}
-	err = diskmanager.DoWork(context.Background(), listDevices, setDevices, &oldDevices)
+	err = diskmanager.DoWork(c.Context(), listDevices, setDevices, &oldDevices)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devicesSet, tc.HasLen, 1)
 
 	device.DeviceName = "sdb"
-	err = diskmanager.DoWork(context.Background(), listDevices, setDevices, &oldDevices)
+	err = diskmanager.DoWork(c.Context(), listDevices, setDevices, &oldDevices)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(devicesSet, tc.HasLen, 2)
 
@@ -102,7 +102,7 @@ func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *tc.C) {
 			DeviceName: "sdc",
 		}}, nil
 	}
-	err := diskmanager.DoWork(context.Background(), listDevices, setDevices, new([]blockdevice.BlockDevice))
+	err := diskmanager.DoWork(c.Context(), listDevices, setDevices, new([]blockdevice.BlockDevice))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The block Devices should be sorted when passed to the block

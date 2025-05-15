@@ -49,7 +49,7 @@ func (s *stateSuite) TestStateBasePrepare(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	// Validate prepared statement works as expected.
 	var name any
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		results := sqlair.M{}
 		err := tx.Query(ctx, stmt1).Get(results)
 		if err != nil {
@@ -92,7 +92,7 @@ func (s *stateSuite) TestStateBasePrepareKeyClash(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Try and run a query.
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var results TestType
 		return tx.Query(ctx, stmt).Get(&results)
 	})
@@ -109,7 +109,7 @@ func (s *stateSuite) TestStateBaseRunAtomicTransactionExists(c *tc.C) {
 	// Ensure that the transaction is sent via the AtomicContext.
 
 	var tx *sqlair.TX
-	err = base.RunAtomic(context.Background(), func(c AtomicContext) error {
+	err = base.RunAtomic(c.Context(), func(c AtomicContext) error {
 		tx = c.(*atomicContext).tx
 		return err
 	})
@@ -130,7 +130,7 @@ func (s *stateSuite) TestStateBaseRunAtomicPreventAtomicContextStoring(c *tc.C) 
 	// should be removed upon completion of the transaction.
 
 	var txCtx AtomicContext
-	err = base.RunAtomic(context.Background(), func(c AtomicContext) error {
+	err = base.RunAtomic(c.Context(), func(c AtomicContext) error {
 		txCtx = c
 		return err
 	})
@@ -154,7 +154,7 @@ func (s *stateSuite) TestStateBaseRunAtomicContextValue(c *tc.C) {
 	type contextKey string
 	var key contextKey = "key"
 
-	ctx := context.WithValue(context.Background(), key, "hello")
+	ctx := context.WithValue(c.Context(), key, "hello")
 
 	var dbCtx AtomicContext
 	err = base.RunAtomic(ctx, func(c AtomicContext) error {
@@ -177,7 +177,7 @@ func (s *stateSuite) TestStateBaseRunAtomicCancel(c *tc.C) {
 	// Make sure that the context symantics are respected in terms of
 	// cancellation.
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 
 	cancel()
 
@@ -198,7 +198,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRun(c *tc.C) {
 	// Ensure that the Run method is called.
 
 	var called bool
-	err = base.RunAtomic(context.Background(), func(txCtx AtomicContext) error {
+	err = base.RunAtomic(c.Context(), func(txCtx AtomicContext) error {
 		return Run(txCtx, func(ctx context.Context, tx *sqlair.TX) error {
 			called = true
 			return nil
@@ -218,7 +218,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunMultipleTimes(c *tc.C) {
 	// Ensure that the Run method is called.
 
 	var called int
-	err = base.RunAtomic(context.Background(), func(txCtx AtomicContext) error {
+	err = base.RunAtomic(c.Context(), func(txCtx AtomicContext) error {
 		for i := 0; i < 10; i++ {
 			if err := Run(txCtx, func(ctx context.Context, tx *sqlair.TX) error {
 				called++
@@ -245,7 +245,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunFailsConcurrently(c *tc.C) {
 	// is undefined behaviour.
 
 	var called int64
-	err = base.RunAtomic(context.Background(), func(txCtx AtomicContext) error {
+	err = base.RunAtomic(c.Context(), func(txCtx AtomicContext) error {
 		firstErr := make(chan error)
 		secondErr := make(chan error)
 
@@ -327,7 +327,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunPreparedStatements(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var result []N
-	err = base.RunAtomic(context.Background(), func(txCtx AtomicContext) error {
+	err = base.RunAtomic(c.Context(), func(txCtx AtomicContext) error {
 		return Run(txCtx, func(ctx context.Context, tx *sqlair.TX) error {
 			return tx.Query(ctx, stmt).GetAll(&result)
 		})
@@ -354,7 +354,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunDoesNotLeakError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var result N
-	err = base.RunAtomic(context.Background(), func(txCtx AtomicContext) error {
+	err = base.RunAtomic(c.Context(), func(txCtx AtomicContext) error {
 		return Run(txCtx, func(ctx context.Context, tx *sqlair.TX) error {
 			return tx.Query(ctx, stmt).Get(&result)
 		})

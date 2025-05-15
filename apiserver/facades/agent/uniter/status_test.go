@@ -60,7 +60,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnauthorised(c *tc.C
 
 	tag := names.NewUnitTag("foo/0")
 	s.badTag = tag
-	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
+	result, err := s.api.SetApplicationStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{Tag: tag.String()}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -71,7 +71,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnauthorised(c *tc.C
 func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
+	result, err := s.api.SetApplicationStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{Tag: "not a tag"}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -90,7 +90,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotFound(c *tc.C) {
 		Since:   &s.now,
 	}).Return(statuserrors.UnitNotFound)
 
-	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
+	result, err := s.api.SetApplicationStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag:    tag.String(),
 			Status: "active",
@@ -108,7 +108,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusMachineTag(c *tc.C) 
 
 	machineTag := names.NewMachineTag("42")
 
-	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
+	result, err := s.api.SetApplicationStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag: machineTag.String(),
 		}},
@@ -124,7 +124,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusApplicationTag(c *tc
 
 	appTag := names.NewApplicationTag("foo")
 
-	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
+	result, err := s.api.SetApplicationStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag: appTag.String(),
 		}},
@@ -146,7 +146,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnitNotLeader(c *tc.
 		Since:   &s.now,
 	}).Return(statuserrors.UnitNotLeader)
 
-	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
+	result, err := s.api.SetApplicationStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag:    tag.String(),
 			Status: "active",
@@ -170,7 +170,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatus(c *tc.C) {
 		Since:   &s.now,
 	}).Return(nil)
 
-	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
+	result, err := s.api.SetApplicationStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag:    tag.String(),
 			Status: "active",
@@ -188,7 +188,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusUnauthorised(c *tc.C) {
 
 	tag := names.NewUnitTag("foo/0")
 	s.badTag = tag
-	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.ApplicationStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -199,7 +199,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusUnauthorised(c *tc.C) {
 func (s *ApplicationStatusAPISuite) TesApplicationStatustNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.ApplicationStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "not a tag",
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -212,7 +212,7 @@ func (s *ApplicationStatusAPISuite) TesApplicationStatustNotFound(c *tc.C) {
 
 	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(status.StatusInfo{}, nil, statuserrors.ApplicationNotFound)
 
-	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.ApplicationStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: names.NewUnitTag("foo/0").String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -225,7 +225,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusMachineTag(c *tc.C) {
 
 	machineTag := names.NewMachineTag("42")
 
-	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.ApplicationStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: machineTag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -239,7 +239,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusApplicationTag(c *tc.C)
 
 	appTag := names.NewApplicationTag("foo")
 
-	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.ApplicationStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: appTag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -255,7 +255,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusUnitNotLeader(c *tc.C) 
 
 	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(status.StatusInfo{}, nil, statuserrors.UnitNotLeader)
 
-	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.ApplicationStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: unitTag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -277,7 +277,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatus(c *tc.C) {
 		}, nil)
 
 	unitTag := names.NewUnitTag("foo/3")
-	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.ApplicationStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: unitTag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -298,7 +298,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusBulk(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.badTag = names.NewUnitTag("foo/42")
-	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.ApplicationStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: s.badTag.String(),
 	}, {
 		Tag: "bad-tag",
@@ -320,7 +320,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusUnauthorised(c *tc.C) {
 
 	tag := names.NewUnitTag("foo/0")
 	s.badTag = tag
-	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.api.SetUnitStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
@@ -332,7 +332,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusUnauthorised(c *tc.C) {
 func (s *UnitStatusAPISuite) TestSetUnitStatusNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.api.SetUnitStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    "not a tag",
 		Status: status.Active.String(),
 	}}})
@@ -346,7 +346,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusNotAUnitTag(c *tc.C) {
 
 	tag := names.NewMachineTag("42")
 
-	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.api.SetUnitStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
@@ -362,7 +362,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusUnitNotFound(c *tc.C) {
 
 	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42"), gomock.Any()).Return(statuserrors.UnitNotFound)
 
-	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.api.SetUnitStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
@@ -387,7 +387,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatus(c *tc.C) {
 
 	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42"), sInfo).Return(nil)
 
-	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+	result, err := s.api.SetUnitStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 		Info:   "msg",
@@ -405,7 +405,7 @@ func (s *UnitStatusAPISuite) TestUnitStatusUnauthorised(c *tc.C) {
 
 	tag := names.NewUnitTag("foo/0")
 	s.badTag = tag
-	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.UnitStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -416,7 +416,7 @@ func (s *UnitStatusAPISuite) TestUnitStatusUnauthorised(c *tc.C) {
 func (s *UnitStatusAPISuite) TestUnitStatusNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.UnitStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "not a tag",
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -429,7 +429,7 @@ func (s *UnitStatusAPISuite) TestUnitStatusNotAUnitTag(c *tc.C) {
 
 	tag := names.NewMachineTag("42")
 
-	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.UnitStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -444,7 +444,7 @@ func (s *UnitStatusAPISuite) TestUnitStatusUnitNotFound(c *tc.C) {
 
 	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42")).Return(status.StatusInfo{}, statuserrors.UnitNotFound)
 
-	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.UnitStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -468,7 +468,7 @@ func (s *UnitStatusAPISuite) TestUnitStatus(c *tc.C) {
 
 	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42")).Return(sInfo, nil)
 
-	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.UnitStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, tc.ErrorIsNil)

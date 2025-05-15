@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -42,7 +41,7 @@ func (s *introspectionSuite) TestAccess(c *tc.C) {
 
 	accessService := s.ControllerDomainServices(c).Access()
 	userTag := names.NewUserTag("bobbrown")
-	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := accessService.AddUser(c.Context(), service.AddUserArg{
 		Name:        user.NameFromTag(userTag),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -57,7 +56,7 @@ func (s *introspectionSuite) TestAccess(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+	_, err = accessService.CreatePermission(c.Context(), permission.UserAccessSpec{
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Model,
@@ -75,7 +74,7 @@ func (s *introspectionSuite) TestAccess(c *tc.C) {
 func (s *introspectionSuite) TestAccessDenied(c *tc.C) {
 	accessService := s.ControllerDomainServices(c).Access()
 	userTag := names.NewUserTag("bobbrown")
-	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := accessService.AddUser(c.Context(), service.AddUserArg{
 		Name:        user.NameFromTag(userTag),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,

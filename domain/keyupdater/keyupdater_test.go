@@ -58,7 +58,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 
 	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := accessState.AddUser(
-		context.Background(), s.userID,
+		c.Context(), s.userID,
 		user.AdminUserName,
 		user.AdminUserName.Name(),
 		false,
@@ -73,7 +73,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 	})
 
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	credentialName := "test"
@@ -85,7 +85,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 		cloud.NewCredential(cloud.EmptyAuthType, nil),
 	)
 
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
@@ -103,11 +103,11 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 	})
 	s.modelID = modelUUID
 
-	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	err = modelFn(c.Context(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = modelbootstrap.CreateLocalModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
-		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, string(s.modelID)))
+		c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, string(s.modelID)))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.createMachine(c, "0")
@@ -250,7 +250,7 @@ VALUES ($createMachine.*)
 	createNodeStmt, err := sqlair.Prepare(createNode, machine)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.ModelTxnRunner(c, string(s.modelID)).Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = s.ModelTxnRunner(c, string(s.modelID)).Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, createNodeStmt, machine).Run(); err != nil {
 			return errors.Errorf("creating net node row for bootstrap machine %q: %w", machineId, err)
 		}

@@ -4,7 +4,6 @@
 package client
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -55,7 +54,7 @@ func (s *statusSuite) TestModelStatus(c *tc.C) {
 	}, nil)
 
 	client := &Client{modelInfoService: s.modelInfoService}
-	statusInfo, err := client.modelStatus(context.Background())
+	statusInfo, err := client.modelStatus(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(statusInfo, tc.DeepEquals, params.ModelStatusInfo{
 		Name:        "model-name",
@@ -85,7 +84,7 @@ func (s *statusSuite) TestModelStatusModelNotFound(c *tc.C) {
 	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{}, domainmodelerrors.NotFound)
 
 	client := &Client{modelInfoService: s.modelInfoService}
-	_, err := client.modelStatus(context.Background())
+	_, err := client.modelStatus(c.Context())
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -108,7 +107,7 @@ func (s *statusSuite) TestStatusHistory(c *tc.C) {
 		statusService: s.statusService,
 		auth:          s.authorizer,
 	}
-	results := client.StatusHistory(context.Background(), params.StatusHistoryRequests{
+	results := client.StatusHistory(c.Context(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Kind: "application",
 			Tag:  tag.String(),
@@ -137,7 +136,7 @@ func (s *statusSuite) TestStatusHistoryNoBulk(c *tc.C) {
 		statusService: s.statusService,
 		auth:          s.authorizer,
 	}
-	results := client.StatusHistory(context.Background(), params.StatusHistoryRequests{
+	results := client.StatusHistory(c.Context(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Kind: "application",
 			Tag:  tag.String(),
@@ -169,7 +168,7 @@ func (s *statusSuite) TestStatusHistoryInvalidKind(c *tc.C) {
 		statusService: s.statusService,
 		auth:          s.authorizer,
 	}
-	results := client.StatusHistory(context.Background(), params.StatusHistoryRequests{
+	results := client.StatusHistory(c.Context(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Kind: "blah",
 			Tag:  tag.String(),
@@ -192,7 +191,7 @@ func (s *statusSuite) TestStatusHistoryInvalidTag(c *tc.C) {
 		statusService: s.statusService,
 		auth:          s.authorizer,
 	}
-	results := client.StatusHistory(context.Background(), params.StatusHistoryRequests{
+	results := client.StatusHistory(c.Context(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Kind: "application",
 			Tag:  "invalid-tag",
@@ -225,7 +224,7 @@ func (s *statusSuite) TestStatusHistoryError(c *tc.C) {
 		statusService: s.statusService,
 		auth:          s.authorizer,
 	}
-	results := client.StatusHistory(context.Background(), params.StatusHistoryRequests{
+	results := client.StatusHistory(c.Context(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Kind: "application",
 			Tag:  tag.String(),

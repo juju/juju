@@ -5,7 +5,6 @@ package tools_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -274,7 +273,7 @@ func (s *simplestreamsSuite) TestFetch(c *tc.C) {
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
 		ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-		toolsMetadata, resolveInfo, err := tools.Fetch(context.Background(), ss, []simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint)
+		toolsMetadata, resolveInfo, err := tools.Fetch(c.Context(), ss, []simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint)
 		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
@@ -300,7 +299,7 @@ func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *tc.C) {
 		Stream:    "proposed",
 	})
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	_, _, err := tools.Fetch(context.Background(), ss,
+	_, _, err := tools.Fetch(c.Context(), ss,
 		[]simplestreams.DataSource{s.Source}, toolsConstraint)
 	c.Assert(err, tc.ErrorMatches, `"content-download" data not found`)
 }
@@ -313,7 +312,7 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *tc.C) {
 		Stream:    "released",
 	})
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	toolsMetadata, resolveInfo, err := tools.Fetch(context.Background(), ss,
+	toolsMetadata, resolveInfo, err := tools.Fetch(c.Context(), ss,
 		[]simplestreams.DataSource{s.Source}, toolsConstraint)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(toolsMetadata), tc.Equals, 1)
@@ -383,7 +382,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *tc.C) {
 	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, tc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = tools.MergeAndWriteMetadata(context.Background(), ss, writer, "proposed", "proposed", toolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(c.Context(), ss, writer, "proposed", "proposed", toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, tc.ErrorIsNil)
 	metadata := toolstesting.ParseMetadataFromDir(c, dir, "proposed", false)
 	assertMetadataMatches(c, "proposed", expected, metadata)
@@ -416,7 +415,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *tc.C, withMirrors bool) {
 		writeMirrors = tools.WriteMirrors
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = tools.MergeAndWriteMetadata(context.Background(), ss, writer, "proposed", "proposed", toolsList, writeMirrors)
+	err = tools.MergeAndWriteMetadata(c.Context(), ss, writer, "proposed", "proposed", toolsList, writeMirrors)
 	c.Assert(err, tc.ErrorIsNil)
 
 	metadata := toolstesting.ParseMetadataFromDir(c, dir, "proposed", withMirrors)
@@ -452,7 +451,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = tools.MergeAndWriteMetadata(context.Background(), ss, writer, "testing", "testing", existingToolsList, tools.WriteMirrors)
+	err = tools.MergeAndWriteMetadata(c.Context(), ss, writer, "testing", "testing", existingToolsList, tools.WriteMirrors)
 	c.Assert(err, tc.ErrorIsNil)
 
 	newToolsList := coretools.List{
@@ -463,13 +462,13 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *tc.C) {
 			SHA256:  "def",
 		},
 	}
-	err = tools.MergeAndWriteMetadata(context.Background(), ss, writer, "testing", "testing", newToolsList, tools.WriteMirrors)
+	err = tools.MergeAndWriteMetadata(c.Context(), ss, writer, "testing", "testing", newToolsList, tools.WriteMirrors)
 	c.Assert(err, tc.ErrorIsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
 	metadata := toolstesting.ParseMetadataFromDir(c, dir, "testing", true)
 	assertMetadataMatches(c, "testing", requiredToolsList, metadata)
 
-	err = tools.MergeAndWriteMetadata(context.Background(), ss, writer, "devel", "devel", newToolsList, tools.WriteMirrors)
+	err = tools.MergeAndWriteMetadata(c.Context(), ss, writer, "devel", "devel", newToolsList, tools.WriteMirrors)
 	c.Assert(err, tc.ErrorIsNil)
 
 	metadata = toolstesting.ParseMetadataFromDir(c, dir, "testing", true)
@@ -811,7 +810,7 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *tc.C) {
 	store, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, tc.ErrorIsNil)
 
-	out, err := tools.ReadAllMetadata(context.Background(), ss, store)
+	out, err := tools.ReadAllMetadata(c.Context(), ss, store)
 	c.Assert(err, tc.ErrorIsNil) // non-existence is not an error
 	c.Assert(out, tc.HasLen, 0)
 
@@ -819,7 +818,7 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Read back what was just written.
-	out, err = tools.ReadAllMetadata(context.Background(), ss, store)
+	out, err = tools.ReadAllMetadata(c.Context(), ss, store)
 	c.Assert(err, tc.ErrorIsNil)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
@@ -851,7 +850,7 @@ func (*metadataHelperSuite) writeMetadataMultipleStream(c *tc.C) (*simplestreams
 	store, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, tc.ErrorIsNil)
 
-	out, err := tools.ReadAllMetadata(context.Background(), ss, store)
+	out, err := tools.ReadAllMetadata(c.Context(), ss, store)
 	c.Assert(out, tc.HasLen, 0)
 	c.Assert(err, tc.ErrorIsNil) // non-existence is not an error
 
@@ -863,7 +862,7 @@ func (*metadataHelperSuite) writeMetadataMultipleStream(c *tc.C) (*simplestreams
 func (s *metadataHelperSuite) TestReadWriteMetadataMultipleStream(c *tc.C) {
 	ss, store, metadata := s.writeMetadataMultipleStream(c)
 	// Read back what was just written.
-	out, err := tools.ReadAllMetadata(context.Background(), ss, store)
+	out, err := tools.ReadAllMetadata(c.Context(), ss, store)
 	c.Assert(err, tc.ErrorIsNil)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
@@ -977,7 +976,7 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *tc.C) {
 
 	// Read back all metadata, expecting to find metadata in index2.json.
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	out, err := tools.ReadAllMetadata(context.Background(), ss, store)
+	out, err := tools.ReadAllMetadata(c.Context(), ss, store)
 	c.Assert(err, tc.ErrorIsNil)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
@@ -1022,7 +1021,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *tc.C) {
 		Stream:    "released",
 	})
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	toolsMetadata, resolveInfo, err := tools.Fetch(context.Background(), ss,
+	toolsMetadata, resolveInfo, err := tools.Fetch(c.Context(), ss,
 		[]simplestreams.DataSource{signedSource}, toolsConstraint)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(toolsMetadata), tc.Equals, 1)

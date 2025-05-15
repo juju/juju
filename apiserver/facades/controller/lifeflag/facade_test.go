@@ -4,8 +4,6 @@
 package lifeflag_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -49,7 +47,7 @@ func (s *FacadeSuite) TestLifeBadEntity(c *tc.C) {
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, tc.ErrorIsNil)
 
-	results, err := facade.Life(context.Background(), entities("archibald snookums"))
+	results, err := facade.Life(c.Context(), entities("archibald snookums"))
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
@@ -65,7 +63,7 @@ func (s *FacadeSuite) TestLifeAuthFailure(c *tc.C) {
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, tc.ErrorIsNil)
 
-	results, err := facade.Life(context.Background(), entities("unit-foo-1"))
+	results, err := facade.Life(c.Context(), entities("unit-foo-1"))
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
@@ -78,7 +76,7 @@ func (s *FacadeSuite) TestLifeNotFound(c *tc.C) {
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, tc.ErrorIsNil)
 
-	results, err := facade.Life(context.Background(), modelEntity(s.modelUUID))
+	results, err := facade.Life(c.Context(), modelEntity(s.modelUUID))
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
@@ -91,7 +89,7 @@ func (s *FacadeSuite) TestLifeSuccess(c *tc.C) {
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Check(err, tc.ErrorIsNil)
 
-	results, err := facade.Life(context.Background(), modelEntity(s.modelUUID))
+	results, err := facade.Life(c.Context(), modelEntity(s.modelUUID))
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{{Life: life.Dying}},
@@ -103,7 +101,7 @@ func (s *FacadeSuite) TestWatchBadEntity(c *tc.C) {
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, tc.ErrorIsNil)
 
-	results, err := facade.Watch(context.Background(), entities("archibald snookums"))
+	results, err := facade.Watch(c.Context(), entities("archibald snookums"))
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
@@ -119,7 +117,7 @@ func (s *FacadeSuite) TestWatchAuthFailure(c *tc.C) {
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, tc.ErrorIsNil)
 
-	results, err := facade.Watch(context.Background(), entities("unit-foo-1"))
+	results, err := facade.Watch(c.Context(), entities("unit-foo-1"))
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
@@ -132,7 +130,7 @@ func (s *FacadeSuite) TestWatchNotFound(c *tc.C) {
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, nil, auth(true))
 	c.Assert(err, tc.ErrorIsNil)
 
-	results, err := facade.Watch(context.Background(), modelEntity(s.modelUUID))
+	results, err := facade.Watch(c.Context(), modelEntity(s.modelUUID))
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
@@ -147,7 +145,7 @@ func (s *FacadeSuite) TestWatchBadWatcher(c *tc.C) {
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, s.watcherRegistry, auth(true))
 	c.Check(err, tc.ErrorIsNil)
 
-	results, err := facade.Watch(context.Background(), modelEntity(s.modelUUID))
+	results, err := facade.Watch(c.Context(), modelEntity(s.modelUUID))
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
@@ -163,7 +161,7 @@ func (s *FacadeSuite) TestWatchSuccess(c *tc.C) {
 	facade, err := lifeflag.NewFacade(s.modelUUID, backend, s.watcherRegistry, auth(true))
 	c.Check(err, tc.ErrorIsNil)
 
-	results, err := facade.Watch(context.Background(), modelEntity(s.modelUUID))
+	results, err := facade.Watch(c.Context(), modelEntity(s.modelUUID))
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}},

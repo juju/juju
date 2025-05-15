@@ -4,7 +4,6 @@
 package secrets_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -92,7 +91,7 @@ func (s *SecretsSuite) TestListSecrets(c *tc.C) {
 	})
 	client := apisecrets.NewClient(apiCaller)
 	owner := secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mysql"}
-	result, err := client.ListSecrets(context.Background(), true, secrets.Filter{
+	result, err := client.ListSecrets(c.Context(), true, secrets.Filter{
 		URI: uri, Owner: ptr(owner), Revision: ptr(666)})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []apisecrets.SecretDetails{{
@@ -146,7 +145,7 @@ func (s *SecretsSuite) TestListSecretsError(c *tc.C) {
 		return nil
 	})
 	client := apisecrets.NewClient(apiCaller)
-	result, err := client.ListSecrets(context.Background(), true, secrets.Filter{})
+	result, err := client.ListSecrets(c.Context(), true, secrets.Filter{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Assert(result[0].Error, tc.Equals, "boom")
@@ -158,7 +157,7 @@ func (s *SecretsSuite) TestCreateSecretError(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 	client := apisecrets.NewClient(caller)
-	_, err := client.CreateSecret(context.Background(), "label", "this is a secret.", map[string]string{"foo": "bar"})
+	_, err := client.CreateSecret(c.Context(), "label", "this is a secret.", map[string]string{"foo": "bar"})
 	c.Assert(err, tc.ErrorMatches, "user secrets not supported")
 }
 
@@ -187,7 +186,7 @@ func (s *SecretsSuite) TestCreateSecret(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.CreateSecret(context.Background(), "my-secret", "this is a secret.", map[string]string{"foo": "bar"})
+	result, err := client.CreateSecret(c.Context(), "my-secret", "this is a secret.", map[string]string{"foo": "bar"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, uri.String())
 }
@@ -199,7 +198,7 @@ func (s *SecretsSuite) TestUpdateSecretError(c *tc.C) {
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 	client := apisecrets.NewClient(caller)
 	uri := secrets.NewURI()
-	err := client.UpdateSecret(context.Background(), uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{"foo": "bar"})
+	err := client.UpdateSecret(c.Context(), uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{"foo": "bar"})
 	c.Assert(err, tc.ErrorMatches, "user secrets not supported")
 }
 
@@ -225,7 +224,7 @@ func (s *SecretsSuite) TestUpdateSecretWithoutContent(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.UpdateSecret(context.Background(), uri, "", ptr(true), "new-name", "this is a secret.", nil)
+	err := client.UpdateSecret(c.Context(), uri, "", ptr(true), "new-name", "this is a secret.", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -250,7 +249,7 @@ func (s *SecretsSuite) TestUpdateSecretByName(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.UpdateSecret(context.Background(), nil, "name", ptr(true), "new-name", "this is a secret.", nil)
+	err := client.UpdateSecret(c.Context(), nil, "name", ptr(true), "new-name", "this is a secret.", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -277,7 +276,7 @@ func (s *SecretsSuite) TestUpdateSecret(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.UpdateSecret(context.Background(), uri, "", ptr(true), "label", "this is a secret.", map[string]string{"foo": "bar"})
+	err := client.UpdateSecret(c.Context(), uri, "", ptr(true), "label", "this is a secret.", map[string]string{"foo": "bar"})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -288,7 +287,7 @@ func (s *SecretsSuite) TestRemoveSecretError(c *tc.C) {
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 	client := apisecrets.NewClient(caller)
 	uri := secrets.NewURI()
-	err := client.RemoveSecret(context.Background(), uri, "", ptr(1))
+	err := client.RemoveSecret(c.Context(), uri, "", ptr(1))
 	c.Assert(err, tc.ErrorMatches, "user secrets not supported")
 }
 
@@ -309,7 +308,7 @@ func (s *SecretsSuite) TestRemoveSecret(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.RemoveSecret(context.Background(), uri, "", nil)
+	err := client.RemoveSecret(c.Context(), uri, "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -329,7 +328,7 @@ func (s *SecretsSuite) TestRemoveSecretByName(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.RemoveSecret(context.Background(), nil, "my-secret", nil)
+	err := client.RemoveSecret(c.Context(), nil, "my-secret", nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -350,7 +349,7 @@ func (s *SecretsSuite) TestRemoveSecretWithRevision(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	err := client.RemoveSecret(context.Background(), uri, "", ptr(1))
+	err := client.RemoveSecret(c.Context(), uri, "", ptr(1))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -361,7 +360,7 @@ func (s *SecretsSuite) TestGrantSecretError(c *tc.C) {
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 	client := apisecrets.NewClient(caller)
 	uri := secrets.NewURI()
-	_, err := client.GrantSecret(context.Background(), uri, "", []string{"gitlab"})
+	_, err := client.GrantSecret(c.Context(), uri, "", []string{"gitlab"})
 	c.Assert(err, tc.ErrorMatches, "user secrets not supported")
 }
 
@@ -380,7 +379,7 @@ func (s *SecretsSuite) TestGrantSecret(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.GrantSecret(context.Background(), uri, "", []string{"gitlab"})
+	result, err := client.GrantSecret(c.Context(), uri, "", []string{"gitlab"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []error{nil})
 }
@@ -399,7 +398,7 @@ func (s *SecretsSuite) TestGrantSecretByName(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.GrantSecret(context.Background(), nil, "my-secret", []string{"gitlab"})
+	result, err := client.GrantSecret(c.Context(), nil, "my-secret", []string{"gitlab"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []error{nil})
 }
@@ -411,7 +410,7 @@ func (s *SecretsSuite) TestRevokeSecretError(c *tc.C) {
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 	client := apisecrets.NewClient(caller)
 	uri := secrets.NewURI()
-	_, err := client.RevokeSecret(context.Background(), uri, "", []string{"gitlab"})
+	_, err := client.RevokeSecret(c.Context(), uri, "", []string{"gitlab"})
 	c.Assert(err, tc.ErrorMatches, "user secrets not supported")
 }
 
@@ -430,7 +429,7 @@ func (s *SecretsSuite) TestRevokeSecret(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.RevokeSecret(context.Background(), uri, "", []string{"gitlab"})
+	result, err := client.RevokeSecret(c.Context(), uri, "", []string{"gitlab"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []error{nil})
 }
@@ -449,7 +448,7 @@ func (s *SecretsSuite) TestRevokeSecretByName(c *tc.C) {
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 2}
 	client := apisecrets.NewClient(caller)
-	result, err := client.RevokeSecret(context.Background(), nil, "my-secret", []string{"gitlab"})
+	result, err := client.RevokeSecret(c.Context(), nil, "my-secret", []string{"gitlab"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []error{nil})
 }

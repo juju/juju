@@ -4,7 +4,6 @@
 package undertaker
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -105,7 +104,7 @@ func (s *undertakerSuite) TestNoPerms(c *tc.C) {
 }
 
 func (s *undertakerSuite) TestModelInfo(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	name, err := user.NewName("user-admin")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -160,7 +159,7 @@ func (s *undertakerSuite) TestModelInfo(c *tc.C) {
 }
 
 func (s *undertakerSuite) TestProcessDyingModel(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	otherSt, hostedAPI, _ := s.setupStateAndAPI(c, false, "hostedmodel")
 	model, err := otherSt.Model()
 	c.Assert(err, tc.ErrorIsNil)
@@ -176,7 +175,7 @@ func (s *undertakerSuite) TestProcessDyingModel(c *tc.C) {
 }
 
 func (s *undertakerSuite) TestRemoveAliveModel(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	_, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 
@@ -196,7 +195,7 @@ func (s *undertakerSuite) TestRemoveAliveModel(c *tc.C) {
 }
 
 func (s *undertakerSuite) TestRemoveDyingModel(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 
@@ -217,7 +216,7 @@ func (s *undertakerSuite) TestRemoveDyingModel(c *tc.C) {
 }
 
 func (s *undertakerSuite) TestDeadRemoveModel(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 
@@ -256,7 +255,7 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *tc.C) {
 }
 
 func (s *undertakerSuite) TestDeadRemoveModelSecretsConfigNotFound(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 
@@ -283,7 +282,7 @@ func (s *undertakerSuite) TestDeadRemoveModelSecretsConfigNotFound(c *tc.C) {
 }
 
 func (s *undertakerSuite) TestModelConfig(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	_, hostedAPI, _ := s.setupStateAndAPI(c, false, "hostedmodel")
 
 	expectedCfg, err := config.New(false, coretesting.FakeConfig())
@@ -296,7 +295,7 @@ func (s *undertakerSuite) TestModelConfig(c *tc.C) {
 }
 
 func (s *undertakerSuite) TestCloudSpec(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	_, hostedAPI, _ := s.setupStateAndAPI(c, false, "hostedmodel")
 
 	cred := cloud.NewCredential("userpass", map[string]string{"user": "fred", "password": "secret"})

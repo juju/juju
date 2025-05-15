@@ -4,8 +4,6 @@
 package controller_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -23,7 +21,7 @@ func (s *Suite) TestMongoVersionCallError(c *tc.C) {
 		},
 	}
 	client := controller.NewClient(apiCaller)
-	result, err := client.MongoVersion(context.Background())
+	result, err := client.MongoVersion(c.Context())
 	c.Check(result, tc.Equals, "")
 	c.Check(err, tc.ErrorMatches, "boom")
 }
@@ -44,7 +42,7 @@ func (s *Suite) TestMongoVersion(c *tc.C) {
 	}
 
 	client := controller.NewClient(apiCaller)
-	result, err := client.MongoVersion(context.Background())
+	result, err := client.MongoVersion(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, "3.5.12")
 }
@@ -66,6 +64,6 @@ func (s *Suite) TestMongoVersionWithErrorResult(c *tc.C) {
 	}
 
 	client := controller.NewClient(apiCaller)
-	_, err := client.MongoVersion(context.Background())
+	_, err := client.MongoVersion(c.Context())
 	c.Assert(err, tc.ErrorMatches, "version error")
 }

@@ -76,7 +76,7 @@ func (*ManifoldSuite) TestMissingAPICaller(c *tc.C) {
 		APICallerName: "api-caller",
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -102,7 +102,7 @@ func (*ManifoldSuite) TestNewWorkerError(c *tc.C) {
 		},
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "boof")
 }
@@ -122,7 +122,7 @@ func (*ManifoldSuite) TestNewWorkerSuccess(c *tc.C) {
 		},
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.Equals, expectWorker)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -145,7 +145,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithAgentName(c *tc.C) {
 		},
 	})
 
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.Equals, expectWorker)
 	c.Check(err, tc.ErrorIsNil)
 }

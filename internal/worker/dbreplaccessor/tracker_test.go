@@ -32,7 +32,7 @@ func (s *trackedDBReplWorkerSuite) TestWorkerStartup(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	w, err := NewTrackedDBWorker(c.Context(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
 	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
@@ -45,11 +45,11 @@ func (s *trackedDBReplWorkerSuite) TestWorkerDBIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker()
+	w, err := s.newTrackedDBWorker(c)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	err = w.StdTxn(context.Background(), func(_ context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(c.Context(), func(_ context.Context, tx *sql.Tx) error {
 		if tx == nil {
 			return errors.New("nil transaction")
 		}
@@ -67,12 +67,12 @@ func (s *trackedDBReplWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker()
+	w, err := s.newTrackedDBWorker(c)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	done := make(chan struct{})
-	err = w.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		defer close(done)
 
 		if tx == nil {
@@ -98,12 +98,12 @@ func (s *trackedDBReplWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker()
+	w, err := s.newTrackedDBWorker(c)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	done := make(chan struct{})
-	err = w.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = w.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		defer close(done)
 
 		if tx == nil {
@@ -122,8 +122,8 @@ func (s *trackedDBReplWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBReplWorkerSuite) newTrackedDBWorker() (TrackedDB, error) {
-	return newTrackedDBWorker(context.Background(),
+func (s *trackedDBReplWorkerSuite) newTrackedDBWorker(c *tc.C) (TrackedDB, error) {
+	return newTrackedDBWorker(c.Context(),
 		s.states,
 		s.dbApp, "controller",
 		WithClock(s.clock),

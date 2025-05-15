@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 
@@ -82,7 +81,7 @@ func (s *macaroonLoginSuite) login(c *tc.C, info *api.Info) (params.LoginResult,
 		request params.LoginRequest
 		result  params.LoginResult
 	)
-	err := client.APICall(context.Background(), "Admin", 3, "", "Login", &request, &result)
+	err := client.APICall(c.Context(), "Admin", 3, "", "Login", &request, &result)
 	if err != nil {
 		return params.LoginResult{}, errors.Annotatef(err, "cannot log in")
 	}
@@ -101,7 +100,7 @@ func (s *macaroonLoginSuite) login(c *tc.C, info *api.Info) (params.LoginResult,
 		mac, err = bakery.NewLegacyMacaroon(result.DischargeRequired)
 		c.Assert(err, tc.ErrorIsNil)
 	}
-	err = bakeryClient.HandleError(context.Background(), cookieURL, &httpbakery.Error{
+	err = bakeryClient.HandleError(c.Context(), cookieURL, &httpbakery.Error{
 		Message: result.DischargeRequiredReason,
 		Code:    httpbakery.ErrDischargeRequired,
 		Info: &httpbakery.ErrorInfo{
@@ -113,7 +112,7 @@ func (s *macaroonLoginSuite) login(c *tc.C, info *api.Info) (params.LoginResult,
 	// Add the macaroons that have been saved by HandleError to our login request.
 	request.Macaroons = httpbakery.MacaroonsForURL(bakeryClient.Client.Jar, cookieURL)
 
-	err = client.APICall(context.Background(), "Admin", 3, "", "Login", &request, &result)
+	err = client.APICall(c.Context(), "Admin", 3, "", "Login", &request, &result)
 	return result, err
 }
 
@@ -203,7 +202,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *tc.
 	apiserver.SetAllowModelAccess(s.Server, allowModelAccess)
 
 	accessService := s.ControllerDomainServices(c).Access()
-	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+	err := accessService.UpdatePermission(c.Context(), access.UpdatePermissionArgs{
 		Subject: s.remoteUser,
 		Change:  permission.Grant,
 		AccessSpec: permission.AccessSpec{
@@ -252,7 +251,7 @@ func (s *macaroonLoginSuite) TestLoginToModelSuccess(c *tc.C) {
 		return s.remoteUser.Name()
 	}
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	client, err := api.Open(context.Background(), s.APIInfo(c), api.DialOpts{})
+	client, err := api.Open(c.Context(), s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
 	defer client.Close()
 
@@ -264,7 +263,7 @@ func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *tc.C) {
 	s.DischargerLogin = func() string {
 		return ""
 	}
-	client, err := api.Open(context.Background(), s.APIInfo(c), api.DialOpts{})
+	client, err := api.Open(c.Context(), s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, tc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(client, tc.Equals, nil)
 }
@@ -283,13 +282,13 @@ func (s *macaroonLoginSuite) TestConnectStream(c *tc.C) {
 	}
 
 	// First log into the regular API.
-	client, err := api.Open(context.Background(), s.APIInfo(c), api.DialOpts{})
+	client, err := api.Open(c.Context(), s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(dischargeCount, tc.Equals, 1)
 
 	// Then check that ConnectStream works OK and that it doesn't need
 	// to discharge again.
-	conn, err := client.ConnectStream(context.Background(), "/path", nil)
+	conn, err := client.ConnectStream(c.Context(), "/path", nil)
 	c.Assert(err, tc.IsNil)
 	defer conn.Close()
 
@@ -326,7 +325,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *tc.C) {
 	// the actual debug-log endpoint will return an error).
 	dischargeError = true
 	logArgs := url.Values{"noTail": []string{"true"}}
-	conn, err := client.ConnectStream(context.Background(), "/log", logArgs)
+	conn, err := client.ConnectStream(c.Context(), "/log", logArgs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(conn, tc.NotNil)
 	conn.Close()
@@ -335,7 +334,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *tc.C) {
 	// and try again. The login should fail.
 	jar.Clear()
 
-	conn, err = client.ConnectStream(context.Background(), "/log", logArgs)
+	conn, err = client.ConnectStream(c.Context(), "/log", logArgs)
 	c.Assert(err, tc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(conn, tc.IsNil)
 }
@@ -386,7 +385,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *tc.C) {
 	info2.Macaroons = dischargedMacaroons
 
 	client2 := s.OpenAPI(c, info2, nil)
-	conn, err := client2.ConnectStream(context.Background(), "/path", nil)
+	conn, err := client2.ConnectStream(c.Context(), "/path", nil)
 	c.Assert(err, tc.IsNil)
 	defer conn.Close()
 

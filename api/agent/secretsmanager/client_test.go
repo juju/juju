@@ -4,7 +4,6 @@
 package secretsmanager_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -64,7 +63,7 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.GetSecretBackendConfig(context.Background(), ptr("active-id"))
+	result, err := client.GetSecretBackendConfig(c.Context(), ptr("active-id"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "active-id",
@@ -107,7 +106,7 @@ func (s *SecretsSuite) TestGetBackendConfigForDraining(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, activeID, err := client.GetBackendConfigForDrain(context.Background(), ptr("active-id"))
+	result, activeID, err := client.GetBackendConfigForDrain(c.Context(), ptr("active-id"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -143,7 +142,7 @@ func (s *SecretsSuite) TestCreateSecretURIs(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.CreateSecretURIs(context.Background(), 2)
+	result, err := client.CreateSecretURIs(c.Context(), 2)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []*coresecrets.URI{uri, uri2})
 }
@@ -172,7 +171,7 @@ func (s *SecretsSuite) TestGetContentInfo(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), uri, "label", true, true)
+	content, backendConfig, draining, err := client.GetContentInfo(c.Context(), uri, "label", true, true)
 	c.Assert(err, tc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{SecretValue: value})
@@ -217,7 +216,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), uri, "label", true, true)
+	content, backendConfig, draining, err := client.GetContentInfo(c.Context(), uri, "label", true, true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
 		BackendID:  "backend-id",
@@ -257,7 +256,7 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), nil, "label", true, true)
+	content, backendConfig, draining, err := client.GetContentInfo(c.Context(), nil, "label", true, true)
 	c.Assert(err, tc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{SecretValue: value})
@@ -276,7 +275,7 @@ func (s *SecretsSuite) TestGetContentInfoError(c *tc.C) {
 	})
 	uri := coresecrets.NewURI()
 	client := secretsmanager.NewClient(apiCaller)
-	content, backendConfig, _, err := client.GetContentInfo(context.Background(), uri, "", true, true)
+	content, backendConfig, _, err := client.GetContentInfo(c.Context(), uri, "", true, true)
 	c.Assert(err, tc.ErrorMatches, "boom")
 	c.Assert(content, tc.IsNil)
 	c.Assert(backendConfig, tc.IsNil)
@@ -303,7 +302,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfo(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	content, backendConfig, draining, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
+	content, backendConfig, draining, err := client.GetRevisionContentInfo(c.Context(), uri, 666, true)
 	c.Assert(err, tc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{SecretValue: value})
@@ -345,7 +344,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	content, backendConfig, draining, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
+	content, backendConfig, draining, err := client.GetRevisionContentInfo(c.Context(), uri, 666, true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(content, tc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
 		BackendID:  "backend-id",
@@ -374,7 +373,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoError(c *tc.C) {
 	})
 	uri := coresecrets.NewURI()
 	client := secretsmanager.NewClient(apiCaller)
-	config, backendConfig, _, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
+	config, backendConfig, _, err := client.GetRevisionContentInfo(c.Context(), uri, 666, true)
 	c.Assert(err, tc.ErrorMatches, "boom")
 	c.Assert(config, tc.IsNil)
 	c.Assert(backendConfig, tc.IsNil)
@@ -420,7 +419,7 @@ func (s *SecretsSuite) TestSecretMetadata(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.SecretMetadata(context.Background())
+	result, err := client.SecretMetadata(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	for _, info := range result {
@@ -460,7 +459,7 @@ func (s *SecretsSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	_, err := client.WatchConsumedSecretsChanges(context.Background(), "foo/0")
+	_, err := client.WatchConsumedSecretsChanges(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -491,7 +490,7 @@ func (s *SecretsSuite) GetConsumerSecretsRevisionInfo(c *tc.C) {
 	var info map[string]coresecrets.SecretRevisionInfo
 	client := secretsmanager.NewClient(apiCaller)
 	info, err := client.GetConsumerSecretsRevisionInfo(
-		context.Background(),
+		c.Context(),
 		"foo-0", []string{
 			"secret:9m4e2mr0ui3e8a215n4g", "secret:8n3e2mr0ui3e8a215n5h", "secret:7c5e2mr0ui3e8a2154r2"})
 	c.Assert(err, tc.ErrorIsNil)
@@ -514,7 +513,7 @@ func (s *SecretsSuite) TestWatchObsolete(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	_, err := client.WatchObsolete(context.Background(), names.NewUnitTag("foo/0"))
+	_, err := client.WatchObsolete(c.Context(), names.NewUnitTag("foo/0"))
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -534,7 +533,7 @@ func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	_, err := client.WatchSecretsRotationChanges(context.Background(), names.NewApplicationTag("app"))
+	_, err := client.WatchSecretsRotationChanges(c.Context(), names.NewApplicationTag("app"))
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -559,7 +558,7 @@ func (s *SecretsSuite) TestSecretRotated(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	err := client.SecretRotated(context.Background(), "secret:9m4e2mr0ui3e8a215n4g", 666)
+	err := client.SecretRotated(c.Context(), "secret:9m4e2mr0ui3e8a215n4g", 666)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -579,7 +578,7 @@ func (s *SecretsSuite) TestWatchSecretRevisionsExpiryChanges(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	_, err := client.WatchSecretRevisionsExpiryChanges(context.Background(), names.NewApplicationTag("app"))
+	_, err := client.WatchSecretRevisionsExpiryChanges(c.Context(), names.NewApplicationTag("app"))
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -607,7 +606,7 @@ func (s *SecretsSuite) TestGrant(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	err := client.Grant(context.Background(), uri, &secretsmanager.SecretRevokeGrantArgs{
+	err := client.Grant(c.Context(), uri, &secretsmanager.SecretRevokeGrantArgs{
 		UnitName:    ptr("wordpress/0"),
 		RelationKey: ptr("wordpress:db mysql:server"),
 		Role:        coresecrets.RoleView,
@@ -639,7 +638,7 @@ func (s *SecretsSuite) TestRevoke(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	err := client.Revoke(context.Background(), uri, &secretsmanager.SecretRevokeGrantArgs{
+	err := client.Revoke(c.Context(), uri, &secretsmanager.SecretRevokeGrantArgs{
 		ApplicationName: ptr("wordpress"),
 		RelationKey:     ptr("wordpress:db mysql:server"),
 		Role:            coresecrets.RoleView,

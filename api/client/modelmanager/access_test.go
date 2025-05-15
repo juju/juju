@@ -4,8 +4,6 @@
 package modelmanager_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -26,12 +24,12 @@ const (
 	someModelTag  = "model-" + someModelUUID
 )
 
-func accessCall(client *modelmanager.Client, action params.ModelAction, user, access string, modelUUIDs ...string) error {
+func accessCall(c *tc.C, client *modelmanager.Client, action params.ModelAction, user, access string, modelUUIDs ...string) error {
 	switch action {
 	case params.GrantModelAccess:
-		return client.GrantModel(context.Background(), user, access, modelUUIDs...)
+		return client.GrantModel(c.Context(), user, access, modelUUIDs...)
 	case params.RevokeModelAccess:
-		return client.RevokeModel(context.Background(), user, access, modelUUIDs...)
+		return client.RevokeModel(c.Context(), user, access, modelUUIDs...)
 	default:
 		panic(action)
 	}
@@ -80,7 +78,7 @@ func (s *accessSuite) readOnlyUser(c *tc.C, action params.ModelAction) {
 			return nil
 		})
 	client := modelmanager.NewClient(apiCaller)
-	err := accessCall(client, action, "bob", "read", someModelUUID)
+	err := accessCall(c, client, action, "bob", "read", someModelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -109,7 +107,7 @@ func (s *accessSuite) adminUser(c *tc.C, action params.ModelAction) {
 			return nil
 		})
 	client := modelmanager.NewClient(apiCaller)
-	err := accessCall(client, action, "bob", "write", someModelUUID)
+	err := accessCall(c, client, action, "bob", "write", someModelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -140,7 +138,7 @@ func (s *accessSuite) threeModels(c *tc.C, action params.ModelAction) {
 			return nil
 		})
 	client := modelmanager.NewClient(apiCaller)
-	err := accessCall(client, action, "carol", "read", someModelUUID, someModelUUID, someModelUUID)
+	err := accessCall(c, client, action, "carol", "read", someModelUUID, someModelUUID, someModelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -170,7 +168,7 @@ func (s *accessSuite) errorResult(c *tc.C, action params.ModelAction) {
 			return nil
 		})
 	client := modelmanager.NewClient(apiCaller)
-	err := accessCall(client, action, "aaa", "write", someModelUUID)
+	err := accessCall(c, client, action, "aaa", "write", someModelUUID)
 	c.Assert(err, tc.ErrorMatches, "unfortunate mishap")
 }
 
@@ -186,6 +184,6 @@ func (s *accessSuite) TestInvalidResultCount(c *tc.C) {
 			return nil
 		})
 	client := modelmanager.NewClient(apiCaller)
-	err := client.GrantModel(context.Background(), "bob", "write", someModelUUID, someModelUUID)
+	err := client.GrantModel(c.Context(), "bob", "write", someModelUUID, someModelUUID)
 	c.Assert(err, tc.ErrorMatches, "expected 2 results, got 0")
 }

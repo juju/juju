@@ -4,7 +4,6 @@
 package storage_test
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -31,7 +30,7 @@ func (s *storageAddSuite) assertStorageAddedNoErrors(c *tc.C, args params.Storag
 }
 
 func (s *storageAddSuite) assertStoragesAddedNoErrors(c *tc.C, args params.StoragesAddParams) {
-	failures, err := s.api.AddToUnit(context.Background(), args)
+	failures, err := s.api.AddToUnit(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, len(args.Storages))
 	for _, one := range failures.Results {
@@ -66,7 +65,7 @@ func (s *storageAddSuite) TestStorageAddUnitBlocked(c *tc.C) {
 		UnitTag:     s.unitTag.String(),
 		StorageName: "data",
 	}
-	_, err := s.api.AddToUnit(context.Background(), params.StoragesAddParams{Storages: []params.StorageAddParams{args}})
+	_, err := s.api.AddToUnit(c.Context(), params.StoragesAddParams{Storages: []params.StorageAddParams{args}})
 	s.assertBlocked(c, err, "TestStorageAddUnitBlocked")
 }
 
@@ -88,7 +87,7 @@ func (s *storageAddSuite) TestStorageAddUnitInvalidName(c *tc.C) {
 		UnitTag:     "invalid-unit-name",
 		StorageName: "data",
 	}
-	failures, err := s.api.AddToUnit(context.Background(), params.StoragesAddParams{Storages: []params.StorageAddParams{args}})
+	failures, err := s.api.AddToUnit(c.Context(), params.StoragesAddParams{Storages: []params.StorageAddParams{args}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, 1)
 	c.Assert(failures.Results[0].Error.Error(), tc.Matches, "\"invalid-unit-name\" is not a valid tag")
@@ -110,7 +109,7 @@ func (s *storageAddSuite) TestStorageAddUnitStateError(c *tc.C) {
 		UnitTag:     s.unitTag.String(),
 		StorageName: "data",
 	}
-	failures, err := s.api.AddToUnit(context.Background(), params.StoragesAddParams{Storages: []params.StorageAddParams{args}})
+	failures, err := s.api.AddToUnit(c.Context(), params.StoragesAddParams{Storages: []params.StorageAddParams{args}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, 1)
 	c.Assert(failures.Results[0].Error.Error(), tc.Matches, fmt.Sprintf(".*%v.*", msg))
@@ -139,7 +138,7 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *tc.C) {
 		}
 		return nil, nil
 	}
-	failures, err := s.api.AddToUnit(context.Background(), params.StoragesAddParams{
+	failures, err := s.api.AddToUnit(c.Context(), params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
 			wrong0,
 			right,
@@ -167,7 +166,7 @@ func (s *storageAddSuite) TestStorageAddUnitTags(c *tc.C) {
 		UnitTag:     s.unitTag.String(),
 		StorageName: "data",
 	}
-	results, err := s.api.AddToUnit(context.Background(), params.StoragesAddParams{[]params.StorageAddParams{args}})
+	results, err := s.api.AddToUnit(c.Context(), params.StoragesAddParams{[]params.StorageAddParams{args}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.DeepEquals, []params.AddStorageResult{{
 		Result: &params.AddStorageDetails{
@@ -189,7 +188,7 @@ func (s *storageAddSuite) TestStorageAddUnitNotFoundErr(c *tc.C) {
 		UnitTag:     s.unitTag.String(),
 		StorageName: "data",
 	}
-	failures, err := s.api.AddToUnit(context.Background(), params.StoragesAddParams{[]params.StorageAddParams{args}})
+	failures, err := s.api.AddToUnit(c.Context(), params.StoragesAddParams{[]params.StorageAddParams{args}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(failures.Results, tc.HasLen, 1)
 	c.Assert(failures.Results[0].Error.Error(), tc.Matches, "sanity not found")

@@ -4,8 +4,6 @@
 package action_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/pkg/errors"
@@ -40,7 +38,7 @@ func (s *runSuite) TestBlockRunOnAllMachines(c *tc.C) {
 	// block all changes
 	s.blockAllChanges(c, "TestBlockRunOnAllMachines")
 	_, err := s.client.RunOnAllMachines(
-		context.Background(),
+		c.Context(),
 		params.RunParams{
 			Commands: "hostname",
 			Timeout:  testing.LongWait,
@@ -54,7 +52,7 @@ func (s *runSuite) TestBlockRunMachineAndApplication(c *tc.C) {
 	// block all changes
 	s.blockAllChanges(c, "TestBlockRunMachineAndApplication")
 	_, err := s.client.Run(
-		context.Background(),
+		c.Context(),
 		params.RunParams{
 			Commands:     "hostname",
 			Timeout:      testing.LongWait,
@@ -85,13 +83,13 @@ func (s *runSuite) TestRunRequiresAdmin(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = client.Run(context.Background(), params.RunParams{})
+	_, err = client.Run(c.Context(), params.RunParams{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
 	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = client.Run(context.Background(), params.RunParams{})
+	_, err = client.Run(c.Context(), params.RunParams{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -111,13 +109,13 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
+	_, err = client.RunOnAllMachines(c.Context(), params.RunParams{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
 	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
+	_, err = client.RunOnAllMachines(c.Context(), params.RunParams{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 

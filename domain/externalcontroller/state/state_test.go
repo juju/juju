@@ -4,7 +4,6 @@
 package state
 
 import (
-	ctx "context"
 	"sort"
 
 	"github.com/juju/collections/set"
@@ -37,7 +36,7 @@ func (s *stateSuite) TestRetrieveExternalController(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
+	controllerInfo, err := st.Controller(c.Context(), "ctrl1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(controllerInfo.ControllerUUID, tc.Equals, "ctrl1")
@@ -56,7 +55,7 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
+	controllerInfo, err := st.Controller(c.Context(), "ctrl1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(controllerInfo.ControllerUUID, tc.Equals, "ctrl1")
@@ -75,7 +74,7 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
+	controllerInfo, err := st.Controller(c.Context(), "ctrl1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(controllerInfo.ControllerUUID, tc.Equals, "ctrl1")
@@ -89,7 +88,7 @@ func (s *stateSuite) TestRetrieveExternalControllerNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Retrieve a not-existent controller.
-	_, err := st.Controller(ctx.Background(), "ctrl1")
+	_, err := st.Controller(c.Context(), "ctrl1")
 	c.Assert(err, tc.ErrorMatches, `external controller "ctrl1" not found`)
 }
 
@@ -113,7 +112,7 @@ func (s *stateSuite) TestRetrieveExternalControllerForModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
+	controllerInfos, err := st.ControllersForModels(c.Context(), "model1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(controllerInfos[0].ControllerUUID, tc.Equals, "ctrl1")
@@ -136,7 +135,7 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *t
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
+	controllerInfos, err := st.ControllersForModels(c.Context(), "model1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllerInfos, tc.HasLen, 1)
 
@@ -160,7 +159,7 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
-	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
+	controllerInfos, err := st.ControllersForModels(c.Context(), "model1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(controllerInfos[0].ControllerUUID, tc.Equals, "ctrl1")
@@ -183,7 +182,7 @@ func (s *stateSuite) TestUpdateExternalControllerNewData(c *tc.C) {
 		ModelUUIDs:     []string{m1},
 	}
 
-	err := st.UpdateExternalController(ctx.Background(), ec)
+	err := st.UpdateExternalController(c.Context(), ec)
 	c.Assert(err, tc.ErrorIsNil)
 
 	db := s.DB()
@@ -236,14 +235,14 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *tc.C) {
 	}
 
 	// Initial values.
-	err := st.UpdateExternalController(ctx.Background(), ec)
+	err := st.UpdateExternalController(c.Context(), ec)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now with different alias and addresses.
 	ec.Alias = "updated-external-controller"
 	ec.Addrs = []string{"10.10.10.10", "192.168.0.10"}
 
-	err = st.UpdateExternalController(ctx.Background(), ec)
+	err = st.UpdateExternalController(c.Context(), ec)
 	c.Assert(err, tc.ErrorIsNil)
 
 	db := s.DB()
@@ -286,7 +285,7 @@ func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *tc.C) {
 		ModelUUIDs:     []string{m1},
 	}
 
-	err := st.UpdateExternalController(ctx.Background(), ec)
+	err := st.UpdateExternalController(c.Context(), ec)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now upload a new controller with the same model
@@ -298,7 +297,7 @@ func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *tc.C) {
 		ModelUUIDs:     []string{m1},
 	}
 
-	err = st.UpdateExternalController(ctx.Background(), ec)
+	err = st.UpdateExternalController(c.Context(), ec)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the model is indicated as being on the new controller.
@@ -330,7 +329,7 @@ func (s *stateSuite) TestModelsForController(c *tc.C) {
 ("model1", "ctrl1")`)
 	c.Assert(err, tc.ErrorIsNil)
 
-	models, err := st.ModelsForController(ctx.Background(), "ctrl1")
+	models, err := st.ModelsForController(c.Context(), "ctrl1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(models, tc.SameContents, []string{"model1"})
 }
@@ -338,7 +337,7 @@ func (s *stateSuite) TestModelsForController(c *tc.C) {
 func (s *stateSuite) TestModelsForControllerNoRows(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	models, err := st.ModelsForController(ctx.Background(), "ctrl1")
+	models, err := st.ModelsForController(c.Context(), "ctrl1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(models, tc.HasLen, 0)
 }
@@ -377,7 +376,7 @@ func (s *stateSuite) TestControllersForModels(c *tc.C) {
 ("model3", "ctrl2")`)
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllers, err := st.ControllersForModels(ctx.Background(), "model1", "model2", "model3", "model2", "model3")
+	controllers, err := st.ControllersForModels(c.Context(), "model1", "model2", "model3", "model2", "model3")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllers, tc.HasLen, 2)
 
@@ -433,7 +432,7 @@ func (s *stateSuite) TestControllersForModelsOneSingleModel(c *tc.C) {
 ("model3", "ctrl1")`)
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllers, err := st.ControllersForModels(ctx.Background(), "model1")
+	controllers, err := st.ControllersForModels(c.Context(), "model1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllers[0].Addrs, tc.SameContents, []string{"192.168.1.1", "10.0.0.1", "10.0.0.2"})
 	c.Assert(controllers[0].ModelUUIDs, tc.SameContents, []string{"model1", "model2", "model3"})
@@ -466,7 +465,7 @@ func (s *stateSuite) TestControllersForModelsWithoutModelUUIDs(c *tc.C) {
 ("model3", "ctrl1")`)
 	c.Assert(err, tc.ErrorIsNil)
 
-	controllers, err := st.ControllersForModels(ctx.Background())
+	controllers, err := st.ControllersForModels(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controllers, tc.HasLen, 0)
 }

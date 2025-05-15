@@ -4,8 +4,6 @@
 package caasfirewaller_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -178,7 +176,7 @@ func (s *manifoldSuite) TestMissingInputs(c *tc.C) {
 		getter := s.newGetter(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context.Background(), getter)
+		_, err := s.manifold.Start(c.Context(), getter)
 		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
@@ -186,7 +184,7 @@ func (s *manifoldSuite) TestMissingInputs(c *tc.C) {
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 

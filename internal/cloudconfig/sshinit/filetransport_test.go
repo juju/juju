@@ -4,7 +4,6 @@
 package sshinit_test
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -57,7 +56,7 @@ func (s *sshInitSuite) TestFileTransport(c *tc.C) {
 	c.Assert(pathFoo, tc.Matches, "/tmp.*/juju-.*-foo")
 	c.Assert(pathBar, tc.Matches, "/tmp.*/juju-.*-bar")
 
-	err := ft.Dispatch(context.Background())
+	err := ft.Dispatch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -95,7 +94,7 @@ func (s *sshInitSuite) TestFileTransportErrors(c *tc.C) {
 	c.Assert(pathFoo, tc.Matches, "/tmp.*/juju-.*-foo")
 	c.Assert(pathBar, tc.Matches, "/tmp.*/juju-.*-bar")
 
-	err := ft.Dispatch(context.Background())
+	err := ft.Dispatch(c.Context())
 	c.Assert(err, tc.ErrorMatches, `failed scp-ing file /tmp.*/juju-.*-bar to :/tmp.*/juju-.*-bar: bar had some problems`)
 }
 
@@ -130,6 +129,6 @@ func (s *sshInitSuite) TestFileTransportParallel(c *tc.C) {
 		c.Assert(p, tc.Matches, "/tmp.*/juju-.*-"+hint)
 	}
 
-	err := ft.Dispatch(context.Background())
+	err := ft.Dispatch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }

@@ -23,7 +23,7 @@ type apiclientWhiteboxSuite struct {
 var _ = tc.Suite(&apiclientWhiteboxSuite{})
 
 func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	started := make(chan struct{})
 	go func() {
 		select {
@@ -74,6 +74,6 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *tc.C) {
 		DialTimeout:         3 * time.Second,
 	}
 	listen.Close()
-	_, _, err = DialAPI(info, opts)
+	_, _, err = DialAPI(c, info, opts)
 	c.Check(err, tc.ErrorMatches, fmt.Sprintf("unable to connect to API: dial tcp %s:.*", regexp.QuoteMeta(addr)))
 }

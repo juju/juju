@@ -4,7 +4,6 @@
 package provider
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/tc"
@@ -55,7 +54,7 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *tc.C) {
 		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 	)
 
-	_, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).Create(context.Background(),
+	_, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).Create(c.Context(),
 		&apps.Deployment{
 			ObjectMeta: meta.ObjectMeta{
 				Name: operatorName,
@@ -80,9 +79,9 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *tc.C) {
 		}, meta.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(modelOperatorUpgrade(context.Background(), operatorName, semversion.MustParse("9.9.9"), s.broker), tc.ErrorIsNil)
+	c.Assert(modelOperatorUpgrade(c.Context(), operatorName, semversion.MustParse("9.9.9"), s.broker), tc.ErrorIsNil)
 	de, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).
-		Get(context.Background(), operatorName, meta.GetOptions{})
+		Get(c.Context(), operatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(de.Spec.Template.Spec.Containers[0].Image, tc.Equals, newImagePath)
 

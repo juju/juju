@@ -159,7 +159,7 @@ VALUES (?, 0, 0, ?, ?, ?);`,
 
 func (s *secretSchemaSuite) assertChangeLogCount(c *tc.C, editType int, namespaceID tableNamespaceID, expectedCount int) {
 	var count int
-	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	_ = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT COUNT(*) FROM change_log
 WHERE edit_type_id = ? AND namespace_id = ?;`[1:], editType, namespaceID)

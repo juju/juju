@@ -4,8 +4,6 @@
 package charms_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -65,7 +63,7 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfo(c *tc.C) {
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(internaltesting.ModelTag, s.appService, s.authorizer)
 	c.Assert(err, tc.IsNil)
-	charmInfo, err := api.ApplicationCharmInfo(context.Background(), params.Entity{Tag: names.NewApplicationTag("fuu").String()})
+	charmInfo, err := api.ApplicationCharmInfo(c.Context(), params.Entity{Tag: names.NewApplicationTag("fuu").String()})
 	c.Assert(err, tc.IsNil)
 
 	// The application name is used in the charm URL, the charm name is
@@ -98,7 +96,7 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfoMinimal(c *tc.C) {
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(internaltesting.ModelTag, s.appService, s.authorizer)
 	c.Assert(err, tc.IsNil)
-	charmInfo, err := api.ApplicationCharmInfo(context.Background(), params.Entity{Tag: names.NewApplicationTag("fuu").String()})
+	charmInfo, err := api.ApplicationCharmInfo(c.Context(), params.Entity{Tag: names.NewApplicationTag("fuu").String()})
 	c.Assert(err, tc.IsNil)
 
 	c.Check(charmInfo.URL, tc.Equals, "ch:amd64/fuu-1")
@@ -121,7 +119,7 @@ func (s *appCharmInfoSuite) TestPermissionDenied(c *tc.C) {
 	// Make the CharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(modelTag, s.appService, s.authorizer)
 	c.Assert(err, tc.IsNil)
-	_, err = api.ApplicationCharmInfo(context.Background(), params.Entity{Tag: names.NewApplicationTag("foo").String()})
+	_, err = api.ApplicationCharmInfo(c.Context(), params.Entity{Tag: names.NewApplicationTag("foo").String()})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 

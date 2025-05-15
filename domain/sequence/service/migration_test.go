@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -25,7 +23,7 @@ func (s *serviceSuite) TestGetSequencesForExport(c *tc.C) {
 
 	s.state.EXPECT().GetSequencesForExport(gomock.Any()).Return(map[string]uint64{"foo": 12}, nil)
 
-	seqs, err := s.state.GetSequencesForExport(context.Background())
+	seqs, err := s.state.GetSequencesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(seqs, tc.DeepEquals, map[string]uint64{"foo": 12})
 }
@@ -35,7 +33,7 @@ func (s *serviceSuite) TestImportSequences(c *tc.C) {
 
 	s.state.EXPECT().ImportSequences(gomock.Any(), map[string]uint64{"foo": 12}).Return(nil)
 
-	err := s.state.ImportSequences(context.Background(), map[string]uint64{"foo": 12})
+	err := s.state.ImportSequences(c.Context(), map[string]uint64{"foo": 12})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -44,7 +42,7 @@ func (s *serviceSuite) TestRemoveAllSequences(c *tc.C) {
 
 	s.state.EXPECT().RemoveAllSequences(gomock.Any()).Return(nil)
 
-	err := s.state.RemoveAllSequences(context.Background())
+	err := s.state.RemoveAllSequences(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 

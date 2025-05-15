@@ -56,7 +56,7 @@ func (s *ClientSuite) TestWatch(c *tc.C) {
 		return expectWatch
 	}
 	client := migrationmaster.NewClient(apiCaller, newWatcher)
-	w, err := client.Watch(context.Background())
+	w, err := client.Watch(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatch)
 	stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "MigrationMaster.Watch", Args: []interface{}{"", nil}}})
@@ -67,7 +67,7 @@ func (s *ClientSuite) TestWatchCallError(c *tc.C) {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.Watch(context.Background())
+	_, err := client.Watch(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -103,7 +103,7 @@ func (s *ClientSuite) TestMigrationStatus(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	status, err := client.MigrationStatus(context.Background())
+	status, err := client.MigrationStatus(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	// Extract macaroons so we can compare them separately
 	// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
@@ -132,7 +132,7 @@ func (s *ClientSuite) TestSetPhase(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.SetPhase(context.Background(), migration.QUIESCE)
+	err := client.SetPhase(c.Context(), migration.QUIESCE)
 	c.Assert(err, tc.ErrorIsNil)
 	expectedArg := params.SetMigrationPhaseArgs{Phase: "QUIESCE"}
 	stub.CheckCalls(c, []testhelpers.StubCall{
@@ -145,7 +145,7 @@ func (s *ClientSuite) TestSetPhaseError(c *tc.C) {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.SetPhase(context.Background(), migration.QUIESCE)
+	err := client.SetPhase(c.Context(), migration.QUIESCE)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -156,7 +156,7 @@ func (s *ClientSuite) TestSetStatusMessage(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.SetStatusMessage(context.Background(), "foo")
+	err := client.SetStatusMessage(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	expectedArg := params.SetMigrationStatusMessageArgs{Message: "foo"}
 	stub.CheckCalls(c, []testhelpers.StubCall{
@@ -169,7 +169,7 @@ func (s *ClientSuite) TestSetStatusMessageError(c *tc.C) {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.SetStatusMessage(context.Background(), "foo")
+	err := client.SetStatusMessage(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -188,7 +188,7 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	model, err := client.ModelInfo(context.Background())
+	model, err := client.ModelInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []testhelpers.StubCall{
@@ -225,7 +225,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	model, err := client.ModelInfo(context.Background())
+	model, err := client.ModelInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []testhelpers.StubCall{
@@ -255,7 +255,7 @@ func (s *ClientSuite) TestSourceControllerInfo(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	info, relatedModels, err := client.SourceControllerInfo(context.Background())
+	info, relatedModels, err := client.SourceControllerInfo(c.Context())
 	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.SourceControllerInfo", Args: []interface{}{"", nil}},
 	})
@@ -276,7 +276,7 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.Prechecks(context.Background())
+	err := client.Prechecks(c.Context())
 	c.Check(err, tc.ErrorMatches, "blam")
 	expectedArg := params.PrechecksArgs{}
 	stub.CheckCalls(c, []testhelpers.StubCall{
@@ -292,7 +292,7 @@ func (s *ClientSuite) TestProcessRelations(c *tc.C) {
 	})
 
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.ProcessRelations(context.Background(), "foo")
+	err := client.ProcessRelations(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -301,7 +301,7 @@ func (s *ClientSuite) TestProcessRelationsError(c *tc.C) {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.ProcessRelations(context.Background(), "foo")
+	err := client.ProcessRelations(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, "blam")
 }
 
@@ -339,7 +339,7 @@ func (s *ClientSuite) TestExport(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	out, err := client.Export(context.Background())
+	out, err := client.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.Export", Args: []interface{}{"", nil}},
@@ -373,7 +373,7 @@ func (s *ClientSuite) TestExportError(c *tc.C) {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.Export(context.Background())
+	_, err := client.Export(c.Context())
 	c.Assert(err, tc.ErrorMatches, "blam")
 }
 
@@ -396,7 +396,7 @@ func setupFakeHTTP() (*migrationmaster.Client, *fakeDoer) {
 
 func (s *ClientSuite) TestOpenResource(c *tc.C) {
 	client, doer := setupFakeHTTP()
-	r, err := client.OpenResource(context.Background(), "app", "blob")
+	r, err := client.OpenResource(c.Context(), "app", "blob")
 	c.Assert(err, tc.ErrorIsNil)
 	checkReader(c, r, "resourceful")
 	c.Check(doer.method, tc.Equals, "GET")
@@ -410,7 +410,7 @@ func (s *ClientSuite) TestReap(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.Reap(context.Background())
+	err := client.Reap(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.Reap", Args: []interface{}{"", nil}},
@@ -422,7 +422,7 @@ func (s *ClientSuite) TestReapError(c *tc.C) {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.Reap(context.Background())
+	err := client.Reap(c.Context())
 	c.Assert(err, tc.ErrorMatches, "blam")
 }
 
@@ -443,7 +443,7 @@ func (s *ClientSuite) TestWatchMinionReports(c *tc.C) {
 		return expectWatch
 	}
 	client := migrationmaster.NewClient(apiCaller, newWatcher)
-	w, err := client.WatchMinionReports(context.Background())
+	w, err := client.WatchMinionReports(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatch)
 	stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "MigrationMaster.WatchMinionReports", Args: []interface{}{"", nil}}})
@@ -454,7 +454,7 @@ func (s *ClientSuite) TestWatchMinionReportsError(c *tc.C) {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.WatchMinionReports(context.Background())
+	_, err := client.WatchMinionReports(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -484,7 +484,7 @@ func (s *ClientSuite) TestMinionReports(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	out, err := client.MinionReports(context.Background())
+	out, err := client.MinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.MinionReports", Args: []interface{}{"", nil}},
@@ -508,7 +508,7 @@ func (s *ClientSuite) TestMinionReportsFailedCall(c *tc.C) {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.MinionReports(context.Background())
+	_, err := client.MinionReports(c.Context())
 	c.Assert(err, tc.ErrorMatches, "blam")
 }
 
@@ -521,7 +521,7 @@ func (s *ClientSuite) TestMinionReportsInvalidPhase(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.MinionReports(context.Background())
+	_, err := client.MinionReports(c.Context())
 	c.Assert(err, tc.ErrorMatches, `invalid phase: "BLARGH"`)
 }
 
@@ -535,7 +535,7 @@ func (s *ClientSuite) TestMinionReportsBadUnknownTag(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.MinionReports(context.Background())
+	_, err := client.MinionReports(c.Context())
 	c.Assert(err, tc.ErrorMatches, `processing unknown agents: "carl" is not a valid tag`)
 }
 
@@ -549,7 +549,7 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.MinionReports(context.Background())
+	_, err := client.MinionReports(c.Context())
 	c.Assert(err, tc.ErrorMatches, `processing failed agents: "dave" is not a valid tag`)
 }
 
@@ -565,7 +565,7 @@ func (s *ClientSuite) TestMinionReportTimeout(c *tc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	timeout, err := client.MinionReportTimeout(context.Background())
+	timeout, err := client.MinionReportTimeout(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(timeout, tc.Equals, 30*time.Second)
 }
@@ -573,7 +573,7 @@ func (s *ClientSuite) TestMinionReportTimeout(c *tc.C) {
 func (s *ClientSuite) TestStreamModelLogs(c *tc.C) {
 	caller := fakeConnector{path: new(string), attrs: &url.Values{}}
 	client := migrationmaster.NewClient(caller, nil)
-	stream, err := client.StreamModelLog(context.Background(), time.Date(2016, 12, 2, 10, 24, 1, 1000000, time.UTC))
+	stream, err := client.StreamModelLog(c.Context(), time.Date(2016, 12, 2, 10, 24, 1, 1000000, time.UTC))
 	c.Assert(stream, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "colonel abrams")
 

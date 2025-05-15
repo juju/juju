@@ -45,7 +45,7 @@ func (s *statusGetterSuite) TestUnauthorized(c *tc.C) {
 
 	tag := names.NewMachineTag("42")
 	s.badTag = tag
-	result, err := s.getter.Status(context.Background(),
+	result, err := s.getter.Status(c.Context(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: tag.String(),
 		}}},
@@ -58,7 +58,7 @@ func (s *statusGetterSuite) TestUnauthorized(c *tc.C) {
 func (s *statusGetterSuite) TestNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	result, err := s.getter.Status(context.Background(),
+	result, err := s.getter.Status(c.Context(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: "not a tag",
 		}}},
@@ -74,7 +74,7 @@ func (s *statusGetterSuite) TestNotFound(c *tc.C) {
 	tag := names.NewMachineTag("42")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(nil, errors.NotFoundf("machine 42"))
 
-	result, err := s.getter.Status(context.Background(),
+	result, err := s.getter.Status(c.Context(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: tag.String(),
 		}}},
@@ -96,7 +96,7 @@ func (s *statusGetterSuite) TestGetMachineStatus(c *tc.C) {
 	tag := names.NewMachineTag("42")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
 
-	result, err := s.getter.Status(context.Background(),
+	result, err := s.getter.Status(c.Context(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: tag.String(),
 		}}},
@@ -117,7 +117,7 @@ func (s *statusGetterSuite) TestGetUnitStatus(c *tc.C) {
 	tag := names.NewUnitTag("wordpress/1")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
 
-	result, err := s.getter.Status(context.Background(),
+	result, err := s.getter.Status(c.Context(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: tag.String(),
 		}}},
@@ -139,7 +139,7 @@ func (s *statusGetterSuite) TestGetApplicationStatus(c *tc.C) {
 	tag := names.NewApplicationTag("wordpress")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
 
-	result, err := s.getter.Status(context.Background(),
+	result, err := s.getter.Status(c.Context(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: tag.String(),
 		}}},
@@ -165,7 +165,7 @@ func (s *statusGetterSuite) TestBulk(c *tc.C) {
 	tag := names.NewMachineTag("43")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
 
-	result, err := s.getter.Status(context.Background(),
+	result, err := s.getter.Status(c.Context(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: s.badTag.String(),
 		}, {

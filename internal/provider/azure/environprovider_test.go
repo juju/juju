@@ -4,7 +4,6 @@
 package azure_test
 
 import (
-	"context"
 	"net/http"
 	"time"
 
@@ -66,7 +65,7 @@ func fakeServicePrincipalCredential() *cloud.Credential {
 }
 
 func (s *environProviderSuite) TestPrepareConfig(c *tc.C) {
-	err := s.provider.ValidateCloud(context.Background(), s.spec)
+	err := s.provider.ValidateCloud(c.Context(), s.spec)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -76,7 +75,7 @@ func (s *environProviderSuite) TestOpen(c *tc.C) {
 		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
 		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 	}
-	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
+	env, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	}, environs.NoopCredentialInvalidator())
@@ -100,7 +99,7 @@ func (s *environProviderSuite) testOpenError(c *tc.C, spec environscloudspec.Clo
 		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
 		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 	}
-	_, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
+	_, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: makeTestModelConfig(c),
 	}, environs.NoopCredentialInvalidator())

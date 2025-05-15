@@ -43,7 +43,7 @@ func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *tc.C) {
 	}
 
 	// Add 2 leases.
-	err := s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), pgKey, pgReq)
+	err := s.store.ClaimLease(c.Context(), uuid.MustNewUUID(), pgKey, pgReq)
 	c.Assert(err, tc.ErrorIsNil)
 
 	mmKey := pgKey
@@ -52,11 +52,11 @@ func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *tc.C) {
 	mmReq := pgReq
 	mmReq.Holder = "mattermost/0"
 
-	err = s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), mmKey, mmReq)
+	err = s.store.ClaimLease(c.Context(), uuid.MustNewUUID(), mmKey, mmReq)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check all the leases.
-	leases, err := s.store.Leases(context.Background())
+	leases, err := s.store.Leases(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(leases, tc.HasLen, 2)
 	c.Check(leases[pgKey].Holder, tc.Equals, "postgresql/0")
@@ -65,14 +65,14 @@ func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *tc.C) {
 	c.Check(leases[mmKey].Expiry.After(time.Now().UTC()), tc.IsTrue)
 
 	// Check with a filter.
-	leases, err = s.store.Leases(context.Background(), pgKey)
+	leases, err = s.store.Leases(c.Context(), pgKey)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(leases, tc.HasLen, 1)
 	c.Check(leases[pgKey].Holder, tc.Equals, "postgresql/0")
 
 	// Add a lease from a different group,
 	// and check that the group returns the application leases.
-	err = s.store.ClaimLease(context.Background(),
+	err = s.store.ClaimLease(c.Context(),
 		uuid.MustNewUUID(),
 		corelease.Key{
 			Namespace: "singular-controller",
@@ -86,7 +86,7 @@ func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	leases, err = s.store.LeaseGroup(context.Background(), "application-leadership", "model-uuid")
+	leases, err = s.store.LeaseGroup(c.Context(), "application-leadership", "model-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(leases, tc.HasLen, 2)
 	c.Check(leases[pgKey].Holder, tc.Equals, "postgresql/0")
@@ -105,10 +105,10 @@ func (s *stateSuite) TestClaimLeaseAlreadyHeld(c *tc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), key, req)
+	err := s.store.ClaimLease(c.Context(), uuid.MustNewUUID(), key, req)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), key, req)
+	err = s.store.ClaimLease(c.Context(), uuid.MustNewUUID(), key, req)
 	c.Assert(err, tc.ErrorIs, corelease.ErrHeld)
 }
 
@@ -124,10 +124,10 @@ func (s *stateSuite) TestExtendLeaseSuccess(c *tc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), key, req)
+	err := s.store.ClaimLease(c.Context(), uuid.MustNewUUID(), key, req)
 	c.Assert(err, tc.ErrorIsNil)
 
-	leases, err := s.store.Leases(context.Background(), key)
+	leases, err := s.store.Leases(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(leases, tc.HasLen, 1)
 
@@ -135,10 +135,10 @@ func (s *stateSuite) TestExtendLeaseSuccess(c *tc.C) {
 	originalExpiry := leases[key].Expiry
 
 	req.Duration = 2 * time.Minute
-	err = s.store.ExtendLease(context.Background(), key, req)
+	err = s.store.ExtendLease(c.Context(), key, req)
 	c.Assert(err, tc.ErrorIsNil)
 
-	leases, err = s.store.Leases(context.Background(), key)
+	leases, err = s.store.Leases(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(leases, tc.HasLen, 1)
 
@@ -158,7 +158,7 @@ func (s *stateSuite) TestExtendLeaseNotHeldInvalid(c *tc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ExtendLease(context.Background(), key, req)
+	err := s.store.ExtendLease(c.Context(), key, req)
 	c.Assert(err, tc.ErrorIs, corelease.ErrInvalid)
 }
 
@@ -174,10 +174,10 @@ func (s *stateSuite) TestRevokeLeaseSuccess(c *tc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), key, req)
+	err := s.store.ClaimLease(c.Context(), uuid.MustNewUUID(), key, req)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.store.RevokeLease(context.Background(), key, req.Holder)
+	err = s.store.RevokeLease(c.Context(), key, req.Holder)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -188,7 +188,7 @@ func (s *stateSuite) TestRevokeLeaseNotHeldInvalid(c *tc.C) {
 		Lease:     "postgresql",
 	}
 
-	err := s.store.RevokeLease(context.Background(), key, "not-the-holder")
+	err := s.store.RevokeLease(c.Context(), key, "not-the-holder")
 	c.Assert(err, tc.ErrorIs, corelease.ErrInvalid)
 }
 
@@ -204,38 +204,38 @@ func (s *stateSuite) TestPinUnpinLeaseAndPinQueries(c *tc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), pgKey, pgReq)
+	err := s.store.ClaimLease(c.Context(), uuid.MustNewUUID(), pgKey, pgReq)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// One entity pins the lease.
-	err = s.store.PinLease(context.Background(), pgKey, "machine/6")
+	err = s.store.PinLease(c.Context(), pgKey, "machine/6")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The same lease/entity is a no-op without error.
-	err = s.store.PinLease(context.Background(), pgKey, "machine/6")
+	err = s.store.PinLease(c.Context(), pgKey, "machine/6")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Another entity pinning the same lease.
-	err = s.store.PinLease(context.Background(), pgKey, "machine/7")
+	err = s.store.PinLease(c.Context(), pgKey, "machine/7")
 	c.Assert(err, tc.ErrorIsNil)
 
-	pins, err := s.store.Pinned(context.Background())
+	pins, err := s.store.Pinned(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pins, tc.HasLen, 1)
 	c.Check(pins[pgKey], tc.SameContents, []string{"machine/6", "machine/7"})
 
 	// Unpin and check the leases.
-	err = s.store.UnpinLease(context.Background(), pgKey, "machine/7")
+	err = s.store.UnpinLease(c.Context(), pgKey, "machine/7")
 	c.Assert(err, tc.ErrorIsNil)
 
-	pins, err = s.store.Pinned(context.Background())
+	pins, err = s.store.Pinned(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pins, tc.HasLen, 1)
 	c.Check(pins[pgKey], tc.SameContents, []string{"machine/6"})
 }
 
 func (s *stateSuite) TestLeaseOperationCancellation(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	key := corelease.Key{
@@ -271,7 +271,7 @@ VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 	_, err = stmt.Exec(uuid.MustNewUUID().String(), "redis", "redis/0", "-2 minutes")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.store.ExpireLeases(context.Background())
+	err = s.store.ExpireLeases(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Only the postgresql lease (expiring in the future) should remain.

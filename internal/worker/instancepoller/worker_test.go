@@ -138,7 +138,7 @@ func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *tc.C) {
 	mocked.facadeAPI.addMachine(machineTag, nonManualMachine)
 
 	// Queue machine.
-	err := updWorker.queueMachineForPolling(context.Background(), machineTag)
+	err := updWorker.queueMachineForPolling(c.Context(), machineTag)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1, tc.Commentf("machine didn't end up in short poll group"))
@@ -166,7 +166,7 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 	delete(updWorker.pollGroup[shortPollGroup], machineTag)
 
 	// Queue machine.
-	err := updWorker.queueMachineForPolling(context.Background(), machineTag)
+	err := updWorker.queueMachineForPolling(c.Context(), machineTag)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1, tc.Commentf("machine didn't end up in short poll group"))
@@ -207,7 +207,7 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *tc.C) {
 	machine.EXPECT().SetInstanceStatus(gomock.Any(), status.Running, "Running wild", nil).Return(nil)
 	machine.EXPECT().SetProviderNetworkConfig(gomock.Any(), testNetIfs).Return(testAddrs, true, nil)
 
-	providerStatus, addrCount, err := updWorker.processProviderInfo(context.Background(), entry, instInfo, testNetIfs)
+	providerStatus, addrCount, err := updWorker.processProviderInfo(c.Context(), entry, instInfo, testNetIfs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(providerStatus, tc.Equals, status.Running)
 	c.Assert(addrCount, tc.Equals, len(testAddrs))
@@ -232,7 +232,7 @@ func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *
 	// The provider reports an instance status of "running"; the machine
 	// reports it's machine status as "started".
 	entry, _ := updWorker.lookupPolledMachine(machineTag)
-	updWorker.maybeSwitchPollGroup(context.Background(), shortPollGroup, entry, status.Running, status.Started, 1)
+	updWorker.maybeSwitchPollGroup(c.Context(), shortPollGroup, entry, status.Running, status.Started, 1)
 
 	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 0)
 	c.Assert(updWorker.pollGroup[longPollGroup], tc.HasLen, 1)
@@ -255,7 +255,7 @@ func (s *workerSuite) TestNonStartedMachinesGetBumpedPollInterval(c *tc.C) {
 		updWorker.appendToShortPollGroup(machineTag, machine)
 		entry, _ := updWorker.lookupPolledMachine(machineTag)
 
-		updWorker.maybeSwitchPollGroup(context.Background(), shortPollGroup, entry, spec, status.Pending, 0)
+		updWorker.maybeSwitchPollGroup(c.Context(), shortPollGroup, entry, spec, status.Pending, 0)
 		c.Assert(entry.shortPollInterval, tc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
 	}
 }
@@ -276,13 +276,13 @@ func (s *workerSuite) TestMoveMachineWithUnknownStatusBackToShortPollGroup(c *tc
 	// Move the machine to the long poll group.
 	updWorker.appendToShortPollGroup(machineTag, machine)
 	entry, _ := updWorker.lookupPolledMachine(machineTag)
-	updWorker.maybeSwitchPollGroup(context.Background(), shortPollGroup, entry, status.Running, status.Started, 1)
+	updWorker.maybeSwitchPollGroup(c.Context(), shortPollGroup, entry, status.Running, status.Started, 1)
 	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 0)
 	c.Assert(updWorker.pollGroup[longPollGroup], tc.HasLen, 1)
 
 	// If we get unknown status from the provider we expect the machine to
 	// be moved back to the short poll group.
-	updWorker.maybeSwitchPollGroup(context.Background(), longPollGroup, entry, status.Unknown, status.Started, 1)
+	updWorker.maybeSwitchPollGroup(c.Context(), longPollGroup, entry, status.Unknown, status.Started, 1)
 	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1)
 	c.Assert(updWorker.pollGroup[longPollGroup], tc.HasLen, 0)
 	c.Assert(entry.shortPollInterval, tc.Equals, ShortPoll)

@@ -4,8 +4,6 @@
 package bootstrap
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -42,7 +40,7 @@ func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *tc.C) {
 	s.expectAddApplication(origin)
 	s.expectCompletion()
 
-	err := PopulateControllerCharm(context.Background(), s.deployer)
+	err := PopulateControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -53,7 +51,7 @@ func (s *ControllerSuite) TestPopulateControllerCharmLocalCharmFails(c *tc.C) {
 	s.expectCharmInfo()
 	s.expectLocalCharmError()
 
-	err := PopulateControllerCharm(context.Background(), s.deployer)
+	err := PopulateControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
@@ -72,7 +70,7 @@ func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *tc.C) {
 	s.expectAddApplication(origin)
 	s.expectCompletion()
 
-	err := PopulateControllerCharm(context.Background(), s.deployer)
+	err := PopulateControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -95,7 +93,7 @@ func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
 	}, "10.0.0.1").Return(coreunit.Name("controller/0"), applicationerrors.ApplicationAlreadyExists)
 	s.expectCompletion()
 
-	err := PopulateControllerCharm(context.Background(), s.deployer)
+	err := PopulateControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

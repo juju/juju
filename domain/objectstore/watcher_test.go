@@ -4,7 +4,6 @@
 package objectstore_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -52,7 +51,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 		SHA384: "hash384",
 		Size:   666,
 	}
-	_, err = svc.PutMetadata(context.Background(), metadata)
+	_, err = svc.PutMetadata(c.Context(), metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
@@ -89,7 +88,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 		SHA384: "hash384",
 		Size:   666,
 	}
-	_, err = svc.PutMetadata(context.Background(), metadata)
+	_, err = svc.PutMetadata(c.Context(), metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
@@ -101,7 +100,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 	}
 
 	// Remove the object.
-	err = svc.RemoveMetadata(context.Background(), metadata.Path)
+	err = svc.RemoveMetadata(c.Context(), metadata.Path)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
@@ -112,6 +111,6 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 		c.Fatalf("timed out waiting for change")
 	}
 
-	_, err = svc.GetMetadata(context.Background(), metadata.Path)
+	_, err = svc.GetMetadata(c.Context(), metadata.Path)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }

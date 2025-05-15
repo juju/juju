@@ -4,8 +4,6 @@
 package ec2
 
 import (
-	"context"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/tc"
@@ -259,7 +257,7 @@ func (*Suite) TestSupportsSpaceDiscovery(c *tc.C) {
 }
 
 func (*Suite) TestSupportsContainerAddresses(c *tc.C) {
-	callCtx := context.Background()
+	callCtx := c.Context()
 	env := new(environ)
 	supported, err := env.SupportsContainerAddresses(callCtx)
 	c.Assert(err, tc.ErrorIsNil)
@@ -277,7 +275,7 @@ func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *tc.C) {
 		SubnetsToZones: allSubnetZones,
 	}
 
-	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
+	subnetZones, err := getValidSubnetZoneMap(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnetZones, tc.DeepEquals, allSubnetZones[0])
 }
@@ -297,7 +295,7 @@ func (*Suite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *tc.C) {
 		},
 	}
 
-	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
+	subnetZones, err := getValidSubnetZoneMap(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnetZones, tc.DeepEquals, map[network.Id][]string{
 		"sub-1": {"az-1"},
@@ -320,7 +318,7 @@ func (*Suite) TestGetValidSubnetZoneMapNoIntersectionError(c *tc.C) {
 		},
 	}
 
-	_, err := getValidSubnetZoneMap(context.Background(), args)
+	_, err := getValidSubnetZoneMap(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches,
 		`unable to satisfy supplied space requirements; spaces: \[admin\], bindings: \[space-1\]`)
 }
@@ -347,7 +345,7 @@ func (*Suite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *tc.C) 
 	// This should result in the selection of the same index from the
 	// subnets-to-zones map.
 
-	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
+	subnetZones, err := getValidSubnetZoneMap(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnetZones, tc.DeepEquals, allSubnetZones[1])
 }

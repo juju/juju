@@ -4,8 +4,6 @@
 package agent
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
@@ -57,7 +55,7 @@ func (s *AgentSuite) SetUpTest(c *tc.C) {
 	}
 
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()

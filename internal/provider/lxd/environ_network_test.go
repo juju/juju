@@ -4,8 +4,6 @@
 package lxd_test
 
 import (
-	"context"
-
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -91,7 +89,7 @@ func (s *environNetSuite) TestSubnetsForClustered(c *tc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	subnets, err := env.Subnets(ctx, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -152,7 +150,7 @@ func (s *environNetSuite) TestSubnetsForSubnetFiltering(c *tc.C) {
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
 	// Filter list so we only get a single subnet
-	ctx := context.Background()
+	ctx := c.Context()
 	subnets, err := env.Subnets(ctx, []network.Id{"subnet-lxdbr0-10.55.158.0/24"})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -243,7 +241,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *tc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot"})
 	c.Assert(err, tc.ErrorIsNil)
 	expInfos := []network.InterfaceInfos{
@@ -319,7 +317,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *tc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot", "unknown"})
 	c.Assert(err, tc.Equals, environs.ErrPartialInstances, tc.Commentf("expected a partial instances error to be returned if some of the instances were not found"))
 	expInfos := []network.InterfaceInfos{
@@ -356,7 +354,7 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *tc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	_, err := env.NetworkInterfaces(ctx, []instance.Id{"unknown1", "unknown2"})
 	c.Assert(err, tc.Equals, environs.ErrNoInstances, tc.Commentf("expected a no instances error to be returned if none of the requested instances exists"))
 }

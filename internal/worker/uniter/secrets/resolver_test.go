@@ -4,8 +4,6 @@
 package secrets_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -85,7 +83,7 @@ func (s *triggerSecretsSuite) TestNextOpNotInstalled(c *tc.C) {
 		},
 	}
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -98,7 +96,7 @@ func (s *triggerSecretsSuite) TestNextOpNotAlive(c *tc.C) {
 	}
 	s.remoteState.Life = life.Dying
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -110,7 +108,7 @@ func (s *triggerSecretsSuite) TestNextOpNotReady(c *tc.C) {
 		},
 	}
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -125,7 +123,7 @@ func (s *triggerSecretsSuite) TestNextOpRotate(c *tc.C) {
 		},
 	}
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-rotate (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
@@ -146,7 +144,7 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *tc.C) {
 	s.rotatedSecret = func(uri string) {
 		rotatedURI = uri
 	}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 
 	hi := hook.Info{
@@ -156,19 +154,19 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *tc.C) {
 	s.mockCallbacks.EXPECT().PrepareHook(gomock.Any(), hi).Return("", nil)
 	s.mockFactory.EXPECT().NewHookRunner(gomock.Any(), hi).Return(s.mockRunner, nil)
 	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
-	s.mockContext.EXPECT().Prepare(context.Background()).Return(nil)
+	s.mockContext.EXPECT().Prepare(gomock.Any()).Return(nil)
 	s.mockContext.EXPECT().SecretMetadata().Return(map[string]jujuc.SecretMetadata{
 		uri.ID: {
 			LatestRevision: 666,
 		},
 	}, nil)
-	_, err = op.Prepare(context.Background(), operation.State{})
+	_, err = op.Prepare(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.mockCallbacks.EXPECT().CommitHook(gomock.Any(), hi).Return(nil)
 	s.mockCallbacks.EXPECT().SetSecretRotated(gomock.Any(), uri.String(), 666).Return(nil)
 
-	_, err = op.Commit(context.Background(), operation.State{})
+	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rotatedURI, tc.Equals, uri.String())
 }
@@ -184,7 +182,7 @@ func (s *triggerSecretsSuite) TestNextOpExpire(c *tc.C) {
 		},
 	}
 	s.remoteState.ExpiredSecretRevisions = []string{"secret:9m4e2mr0ui3e8a215n4g/666"}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-expired (secret:9m4e2mr0ui3e8a215n4g/666) hook")
 }
@@ -205,7 +203,7 @@ func (s *triggerSecretsSuite) TestExpireCommit(c *tc.C) {
 	s.expiredRevision = func(rev string) {
 		expiredRevision = rev
 	}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 
 	hi := hook.Info{
@@ -214,15 +212,15 @@ func (s *triggerSecretsSuite) TestExpireCommit(c *tc.C) {
 		SecretRevision: 666,
 	}
 	s.mockCallbacks.EXPECT().PrepareHook(gomock.Any(), hi).Return("", nil)
-	s.mockFactory.EXPECT().NewHookRunner(context.Background(), hi).Return(s.mockRunner, nil)
+	s.mockFactory.EXPECT().NewHookRunner(gomock.Any(), hi).Return(s.mockRunner, nil)
 	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
 	s.mockContext.EXPECT().Prepare(gomock.Any()).Return(nil)
-	_, err = op.Prepare(context.Background(), operation.State{})
+	_, err = op.Prepare(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.mockCallbacks.EXPECT().CommitHook(context.Background(), hi).Return(nil)
+	s.mockCallbacks.EXPECT().CommitHook(gomock.Any(), hi).Return(nil)
 
-	_, err = op.Commit(context.Background(), operation.State{})
+	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(expiredRevision, tc.Equals, uri.String()+"/666")
 }
@@ -262,7 +260,7 @@ func (s *changeSecretsSuite) TestNextOpNotInstalled(c *tc.C) {
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -281,7 +279,7 @@ func (s *changeSecretsSuite) TestNextOpNoneExisting(c *tc.C) {
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
@@ -301,7 +299,7 @@ func (s *changeSecretsSuite) TestNextOpUpdatedRevision(c *tc.C) {
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
@@ -321,7 +319,7 @@ func (s *changeSecretsSuite) TestNextOpNone(c *tc.C) {
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -360,7 +358,7 @@ func (s *removeSecretSuite) TestNextOpNotInstalled(c *tc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -379,7 +377,7 @@ func (s *removeSecretSuite) TestNextOpNoneExisting(c *tc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/666) hook")
 }
@@ -399,7 +397,7 @@ func (s *removeSecretSuite) TestNextOpNextRevision(c *tc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/668) hook")
 }
@@ -419,7 +417,7 @@ func (s *removeSecretSuite) TestNextOpNone(c *tc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -464,7 +462,7 @@ func (s *secretDeletedSuite) TestNextOpNotInstalled(c *tc.C) {
 	}
 	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 
-	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -479,7 +477,7 @@ func (s *secretDeletedSuite) TestNextOp(c *tc.C) {
 		},
 	}
 	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.String(), tc.Equals, "process removed secrets: [secret:9m4e2mr0ui3e8a215n4g]")
 }
@@ -495,17 +493,17 @@ func (s *secretDeletedSuite) TestCommit(c *tc.C) {
 		},
 	}
 	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(c.Context(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = op.Prepare(context.Background(), operation.State{})
+	_, err = op.Prepare(c.Context(), operation.State{})
 	c.Assert(err, tc.Equals, operation.ErrSkipExecute)
-	_, err = op.Execute(context.Background(), operation.State{})
+	_, err = op.Execute(c.Context(), operation.State{})
 	c.Assert(err, tc.Equals, operation.ErrSkipExecute)
 
 	s.mockCallbacks.EXPECT().SecretsRemoved(gomock.Any(), []string{"secret:9m4e2mr0ui3e8a215n4g"}).Return(nil)
 
-	_, err = op.Commit(context.Background(), operation.State{})
+	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.deleted, tc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 }

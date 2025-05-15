@@ -4,7 +4,6 @@
 package cloud_test
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -57,7 +56,7 @@ func (s *cloudSuite) setup(c *tc.C, userTag names.UserTag) *gomock.Controller {
 	s.credentialValidator = mocks.NewMockCredentialValidator(ctrl)
 
 	api, err := cloud.NewCloudAPI(
-		context.Background(),
+		c.Context(),
 		coretesting.ControllerTag, "dummy",
 		s.cloudService, s.cloudAccessService, s.credService,
 		s.authorizer, loggertesting.WrapCheckLog(c))
@@ -88,7 +87,7 @@ func (s *cloudSuite) TestCloud(c *tc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}, nil)
 
-	results, err := s.api.Cloud(context.Background(), params.Entities{
+	results, err := s.api.Cloud(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "cloud-my-cloud"}, {Tag: "machine-0"}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -110,7 +109,7 @@ func (s *cloudSuite) TestCloudNotFound(c *tc.C) {
 	backend := s.cloudService.EXPECT()
 	backend.Cloud(gomock.Any(), "no-dice").Return(&jujucloud.Cloud{}, errors.NotFoundf("cloud \"no-dice\""))
 
-	results, err := s.api.Cloud(context.Background(), params.Entities{
+	results, err := s.api.Cloud(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "cloud-no-dice"}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -144,7 +143,7 @@ func (s *cloudSuite) TestClouds(c *tc.C) {
 		},
 	}, nil)
 
-	result, err := s.api.Clouds(context.Background())
+	result, err := s.api.Clouds(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Clouds, tc.DeepEquals, map[string]params.Cloud{
 		"cloud-my-cloud": {
@@ -179,7 +178,7 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *tc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}, nil)
 
-	result, err := s.api.CloudInfo(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.CloudInfo(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "cloud-my-cloud",
 	}, {
 		Tag: "machine-0",
@@ -234,7 +233,7 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *tc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}, nil)
 
-	result, err := s.api.CloudInfo(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.CloudInfo(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "cloud-my-cloud",
 	}, {
 		Tag: "machine-0",
@@ -286,7 +285,7 @@ func (s *cloudSuite) TestAddCloud(c *tc.C) {
 			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
 		}}
 
-	err := s.api.AddCloud(context.Background(), paramsCloud)
+	err := s.api.AddCloud(c.Context(), paramsCloud)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -322,7 +321,7 @@ func (s *cloudSuite) TestAddCloudAsExternalUser(c *tc.C) {
 			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
 		}}
 
-	err := s.api.AddCloud(context.Background(), paramsCloud)
+	err := s.api.AddCloud(c.Context(), paramsCloud)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -354,7 +353,7 @@ func (s *cloudSuite) TestAddCloudNotWhitelisted(c *tc.C) {
 
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "dummy").Return(&cloud, nil)
 
-	err := s.api.AddCloud(context.Background(), createAddCloudParam(""))
+	err := s.api.AddCloud(c.Context(), createAddCloudParam(""))
 	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta(`
 controller cloud type "dummy" is not whitelisted, current whitelist: 
  - controller cloud type "kubernetes" supports [lxd maas openstack]
@@ -385,7 +384,7 @@ func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *tc.C) {
 	force := true
 	addCloudArg := createAddCloudParam("")
 	addCloudArg.Force = &force
-	err := s.api.AddCloud(context.Background(), addCloudArg)
+	err := s.api.AddCloud(c.Context(), addCloudArg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -395,7 +394,7 @@ func (s *cloudSuite) TestAddCloudControllerCloudErr(c *tc.C) {
 
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "dummy").Return(&jujucloud.Cloud{}, errors.New("kaboom"))
 
-	err := s.api.AddCloud(context.Background(), createAddCloudParam(""))
+	err := s.api.AddCloud(c.Context(), createAddCloudParam(""))
 	c.Assert(err, tc.ErrorMatches, "kaboom")
 }
 
@@ -415,7 +414,7 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *tc.C) {
 	addCloudArg := createAddCloudParam(string(k8sconstants.CAASProviderType))
 
 	add := func() {
-		err := s.api.AddCloud(context.Background(), addCloudArg)
+		err := s.api.AddCloud(c.Context(), addCloudArg)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 	add()
@@ -452,7 +451,7 @@ func (s *cloudSuite) TestAddCloudNoRegion(c *tc.C) {
 			AuthTypes: []string{"empty", "userpass"},
 			Endpoint:  "fake-endpoint",
 		}}
-	err := s.api.AddCloud(context.Background(), paramsCloud)
+	err := s.api.AddCloud(c.Context(), paramsCloud)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -468,7 +467,7 @@ func (s *cloudSuite) TestAddCloudNoAdminPerms(c *tc.C) {
 			Endpoint:  "fake-endpoint",
 			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
 		}}
-	err := s.api.AddCloud(context.Background(), paramsCloud)
+	err := s.api.AddCloud(c.Context(), paramsCloud)
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -491,7 +490,7 @@ func (s *cloudSuite) TestUpdateCloud(c *tc.C) {
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
-	results, err := s.api.UpdateCloud(context.Background(), params.UpdateCloudArgs{
+	results, err := s.api.UpdateCloud(c.Context(), params.UpdateCloudArgs{
 		Clouds: []params.AddCloudArgs{{
 			Name:  "dummy",
 			Cloud: cloud.CloudToParams(updatedCloud),
@@ -513,7 +512,7 @@ func (s *cloudSuite) TestUpdateCloudNonAdminPerm(c *tc.C) {
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
-	results, err := s.api.UpdateCloud(context.Background(), params.UpdateCloudArgs{
+	results, err := s.api.UpdateCloud(c.Context(), params.UpdateCloudArgs{
 		Clouds: []params.AddCloudArgs{{
 			Name:  "dummy",
 			Cloud: cloud.CloudToParams(updatedCloud),
@@ -544,7 +543,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *tc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
-	results, err := s.api.UpdateCloud(context.Background(), params.UpdateCloudArgs{
+	results, err := s.api.UpdateCloud(c.Context(), params.UpdateCloudArgs{
 		Clouds: []params.AddCloudArgs{{
 			Name:  "nope",
 			Cloud: cloud.CloudToParams(updatedCloud),
@@ -568,7 +567,7 @@ func (s *cloudSuite) TestListCloudInfo(c *tc.C) {
 		},
 	}, nil)
 
-	result, err := s.api.ListCloudInfo(context.Background(), params.ListCloudsRequest{
+	result, err := s.api.ListCloudInfo(c.Context(), params.ListCloudsRequest{
 		UserTag: "user-admin",
 		All:     true,
 	})
@@ -606,7 +605,7 @@ func (s *cloudSuite) TestUserCredentials(c *tc.C) {
 
 	s.credService.EXPECT().CloudCredentialsForOwner(gomock.Any(), user.NameFromTag(bruceTag), "meep").Return(creds, nil)
 
-	results, err := s.api.UserCredentials(context.Background(), params.UserClouds{UserClouds: []params.UserCloud{{
+	results, err := s.api.UserCredentials(c.Context(), params.UserClouds{UserClouds: []params.UserCloud{{
 		UserTag:  "machine-0",
 		CloudTag: "cloud-meep",
 	}, {
@@ -638,7 +637,7 @@ func (s *cloudSuite) TestUserCredentialsAdminAccess(c *tc.C) {
 	julia := names.NewUserTag("julia")
 	s.credService.EXPECT().CloudCredentialsForOwner(gomock.Any(), user.NameFromTag(julia), "meep").Return(map[string]jujucloud.Credential{}, nil)
 
-	results, err := s.api.UserCredentials(context.Background(), params.UserClouds{UserClouds: []params.UserCloud{{
+	results, err := s.api.UserCredentials(c.Context(), params.UserClouds{UserClouds: []params.UserCloud{{
 		UserTag:  "user-julia",
 		CloudTag: "cloud-meep",
 	}}})
@@ -666,7 +665,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *tc.C) {
 	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.KeyFromTag(tagOne), cred, false).Return(
 		[]credentialservice.UpdateCredentialModelResult{}, nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(context.Background(), params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(c.Context(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag: "machine-0",
@@ -716,7 +715,7 @@ func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *tc.C) {
 	s.credService.EXPECT().CheckAndUpdateCredential(gomock.Any(), credential.KeyFromTag(tag), cred, false).Return(
 		[]credentialservice.UpdateCredentialModelResult{}, nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(context.Background(), params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(c.Context(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -741,7 +740,7 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *tc.C) {
 			ModelName: "testModel1",
 		}}, nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(context.Background(), params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(c.Context(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -770,7 +769,7 @@ func (s *cloudSuite) TestRevokeCredentials(c *tc.C) {
 
 	s.credService.EXPECT().CheckAndRevokeCredential(gomock.Any(), credential.KeyFromTag(tag), false).Return(nil)
 
-	results, err := s.api.RevokeCredentialsCheckModels(context.Background(), params.RevokeCredentialArgs{
+	results, err := s.api.RevokeCredentialsCheckModels(c.Context(), params.RevokeCredentialArgs{
 		Credentials: []params.RevokeCredentialArg{
 			{Tag: "machine-0"},
 			{Tag: "cloudcred-meep_admin_whatever"},
@@ -797,7 +796,7 @@ func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *tc.C) {
 
 	s.credService.EXPECT().CheckAndRevokeCredential(gomock.Any(), credential.KeyFromTag(tag), false).Return(nil)
 
-	results, err := s.api.RevokeCredentialsCheckModels(context.Background(), params.RevokeCredentialArgs{
+	results, err := s.api.RevokeCredentialsCheckModels(c.Context(), params.RevokeCredentialArgs{
 		Credentials: []params.RevokeCredentialArg{
 			{Tag: "cloudcred-meep_julia_three"},
 		},
@@ -835,7 +834,7 @@ func (s *cloudSuite) TestCredential(c *tc.C) {
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "meep").Return(&cloud, nil)
 	s.credService.EXPECT().CloudCredentialsForOwner(gomock.Any(), usertesting.GenNewName(c, "bruce"), "meep").Return(creds, nil)
 
-	results, err := s.api.Credential(context.Background(), params.Entities{Entities: []params.Entity{{
+	results, err := s.api.Credential(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "machine-0",
 	}, {
 		Tag: "cloudcred-meep_admin_foo",
@@ -881,7 +880,7 @@ func (s *cloudSuite) TestCredentialAdminAccess(c *tc.C) {
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "meep").Return(&cloud, nil)
 	s.credService.EXPECT().CloudCredentialsForOwner(gomock.Any(), usertesting.GenNewName(c, "bruce"), "meep").Return(creds, nil)
 
-	results, err := s.api.Credential(context.Background(), params.Entities{Entities: []params.Entity{{
+	results, err := s.api.Credential(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "cloudcred-meep_bruce_two",
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -920,7 +919,7 @@ func (s *cloudSuite) TestModifyCloudAccess(c *tc.C) {
 	}
 	cloudPermissionService.UpdatePermission(gomock.Any(), marySpec).Return(nil)
 
-	results, err := s.api.ModifyCloudAccess(context.Background(), params.ModifyCloudAccessRequest{
+	results, err := s.api.ModifyCloudAccess(c.Context(), params.ModifyCloudAccessRequest{
 		Changes: []params.ModifyCloudAccess{
 			{
 				Action:   params.GrantCloudAccess,
@@ -975,7 +974,7 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *tc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}
 
-	ctx := context.Background()
+	ctx := c.Context()
 	s.credService.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), user.NameFromTag(bruceTag)).Return(creds, nil)
 
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "meep").Return(&cloud, nil)

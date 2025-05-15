@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -38,7 +36,7 @@ func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *tc.C) {
 
 	s.state.EXPECT().CurateNodes(gomock.Any(), []string{"3", "4"}, []string{"1"})
 
-	err := NewService(s.state).CurateNodes(context.Background(), []string{"3", "4"}, []string{"1"})
+	err := NewService(s.state).CurateNodes(c.Context(), []string{"3", "4"}, []string{"1"})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -47,7 +45,7 @@ func (s *serviceSuite) TestUpdateDqliteNode(c *tc.C) {
 
 	s.state.EXPECT().UpdateDqliteNode(gomock.Any(), "0", uint64(12345), "192.168.5.60")
 
-	err := NewService(s.state).UpdateDqliteNode(context.Background(), "0", 12345, "192.168.5.60")
+	err := NewService(s.state).UpdateDqliteNode(c.Context(), "0", 12345, "192.168.5.60")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -65,11 +63,11 @@ func (s *serviceSuite) TestIsModelKnownToController(c *tc.C) {
 
 	svc := NewService(s.state)
 
-	known, err := svc.IsKnownDatabaseNamespace(context.Background(), fakeID)
+	known, err := svc.IsKnownDatabaseNamespace(c.Context(), fakeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(known, tc.IsFalse)
 
-	known, err = svc.IsKnownDatabaseNamespace(context.Background(), knownID)
+	known, err = svc.IsKnownDatabaseNamespace(c.Context(), knownID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(known, tc.IsTrue)
 }
@@ -87,7 +85,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionSuccess(c *tc.C) {
 
 	svc := NewService(s.state)
 	err := svc.SetControllerNodeReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		controllerID,
 		ver,
 	)
@@ -104,7 +102,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *tc.C) {
 		Number: semversion.Zero,
 	}
 	err := svc.SetControllerNodeReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		controllerID,
 		ver,
 	)
@@ -115,7 +113,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *tc.C) {
 		Arch:   corearch.UnsupportedArches[0],
 	}
 	err = svc.SetControllerNodeReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		controllerID,
 		ver,
 	)
@@ -135,7 +133,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotFound(c *tc.C) {
 	s.state.EXPECT().SetRunningAgentBinaryVersion(gomock.Any(), controllerID, ver).Return(controllernodeerrors.NotFound)
 
 	err := svc.SetControllerNodeReportedAgentVersion(
-		context.Background(),
+		c.Context(),
 		controllerID,
 		ver,
 	)
@@ -156,11 +154,11 @@ func (s *serviceSuite) TestIsControllerNode(c *tc.C) {
 
 	svc := NewService(s.state)
 
-	is, err := svc.IsControllerNode(context.Background(), fakeID)
+	is, err := svc.IsControllerNode(c.Context(), fakeID)
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
 	c.Check(is, tc.IsFalse)
 
-	is, err = svc.IsControllerNode(context.Background(), controllerID)
+	is, err = svc.IsControllerNode(c.Context(), controllerID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(is, tc.IsTrue)
 }
@@ -171,7 +169,7 @@ func (s *serviceSuite) TestIsControllerNodeNotValid(c *tc.C) {
 
 	controllerID := ""
 
-	is, err := svc.IsControllerNode(context.Background(), controllerID)
+	is, err := svc.IsControllerNode(c.Context(), controllerID)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Check(is, tc.IsFalse)
 }

@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -28,7 +26,7 @@ func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *tc.C) {
 	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return([]string{revisionID1.String(), revisionID2.String()}, nil)
 	s.secretBackendState.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID1.String(), revisionID2.String()).Return(nil)
 
-	err = s.service.DeleteObsoleteUserSecretRevisions(context.Background())
+	err = s.service.DeleteObsoleteUserSecretRevisions(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -48,7 +46,7 @@ func (s *serviceSuite) TestDeleteSecret(c *tc.C) {
 	revs.Add(uri, "rev-id1")
 	revs.Add(uri, "rev-id2")
 
-	err := s.service.DeleteSecret(context.Background(), uri, DeleteSecretParams{
+	err := s.service.DeleteSecret(c.Context(), uri, DeleteSecretParams{
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
 			ID:   "mariadb/0",

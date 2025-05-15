@@ -38,7 +38,7 @@ func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *tc.C) {
 	}
 
 	manifold := firewaller.Manifold(validConfig(c))
-	_, err := manifold.Start(context.Background(), ctx)
+	_, err := manifold.Start(c.Context(), ctx)
 	c.Assert(err, tc.Equals, dependency.ErrUninstall)
 }
 

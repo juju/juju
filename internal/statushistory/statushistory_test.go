@@ -64,7 +64,7 @@ func (s *statusHistorySuite) TestRecordStatus(c *tc.C) {
 	}).Return(nil)
 
 	statusHistory := NewStatusHistory(s.recorder, clock.WallClock)
-	err := statusHistory.RecordStatus(context.Background(), ns, status.StatusInfo{
+	err := statusHistory.RecordStatus(c.Context(), ns, status.StatusInfo{
 		Status:  status.Active,
 		Message: "foo",
 		Data: map[string]any{
@@ -93,7 +93,7 @@ func (s *statusHistorySuite) TestRecordStatusWithError(c *tc.C) {
 	}).Return(errors.Errorf("failed to record"))
 
 	statusHistory := NewStatusHistory(s.recorder, clock.WallClock)
-	err := statusHistory.RecordStatus(context.Background(), ns, status.StatusInfo{
+	err := statusHistory.RecordStatus(c.Context(), ns, status.StatusInfo{
 		Status:  status.Active,
 		Message: "foo",
 		Data: map[string]any{
@@ -121,7 +121,7 @@ func (s *statusHistorySuite) TestRecordStatusNoID(c *tc.C) {
 	}).Return(nil)
 
 	statusHistory := NewStatusHistory(s.recorder, clock.WallClock)
-	err := statusHistory.RecordStatus(context.Background(), ns, status.StatusInfo{
+	err := statusHistory.RecordStatus(c.Context(), ns, status.StatusInfo{
 		Status:  status.Active,
 		Message: "foo",
 		Data: map[string]any{
@@ -147,7 +147,7 @@ func (s *statusHistorySuite) TestRecordStatusNoData(c *tc.C) {
 	}).Return(nil)
 
 	statusHistory := NewStatusHistory(s.recorder, clock.WallClock)
-	err := statusHistory.RecordStatus(context.Background(), ns, status.StatusInfo{
+	err := statusHistory.RecordStatus(c.Context(), ns, status.StatusInfo{
 		Status:  status.Active,
 		Message: "foo",
 		Since:   &now,
@@ -167,7 +167,7 @@ func (s *statusHistorySuite) TestRecordStatusNoSince(c *tc.C) {
 	})
 
 	statusHistory := NewStatusHistory(s.recorder, clock.WallClock)
-	err := statusHistory.RecordStatus(context.Background(), ns, status.StatusInfo{
+	err := statusHistory.RecordStatus(c.Context(), ns, status.StatusInfo{
 		Status:  status.Active,
 		Message: "foo",
 	})

@@ -40,7 +40,7 @@ func (s *resolveSuite) TestResolveCharm(c *tc.C) {
 		Risk:   "beta",
 	}
 	charmAdaptor := s.newCharmAdaptor()
-	obtainedURL, obtainedOrigin, obtainedBases, err := charmAdaptor.ResolveCharm(context.Background(), curl, origin, false)
+	obtainedURL, obtainedOrigin, obtainedBases, err := charmAdaptor.ResolveCharm(c.Context(), curl, origin, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedOrigin.Risk, tc.Equals, "edge")
 	c.Assert(obtainedBases, tc.SameContents, []base.Base{
@@ -62,7 +62,7 @@ func (s *resolveSuite) TestResolveCharmWithAPIError(c *tc.C) {
 		Risk:   "beta",
 	}
 	charmAdaptor := s.newCharmAdaptor()
-	_, _, _, err = charmAdaptor.ResolveCharm(context.Background(), curl, origin, false)
+	_, _, _, err = charmAdaptor.ResolveCharm(c.Context(), curl, origin, false)
 	c.Assert(err, tc.ErrorMatches, `bad`)
 }
 
@@ -79,7 +79,7 @@ func (s *resolveSuite) TestResolveCharmNotCSCharm(c *tc.C) {
 		Risk:   "beta",
 	}
 	charmAdaptor := s.newCharmAdaptor()
-	_, obtainedOrigin, _, err := charmAdaptor.ResolveCharm(context.Background(), curl, origin, false)
+	_, obtainedOrigin, _, err := charmAdaptor.ResolveCharm(c.Context(), curl, origin, false)
 	c.Assert(err, tc.NotNil)
 	c.Assert(obtainedOrigin.Risk, tc.Equals, "")
 }
@@ -97,7 +97,7 @@ func (s *resolveSuite) TestResolveBundle(c *tc.C) {
 		Type:   "bundle",
 	}
 	charmAdaptor := s.newCharmAdaptor()
-	obtainedURL, obtainedChannel, err := charmAdaptor.ResolveBundleURL(context.Background(), curl, origin)
+	obtainedURL, obtainedChannel, err := charmAdaptor.ResolveBundleURL(c.Context(), curl, origin)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedChannel.Risk, tc.Equals, "edge")
 	c.Assert(obtainedURL, tc.Equals, curl)
@@ -115,7 +115,7 @@ func (s *resolveSuite) TestResolveNotBundle(c *tc.C) {
 		Risk:   "edge",
 	}
 	charmAdaptor := s.newCharmAdaptor()
-	_, _, err = charmAdaptor.ResolveBundleURL(context.Background(), curl, origin)
+	_, _, err = charmAdaptor.ResolveBundleURL(c.Context(), curl, origin)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
@@ -133,7 +133,7 @@ func (s *resolveSuite) TestCharmHubGetBundle(c *tc.C) {
 	s.expectedCharmHubGetBundle(c, curl, origin)
 
 	charmAdaptor := s.newCharmAdaptor()
-	bundle, err := charmAdaptor.GetBundle(context.Background(), curl, origin, "/tmp/bundle.bundle")
+	bundle, err := charmAdaptor.GetBundle(c.Context(), curl, origin, "/tmp/bundle.bundle")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bundle, tc.DeepEquals, s.bundle)
 }

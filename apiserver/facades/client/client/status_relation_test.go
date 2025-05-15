@@ -4,7 +4,6 @@
 package client
 
 import (
-	"context"
 	"errors"
 
 	"github.com/juju/tc"
@@ -86,7 +85,7 @@ func (s *relationStatusSuite) TestFetchRelation(c *tc.C) {
 	}, nil)
 
 	// Act: fetch relation
-	out, outByID, err := fetchRelations(context.Background(), s.relationService, s.statusService)
+	out, outByID, err := fetchRelations(c.Context(), s.relationService, s.statusService)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -143,7 +142,7 @@ func (s *relationStatusSuite) TestFetchRelationWithError(c *tc.C) {
 	}, nil)
 
 	// Act: fetch relation
-	out, outByID, err := fetchRelations(context.Background(), s.relationService, s.statusService)
+	out, outByID, err := fetchRelations(c.Context(), s.relationService, s.statusService)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -161,7 +160,7 @@ func (s *relationStatusSuite) TestFetchRelationNoRelation(c *tc.C) {
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
 
 	// Act: fetch relation
-	out, outByID, err := fetchRelations(context.Background(), s.relationService, s.statusService)
+	out, outByID, err := fetchRelations(c.Context(), s.relationService, s.statusService)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -181,7 +180,7 @@ func (s *relationStatusSuite) TestFetchRelationAllWithGetRelationError(c *tc.C) 
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, expectedError)
 
 	// Act: fetch relation
-	_, _, err := fetchRelations(context.Background(), s.relationService, s.statusService)
+	_, _, err := fetchRelations(c.Context(), s.relationService, s.statusService)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedError)
@@ -202,7 +201,7 @@ func (s *relationStatusSuite) TestFetchRelationAllWithGetStatusesError(c *tc.C) 
 	s.statusService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, expectedError)
 
 	// Act: fetch relation
-	_, _, err := fetchRelations(context.Background(), s.relationService, s.statusService)
+	_, _, err := fetchRelations(c.Context(), s.relationService, s.statusService)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedError)

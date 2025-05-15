@@ -35,7 +35,7 @@ import (
 // It verifies that the charm_resource table is populated, alongside the
 // resource and application_resource table with datas from charm and arguments.
 func (s *applicationStateSuite) TestCreateApplicationWithStorage(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	uuid := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -165,7 +165,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnrecognisedStorage(c *
 		Size:           20,
 		Count:          1,
 	}}
-	ctx := context.Background()
+	ctx := c.Context()
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
 		chStorage, addStorageArgs), nil)
@@ -179,7 +179,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStorageButCharmHasNone(
 		Size:           20,
 		Count:          1,
 	}}
-	ctx := context.Background()
+	ctx := c.Context()
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
 		[]charm.Storage{}, addStorageArgs), nil)
@@ -201,7 +201,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnitsAndStorageInvalidC
 			Count:          200,
 		},
 	}
-	ctx := context.Background()
+	ctx := c.Context()
 
 	_, err := s.state.CreateApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
 		chStorage, addStorageArgs), []application.AddUnitArg{{}})
@@ -235,7 +235,7 @@ type charmStorageArg struct {
 func (s *baseStorageSuite) insertCharmWithStorage(c *tc.C, stor ...charmStorageArg) string {
 	uuid := charmtesting.GenCharmID(c).String()
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if _, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
 			return errors.Capture(err)
@@ -284,7 +284,7 @@ var (
 )
 
 func (s *baseStorageSuite) TestGetStorageUUIDByID(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	charmUUID := s.insertCharmWithStorage(c, filesystemStorage)
 	uuid := storagetesting.GenStorageUUID(c)
@@ -303,20 +303,20 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`, uuid, charmUUID, "pgdata", "pgdata/0", 0, "rootfs
 }
 
 func (s *baseStorageSuite) TestGetStorageUUIDByIDNotFound(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	_, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageNotFound)
 }
 
 func (s *baseStorageSuite) createUnitWithCharm(c *tc.C, stor ...charmStorageArg) (coreunit.UUID, string) {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
-	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), u1.UnitName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	charmUUID := s.insertCharmWithStorage(c, stor...)
@@ -331,7 +331,7 @@ UPDATE unit SET charm_uuid = ? WHERE unit.name = ?`, charmUUID, "foo/666")
 }
 
 func (s *baseStorageSuite) createStorageInstance(c *tc.C, storageName, charmUUID string, ownerUUID *coreunit.UUID) corestorage.UUID {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	poolUUID := uuid.MustNewUUID().String()
 	storageUUID := storagetesting.GenStorageUUID(c)
@@ -366,7 +366,7 @@ func (s *baseStorageSuite) assertStorageAttached(c *tc.C, unitUUID coreunit.UUID
 	)
 	// Check that the storage attachment row exists and that the charm
 	// of the associated storage instance matches that of the unit.
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `
 SELECT sa.life_id FROM storage_attachment sa
 -- JOIN storage_instance si ON si.uuid = sa.storage_instance_uuid
@@ -387,7 +387,7 @@ func (s *baseStorageSuite) assertFilesystemAttachment(c *tc.C, unitUUID coreunit
 		readOnly   bool
 	)
 	// Check that the filesystem attachment row exists.
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `
 SELECT sfa.mount_point, sfa.read_only FROM storage_filesystem_attachment sfa
 JOIN unit ON unit.uuid = ?
@@ -406,7 +406,7 @@ WHERE sif.storage_instance_uuid = ?`,
 func (s *baseStorageSuite) assertVolumeAttachment(c *tc.C, unitUUID coreunit.UUID, storageUUID corestorage.UUID, expected volumeAttachment) {
 	var readOnly bool
 	// Check that the volume attachment row exists.
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `
 SELECT sva.read_only FROM storage_volume_attachment sva
 JOIN unit ON unit.uuid = ?
@@ -428,7 +428,7 @@ type filesystemAttachmentArg struct {
 }
 
 func (s *baseStorageSuite) createFilesystem(c *tc.C, storageUUID corestorage.UUID, attachments ...filesystemAttachmentArg) {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	filesystemUUID := storagetesting.GenFilesystemUUID(c)
 	attachmentUUID := storagetesting.GenFilesystemAttachmentUUID(c)
@@ -466,7 +466,7 @@ type volumeAttachmentArg struct {
 }
 
 func (s *baseStorageSuite) createVolume(c *tc.C, storageUUID corestorage.UUID, attachments ...volumeAttachmentArg) {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	volumeUUID := storagetesting.GenVolumeUUID(c)
 	attachmentUUID := storagetesting.GenVolumeAttachmentUUID(c)
@@ -512,7 +512,7 @@ type storageInstanceFilesystemArg struct {
 
 func (s *baseStorageSuite) assertFilesystems(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceFilesystemArg) {
 	var results []storageInstanceFilesystemArg
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var row storageInstanceFilesystemArg
 		rows, err := tx.QueryContext(ctx, `
 SELECT
@@ -557,7 +557,7 @@ type storageInstanceVolumeArg struct {
 
 func (s *baseStorageSuite) assertVolumes(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceVolumeArg) {
 	var results []storageInstanceVolumeArg
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var row storageInstanceVolumeArg
 		rows, err := tx.QueryContext(ctx, `
 SELECT
@@ -595,7 +595,7 @@ func (s *caasStorageSuite) TestAttachStorageBadMountPoint(c *tc.C) {
 	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, nil)
 	s.createFilesystem(c, storageUUID)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidStorageMountPoint)
 }
@@ -606,7 +606,7 @@ func (s *caasStorageSuite) TestAttachStorageFilesystemAlreadyAttached(c *tc.C) {
 	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, nil)
 	s.createFilesystem(c, storageUUID, filesystemAttachmentArg{unitUUID: unitUUID})
 
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.FilesystemAlreadyAttached)
 }
@@ -615,14 +615,14 @@ func (s *baseStorageSuite) TestAttachStorageUnitNotFound(c *tc.C) {
 	_, charmUUID := s.createUnitWithCharm(c, filesystemStorage)
 	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, nil)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.state.AttachStorage(ctx, storageUUID, unittesting.GenUnitUUID(c))
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *baseStorageSuite) TestAttachStorageUnitNotAlive(c *tc.C) {
 	unitUUID, charmUUID := s.createUnitWithCharm(c, filesystemStorage)
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE unit SET life_id = ? WHERE unit.name = ?`, 1, "foo/666")
@@ -639,7 +639,7 @@ func (s *baseStorageSuite) TestAttachStorageNotFound(c *tc.C) {
 	unitUUID, charmUUID := s.createUnitWithCharm(c, filesystemStorage)
 	s.createStorageInstance(c, "pgdata", charmUUID, nil)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.state.AttachStorage(ctx, storagetesting.GenStorageUUID(c), unitUUID)
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageNotFound)
 }
@@ -647,7 +647,7 @@ func (s *baseStorageSuite) TestAttachStorageNotFound(c *tc.C) {
 func (s *baseStorageSuite) TestAttachStorageNotAlive(c *tc.C) {
 	unitUUID, charmUUID := s.createUnitWithCharm(c, filesystemStorage)
 	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, nil)
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE storage_instance SET life_id = ? WHERE uuid = ?`, 1, storageUUID)
@@ -664,7 +664,7 @@ func (s *baseStorageSuite) TestAttachStorageTwice(c *tc.C) {
 	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, nil)
 	s.createFilesystem(c, storageUUID)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.AttachStorage(ctx, storageUUID, unitUUID)
@@ -680,7 +680,7 @@ func (s *baseStorageSuite) TestAttachStorageExceedsMaxCount(c *tc.C) {
 	storageUUID3 := s.createStorageInstance(c, "pgdata", charmUUID, nil)
 	s.createFilesystem(c, storageUUID3)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.AttachStorage(ctx, storageUUID2, unitUUID)
@@ -690,7 +690,7 @@ func (s *baseStorageSuite) TestAttachStorageExceedsMaxCount(c *tc.C) {
 }
 
 func (s *baseStorageSuite) TestAttachStorageUnsupportedStorageName(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	unitUUID, _ := s.createUnitWithCharm(c, filesystemStorage)
 
@@ -734,7 +734,7 @@ func (s *caasStorageSuite) SetUpTest(c *tc.C) {
 	s.baseStorageSuite.SetUpTest(c)
 
 	modelUUID := testing.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "caas", "test-model", "microk8s")
@@ -782,7 +782,7 @@ func (s *caasStorageSuite) TestCreateApplicationWithUnitsAndStorage(c *tc.C) {
 			Count:          1,
 		},
 	}
-	ctx := context.Background()
+	ctx := c.Context()
 
 	_, err := s.state.CreateApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
 		chStorage, addStorageArgs), []application.AddUnitArg{{}})
@@ -969,7 +969,7 @@ func (s *iaasStorageSuite) SetUpTest(c *tc.C) {
 	s.baseStorageSuite.SetUpTest(c)
 
 	modelUUID := testing.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -984,7 +984,7 @@ func (s *iaasStorageSuite) TestAttachStorageFilesystem(c *tc.C) {
 	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, nil)
 	s.createFilesystem(c, storageUUID)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1001,7 +1001,7 @@ func (s *iaasStorageSuite) TestAttachStorageVolume(c *tc.C) {
 	storageUUID := s.createStorageInstance(c, "pgblock", charmUUID, nil)
 	s.createVolume(c, storageUUID)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1018,7 +1018,7 @@ func (s *iaasStorageSuite) TestAttachStorageVolumeBackedFilesystem(c *tc.C) {
 	s.createFilesystem(c, storageUUID)
 	s.createVolume(c, storageUUID)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	err := s.state.AttachStorage(ctx, storageUUID, unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 

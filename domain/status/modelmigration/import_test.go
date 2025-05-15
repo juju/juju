@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -38,7 +37,7 @@ func (s *importSuite) TestImportBlank(c *tc.C) {
 		clock: clock.WallClock,
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -72,7 +71,7 @@ func (s *importSuite) TestImportApplicationStatus(c *tc.C) {
 		clock: clock.WallClock,
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -152,7 +151,7 @@ func (s *importSuite) TestImportUnitStatus(c *tc.C) {
 		clock: clock.WallClock,
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -202,7 +201,7 @@ func (s *importSuite) TestImportRelationStatus(c *tc.C) {
 		clock: clock,
 	}
 
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -4,7 +4,6 @@
 package cleaner_test
 
 import (
-	"context"
 	"errors"
 	"time"
 
@@ -76,7 +75,7 @@ func (s *CleanerSuite) TestNewAPI(c *tc.C) {
 func (s *CleanerSuite) TestWatchCleanups(c *tc.C) {
 	// Multiple facades are called, so pass an empty string for the facade.
 	t := Init(c, "", "", nil, nil, nil)
-	m, err := t.api.WatchCleanups(context.Background())
+	m, err := t.api.WatchCleanups(c.Context())
 	AssertNumReceives(c, t.called, 2)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(m, tc.NotNil)
@@ -84,14 +83,14 @@ func (s *CleanerSuite) TestWatchCleanups(c *tc.C) {
 
 func (s *CleanerSuite) TestCleanup(c *tc.C) {
 	t := Init(c, "Cleaner", "Cleanup", nil, nil, nil)
-	err := t.api.Cleanup(context.Background())
+	err := t.api.Cleanup(c.Context())
 	AssertNumReceives(c, t.called, 1)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *CleanerSuite) TestWatchCleanupsFailFacadeCall(c *tc.C) {
 	t := Init(c, "Cleaner", "WatchCleanups", nil, nil, errors.New("client error!"))
-	m, err := t.api.WatchCleanups(context.Background())
+	m, err := t.api.WatchCleanups(c.Context())
 	c.Assert(err, tc.ErrorMatches, "client error!")
 	AssertNumReceives(c, t.called, 1)
 	c.Assert(m, tc.IsNil)
@@ -105,7 +104,7 @@ func (s *CleanerSuite) TestWatchCleanupsFailFacadeResult(c *tc.C) {
 		Error: &e,
 	}
 	t := Init(c, "Cleaner", "WatchCleanups", nil, p, nil)
-	m, err := t.api.WatchCleanups(context.Background())
+	m, err := t.api.WatchCleanups(c.Context())
 	AssertNumReceives(c, t.called, 1)
 	c.Assert(err, tc.ErrorMatches, e.Message)
 	c.Assert(m, tc.IsNil)

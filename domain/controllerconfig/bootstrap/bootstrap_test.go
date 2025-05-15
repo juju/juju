@@ -4,8 +4,6 @@
 package bootstrap
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
@@ -28,7 +26,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	}
 	modelUUID, err := coremodel.NewUUID()
 	c.Assert(err, tc.IsNil)
-	err = InsertInitialControllerConfig(cfg, modelUUID)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err = InsertInitialControllerConfig(cfg, modelUUID)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var cert string
@@ -47,7 +45,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 
 func (s *bootstrapSuite) TestValidModelUUID(c *tc.C) {
 	cfg := controller.Config{controller.CACertKey: testing.CACert}
-	err := InsertInitialControllerConfig(cfg, coremodel.UUID("bad-uuid"))(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err := InsertInitialControllerConfig(cfg, coremodel.UUID("bad-uuid"))(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -55,6 +53,6 @@ func (s *bootstrapSuite) TestInsertMinimalControllerConfig(c *tc.C) {
 	cfg := controller.Config{}
 	modelUUID, err := coremodel.NewUUID()
 	c.Assert(err, tc.IsNil)
-	err = InsertInitialControllerConfig(cfg, modelUUID)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	err = InsertInitialControllerConfig(cfg, modelUUID)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorMatches, "no controller config values to insert at bootstrap")
 }

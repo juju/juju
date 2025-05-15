@@ -45,7 +45,7 @@ func (s *MachineRebootTestSuite) TestRebootRequestedNoEntity(c *tc.C) {
 	entitiesToRequest := entities() // None
 
 	// Act
-	result, err := requester.RequestReboot(context.Background(), entitiesToRequest)
+	result, err := requester.RequestReboot(c.Context(), entitiesToRequest)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -67,7 +67,7 @@ func (s *MachineRebootTestSuite) TestRebootRequestedAuthError(c *tc.C) {
 	entitiesToRequest := entities("foo/0") // any valid entity would make it
 
 	// Act
-	_, err := requester.RequestReboot(context.Background(), entitiesToRequest)
+	_, err := requester.RequestReboot(c.Context(), entitiesToRequest)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, authError)
@@ -103,7 +103,7 @@ func (s *MachineRebootTestSuite) TestRebootRequested(c *tc.C) {
 	)
 
 	// Act
-	result, err := requester.RequestReboot(context.Background(), entitiesToRequest)
+	result, err := requester.RequestReboot(c.Context(), entitiesToRequest)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -130,7 +130,7 @@ func (s *MachineRebootTestSuite) TestRebootActionGetNoEntity(c *tc.C) {
 	entitiesToRequest := entities() // None
 
 	// Act
-	result, err := requester.GetRebootAction(context.Background(), entitiesToRequest)
+	result, err := requester.GetRebootAction(c.Context(), entitiesToRequest)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -152,7 +152,7 @@ func (s *MachineRebootTestSuite) TestRebootActionGetAuthError(c *tc.C) {
 	entitiesToRequest := entities("foo/0") // any valid entity would make it
 
 	// Act
-	_, err := requester.GetRebootAction(context.Background(), entitiesToRequest)
+	_, err := requester.GetRebootAction(c.Context(), entitiesToRequest)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, authError)
@@ -196,7 +196,7 @@ func (s *MachineRebootTestSuite) TestRebootActionGet(c *tc.C) {
 	)
 
 	// Act
-	result, err := requester.GetRebootAction(context.Background(), entitiesToRequest)
+	result, err := requester.GetRebootAction(c.Context(), entitiesToRequest)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -225,7 +225,7 @@ func (s *MachineRebootTestSuite) TestRebootClearedNoEntity(c *tc.C) {
 	entitiesToRequest := entities() // None
 
 	// Act
-	result, err := requester.ClearReboot(context.Background(), entitiesToRequest)
+	result, err := requester.ClearReboot(c.Context(), entitiesToRequest)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -247,7 +247,7 @@ func (s *MachineRebootTestSuite) TestRebootClearedAuthError(c *tc.C) {
 	entitiesToRequest := entities("foo/0") // any valid entity would make it
 
 	// Act
-	_, err := requester.ClearReboot(context.Background(), entitiesToRequest)
+	_, err := requester.ClearReboot(c.Context(), entitiesToRequest)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, authError)
@@ -283,7 +283,7 @@ func (s *MachineRebootTestSuite) TestRebootCleared(c *tc.C) {
 	)
 
 	// Act
-	result, err := requester.ClearReboot(context.Background(), entitiesToRequest)
+	result, err := requester.ClearReboot(c.Context(), entitiesToRequest)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -68,7 +66,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		Return(subnets, nil)
 
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 
 	actualSpaces := dst.Spaces()
@@ -97,7 +95,7 @@ func (s *exportSuite) TestExportSpacesNotFound(c *tc.C) {
 		Return(nil, coreerrors.NotFound)
 
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorMatches, ".*not found")
 }
 
@@ -112,6 +110,6 @@ func (s *exportSuite) TestExportSubnetsNotFound(c *tc.C) {
 		Return(nil, coreerrors.NotFound)
 
 	op := s.newExportOperation(c)
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorMatches, ".*not found")
 }

@@ -71,13 +71,13 @@ func (mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string
 	return domainstorage.StoragePoolDetails{}, errors.Errorf("storage pool %q not found", name).Add(storageerrors.PoolNotFoundError)
 }
 
-func (s *validationSuite) validateStorageDirectives(storage map[string]storage.Directive) error {
+func (s *validationSuite) validateStorageDirectives(c *tc.C, storage map[string]storage.Directive) error {
 	validator, err := domainstorage.NewStorageDirectivesValidator(s.modelType, provider.CommonStorageProviders(), mockStoragePoolGetter{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 	return validator.ValidateStorageDirectivesAgainstCharm(
-		context.Background(),
+		c.Context(),
 		storage,
 		s.meta,
 	)
@@ -93,7 +93,7 @@ func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmSuccess(c *tc
 		"multi1to10": makeStorageDirective("loop-pool", 1024, 10),
 		"multi2up":   makeStorageDirective("loop-pool", 2048, 2),
 	}
-	err := s.validateStorageDirectives(storageDirectives)
+	err := s.validateStorageDirectives(c, storageDirectives)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -102,14 +102,14 @@ func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmStoragePoolNo
 		"multi1to10": makeStorageDirective("ebs-fast", 1024, 10),
 		"multi2up":   makeStorageDirective("loop-pool", 2048, 2),
 	}
-	err := s.validateStorageDirectives(storageDirectives)
+	err := s.validateStorageDirectives(c, storageDirectives)
 	c.Assert(err, tc.ErrorMatches, `storage pool "ebs-fast" not found`)
 	c.Assert(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
 func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmErrors(c *tc.C) {
 	assertErr := func(storage map[string]storage.Directive, expect string) {
-		err := s.validateStorageDirectives(storage)
+		err := s.validateStorageDirectives(c, storage)
 		c.Assert(err, tc.ErrorMatches, expect)
 	}
 
@@ -136,7 +136,7 @@ func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaasBlockNotS
 		"multi1to10": makeStorageDirective("loop-pool", 1024, 1),
 		"multi2up":   makeStorageDirective("loop-pool", 2048, 2),
 	}
-	err := s.validateStorageDirectives(storageDirectives)
+	err := s.validateStorageDirectives(c, storageDirectives)
 	c.Assert(err, tc.ErrorMatches, `block storage on a container model not supported`)
 }
 
@@ -157,6 +157,6 @@ func (s *validationSuite) TestValidateStorageDirectivesAgainstCharmCaas(c *tc.C)
 	storageDirectives := map[string]storage.Directive{
 		"files": makeStorageDirective("tmp", 2048, 1),
 	}
-	err := s.validateStorageDirectives(storageDirectives)
+	err := s.validateStorageDirectives(c, storageDirectives)
 	c.Assert(err, tc.ErrorMatches, `invalid storage config: storage medium "foo" not valid`)
 }

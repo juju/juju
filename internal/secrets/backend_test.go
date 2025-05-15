@@ -4,8 +4,6 @@
 package secrets_test
 
 import (
-	"context"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -62,7 +60,7 @@ func (s *backendSuite) TestSaveContent(c *tc.C) {
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	backend.EXPECT().SaveContent(gomock.Any(), uri, 666, secretValue).Return("rev-id", nil)
 
-	val, err := client.SaveContent(context.Background(), uri, 666, secretValue)
+	val, err := client.SaveContent(c.Context(), uri, 666, secretValue)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val, tc.DeepEquals, coresecrets.ValueRef{
 		BackendID:  "backend-id2",
@@ -101,7 +99,7 @@ func (s *backendSuite) TestGetContent(c *tc.C) {
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	backend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(secretValue, nil)
 
-	val, err := client.GetContent(context.Background(), uri, "label", true, false)
+	val, err := client.GetContent(c.Context(), uri, "label", true, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val, tc.DeepEquals, secretValue)
 }
@@ -169,7 +167,7 @@ func (s *backendSuite) TestGetContentSecretDrained(c *tc.C) {
 		backend.EXPECT().GetContent(gomock.Any(), "rev-id3").Return(secretValue, nil),
 	)
 
-	val, err := client.GetContent(context.Background(), uri, "label", true, false)
+	val, err := client.GetContent(c.Context(), uri, "label", true, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val, tc.DeepEquals, secretValue)
 }
@@ -205,7 +203,7 @@ func (s *backendSuite) TestDeleteContent(c *tc.C) {
 
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 
-	err = client.DeleteContent(context.Background(), uri, 666)
+	err = client.DeleteContent(c.Context(), uri, 666)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -269,7 +267,7 @@ func (s *backendSuite) TestDeleteContentDrained(c *tc.C) {
 		backend.EXPECT().DeleteContent(gomock.Any(), "rev-id3").Return(nil),
 	)
 
-	err = client.DeleteContent(context.Background(), uri, 666)
+	err = client.DeleteContent(c.Context(), uri, 666)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -341,17 +339,17 @@ func (s *backendSuite) TestGetBackend(c *tc.C) {
 			}, "backend-id1", nil,
 		),
 	)
-	result, activeBackendID, err := client.GetBackend(context.Background(), nil, false)
+	result, activeBackendID, err := client.GetBackend(c.Context(), nil, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activeBackendID, tc.Equals, "backend-id2")
 	c.Assert(result, tc.Equals, backend)
 
-	result, activeBackendID, err = client.GetBackend(context.Background(), &backendID, false)
+	result, activeBackendID, err = client.GetBackend(c.Context(), &backendID, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activeBackendID, tc.Equals, "backend-id2")
 	c.Assert(result, tc.Equals, backend)
 
-	result, activeBackendID, err = client.GetBackend(context.Background(), &backendID, true)
+	result, activeBackendID, err = client.GetBackend(c.Context(), &backendID, true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(activeBackendID, tc.Equals, "backend-id1")
 	c.Assert(result, tc.Equals, backend)
@@ -407,7 +405,7 @@ func (s *backendSuite) TestGetRevisionContent(c *tc.C) {
 		backend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(secretValue, nil),
 	)
 
-	val, err := client.GetRevisionContent(context.Background(), uri, 666)
+	val, err := client.GetRevisionContent(c.Context(), uri, 666)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val, tc.Equals, secretValue)
 }

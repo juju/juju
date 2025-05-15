@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -55,7 +53,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		Return(cred, nil)
 
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got := dst.CloudCredential()
@@ -78,6 +76,6 @@ func (s *exportSuite) TestExportNotFound(c *tc.C) {
 		Return(cloud.Credential{}, coreerrors.NotFound)
 
 	op := s.newExportOperation()
-	err := op.Execute(context.Background(), dst)
+	err := op.Execute(c.Context(), dst)
 	c.Assert(err, tc.ErrorMatches, "not found")
 }

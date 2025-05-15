@@ -42,7 +42,7 @@ func (s *providerSuite) TestProviderRunner(c *tc.C) {
 	s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), "foo").Return(s.provider, nil)
 
 	runner := ProviderRunner[Provider](s.providerFactory, "foo")
-	v, err := runner(context.Background())
+	v, err := runner(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(v, tc.DeepEquals, s.provider)
 }
@@ -55,7 +55,7 @@ func (s *providerSuite) TestProviderRunnerSubsetType(c *tc.C) {
 	s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), "foo").Return(provider, nil)
 
 	runner := ProviderRunner[FooProvider](s.providerFactory, "foo")
-	v, err := runner(context.Background())
+	v, err := runner(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(v, tc.DeepEquals, provider)
 }
@@ -68,7 +68,7 @@ func (s *providerSuite) TestProviderRunnerIsNotSubsetType(c *tc.C) {
 	s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), "foo").Return(provider, nil)
 
 	runner := ProviderRunner[BarProvider](s.providerFactory, "foo")
-	_, err := runner(context.Background())
+	_, err := runner(c.Context())
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -86,7 +86,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *tc.C) {
 	runner := EphemeralProviderRunnerFromConfig[Provider](s.providerFactory, &configGetter)
 
 	var provider Provider
-	err := runner(context.Background(), func(ctx context.Context, p Provider) error {
+	err := runner(c.Context(), func(ctx context.Context, p Provider) error {
 		provider = p
 		return nil
 	})
@@ -112,7 +112,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfigSubsetType(c *tc.C)
 	runner := EphemeralProviderRunnerFromConfig[FooProvider](s.providerFactory, &configGetter)
 
 	var provider FooProvider
-	err := runner(context.Background(), func(ctx context.Context, p FooProvider) error {
+	err := runner(c.Context(), func(ctx context.Context, p FooProvider) error {
 		provider = p
 		return nil
 	})
@@ -136,7 +136,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfigIsNotSubsetType(c *
 	s.providerFactory.EXPECT().EphemeralProviderFromConfig(gomock.Any(), configGetter.EphemeralProviderConfig).Return(fooProvider, nil)
 
 	runner := EphemeralProviderRunnerFromConfig[BarProvider](s.providerFactory, &configGetter)
-	err := runner(context.Background(), func(ctx context.Context, p BarProvider) error {
+	err := runner(c.Context(), func(ctx context.Context, p BarProvider) error {
 		c.Fail()
 		return nil
 	})

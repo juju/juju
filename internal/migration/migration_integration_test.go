@@ -4,8 +4,6 @@
 package migration_test
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -60,7 +58,7 @@ func (s *ExportImportSuite) exportImport(c *tc.C, leaders map[string]string) {
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)
-	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
+	gotM, gotSt, err := importer.ImportModel(c.Context(), bytes)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(controller.model.UUID(), tc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
 	c.Assert(gotM, tc.Equals, m)

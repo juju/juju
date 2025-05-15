@@ -207,7 +207,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *tc.C, newConsumer
 	}, nil)
 
 	mac, err := s.bakery.NewMacaroon(
-		context.Background(),
+		c.Context(),
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("username", "mary"),
@@ -240,7 +240,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *tc.C, newConsumer
 			Refresh:              true,
 		}},
 	}
-	results, err := s.facade.GetSecretContentInfo(context.Background(), args)
+	results, err := s.facade.GetSecretContentInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{

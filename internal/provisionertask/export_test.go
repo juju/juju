@@ -4,8 +4,9 @@
 package provisionertask
 
 import (
-	"context"
 	"sort"
+
+	"github.com/juju/tc"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/semversion"
@@ -39,10 +40,11 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 }
 
 func SetupToStartMachine(
+	c *tc.C,
 	p ProvisionerTask,
 	machine apiprovisioner.MachineProvisioner,
 	version *semversion.Number,
 	pInfoResult params.ProvisioningInfoResult,
 ) (environs.StartInstanceParams, error) {
-	return p.(*provisionerTask).setupToStartMachine(context.Background(), machine, version, pInfoResult)
+	return p.(*provisionerTask).setupToStartMachine(c.Context(), machine, version, pInfoResult)
 }

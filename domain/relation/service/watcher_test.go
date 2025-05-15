@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -57,7 +55,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationScopeGlobal(c *tc.C
 		appID:       subordinateID,
 	}
 	change, err := watcher.watchNewRelation(
-		context.Background(),
+		c.Context(),
 		relUUID,
 	)
 
@@ -92,7 +90,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(
 		appID:       subordinateID,
 	}
 	change, err := watcher.watchNewRelation(
-		context.Background(),
+		c.Context(),
 		relUUID,
 	)
 
@@ -125,7 +123,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *tc.C) 
 		appID:       subordinateID,
 	}
 	change, err := watcher.watchNewRelation(
-		context.Background(),
+		c.Context(),
 		relUUID,
 	)
 
@@ -160,7 +158,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *tc.C) {
 		appID:       subordinateID,
 	}
 	change, err := watcher.watchNewRelation(
-		context.Background(),
+		c.Context(),
 		relUUID,
 	)
 
@@ -239,7 +237,7 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 
 	relationsIgnored := set.NewStrings()
 	obtainedChanges, err := watcher.filterChangeEvents(
-		context.Background(),
+		c.Context(),
 		changes,
 		relationsIgnored,
 	)

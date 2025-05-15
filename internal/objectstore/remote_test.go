@@ -5,7 +5,6 @@ package objectstore
 
 import (
 	"bytes"
-	"context"
 	"io"
 
 	"github.com/juju/tc"
@@ -48,7 +47,7 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGet(c *tc.C) {
 
 	workertest.CheckAlive(c, remoteStore)
 
-	reader, size, err := remoteStore.Get(context.Background(), "foo")
+	reader, size, err := remoteStore.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reader, tc.Equals, s.reader)
 	c.Check(size, tc.Equals, int64(12))
@@ -70,7 +69,7 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGetBySHA256(c *
 
 	workertest.CheckAlive(c, remoteStore)
 
-	reader, size, err := remoteStore.GetBySHA256(context.Background(), "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b")
+	reader, size, err := remoteStore.GetBySHA256(c.Context(), "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reader, tc.Equals, s.reader)
 	c.Check(size, tc.Equals, int64(12))
@@ -92,7 +91,7 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGetBySHA256Pref
 
 	workertest.CheckAlive(c, remoteStore)
 
-	reader, size, err := remoteStore.GetBySHA256Prefix(context.Background(), "09ca7e4")
+	reader, size, err := remoteStore.GetBySHA256Prefix(c.Context(), "09ca7e4")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reader, tc.Equals, s.reader)
 	c.Check(size, tc.Equals, int64(12))
@@ -114,7 +113,7 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStorePut(c *tc.C) {
 
 	workertest.CheckAlive(c, remoteStore)
 
-	uuid, err := remoteStore.Put(context.Background(), "foo", s.reader, 12)
+	uuid, err := remoteStore.Put(c.Context(), "foo", s.reader, 12)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, objectstore.UUID("abc"))
 
@@ -131,7 +130,7 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStorePutAndCheckHash
 
 	workertest.CheckAlive(c, remoteStore)
 
-	uuid, err := remoteStore.PutAndCheckHash(context.Background(), "foo", s.reader, 12, "xyz")
+	uuid, err := remoteStore.PutAndCheckHash(c.Context(), "foo", s.reader, 12, "xyz")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, objectstore.UUID("abc"))
 

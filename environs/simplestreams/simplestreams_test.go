@@ -4,7 +4,6 @@
 package simplestreams_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -55,7 +54,7 @@ func (s *simplestreamsSuite) TearDownSuite(c *tc.C) {
 }
 
 func (s *simplestreamsSuite) TestGetProductsPath(c *tc.C) {
-	indexRef, err := s.GetIndexRef(sstesting.Index_v1)
+	indexRef, err := s.GetIndexRef(c, sstesting.Index_v1)
 	c.Assert(err, tc.ErrorIsNil)
 	path, err := indexRef.GetProductsPath(s.ValidConstraint)
 	c.Assert(err, tc.ErrorIsNil)
@@ -344,7 +343,7 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *tc.C) {
 	}
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	items, resolveInfo, err := ss.GetMetadata(context.Background(), sources, params)
+	items, resolveInfo, err := ss.GetMetadata(c.Context(), sources, params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(items, tc.HasLen, 0)
 	c.Assert(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
@@ -496,7 +495,7 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *tc.C) {
 		}
 		ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 		indexRef, err := ss.GetIndexWithFormat(
-			context.Background(), s.Source, s.IndexPath(), sstesting.Index_v1,
+			c.Context(), s.Source, s.IndexPath(), sstesting.Index_v1,
 			simplestreams.MirrorsPath("v1"), s.RequireSigned, cloud, params)
 		if !c.Check(err, tc.ErrorIsNil) {
 			continue

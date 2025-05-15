@@ -4,8 +4,6 @@
 package eventsource
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
@@ -29,7 +27,7 @@ func (s *consumeSuite) TestConsumeInitialEventReturnsChanges(c *tc.C) {
 	changes <- contents
 	s.watcher.EXPECT().Changes().Return(changes)
 
-	res, err := ConsumeInitialEvent[[]string](context.Background(), s.watcher)
+	res, err := ConsumeInitialEvent[[]string](c.Context(), s.watcher)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.SameContents, contents)
 }
@@ -45,7 +43,7 @@ func (s *consumeSuite) TestConsumeInitialEventWorkerKilled(c *tc.C) {
 	s.watcher.EXPECT().Kill()
 	s.watcher.EXPECT().Wait().Return(tomb.ErrDying)
 
-	res, err := ConsumeInitialEvent[[]string](context.Background(), s.watcher)
+	res, err := ConsumeInitialEvent[[]string](c.Context(), s.watcher)
 	c.Assert(err, tc.ErrorMatches, tomb.ErrDying.Error())
 	c.Assert(res, tc.IsNil)
 }
@@ -61,7 +59,7 @@ func (s *consumeSuite) TestConsumeInitialEventWatcherStoppedNilErr(c *tc.C) {
 	s.watcher.EXPECT().Kill()
 	s.watcher.EXPECT().Wait().Return(nil)
 
-	res, err := ConsumeInitialEvent[[]string](context.Background(), s.watcher)
+	res, err := ConsumeInitialEvent[[]string](c.Context(), s.watcher)
 	c.Assert(err, tc.ErrorMatches, "expected an error from .* got nil.*")
 	c.Assert(err, tc.ErrorIs, ErrWorkerStopped)
 	c.Assert(res, tc.IsNil)

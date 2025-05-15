@@ -185,7 +185,7 @@ func (s *InstancePollerSuite) assertMachineWatcherFails(c *tc.C, watchFacadeName
 	// closed channel by setting an error.
 	s.st.SetErrors(errors.Errorf("boom"))
 
-	result, err := getWatcherFn(context.Background())
+	result, err := getWatcherFn(c.Context())
 	c.Assert(err, tc.ErrorMatches, "cannot obtain initial model machines: boom")
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{})
 
@@ -203,7 +203,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *tc.C, watchFacadeN
 		StringsWatcherId: "1",
 		Changes:          []string{"1", "2"}, // initial event (sorted ids)
 	}
-	result, err := getWatcherFn(context.Background())
+	result, err := getWatcherFn(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, expectedResult)
 
@@ -223,7 +223,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *tc.C, watchFacadeN
 	s.st.CheckCallNames(c, watchFacadeName)
 
 	// Add another watcher to verify events coalescence.
-	result, err = getWatcherFn(context.Background())
+	result, err = getWatcherFn(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	expectedResult.StringsWatcherId = "2"
 	c.Assert(result, tc.DeepEquals, expectedResult)
@@ -261,7 +261,7 @@ func (s *InstancePollerSuite) TestLifeSuccess(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Alive})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dying})
 
-	result, err := s.api.Life(context.Background(), s.mixedEntities)
+	result, err := s.api.Life(c.Context(), s.mixedEntities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -299,7 +299,7 @@ func (s *InstancePollerSuite) TestLifeFailure(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dead})
 	s.st.SetMachineInfo(c, machineInfo{id: "3", life: state.Dying})
 
-	result, err := s.api.Life(context.Background(), s.machineEntities)
+	result, err := s.api.Life(c.Context(), s.machineEntities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -327,7 +327,7 @@ func (s *InstancePollerSuite) TestInstanceIdSuccess(c *tc.C) {
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-2")).Return("", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("42")).Return("", machineerrors.MachineNotFound)
 
-	result, err := s.api.InstanceId(context.Background(), s.mixedEntities)
+	result, err := s.api.InstanceId(c.Context(), s.mixedEntities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -354,7 +354,7 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *tc.C) {
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-2")).Return("i-2", errors.New("FAIL"))
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("3")).Return("uuid-3", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-3")).Return("", machineerrors.NotProvisioned)
-	result, err := s.api.InstanceId(context.Background(), s.machineEntities)
+	result, err := s.api.InstanceId(c.Context(), s.machineEntities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -386,7 +386,7 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", status: s1})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", status: s2})
 
-	result, err := s.api.Status(context.Background(), s.mixedEntities)
+	result, err := s.api.Status(c.Context(), s.mixedEntities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
@@ -428,7 +428,7 @@ func (s *InstancePollerSuite) TestStatusFailure(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1"})
 	s.st.SetMachineInfo(c, machineInfo{id: "2"})
 
-	result, err := s.api.Status(context.Background(), s.machineEntities)
+	result, err := s.api.Status(c.Context(), s.machineEntities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
@@ -453,7 +453,7 @@ func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
-	result, err := s.api.InstanceStatus(context.Background(), s.mixedEntities)
+	result, err := s.api.InstanceStatus(c.Context(), s.mixedEntities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
@@ -491,7 +491,7 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
-	result, err := s.api.InstanceStatus(context.Background(), s.machineEntities)
+	result, err := s.api.InstanceStatus(c.Context(), s.machineEntities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
@@ -516,7 +516,7 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
-	result, err := s.api.SetInstanceStatus(context.Background(), params.SetStatus{
+	result, err := s.api.SetInstanceStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "machine-1", Status: ""},
 			{Tag: "machine-2", Status: "new status"},
@@ -571,7 +571,7 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
-	result, err := s.api.SetInstanceStatus(context.Background(), params.SetStatus{
+	result, err := s.api.SetInstanceStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "machine-1", Status: "new"},
 			{Tag: "machine-2", Status: "invalid"},
@@ -597,7 +597,7 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
 
-	result, err := s.api.AreManuallyProvisioned(context.Background(), s.mixedEntities)
+	result, err := s.api.AreManuallyProvisioned(c.Context(), s.mixedEntities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -634,7 +634,7 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
 
-	result, err := s.api.AreManuallyProvisioned(context.Background(), s.machineEntities)
+	result, err := s.api.AreManuallyProvisioned(c.Context(), s.machineEntities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -662,7 +662,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *tc.C) {
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil)
 
-	results, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
+	results, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",
@@ -772,7 +772,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *tc.C) {
 		},
 	})
 
-	results, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
+	results, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",
@@ -847,7 +847,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNotAlive(c *tc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Dying})
 	s.expectDefaultSpaces()
 
-	results, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
+	results, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{{
 			Tag: "machine-1",
 			Configs: []params.NetworkConfig{{
@@ -891,7 +891,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *tc
 		addresses:        []networkingcommon.LinkLayerAddress{addr},
 	})
 
-	result, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
+	result, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag:     "machine-1",
@@ -947,7 +947,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(
 		addresses:        []networkingcommon.LinkLayerAddress{},
 	})
 
-	result, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
+	result, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",
@@ -1003,7 +1003,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(
 	})
 
 	// Same provider ID for both.
-	result, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
+	result, err := s.api.SetProviderNetworkConfig(c.Context(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",

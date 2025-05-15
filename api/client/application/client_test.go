@@ -4,7 +4,6 @@
 package application_test
 
 import (
-	"context"
 	stderrors "errors"
 	"time"
 
@@ -81,7 +80,7 @@ func (s *applicationSuite) TestDeploy(c *tc.C) {
 	}
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.Deploy(context.Background(), args)
+	err := client.Deploy(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -134,7 +133,7 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *tc.C) {
 	}
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.Deploy(context.Background(), args)
+	err := client.Deploy(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `application already exists`)
 }
 
@@ -149,7 +148,7 @@ func (s *applicationSuite) TestDeployAttachStorageMultipleUnits(c *tc.C) {
 		AttachStorage: []string{"data/0"},
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.Deploy(context.Background(), args)
+	err := client.Deploy(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
 }
 
@@ -172,7 +171,7 @@ func (s *applicationSuite) TestAddUnits(c *tc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUnits", args, result).SetArg(3, results).Return(nil)
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	units, err := client.AddUnits(context.Background(), application.AddUnitsParams{
+	units, err := client.AddUnits(c.Context(), application.AddUnitsParams{
 		ApplicationName: "foo",
 		NumUnits:        1,
 		Placement:       []*instance.Placement{{Scope: "scope", Directive: "directive"}},
@@ -188,7 +187,7 @@ func (s *applicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *tc.C) {
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.AddUnits(context.Background(), application.AddUnitsParams{
+	_, err := client.AddUnits(c.Context(), application.AddUnitsParams{
 		NumUnits:      2,
 		AttachStorage: []string{"data/0"},
 	})
@@ -211,7 +210,7 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetCharmURLOrigin", args, result).SetArg(3, results).Return(nil)
 	client := application.NewClientFromCaller(mockFacadeCaller)
 
-	curl, origin, err := client.GetCharmURLOrigin(context.Background(), "application")
+	curl, origin, err := client.GetCharmURLOrigin(c.Context(), "application")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(curl, tc.DeepEquals, charm.MustParseURL("ch:curl"))
 	c.Assert(origin, tc.DeepEquals, apicharm.Origin{
@@ -287,7 +286,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetCharm", args, nil).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetCharm(context.Background(), cfg)
+	err := client.SetCharm(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -317,7 +316,7 @@ func (s *applicationSuite) TestDestroyApplications(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyApplication", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.DestroyApplications(context.Background(), application.DestroyApplicationsParams{
+	res, err := client.DestroyApplications(c.Context(), application.DestroyApplicationsParams{
 		Applications: []string{"foo", "bar"},
 		Force:        true,
 		MaxWait:      &delay,
@@ -341,7 +340,7 @@ func (s *applicationSuite) TestDestroyApplicationsArity(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyApplication", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.DestroyApplications(context.Background(), application.DestroyApplicationsParams{
+	_, err := client.DestroyApplications(c.Context(), application.DestroyApplicationsParams{
 		Applications: []string{"foo"},
 	})
 	c.Assert(err, tc.ErrorMatches, `expected 1 result\(s\), got 0`)
@@ -365,7 +364,7 @@ func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *tc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyApplication", args, result).SetArg(3, results).Return(nil)
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.DestroyApplications(context.Background(), application.DestroyApplicationsParams{
+	res, err := client.DestroyApplications(c.Context(), application.DestroyApplicationsParams{
 		Applications: []string{"!", "foo"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -390,7 +389,7 @@ func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *tc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyConsumedApplications", args, result).SetArg(3, results).Return(nil)
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.DestroyConsumedApplication(context.Background(), destroyParams)
+	_, err := client.DestroyConsumedApplication(c.Context(), destroyParams)
 	c.Assert(err, tc.ErrorMatches, `expected 1 result\(s\), got 0`)
 }
 
@@ -415,14 +414,14 @@ func (s *applicationSuite) TestDestroyConsumedApplications(c *tc.C) {
 		[]string{"foo"}, false, &noWait,
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.DestroyConsumedApplication(context.Background(), destroyParams)
+	res, err := client.DestroyConsumedApplication(c.Context(), destroyParams)
 	c.Check(err, tc.ErrorMatches, "--force is required when --max-wait is provided")
 	c.Check(res, tc.HasLen, 0)
 
 	destroyParams = application.DestroyConsumedApplicationParams{
 		[]string{"foo", "bar"}, force, &noWait,
 	}
-	res, err = client.DestroyConsumedApplication(context.Background(), destroyParams)
+	res, err = client.DestroyConsumedApplication(c.Context(), destroyParams)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 2)
 }
@@ -453,7 +452,7 @@ func (s *applicationSuite) TestDestroyUnits(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyUnit", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.DestroyUnits(context.Background(), application.DestroyUnitsParams{
+	res, err := client.DestroyUnits(c.Context(), application.DestroyUnitsParams{
 		Units:   []string{"foo/0", "bar/1"},
 		Force:   true,
 		MaxWait: &delay,
@@ -477,7 +476,7 @@ func (s *applicationSuite) TestDestroyUnitsArity(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyUnit", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.DestroyUnits(context.Background(), application.DestroyUnitsParams{
+	_, err := client.DestroyUnits(c.Context(), application.DestroyUnitsParams{
 		Units: []string{"foo/0"},
 	})
 	c.Assert(err, tc.ErrorMatches, `expected 1 result\(s\), got 0`)
@@ -502,7 +501,7 @@ func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *tc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyUnit", args, result).SetArg(3, results).Return(nil)
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.DestroyUnits(context.Background(), application.DestroyUnitsParams{
+	res, err := client.DestroyUnits(c.Context(), application.DestroyUnitsParams{
 		Units: []string{"!", "foo/0"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -546,7 +545,7 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Consume", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	name, err := client.Consume(context.Background(), crossmodel.ConsumeApplicationArgs{
+	name, err := client.Consume(c.Context(), crossmodel.ConsumeApplicationArgs{
 		Offer:            offer,
 		ApplicationAlias: "alias",
 		Macaroon:         mac,
@@ -588,7 +587,7 @@ func (s *applicationSuite) TestDestroyRelation(c *tc.C) {
 		mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyRelation", args, nil).Return(nil)
 
 		client := application.NewClientFromCaller(mockFacadeCaller)
-		err := client.DestroyRelation(context.Background(), t.force, t.maxWait, "ep1", "ep2")
+		err := client.DestroyRelation(c.Context(), t.force, t.maxWait, "ep1", "ep2")
 		c.Assert(err, tc.ErrorIsNil)
 	}
 }
@@ -620,7 +619,7 @@ func (s *applicationSuite) TestDestroyRelationId(c *tc.C) {
 		mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyRelation", args, nil).Return(nil)
 
 		client := application.NewClientFromCaller(mockFacadeCaller)
-		err := client.DestroyRelationId(context.Background(), 123, t.force, t.maxWait)
+		err := client.DestroyRelationId(c.Context(), 123, t.force, t.maxWait)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 }
@@ -649,7 +648,7 @@ func (s *applicationSuite) TestSetRelationSuspended(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetRelationsSuspended", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetRelationSuspended(context.Background(), []int{123, 456}, true, "message")
+	err := client.SetRelationSuspended(c.Context(), []int{123, 456}, true, "message")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -677,7 +676,7 @@ func (s *applicationSuite) TestSetRelationSuspendedArity(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetRelationsSuspended", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetRelationSuspended(context.Background(), []int{123, 456}, true, "message")
+	err := client.SetRelationSuspended(c.Context(), []int{123, 456}, true, "message")
 	c.Assert(err, tc.ErrorMatches, "expected 2 results, got 1")
 }
 
@@ -698,7 +697,7 @@ func (s *applicationSuite) TestAddRelation(c *tc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddRelation", args, result).SetArg(3, results).Return(nil)
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.AddRelation(context.Background(), []string{"ep1", "ep2"}, []string{"cidr1", "cidr2"})
+	res, err := client.AddRelation(c.Context(), []string{"ep1", "ep2"}, []string{"cidr1", "cidr2"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Endpoints, tc.DeepEquals, map[string]params.CharmRelation{
 		"ep1": {Name: "foo"},
@@ -751,7 +750,7 @@ func (s *applicationSuite) TestGetConfig(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CharmConfig", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.GetConfig(context.Background(), "foo", "bar")
+	res, err := client.GetConfig(c.Context(), "foo", "bar")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, []map[string]interface{}{
 		fooConfig, barConfig,
@@ -778,7 +777,7 @@ func (s *applicationSuite) TestGetConstraints(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetConstraints", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.GetConstraints(context.Background(), "foo", "bar")
+	res, err := client.GetConstraints(c.Context(), "foo", "bar")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, []constraints.Value{
 		fooConstraints, barConstraints,
@@ -805,7 +804,7 @@ func (s *applicationSuite) TestGetConstraintsError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetConstraints", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.GetConstraints(context.Background(), "foo", "bar")
+	res, err := client.GetConstraints(c.Context(), "foo", "bar")
 	c.Assert(err, tc.ErrorMatches, `unable to get constraints for "bar": oh no`)
 	c.Assert(res, tc.IsNil)
 }
@@ -835,7 +834,7 @@ func (s *applicationSuite) TestSetConfig(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetConfigs", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetConfig(context.Background(), "foo", fooConfigYaml, fooConfig)
+	err := client.SetConfig(c.Context(), "foo", fooConfigYaml, fooConfig)
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -859,7 +858,7 @@ func (s *applicationSuite) TestUnsetApplicationConfig(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UnsetApplicationsConfig", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.UnsetApplicationConfig(context.Background(), "foo", []string{"option"})
+	err := client.UnsetApplicationConfig(c.Context(), "foo", []string{"option"})
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -885,7 +884,7 @@ func (s *applicationSuite) TestResolveUnitErrors(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResolveUnitErrors", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.ResolveUnitErrors(context.Background(), units, false, true)
+	err := client.ResolveUnitErrors(c.Context(), units, false, true)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -897,7 +896,7 @@ func (s *applicationSuite) TestResolveUnitErrorsUnitsAll(c *tc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.ResolveUnitErrors(context.Background(), units, true, false)
+	err := client.ResolveUnitErrors(c.Context(), units, true, false)
 	c.Assert(err, tc.NotNil)
 	c.Assert(err.Error(), tc.Equals, "specifying units with all=true not supported")
 }
@@ -910,7 +909,7 @@ func (s *applicationSuite) TestResolveUnitDuplicate(c *tc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.ResolveUnitErrors(context.Background(), units, false, false)
+	err := client.ResolveUnitErrors(c.Context(), units, false, false)
 	c.Assert(err, tc.NotNil)
 	c.Assert(err.Error(), tc.Equals, "duplicate unit specified")
 }
@@ -923,7 +922,7 @@ func (s *applicationSuite) TestResolveUnitErrorsInvalidUnit(c *tc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.ResolveUnitErrors(context.Background(), units, false, false)
+	err := client.ResolveUnitErrors(c.Context(), units, false, false)
 	c.Assert(err, tc.NotNil)
 	c.Assert(err.Error(), tc.Equals, `unit name "mysql" not valid`)
 }
@@ -943,7 +942,7 @@ func (s *applicationSuite) TestResolveUnitErrorsAll(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResolveUnitErrors", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.ResolveUnitErrors(context.Background(), nil, true, false)
+	err := client.ResolveUnitErrors(c.Context(), nil, true, false)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -965,7 +964,7 @@ func (s *applicationSuite) TestScaleApplication(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.ScaleApplication(context.Background(), application.ScaleApplicationParams{
+	res, err := client.ScaleApplication(c.Context(), application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		Scale:           5,
 		Force:           true,
@@ -994,7 +993,7 @@ func (s *applicationSuite) TestChangeScaleApplication(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	res, err := client.ScaleApplication(context.Background(), application.ScaleApplicationParams{
+	res, err := client.ScaleApplication(c.Context(), application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		ScaleChange:     5,
 	})
@@ -1023,7 +1022,7 @@ func (s *applicationSuite) TestScaleApplicationArity(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.ScaleApplication(context.Background(), application.ScaleApplicationParams{
+	_, err := client.ScaleApplication(c.Context(), application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		Scale:           5,
 	})
@@ -1050,7 +1049,7 @@ func (s *applicationSuite) TestScaleApplicationValidation(c *tc.C) {
 		errorStr:    "scale < 0 not valid",
 	}} {
 		c.Logf("test #%d", i)
-		_, err := client.ScaleApplication(context.Background(), application.ScaleApplicationParams{
+		_, err := client.ScaleApplication(c.Context(), application.ScaleApplicationParams{
 			ApplicationName: "foo",
 			Scale:           test.scale,
 			ScaleChange:     test.scaleChange,
@@ -1077,7 +1076,7 @@ func (s *applicationSuite) TestScaleApplicationError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.ScaleApplication(context.Background(), application.ScaleApplicationParams{
+	_, err := client.ScaleApplication(c.Context(), application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		Scale:           5,
 	})
@@ -1098,7 +1097,7 @@ func (s *applicationSuite) TestScaleApplicationCallError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).SetArg(3, results).Return(errors.New("boom"))
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.ScaleApplication(context.Background(), application.ScaleApplicationParams{
+	_, err := client.ScaleApplication(c.Context(), application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		Scale:           5,
 	})
@@ -1116,7 +1115,7 @@ func (s *applicationSuite) TestApplicationsInfoCallError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationsInfo", args, result).SetArg(3, results).Return(errors.New("boom"))
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.ApplicationsInfo(context.Background(), nil)
+	_, err := client.ApplicationsInfo(c.Context(), nil)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -1152,7 +1151,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.ApplicationsInfo(
-		context.Background(),
+		c.Context(),
 		[]names.ApplicationTag{
 			names.NewApplicationTag("foo"),
 			names.NewApplicationTag("bar"),
@@ -1196,7 +1195,7 @@ func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.ApplicationsInfo(
-		context.Background(),
+		c.Context(),
 		[]names.ApplicationTag{
 			names.NewApplicationTag("foo"),
 			names.NewApplicationTag("bar"),
@@ -1216,7 +1215,7 @@ func (s *applicationSuite) TestUnitsInfoCallError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UnitsInfo", args, result).SetArg(3, results).Return(errors.New("boom"))
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.UnitsInfo(context.Background(), nil)
+	_, err := client.UnitsInfo(c.Context(), nil)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -1263,7 +1262,7 @@ func (s *applicationSuite) TestUnitsInfo(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.UnitsInfo(
-		context.Background(),
+		c.Context(),
 		[]names.UnitTag{
 			names.NewUnitTag("foo/0"),
 			names.NewUnitTag("bar/1"),
@@ -1316,7 +1315,7 @@ func (s *applicationSuite) TestUnitsInfoResultMismatch(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.UnitsInfo(
-		context.Background(),
+		c.Context(),
 		[]names.UnitTag{
 			names.NewUnitTag("foo/0"),
 			names.NewUnitTag("bar/1"),
@@ -1345,7 +1344,7 @@ func (s *applicationSuite) TestExpose(c *tc.C) {
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.Expose(
-		context.Background(),
+		c.Context(),
 		"foo", map[string]params.ExposedEndpoint{
 			"": {
 				ExposeToCIDRs: []string{"0.0.0.0/0"},
@@ -1369,7 +1368,7 @@ func (s *applicationSuite) TestUnexpose(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Unexpose", args, nil).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.Unexpose(context.Background(), "foo", []string{"foo"})
+	err := client.Unexpose(c.Context(), "foo", []string{"foo"})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1384,7 +1383,7 @@ func (s *applicationSuite) TestLeader(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Leader", args, result).SetArg(3, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	obtainedUnit, err := client.Leader(context.Background(), "ubuntu")
+	obtainedUnit, err := client.Leader(c.Context(), "ubuntu")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedUnit, tc.Equals, "ubuntu/42")
 }
@@ -1436,7 +1435,7 @@ func (s *applicationSuite) TestDeployFromRepository(c *tc.C) {
 		Base:            &corebase.Base{OS: "ubuntu", Channel: corebase.Channel{Track: "22.04"}},
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	info, _, errs := client.DeployFromRepository(context.Background(), arg)
+	info, _, errs := client.DeployFromRepository(c.Context(), arg)
 	c.Assert(errs, tc.HasLen, 3)
 	c.Assert(errs[0], tc.ErrorMatches, "one")
 	c.Assert(errs[1], tc.ErrorMatches, "two")

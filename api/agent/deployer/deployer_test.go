@@ -4,7 +4,6 @@
 package deployer_test
 
 import (
-	"context"
 	stdtesting "testing"
 
 	"github.com/juju/names/v6"
@@ -50,7 +49,7 @@ func (s *deployerSuite) TestWatchUnits(c *tc.C) {
 	machineTag := names.NewMachineTag("666")
 	machine, err := client.Machine(machineTag)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = machine.WatchUnits(context.Background())
+	_, err = machine.WatchUnits(c.Context())
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
@@ -74,7 +73,7 @@ func (s *deployerSuite) TestUnit(c *tc.C) {
 
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
-	unit, err := client.Unit(context.Background(), unitTag)
+	unit, err := client.Unit(c.Context(), unitTag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unit.Life(), tc.Equals, life.Alive)
 }
@@ -105,9 +104,9 @@ func (s *deployerSuite) TestUnitLifeRefresh(c *tc.C) {
 
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
-	unit, err := client.Unit(context.Background(), unitTag)
+	unit, err := client.Unit(c.Context(), unitTag)
 	c.Assert(err, tc.ErrorIsNil)
-	err = unit.Refresh(context.Background())
+	err = unit.Refresh(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unit.Life(), tc.Equals, life.Dying)
 	c.Assert(calls, tc.Equals, 2)
@@ -143,9 +142,9 @@ func (s *deployerSuite) TestUnitRemove(c *tc.C) {
 
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
-	unit, err := client.Unit(context.Background(), unitTag)
+	unit, err := client.Unit(c.Context(), unitTag)
 	c.Assert(err, tc.ErrorIsNil)
-	err = unit.Remove(context.Background())
+	err = unit.Remove(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(calls, tc.Equals, 2)
 }
@@ -185,9 +184,9 @@ func (s *deployerSuite) TestUnitSetPassword(c *tc.C) {
 
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
-	unit, err := client.Unit(context.Background(), unitTag)
+	unit, err := client.Unit(c.Context(), unitTag)
 	c.Assert(err, tc.ErrorIsNil)
-	err = unit.SetPassword(context.Background(), "secret")
+	err = unit.SetPassword(c.Context(), "secret")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(calls, tc.Equals, 2)
 }
@@ -226,9 +225,9 @@ func (s *deployerSuite) TestUnitSetStatus(c *tc.C) {
 
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
-	unit, err := client.Unit(context.Background(), unitTag)
+	unit, err := client.Unit(c.Context(), unitTag)
 	c.Assert(err, tc.ErrorIsNil)
-	err = unit.SetStatus(context.Background(), status.Active, "is active", data)
+	err = unit.SetStatus(c.Context(), status.Active, "is active", data)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(calls, tc.Equals, 2)
 }

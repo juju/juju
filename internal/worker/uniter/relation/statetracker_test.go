@@ -220,7 +220,7 @@ func (s *stateTrackerSuite) TestCommitHookOnlyRelationHooks(c *tc.C) {
 		Kind:       hooks.PebbleCustomNotice,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(stdcontext.Background(), info)
+	err = rst.CommitHook(c.Context(), info)
 	c.Assert(err, tc.ErrorMatches, "not a relation hook.*")
 }
 
@@ -237,7 +237,7 @@ func (s *stateTrackerSuite) TestCommitHookNotFound(c *tc.C) {
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(stdcontext.Background(), info)
+	err = rst.CommitHook(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -255,7 +255,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationCreated(c *tc.C) {
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(stdcontext.Background(), info)
+	err = rst.CommitHook(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rst.RelationCreated(1), tc.IsTrue)
 }
@@ -274,7 +274,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationCreatedFail(c *tc.C) {
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(stdcontext.Background(), info)
+	err = rst.CommitHook(c.Context(), info)
 	c.Assert(err, tc.NotNil)
 	c.Assert(rst.RelationCreated(1), tc.IsFalse)
 }
@@ -293,7 +293,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationBroken(c *tc.C) {
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(stdcontext.Background(), info)
+	err = rst.CommitHook(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rst.IsKnown(1), tc.IsFalse)
 }
@@ -312,7 +312,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationBrokenFail(c *tc.C) {
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(stdcontext.Background(), info)
+	err = rst.CommitHook(c.Context(), info)
 	c.Assert(err, tc.NotNil)
 	c.Assert(rst.IsKnown(1), tc.IsTrue)
 }
@@ -361,7 +361,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelations(c *tc.C) {
 	r := s.newStateTracker(c)
 
 	remote := remotestate.Snapshot{}
-	err := r.SynchronizeScopes(stdcontext.Background(), remote)
+	err := r.SynchronizeScopes(c.Context(), remote)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -386,7 +386,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelationsDestroySubordina
 	c.Assert(err, tc.ErrorIsNil)
 
 	remote := remotestate.Snapshot{}
-	err = rst.SynchronizeScopes(stdcontext.Background(), remote)
+	err = rst.SynchronizeScopes(c.Context(), remote)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -429,7 +429,7 @@ func (s *syncScopesSuite) testSynchronizeScopesDying(c *tc.C, implicit bool) rel
 		},
 	}
 
-	err := rst.SynchronizeScopes(stdcontext.Background(), remoteState)
+	err := rst.SynchronizeScopes(c.Context(), remoteState)
 	c.Assert(err, tc.ErrorIsNil)
 	return rst
 }
@@ -467,7 +467,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesSuspendedDying(c *tc.C) {
 		},
 	}
 
-	err := rst.SynchronizeScopes(stdcontext.Background(), remoteState)
+	err := rst.SynchronizeScopes(c.Context(), remoteState)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rst.IsKnown(1), tc.IsFalse)
 }
@@ -516,7 +516,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *tc.C) {
 		},
 	}
 
-	err := rst.SynchronizeScopes(stdcontext.Background(), remoteState)
+	err := rst.SynchronizeScopes(c.Context(), remoteState)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rst.RemoteApplication(1), tc.Equals, "mysql")
 }
@@ -558,7 +558,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *tc.C) {
 		},
 	}
 
-	err := rst.SynchronizeScopes(stdcontext.Background(), remoteState)
+	err := rst.SynchronizeScopes(c.Context(), remoteState)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -608,7 +608,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesIgnoresMissingCharmDir(c *tc.C) {
 		},
 	}
 
-	err = rst.SynchronizeScopes(stdcontext.Background(), remoteState)
+	err = rst.SynchronizeScopes(c.Context(), remoteState)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rst.RemoteApplication(1), tc.Equals, "mysql")
 }
@@ -641,7 +641,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesSeenNotDying(c *tc.C) {
 		},
 	}
 
-	err := rst.SynchronizeScopes(stdcontext.Background(), remoteState)
+	err := rst.SynchronizeScopes(c.Context(), remoteState)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rst.RemoteApplication(1), tc.Equals, "mysql")
 }

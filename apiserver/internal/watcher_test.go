@@ -4,8 +4,6 @@
 package internal_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -33,7 +31,7 @@ func (s *suite) TestFirstResultReturnsChanges(c *tc.C) {
 	changes <- contents
 	s.watcher.EXPECT().Changes().Return(changes)
 
-	res, err := internal.FirstResult[[]string](context.Background(), s.watcher)
+	res, err := internal.FirstResult[[]string](c.Context(), s.watcher)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.SameContents, contents)
 }
@@ -49,7 +47,7 @@ func (s *suite) TestFirstResultWorkerKilled(c *tc.C) {
 	s.watcher.EXPECT().Kill()
 	s.watcher.EXPECT().Wait().Return(tomb.ErrDying)
 
-	res, err := internal.FirstResult[[]string](context.Background(), s.watcher)
+	res, err := internal.FirstResult[[]string](c.Context(), s.watcher)
 	c.Assert(err, tc.ErrorMatches, tomb.ErrDying.Error())
 	c.Assert(res, tc.IsNil)
 }
@@ -65,7 +63,7 @@ func (s *suite) TestFirstResultWatcherStoppedNilErr(c *tc.C) {
 	s.watcher.EXPECT().Kill()
 	s.watcher.EXPECT().Wait().Return(nil)
 
-	res, err := internal.FirstResult[[]string](context.Background(), s.watcher)
+	res, err := internal.FirstResult[[]string](c.Context(), s.watcher)
 	c.Assert(err, tc.ErrorMatches, "expected an error from .* got nil.*")
 	c.Assert(errors.Cause(err), tc.Equals, apiservererrors.ErrStoppedWatcher)
 	c.Assert(res, tc.IsNil)
@@ -81,7 +79,7 @@ func (s *suite) TestEnsureRegisterWatcher(c *tc.C) {
 	s.watcher.EXPECT().Changes().Return(changes)
 	s.watcherRegistry.EXPECT().Register(s.watcher).Return("id", nil)
 
-	id, res, err := internal.EnsureRegisterWatcher[[]string](context.Background(), s.watcherRegistry, s.watcher)
+	id, res, err := internal.EnsureRegisterWatcher[[]string](c.Context(), s.watcherRegistry, s.watcher)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(id, tc.Equals, "id")
 	c.Assert(res, tc.SameContents, contents)
@@ -97,7 +95,7 @@ func (s *suite) TestEnsureRegisterWatcherWithError(c *tc.C) {
 	s.watcher.EXPECT().Changes().Return(changes)
 	s.watcherRegistry.EXPECT().Register(s.watcher).Return("id", errors.New("boom"))
 
-	_, _, err := internal.EnsureRegisterWatcher[[]string](context.Background(), s.watcherRegistry, s.watcher)
+	_, _, err := internal.EnsureRegisterWatcher[[]string](c.Context(), s.watcherRegistry, s.watcher)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 

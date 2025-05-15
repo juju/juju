@@ -4,8 +4,6 @@
 package gate_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -84,7 +82,7 @@ func (*FlagSuite) TestManifoldStartGateMissing(c *tc.C) {
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
 		GateName: "some-gate",
 	})
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
@@ -101,7 +99,7 @@ func (*FlagSuite) TestManifoldStartError(c *tc.C) {
 			return nil, errors.New("gronk")
 		},
 	})
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "gronk")
 }
@@ -117,7 +115,7 @@ func (*FlagSuite) TestManifoldStartSuccess(c *tc.C) {
 			return expect, nil
 		},
 	})
-	worker, err := manifold.Start(context.Background(), getter)
+	worker, err := manifold.Start(c.Context(), getter)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker, tc.Equals, expect)
 }

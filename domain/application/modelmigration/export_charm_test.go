@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -37,7 +35,7 @@ func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 
-	err := exportOp.Execute(context.Background(), model)
+	err := exportOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model.Applications(), tc.HasLen, 1)
 

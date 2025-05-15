@@ -4,8 +4,6 @@
 package authentication_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -41,7 +39,7 @@ func (s *agentAuthenticatorSuite) TestUserLogin(c *tc.C) {
 	authTag := names.NewUserTag("joeblogs")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
-	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag: authTag,
 	})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrBadRequest)
@@ -55,7 +53,7 @@ func (s *agentAuthenticatorSuite) TestUnitLogin(c *tc.C) {
 	authTag := names.NewUnitTag("foo/0")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
-	entity, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
+	entity, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "password",
 	})
@@ -71,7 +69,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *tc.C) {
 	authTag := names.NewUnitTag("foo/0")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
-	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
 	})
@@ -86,7 +84,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *tc.C) {
 	authTag := names.NewUnitTag("foo/0")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
-	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
 	})
@@ -101,7 +99,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *tc.C) {
 	authTag := names.NewUnitTag("foo/0")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
-	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
 	})
@@ -116,7 +114,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginUnitError(c *tc.C) {
 	authTag := names.NewUnitTag("foo/0")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
-	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
 	})

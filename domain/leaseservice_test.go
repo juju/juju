@@ -52,7 +52,7 @@ func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 	service := NewLeaseService(s.modelLeaseManager)
 
 	var called bool
-	err := service.WithLeader(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
+	err := service.WithLeader(c.Context(), "leaseName", "holderName", func(ctx context.Context) error {
 		defer close(done)
 		called = true
 		return ctx.Err()
@@ -75,7 +75,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *tc.C) {
 	service := NewLeaseService(s.modelLeaseManager)
 
 	var called bool
-	err := service.WithLeader(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
+	err := service.WithLeader(c.Context(), "leaseName", "holderName", func(ctx context.Context) error {
 		called = true
 		return ctx.Err()
 	})
@@ -121,7 +121,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *tc.C) {
 	// The lease function should be a long running function.
 
 	var called bool
-	err := service.WithLeader(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
+	err := service.WithLeader(c.Context(), "leaseName", "holderName", func(ctx context.Context) error {
 		called = true
 
 		// Notify to everyone that we're running.
@@ -173,7 +173,7 @@ func (s *leaseServiceSuite) TestWithLeaderFailsOnWaitCheck(c *tc.C) {
 	// The lease function should be a long running function.
 
 	var called bool
-	err := service.WithLeader(context.Background(), "leaseName", "holderName", func(ctx context.Context) error {
+	err := service.WithLeader(c.Context(), "leaseName", "holderName", func(ctx context.Context) error {
 		called = true
 		return nil
 	})

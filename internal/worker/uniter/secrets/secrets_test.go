@@ -4,8 +4,6 @@
 package secrets_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -78,7 +76,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *tc.C) {
 	))})
 
 	tag := names.NewUnitTag("foo/0")
-	tracker, err := secrets.NewSecrets(context.Background(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
+	tracker, err := secrets.NewSecrets(c.Context(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
@@ -86,7 +84,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *tc.C) {
 		SecretURI:      "secret:9m4e2mr0ui3e8a215n4g",
 		SecretRevision: 666,
 	}
-	err = tracker.CommitHook(context.Background(), info)
+	err = tracker.CommitHook(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -120,7 +118,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *tc.C) {
 	))})
 
 	tag := names.NewUnitTag("foo/0")
-	tracker, err := secrets.NewSecrets(context.Background(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
+	tracker, err := secrets.NewSecrets(c.Context(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
@@ -128,7 +126,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *tc.C) {
 		SecretURI:      "secret:9m4e2mr0ui3e8a215n4g",
 		SecretRevision: 666,
 	}
-	err = tracker.CommitHook(context.Background(), info)
+	err = tracker.CommitHook(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -171,9 +169,9 @@ func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *tc.C) {
 	))})
 
 	tag := names.NewUnitTag("foo/0")
-	tracker, err := secrets.NewSecrets(context.Background(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
+	tracker, err := secrets.NewSecrets(c.Context(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = tracker.SecretsRemoved(context.Background(), []string{"secret:666e2mr0ui3e8a215n4g"})
+	err = tracker.SecretsRemoved(c.Context(), []string{"secret:666e2mr0ui3e8a215n4g"})
 	c.Assert(err, tc.ErrorIsNil)
 }

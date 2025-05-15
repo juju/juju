@@ -49,7 +49,7 @@ func (s *storageSuite) TestStorageListEmpty(c *tc.C) {
 	}
 
 	found, err := s.api.ListStorageDetails(
-		context.Background(),
+		c.Context(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -63,7 +63,7 @@ func (s *storageSuite) TestStorageListFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	found, err := s.api.ListStorageDetails(
-		context.Background(),
+		c.Context(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -90,7 +90,7 @@ func (s *storageSuite) TestStorageListVolume(c *tc.C) {
 
 	s.storageInstance.kind = state.StorageKindBlock
 	found, err := s.api.ListStorageDetails(
-		context.Background(),
+		c.Context(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -123,7 +123,7 @@ func (s *storageSuite) TestStorageListError(c *tc.C) {
 	}
 
 	found, err := s.api.ListStorageDetails(
-		context.Background(),
+		c.Context(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -145,7 +145,7 @@ func (s *storageSuite) TestStorageListInstanceError(c *tc.C) {
 	}
 
 	found, err := s.api.ListStorageDetails(
-		context.Background(),
+		c.Context(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -174,7 +174,7 @@ func (s *storageSuite) TestStorageListFilesystemError(c *tc.C) {
 	}
 
 	found, err := s.api.ListStorageDetails(
-		context.Background(),
+		c.Context(),
 		params.StorageFilters{Filters: []params.StorageFilter{{}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -224,7 +224,7 @@ func (s *storageSuite) assertInstanceInfoError(c *tc.C, obtained params.StorageD
 func (s *storageSuite) TestShowStorageEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	found, err := s.api.StorageDetails(context.Background(), params.Entities{})
+	found, err := s.api.StorageDetails(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 0)
 }
@@ -233,7 +233,7 @@ func (s *storageSuite) TestShowStorageInvalidTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Only storage tags are permitted
-	found, err := s.api.StorageDetails(context.Background(), params.Entities{
+	found, err := s.api.StorageDetails(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -247,7 +247,7 @@ func (s *storageSuite) TestShowStorage(c *tc.C) {
 	entity := params.Entity{Tag: s.storageTag.String()}
 
 	found, err := s.api.StorageDetails(
-		context.Background(),
+		c.Context(),
 		params.Entities{Entities: []params.Entity{entity}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -283,7 +283,7 @@ func (s *storageSuite) TestShowStorageInvalidId(c *tc.C) {
 	storageTag := "foo"
 	entity := params.Entity{Tag: storageTag}
 
-	found, err := s.api.StorageDetails(context.Background(), params.Entities{Entities: []params.Entity{entity}})
+	found, err := s.api.StorageDetails(c.Context(), params.Entities{Entities: []params.Entity{entity}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	s.assertInstanceInfoError(c, found.Results[0], params.StorageDetailsResult{}, `"foo" is not a valid tag`)
@@ -295,7 +295,7 @@ func (s *storageSuite) TestRemove(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.RemoveBlock).Return("", blockcommanderrors.NotFound)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	results, err := s.api.Remove(context.Background(), params.RemoveStorage{Storage: []params.RemoveStorageInstance{
+	results, err := s.api.Remove(c.Context(), params.RemoveStorage{Storage: []params.RemoveStorageInstance{
 		{Tag: "storage-foo-0", DestroyStorage: true},
 		{Tag: "storage-foo-1", DestroyAttachments: true, DestroyStorage: true},
 		{Tag: "storage-foo-1", DestroyAttachments: true, DestroyStorage: false},
@@ -328,7 +328,7 @@ func (s *storageSuite) TestDetach(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	results, err := s.api.DetachStorage(
-		context.Background(),
+		c.Context(),
 		params.StorageDetachmentParams{
 			StorageIds: params.StorageAttachmentIds{Ids: []params.StorageAttachmentId{
 				{StorageTag: "storage-data-0", UnitTag: "unit-mysql-0"},
@@ -366,7 +366,7 @@ func (s *storageSuite) TestDetachSpecifiedNotFound(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	results, err := s.api.DetachStorage(
-		context.Background(),
+		c.Context(),
 		params.StorageDetachmentParams{
 			StorageIds: params.StorageAttachmentIds{Ids: []params.StorageAttachmentId{
 				{StorageTag: "storage-data-0", UnitTag: "unit-foo-42"},
@@ -410,7 +410,7 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *tc.C) {
 		)
 	}
 	results, err := s.api.DetachStorage(
-		context.Background(),
+		c.Context(),
 		params.StorageDetachmentParams{
 			StorageIds: params.StorageAttachmentIds{Ids: []params.StorageAttachmentId{
 				{StorageTag: "storage-data-0"},
@@ -434,7 +434,7 @@ func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
 	results, err := s.api.DetachStorage(
-		context.Background(),
+		c.Context(),
 		params.StorageDetachmentParams{
 			StorageIds: params.StorageAttachmentIds{Ids: []params.StorageAttachmentId{
 				{StorageTag: "storage-foo-42"},
@@ -458,7 +458,7 @@ func (s *storageSuite) TestAttach(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	results, err := s.api.Attach(context.Background(), params.StorageAttachmentIds{Ids: []params.StorageAttachmentId{
+	results, err := s.api.Attach(c.Context(), params.StorageAttachmentIds{Ids: []params.StorageAttachmentId{
 		{StorageTag: "storage-data-0", UnitTag: "unit-mysql-0"},
 		{StorageTag: "storage-data-0", UnitTag: "machine-0"},
 		{StorageTag: "volume-0", UnitTag: "unit-mysql-0"},
@@ -494,7 +494,7 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
+	results, err := s.api.Import(c.Context(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -549,7 +549,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
+	results, err := s.api.Import(c.Context(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -606,7 +606,7 @@ func (s *storageSuite) TestImportFilesystemError(c *tc.C) {
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
 	filesystemSource.SetErrors(errors.New("nope"))
-	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
+	results, err := s.api.Import(c.Context(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -639,7 +639,7 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *tc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
+	results, err := s.api.Import(c.Context(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -678,7 +678,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
+	results, err := s.api.Import(c.Context(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -700,7 +700,7 @@ func (s *storageSuite) TestImportValidationErrors(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
 
-	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
+	results, err := s.api.Import(c.Context(), params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
 		Kind:        params.StorageKindBlock,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -733,7 +733,7 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *tc.C) {
 		s.authorizer, s.blockCommandService)
 
 	// ListStorageDetails should not fail
-	_, err := s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
+	_, err := s.api.ListStorageDetails(c.Context(), params.StorageFilters{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -752,7 +752,7 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *tc.C) {
 		s.authorizer, s.blockCommandService)
 
 	// ListStorageDetails should fail with perm error
-	_, err := s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
+	_, err := s.api.ListStorageDetails(c.Context(), params.StorageFilters{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 

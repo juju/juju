@@ -4,7 +4,6 @@
 package dummy_test
 
 import (
-	"context"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -61,7 +60,7 @@ func (s *suite) TearDownTest(c *tc.C) {
 func (s *suite) bootstrapTestEnviron(c *tc.C) environs.NetworkingEnviron {
 	e, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(context.Background(), c),
+		envtesting.BootstrapContext(c.Context(), c),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
@@ -77,7 +76,7 @@ func (s *suite) bootstrapTestEnviron(c *tc.C) environs.NetworkingEnviron {
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, tc.IsTrue)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(context.Background(), c), netenv,
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c.Context(), c), netenv,
 		bootstrap.BootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			Cloud: cloud.Cloud{
@@ -96,7 +95,7 @@ func (s *suite) bootstrapTestEnviron(c *tc.C) environs.NetworkingEnviron {
 func (s *suite) TestAvailabilityZone(c *tc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy(context.Background())
+		err := e.Destroy(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 	}()
 
@@ -108,7 +107,7 @@ func (s *suite) TestAvailabilityZone(c *tc.C) {
 func (s *suite) TestSupportsSpaces(c *tc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy(context.Background())
+		err := e.Destroy(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 	}()
 
@@ -135,7 +134,7 @@ func (s *suite) TestSupportsSpaces(c *tc.C) {
 func (s *suite) TestSupportsSpaceDiscovery(c *tc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy(context.Background())
+		err := e.Destroy(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 	}()
 

@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -33,7 +31,7 @@ func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
 	s.state.EXPECT().GetAllUnitPasswordHashes(gomock.Any()).Return(hashes, nil)
 
 	service := NewMigrationService(s.state)
-	result, err := service.GetAllUnitPasswordHashes(context.Background())
+	result, err := service.GetAllUnitPasswordHashes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, hashes)
 }
@@ -48,7 +46,7 @@ func (s *migrationServiceSuite) TestGetAllUnitPasswordHashesError(c *tc.C) {
 	s.state.EXPECT().GetAllUnitPasswordHashes(gomock.Any()).Return(hashes, errors.Errorf("boom"))
 
 	service := NewMigrationService(s.state)
-	_, err := service.GetAllUnitPasswordHashes(context.Background())
+	_, err := service.GetAllUnitPasswordHashes(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -67,7 +65,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHash(c *tc.C) {
 	s.state.EXPECT().SetUnitPasswordHash(gomock.Any(), unitUUID, passwordHash).Return(nil)
 
 	service := NewMigrationService(s.state)
-	err = service.SetUnitPasswordHash(context.Background(), unitName, passwordHash)
+	err = service.SetUnitPasswordHash(c.Context(), unitName, passwordHash)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -85,7 +83,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *tc.C) {
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, agentpassworderrors.UnitNotFound)
 
 	service := NewMigrationService(s.state)
-	err = service.SetUnitPasswordHash(context.Background(), unitName, passwordHash)
+	err = service.SetUnitPasswordHash(c.Context(), unitName, passwordHash)
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
@@ -104,7 +102,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashSettingError(c *tc.C) {
 	s.state.EXPECT().SetUnitPasswordHash(gomock.Any(), unitUUID, passwordHash).Return(errors.Errorf("boom"))
 
 	service := NewMigrationService(s.state)
-	err = service.SetUnitPasswordHash(context.Background(), unitName, passwordHash)
+	err = service.SetUnitPasswordHash(c.Context(), unitName, passwordHash)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 

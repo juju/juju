@@ -86,7 +86,7 @@ func checkNotValid(c *tc.C, config credentialvalidator.Config, expect string) {
 	err := config.Validate()
 	check(err)
 
-	worker, err := credentialvalidator.NewWorker(context.Background(), config)
+	worker, err := credentialvalidator.NewWorker(c.Context(), config)
 	c.Check(worker, tc.IsNil)
 	check(err)
 }

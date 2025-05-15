@@ -66,7 +66,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *tc.C) {
 	api, err := NewAgentToolsAPI(nil, getDummyEnviron, fakeToolFinder, nil, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedVer, err := api.checkToolsAvailability(context.Background())
+	obtainedVer, err := api.checkToolsAvailability(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedVer, tc.Equals, expVer)
 }
@@ -107,7 +107,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *tc.C) {
 	api, err := NewAgentToolsAPI(nil, getDummyEnviron, fakeToolFinder, nil, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedVer, err := api.checkToolsAvailability(context.Background())
+	obtainedVer, err := api.checkToolsAvailability(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(calledWithStreams, tc.DeepEquals, [][]string{{"proposed", "released"}})
 	c.Assert(obtainedVer, tc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 0})
@@ -146,7 +146,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *tc.C) {
 	api, err := NewAgentToolsAPI(&mockState{}, getDummyEnviron, fakeToolFinder, fakeUpdate, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = api.updateToolsAvailability(context.Background())
+	err = api.updateToolsAvailability(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ver, tc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 2})
 }
@@ -175,7 +175,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *tc.C) {
 	api, err := NewAgentToolsAPI(&mockState{}, getDummyEnviron, fakeToolFinder, fakeUpdate, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = api.updateToolsAvailability(context.Background())
+	err = api.updateToolsAvailability(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -4,8 +4,6 @@
 package secretspruner_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -89,7 +87,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		return nil, nil
 	}
 	manifold := secretspruner.Manifold(s.config)
-	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
 	}))
 	c.Assert(w, tc.IsNil)

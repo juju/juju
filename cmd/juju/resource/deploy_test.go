@@ -53,7 +53,7 @@ func (s *DeploySuite) TestDeployResourcesWithoutFiles(c *tc.C) {
 		},
 	}
 
-	ids, err := DeployResources(context.Background(), DeployResourcesArgs{
+	ids, err := DeployResources(c.Context(), DeployResourcesArgs{
 		ApplicationID:  "mysql",
 		CharmID:        chID,
 		ResourceValues: nil,
@@ -108,7 +108,7 @@ func (s *DeploySuite) TestUploadFilesOnly(c *tc.C) {
 		"upload": "foobar.txt",
 	}
 	revisions := map[string]int{}
-	ids, err := du.upload(context.Background(), files, revisions)
+	ids, err := du.upload(c.Context(), files, revisions)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ids, tc.DeepEquals, map[string]string{
 		"upload": "id-upload",
@@ -167,7 +167,7 @@ func (s *DeploySuite) TestUploadRevisionsOnly(c *tc.C) {
 	revisions := map[string]int{
 		"store": 3,
 	}
-	ids, err := du.upload(context.Background(), files, revisions)
+	ids, err := du.upload(c.Context(), files, revisions)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ids, tc.DeepEquals, map[string]string{
 		"upload": "id-upload",
@@ -218,7 +218,7 @@ func (s *DeploySuite) TestUploadFilesAndRevisions(c *tc.C) {
 	revisions := map[string]int{
 		"store": 3,
 	}
-	ids, err := du.upload(context.Background(), files, revisions)
+	ids, err := du.upload(c.Context(), files, revisions)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ids, tc.DeepEquals, map[string]string{
 		"upload": "id-upload",
@@ -265,7 +265,7 @@ func (s *DeploySuite) TestUploadUnexpectedResourceFile(c *tc.C) {
 
 	files := map[string]string{"some bad resource": "foobar.txt"}
 	revisions := map[string]int{}
-	_, err := du.upload(context.Background(), files, revisions)
+	_, err := du.upload(c.Context(), files, revisions)
 	c.Check(err, tc.ErrorMatches, `unrecognized resource "some bad resource"`)
 
 	s.stub.CheckNoCalls(c)
@@ -288,7 +288,7 @@ func (s *DeploySuite) TestUploadUnexpectedResourceRevision(c *tc.C) {
 
 	files := map[string]string{}
 	revisions := map[string]int{"some bad resource": 2}
-	_, err := du.upload(context.Background(), files, revisions)
+	_, err := du.upload(c.Context(), files, revisions)
 	c.Check(err, tc.ErrorMatches, `unrecognized resource "some bad resource"`)
 
 	s.stub.CheckNoCalls(c)
@@ -314,7 +314,7 @@ func (s *DeploySuite) TestMissingResource(c *tc.C) {
 
 	files := map[string]string{"res1": "foobar.txt"}
 	revisions := map[string]int{}
-	_, err := du.upload(context.Background(), files, revisions)
+	_, err := du.upload(c.Context(), files, revisions)
 	c.Check(err, tc.ErrorMatches, `file for resource "res1".*`)
 	c.Check(errors.Cause(err), tc.Satisfies, os.IsNotExist)
 }
@@ -429,7 +429,7 @@ password: 'hunter2',,
 			resources:     resourceMeta,
 			filesystem:    deps,
 		}
-		ids, err := du.upload(context.Background(), passedResourceValues, map[string]int{})
+		ids, err := du.upload(c.Context(), passedResourceValues, map[string]int{})
 		if t.uploadError != "" {
 			c.Assert(err, tc.ErrorMatches, t.uploadError)
 			continue

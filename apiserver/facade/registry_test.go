@@ -32,7 +32,7 @@ func (s *RegistrySuite) TestRegister(c *tc.C) {
 
 	factory, err := registry.GetFactory("myfacade", 123)
 	c.Assert(err, tc.ErrorIsNil)
-	val, err := factory(context.Background(), nil)
+	val, err := factory(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(val, tc.Equals, "myobject")
 }
@@ -44,7 +44,7 @@ func (s *RegistrySuite) TestRegisterForMultiModel(c *tc.C) {
 
 	factory, err := registry.GetFactory("myfacade", 123)
 	c.Assert(err, tc.ErrorIsNil)
-	val, err := factory(context.Background(), nil)
+	val, err := factory(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(val, tc.Equals, "myobject")
 }
@@ -61,13 +61,13 @@ func (s *RegistrySuite) TestListDetails(c *tc.C) {
 	c.Assert(details, tc.HasLen, 2)
 	c.Assert(details[0].Name, tc.Equals, "f1")
 	c.Assert(details[0].Version, tc.Equals, 9)
-	v, _ := details[0].Factory(context.Background(), nil)
+	v, _ := details[0].Factory(c.Context(), nil)
 	c.Assert(v, tc.FitsTypeOf, new(int))
 	c.Assert(details[0].Type, tc.Equals, intPtrType)
 
 	c.Assert(details[1].Name, tc.Equals, "f2")
 	c.Assert(details[1].Version, tc.Equals, 6)
-	v, _ = details[1].Factory(context.Background(), nil)
+	v, _ = details[1].Factory(c.Context(), nil)
 	c.Assert(v, tc.Equals, "myobject")
 	c.Assert(details[1].Type, tc.Equals, interfaceType)
 }
@@ -137,7 +137,7 @@ func (*RegistrySuite) TestRegisterAlreadyPresent(c *tc.C) {
 	factory, err := registry.GetFactory("name", 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(factory, tc.NotNil)
-	val, err := factory(context.Background(), nil)
+	val, err := factory(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	asIntPtr := val.(*int)
 	c.Check(*asIntPtr, tc.Equals, 100)
@@ -150,7 +150,7 @@ func (*RegistrySuite) TestGetFactory(c *tc.C) {
 	factory, err := registry.GetFactory("name", 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(factory, tc.NotNil)
-	res, err := factory(context.Background(), nil)
+	res, err := factory(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.NotNil)
 	asIntPtr := res.(*int)

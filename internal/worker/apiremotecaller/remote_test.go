@@ -39,7 +39,7 @@ func (s *RemoteSuite) TestNotConnectedConnection(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	ctx, cancel := context.WithTimeout(context.Background(), testhelpers.ShortWait)
+	ctx, cancel := context.WithTimeout(c.Context(), testhelpers.ShortWait)
 	defer cancel()
 
 	var called bool
@@ -81,7 +81,7 @@ func (s *RemoteSuite) TestConnect(c *tc.C) {
 	s.ensureChanged(c)
 
 	var conn api.Connection
-	err := w.Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+	err := w.Connection(c.Context(), func(ctx context.Context, c api.Connection) error {
 		conn = c
 		return nil
 	})
@@ -104,7 +104,7 @@ func (s *RemoteSuite) TestConnectWhenAlreadyContextCancelled(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	var called bool
@@ -132,7 +132,7 @@ func (s *RemoteSuite) TestConnectWhenAlreadyKilled(c *tc.C) {
 	workertest.CleanKill(c, w)
 
 	var called bool
-	err := w.Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+	err := w.Connection(c.Context(), func(ctx context.Context, c api.Connection) error {
 		called = true
 		return nil
 	})
@@ -146,7 +146,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 	// This test ensures that when the first connection is cancelled, the second
 	// connection is not stalled.
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	s.apiConnectHandler = func(ctx context.Context) error {
@@ -203,7 +203,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 
 		wg.Done()
 
-		err := w.Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+		err := w.Connection(c.Context(), func(ctx context.Context, c api.Connection) error {
 			return nil
 		})
 		select {
@@ -301,7 +301,7 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *tc.C) {
 	s.ensureChanged(c)
 
 	var conn api.Connection
-	err := w.Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+	err := w.Connection(c.Context(), func(ctx context.Context, c api.Connection) error {
 		conn = c
 		return nil
 	})

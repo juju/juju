@@ -4,8 +4,6 @@
 package model_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -28,7 +26,7 @@ func (r *PermissionSuite) TestHasModelAdminSuperUser(c *tc.C) {
 	auth := mocks.NewMockAuthorizer(ctrl)
 	auth.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil)
 
-	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
+	has, err := model.HasModelAdmin(c.Context(), auth, testing.ControllerTag, testing.ModelTag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(has, tc.IsTrue)
 }
@@ -41,7 +39,7 @@ func (r *PermissionSuite) TestHasModelAdminYes(c *tc.C) {
 	auth.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
 	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(nil)
 
-	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
+	has, err := model.HasModelAdmin(c.Context(), auth, testing.ControllerTag, testing.ModelTag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(has, tc.IsTrue)
 }
@@ -54,7 +52,7 @@ func (r *PermissionSuite) TestHasModelAdminNo(c *tc.C) {
 	auth.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
 	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(authentication.ErrorEntityMissingPermission)
 
-	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
+	has, err := model.HasModelAdmin(c.Context(), auth, testing.ControllerTag, testing.ModelTag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(has, tc.IsFalse)
 }
@@ -68,7 +66,7 @@ func (r *PermissionSuite) TestHasModelAdminError(c *tc.C) {
 	someError := errors.New("error")
 	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(someError)
 
-	has, err := model.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
+	has, err := model.HasModelAdmin(c.Context(), auth, testing.ControllerTag, testing.ModelTag)
 	c.Assert(err, tc.ErrorIs, someError)
 	c.Assert(has, tc.IsFalse)
 }

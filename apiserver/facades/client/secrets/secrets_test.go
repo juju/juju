@@ -140,7 +140,7 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 		)
 	}
 
-	results, err := facade.ListSecrets(context.Background(), params.ListSecretsArgs{ShowSecrets: reveal})
+	results, err := facade.ListSecrets(c.Context(), params.ListSecretsArgs{ShowSecrets: reveal})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
@@ -187,7 +187,7 @@ func (s *SecretsSuite) TestListSecretsPermissionDenied(c *tc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = facade.ListSecrets(context.Background(), params.ListSecretsArgs{})
+	_, err = facade.ListSecrets(c.Context(), params.ListSecretsArgs{})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -203,7 +203,7 @@ func (s *SecretsSuite) TestListSecretsPermissionDeniedShow(c *tc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = facade.ListSecrets(context.Background(), params.ListSecretsArgs{ShowSecrets: true})
+	_, err = facade.ListSecrets(c.Context(), params.ListSecretsArgs{ShowSecrets: true})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -217,7 +217,7 @@ func (s *SecretsSuite) TestCreateSecretsPermissionDenied(c *tc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = facade.CreateSecrets(context.Background(), params.CreateSecretArgs{})
+	_, err = facade.CreateSecrets(c.Context(), params.CreateSecretArgs{})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -233,7 +233,7 @@ func (s *SecretsSuite) TestCreateSecretsEmptyData(c *tc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.CreateSecrets(context.Background(), params.CreateSecretArgs{
+	result, err := facade.CreateSecrets(c.Context(), params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{
 			{
 				OwnerTag: coretesting.ModelTag.Id(),
@@ -265,7 +265,7 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.CreateSecrets(context.Background(), params.CreateSecretArgs{
+	result, err := facade.CreateSecrets(c.Context(), params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{
 			{
 				OwnerTag: coretesting.ModelTag.Id(),
@@ -312,7 +312,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *tc.C, uri *coresecrets.URI) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.UpdateSecrets(context.Background(), params.UpdateUserSecretArgs{
+	result, err := facade.UpdateSecrets(c.Context(), params.UpdateUserSecretArgs{
 		Args: []params.UpdateUserSecretArg{
 			{
 				AutoPrune:     ptr(true),
@@ -354,7 +354,7 @@ func (s *SecretsSuite) TestRemoveSecrets(c *tc.C) {
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
-	results, err := facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
+	results, err := facade.RemoveSecrets(c.Context(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
@@ -376,7 +376,7 @@ func (s *SecretsSuite) TestRemoveSecretsFailedNotModelAdmin(c *tc.C) {
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
+	_, err = facade.RemoveSecrets(c.Context(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
@@ -399,7 +399,7 @@ func (s *SecretsSuite) TestRemoveSecretRevision(c *tc.C) {
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
-	results, err := facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
+	results, err := facade.RemoveSecrets(c.Context(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
@@ -425,7 +425,7 @@ func (s *SecretsSuite) TestRemoveSecretNotFound(c *tc.C) {
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
-	results, err := facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
+	results, err := facade.RemoveSecrets(c.Context(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
@@ -468,7 +468,7 @@ func (s *SecretsSuite) TestGrantSecret(c *tc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.GrantSecret(context.Background(), params.GrantRevokeUserSecretArg{
+	result, err := facade.GrantSecret(c.Context(), params.GrantRevokeUserSecretArg{
 		URI: uri.String(),
 		Applications: []string{
 			"gitlab", "mysql",
@@ -512,7 +512,7 @@ func (s *SecretsSuite) TestGrantSecretByName(c *tc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.GrantSecret(context.Background(), params.GrantRevokeUserSecretArg{
+	result, err := facade.GrantSecret(c.Context(), params.GrantRevokeUserSecretArg{
 		Label: "my-secret",
 		Applications: []string{
 			"gitlab", "mysql",
@@ -533,7 +533,7 @@ func (s *SecretsSuite) TestGrantSecretPermissionDenied(c *tc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = facade.GrantSecret(context.Background(), params.GrantRevokeUserSecretArg{Label: "my-secret"})
+	_, err = facade.GrantSecret(c.Context(), params.GrantRevokeUserSecretArg{Label: "my-secret"})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
@@ -570,7 +570,7 @@ func (s *SecretsSuite) TestRevokeSecret(c *tc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := facade.RevokeSecret(context.Background(), params.GrantRevokeUserSecretArg{
+	result, err := facade.RevokeSecret(c.Context(), params.GrantRevokeUserSecretArg{
 		URI: uri.String(),
 		Applications: []string{
 			"gitlab", "mysql",
@@ -591,6 +591,6 @@ func (s *SecretsSuite) TestRevokeSecretPermissionDenied(c *tc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = facade.RevokeSecret(context.Background(), params.GrantRevokeUserSecretArg{Label: "my-secret"})
+	_, err = facade.RevokeSecret(c.Context(), params.GrantRevokeUserSecretArg{Label: "my-secret"})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

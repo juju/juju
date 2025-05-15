@@ -552,7 +552,7 @@ func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *tc.C) bootstrap
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
 	// test provider constraints only has amd64 and arm64 as supported architectures
-	consBefore, err := env.ConstraintsValidator(context.Background())
+	consBefore, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	desiredArch := constraints.MustParse("arch=s390x")
 	unsupported, err := consBefore.Validate(desiredArch)
@@ -600,7 +600,7 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *tc.C) bootstrapEn
 	}
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
-	consBefore, err := env.ConstraintsValidator(context.Background())
+	consBefore, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	// test provider constraints only has amd64 and arm64 as supported architectures
 	desiredArch := constraints.MustParse("arch=s390x")
@@ -929,10 +929,10 @@ func (s *bootstrapSuite) TestBootstrapToolsVersion(c *tc.C) {
 		c.Logf("test %d: %+v", i, t)
 		cfg, err := env.Config().Remove([]string{"agent-version"})
 		c.Assert(err, tc.ErrorIsNil)
-		err = env.SetConfig(context.Background(), cfg)
+		err = env.SetConfig(c.Context(), cfg)
 		c.Assert(err, tc.ErrorIsNil)
 		s.PatchValue(&jujuversion.Current, t.currentVersion)
-		tools, err := bootstrap.GetBootstrapToolsVersion(context.Background(), availableTools)
+		tools, err := bootstrap.GetBootstrapToolsVersion(c.Context(), availableTools)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(tools, tc.Not(tc.HasLen), 0)
 		toolsVersion, _ := tools.Newest()
@@ -944,7 +944,7 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmLocal(c *tc.C) {
 	path := testcharms.RepoForSeries("quantal").CharmDir("juju-controller").Path
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
-	err := bootstrap.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), env,
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
 		bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
@@ -961,7 +961,7 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *tc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	ch := charm.Channel{Track: "3.0", Risk: "beta"}
-	err := bootstrap.Bootstrap(environscmd.BootstrapContext(context.Background(), ctx), env,
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
 		bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
@@ -999,7 +999,7 @@ func createImageMetadataForArch(c *tc.C, arch string) (dir string, _ []*imagemet
 	c.Assert(err, tc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	base := corebase.MustParseBaseFromString("ubuntu@22.04")
-	err = imagemetadata.MergeAndWriteMetadata(context.Background(), ss, base, im, cloudSpec, sourceStor)
+	err = imagemetadata.MergeAndWriteMetadata(c.Context(), ss, base, im, cloudSpec, sourceStor)
 	c.Assert(err, tc.ErrorIsNil)
 	return sourceDir, im
 }
@@ -1292,7 +1292,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *tc.C, clientMajor, cli
 		stream = "devel"
 		currentVersion.Tag = toolsVersion.Tag
 	}
-	_, err := envtesting.UploadFakeToolsVersions(env.storage, stream, toolsBinaries...)
+	_, err := envtesting.UploadFakeToolsVersions(c, env.storage, stream, toolsBinaries...)
 	c.Assert(err, tc.ErrorIsNil)
 
 	env.checkToolsFunc = func(t tools.List) {
@@ -1643,7 +1643,7 @@ func (e bootstrapEnvironWithHardwareDetection) UpdateModelConstraints() bool {
 
 func bootstrapContext(c *tc.C) (environs.BootstrapContext, *simplestreams.Simplestreams) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	ctx := context.WithValue(context.Background(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	ctx := context.WithValue(c.Context(), bootstrap.SimplestreamsFetcherContextKey, ss)
 	return envtesting.BootstrapContext(ctx, c), ss
 }
 
@@ -1660,16 +1660,16 @@ func (s *BootstrapContextSuite) TestContextDone(c *tc.C) {
 		done bool
 	}{{
 		name: "todo context",
-		ctx:  context.Background(),
+		ctx:  c.Context(),
 		done: false,
 	}, {
 		name: "background context",
-		ctx:  context.Background(),
+		ctx:  c.Context(),
 		done: false,
 	}, {
 		name: "cancel context",
 		ctx: func() context.Context {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(c.Context())
 			cancel()
 
 			return ctx
@@ -1678,7 +1678,7 @@ func (s *BootstrapContextSuite) TestContextDone(c *tc.C) {
 	}, {
 		name: "timeout context",
 		ctx: func() context.Context {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
+			ctx, cancel := context.WithTimeout(c.Context(), time.Nanosecond)
 			time.Sleep(time.Millisecond)
 			// Cancel is called here to not leak the context. In reality it
 			// will still be trapped as "context deadline exceeded"

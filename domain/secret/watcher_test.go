@@ -46,7 +46,7 @@ var _ = tc.Suite(&watcherSuite{})
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 VALUES (?, ?, "test", "iaas", "fluffy", "ec2")
@@ -60,7 +60,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	uri1 := coresecrets.NewURI()
@@ -153,7 +153,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	uri1 := coresecrets.NewURI()
@@ -216,7 +216,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	uri1 := coresecrets.NewURI()
@@ -280,7 +280,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppOwnedSecretDeletion(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	uri1 := coresecrets.NewURI()
@@ -332,7 +332,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwnedSecretDeletion(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	uri1 := coresecrets.NewURI()
@@ -382,7 +382,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwnedSecretDeletion(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	data := coresecrets.SecretData{"foo": "bar", "hello": "world"}
@@ -429,7 +429,7 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		err = st.RunAtomic(c.Context(), func(ctx domain.AtomicContext) error {
 			return st.UpdateSecret(ctx, uri1, secret.UpsertSecretParams{
 				AutoPrune: ptr(true),
 			})
@@ -459,7 +459,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
@@ -556,7 +556,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	s.setupUnits(c, "mediawiki")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
@@ -644,7 +644,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
@@ -747,13 +747,13 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 
-	w, err := svc.WatchSecretsRotationChanges(context.Background(),
+	w, err := svc.WatchSecretsRotationChanges(c.Context(),
 		service.CharmSecretOwner{
 			Kind: service.ApplicationOwner,
 			ID:   "mysql",
@@ -811,7 +811,7 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	harness.Run(c, []corewatcher.SecretTriggerChange(nil))
 
 	// Pretend that the agent restarted and the watcher is re-created.
-	w1, err := svc.WatchSecretsRotationChanges(context.Background(),
+	w1, err := svc.WatchSecretsRotationChanges(c.Context(),
 		service.CharmSecretOwner{
 			Kind: service.ApplicationOwner,
 			ID:   "mysql",
@@ -855,14 +855,14 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
 
-	ctx := context.Background()
+	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
 
-	w, err := svc.WatchSecretRevisionsExpiryChanges(context.Background(),
+	w, err := svc.WatchSecretRevisionsExpiryChanges(c.Context(),
 		service.CharmSecretOwner{
 			Kind: service.ApplicationOwner,
 			ID:   "mysql",
@@ -896,7 +896,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 		})
 		c.Assert(err, tc.ErrorIsNil)
 
-		err = st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		err = st.RunAtomic(c.Context(), func(ctx domain.AtomicContext) error {
 			return st.UpdateSecret(ctx, uri2, secret.UpsertSecretParams{
 				Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 				ExpireTime: ptr(now.Add(2 * time.Hour)),
@@ -924,7 +924,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	harness.Run(c, []corewatcher.SecretTriggerChange(nil))
 
 	// Pretend that the agent restarted and the watcher is re-created.
-	w1, err := svc.WatchSecretRevisionsExpiryChanges(context.Background(),
+	w1, err := svc.WatchSecretRevisionsExpiryChanges(c.Context(),
 		service.CharmSecretOwner{
 			Kind: service.ApplicationOwner,
 			ID:   "mysql",
@@ -985,7 +985,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 		logger,
 	)
 
-	_, err := svc.CreateApplication(context.Background(),
+	_, err := svc.CreateApplication(c.Context(),
 		appName,
 		&stubCharm{},
 		corecharm.Origin{
@@ -1029,7 +1029,7 @@ func createNewRevision(c *tc.C, st *state.State, uri *coresecrets.URI) {
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 		RevisionID: ptr(uuid.MustNewUUID().String()),
 	}
-	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+	err := st.RunAtomic(c.Context(), func(ctx domain.AtomicContext) error {
 		return st.UpdateSecret(ctx, uri, sp)
 	})
 	c.Assert(err, tc.ErrorIsNil)

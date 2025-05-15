@@ -4,7 +4,6 @@
 package testing
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"path"
@@ -50,7 +49,7 @@ func ParseIndexMetadataFromStorage(c *tc.C, stor storage.StorageReader) (*simple
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	indexRef, err := ss.GetIndexWithFormat(
-		context.Background(),
+		c.Context(),
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(indexRef.Indexes, tc.HasLen, 1)

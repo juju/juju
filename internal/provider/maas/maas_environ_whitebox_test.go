@@ -4,7 +4,6 @@
 package maas
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"math/rand"
@@ -82,7 +81,7 @@ func (suite *maasEnvironSuite) getEnvWithServer(c *tc.C) (*maasEnviron, error) {
 	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, tc.ErrorIsNil)
-	return NewEnviron(context.Background(), cloud, cfg, suite.credentialInvalidator, nil)
+	return NewEnviron(c.Context(), cloud, cfg, suite.credentialInvalidator, nil)
 }
 
 func (suite *maasEnvironSuite) TestNewEnvironWithController(c *tc.C) {
@@ -145,7 +144,7 @@ func (suite *maasEnvironSuite) TestAllRunningInstances(c *tc.C) {
 	env := suite.makeEnvironWithMachines(
 		c, []string{}, []string{"tuco", "tio", "gus"},
 	)
-	result, err := env.AllRunningInstances(context.Background())
+	result, err := env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	expectedMachines := set.NewStrings("tuco", "tio", "gus")
 	actualMachines := set.NewStrings()
@@ -158,7 +157,7 @@ func (suite *maasEnvironSuite) TestAllRunningInstances(c *tc.C) {
 func (suite *maasEnvironSuite) TestAllRunningInstancesError(c *tc.C) {
 	controller := &fakeController{machinesError: errors.New("Something terrible!")}
 	env := suite.makeEnviron(c, controller)
-	_, err := env.AllRunningInstances(context.Background())
+	_, err := env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorMatches, "Something terrible!")
 }
 
@@ -166,7 +165,7 @@ func (suite *maasEnvironSuite) TestInstances(c *tc.C) {
 	env := suite.makeEnvironWithMachines(
 		c, []string{"jake", "bonnibel"}, []string{"jake", "bonnibel"},
 	)
-	result, err := env.Instances(context.Background(), []instance.Id{"jake", "bonnibel"})
+	result, err := env.Instances(c.Context(), []instance.Id{"jake", "bonnibel"})
 	c.Assert(err, tc.ErrorIsNil)
 	expectedMachines := set.NewStrings("jake", "bonnibel")
 	actualMachines := set.NewStrings()
@@ -182,7 +181,7 @@ func (suite *maasEnvironSuite) TestInstancesInvalidCredential(c *tc.C) {
 	}
 	env := suite.makeEnviron(c, controller)
 	c.Assert(suite.invalidCredential, tc.IsFalse)
-	_, err := env.Instances(context.Background(), []instance.Id{"jake", "bonnibel"})
+	_, err := env.Instances(c.Context(), []instance.Id{"jake", "bonnibel"})
 	c.Assert(err, tc.NotNil)
 	c.Assert(suite.invalidCredential, tc.IsTrue)
 }
@@ -191,7 +190,7 @@ func (suite *maasEnvironSuite) TestInstancesPartialResult(c *tc.C) {
 	env := suite.makeEnvironWithMachines(
 		c, []string{"jake", "bonnibel"}, []string{"tuco", "bonnibel"},
 	)
-	result, err := env.Instances(context.Background(), []instance.Id{"jake", "bonnibel"})
+	result, err := env.Instances(c.Context(), []instance.Id{"jake", "bonnibel"})
 	c.Check(err, tc.Equals, environs.ErrPartialInstances)
 	c.Assert(result, tc.HasLen, 2)
 	c.Assert(result[0], tc.IsNil)
@@ -200,7 +199,7 @@ func (suite *maasEnvironSuite) TestInstancesPartialResult(c *tc.C) {
 
 func (suite *maasEnvironSuite) TestAvailabilityZones(c *tc.C) {
 	env := suite.makeEnviron(c, newFakeController())
-	result, err := env.AvailabilityZones(context.Background())
+	result, err := env.AvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	expectedZones := set.NewStrings("mossack", "fonseca")
 	actualZones := set.NewStrings()
@@ -215,7 +214,7 @@ func (suite *maasEnvironSuite) TestAvailabilityZonesError(c *tc.C) {
 		zonesError: errors.New("a bad thing"),
 	}
 	env := suite.makeEnviron(c, controller)
-	_, err := env.AvailabilityZones(context.Background())
+	_, err := env.AvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorMatches, "a bad thing")
 }
 
@@ -225,7 +224,7 @@ func (suite *maasEnvironSuite) TestAvailabilityZonesInvalidCredential(c *tc.C) {
 	}
 	env := suite.makeEnviron(c, controller)
 	c.Assert(suite.invalidCredential, tc.IsFalse)
-	_, err := env.AvailabilityZones(context.Background())
+	_, err := env.AvailabilityZones(c.Context())
 	c.Assert(err, tc.NotNil)
 	c.Assert(suite.invalidCredential, tc.IsTrue)
 }
@@ -248,7 +247,7 @@ func (suite *maasEnvironSuite) TestSpaces(c *tc.C) {
 	}
 
 	env := suite.makeEnviron(c, controller)
-	result, err := env.Spaces(context.Background())
+	result, err := env.Spaces(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Check(result[0].Name, tc.Equals, network.SpaceName("freckles"))
@@ -277,7 +276,7 @@ func (suite *maasEnvironSuite) TestSpacesError(c *tc.C) {
 		spacesError: errors.New("Joe Manginiello"),
 	}
 	env := suite.makeEnviron(c, controller)
-	_, err := env.Spaces(context.Background())
+	_, err := env.Spaces(c.Context())
 	c.Assert(err, tc.ErrorMatches, "Joe Manginiello")
 }
 
@@ -287,7 +286,7 @@ func (suite *maasEnvironSuite) TestSpacesInvalidCredential(c *tc.C) {
 	}
 	env := suite.makeEnviron(c, controller)
 	c.Assert(suite.invalidCredential, tc.IsFalse)
-	_, err := env.Spaces(context.Background())
+	_, err := env.Spaces(c.Context())
 	c.Assert(err, tc.NotNil)
 	c.Assert(suite.invalidCredential, tc.IsTrue)
 }
@@ -304,7 +303,7 @@ func collectReleaseArgs(controller *fakeController) []gomaasapi.ReleaseMachinesA
 
 func (suite *maasEnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *tc.C) {
 	controller := newFakeController()
-	err := suite.makeEnviron(c, controller).StopInstances(context.Background())
+	err := suite.makeEnviron(c, controller).StopInstances(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(collectReleaseArgs(controller), tc.HasLen, 0)
 }
@@ -313,7 +312,7 @@ func (suite *maasEnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *tc.
 	// Return a cannot complete indicating that test1 is in the wrong state.
 	// The release operation will still release the others and succeed.
 	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
-	err := suite.makeEnviron(c, controller).StopInstances(context.Background(), "test1", "test2", "test3")
+	err := suite.makeEnviron(c, controller).StopInstances(c.Context(), "test1", "test2", "test3")
 	c.Check(err, tc.ErrorIsNil)
 	args := collectReleaseArgs(controller)
 	c.Assert(args, tc.HasLen, 1)
@@ -325,7 +324,7 @@ func (suite *maasEnvironSuite) TestStopInstancesIgnoresConflict(c *tc.C) {
 	// The release operation will still release the others and succeed.
 	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.SetErrors(gomaasapi.NewCannotCompleteError("test1 not allocated"))
-	err := suite.makeEnviron(c, controller).StopInstances(context.Background(), "test1", "test2", "test3")
+	err := suite.makeEnviron(c, controller).StopInstances(c.Context(), "test1", "test2", "test3")
 	c.Check(err, tc.ErrorIsNil)
 
 	args := collectReleaseArgs(controller)
@@ -339,7 +338,7 @@ func (suite *maasEnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c 
 		gomaasapi.NewBadRequestError("no such machine: test1"),
 		gomaasapi.NewBadRequestError("no such machine: test1"),
 	)
-	err := suite.makeEnviron(c, controller).StopInstances(context.Background(), "test1", "test2", "test3")
+	err := suite.makeEnviron(c, controller).StopInstances(c.Context(), "test1", "test2", "test3")
 	c.Check(err, tc.ErrorIsNil)
 	args := collectReleaseArgs(controller)
 	c.Assert(args, tc.HasLen, 4)
@@ -352,7 +351,7 @@ func (suite *maasEnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c 
 func (suite *maasEnvironSuite) checkStopInstancesFails(c *tc.C, withError error) {
 	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.SetErrors(withError)
-	err := suite.makeEnviron(c, controller).StopInstances(context.Background(), "test1", "test2", "test3")
+	err := suite.makeEnviron(c, controller).StopInstances(c.Context(), "test1", "test2", "test3")
 	c.Check(err, tc.ErrorMatches, fmt.Sprintf("cannot release nodes: %s", withError))
 	// Only tries once.
 	c.Assert(collectReleaseArgs(controller), tc.HasLen, 1)
@@ -371,7 +370,7 @@ func (suite *maasEnvironSuite) TestStartInstanceError(c *tc.C) {
 		allocateMachineError: errors.New("Charles Babbage"),
 	})
 	env := suite.makeEnviron(c, nil)
-	_, err := env.StartInstance(context.Background(), environs.StartInstanceParams{})
+	_, err := env.StartInstance(c.Context(), environs.StartInstanceParams{})
 	c.Assert(err, tc.ErrorMatches, "failed to acquire node: Charles Babbage")
 }
 
@@ -379,7 +378,7 @@ func (suite *maasEnvironSuite) TestStartInstance(c *tc.C) {
 	env, _ := suite.injectControllerWithSpacesAndCheck(c, nil, gomaasapi.AllocateMachineArgs{})
 
 	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
-	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
+	result, err := jujutesting.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), tc.Equals, instance.Id("Bruce Sterling"))
 	c.Assert(result.DisplayName, tc.Equals, "example.com.")
@@ -395,7 +394,7 @@ func (suite *maasEnvironSuite) TestStartInstanceReturnsHostnameAsDisplayName(c *
 	}
 	env, _ := suite.injectControllerWithMachine(c, machine, nil, gomaasapi.AllocateMachineArgs{})
 	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
-	result, err := jujutesting.StartInstanceWithParams(env, "0", params)
+	result, err := jujutesting.StartInstanceWithParams(c, env, "0", params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), tc.Equals, instance.Id("Bruce Sterling"))
 	c.Assert(result.DisplayName, tc.Equals, machine.Hostname())
@@ -411,7 +410,7 @@ func (suite *maasEnvironSuite) TestStartInstanceReturnsFQDNAsDisplayNameWhenHost
 	}
 	env, _ := suite.injectControllerWithMachine(c, machine, nil, gomaasapi.AllocateMachineArgs{})
 	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
-	result, err := jujutesting.StartInstanceWithParams(env, "0", params)
+	result, err := jujutesting.StartInstanceWithParams(c, env, "0", params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), tc.Equals, instance.Id("Bruce Sterling"))
 	c.Assert(result.DisplayName, tc.Equals, machine.FQDN())
@@ -423,7 +422,7 @@ func (suite *maasEnvironSuite) TestStartInstanceAppliesResourceTags(c *tc.C) {
 	_, ok := config.ResourceTags()
 	c.Assert(ok, tc.IsTrue)
 	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
-	_, err := jujutesting.StartInstanceWithParams(env, "1", params)
+	_, err := jujutesting.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	machine := controller.allocateMachine.(*fakeMachine)
@@ -458,7 +457,7 @@ func (suite *maasEnvironSuite) TestStartInstanceParams(c *tc.C) {
 		AvailabilityZone: "foo",
 		Constraints:      constraints.MustParse("mem=8G"),
 	}
-	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
+	result, err := jujutesting.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), tc.Equals, instance.Id("Bruce Sterling"))
 }
@@ -479,7 +478,7 @@ func (suite *maasEnvironSuite) TestAcquireNodePassedAgentName(c *tc.C) {
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	_, err := env.acquireNode(context.Background(), "", "", "", constraints.Value{}, nil, nil, nil)
+	_, err := env.acquireNode(c.Context(), "", "", "", constraints.Value{}, nil, nil, nil)
 
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -491,7 +490,7 @@ func (suite *maasEnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *t
 		NotTags: []string{"tag2", "tag4"},
 	}
 	env, _ = suite.injectControllerWithSpacesAndCheck(c, nil, expected)
-	_, err := env.acquireNode(context.Background(),
+	_, err := env.acquireNode(c.Context(),
 		"", "", "",
 		constraints.Value{Tags: stringslicep("tag1", "^tag2", "tag3", "^tag4")},
 		nil, nil, nil,
@@ -535,10 +534,10 @@ func (suite *maasEnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c 
 	env, _ := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
 
 	cons := constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")}
-	positiveSpaceIDs, negativeSpaceIDs, err := env.networkSpaceRequirements(context.Background(), nil, cons)
+	positiveSpaceIDs, negativeSpaceIDs, err := env.networkSpaceRequirements(c.Context(), nil, cons)
 	c.Check(err, tc.ErrorIsNil)
 
-	_, err = env.acquireNode(context.Background(),
+	_, err = env.acquireNode(c.Context(),
 		"", "", "",
 		cons,
 		positiveSpaceIDs, negativeSpaceIDs,
@@ -593,7 +592,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeStorage(c *tc.C) {
 			return test.expected
 		}
 		env = suite.makeEnviron(c, nil)
-		_, err := env.acquireNode(context.Background(), "", "", "", constraints.Value{}, nil, nil, test.volumes)
+		_, err := env.acquireNode(c.Context(), "", "", "", constraints.Value{}, nil, nil, test.volumes)
 		c.Check(err, tc.ErrorIsNil)
 	}
 }
@@ -671,10 +670,10 @@ func (suite *maasEnvironSuite) TestAcquireNodeInterfaces(c *tc.C) {
 			return test.expectedPositives
 		}
 
-		positiveSpaceIDs, negativeSpaceIDs, err := env.networkSpaceRequirements(context.Background(), test.endpointBindings, cons)
+		positiveSpaceIDs, negativeSpaceIDs, err := env.networkSpaceRequirements(c.Context(), test.endpointBindings, cons)
 		c.Check(err, tc.ErrorIsNil)
 
-		_, err = env.acquireNode(context.Background(), "", "", "", cons, positiveSpaceIDs, negativeSpaceIDs, nil)
+		_, err = env.acquireNode(c.Context(), "", "", "", cons, positiveSpaceIDs, negativeSpaceIDs, nil)
 		if test.expectedError != "" {
 			c.Check(err, tc.ErrorMatches, test.expectedError)
 			c.Check(err, tc.ErrorIs, errors.NotValid)
@@ -776,7 +775,7 @@ func (suite *maasEnvironSuite) TestSubnetsNoFilters(c *tc.C) {
 		spaces: getFourSpaces(),
 	})
 	env := suite.makeEnviron(c, nil)
-	subnets, err := env.Subnets(context.Background(), nil)
+	subnets, err := env.Subnets(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := []network.SubnetInfo{
 		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, ProviderSpaceId: "5"},
@@ -792,7 +791,7 @@ func (suite *maasEnvironSuite) TestSubnetsNoFiltersError(c *tc.C) {
 		spacesError: errors.New("bang"),
 	})
 	env := suite.makeEnviron(c, nil)
-	_, err := env.Subnets(context.Background(), nil)
+	_, err := env.Subnets(c.Context(), nil)
 	c.Assert(err, tc.ErrorMatches, "bang")
 }
 
@@ -801,7 +800,7 @@ func (suite *maasEnvironSuite) TestSubnetsSubnetIds(c *tc.C) {
 		spaces: getFourSpaces(),
 	})
 	env := suite.makeEnviron(c, nil)
-	subnets, err := env.Subnets(context.Background(), []network.Id{"99", "100"})
+	subnets, err := env.Subnets(c.Context(), []network.Id{"99", "100"})
 	c.Assert(err, tc.ErrorIsNil)
 	expected := []network.SubnetInfo{
 		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, ProviderSpaceId: "5"},
@@ -815,7 +814,7 @@ func (suite *maasEnvironSuite) TestSubnetsSubnetIdsMissing(c *tc.C) {
 		spaces: getFourSpaces(),
 	})
 	env := suite.makeEnviron(c, nil)
-	_, err := env.Subnets(context.Background(), []network.Id{"99", "missing"})
+	_, err := env.Subnets(c.Context(), []network.Id{"99", "missing"})
 	msg := "failed to find the following subnets: missing"
 	c.Assert(err, tc.ErrorMatches, msg)
 }
@@ -907,7 +906,7 @@ func (suite *maasEnvironSuite) TestStartInstanceNetworkInterfaces(c *tc.C) {
 	env = suite.makeEnviron(c, nil)
 
 	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
-	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
+	result, err := jujutesting.StartInstanceWithParams(c, env, "1", params)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
@@ -1087,7 +1086,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSingleNic(c *tc.C) 
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(context.Background(), "1", ignored, prepared)
+	result, err := env.AllocateContainerAddresses(c.Context(), "1", ignored, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
@@ -1223,7 +1222,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSingleNicWithNoVLAN
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(context.Background(), "1", ignored, prepared)
+	result, err := env.AllocateContainerAddresses(c.Context(), "1", ignored, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
@@ -1355,7 +1354,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(c
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(context.Background(), instance.Id("1"), ignored, prepared)
+	result, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
@@ -1452,7 +1451,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesStaticRoutesDenied(
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(context.Background(), "1", ignored, prepared)
+	_, err := env.AllocateContainerAddresses(c.Context(), "1", ignored, prepared)
 	c.Assert(err, tc.NotNil)
 	c.Assert(err, tc.ErrorMatches, ".*ServerError: 500 \\(I have failed you\\).*")
 }
@@ -1644,7 +1643,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesDualNic(c *tc.C) {
 		Origin: network.OriginProvider,
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(context.Background(), instance.Id("1"), ignored, prepared)
+	result, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, expected)
 }
@@ -1656,7 +1655,7 @@ func (suite *maasEnvironSuite) assertAllocateContainerAddressesFails(c *tc.C, co
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(context.Background(), instance.Id("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorMatches, errorMatches)
 }
 
@@ -1720,7 +1719,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesMachinesError(c *tc
 		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(context.Background(), instance.Id("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -1757,7 +1756,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesCreateDeviceError(c
 		MACAddress:    "DEADBEEF",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(context.Background(), instance.Id("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": bad device call`)
 	machine.CheckCall(c, 0, "Devices", gomaasapi.DevicesArgs{
 		Hostname: []string{"juju-06f00d-1-lxd-0"},
@@ -1837,7 +1836,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *tc
 		{InterfaceName: "eth1", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	allocated, err := env.AllocateContainerAddresses(context.Background(), "1", ignored, prepared)
+	allocated, err := env.AllocateContainerAddresses(c.Context(), "1", ignored, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(allocated, tc.DeepEquals, network.InterfaceInfos{{
 		DeviceIndex:    0,
@@ -1907,7 +1906,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesCreateInterfaceErro
 		},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(context.Background(), instance.Id("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": creating device interface: boom`)
 	args := getArgs(c, device.Calls(), 0, 0)
 	maasArgs, ok := args.(gomaasapi.CreateInterfaceArgs)
@@ -1965,7 +1964,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c *
 		},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(context.Background(), "1", ignored, prepared)
+	_, err := env.AllocateContainerAddresses(c.Context(), "1", ignored, prepared)
 	c.Assert(err, tc.ErrorMatches, "failed to create MAAS device.*boom")
 	args := getArgs(c, interface_.Calls(), 0, 0)
 	maasArgs, ok := args.(gomaasapi.LinkSubnetArgs)
@@ -2080,7 +2079,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerReuseExistingDevice(c *tc.C)
 		InterfaceName: "eth0",
 	}}
 	containerTag := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(context.Background(), "1", containerTag, prepared)
+	result, err := env.AllocateContainerAddresses(c.Context(), "1", containerTag, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
@@ -2282,7 +2281,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *tc
 		InterfaceName: "eth1",
 	}}
 	containerTag := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(context.Background(), instance.Id("1"), containerTag, prepared)
+	result, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), containerTag, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
@@ -2364,10 +2363,10 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *tc.C) {
 
 	// Test the instance id is correctly recorded for the bootstrap node.
 	// Check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances(context.Background(), suite.controllerUUID)
+	instanceIds, err := env.ControllerInstances(c.Context(), suite.controllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instanceIds, tc.HasLen, 1)
-	insts, err := env.AllRunningInstances(context.Background())
+	insts, err := env.AllRunningInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(insts, tc.HasLen, 1)
 	c.Check(insts[0].Id(), tc.Equals, instanceIds[0])
@@ -2410,7 +2409,7 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *tc.C) {
 
 	// Trash the tools and try to start another instance.
 	suite.PatchValue(&envtools.DefaultBaseURL, "")
-	instance, _, _, err = jujutesting.StartInstance(env, suite.controllerUUID, "2")
+	instance, _, _, err = jujutesting.StartInstance(c, env, suite.controllerUUID, "2")
 	c.Check(instance, tc.IsNil)
 	c.Check(err, tc.ErrorIs, errors.NotFound)
 }
@@ -2418,7 +2417,7 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *tc.C) {
 func (suite *maasEnvironSuite) TestControllerInstances(c *tc.C) {
 	controller := newFakeControllerWithErrors(gomaasapi.NewNoMatchError("state"))
 	env := suite.makeEnviron(c, controller)
-	_, err := env.ControllerInstances(context.Background(), suite.controllerUUID)
+	_, err := env.ControllerInstances(c.Context(), suite.controllerUUID)
 	c.Assert(err, tc.Equals, environs.ErrNotBootstrapped)
 
 	controller.machinesArgsCheck = func(args gomaasapi.MachinesArgs) {
@@ -2436,7 +2435,7 @@ func (suite *maasEnvironSuite) TestControllerInstances(c *tc.C) {
 		for i := range expected {
 			controller.machines[i] = newFakeMachine(string(expected[i]), "", "")
 		}
-		controllerInstances, err := env.ControllerInstances(context.Background(), suite.controllerUUID)
+		controllerInstances, err := env.ControllerInstances(c.Context(), suite.controllerUUID)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(controllerInstances, tc.SameContents, expected)
 	}
@@ -2449,7 +2448,7 @@ func (suite *maasEnvironSuite) TestControllerInstancesInvalidCredential(c *tc.C)
 	env := suite.makeEnviron(c, controller)
 
 	c.Assert(suite.invalidCredential, tc.IsFalse)
-	_, err := env.ControllerInstances(context.Background(), suite.controllerUUID)
+	_, err := env.ControllerInstances(c.Context(), suite.controllerUUID)
 	c.Assert(err, tc.NotNil)
 	c.Assert(suite.invalidCredential, tc.IsTrue)
 }
@@ -2460,7 +2459,7 @@ func (suite *maasEnvironSuite) TestDestroy(c *tc.C) {
 	controller := newFakeControllerWithFiles(file1, file2)
 	controller.machines = []gomaasapi.Machine{&fakeMachine{systemID: "pete"}}
 	env := suite.makeEnviron(c, controller)
-	err := env.Destroy(context.Background())
+	err := env.Destroy(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 
 	controller.Stub.CheckCallNames(c, "ReleaseMachines", "GetFile", "Files", "GetFile", "GetFile")
@@ -2530,7 +2529,7 @@ func (suite *maasEnvironSuite) TestConstraintsValidator(c *tc.C) {
 	controller := newFakeController()
 	controller.bootResources = []gomaasapi.BootResource{&fakeBootResource{name: "jammy", architecture: "amd64"}}
 	env := suite.makeEnviron(c, controller)
-	validator, err := env.ConstraintsValidator(context.Background())
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
@@ -2545,7 +2544,7 @@ func (suite *maasEnvironSuite) TestConstraintsValidatorWithUnsupportedArch(c *tc
 		&fakeBootResource{name: "jammy", architecture: "amd64"},
 	}
 	env := suite.makeEnviron(c, controller)
-	validator, err := env.ConstraintsValidator(context.Background())
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
@@ -2560,7 +2559,7 @@ func (suite *maasEnvironSuite) TestConstraintsValidatorInvalidCredential(c *tc.C
 	}
 	env := suite.makeEnviron(c, controller)
 	c.Assert(suite.invalidCredential, tc.IsFalse)
-	_, err := env.ConstraintsValidator(context.Background())
+	_, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.NotNil)
 	c.Assert(suite.invalidCredential, tc.IsTrue)
 }
@@ -2571,7 +2570,7 @@ func (suite *maasEnvironSuite) TestDomainsInvalidCredential(c *tc.C) {
 	}
 	env := suite.makeEnviron(c, controller)
 	c.Assert(suite.invalidCredential, tc.IsFalse)
-	_, err := env.Domains(context.Background())
+	_, err := env.Domains(c.Context())
 	c.Assert(err, tc.NotNil)
 	c.Assert(suite.invalidCredential, tc.IsTrue)
 }
@@ -2583,7 +2582,7 @@ func (suite *maasEnvironSuite) TestConstraintsValidatorVocab(c *tc.C) {
 		&fakeBootResource{name: "focal", architecture: "arm64"},
 	}
 	env := suite.makeEnviron(c, controller)
-	validator, err := env.ConstraintsValidator(context.Background())
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
@@ -2597,7 +2596,7 @@ func (suite *maasEnvironSuite) TestReleaseContainerAddresses(c *tc.C) {
 	controller.devices = []gomaasapi.Device{dev1, dev2}
 
 	env := suite.makeEnviron(c, controller)
-	err := env.ReleaseContainerAddresses(context.Background(), []network.ProviderInterfaceInfo{
+	err := env.ReleaseContainerAddresses(c.Context(), []network.ProviderInterfaceInfo{
 		{HardwareAddress: "will"},
 		{HardwareAddress: "dustin"},
 		{HardwareAddress: "eleven"},
@@ -2619,7 +2618,7 @@ func (suite *maasEnvironSuite) TestReleaseContainerAddresses_HandlesDupes(c *tc.
 	controller.devices = []gomaasapi.Device{dev1, dev1}
 
 	env := suite.makeEnviron(c, controller)
-	err := env.ReleaseContainerAddresses(context.Background(), []network.ProviderInterfaceInfo{
+	err := env.ReleaseContainerAddresses(c.Context(), []network.ProviderInterfaceInfo{
 		{HardwareAddress: "will"},
 		{HardwareAddress: "eleven"},
 	})
@@ -2636,7 +2635,7 @@ func (suite *maasEnvironSuite) TestReleaseContainerAddresses_HandlesDupes(c *tc.
 func (suite *maasEnvironSuite) TestReleaseContainerAddressesErrorGettingDevices(c *tc.C) {
 	controller := newFakeControllerWithErrors(errors.New("Everything done broke"))
 	env := suite.makeEnviron(c, controller)
-	err := env.ReleaseContainerAddresses(context.Background(), []network.ProviderInterfaceInfo{{HardwareAddress: "anything"}})
+	err := env.ReleaseContainerAddresses(c.Context(), []network.ProviderInterfaceInfo{{HardwareAddress: "anything"}})
 	c.Assert(err, tc.ErrorMatches, "Everything done broke")
 }
 
@@ -2648,7 +2647,7 @@ func (suite *maasEnvironSuite) TestReleaseContainerAddressesErrorDeletingDevice(
 	controller.devices = []gomaasapi.Device{dev1}
 
 	env := suite.makeEnviron(c, controller)
-	err := env.ReleaseContainerAddresses(context.Background(), []network.ProviderInterfaceInfo{
+	err := env.ReleaseContainerAddresses(c.Context(), []network.ProviderInterfaceInfo{
 		{HardwareAddress: "eleven"},
 	})
 	c.Assert(err, tc.ErrorMatches, "deleting device hopper: don't delete me")
@@ -2667,7 +2666,7 @@ func (suite *maasEnvironSuite) TestAdoptResources(c *tc.C) {
 	controller.machines = append(controller.machines, machine1, machine3)
 	env := suite.makeEnviron(c, controller)
 
-	err := env.AdoptResources(context.Background(), "some-other-controller", semversion.MustParse("1.2.3"))
+	err := env.AdoptResources(c.Context(), "some-other-controller", semversion.MustParse("1.2.3"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	machine1.CheckCallNames(c, "SetOwnerData")
@@ -2690,7 +2689,7 @@ func (suite *maasEnvironSuite) TestAdoptResourcesError(c *tc.C) {
 
 	machine1.SetErrors(errors.New("blorp"))
 
-	err := env.AdoptResources(context.Background(), "some-other-controller", semversion.MustParse("3.2.1"))
+	err := env.AdoptResources(c.Context(), "some-other-controller", semversion.MustParse("3.2.1"))
 	c.Assert(err, tc.ErrorMatches, `failed to update controller for some instances: \[evil-death-roll\]`)
 
 	machine1.CheckCallNames(c, "SetOwnerData")

@@ -58,14 +58,14 @@ func (s *baseRelationSuite) SetUpTest(c *tc.C) {
 func (s *baseRelationSuite) Txn(c *tc.C, fn func(ctx context.Context, tx *sqlair.TX) error) error {
 	db, err := s.state.DB()
 	c.Assert(err, tc.ErrorIsNil)
-	return db.Txn(context.Background(), fn)
+	return db.Txn(c.Context(), fn)
 }
 
 // query executes a given SQL query with optional arguments within a
 // transactional context using the test database.
 func (s *baseRelationSuite) query(c *tc.C, query string, args ...any) {
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, query, args...)
 		if err != nil {
 			return errors.Errorf("%w: query: %s (args: %s)", err, query, args)
@@ -145,7 +145,7 @@ VALUES (?, ?, 0, 0, 'fake-provides')
 
 func (s *baseRelationSuite) doesUUIDExist(c *tc.C, table, uuid string) bool {
 	found := false
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(fmt.Sprintf(`
 SELECT uuid
 FROM   %s

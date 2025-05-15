@@ -6,7 +6,6 @@ package exec_test
 import (
 	"archive/tar"
 	"bytes"
-	"context"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -197,7 +196,7 @@ func (s *execSuite) TestCopyToPod(c *tc.C) {
 	cancel := make(<-chan struct{}, 1)
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- s.execClient.Copy(context.Background(), params, cancel)
+		errChan <- s.execClient.Copy(c.Context(), params, cancel)
 	}()
 	select {
 	case err := <-errChan:
@@ -297,7 +296,7 @@ func (s *execSuite) TestCopyFromPod(c *tc.C) {
 	cancel := make(<-chan struct{})
 	errChan := make(chan error)
 	go func() {
-		errChan <- s.execClient.Copy(context.Background(), params, cancel)
+		errChan <- s.execClient.Copy(c.Context(), params, cancel)
 	}()
 	select {
 	case err := <-errChan:

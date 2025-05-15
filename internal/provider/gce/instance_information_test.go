@@ -4,7 +4,6 @@
 package gce
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -26,7 +25,7 @@ func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *tc.C) {
 
 	now := time.Now()
 	clk := testclock.NewClock(now)
-	ctx := context.Background()
+	ctx := c.Context()
 	allInstTypes, err := s.Env.getAllInstanceTypes(ctx, clk)
 	c.Assert(err, tc.ErrorIsNil)
 

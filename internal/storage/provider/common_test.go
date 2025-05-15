@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 
@@ -49,7 +48,7 @@ func testDetachFilesystems(
 		commands.expect("umount", testMountPoint)
 	}
 
-	results, err := source.DetachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
+	results, err := source.DetachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("0/0"),
 		FilesystemId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{

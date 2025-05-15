@@ -4,7 +4,6 @@
 package service
 
 import (
-	"context"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -55,7 +54,7 @@ func (s *rootKeyServiceSuite) TestGetKeyContext(c *tc.C) {
 	s.st.EXPECT().GetKey(gomock.Any(), id, s.now).Return(encodeRootKey(key), nil)
 	srv := NewRootKeyService(s.st, s.clock)
 
-	res, err := srv.GetKeyContext(context.Background(), id)
+	res, err := srv.GetKeyContext(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, key)
 }
@@ -67,7 +66,7 @@ func (s *rootKeyServiceSuite) TestGetKeyContextNotFound(c *tc.C) {
 	s.st.EXPECT().GetKey(gomock.Any(), id, s.now).Return(macaroon.RootKey{}, macaroonerrors.KeyNotFound)
 	srv := NewRootKeyService(s.st, s.clock)
 
-	_, err := srv.GetKeyContext(context.Background(), id)
+	_, err := srv.GetKeyContext(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, bakery.ErrNotFound)
 }
 
@@ -80,7 +79,7 @@ func (s *rootKeyServiceSuite) TestFindLatestKeyContext(c *tc.C) {
 	s.st.EXPECT().FindLatestKey(gomock.Any(), createdAfter, expiresAfter, expiresBefore, s.now).Return(encodeRootKey(key), nil)
 	srv := NewRootKeyService(s.st, s.clock)
 
-	res, err := srv.FindLatestKeyContext(context.Background(), createdAfter, expiresAfter, expiresBefore)
+	res, err := srv.FindLatestKeyContext(c.Context(), createdAfter, expiresAfter, expiresBefore)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, key)
 }
@@ -94,7 +93,7 @@ func (s *rootKeyServiceSuite) TestFindLatestKeyContextNotFound(c *tc.C) {
 	s.st.EXPECT().FindLatestKey(gomock.Any(), createdAfter, expiresAfter, expiresBefore, s.now).Return(macaroon.RootKey{}, macaroonerrors.KeyNotFound)
 	srv := NewRootKeyService(s.st, s.clock)
 
-	res, err := srv.FindLatestKeyContext(context.Background(), createdAfter, expiresAfter, expiresBefore)
+	res, err := srv.FindLatestKeyContext(c.Context(), createdAfter, expiresAfter, expiresBefore)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, dbrootkeystore.RootKey{})
 }
@@ -105,7 +104,7 @@ func (s *rootKeyServiceSuite) TestInsertKeyContext(c *tc.C) {
 	s.st.EXPECT().InsertKey(gomock.Any(), encodeRootKey(key))
 	srv := NewRootKeyService(s.st, s.clock)
 
-	err := srv.InsertKeyContext(context.Background(), key)
+	err := srv.InsertKeyContext(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -116,7 +115,7 @@ func (s *rootKeyServiceSuite) TestInsertKeyContextError(c *tc.C) {
 	s.st.EXPECT().InsertKey(gomock.Any(), encodeRootKey(key)).Return(boom)
 	srv := NewRootKeyService(s.st, s.clock)
 
-	err := srv.InsertKeyContext(context.Background(), key)
+	err := srv.InsertKeyContext(c.Context(), key)
 	c.Assert(err, tc.Equals, boom)
 }
 

@@ -4,7 +4,6 @@
 package api_test
 
 import (
-	"context"
 	"encoding/json"
 
 	"github.com/juju/errors"
@@ -88,7 +87,7 @@ func (s *connectionSuite) apiConnection(c *tc.C) api.Connection {
 
 func (s *connectionSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *tc.C) {
 	apiConn := s.apiConnection(c)
-	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	err := apiConn.Login(c.Context(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	hostPortList := apiConn.APIHostPorts()
@@ -130,7 +129,7 @@ func (s *connectionSuite) TestAPIHostPortsExcludesAddressesWithPath(c *tc.C) {
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
-	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	err := apiConn.Login(c.Context(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	hostPortList := apiConn.APIHostPorts()
@@ -170,7 +169,7 @@ func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *tc.C)
 		Closed:        make(chan struct{}),
 		Proxier:       proxytest.NewMockTunnelProxier(),
 	})
-	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	err := apiConn.Login(c.Context(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	hostPortList := apiConn.APIHostPorts()
@@ -187,7 +186,7 @@ func (s *connectionSuite) TestTags(c *tc.C) {
 	modelTag, ok := apiConn.ModelTag()
 	c.Check(ok, tc.IsTrue)
 	c.Assert(modelTag, tc.DeepEquals, coretesting.ModelTag)
-	err := apiConn.Login(context.Background(), jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
+	err := apiConn.Login(c.Context(), jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// Now that we've logged in, ModelTag should still be the same.
 	modelTag, ok = apiConn.ModelTag()
@@ -199,7 +198,7 @@ func (s *connectionSuite) TestTags(c *tc.C) {
 
 func (s *connectionSuite) TestLoginSetsControllerAccess(c *tc.C) {
 	apiConn := s.apiConnection(c)
-	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	err := apiConn.Login(c.Context(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiConn.ControllerAccess(), tc.Equals, "superuser")
 }
@@ -240,7 +239,7 @@ func (s *connectionSuite) TestLoginToMigratedModel(c *tc.C) {
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
-	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	err := apiConn.Login(c.Context(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 
 	redirErr, ok := errors.Cause(err).(*api.RedirectError)
 	c.Assert(ok, tc.Equals, true)
@@ -256,7 +255,7 @@ func (s *connectionSuite) TestLoginToMigratedModel(c *tc.C) {
 
 func (s *connectionSuite) TestBestFacadeVersion(c *tc.C) {
 	apiConn := s.apiConnection(c)
-	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	err := apiConn.Login(c.Context(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(apiConn.BestFacadeVersion("Client"), tc.Equals, 8)
 }
@@ -332,7 +331,7 @@ func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *tc.C) {
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
-	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	err := apiConn.Login(c.Context(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	hostPorts := apiConn.APIHostPorts()
 	// We should have rotate the server we connected to as the first item,

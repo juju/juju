@@ -77,7 +77,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchLifeSuspendedStatus(context.Background(), unitUUID)
+	watcher, err := svc.WatchLifeSuspendedStatus(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
@@ -85,7 +85,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 
 	// Act 0: change the relation life.
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 1 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
@@ -101,7 +101,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 
 	// Act 1: change the relation status other than suspended.
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
@@ -116,7 +116,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 
 	// Act 2: change the relation status to suspended.
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
@@ -140,7 +140,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	// Act 4: change the relation status to joined and life to dead, to get
 	// changes on both tables watched.
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
@@ -175,7 +175,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchLifeSuspendedStatus(context.Background(), subordinateUnitUUID)
+	watcher, err := svc.WatchLifeSuspendedStatus(c.Context(), subordinateUnitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
@@ -183,7 +183,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 
 	// Act 0: change the relation life.
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 1 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
@@ -199,7 +199,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 
 	// Act 1: change the relation status other than suspended.
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
@@ -214,7 +214,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 
 	// Act 2: change the relation status to suspended.
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
@@ -240,7 +240,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	// changes on both tables watched. Change the second relations status also,
 	// only the first relation should trigger an event.
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
@@ -325,7 +325,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 	config := s.setupTestWatchRelationUnit(c)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchRelatedUnits(context.Background(), config.watchedUnit1, config.relationUUID)
+	watcher, err := svc.WatchRelatedUnits(c.Context(), config.watchedUnit1, config.relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -413,7 +413,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitSettings(c *tc.C) {
 	otherRelUnit0UUID := relationtesting.GenRelationUnitUUID(c)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchRelatedUnits(context.Background(), config.watchedUnit1, config.relationUUID)
+	watcher, err := svc.WatchRelatedUnits(c.Context(), config.watchedUnit1, config.relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -659,7 +659,7 @@ func (s *watcherSuite) act(c *tc.C, query string, args ...any) {
 // query executes a database query within a standard transaction. If something goes wrong,
 // the assertion allows to define a specific error as comment interface.
 func (s *watcherSuite) query(c *tc.C, comment func(error) tc.CommentInterface, query string, args ...any) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, query, args...)
 		if err != nil {
 			return errors.Errorf("%w: query: %s (args: %s)", err, query, args)

@@ -68,7 +68,7 @@ func (s *NewExecutorSuite) TestNewExecutorInvalidStateRead(c *tc.C) {
 		AcquireLock:     failAcquireLock,
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
-	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
+	executor, err := operation.NewExecutor(c.Context(), "test", cfg)
 	c.Assert(executor, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, `validation of uniter state: invalid operation state: .*`)
 }
@@ -83,7 +83,7 @@ func (s *NewExecutorSuite) TestNewExecutorNoInitialState(c *tc.C) {
 		AcquireLock:     failAcquireLock,
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
-	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
+	executor, err := operation.NewExecutor(c.Context(), "test", cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(executor.State(), tc.DeepEquals, initialState)
 }
@@ -101,7 +101,7 @@ func (s *NewExecutorSuite) TestNewExecutorValidFile(c *tc.C) {
 		AcquireLock:     failAcquireLock,
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
-	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
+	executor, err := operation.NewExecutor(c.Context(), "test", cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(executor.State(), tc.DeepEquals, operation.State{
 		Kind:    operation.Continue,
@@ -197,7 +197,7 @@ func (s *ExecutorSuite) newExecutor(c *tc.C, st *operation.State) operation.Exec
 		AcquireLock:     failAcquireLock,
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
-	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
+	executor, err := operation.NewExecutor(c.Context(), "test", cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	return executor
 }
@@ -223,7 +223,7 @@ func (s *ExecutorSuite) TestSucceedNoStateChanges(c *tc.C) {
 		commit:  commit,
 	}
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(prepare.gotState, tc.DeepEquals, initialState)
@@ -251,7 +251,7 @@ func (s *ExecutorSuite) TestSucceedWithStateChanges(c *tc.C) {
 		commit:  commit,
 	}
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(prepare.gotState, tc.DeepEquals, initialState)
@@ -294,7 +294,7 @@ func (s *ExecutorSuite) TestSucceedWithRemoteStateChanges(c *tc.C) {
 	rs <- remotestate.Snapshot{
 		ConfigHash: "test",
 	}
-	err := executor.Run(context.Background(), op, rs)
+	err := executor.Run(c.Context(), op, rs)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -314,7 +314,7 @@ func (s *ExecutorSuite) TestErrSkipExecute(c *tc.C) {
 		commit:  commit,
 	}
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(prepare.gotState, tc.DeepEquals, initialState)
@@ -336,7 +336,7 @@ func (s *ExecutorSuite) TestValidateStateChange(c *tc.C) {
 		prepare: prepare,
 	}
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorMatches, `preparing operation "mock operation" for test: invalid operation state: missing hook info with Kind RunHook`)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "missing hook info with Kind RunHook")
 	c.Assert(executor.State(), tc.DeepEquals, initialState)
@@ -353,7 +353,7 @@ func (s *ExecutorSuite) TestFailPrepareNoStateChange(c *tc.C) {
 		prepare: prepare,
 	}
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorMatches, `preparing operation "mock operation" for test: pow`)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "pow")
 
@@ -373,7 +373,7 @@ func (s *ExecutorSuite) TestFailPrepareWithStateChange(c *tc.C) {
 		prepare: prepare,
 	}
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorMatches, `preparing operation "mock operation" for test: blam`)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "blam")
 
@@ -394,7 +394,7 @@ func (s *ExecutorSuite) TestFailExecuteNoStateChange(c *tc.C) {
 		execute: execute,
 	}
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorMatches, `executing operation "mock operation" for test: splat`)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "splat")
 
@@ -416,7 +416,7 @@ func (s *ExecutorSuite) TestFailExecuteWithStateChange(c *tc.C) {
 		execute: execute,
 	}
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorMatches, `executing operation "mock operation" for test: kerblooie`)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "kerblooie")
 
@@ -439,7 +439,7 @@ func (s *ExecutorSuite) TestFailCommitNoStateChange(c *tc.C) {
 		commit:  commit,
 	}
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorMatches, `committing operation "mock operation" for test: whack`)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "whack")
 
@@ -463,7 +463,7 @@ func (s *ExecutorSuite) TestFailCommitWithStateChange(c *tc.C) {
 		commit:  commit,
 	}
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorMatches, `committing operation "mock operation" for test: take that you bandit`)
 	c.Assert(errors.Cause(err), tc.ErrorMatches, "take that you bandit")
 
@@ -473,7 +473,7 @@ func (s *ExecutorSuite) TestFailCommitWithStateChange(c *tc.C) {
 
 func (s *ExecutorSuite) initLockTest(c *tc.C, lockFunc func(string, string) (func(), error)) operation.Executor {
 	initialState := justInstalledState()
-	err := operation.NewStateOps(s.mockStateRW).Write(context.Background(), &initialState)
+	err := operation.NewStateOps(s.mockStateRW).Write(c.Context(), &initialState)
 	c.Assert(err, tc.ErrorIsNil)
 	cfg := operation.ExecutorConfig{
 		StateReadWriter: s.mockStateRW,
@@ -481,7 +481,7 @@ func (s *ExecutorSuite) initLockTest(c *tc.C, lockFunc func(string, string) (fun
 		AcquireLock:     lockFunc,
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
-	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
+	executor, err := operation.NewExecutor(c.Context(), "test", cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return executor
@@ -516,7 +516,7 @@ func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *tc.C) {
 	lockFunc := mockLock.newSucceedingLock()
 	executor := s.initLockTest(c, lockFunc)
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(mockLock.calledLock, tc.IsTrue)
@@ -559,7 +559,7 @@ func (s *ExecutorSuite) TestLockFailsOpsStepsNotCalled(c *tc.C) {
 	lockFunc := mockLock.newFailingLock()
 	executor := s.initLockTest(c, lockFunc)
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 	c.Assert(err, tc.ErrorMatches, `acquiring "mock operation" lock for test: wat`)
 
 	c.Assert(mockLock.calledLock, tc.IsFalse)
@@ -576,7 +576,7 @@ func (s *ExecutorSuite) testLockUnlocksOnError(c *tc.C, op *mockOperation) (erro
 	lockFunc := mockLock.newSucceedingLock()
 	executor := s.initLockTest(c, lockFunc)
 
-	err := executor.Run(context.Background(), op, nil)
+	err := executor.Run(c.Context(), op, nil)
 
 	c.Assert(mockLock.calledLock, tc.IsTrue)
 	c.Assert(mockLock.calledUnlock, tc.IsTrue)

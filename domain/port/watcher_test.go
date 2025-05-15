@@ -72,7 +72,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
@@ -83,9 +83,9 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
-	err = machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
+	err = machineSt.CreateMachine(c.Context(), "0", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machineUUIDs[1])
+	err = machineSt.CreateMachine(c.Context(), "1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -100,7 +100,7 @@ func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, r
 	}
 
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	appUUID, err := applicationSt.CreateApplication(context.Background(), appName, application.AddApplicationArg{
+	appUUID, err := applicationSt.CreateApplication(c.Context(), appName, application.AddApplicationArg{
 		Charm: charm.Charm{
 			Metadata: charm.Metadata{
 				Name:     appName,
@@ -127,14 +127,14 @@ func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, r
 // to the net node with uuid `netNodeUUID`.
 func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit.UUID {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	ctx := context.Background()
+	ctx := c.Context()
 
 	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that we place the unit on the same machine as the net node.
 	var machineName machine.Name
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT name FROM machine WHERE net_node_uuid = ?", netNodeUUID).Scan(&machineName)
 		return err
 	})
@@ -152,7 +152,7 @@ func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit
 	s.unitCount++
 
 	var unitUUID coreunit.UUID
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
 		return err
 	})
@@ -177,14 +177,14 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 	s.unitUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
 	s.unitUUIDs[2] = s.createUnit(c, netNodeUUIDs[1], appNames[1])
 
-	watcher, err := s.srv.WatchMachineOpenedPorts(context.Background())
+	watcher, err := s.srv.WatchMachineOpenedPorts(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// open a port on an empty endpoint on a unit on machine 0
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {ssh},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -194,7 +194,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 
 	// open a port on an endpoint with opened ports on a unit on machine 0
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {http},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -204,7 +204,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 
 	// open a port on a new endpoint on another unit on machine 0
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep1": {http},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -214,7 +214,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 
 	// open a port on a endpoint on a unit on machine 1
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[2], network.GroupedPortRanges{
 			"ep2": {https},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -224,7 +224,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 
 	// open a port that's already open
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {ssh},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -234,7 +234,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 
 	// close a port on an endpoint on a unit on machine 0
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep0": {ssh},
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -244,7 +244,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 
 	// close the final open port of an endpoint for a unit on machine 0
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep0": {http},
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -254,7 +254,7 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 
 	// close a port range which isn't open
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{}, network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[1], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep1": {https},
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -264,11 +264,11 @@ func (s *watcherSuite) TestWatchMachinePortRanges(c *tc.C) {
 
 	// open ports on different machines at the same time
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep3": {https},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
-		err = s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{
+		err = s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[2], network.GroupedPortRanges{
 			"ep3": {https},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -287,14 +287,14 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 	s.unitUUIDs[1] = s.createUnit(c, netNodeUUIDs[0], appNames[1])
 	s.unitUUIDs[2] = s.createUnit(c, netNodeUUIDs[1], appNames[1])
 
-	watcher, err := s.srv.WatchOpenedPortsForApplication(context.Background(), s.appUUIDs[1])
+	watcher, err := s.srv.WatchOpenedPortsForApplication(c.Context(), s.appUUIDs[1])
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// open a port on an empty endpoint on a unit the application
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep1": {http},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -304,7 +304,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 
 	// open a port on another unit of the application
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[2], network.GroupedPortRanges{
 			"ep2": {https},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -314,7 +314,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 
 	// open a port on another application
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[0], network.GroupedPortRanges{
 			"ep0": {ssh},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -324,7 +324,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 
 	// open a port that's already open
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep1": {http},
 		}, network.GroupedPortRanges{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -334,7 +334,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 
 	// close a port on a unit of the application
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[1], network.GroupedPortRanges{}, network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[1], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep1": {http},
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -344,7 +344,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 
 	// close the final open port of an endpoint for the application
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[2], network.GroupedPortRanges{}, network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[2], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep2": {https},
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -354,7 +354,7 @@ func (s *watcherSuite) TestWatchOpenedPortsForApplication(c *tc.C) {
 
 	// close a port on another application
 	harness.AddTest(func(c *tc.C) {
-		err := s.srv.UpdateUnitPorts(context.Background(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
+		err := s.srv.UpdateUnitPorts(c.Context(), s.unitUUIDs[0], network.GroupedPortRanges{}, network.GroupedPortRanges{
 			"ep0": {ssh},
 		})
 		c.Assert(err, tc.ErrorIsNil)

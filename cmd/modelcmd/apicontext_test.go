@@ -4,7 +4,6 @@
 package modelcmd_test
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -104,7 +103,7 @@ func (s *APIContextSuite) TestNewAPIContextEmbedded(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	interactor := modelcmd.Interactor(ctx)
 	c.Assert(interactor, tc.Not(tc.IsNil))
-	_, err = interactor.Interact(context.Background(), nil, "", nil)
+	_, err = interactor.Interact(c.Context(), nil, "", nil)
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 

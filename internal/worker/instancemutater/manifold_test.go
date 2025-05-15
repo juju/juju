@@ -178,7 +178,7 @@ func (s *environAPIManifoldSuite) TestStartReturnsWorker(c *tc.C) {
 
 		return s.worker, nil
 	})
-	result, err := manifold.Start(context.Background(), s.getter)
+	result, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, s.worker)
 }
@@ -199,7 +199,7 @@ func (s *environAPIManifoldSuite) TestMissingEnvironFromContext(c *tc.C) {
 		c.Fail()
 		return nil, nil
 	})
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "missing")
 }
 
@@ -220,7 +220,7 @@ func (s *environAPIManifoldSuite) TestMissingAPICallerFromContext(c *tc.C) {
 		c.Fail()
 		return nil, nil
 	})
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "missing")
 }
 
@@ -274,7 +274,7 @@ func (s *modelManifoldSuite) TestNewWorkerIsCalled(c *tc.C) {
 		},
 	}
 	manifold := instancemutater.ModelManifold(config)
-	result, err := manifold.Start(context.Background(), s.getter)
+	result, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, s.worker)
 }
@@ -298,7 +298,7 @@ func (s *modelManifoldSuite) TestNewWorkerFromK8sController(c *tc.C) {
 		},
 	}
 	manifold := instancemutater.ModelManifold(config)
-	result, err := manifold.Start(context.Background(), s.getter)
+	result, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, s.worker)
 }
@@ -322,7 +322,7 @@ func (s *modelManifoldSuite) TestNewWorkerReturnsError(c *tc.C) {
 		},
 	}
 	manifold := instancemutater.ModelManifold(config)
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "cannot start model instance-mutater worker: errored")
 }
 
@@ -338,7 +338,7 @@ func (s *modelManifoldSuite) TestConfigValidatesForMissingWorker(c *tc.C) {
 		Logger:        loggertesting.WrapCheckLog(c),
 	}
 	manifold := instancemutater.ModelManifold(config)
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "nil NewWorker not valid")
 }
 
@@ -357,7 +357,7 @@ func (s *modelManifoldSuite) TestConfigValidatesForMissingClient(c *tc.C) {
 		},
 	}
 	manifold := instancemutater.ModelManifold(config)
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "nil NewClient not valid")
 }
 
@@ -545,7 +545,7 @@ func (s *brokerAPIManifoldSuite) TestStartReturnsWorker(c *tc.C) {
 
 		return s.worker, nil
 	})
-	result, err := manifold.Start(context.Background(), s.getter)
+	result, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, s.worker)
 }
@@ -566,7 +566,7 @@ func (s *brokerAPIManifoldSuite) TestMissingBrokerFromContext(c *tc.C) {
 		c.Fail()
 		return nil, nil
 	})
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "missing")
 }
 
@@ -587,7 +587,7 @@ func (s *brokerAPIManifoldSuite) TestMissingAPICallerFromContext(c *tc.C) {
 		c.Fail()
 		return nil, nil
 	})
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "missing")
 }
 
@@ -641,7 +641,7 @@ func (s *machineManifoldSuite) TestNewWorkerIsCalled(c *tc.C) {
 		},
 	}
 	manifold := instancemutater.MachineManifold(config)
-	result, err := manifold.Start(context.Background(), s.getter)
+	result, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, s.worker)
 }
@@ -665,7 +665,7 @@ func (s *machineManifoldSuite) TestNewWorkerIsRejectedForK8sController(c *tc.C) 
 		},
 	}
 	manifold := instancemutater.MachineManifold(config)
-	result, err := manifold.Start(context.Background(), s.getter)
+	result, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.Equals, dependency.ErrUninstall)
 	c.Assert(result, tc.IsNil)
 }
@@ -689,7 +689,7 @@ func (s *machineManifoldSuite) TestNewWorkerReturnsError(c *tc.C) {
 		},
 	}
 	manifold := instancemutater.MachineManifold(config)
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "cannot start machine instancemutater worker: errored")
 }
 
@@ -705,7 +705,7 @@ func (s *machineManifoldSuite) TestConfigValidatesForMissingWorker(c *tc.C) {
 		Logger:        loggertesting.WrapCheckLog(c),
 	}
 	manifold := instancemutater.MachineManifold(config)
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "nil NewWorker not valid")
 }
 
@@ -724,7 +724,7 @@ func (s *machineManifoldSuite) TestConfigValidatesForMissingClient(c *tc.C) {
 		},
 	}
 	manifold := instancemutater.MachineManifold(config)
-	_, err := manifold.Start(context.Background(), s.getter)
+	_, err := manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "nil NewClient not valid")
 }
 

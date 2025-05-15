@@ -4,8 +4,6 @@
 package uniter_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -60,7 +58,7 @@ func (s *relationSuite) TestRelation(c *tc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
-	rel, err := client.Relation(context.Background(), tag)
+	rel, err := client.Relation(c.Context(), tag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rel.Id(), tc.Equals, 666)
 	c.Assert(rel.Tag(), tc.Equals, tag)
@@ -68,7 +66,7 @@ func (s *relationSuite) TestRelation(c *tc.C) {
 	c.Assert(rel.String(), tc.Equals, tag.Id())
 	c.Assert(rel.OtherApplication(), tc.Equals, "mysql")
 	c.Assert(rel.OtherModelUUID(), tc.Equals, testing.ModelTag.Id())
-	ep, err := rel.Endpoint(context.Background())
+	ep, err := rel.Endpoint(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ep, tc.DeepEquals, &uniter.Endpoint{
 		charm.Relation{
@@ -104,7 +102,7 @@ func (s *relationSuite) TestRefresh(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
-	err := rel.Refresh(context.Background())
+	err := rel.Refresh(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rel.Life(), tc.Equals, life.Dying)
 	c.Assert(rel.Suspended(), tc.IsTrue)
@@ -144,7 +142,7 @@ func (s *relationSuite) TestSetStatus(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
-	err := rel.SetStatus(context.Background(), relation.Suspended)
+	err := rel.SetStatus(c.Context(), relation.Suspended)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(statusSet, tc.IsTrue)
 }
@@ -167,7 +165,7 @@ func (s *relationSuite) TestRelationById(c *tc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
-	rel, err := client.RelationById(context.Background(), 666)
+	rel, err := client.RelationById(c.Context(), 666)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rel.Id(), tc.Equals, 666)
 	c.Assert(rel.Tag(), tc.Equals, names.NewRelationTag("wordpress:db mysql:server"))

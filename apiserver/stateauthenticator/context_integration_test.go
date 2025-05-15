@@ -66,7 +66,7 @@ func (s *macaroonAuthSuite) SetUpTest(c *tc.C) {
 		macaroonstate.NewState(s.TxnRunnerFactory()),
 		s.clock,
 	)
-	s.macaroonService.InitialiseBakeryConfig(context.Background())
+	s.macaroonService.InitialiseBakeryConfig(c.Context())
 }
 
 func (s *macaroonAuthSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -78,7 +78,7 @@ func (s *macaroonAuthSuite) setupMocks(c *tc.C) *gomock.Controller {
 	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, nil, loggertesting.WrapCheckLog(c))
 
 	authenticator, err := NewAuthenticator(
-		context.Background(),
+		c.Context(),
 		nil,
 		model.UUID(testing.ModelTag.Id()),
 		s.controllerConfigService,
@@ -121,7 +121,7 @@ func (s *macaroonAuthSuite) TestServerBakery(c *tc.C) {
 		return nil, errors.New("unexpected caveat")
 	})
 
-	bsvc, err := ServerBakery(context.Background(), s.authenticator, &alwaysIdent{IdentityLocation: discharger.Location()})
+	bsvc, err := ServerBakery(c.Context(), s.authenticator, &alwaysIdent{IdentityLocation: discharger.Location()})
 	c.Assert(err, tc.IsNil)
 
 	cav := []checkers.Caveat{
@@ -133,18 +133,18 @@ func (s *macaroonAuthSuite) TestServerBakery(c *tc.C) {
 			"username",
 		),
 	}
-	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
+	mac, err := bsvc.Oven.NewMacaroon(c.Context(), bakery.LatestVersion, cav, bakery.NoOp)
 	c.Assert(err, tc.IsNil)
 
 	client := httpbakery.NewClient()
-	ms, err := client.DischargeAll(context.Background(), mac)
+	ms, err := client.DischargeAll(c.Context(), mac)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, cond, err := bsvc.Oven.VerifyMacaroon(context.Background(), ms)
+	_, cond, err := bsvc.Oven.VerifyMacaroon(c.Context(), ms)
 	c.Assert(err, tc.IsNil)
 	c.Assert(cond, tc.DeepEquals, []string{"declared username fred"})
 	authChecker := bsvc.Checker.Auth(ms)
-	ai, err := authChecker.Allow(context.Background(), identchecker.LoginOp)
+	ai, err := authChecker.Allow(c.Context(), identchecker.LoginOp)
 	c.Assert(err, tc.IsNil)
 	c.Assert(ai.Identity.Id(), tc.Equals, "fred")
 }
@@ -152,7 +152,7 @@ func (s *macaroonAuthSuite) TestServerBakery(c *tc.C) {
 func (s *macaroonAuthSuite) TestExpiredKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	bsvc, err := ServerBakeryExpiresImmediately(context.Background(), s.authenticator, &alwaysIdent{})
+	bsvc, err := ServerBakeryExpiresImmediately(c.Context(), s.authenticator, &alwaysIdent{})
 	c.Assert(err, tc.IsNil)
 
 	cav := []checkers.Caveat{
@@ -163,7 +163,7 @@ func (s *macaroonAuthSuite) TestExpiredKey(c *tc.C) {
 			"username",
 		),
 	}
-	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
+	mac, err := bsvc.Oven.NewMacaroon(c.Context(), bakery.LatestVersion, cav, bakery.NoOp)
 	c.Assert(err, tc.IsNil)
 
 	// Advance time here because the root key is created during NewMacaroon.
@@ -171,9 +171,9 @@ func (s *macaroonAuthSuite) TestExpiredKey(c *tc.C) {
 	s.clock.Advance(time.Second)
 
 	client := httpbakery.NewClient()
-	ms, err := client.DischargeAll(context.Background(), mac)
+	ms, err := client.DischargeAll(c.Context(), mac)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, _, err = bsvc.Oven.VerifyMacaroon(context.Background(), ms)
+	_, _, err = bsvc.Oven.VerifyMacaroon(c.Context(), ms)
 	c.Assert(err, tc.ErrorMatches, "verification failed: macaroon not found in storage")
 }

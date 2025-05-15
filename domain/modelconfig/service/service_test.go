@@ -61,7 +61,7 @@ func (s *serviceSuite) TestGetModelConfigContainsAgentInformation(c *tc.C) {
 	)
 
 	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.mockState)
-	cfg, err := svc.ModelConfig(context.Background())
+	cfg, err := svc.ModelConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.AgentStream(), tc.Equals, coreagentbinary.AgentStreamReleased.String())
 }
@@ -83,7 +83,7 @@ func (s *serviceSuite) TestUpdateModelConfigAgentStream(c *tc.C) {
 
 	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.mockState)
 	err := svc.UpdateModelConfig(
-		context.Background(),
+		c.Context(),
 		map[string]any{
 			"agent-stream": "proposed",
 		},
@@ -117,7 +117,7 @@ func (s *serviceSuite) TestUpdateModelConfigNoAgentStreamChange(c *tc.C) {
 
 	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.mockState)
 	err := svc.UpdateModelConfig(
-		context.Background(),
+		c.Context(),
 		map[string]any{
 			"agent-stream": "released",
 		},
@@ -153,6 +153,6 @@ func (s *serviceSuite) TestSetModelConfig(c *tc.C) {
 	})
 
 	svc := NewService(defaults, config.ModelValidator(), s.mockState)
-	err := svc.SetModelConfig(context.Background(), attrs)
+	err := svc.SetModelConfig(c.Context(), attrs)
 	c.Assert(err, tc.ErrorIsNil)
 }

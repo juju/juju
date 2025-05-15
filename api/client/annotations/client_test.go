@@ -61,7 +61,7 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *tc.C) {
 		})
 
 	annotationsClient := annotations.NewClientFromCaller(mockFacadeCaller)
-	callErrs, err := annotationsClient.Set(context.Background(), setParams)
+	callErrs, err := annotationsClient.Set(c.Context(), setParams)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(callErrs, tc.HasLen, 0)
 }
@@ -89,7 +89,7 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Get", args, result).SetArg(3, results).Return(nil)
 
 	annotationsClient := annotations.NewClientFromCaller(mockFacadeCaller)
-	found, err := annotationsClient.Get(context.Background(), []string{"charm"})
+	found, err := annotationsClient.Get(c.Context(), []string{"charm"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found, tc.HasLen, 1)
 }

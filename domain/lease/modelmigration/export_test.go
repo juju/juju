@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -54,7 +52,7 @@ func (s *exportSuite) TestExportLeader(c *tc.C) {
 		Name: "prometheus",
 	})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	leader := application.Leader()
@@ -80,7 +78,7 @@ func (s *exportSuite) TestExportLeaderNoModel(c *tc.C) {
 		Name: "prometheus",
 	})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorMatches, `getting application leadership: boom`)
 }
 
@@ -103,7 +101,7 @@ func (s *exportSuite) TestExportLeaderNoApplications(c *tc.C) {
 		Name: "prometheus",
 	})
 
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

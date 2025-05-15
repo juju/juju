@@ -4,8 +4,6 @@
 package block
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -71,7 +69,7 @@ func (s *blockSuite) TestSwitchInvalidBlockOn(c *tc.C) {
 		Message: "for TestSwitchInvalidBlockOn",
 	}
 
-	err := s.api.SwitchBlockOn(context.Background(), on)
+	err := s.api.SwitchBlockOn(c.Context(), on)
 	c.Assert(err.Error, tc.NotNil)
 }
 
@@ -87,13 +85,13 @@ func (s *blockSuite) TestSwitchBlockOff(c *tc.C) {
 	off := params.BlockSwitchParams{
 		Type: params.BlockDestroy,
 	}
-	err := s.api.SwitchBlockOff(context.Background(), off)
+	err := s.api.SwitchBlockOff(c.Context(), off)
 	c.Assert(err.Error, tc.IsNil)
 	s.assertBlockList(c, 0)
 }
 
 func (s *blockSuite) assertBlockList(c *tc.C, length int) {
-	all, err := s.api.List(context.Background())
+	all, err := s.api.List(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(all.Results, tc.HasLen, length)
 }
@@ -103,7 +101,7 @@ func (s *blockSuite) assertSwitchBlockOn(c *tc.C, blockType, msg string) {
 		Type:    blockType,
 		Message: msg,
 	}
-	err := s.api.SwitchBlockOn(context.Background(), on)
+	err := s.api.SwitchBlockOn(c.Context(), on)
 	c.Assert(err.Error, tc.IsNil)
 	s.assertBlockList(c, 1)
 }

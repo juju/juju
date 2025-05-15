@@ -45,14 +45,14 @@ func (s *schemaBaseSuite) applyDDL(c *tc.C, ddl *schema.Schema) {
 			return nil
 		})
 	}
-	changeSet, err := ddl.Ensure(context.Background(), s.TxnRunner())
+	changeSet, err := ddl.Ensure(c.Context(), s.TxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(changeSet.Current, tc.Equals, 0)
 	c.Check(changeSet.Post, tc.Equals, ddl.Len())
 }
 
 func (s *schemaBaseSuite) assertExecSQL(c *tc.C, q string, args ...any) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, args...)
 		return err
 	})
@@ -60,7 +60,7 @@ func (s *schemaBaseSuite) assertExecSQL(c *tc.C, q string, args ...any) {
 }
 
 func (s *schemaBaseSuite) assertExecSQLError(c *tc.C, q string, errMsg string, args ...any) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, q, args...)
 		return err
 	})
@@ -75,7 +75,7 @@ var (
 )
 
 func readEntityNames(c *tc.C, db *sql.DB, entity_type string) []string {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 	defer cancel()
 
 	tx, err := db.BeginTx(ctx, nil)

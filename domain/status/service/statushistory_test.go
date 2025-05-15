@@ -33,7 +33,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryNoData(c *tc.C) {
 	s.expectResults([]statushistory.HistoryRecord{})
 
 	service := s.newService()
-	results, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
+	results, err := service.GetStatusHistory(c.Context(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -45,7 +45,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryContextCancelled(c *tc.C) {
 
 	s.expectResults([]statushistory.HistoryRecord{{}})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	service := s.newService()
@@ -61,7 +61,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryError(c *tc.C) {
 	s.historyReader.EXPECT().Walk(gomock.Any()).Return(fmt.Errorf("foo"))
 
 	service := s.newService()
-	_, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
+	_, err := service.GetStatusHistory(c.Context(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
 	c.Assert(err, tc.ErrorMatches, ".*foo")
@@ -77,7 +77,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryErrorWalk(c *tc.C) {
 		},
 	).Return(fmt.Errorf("foo"))
 	service := s.newService()
-	_, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
+	_, err := service.GetStatusHistory(c.Context(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
 	c.Assert(err, tc.ErrorMatches, ".*foo")
@@ -98,7 +98,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesData(c *tc.C) {
 	}})
 
 	service := s.newService()
-	results, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
+	results, err := service.GetStatusHistory(c.Context(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -142,7 +142,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesMultipleData(c *tc.C) {
 	s.expectResults(records)
 
 	service := s.newService()
-	results, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
+	results, err := service.GetStatusHistory(c.Context(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -180,7 +180,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesMultipleDataSize(c *tc.C
 	s.expectResults(records)
 
 	service := s.newService()
-	results, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
+	results, err := service.GetStatusHistory(c.Context(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 		Filter: StatusHistoryFilter{
 			Size: total - 5,
@@ -214,7 +214,7 @@ func (s *statusHistorySuite) TestGetStatusHistoryMatchesKindData(c *tc.C) {
 	}})
 
 	service := s.newService()
-	results, err := service.GetStatusHistory(context.Background(), StatusHistoryRequest{
+	results, err := service.GetStatusHistory(c.Context(), StatusHistoryRequest{
 		Kind: status.KindUnit,
 	})
 	c.Assert(err, tc.ErrorIsNil)

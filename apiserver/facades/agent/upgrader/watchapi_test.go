@@ -34,7 +34,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionNothing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Not an error to watch nothing
-	results, err := s.api().WatchAPIVersion(context.Background(), params.Entities{})
+	results, err := s.api().WatchAPIVersion(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 0)
 }
@@ -66,7 +66,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionMachine(c *tc.C) {
 		Entities: []params.Entity{
 			{Tag: tag.String()},
 		}}
-	results, err := s.api().WatchAPIVersion(context.Background(), args)
+	results, err := s.api().WatchAPIVersion(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -102,7 +102,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionUnit(c *tc.C) {
 		Entities: []params.Entity{
 			{Tag: tag.String()},
 		}}
-	results, err := s.api().WatchAPIVersion(context.Background(), args)
+	results, err := s.api().WatchAPIVersion(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -151,7 +151,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionControllerModelAgent(c *tc.C) {
 			{Tag: coretesting.ControllerTag.String()},
 			{Tag: coretesting.ModelTag.String()},
 		}}
-	results, err := s.api().WatchAPIVersion(context.Background(), args)
+	results, err := s.api().WatchAPIVersion(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -167,7 +167,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionTagInvalid(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "unknow-tag-type"}},
 	}
-	results, err := s.api().WatchAPIVersion(context.Background(), args)
+	results, err := s.api().WatchAPIVersion(c.Context(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 1)
@@ -183,7 +183,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionWrongTypeTag(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewApplicationTag("testme").String()}},
 	}
-	results, err := s.api().WatchAPIVersion(context.Background(), args)
+	results, err := s.api().WatchAPIVersion(c.Context(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 1)

@@ -260,7 +260,7 @@ type blockTest struct {
 // newBlockTest starts a test goroutine blocking until the manager confirms
 // expiry of the named lease.
 func newBlockTest(c *tc.C, manager *lease.Manager, key corelease.Key) *blockTest {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 
 	bt := &blockTest{
 		manager: manager,

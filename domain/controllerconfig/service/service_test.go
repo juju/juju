@@ -35,7 +35,7 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *tc.C) {
 
 	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, []string{k1, k2}, gomock.Any()).Return(nil)
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, []string{k1, k2})
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, []string{k1, k2})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -46,7 +46,7 @@ func (s *serviceSuite) TestUpdateControllerError(c *tc.C) {
 
 	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).Return(errors.New("boom"))
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
 	c.Assert(err, tc.ErrorMatches, "updating controller config state: boom")
 }
 
@@ -63,7 +63,7 @@ func (s *serviceSuite) TestUpdateControllerValidationNoError(c *tc.C) {
 		return validateModification(current)
 	})
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -80,7 +80,7 @@ func (s *serviceSuite) TestUpdateControllerValidationWithMissingConfig(c *tc.C) 
 		return validateModification(current)
 	})
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
 	c.Assert(err, tc.ErrorMatches, `.*without complete s3 config: missing S3 endpoint`)
 }
 
@@ -97,7 +97,7 @@ func (s *serviceSuite) TestUpdateControllerValidationOnlyObjectStoreType(c *tc.C
 		return validateModification(current)
 	})
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -113,7 +113,7 @@ func (s *serviceSuite) TestUpdateControllerValidationAllAtOnce(c *tc.C) {
 		return validateModification(current)
 	})
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 }
@@ -131,7 +131,7 @@ func (s *serviceSuite) TestUpdateControllerValidationError(c *tc.C) {
 		return validateModification(current)
 	})
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
 	c.Assert(err, tc.ErrorMatches, `updating controller config state: can not change "object-store-type" from "s3" to "file"`)
 }
 
@@ -152,7 +152,7 @@ func (s *serviceSuite) TestUpdateControllerValidationIgnored(c *tc.C) {
 		return validateModification(current)
 	})
 
-	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

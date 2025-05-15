@@ -182,7 +182,7 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 
 	// Imitate a worker already scheduled in the runner.
 	rw := w.(*removalWorker)
-	err = rw.runner.StartWorker(context.Background(), "scheduled-job-uuid", func(ctx context.Context) (worker.Worker, error) {
+	err = rw.runner.StartWorker(c.Context(), "scheduled-job-uuid", func(ctx context.Context) (worker.Worker, error) {
 		w := jobWorker{}
 		w.tomb.Go(func() error {
 			<-w.tomb.Dying()
@@ -244,7 +244,7 @@ func (s *workerSuite) TestWorkerReport(c *tc.C) {
 	// Imitate two workers already scheduled in the runner.
 	rw := w.(*removalWorker)
 
-	err = rw.runner.StartWorker(context.Background(), "job-uuid-1", func(ctx context.Context) (worker.Worker, error) {
+	err = rw.runner.StartWorker(c.Context(), "job-uuid-1", func(ctx context.Context) (worker.Worker, error) {
 		w := jobWorker{job: removal.Job{
 			UUID:        "job-uuid-1",
 			RemovalType: 0,
@@ -259,7 +259,7 @@ func (s *workerSuite) TestWorkerReport(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = rw.runner.StartWorker(context.Background(), "job-uuid-2", func(ctx context.Context) (worker.Worker, error) {
+	err = rw.runner.StartWorker(c.Context(), "job-uuid-2", func(ctx context.Context) (worker.Worker, error) {
 		w := jobWorker{job: removal.Job{
 			UUID:        "job-uuid-2",
 			RemovalType: 0,

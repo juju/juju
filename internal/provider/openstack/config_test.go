@@ -48,7 +48,7 @@ func (t configTest) check(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	e := &Environ{}
-	err = e.SetConfig(context.Background(), cfg)
+	err = e.SetConfig(c.Context(), cfg)
 
 	if t.change != nil {
 		c.Assert(err, tc.ErrorIsNil)
@@ -61,9 +61,9 @@ func (t configTest) check(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 
 		// Keep err for validation below.
-		valid, err = providerInstance.Validate(context.Background(), changed, old)
+		valid, err = providerInstance.Validate(c.Context(), changed, old)
 		if err == nil {
-			err = osenv.SetConfig(context.Background(), valid)
+			err = osenv.SetConfig(c.Context(), valid)
 		}
 	}
 	if t.err != "" {
@@ -249,7 +249,7 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, tc.ErrorIsNil)
 	// Keep err for validation below.
-	valid, err := providerInstance.Validate(context.Background(), cfg, nil)
+	valid, err := providerInstance.Validate(c.Context(), cfg, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// Check deprecated attributes removed.
 	allAttrs := valid.AllAttrs()

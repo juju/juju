@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -56,7 +54,7 @@ func (s *serviceSuite) TestBlockDevices(c *tc.C) {
 	}}
 	s.state.EXPECT().BlockDevices(gomock.Any(), "666").Return(bd, nil)
 
-	result, err := s.service(c).BlockDevices(context.Background(), "666")
+	result, err := s.service(c).BlockDevices(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, bd)
 }
@@ -88,7 +86,7 @@ func (s *serviceSuite) TestAllBlockDevices(c *tc.C) {
 	}}
 	s.state.EXPECT().MachineBlockDevices(gomock.Any()).Return(mbd, nil)
 
-	result, err := s.service(c).AllBlockDevices(context.Background())
+	result, err := s.service(c).AllBlockDevices(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, map[string]blockdevice.BlockDevice{
 		"666": mbd[0].BlockDevice,
@@ -115,7 +113,7 @@ func (s *serviceSuite) TestUpdateDevices(c *tc.C) {
 	}}
 	s.state.EXPECT().SetMachineBlockDevices(gomock.Any(), "666", bd)
 
-	err := s.service(c).UpdateBlockDevices(context.Background(), "666", bd...)
+	err := s.service(c).UpdateBlockDevices(c.Context(), "666", bd...)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -140,7 +138,7 @@ func (s *serviceSuite) TestUpdateDevicesNoFilesystemType(c *tc.C) {
 
 	in := bd[0]
 	in.FilesystemType = ""
-	err := s.service(c).UpdateBlockDevices(context.Background(), "666", in)
+	err := s.service(c).UpdateBlockDevices(c.Context(), "666", in)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -151,7 +149,7 @@ func (s *serviceSuite) TestWatchBlockDevice(c *tc.C) {
 
 	s.state.EXPECT().WatchBlockDevices(gomock.Any(), gomock.Any(), "666").Return(nw, nil)
 
-	w, err := s.service(c).WatchBlockDevices(context.Background(), "666")
+	w, err := s.service(c).WatchBlockDevices(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 }

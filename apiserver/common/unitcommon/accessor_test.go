@@ -4,8 +4,6 @@
 package unitcommon
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -37,7 +35,7 @@ func (s *UnitAccessorSuite) TestApplicationAgent(c *tc.C) {
 	}
 
 	getAuthFunc := UnitAccessor(auth, s.applicationService)
-	authFunc, err := getAuthFunc(context.Background())
+	authFunc, err := getAuthFunc(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	ok := authFunc(names.NewUnitTag("gitlab/0"))
 	c.Assert(ok, tc.IsTrue)
@@ -56,7 +54,7 @@ func (s *UnitAccessorSuite) TestApplicationNotFound(c *tc.C) {
 		Tag: names.NewApplicationTag("gitlab"),
 	}
 	getAuthFunc := UnitAccessor(auth, s.applicationService)
-	_, err := getAuthFunc(context.Background())
+	_, err := getAuthFunc(c.Context())
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -67,7 +65,7 @@ func (s *UnitAccessorSuite) TestUnitAgent(c *tc.C) {
 		Tag: names.NewUnitTag("gitlab/0"),
 	}
 	getAuthFunc := UnitAccessor(auth, s.applicationService)
-	authFunc, err := getAuthFunc(context.Background())
+	authFunc, err := getAuthFunc(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	ok := authFunc(names.NewUnitTag("gitlab/0"))
 	c.Assert(ok, tc.IsTrue)

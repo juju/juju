@@ -77,7 +77,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 		})
 	}
 
-	err := BootstrapDqlite(context.Background(), mgr, modeltesting.GenModelUUID(c), loggertesting.WrapCheckLog(c), check)
+	err := BootstrapDqlite(c.Context(), mgr, modeltesting.GenModelUUID(c), loggertesting.WrapCheckLog(c), check)
 	c.Assert(err, tc.ErrorIsNil)
 
 }

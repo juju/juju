@@ -4,8 +4,6 @@
 package storage_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -55,7 +53,7 @@ func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 func (s *filesystemSuite) TestListFilesystemsEmptyFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
+	found, err := s.api.ListFilesystems(c.Context(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -71,7 +69,7 @@ func (s *filesystemSuite) TestListFilesystemsError(c *tc.C) {
 	s.storageAccessor.allFilesystems = func() ([]state.Filesystem, error) {
 		return nil, errors.New(msg)
 	}
-	results, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
+	results, err := s.api.ListFilesystems(c.Context(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -85,7 +83,7 @@ func (s *filesystemSuite) TestListFilesystemsNoFilesystems(c *tc.C) {
 	s.storageAccessor.allFilesystems = func() ([]state.Filesystem, error) {
 		return nil, nil
 	}
-	results, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{})
+	results, err := s.api.ListFilesystems(c.Context(), params.FilesystemFilters{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }
@@ -96,7 +94,7 @@ func (s *filesystemSuite) TestListFilesystemsFilter(c *tc.C) {
 	filters := []params.FilesystemFilter{{
 		Machines: []string{s.machineTag.String()},
 	}}
-	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{filters})
+	found, err := s.api.ListFilesystems(c.Context(), params.FilesystemFilters{filters})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Result, tc.HasLen, 1)
@@ -109,7 +107,7 @@ func (s *filesystemSuite) TestListFilesystemsFilterNonMatching(c *tc.C) {
 	filters := []params.FilesystemFilter{{
 		Machines: []string{"machine-42"},
 	}}
-	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{filters})
+	found, err := s.api.ListFilesystems(c.Context(), params.FilesystemFilters{filters})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found.Results, tc.HasLen, 1)
 	c.Assert(found.Results[0].Error, tc.IsNil)
@@ -124,7 +122,7 @@ func (s *filesystemSuite) TestListFilesystemsFilesystemInfo(c *tc.C) {
 	}
 	expected := s.expectedFilesystemDetails()
 	expected.Info.Size = 123
-	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
+	found, err := s.api.ListFilesystems(c.Context(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -151,7 +149,7 @@ func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *tc.C) {
 	expectedStorageAttachmentDetails := expected.Storage.Attachments["unit-mysql-0"]
 	expectedStorageAttachmentDetails.Location = "/tmp"
 	expected.Storage.Attachments["unit-mysql-0"] = expectedStorageAttachmentDetails
-	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
+	found, err := s.api.ListFilesystems(c.Context(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -166,7 +164,7 @@ func (s *filesystemSuite) TestListFilesystemsVolumeBacked(c *tc.C) {
 	s.filesystem.volume = &s.volumeTag
 	expected := s.expectedFilesystemDetails()
 	expected.VolumeTag = s.volumeTag.String()
-	found, err := s.api.ListFilesystems(context.Background(), params.FilesystemFilters{
+	found, err := s.api.ListFilesystems(c.Context(), params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
 	c.Assert(err, tc.ErrorIsNil)

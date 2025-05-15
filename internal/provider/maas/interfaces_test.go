@@ -4,8 +4,6 @@
 package maas
 
 import (
-	"context"
-
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
 
@@ -983,7 +981,7 @@ func (s *interfacesSuite) TestMAASNetworkInterfaces(c *tc.C) {
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maasInstance{machine: machine}
 
-	infos, err := maasNetworkInterfaces(context.Background(), instance, subnetsMap)
+	infos, err := maasNetworkInterfaces(c.Context(), instance, subnetsMap)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(infos, tc.DeepEquals, expected)
 }
@@ -1049,7 +1047,7 @@ func (s *interfacesSuite) TestMAASInterfacesNilVLAN(c *tc.C) {
 		Origin:           network.OriginProvider,
 	}}
 
-	infos, err := maasNetworkInterfaces(context.Background(), instance, map[string]network.Id{})
+	infos, err := maasNetworkInterfaces(c.Context(), instance, map[string]network.Id{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(infos, tc.DeepEquals, expected)
 }

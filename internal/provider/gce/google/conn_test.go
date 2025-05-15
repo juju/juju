@@ -27,7 +27,7 @@ func (s *connSuite) TestConnect(c *tc.C) {
 		return service, nil
 	})
 
-	conn, err := google.Connect(context.Background(), s.ConnCfg, s.Credentials)
+	conn, err := google.Connect(c.Context(), s.ConnCfg, s.Credentials)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(google.ExposeRawService(conn), tc.Equals, service)

@@ -46,7 +46,7 @@ func (s *workerSuite) TestKilledGetObjectStoreErrDying(c *tc.C) {
 	w.Kill()
 
 	worker := w.(*objectStoreWorker)
-	_, err := worker.GetObjectStore(context.Background(), "foo")
+	_, err := worker.GetObjectStore(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, objectstore.ErrObjectStoreDying)
 }
 
@@ -68,7 +68,7 @@ func (s *workerSuite) TestGetObjectStore(c *tc.C) {
 	}).AnyTimes()
 
 	worker := w.(*objectStoreWorker)
-	objectStore, err := worker.GetObjectStore(context.Background(), "foo")
+	objectStore, err := worker.GetObjectStore(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(objectStore, tc.NotNil)
 
@@ -97,7 +97,7 @@ func (s *workerSuite) TestGetObjectStoreIsCached(c *tc.C) {
 	worker := w.(*objectStoreWorker)
 	for i := 0; i < 10; i++ {
 
-		_, err := worker.GetObjectStore(context.Background(), "foo")
+		_, err := worker.GetObjectStore(c.Context(), "foo")
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -129,7 +129,7 @@ func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *tc.
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("anything-%d", i)
 
-		_, err := worker.GetObjectStore(context.Background(), name)
+		_, err := worker.GetObjectStore(c.Context(), name)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -167,7 +167,7 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *tc.C) {
 
 			name := fmt.Sprintf("anything-%d", i)
 
-			_, err := worker.GetObjectStore(context.Background(), name)
+			_, err := worker.GetObjectStore(c.Context(), name)
 			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}

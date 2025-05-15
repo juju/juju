@@ -4,7 +4,6 @@
 package caasmodelconfigmanager_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -112,7 +111,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		return nil, nil
 	}
 	manifold := caasmodelconfigmanager.Manifold(s.config)
-	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{APICaller: &mockAPICaller{}},
 		"broker":     struct{ caas.Broker }{},
 	}))

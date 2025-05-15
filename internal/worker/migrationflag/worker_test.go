@@ -4,8 +4,6 @@
 package migrationflag_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -30,7 +28,7 @@ func (*WorkerSuite) TestPhaseErrorOnStartup(c *tc.C) {
 		Model:  validUUID,
 		Check:  panicCheck,
 	}
-	worker, err := migrationflag.New(context.Background(), config)
+	worker, err := migrationflag.New(c.Context(), config)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "gaah")
 	checkCalls(c, stub, "Phase")
@@ -45,7 +43,7 @@ func (*WorkerSuite) TestWatchError(c *tc.C) {
 		Model:  validUUID,
 		Check:  neverCheck,
 	}
-	worker, err := migrationflag.New(context.Background(), config)
+	worker, err := migrationflag.New(c.Context(), config)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker.Check(), tc.IsFalse)
 
@@ -63,7 +61,7 @@ func (*WorkerSuite) TestPhaseErrorWhileRunning(c *tc.C) {
 		Model:  validUUID,
 		Check:  neverCheck,
 	}
-	worker, err := migrationflag.New(context.Background(), config)
+	worker, err := migrationflag.New(c.Context(), config)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker.Check(), tc.IsFalse)
 
@@ -82,7 +80,7 @@ func (*WorkerSuite) TestImmediatePhaseChange(c *tc.C) {
 		Model:  validUUID,
 		Check:  isQuiesce,
 	}
-	worker, err := migrationflag.New(context.Background(), config)
+	worker, err := migrationflag.New(c.Context(), config)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker.Check(), tc.IsTrue)
 
@@ -101,7 +99,7 @@ func (*WorkerSuite) TestSubsequentPhaseChange(c *tc.C) {
 		Model:  validUUID,
 		Check:  isQuiesce,
 	}
-	worker, err := migrationflag.New(context.Background(), config)
+	worker, err := migrationflag.New(c.Context(), config)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker.Check(), tc.IsFalse)
 
@@ -123,7 +121,7 @@ func (*WorkerSuite) TestNoRelevantPhaseChange(c *tc.C) {
 		Model:  validUUID,
 		Check:  isQuiesce,
 	}
-	worker, err := migrationflag.New(context.Background(), config)
+	worker, err := migrationflag.New(c.Context(), config)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker.Check(), tc.IsFalse)
 

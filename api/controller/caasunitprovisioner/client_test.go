@@ -4,8 +4,6 @@
 package caasunitprovisioner_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -39,7 +37,7 @@ func (s *unitprovisionerSuite) TestWatchApplications(c *tc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	watcher, err := client.WatchApplications(context.Background())
+	watcher, err := client.WatchApplications(c.Context())
 	c.Assert(watcher, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
@@ -65,7 +63,7 @@ func (s *unitprovisionerSuite) TestWatchApplicationScale(c *tc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	watcher, err := client.WatchApplicationScale(context.Background(), "gitlab")
+	watcher, err := client.WatchApplicationScale(c.Context(), "gitlab")
 	c.Assert(watcher, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
@@ -91,7 +89,7 @@ func (s *unitprovisionerSuite) TestApplicationScale(c *tc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	scale, err := client.ApplicationScale(context.Background(), "gitlab")
+	scale, err := client.ApplicationScale(c.Context(), "gitlab")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(scale, tc.Equals, 5)
 }
@@ -118,7 +116,7 @@ func (s *unitprovisionerSuite) TestUpdateApplicationService(c *tc.C) {
 		}
 		return nil
 	})
-	err := client.UpdateApplicationService(context.Background(), params.UpdateApplicationServiceArg{
+	err := client.UpdateApplicationService(c.Context(), params.UpdateApplicationServiceArg{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		ProviderId:     "id",
 		Addresses:      []params.Address{{Value: "10.0.0.1"}},
@@ -137,7 +135,7 @@ func (s *unitprovisionerSuite) TestUpdateApplicationServiceCount(c *tc.C) {
 		}
 		return nil
 	})
-	err := client.UpdateApplicationService(context.Background(), params.UpdateApplicationServiceArg{
+	err := client.UpdateApplicationService(c.Context(), params.UpdateApplicationServiceArg{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		ProviderId:     "id",
 		Addresses:      []params.Address{{Value: "10.0.0.1"}},
@@ -166,7 +164,7 @@ func (s *unitprovisionerSuite) TestWatchApplicationTrustHash(c *tc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	watcher, err := client.WatchApplicationTrustHash(context.Background(), "gitlab")
+	watcher, err := client.WatchApplicationTrustHash(c.Context(), "gitlab")
 	c.Assert(watcher, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
@@ -192,7 +190,7 @@ func (s *unitprovisionerSuite) TestApplicationTrust(c *tc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	trust, err := client.ApplicationTrust(context.Background(), "gitlab")
+	trust, err := client.ApplicationTrust(c.Context(), "gitlab")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(trust, tc.IsTrue)
 }

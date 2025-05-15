@@ -165,7 +165,7 @@ func (s *workerSuite) TestPruneModel(c *tc.C) {
 
 	pruner := s.newPruner(c)
 
-	result, err := pruner.pruneModel(context.Background(), "foo")
+	result, err := pruner.pruneModel(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(0))
 }
@@ -177,7 +177,7 @@ func (s *workerSuite) TestPruneModelGetDBError(c *tc.C) {
 
 	pruner := s.newPruner(c)
 
-	_, err := pruner.pruneModel(context.Background(), "foo")
+	_, err := pruner.pruneModel(c.Context(), "foo")
 	c.Check(err, tc.ErrorMatches, "boom")
 }
 
@@ -194,7 +194,7 @@ func (s *workerSuite) TestPruneModelChangeLogWitness(c *tc.C) {
 	s.insertControllerNodes(c, 2)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now})
 
-	result, err := pruner.pruneModel(context.Background(), "foo")
+	result, err := pruner.pruneModel(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(1))
 
@@ -228,14 +228,14 @@ func (s *workerSuite) TestPruneModelLogsWarning(c *tc.C) {
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 1, now)
 
-	result, err := pruner.pruneModel(context.Background(), "foo")
+	result, err := pruner.pruneModel(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(1))
 
 	// Should not prune anything as there are no new changes. Notice that the
 	// warning is not logged.
 
-	result, err = pruner.pruneModel(context.Background(), "foo")
+	result, err = pruner.pruneModel(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(0))
 
@@ -248,7 +248,7 @@ func (s *workerSuite) TestPruneModelLogsWarning(c *tc.C) {
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 1, 1, now)
 
-	result, err = pruner.pruneModel(context.Background(), "foo")
+	result, err = pruner.pruneModel(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(1))
 
@@ -275,7 +275,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItems(c *tc.C) {
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.pruneModel(context.Background(), "foo")
+	result, err := pruner.pruneModel(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(3+totalCtrlNodes))
 
@@ -299,7 +299,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarks(
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.pruneModel(context.Background(), "foo")
+	result, err := pruner.pruneModel(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(3+totalCtrlNodes))
 
@@ -324,7 +324,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksW
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.pruneModel(context.Background(), "foo")
+	result, err := pruner.pruneModel(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(2+totalCtrlNodes))
 
@@ -349,7 +349,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksM
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.pruneModel(context.Background(), "foo")
+	result, err := pruner.pruneModel(c.Context(), "foo")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(2+totalCtrlNodes))
 
@@ -524,7 +524,7 @@ VALUES ($M.ctrl_id, $M.node_id, $M.addr)
 			`, sqlair.M{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for i := 0; i < amount; i++ {
 			err := tx.Query(ctx, query, sqlair.M{
 				"ctrl_id": strconv.Itoa(i + 1),
@@ -546,7 +546,7 @@ ON CONFLICT (controller_id) DO UPDATE SET lower_bound = $M.lower_bound, updated_
 			`, sqlair.M{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for _, watermark := range watermarks {
 			err := tx.Query(ctx, query, sqlair.M{
 				"ctrl_id":     watermark.ControllerID,
@@ -567,7 +567,7 @@ VALUES ($M.id, 4, 2, 0, $M.created_at);
 			`, sqlair.M{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for i := start; i < amount; i++ {
 			err := tx.Query(ctx, query, sqlair.M{
 				"id":         i + 1000,
@@ -587,7 +587,7 @@ SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_lo
 	c.Assert(err, tc.ErrorIsNil)
 
 	var got []Watermark
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query).GetAll(&got)
 		if err != nil {
 			return err
@@ -606,7 +606,7 @@ SELECT (id, edit_type_id, namespace_id, changed, created_at) AS (&ChangeLogItem.
 	c.Assert(err, tc.ErrorIsNil)
 
 	var got []ChangeLogItem
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query).GetAll(&got)
 		if err != nil {
 			return err
@@ -631,7 +631,7 @@ func (s *workerSuite) truncateChangeLog(c *tc.C, runner coredatabase.TxnRunner) 
 	query, err := sqlair.Prepare(`DELETE FROM change_log;`)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, query).Run()
 	})
 	c.Assert(err, tc.ErrorIsNil)

@@ -4,8 +4,6 @@
 package relation
 
 import (
-	stdcontext "context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/logger"
@@ -44,7 +42,7 @@ func NewStateTrackerForTest(c *tc.C, cfg StateTrackerForTestConfig) (RelationSta
 		logger:          loggertesting.WrapCheckLogWithLevel(c, logger.DEBUG),
 		newRelationer:   cfg.NewRelationerFunc,
 	}
-	err := rst.loadInitialState(stdcontext.Background())
+	err := rst.loadInitialState(c.Context())
 	return rst, err
 }
 

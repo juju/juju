@@ -120,7 +120,7 @@ func (s *MachineSuite) SetUpTest(c *tc.C) {
 	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
 
 	// Ensure the dummy provider is initialised - no need to actually bootstrap.
-	ctx := envtesting.BootstrapContext(context.Background(), c)
+	ctx := envtesting.BootstrapContext(c.Context(), c)
 	err = s.Environ.PrepareForBootstrap(ctx, "controller")
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -274,7 +274,7 @@ func (s *MachineSuite) setAgentVersion(c *tc.C, vers string) {
 	stmt, err := sqlair.Prepare(q, args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt, args).Run()
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -389,7 +389,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *tc.C) {
 
 	// Wait for state to be updated.
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), m.Id())
+		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(c.Context(), m.Id())
 		c.Assert(err, tc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, tc.HasLen, 1)
@@ -491,7 +491,7 @@ func (s *MachineSuite) setupIgnoreAddresses(c *tc.C, expectedIgnoreValue bool) c
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
-	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), attrs, nil)
+	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(c.Context(), attrs, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	return ignoreAddressCh
 }
@@ -593,7 +593,7 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *tc.C) {
 
 	agentConfig := a.CurrentConfig()
 
-	err := a.ensureMongoServer(context.Background(), agentConfig)
+	err := a.ensureMongoServer(c.Context(), agentConfig)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.fakeEnsureMongo.EnsureCount, tc.Equals, 1)

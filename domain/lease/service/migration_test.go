@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -32,7 +30,7 @@ func (s *migrationSuite) TestMigrationService(c *tc.C) {
 	}, nil)
 
 	leadershipService := NewMigrationService(s.state)
-	leaders, err := leadershipService.GetApplicationLeadershipForModel(context.Background(), modelUUID)
+	leaders, err := leadershipService.GetApplicationLeadershipForModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(leaders, tc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -49,7 +47,7 @@ func (s *migrationSuite) TestMigrationServiceError(c *tc.C) {
 	}, errors.Errorf("boom"))
 
 	leadershipService := NewMigrationService(s.state)
-	_, err := leadershipService.GetApplicationLeadershipForModel(context.Background(), modelUUID)
+	_, err := leadershipService.GetApplicationLeadershipForModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorMatches, "boom")
 
 }

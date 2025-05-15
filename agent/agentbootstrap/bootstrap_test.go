@@ -85,7 +85,7 @@ func getModelConstraintAssertion(c *tc.C, cons constraints.Value) database.Boots
 		}, loggertesting.WrapCheckLog(c))
 
 		expectedConsVal := domainconstraints.DecodeConstraints(cons)
-		data, err := modelState.GetModelConstraints(context.Background())
+		data, err := modelState.GetModelConstraints(c.Context())
 		c.Check(err, tc.ErrorIsNil)
 		c.Check(data, tc.DeepEquals, expectedConsVal)
 		return nil
@@ -212,7 +212,7 @@ func (s *bootstrapSuite) TestInitializeState(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	ctlr, err := bootstrap.Initialize(context.Background())
+	ctlr, err := bootstrap.Initialize(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = ctlr.Close() }()
 
@@ -303,7 +303,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = bootstrap.Initialize(context.Background())
+	_, err = bootstrap.Initialize(c.Context())
 
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, tc.ErrorMatches, "state serving information not available")
@@ -372,7 +372,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	st, err := bootstrap.Initialize(context.Background())
+	st, err := bootstrap.Initialize(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	_ = st.Close()
 
@@ -390,7 +390,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	st, err = bootstrap.Initialize(context.Background())
+	st, err = bootstrap.Initialize(c.Context())
 	if err == nil {
 		_ = st.Close()
 	}

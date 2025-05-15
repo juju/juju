@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -56,7 +55,7 @@ func (s *importSuite) TestNoModelUserPermissions(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -110,7 +109,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	s.service.EXPECT().SetLastModelLogin(gomock.Any(), bobName, coremodel.UUID(modelUUID), bobTime)
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -144,7 +143,7 @@ func (s *importSuite) TestImportPermissionAlreadyExists(c *tc.C) {
 	}).Return(permission.UserAccess{}, accesserrors.PermissionAlreadyExists)
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -177,6 +176,6 @@ func (s *importSuite) TestImportPermissionUserDisabled(c *tc.C) {
 	}).Return(permission.UserAccess{}, accesserrors.UserAuthenticationDisabled)
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, accesserrors.UserAuthenticationDisabled)
 }

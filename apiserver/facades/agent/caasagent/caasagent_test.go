@@ -123,7 +123,7 @@ func (s *caasagentSuite) TestCloudSpec(c *tc.C) {
 	otherModelTag := names.NewModelTag(modeltesting.GenModelUUID(c).String())
 	machineTag := names.NewMachineTag("42")
 	result, err := s.facade.CloudSpec(
-		context.Background(),
+		c.Context(),
 		params.Entities{Entities: []params.Entity{
 			{names.NewModelTag(s.modelUUID.String()).String()},
 			{otherModelTag.String()},
@@ -164,7 +164,7 @@ func (s *caasagentSuite) TestCloudSpecCloudSpecError(c *tc.C) {
 	s.modelProviderServicebService.EXPECT().GetCloudSpec(gomock.Any()).Return(cloudspec.CloudSpec{}, errors.New("error"))
 
 	result, err := s.facade.CloudSpec(
-		context.Background(),
+		c.Context(),
 		params.Entities{Entities: []params.Entity{
 			{names.NewModelTag(s.modelUUID.String()).String()},
 		}},
@@ -189,7 +189,7 @@ func (s *caasagentSuite) TestWatchCloudSpecsChanges(c *tc.C) {
 	otherModelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	machineTag := names.NewMachineTag("42")
 	result, err := s.facade.WatchCloudSpecsChanges(
-		context.Background(),
+		c.Context(),
 		params.Entities{Entities: []params.Entity{
 			{names.NewModelTag(s.modelUUID.String()).String()},
 			{otherModelTag.String()},
@@ -219,7 +219,7 @@ func (s *caasagentSuite) TestCloudSpecNilCredential(c *tc.C) {
 	s.modelProviderServicebService.EXPECT().GetCloudSpec(gomock.Any()).Return(s.result, nil)
 
 	result, err := s.facade.CloudSpec(
-		context.Background(),
+		c.Context(),
 		params.Entities{Entities: []params.Entity{
 			{names.NewModelTag(s.modelUUID.String()).String()},
 		}},

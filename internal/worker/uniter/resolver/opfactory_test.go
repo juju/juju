@@ -4,7 +4,6 @@
 package resolver_test
 
 import (
-	"context"
 	"errors"
 
 	"github.com/juju/tc"
@@ -50,7 +49,7 @@ func (s *ResolverOpFactorySuite) testUpdateStatusChanged(
 	c.Assert(err, tc.ErrorIsNil)
 	f.RemoteState.UpdateStatusVersion = 2
 
-	_, err = op.Commit(context.Background(), operation.State{})
+	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Local state's UpdateStatusVersion should be set to what
@@ -92,7 +91,7 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	f.RemoteState.AddressesHash = "differenthash"
 	f.RemoteState.UpdateStatusVersion = 4
 
-	resultState, err := op.Commit(context.Background(), operation.State{})
+	resultState, err := op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resultState, tc.NotNil)
 
@@ -121,7 +120,7 @@ func (s *ResolverOpFactorySuite) testUpgrade(
 	curl := "ch:trusty/mysql"
 	op, err := meth(f, curl)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = op.Commit(context.Background(), operation.State{})
+	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.LocalState.CharmURL, tc.DeepEquals, curl)
 	c.Assert(f.LocalState.Conflicted, tc.IsFalse)
@@ -151,7 +150,7 @@ func (s *ResolverOpFactorySuite) TestCommitError(c *tc.C) {
 	}
 	op, err := f.NewUpgrade("ch:trusty/mysql")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = op.Commit(context.Background(), operation.State{})
+	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorMatches, "commit fails")
 	// Local state should not have been updated. We use the same code
 	// internally for all operations, so it suffices to test just the
@@ -163,9 +162,9 @@ func (s *ResolverOpFactorySuite) TestActionsCommit(c *tc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ActionsPending = []string{"action 1", "action 2", "action 3"}
 	f.LocalState.CompletedActions = map[string]struct{}{}
-	op, err := f.NewAction(context.Background(), "action 1")
+	op, err := f.NewAction(c.Context(), "action 1")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = op.Commit(context.Background(), operation.State{})
+	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"action 1": {},
@@ -180,9 +179,9 @@ func (s *ResolverOpFactorySuite) TestActionsTrimming(c *tc.C) {
 		"b": {},
 		"c": {},
 	}
-	op, err := f.NewAction(context.Background(), "d")
+	op, err := f.NewAction(c.Context(), "d")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = op.Commit(context.Background(), operation.State{})
+	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"c": {},
@@ -196,7 +195,7 @@ func (s *ResolverOpFactorySuite) TestFailActionsCommit(c *tc.C) {
 	f.LocalState.CompletedActions = map[string]struct{}{}
 	op, err := f.NewFailAction("action 1")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = op.Commit(context.Background(), operation.State{})
+	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"action 1": {},
@@ -213,7 +212,7 @@ func (s *ResolverOpFactorySuite) TestFailActionsTrimming(c *tc.C) {
 	}
 	op, err := f.NewFailAction("d")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = op.Commit(context.Background(), operation.State{})
+	_, err = op.Commit(c.Context(), operation.State{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, tc.DeepEquals, map[string]struct{}{
 		"c": {},

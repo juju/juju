@@ -124,7 +124,7 @@ func (s *simpleConnectorSuite) TestSimpleConnectorConnect(c *tc.C) {
 		return nil, nil
 	})
 
-	_, err = connector.Connect(context.Background(),
+	_, err = connector.Connect(c.Context(),
 		func(do *api.DialOpts) {
 			do.InsecureSkipVerify = true
 			do.Timeout = 5 * time.Minute

@@ -58,7 +58,7 @@ func (s *storeSuite) TestStore(c *tc.C) {
 		})
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	storeResult, err := storage.Store(context.Background(), path, contentDigest.Size, contentDigest.SHA384)
+	storeResult, err := storage.Store(c.Context(), path, contentDigest.Size, contentDigest.SHA384)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(storeResult.ObjectStoreUUID, tc.DeepEquals, uuid)
@@ -86,7 +86,7 @@ func (s *storeSuite) TestStoreFileClosed(c *tc.C) {
 		})
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	_, err := storage.Store(context.Background(), path, contentDigest.Size, contentDigest.SHA384)
+	_, err := storage.Store(c.Context(), path, contentDigest.Size, contentDigest.SHA384)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Attempt to read the contents of the read after it's been closed.
@@ -101,7 +101,7 @@ func (s *storeSuite) TestStoreFileNotFound(c *tc.C) {
 	dir := c.MkDir()
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	_, err := storage.Store(context.Background(), filepath.Join(dir, "foo"), 12, "hash")
+	_, err := storage.Store(c.Context(), filepath.Join(dir, "foo"), 12, "hash")
 	c.Assert(err, tc.ErrorIs, ErrNotFound)
 }
 
@@ -116,7 +116,7 @@ func (s *storeSuite) TestStoreFailed(c *tc.C) {
 		Return("", errors.Errorf("boom"))
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	_, err := storage.Store(context.Background(), path, contentDigest.Size, contentDigest.SHA384)
+	_, err := storage.Store(c.Context(), path, contentDigest.Size, contentDigest.SHA384)
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
@@ -147,7 +147,7 @@ func (s *storeSuite) TestStoreFromReader(c *tc.C) {
 		})
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	storeResult, digest, err := storage.StoreFromReader(context.Background(), reader, contentDigest.SHA256[:7])
+	storeResult, digest, err := storage.StoreFromReader(c.Context(), reader, contentDigest.SHA256[:7])
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(storeResult.ObjectStoreUUID, tc.DeepEquals, uuid)
@@ -167,7 +167,7 @@ func (s *storeSuite) TestStoreFromReaderEmptyReader(c *tc.C) {
 	reader := io.NopCloser(strings.NewReader(""))
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	_, _, err := storage.StoreFromReader(context.Background(), reader, contentDigest.SHA256[:7])
+	_, _, err := storage.StoreFromReader(c.Context(), reader, contentDigest.SHA256[:7])
 	c.Assert(err, tc.ErrorIs, ErrCharmHashMismatch)
 }
 
@@ -180,7 +180,7 @@ func (s *storeSuite) TestStoreFromReaderInvalidHash(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	_, _, err = storage.StoreFromReader(context.Background(), reader, "blah")
+	_, _, err = storage.StoreFromReader(c.Context(), reader, "blah")
 	c.Assert(err, tc.ErrorIs, ErrCharmHashMismatch)
 }
 
@@ -191,7 +191,7 @@ func (s *storeSuite) TestGet(c *tc.C) {
 	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(archive, 0, nil)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	reader, err := storage.Get(context.Background(), "foo")
+	reader, err := storage.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	content, err := io.ReadAll(reader)
@@ -206,7 +206,7 @@ func (s *storeSuite) TestGetFailed(c *tc.C) {
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 
-	_, err := storage.Get(context.Background(), "foo")
+	_, err := storage.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
@@ -216,7 +216,7 @@ func (s *storeSuite) TestGetNotFound(c *tc.C) {
 	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(nil, 0, objectstoreerrors.ObjectNotFound)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	_, err := storage.Get(context.Background(), "foo")
+	_, err := storage.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, ErrNotFound)
 }
 
@@ -227,7 +227,7 @@ func (s *storeSuite) TestGetBySHA256Prefix(c *tc.C) {
 	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(archive, 0, nil)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	reader, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
+	reader, err := storage.GetBySHA256Prefix(c.Context(), "02638299")
 	c.Assert(err, tc.ErrorIsNil)
 	content, err := io.ReadAll(reader)
 	c.Assert(err, tc.ErrorIsNil)
@@ -240,7 +240,7 @@ func (s *storeSuite) TestGetBySHA256PrefixFailed(c *tc.C) {
 	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(nil, 0, errors.Errorf("boom"))
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	_, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
+	_, err := storage.GetBySHA256Prefix(c.Context(), "02638299")
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
@@ -250,7 +250,7 @@ func (s *storeSuite) TestGetBySHA256NotFound(c *tc.C) {
 	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(nil, 0, objectstoreerrors.ObjectNotFound)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	_, err := storage.GetBySHA256Prefix(context.Background(), "02638299")
+	_, err := storage.GetBySHA256Prefix(c.Context(), "02638299")
 	c.Assert(err, tc.ErrorIs, ErrNotFound)
 }
 

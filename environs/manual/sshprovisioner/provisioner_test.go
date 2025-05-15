@@ -118,7 +118,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *tc.C) {
 			InitUbuntuUser:         true,
 			ProvisionAgentExitCode: errorCode,
 		}.install(c).Restore()
-		machineId, err := sshprovisioner.ProvisionMachine(context.Background(), args)
+		machineId, err := sshprovisioner.ProvisionMachine(c.Context(), args)
 		if errorCode != 0 {
 			c.Assert(err, tc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
 			c.Assert(machineId, tc.Equals, "")
@@ -139,7 +139,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *tc.C) {
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
-	_, err := sshprovisioner.ProvisionMachine(context.Background(), args)
+	_, err := sshprovisioner.ProvisionMachine(c.Context(), args)
 	c.Assert(err, tc.Equals, manual.ErrProvisioned)
 	defer fakeSSH{
 		Provisioned:              true,
@@ -148,7 +148,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *tc.C) {
 		SkipDetection:            true,
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
-	_, err = sshprovisioner.ProvisionMachine(context.Background(), args)
+	_, err = sshprovisioner.ProvisionMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 

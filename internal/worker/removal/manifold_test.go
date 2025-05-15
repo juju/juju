@@ -4,8 +4,6 @@
 package removal
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -91,7 +89,7 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 		Logger: loggertesting.WrapCheckLog(c),
 	}
 
-	w, err := Manifold(cfg).Start(context.Background(), noGetter{})
+	w, err := Manifold(cfg).Start(c.Context(), noGetter{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.NotNil)
 }

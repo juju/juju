@@ -4,7 +4,6 @@
 package uniter_test
 
 import (
-	"context"
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
@@ -129,7 +128,7 @@ func (s *uniterSuiteBase) newUniterAPI(c *tc.C, st *state.State, auth facade.Aut
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
-	uniterAPI, err := uniter.NewUniterAPI(context.Background(), facadeContext)
+	uniterAPI, err := uniter.NewUniterAPI(c.Context(), facadeContext)
 	c.Assert(err, tc.ErrorIsNil)
 	return uniterAPI
 }
@@ -139,7 +138,7 @@ func (s *uniterSuiteBase) newUniterAPIv19(c *tc.C, st *state.State, auth facade.
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
-	uniterAPI, err := uniter.NewUniterAPIv19(context.Background(), facadeContext)
+	uniterAPI, err := uniter.NewUniterAPIv19(c.Context(), facadeContext)
 	c.Assert(err, tc.ErrorIsNil)
 	return uniterAPI
 }

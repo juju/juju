@@ -55,7 +55,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, _, err := store.Get(context.Background(), "foo")
+	_, _, err := store.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
@@ -71,7 +71,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHANotFound(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, _, err := store.GetBySHA256Prefix(context.Background(), "0263829")
+	_, _, err := store.GetBySHA256Prefix(c.Context(), "0263829")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
@@ -96,7 +96,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, _, err := store.Get(context.Background(), "foo")
+	_, _, err := store.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
@@ -121,7 +121,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256FoundNoFile(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, _, err := store.GetBySHA256(context.Background(), hash256)
+	_, _, err := store.GetBySHA256(c.Context(), hash256)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
@@ -147,7 +147,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, _, err := store.GetBySHA256Prefix(context.Background(), hashPrefix)
+	_, _, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
@@ -184,7 +184,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	file, fileSize, err := store.Get(context.Background(), fileName)
+	file, fileSize, err := store.Get(c.Context(), fileName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "hello")
@@ -223,7 +223,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c *
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	file, fileSize, err := store.GetBySHA256(context.Background(), hash256)
+	file, fileSize, err := store.GetBySHA256(c.Context(), hash256)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "hello")
@@ -263,7 +263,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenFou
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	file, fileSize, err := store.GetBySHA256Prefix(context.Background(), hashPrefix)
+	file, fileSize, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "hello")
@@ -301,7 +301,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *tc.
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, _, err := store.Get(context.Background(), fileName)
+	_, _, err := store.Get(c.Context(), fileName)
 	c.Assert(err, tc.ErrorMatches, `.*size mismatch.*`)
 }
 
@@ -337,7 +337,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileFoundWithIncorrectSiz
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, _, err := store.GetBySHA256(context.Background(), hash256)
+	_, _, err := store.GetBySHA256(c.Context(), hash256)
 	c.Assert(err, tc.ErrorMatches, `.*size mismatch.*`)
 }
 
@@ -374,7 +374,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFoundWithIncorr
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, _, err := store.GetBySHA256Prefix(context.Background(), hashPrefix)
+	_, _, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
 	c.Assert(err, tc.ErrorMatches, `.*size mismatch.*`)
 }
 
@@ -410,7 +410,7 @@ func (s *s3ObjectStoreSuite) TestPut(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	received, err := store.Put(context.Background(), "foo", strings.NewReader(content), 12)
+	received, err := store.Put(c.Context(), "foo", strings.NewReader(content), 12)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid.Validate(), tc.ErrorIsNil)
 	c.Check(received, tc.Equals, uuid)
@@ -450,7 +450,7 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	uuid, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexSHA384)
+	uuid, err := store.PutAndCheckHash(c.Context(), "foo", strings.NewReader(content), 12, hexSHA384)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid.Validate(), tc.ErrorIsNil)
 
@@ -472,7 +472,7 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, fakeHash)
+	_, err := store.PutAndCheckHash(c.Context(), "foo", strings.NewReader(content), 12, fakeHash)
 	c.Assert(err, tc.ErrorMatches, `.*hash mismatch.*`)
 }
 
@@ -509,11 +509,11 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	uuid0, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexSHA384)
+	uuid0, err := store.PutAndCheckHash(c.Context(), "foo", strings.NewReader(content), 12, hexSHA384)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid0.Validate(), tc.ErrorIsNil)
 
-	uuid1, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexSHA384)
+	uuid1, err := store.PutAndCheckHash(c.Context(), "foo", strings.NewReader(content), 12, hexSHA384)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid1.Validate(), tc.ErrorIsNil)
 
@@ -552,7 +552,7 @@ func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexSHA384)
+	_, err := store.PutAndCheckHash(c.Context(), "foo", strings.NewReader(content), 12, hexSHA384)
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
@@ -589,7 +589,7 @@ func (s *s3ObjectStoreSuite) TestRemoveFileNotFound(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	err := store.Remove(context.Background(), "foo")
+	err := store.Remove(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -620,7 +620,7 @@ func (s *s3ObjectStoreSuite) TestRemove(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	err := store.Remove(context.Background(), "foo")
+	err := store.Remove(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -649,7 +649,7 @@ func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	metadata, files, err := store.list(context.Background())
+	metadata, files, err := store.list(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(metadata, tc.DeepEquals, []objectstore.Metadata{{
 		SHA384: hexSHA384,
@@ -746,7 +746,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileDoesNotExist(c *tc.C) {
 
 	s.expectHashToExistError("foo", errors.NotFound)
 
-	err := store.drainFile(context.Background(), "/path", "foo", 12)
+	err := store.drainFile(c.Context(), "/path", "foo", 12)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -764,7 +764,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectError(c *tc.C) {
 	s.expectHashToExist("foo")
 	s.expectObjectExistsError("foo", errors.Errorf("boom"))
 
-	err := store.drainFile(context.Background(), "/path", "foo", 12)
+	err := store.drainFile(c.Context(), "/path", "foo", 12)
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 }
 
@@ -785,7 +785,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectAlreadyExists(c *tc.C) {
 	s.expectHashToExist("foo")
 	s.expectObjectExists("foo")
 
-	err := store.drainFile(context.Background(), "/path", "foo", 12)
+	err := store.drainFile(c.Context(), "/path", "foo", 12)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -811,7 +811,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileObjectGetHashReturnsError(c *tc.C) {
 	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
 	s.expectGetByHashError("foo", errors.NotFoundf("not found"))
 
-	err := store.drainFile(context.Background(), "/path", "foo", 12)
+	err := store.drainFile(c.Context(), "/path", "foo", 12)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -841,7 +841,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileSizeDoNotMatch(c *tc.C) {
 	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
 	s.expectGetByHash("foo", reader, size)
 
-	err := store.drainFile(context.Background(), "/path", "foo", 12)
+	err := store.drainFile(c.Context(), "/path", "foo", 12)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(reader.Closed(), tc.IsTrue)
 }
@@ -869,7 +869,7 @@ func (s *s3ObjectStoreSuite) TestDrainFilePut(c *tc.C) {
 	s.expectHashPut(c, "foo", "KQ9JPET11j0Gs3TQpavSkvrji5LKsvrl7+/hsOk0f1Y=", "some content")
 	s.expectDeleteHash("foo")
 
-	err := store.drainFile(context.Background(), "/path", "foo", 12)
+	err := store.drainFile(c.Context(), "/path", "foo", 12)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(reader.Closed(), tc.IsTrue)
 }
@@ -902,7 +902,7 @@ func (s *s3ObjectStoreSuite) TestDrainFileDeleteError(c *tc.C) {
 	s.expectHashPut(c, "foo", "KQ9JPET11j0Gs3TQpavSkvrji5LKsvrl7+/hsOk0f1Y=", "some content")
 	s.expectDeleteHashError("foo", errors.Errorf("boom"))
 
-	err := store.drainFile(context.Background(), "/path", "foo", 12)
+	err := store.drainFile(c.Context(), "/path", "foo", 12)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(reader.Closed(), tc.IsTrue)
 }
@@ -969,7 +969,7 @@ func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *tc.C) {
 	err := os.WriteFile(filePath, []byte(content), 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = store.(*s3ObjectStore).persistTmpFile(context.Background(), filePath, hexHash, base64Hash, 42)
+	err = store.(*s3ObjectStore).persistTmpFile(c.Context(), filePath, hexHash, base64Hash, 42)
 	c.Assert(err, tc.ErrorMatches, `size mismatch for ".*foo.txt".*`)
 }
 

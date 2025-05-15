@@ -74,7 +74,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	})
 	s.expectSetCharmWithTrust(c)
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
 		CharmURL:        "local:foo-42",
 		CharmOrigin: &params.CharmOrigin{
@@ -119,7 +119,7 @@ func (s *applicationSuite) TestSetCharmInvalidCharmOrigin(c *tc.C) {
 
 	s.setupAPI(c)
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
 		CharmURL:        "local:foo-42",
 		CharmOrigin:     &params.CharmOrigin{},
@@ -133,7 +133,7 @@ func (s *applicationSuite) TestSetCharmApplicationNotFound(c *tc.C) {
 	s.setupAPI(c)
 	s.expectApplicationNotFound(c, "foo")
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
 		CharmURL:        "local:foo-42",
 		CharmOrigin: &params.CharmOrigin{
@@ -169,7 +169,7 @@ func (s *applicationSuite) TestSetCharmEndpointBindings(c *tc.C) {
 	})
 	s.expectSetCharmWithTrust(c)
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
 		CharmURL:        "local:foo-42",
 		CharmOrigin: &params.CharmOrigin{
@@ -218,7 +218,7 @@ func (s *applicationSuite) TestSetCharmEndpointBindingsNotFound(c *tc.C) {
 	s.expectApplication(c, "foo")
 	s.expectSpaceNameNotFound(c, "bar")
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
 		CharmURL:        "local:foo-42",
 		CharmOrigin: &params.CharmOrigin{
@@ -252,7 +252,7 @@ func (s *applicationSuite) TestSetCharmGetCharmNotFound(c *tc.C) {
 	s.expectApplication(c, "foo")
 	s.expectCharmNotFound(c, "foo")
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
 		CharmURL:        "local:foo-42",
 		CharmOrigin: &params.CharmOrigin{
@@ -284,7 +284,7 @@ func (s *applicationSuite) TestSetCharmInvalidConfig(c *tc.C) {
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 1)
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
 		CharmURL:        "local:foo-42",
 		CharmOrigin: &params.CharmOrigin{
@@ -325,7 +325,7 @@ func (s *applicationSuite) TestSetCharmWithoutTrust(c *tc.C) {
 
 	// There is no expectation that the trust is set on the application.
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
 		CharmURL:        "local:foo-42",
 		CharmOrigin: &params.CharmOrigin{
@@ -374,7 +374,7 @@ func (s *applicationSuite) TestSetCharmFormatDowngrade(c *tc.C) {
 	s.expectCharmAssumes(c)
 	s.expectCharmFormatCheckDowngrade(c, "foo")
 
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
 		CharmURL:        "local:foo-42",
 		CharmOrigin: &params.CharmOrigin{
@@ -408,7 +408,7 @@ func (s *applicationSuite) TestDeploy(c *tc.C) {
 	s.expectAddApplication()
 	s.expectCreateApplicationForDeploy("foo", nil)
 
-	errorResults, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
+	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{
 			{
 				ApplicationName: "foo",
@@ -453,7 +453,7 @@ func (s *applicationSuite) TestDeployWithPendingResources(c *tc.C) {
 	s.expectAddApplication()
 	s.expectCreateApplicationForDeploy("foo", nil)
 
-	errorResults, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
+	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{
 			{
 				ApplicationName: "foo",
@@ -495,7 +495,7 @@ func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *tc.C) {
 	s.expectAddApplication()
 	s.expectCreateApplicationForDeploy("foo", errors.Errorf("fail test"))
 
-	errorResults, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
+	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{
 			{
 				ApplicationName: "foo",
@@ -539,7 +539,7 @@ func (s *applicationSuite) TestDeployMismatchedResources(c *tc.C) {
 	resourceUUID := testing.GenResourceUUID(c)
 	s.expectDeletePendingResources([]resource.UUID{resourceUUID})
 
-	errorResults, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
+	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{
 			{
 				ApplicationName: "foo",
@@ -570,7 +570,7 @@ func (s *applicationSuite) TestDeployInvalidSource(c *tc.C) {
 
 	s.setupAPI(c)
 
-	errorResults, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
+	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{
 			{
 				ApplicationName: "foo",
@@ -602,7 +602,7 @@ func (s *applicationSuite) TestGetCharmURLOriginAppNotFound(c *tc.C) {
 
 	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "foo").Return(applicationcharm.CharmLocator{}, applicationerrors.ApplicationNotFound)
 
-	res, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
+	res, err := s.api.GetCharmURLOrigin(c.Context(), params.ApplicationGet{
 		ApplicationName: "foo",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -634,7 +634,7 @@ func (s *applicationSuite) TestGetCharmURLOrigin(c *tc.C) {
 		},
 	}, nil)
 
-	res, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
+	res, err := s.api.GetCharmURLOrigin(c.Context(), params.ApplicationGet{
 		ApplicationName: "foo",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -674,7 +674,7 @@ func (s *applicationSuite) TestGetCharmURLOriginNoOptionals(c *tc.C) {
 		},
 	}, nil)
 
-	res, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{
+	res, err := s.api.GetCharmURLOrigin(c.Context(), params.ApplicationGet{
 		ApplicationName: "foo",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -698,7 +698,7 @@ func (s *applicationSuite) TestGetApplicationConstraintsAppNotFound(c *tc.C) {
 
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID(""), applicationerrors.ApplicationNotFound)
 
-	res, err := s.api.GetConstraints(context.Background(), params.Entities{
+	res, err := s.api.GetConstraints(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "application-foo"}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -713,7 +713,7 @@ func (s *applicationSuite) TestGetApplicationConstraintsError(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID("app-foo"), nil)
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), application.ID("app-foo")).Return(constraints.Value{}, errors.New("boom"))
 
-	res, err := s.api.GetConstraints(context.Background(), params.Entities{
+	res, err := s.api.GetConstraints(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "application-foo"}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -728,7 +728,7 @@ func (s *applicationSuite) TestGetApplicationConstraints(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID("app-foo"), nil)
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), application.ID("app-foo")).Return(constraints.Value{Mem: ptr(uint64(42))}, nil)
 
-	res, err := s.api.GetConstraints(context.Background(), params.Entities{
+	res, err := s.api.GetConstraints(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "application-foo"}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -742,7 +742,7 @@ func (s *applicationSuite) TestSetApplicationConstraintsAppNotFound(c *tc.C) {
 
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID(""), applicationerrors.ApplicationNotFound)
 
-	err := s.api.SetConstraints(context.Background(), params.SetConstraints{
+	err := s.api.SetConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "foo",
 		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
 	})
@@ -757,7 +757,7 @@ func (s *applicationSuite) TestSetApplicationConstraintsError(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID("app-foo"), nil)
 	s.applicationService.EXPECT().SetApplicationConstraints(gomock.Any(), application.ID("app-foo"), constraints.Value{Mem: ptr(uint64(42))}).Return(errors.New("boom"))
 
-	err := s.api.SetConstraints(context.Background(), params.SetConstraints{
+	err := s.api.SetConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "foo",
 		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
 	})
@@ -776,7 +776,7 @@ func (s *applicationSuite) TestSetApplicationConstraints(c *tc.C) {
 	s.expectApplication(c, "foo")
 	s.application.EXPECT().SetConstraints(constraints.Value{Mem: ptr(uint64(42))}).Return(nil)
 
-	err := s.api.SetConstraints(context.Background(), params.SetConstraints{
+	err := s.api.SetConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "foo",
 		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
 	})
@@ -815,7 +815,7 @@ func (s *applicationSuite) TestAddRelation(c *tc.C) {
 	)
 
 	// Act:
-	results, err := s.api.AddRelation(context.Background(), params.AddRelation{
+	results, err := s.api.AddRelation(c.Context(), params.AddRelation{
 		Endpoints: []string{"mattermost", "postgresql:db"},
 		ViaCIDRs:  nil,
 	})
@@ -843,7 +843,7 @@ func (s *applicationSuite) TestAddRelationError(c *tc.C) {
 	)
 
 	// Act:
-	_, err := s.api.AddRelation(context.Background(), params.AddRelation{
+	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
 		Endpoints: []string{"mattermost", "postgresql:db"},
 	})
 
@@ -858,7 +858,7 @@ func (s *applicationSuite) TestAddRelationNoEndpointsError(c *tc.C) {
 	s.setupAPI(c)
 
 	// Act:
-	_, err := s.api.AddRelation(context.Background(), params.AddRelation{
+	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
 		Endpoints: []string{},
 	})
 
@@ -873,7 +873,7 @@ func (s *applicationSuite) TestAddRelationOneEndpoint(c *tc.C) {
 	s.setupAPI(c)
 
 	// Act:
-	_, err := s.api.AddRelation(context.Background(), params.AddRelation{
+	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
 		Endpoints: []string{"1"},
 	})
 
@@ -888,7 +888,7 @@ func (s *applicationSuite) TestAddRelationTooManyEndpointsError(c *tc.C) {
 	s.setupAPI(c)
 
 	// Act:
-	_, err := s.api.AddRelation(context.Background(), params.AddRelation{
+	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
 		Endpoints: []string{"1", "2", "3"},
 	})
 
@@ -903,7 +903,7 @@ func (s *applicationSuite) TestCharmConfigApplicationNotFound(c *tc.C) {
 
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
 
-	res, err := s.api.CharmConfig(context.Background(), params.ApplicationGetArgs{
+	res, err := s.api.CharmConfig(c.Context(), params.ApplicationGetArgs{
 		Args: []params.ApplicationGet{{
 			ApplicationName: "foo",
 		}},
@@ -942,7 +942,7 @@ func (s *applicationSuite) TestCharmConfig(c *tc.C) {
 		Trust: true,
 	}, nil)
 
-	res, err := s.api.CharmConfig(context.Background(), params.ApplicationGetArgs{
+	res, err := s.api.CharmConfig(c.Context(), params.ApplicationGetArgs{
 		Args: []params.ApplicationGet{{
 			ApplicationName: "foo",
 		}},
@@ -972,7 +972,7 @@ func (s *applicationSuite) TestSetConfigsYAMLNotImplemented(c *tc.C) {
 
 	s.setupAPI(c)
 
-	res, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
+	res, err := s.api.SetConfigs(c.Context(), params.ConfigSetArgs{
 		Args: []params.ConfigSet{{
 			ApplicationName: "foo",
 			ConfigYAML:      "foo: bar",
@@ -990,7 +990,7 @@ func (s *applicationSuite) TestSetConfigsApplicationNotFound(c *tc.C) {
 
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
 
-	res, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
+	res, err := s.api.SetConfigs(c.Context(), params.ConfigSetArgs{
 		Args: []params.ConfigSet{{
 			ApplicationName: "foo",
 			Config:          map[string]string{"foo": "bar"},
@@ -1008,7 +1008,7 @@ func (s *applicationSuite) TestSetConfigsNotValidApplicationName(c *tc.C) {
 
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNameNotValid)
 
-	res, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
+	res, err := s.api.SetConfigs(c.Context(), params.ConfigSetArgs{
 		Args: []params.ConfigSet{{
 			ApplicationName: "foo",
 			Config:          map[string]string{"foo": "bar"},
@@ -1028,7 +1028,7 @@ func (s *applicationSuite) TestSetConfigsInvalidConfig(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.applicationService.EXPECT().UpdateApplicationConfig(gomock.Any(), appID, gomock.Any()).Return(applicationerrors.InvalidApplicationConfig)
 
-	res, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
+	res, err := s.api.SetConfigs(c.Context(), params.ConfigSetArgs{
 		Args: []params.ConfigSet{{
 			ApplicationName: "foo",
 			Config:          map[string]string{"foo": "bar"},
@@ -1048,7 +1048,7 @@ func (s *applicationSuite) TestSetConfigs(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.applicationService.EXPECT().UpdateApplicationConfig(gomock.Any(), appID, map[string]string{"foo": "bar"}).Return(nil)
 
-	res, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
+	res, err := s.api.SetConfigs(c.Context(), params.ConfigSetArgs{
 		Args: []params.ConfigSet{{
 			ApplicationName: "foo",
 			Config:          map[string]string{"foo": "bar"},
@@ -1064,7 +1064,7 @@ func (s *applicationSuite) TestResolveUnitErrorsAllAndEntitesMutuallyExclusive(c
 
 	s.setupAPI(c)
 
-	_, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+	_, err := s.api.ResolveUnitErrors(c.Context(), params.UnitsResolved{
 		Tags: params.Entities{
 			Entities: []params.Entity{{Tag: "unit-1"}},
 		},
@@ -1080,7 +1080,7 @@ func (s *applicationSuite) TestResolveUnitErrorsAllNoRetry(c *tc.C) {
 
 	s.resolveService.EXPECT().ResolveAllUnits(gomock.Any(), resolve.ResolveModeNoHooks).Return(nil)
 
-	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+	res, err := s.api.ResolveUnitErrors(c.Context(), params.UnitsResolved{
 		All: true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1094,7 +1094,7 @@ func (s *applicationSuite) TestResolveUnitErrorsAllRetryHooks(c *tc.C) {
 
 	s.resolveService.EXPECT().ResolveAllUnits(gomock.Any(), resolve.ResolveModeRetryHooks).Return(nil)
 
-	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+	res, err := s.api.ResolveUnitErrors(c.Context(), params.UnitsResolved{
 		All:   true,
 		Retry: true,
 	})
@@ -1110,7 +1110,7 @@ func (s *applicationSuite) TestResolveUnitErrorsSpecificNoRetry(c *tc.C) {
 	unitName := coreunit.Name("foo/1")
 	s.resolveService.EXPECT().ResolveUnit(gomock.Any(), unitName, resolve.ResolveModeNoHooks).Return(nil)
 
-	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+	res, err := s.api.ResolveUnitErrors(c.Context(), params.UnitsResolved{
 		Tags: params.Entities{
 			Entities: []params.Entity{{Tag: names.NewUnitTag(unitName.String()).String()}},
 		},
@@ -1128,7 +1128,7 @@ func (s *applicationSuite) TestResolveUnitErrorsSpecificRetryHooks(c *tc.C) {
 	unitName := coreunit.Name("foo/1")
 	s.resolveService.EXPECT().ResolveUnit(gomock.Any(), unitName, resolve.ResolveModeRetryHooks).Return(nil)
 
-	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+	res, err := s.api.ResolveUnitErrors(c.Context(), params.UnitsResolved{
 		Tags: params.Entities{
 			Entities: []params.Entity{{Tag: names.NewUnitTag(unitName.String()).String()}},
 		},
@@ -1147,7 +1147,7 @@ func (s *applicationSuite) TestResolveUnitErrorsUnitNotFound(c *tc.C) {
 	unitName := coreunit.Name("foo/1")
 	s.resolveService.EXPECT().ResolveUnit(gomock.Any(), unitName, resolve.ResolveModeNoHooks).Return(resolveerrors.UnitNotFound)
 
-	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+	res, err := s.api.ResolveUnitErrors(c.Context(), params.UnitsResolved{
 		Tags: params.Entities{
 			Entities: []params.Entity{{Tag: names.NewUnitTag(unitName.String()).String()}},
 		},
@@ -1166,14 +1166,14 @@ func (s *applicationSuite) TestDestroyRelationByEndpoints(c *tc.C) {
 		Endpoints: []string{"foo:require", "bar:provide"},
 	}
 	relUUID := s.expectGetRelationUUIDForRemoval(c, getUUIDArgs, nil)
-	s.expectRemoveRelation(relUUID, false, 0, nil)
+	s.expectRemoveRelation(c, relUUID, false, 0, nil)
 
 	arg := params.DestroyRelation{
 		Endpoints: []string{"foo:require", "bar:provide"},
 	}
 
 	// Act
-	err := s.api.DestroyRelation(context.Background(), arg)
+	err := s.api.DestroyRelation(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1193,7 +1193,7 @@ func (s *applicationSuite) TestDestroyRelationRelationNotFound(c *tc.C) {
 	}
 
 	// Act
-	err := s.api.DestroyRelation(context.Background(), arg)
+	err := s.api.DestroyRelation(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
@@ -1209,14 +1209,14 @@ func (s *applicationSuite) TestDestroyRelationByID(c *tc.C) {
 	}
 	relUUID := s.expectGetRelationUUIDForRemoval(c, getUUIDArgs, nil)
 
-	s.expectRemoveRelation(relUUID, false, 0, nil)
+	s.expectRemoveRelation(c, relUUID, false, 0, nil)
 
 	arg := params.DestroyRelation{
 		RelationId: getUUIDArgs.RelationID,
 	}
 
 	// Act
-	err := s.api.DestroyRelation(context.Background(), arg)
+	err := s.api.DestroyRelation(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1232,7 +1232,7 @@ func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *tc.C) {
 	}
 	relUUID := s.expectGetRelationUUIDForRemoval(c, getUUIDArgs, nil)
 	maxWait := time.Second
-	s.expectRemoveRelation(relUUID, true, maxWait, nil)
+	s.expectRemoveRelation(c, relUUID, true, maxWait, nil)
 
 	arg := params.DestroyRelation{
 		RelationId: getUUIDArgs.RelationID,
@@ -1241,7 +1241,7 @@ func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *tc.C) {
 	}
 
 	// Act
-	err := s.api.DestroyRelation(context.Background(), arg)
+	err := s.api.DestroyRelation(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -1441,11 +1441,11 @@ func (s *applicationSuite) expectSetCharmWithTrust(c *tc.C) {
 
 func (s *applicationSuite) expectGetRelationUUIDForRemoval(c *tc.C, args relation.GetRelationUUIDForRemovalArgs, err error) corerelation.UUID {
 	relUUID := relationtesting.GenRelationUUID(c)
-	s.relationService.EXPECT().GetRelationUUIDForRemoval(context.Background(), args).Return(relUUID, err)
+	s.relationService.EXPECT().GetRelationUUIDForRemoval(gomock.Any(), args).Return(relUUID, err)
 	return relUUID
 }
 
-func (s *applicationSuite) expectRemoveRelation(uuid corerelation.UUID, force bool, maxWait time.Duration, err error) {
+func (s *applicationSuite) expectRemoveRelation(c *tc.C, uuid corerelation.UUID, force bool, maxWait time.Duration, err error) {
 	rUUID, _ := removal.NewUUID()
-	s.removalService.EXPECT().RemoveRelation(context.Background(), uuid, force, maxWait).Return(rUUID, err)
+	s.removalService.EXPECT().RemoveRelation(gomock.Any(), uuid, force, maxWait).Return(rUUID, err)
 }

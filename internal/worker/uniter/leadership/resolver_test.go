@@ -4,8 +4,6 @@
 package leadership_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -33,7 +31,7 @@ func (s *resolverSuite) TestNextOpNotInstalled(c *tc.C) {
 	logger := loggertesting.WrapCheckLog(c)
 
 	r := leadership.NewResolver(logger)
-	_, err := r.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, f)
+	_, err := r.NextOp(c.Context(), resolver.LocalState{}, remotestate.Snapshot{}, f)
 	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }
 
@@ -48,7 +46,7 @@ func (s *resolverSuite) TestNextOpAcceptLeader(c *tc.C) {
 	f.EXPECT().NewAcceptLeadership().Return(op, nil)
 
 	r := leadership.NewResolver(logger)
-	result, err := r.NextOp(context.Background(), resolver.LocalState{
+	result, err := r.NextOp(c.Context(), resolver.LocalState{
 		State: operation.State{Installed: true, Kind: operation.Continue},
 	}, remotestate.Snapshot{
 		Leader: true,
@@ -68,7 +66,7 @@ func (s *resolverSuite) TestNextOpResignLeader(c *tc.C) {
 	f.EXPECT().NewResignLeadership().Return(op, nil)
 
 	r := leadership.NewResolver(logger)
-	result, err := r.NextOp(context.Background(), resolver.LocalState{
+	result, err := r.NextOp(c.Context(), resolver.LocalState{
 		State: operation.State{Installed: true, Leader: true, Kind: operation.Continue},
 	}, remotestate.Snapshot{}, f)
 	c.Assert(err, tc.ErrorIsNil)
@@ -86,7 +84,7 @@ func (s *resolverSuite) TestNextOpResignLeaderDying(c *tc.C) {
 	f.EXPECT().NewResignLeadership().Return(op, nil)
 
 	r := leadership.NewResolver(logger)
-	result, err := r.NextOp(context.Background(), resolver.LocalState{
+	result, err := r.NextOp(c.Context(), resolver.LocalState{
 		State: operation.State{Installed: true, Leader: true, Kind: operation.Continue},
 	}, remotestate.Snapshot{
 		Leader: true, Life: life.Dying,

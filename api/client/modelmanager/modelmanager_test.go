@@ -4,7 +4,6 @@
 package modelmanager_test
 
 import (
-	"context"
 	"regexp"
 	"time"
 
@@ -36,7 +35,7 @@ func (s *modelmanagerSuite) TestCreateModelBadUser(c *tc.C) {
 	defer ctrl.Finish()
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.CreateModel(context.Background(), "mymodel", "not a user", "", "", names.CloudCredentialTag{}, nil)
+	_, err := client.CreateModel(c.Context(), "mymodel", "not a user", "", "", names.CloudCredentialTag{}, nil)
 	c.Assert(err, tc.ErrorMatches, `invalid owner name "not a user"`)
 }
 
@@ -45,7 +44,7 @@ func (s *modelmanagerSuite) TestCreateModelBadCloud(c *tc.C) {
 	defer ctrl.Finish()
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.CreateModel(context.Background(), "mymodel", "bob", "123!", "", names.CloudCredentialTag{}, nil)
+	_, err := client.CreateModel(c.Context(), "mymodel", "bob", "123!", "", names.CloudCredentialTag{}, nil)
 	c.Assert(err, tc.ErrorMatches, `invalid cloud name "123!"`)
 }
 
@@ -78,7 +77,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	newModel, err := client.CreateModel(
-		context.Background(),
+		c.Context(),
 		"new-model",
 		"bob",
 		"nimbus",
@@ -111,7 +110,7 @@ func (s *modelmanagerSuite) TestListModelsBadUser(c *tc.C) {
 	defer ctrl.Finish()
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.ListModels(context.Background(), "not a user")
+	_, err := client.ListModels(c.Context(), "not a user")
 	c.Assert(err, tc.ErrorMatches, `invalid user name "not a user"`)
 }
 
@@ -146,7 +145,7 @@ func (s *modelmanagerSuite) TestListModels(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListModels", args, result).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	models, err := client.ListModels(context.Background(), "user@remote")
+	models, err := client.ListModels(c.Context(), "user@remote")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(models, tc.DeepEquals, []base.UserModel{{
 		Name:           "yo",
@@ -185,7 +184,7 @@ func (s *modelmanagerSuite) testDestroyModel(c *tc.C, destroyStorage, force *boo
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyModels", args, result).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.DestroyModel(context.Background(), coretesting.ModelTag, destroyStorage, force, maxWait, &timeout)
+	err := client.DestroyModel(c.Context(), coretesting.ModelTag, destroyStorage, force, maxWait, &timeout)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -226,7 +225,7 @@ func (s *modelmanagerSuite) TestModelDefaults(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelDefaultsForClouds", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	result, err := client.ModelDefaults(context.Background(), "aws")
+	result, err := client.ModelDefaults(c.Context(), "aws")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result, tc.DeepEquals, config.ModelDefaultAttributes{
@@ -259,7 +258,7 @@ func (s *modelmanagerSuite) TestSetModelDefaults(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetModelDefaults", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.SetModelDefaults(context.Background(), "mycloud", "region", map[string]interface{}{
+	err := client.SetModelDefaults(c.Context(), "mycloud", "region", map[string]interface{}{
 		"some-name":  "value",
 		"other-name": true,
 	})
@@ -286,7 +285,7 @@ func (s *modelmanagerSuite) TestUnsetModelDefaults(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UnsetModelDefaults", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.UnsetModelDefaults(context.Background(), "mycloud", "region", "foo", "bar")
+	err := client.UnsetModelDefaults(c.Context(), "mycloud", "region", "foo", "bar")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -326,7 +325,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).SetArg(3, ress).Return(nil)
 	client := common.NewModelStatusAPI(mockFacadeCaller)
 
-	results, err := client.ModelStatus(context.Background(), coretesting.ModelTag, coretesting.ModelTag)
+	results, err := client.ModelStatus(c.Context(), coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0], tc.DeepEquals, base.ModelStatus{
 		UUID:               coretesting.ModelTag.Id(),
@@ -355,7 +354,7 @@ func (s *modelmanagerSuite) TestModelStatusEmpty(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).SetArg(3, ress).Return(nil)
 	client := common.NewModelStatusAPI(mockFacadeCaller)
 
-	results, err := client.ModelStatus(context.Background())
+	results, err := client.ModelStatus(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, []base.ModelStatus{})
 }
@@ -376,7 +375,7 @@ func (s *modelmanagerSuite) TestModelStatusError(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).Return(errors.New("model error"))
 	client := common.NewModelStatusAPI(mockFacadeCaller)
-	out, err := client.ModelStatus(context.Background(), coretesting.ModelTag, coretesting.ModelTag)
+	out, err := client.ModelStatus(c.Context(), coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, tc.ErrorMatches, "model error")
 	c.Assert(out, tc.IsNil)
 }
@@ -423,7 +422,7 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListModelSummaries", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	results, err := client.ListModelSummaries(context.Background(), userTag.Id(), true)
+	results, err := client.ListModelSummaries(c.Context(), userTag.Id(), true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(results, tc.HasLen, 2)
@@ -477,7 +476,7 @@ func (s *modelmanagerSuite) TestListModelSummariesParsingErrors(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListModelSummaries", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	results, err := client.ListModelSummaries(context.Background(), "commander", true)
+	results, err := client.ListModelSummaries(c.Context(), "commander", true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 3)
 	c.Assert(results[0].Error, tc.ErrorMatches, `while parsing model owner tag: "owner-user" is not a valid tag`)
@@ -491,7 +490,7 @@ func (s *modelmanagerSuite) TestListModelSummariesInvalidUserIn(c *tc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	out, err := client.ListModelSummaries(context.Background(), "++)captain", false)
+	out, err := client.ListModelSummaries(c.Context(), "++)captain", false)
 	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta(`invalid user name "++)captain"`))
 	c.Assert(out, tc.IsNil)
 }
@@ -510,7 +509,7 @@ func (s *modelmanagerSuite) TestListModelSummariesServerError(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListModelSummaries", args, res).Return(errors.New("captain, error"))
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	out, err := client.ListModelSummaries(context.Background(), "captain", false)
+	out, err := client.ListModelSummaries(c.Context(), "captain", false)
 	c.Assert(err, tc.ErrorMatches, "captain, error")
 	c.Assert(out, tc.IsNil)
 }
@@ -535,7 +534,7 @@ func (s *modelmanagerSuite) TestChangeModelCredential(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ChangeModelCredential", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.ChangeModelCredential(context.Background(), coretesting.ModelTag, credentialTag)
+	err := client.ChangeModelCredential(c.Context(), coretesting.ModelTag, credentialTag)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -560,7 +559,7 @@ func (s *modelmanagerSuite) TestChangeModelCredentialManyResults(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ChangeModelCredential", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.ChangeModelCredential(context.Background(), coretesting.ModelTag, credentialTag)
+	err := client.ChangeModelCredential(c.Context(), coretesting.ModelTag, credentialTag)
 	c.Assert(err, tc.ErrorMatches, `expected 1 result, got 2`)
 }
 
@@ -580,7 +579,7 @@ func (s *modelmanagerSuite) TestChangeModelCredentialCallFailed(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ChangeModelCredential", args, res).Return(errors.New("failed call"))
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
-	err := client.ChangeModelCredential(context.Background(), coretesting.ModelTag, credentialTag)
+	err := client.ChangeModelCredential(c.Context(), coretesting.ModelTag, credentialTag)
 	c.Assert(err, tc.ErrorMatches, `failed call`)
 }
 
@@ -604,7 +603,7 @@ func (s *modelmanagerSuite) TestChangeModelCredentialUpdateFailed(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ChangeModelCredential", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.ChangeModelCredential(context.Background(), coretesting.ModelTag, credentialTag)
+	err := client.ChangeModelCredential(c.Context(), coretesting.ModelTag, credentialTag)
 	c.Assert(err, tc.ErrorMatches, `update error`)
 }
 
@@ -639,7 +638,7 @@ func (s *dumpModelSuite) TestDumpModelDB(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DumpModelsDB", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	out, err := client.DumpModelDB(context.Background(), coretesting.ModelTag)
+	out, err := client.DumpModelDB(c.Context(), coretesting.ModelTag)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.DeepEquals, expected)
 }
@@ -659,7 +658,7 @@ func (s *dumpModelSuite) TestDumpModelDBError(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DumpModelsDB", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	out, err := client.DumpModelDB(context.Background(), coretesting.ModelTag)
+	out, err := client.DumpModelDB(c.Context(), coretesting.ModelTag)
 	c.Assert(err, tc.ErrorMatches, "fake error")
 	c.Assert(out, tc.IsNil)
 }

@@ -4,7 +4,6 @@
 package resources_test
 
 import (
-	"context"
 	"io"
 
 	"github.com/juju/tc"
@@ -36,7 +35,7 @@ func (s *OpenedResourceSuite) TestOpenResource(c *tc.C) {
 	info, reader := newResource(c, s.stub, "spam", "some data")
 	client.EXPECT().GetResource(gomock.Any(), "spam").Return(info, reader, nil)
 
-	opened, err := resources.OpenResource(context.Background(), "spam", client)
+	opened, err := resources.OpenResource(c.Context(), "spam", client)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(opened, tc.DeepEquals, &resources.OpenedResource{
 		Resource:   info,
@@ -68,7 +67,7 @@ func (s *OpenedResourceSuite) TestDockerImage(c *tc.C) {
 	info, reader := newDockerResource(c, s.stub, "spam", jsonContent)
 	client.EXPECT().GetResource(gomock.Any(), "spam").Return(info, reader, nil)
 
-	opened, err := resources.OpenResource(context.Background(), "spam", client)
+	opened, err := resources.OpenResource(c.Context(), "spam", client)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(opened.Path, tc.Equals, "content.yaml")
 	content := opened.Content()

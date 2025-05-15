@@ -4,8 +4,6 @@
 package vsphere_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -146,7 +144,7 @@ func (*ConfigSuite) TestNewModelConfig(c *tc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		fakeConfig := test.newConfig(c)
-		environ, err := environs.New(context.Background(), environs.OpenParams{
+		environ, err := environs.New(c.Context(), environs.OpenParams{
 			Cloud:  fakeCloudSpec(),
 			Config: fakeConfig,
 		}, environs.NoopCredentialInvalidator())
@@ -165,7 +163,7 @@ func (s *ConfigSuite) TestValidateNewConfig(c *tc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		fakeConfig := test.newConfig(c)
-		validatedConfig, err := s.provider.Validate(context.Background(), fakeConfig, nil)
+		validatedConfig, err := s.provider.Validate(c.Context(), fakeConfig, nil)
 
 		// Check the result
 		if test.err != "" {
@@ -187,7 +185,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *tc.C) {
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		validatedConfig, err := s.provider.Validate(context.Background(), newcfg, oldcfg)
+		validatedConfig, err := s.provider.Validate(c.Context(), newcfg, oldcfg)
 
 		// Check the result.
 		if test.err != "" {
@@ -222,7 +220,7 @@ func (s *ConfigSuite) TestValidateChange(c *tc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		fakeConfig := test.newConfig(c)
-		validatedConfig, err := s.provider.Validate(context.Background(), fakeConfig, s.config)
+		validatedConfig, err := s.provider.Validate(c.Context(), fakeConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {
@@ -237,14 +235,14 @@ func (s *ConfigSuite) TestSetConfig(c *tc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(context.Background(), environs.OpenParams{
+		environ, err := environs.New(c.Context(), environs.OpenParams{
 			Cloud:  fakeCloudSpec(),
 			Config: s.config,
 		}, environs.NoopCredentialInvalidator())
 		c.Assert(err, tc.ErrorIsNil)
 
 		fakeConfig := test.newConfig(c)
-		err = environ.SetConfig(context.Background(), fakeConfig)
+		err = environ.SetConfig(c.Context(), fakeConfig)
 
 		// Check the result.
 		if test.err != "" {

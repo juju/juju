@@ -49,7 +49,7 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, tc.ErrorIsNil)
-	watches, err := storage.WatchUnitStorageAttachments(context.Background(), params.Entities{
+	watches, err := storage.WatchUnitStorageAttachments(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: unitTag.String()}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -123,7 +123,7 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *tc.C) {
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, tc.ErrorIsNil)
-	watches, err := storage.WatchStorageAttachments(context.Background(), params.StorageAttachmentIds{
+	watches, err := storage.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag.String(),
 			UnitTag:    unitTag.String(),
@@ -207,7 +207,7 @@ func (s *storageSuite) assertWatchStorageAttachmentFilesystem(c *tc.C, assignedM
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, tc.ErrorIsNil)
-	watches, err := storage.WatchStorageAttachments(context.Background(), params.StorageAttachmentIds{
+	watches, err := storage.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag.String(),
 			UnitTag:    unitTag.String(),
@@ -247,7 +247,7 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *tc.C) {
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, tc.ErrorIsNil)
-	destroyErrors, err := storage.DestroyUnitStorageAttachments(context.Background(), params.Entities{
+	destroyErrors, err := storage.DestroyUnitStorageAttachments(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: unitTag.String(),
 		}},
@@ -288,7 +288,7 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *tc.C) {
 
 	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, tc.ErrorIsNil)
-	removeErrors, err := storage.RemoveStorageAttachments(context.Background(), params.StorageAttachmentIds{
+	removeErrors, err := storage.RemoveStorageAttachments(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag0.String(),
 			UnitTag:    unitTag0.String(),
@@ -567,7 +567,7 @@ func (s *watchStorageAttachmentSuite) testWatchBlockStorageAttachment(c *tc.C, c
 
 func (s *watchStorageAttachmentSuite) testWatchStorageAttachment(c *tc.C, change func()) {
 	w, err := uniter.WatchStorageAttachment(
-		context.Background(),
+		c.Context(),
 		s.st,
 		s.st,
 		s.st,

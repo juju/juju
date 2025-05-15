@@ -46,7 +46,7 @@ func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	_, _, err := ret.Retrieve(context.Background(), "foo")
+	_, _, err := ret.Retrieve(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, NoRemoteConnections)
 
 	workertest.CleanKill(c, ret)
@@ -59,7 +59,7 @@ func (s *retrieverSuite) TestRetrieverAlreadyKilled(c *tc.C) {
 
 	workertest.CleanKill(c, ret)
 
-	_, _, err := ret.Retrieve(context.Background(), "foo")
+	_, _, err := ret.Retrieve(c.Context(), "foo")
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	workertest.CheckKilled(c, ret)
 }
@@ -70,7 +70,7 @@ func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
 	_, _, err := ret.Retrieve(ctx, "foo")
@@ -99,7 +99,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	readerCloser, size, err := ret.Retrieve(context.Background(), "foo")
+	readerCloser, size, err := ret.Retrieve(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that the reader is closed, otherwise the retriever will leak.
@@ -194,7 +194,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	readerCloser, size, err := ret.Retrieve(context.Background(), "foo")
+	readerCloser, size, err := ret.Retrieve(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that the reader is closed, otherwise the retriever will leak.
@@ -276,7 +276,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	readerCloser, size, err := ret.Retrieve(context.Background(), "foo")
+	readerCloser, size, err := ret.Retrieve(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that the reader is closed, otherwise the retriever will leak.
@@ -319,7 +319,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	_, _, err := ret.Retrieve(context.Background(), "foo")
+	_, _, err := ret.Retrieve(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, BlobNotFound)
 
 	workertest.CleanKill(c, ret)
@@ -377,7 +377,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	_, _, err := ret.Retrieve(context.Background(), "foo")
+	_, _, err := ret.Retrieve(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 
 	workertest.CleanKill(c, ret)
@@ -386,7 +386,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *tc.C) {
 func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 
 	requested := make(chan struct{})

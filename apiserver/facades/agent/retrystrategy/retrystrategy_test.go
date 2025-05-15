@@ -5,8 +5,6 @@
 package retrystrategy_test
 
 import (
-	"context"
-
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -77,7 +75,7 @@ func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *tc.C) {
 			config.AutomaticallyRetryHooks: true,
 		}),
 	)
-	res, err := s.strategy.RetryStrategy(context.Background(), args)
+	res, err := s.strategy.RetryStrategy(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.ErrorMatches, "permission denied")
@@ -101,7 +99,7 @@ func (s *retryStrategySuite) TestRetryStrategyBadTag(c *tc.C) {
 			config.AutomaticallyRetryHooks: true,
 		}),
 	)
-	res, err := s.strategy.RetryStrategy(context.Background(), args)
+	res, err := s.strategy.RetryStrategy(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, len(tagsTests))
 	for i, r := range res.Results {
@@ -146,7 +144,7 @@ func (s *retryStrategySuite) assertRetryStrategy(c *tc.C, tag string) {
 			config.AutomaticallyRetryHooks: true,
 		}),
 	)
-	r, err := s.strategy.RetryStrategy(context.Background(), args)
+	r, err := s.strategy.RetryStrategy(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Results, tc.HasLen, 1)
 	c.Assert(r.Results[0].Error, tc.IsNil)
@@ -162,7 +160,7 @@ func (s *retryStrategySuite) assertRetryStrategy(c *tc.C, tag string) {
 	)
 	expected.ShouldRetry = false
 
-	r, err = s.strategy.RetryStrategy(context.Background(), args)
+	r, err = s.strategy.RetryStrategy(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r.Results, tc.HasLen, 1)
 	c.Assert(r.Results[0].Error, tc.IsNil)
@@ -174,7 +172,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *tc.C) {
 	defer ctrl.Finish()
 
 	args := params.Entities{Entities: []params.Entity{{"unit-mysql-1"}}}
-	res, err := s.strategy.WatchRetryStrategy(context.Background(), args)
+	res, err := s.strategy.WatchRetryStrategy(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.ErrorMatches, "permission denied")
@@ -189,7 +187,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyBadTag(c *tc.C) {
 	for i, t := range tagsTests {
 		args.Entities[i] = params.Entity{Tag: t.tag}
 	}
-	res, err := s.strategy.WatchRetryStrategy(context.Background(), args)
+	res, err := s.strategy.WatchRetryStrategy(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, len(tagsTests))
 	for i, r := range res.Results {
@@ -213,7 +211,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategy(c *tc.C) {
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	r, err := s.strategy.WatchRetryStrategy(context.Background(), args)
+	r, err := s.strategy.WatchRetryStrategy(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{

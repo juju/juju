@@ -76,7 +76,7 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 	}
 	startFunc := caasapplicationprovisioner.NewAppWorker(config)
 	c.Assert(startFunc, tc.NotNil)
-	appWorker, err := startFunc(context.Background())
+	appWorker, err := startFunc(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(appWorker, tc.NotNil)
 	return appWorker

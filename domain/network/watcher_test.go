@@ -4,8 +4,6 @@
 package network_test
 
 import (
-	"context"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
@@ -37,7 +35,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 		),
 		loggertesting.WrapCheckLog(c),
 	)
-	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
+	watcher, err := svc.WatchSubnets(c.Context(), set.NewStrings())
 	c.Assert(err, tc.ErrorIsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
 	// Initial event.
@@ -50,7 +48,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 		ProviderId:        "subnet-provider-id",
 		ProviderNetworkId: "subnet-provider-network-id",
 	}
-	createdSubnetID, err := svc.AddSubnet(context.Background(), subnet)
+	createdSubnetID, err := svc.AddSubnet(c.Context(), subnet)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.
@@ -68,7 +66,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 		),
 		loggertesting.WrapCheckLog(c),
 	)
-	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
+	watcher, err := svc.WatchSubnets(c.Context(), set.NewStrings())
 	c.Assert(err, tc.ErrorIsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
 	// Initial event.
@@ -81,10 +79,10 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 		ProviderId:        "subnet-provider-id",
 		ProviderNetworkId: "subnet-provider-network-id",
 	}
-	createdSubnetID, err := svc.AddSubnet(context.Background(), subnet)
+	createdSubnetID, err := svc.AddSubnet(c.Context(), subnet)
 	c.Assert(err, tc.ErrorIsNil)
 	// Delete the subnet.
-	err = svc.RemoveSubnet(context.Background(), createdSubnetID.String())
+	err = svc.RemoveSubnet(c.Context(), createdSubnetID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Get the change.

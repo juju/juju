@@ -4,7 +4,6 @@
 package api
 
 import (
-	"context"
 	"net/url"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -28,8 +27,8 @@ var (
 	LoginWithClientCredentialsAPICall = &loginWithClientCredentialsAPICall
 )
 
-func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
-	result, err := dialAPI(context.Background(), info, opts)
+func DialAPI(c *tc.C, info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
+	result, err := dialAPI(c.Context(), info, opts)
 	if err != nil {
 		return nil, "", err
 	}

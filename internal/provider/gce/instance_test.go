@@ -4,8 +4,6 @@
 package gce_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -35,14 +33,14 @@ func (s *instanceSuite) TestID(c *tc.C) {
 }
 
 func (s *instanceSuite) TestStatus(c *tc.C) {
-	status := s.Instance.Status(context.Background()).Message
+	status := s.Instance.Status(c.Context()).Message
 
 	c.Check(status, tc.Equals, google.StatusRunning)
 	s.CheckNoAPI(c)
 }
 
 func (s *instanceSuite) TestAddresses(c *tc.C) {
-	addresses, err := s.Instance.Addresses(context.Background())
+	addresses, err := s.Instance.Addresses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(addresses, tc.DeepEquals, s.Addresses)
@@ -50,7 +48,7 @@ func (s *instanceSuite) TestAddresses(c *tc.C) {
 }
 
 func (s *instanceSuite) TestOpenPortsAPI(c *tc.C) {
-	err := s.Instance.OpenPorts(context.Background(), "42", s.Rules)
+	err := s.Instance.OpenPorts(c.Context(), "42", s.Rules)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
@@ -60,7 +58,7 @@ func (s *instanceSuite) TestOpenPortsAPI(c *tc.C) {
 }
 
 func (s *instanceSuite) TestClosePortsAPI(c *tc.C) {
-	err := s.Instance.ClosePorts(context.Background(), "42", s.Rules)
+	err := s.Instance.ClosePorts(c.Context(), "42", s.Rules)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)
@@ -72,14 +70,14 @@ func (s *instanceSuite) TestClosePortsAPI(c *tc.C) {
 func (s *instanceSuite) TestPorts(c *tc.C) {
 	s.FakeConn.Rules = s.Rules
 
-	ports, err := s.Instance.IngressRules(context.Background(), "42")
+	ports, err := s.Instance.IngressRules(c.Context(), "42")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(ports, tc.DeepEquals, s.Rules)
 }
 
 func (s *instanceSuite) TestPortsAPI(c *tc.C) {
-	_, err := s.Instance.IngressRules(context.Background(), "42")
+	_, err := s.Instance.IngressRules(c.Context(), "42")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, tc.HasLen, 1)

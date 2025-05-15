@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"context"
 	"crypto/x509"
 	"fmt"
 	"net"
@@ -69,16 +68,16 @@ var _ = tc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *tc.C) {
 	conn, machine := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 
-	_, err := apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
+	_, err := apimachiner.NewClient(conn).Machine(c.Context(), machine.MachineTag())
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
+	_, err = apimachiner.NewClient(conn).Machine(c.Context(), machine.MachineTag())
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.Server.Stop()
 	c.Assert(err, tc.ErrorIs, apiserver.ErrAPIServerDying)
 
-	_, err = apimachiner.NewClient(conn).Machine(context.Background(), machine.MachineTag())
+	_, err = apimachiner.NewClient(conn).Machine(c.Context(), machine.MachineTag())
 	// The client has not necessarily seen the server shutdown yet, so there
 	// are multiple possible errors. All we should care about is that there is
 	// an error, not what the error actually is.
@@ -95,7 +94,7 @@ func (s *serverSuite) TestStop(c *tc.C) {
 
 func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *tc.C) {
 	domainServices := s.ControllerDomainServices(c)
-	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(context.Background())
+	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
@@ -117,7 +116,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *tc.C) {
 	info.Password = password
 	info.Nonce = "fake_nonce"
 
-	ipv4Conn, err := api.Open(context.Background(), info, fastDialOpts)
+	ipv4Conn, err := api.Open(c.Context(), info, fastDialOpts)
 	c.Assert(err, tc.ErrorIsNil)
 	defer ipv4Conn.Close()
 	c.Assert(ipv4Conn.Addr().String(), tc.Equals, "wss://"+net.JoinHostPort("localhost", portString))
@@ -125,11 +124,11 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *tc.C) {
 		network.NewMachineHostPorts(port, "localhost"),
 	})
 
-	_, err = apimachiner.NewClient(ipv4Conn).Machine(context.Background(), machine.MachineTag())
+	_, err = apimachiner.NewClient(ipv4Conn).Machine(c.Context(), machine.MachineTag())
 	c.Assert(err, tc.ErrorIsNil)
 
 	info.Addrs = []string{net.JoinHostPort("::1", portString)}
-	ipv6Conn, err := api.Open(context.Background(), info, fastDialOpts)
+	ipv6Conn, err := api.Open(c.Context(), info, fastDialOpts)
 	c.Assert(err, tc.ErrorIsNil)
 	defer ipv6Conn.Close()
 	c.Assert(ipv6Conn.Addr().String(), tc.Equals, "wss://"+net.JoinHostPort("::1", portString))
@@ -137,7 +136,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *tc.C) {
 		network.NewMachineHostPorts(port, "::1"),
 	})
 
-	_, err = apimachiner.NewClient(ipv6Conn).Machine(context.Background(), machine.MachineTag())
+	_, err = apimachiner.NewClient(ipv6Conn).Machine(c.Context(), machine.MachineTag())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -159,19 +158,19 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *tc.C) {
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "invalid-nonce"
-	st, err := api.Open(context.Background(), info, fastDialOpts)
+	st, err := api.Open(c.Context(), info, fastDialOpts)
 	assertNotProvisioned(err)
 	c.Assert(st, tc.IsNil)
 
 	// Try with empty nonce as well.
 	info.Nonce = ""
-	st, err = api.Open(context.Background(), info, fastDialOpts)
+	st, err = api.Open(c.Context(), info, fastDialOpts)
 	assertNotProvisioned(err)
 	c.Assert(st, tc.IsNil)
 
 	// Finally, with the correct one succeeds.
 	info.Nonce = "fake_nonce"
-	st, err = api.Open(context.Background(), info, fastDialOpts)
+	st, err = api.Open(c.Context(), info, fastDialOpts)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(st, tc.NotNil)
 	st.Close()
@@ -186,7 +185,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *tc.C) {
 	// Try connecting, it will fail.
 	info.Tag = stm1.Tag()
 	info.Nonce = ""
-	st, err = api.Open(context.Background(), info, fastDialOpts)
+	st, err = api.Open(c.Context(), info, fastDialOpts)
 	assertNotProvisioned(err)
 	c.Assert(st, tc.IsNil)
 }
@@ -257,7 +256,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *tc.C) (state.Entity, names.C
 	uTag := names.NewUserTag("foobar")
 
 	accessService := s.ControllerDomainServices(c).Access()
-	userUUID, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+	userUUID, _, err := accessService.AddUser(c.Context(), service.AddUserArg{
 		Name:        user.NameFromTag(uTag),
 		DisplayName: "Foo Bar",
 		CreatorUUID: s.AdminUserUUID,
@@ -272,7 +271,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *tc.C) (state.Entity, names.C
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	user, err := accessService.GetUser(context.Background(), userUUID)
+	user, err := accessService.GetUser(c.Context(), userUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
@@ -302,7 +301,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *tc.C) {
 	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), s.ControllerModel(c).State(), domainServices, u)
 	defer handler.Kill()
 
-	err := domainServices.Access().UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+	err := domainServices.Access().UpdatePermission(c.Context(), access.UpdatePermissionArgs{
 		AccessSpec: permission.AccessSpec{
 			Access: permission.SuperuserAccess,
 			Target: permission.ID{
@@ -361,7 +360,7 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, domainServices, token, delegator)
 	defer handler.Kill()
-	err = handler.HasPermission(context.Background(), permission.AdminAccess, coretesting.ModelTag)
+	err = handler.HasPermission(c.Context(), permission.AdminAccess, coretesting.ModelTag)
 	var reqError *errors.AccessRequiredError
 	c.Assert(jujuerrors.As(err, &reqError), tc.IsTrue)
 	c.Assert(reqError, tc.DeepEquals, &errors.AccessRequiredError{

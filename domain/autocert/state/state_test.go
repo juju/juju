@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"database/sql"
 
 	"github.com/juju/tc"
@@ -47,7 +46,7 @@ Hn+GmxZA
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
-	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
+	retrievedCertBytes, err := st.Get(c.Context(), "cert1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
@@ -69,7 +68,7 @@ abc123!?$*&()'-=@~;\|/"
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
-	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
+	retrievedCertBytes, err := st.Get(c.Context(), "cert1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(string(retrievedCertBytes), tc.Equals, specialCharsCert)
@@ -79,7 +78,7 @@ func (s *stateSuite) TestRetrieveNoCert(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Retrieve an arbitrary non existent cert.
-	_, err := st.Get(context.Background(), "cert1")
+	_, err := st.Get(c.Context(), "cert1")
 	c.Assert(err, tc.ErrorIs, autocerterrors.NotFound)
 }
 
@@ -103,7 +102,7 @@ AQABMA0GCSqGSIb3DQEBBQUAA4GBABS2TLuBeTPmcaTaUW/LCB2NYOy8GMdzR1mx
 Hn+GmxZA
 -----END CERTIFICATE-----`
 
-	err := st.Put(context.Background(), "cert1", []byte(x509Cert))
+	err := st.Put(c.Context(), "cert1", []byte(x509Cert))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
@@ -126,7 +125,7 @@ func (s *stateSuite) TestInsertSpecialChars(c *tc.C) {
 abc123!?$*&()'-=@~;\|/"
 -----END CERTIFICATE-----`
 
-	err := st.Put(context.Background(), "cert1", []byte(specialCharsCert))
+	err := st.Put(c.Context(), "cert1", []byte(specialCharsCert))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
@@ -167,7 +166,7 @@ Hn+GmxZA
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Delete the inserted cert.
-	err = st.Delete(context.Background(), "cert1")
+	err = st.Delete(c.Context(), "cert1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	row := db.QueryRow("SELECT name, data FROM autocert_cache WHERE name = 'cert1'")
@@ -194,7 +193,7 @@ abc123!?$*&()'-=@~;\|/"
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Delete the inserted cert.
-	err = st.Delete(context.Background(), "cert1")
+	err = st.Delete(c.Context(), "cert1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	row := db.QueryRow("SELECT name, data FROM autocert_cache WHERE name = 'cert1'")
@@ -213,7 +212,7 @@ func (s *stateSuite) TestReplaceCert(c *tc.C) {
 	-----BEGIN CERTIFICATE-----
 abc123!?$*&()'-=@~;\|/"
 -----END CERTIFICATE-----`
-	err := st.Put(context.Background(), "cert1", []byte(specialCharsCert))
+	err := st.Put(c.Context(), "cert1", []byte(specialCharsCert))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Replace the contents of the cert "cert1".
@@ -234,11 +233,11 @@ Hn+GmxZA
 -----END CERTIFICATE-----`
 
 	// Insert a cert.
-	err = st.Put(context.Background(), "cert1", []byte(x509Cert))
+	err = st.Put(c.Context(), "cert1", []byte(x509Cert))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
-	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
+	retrievedCertBytes, err := st.Get(c.Context(), "cert1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 }
@@ -263,19 +262,19 @@ Hn+GmxZA
 -----END CERTIFICATE-----`
 
 	// Insert a cert.
-	err := st.Put(context.Background(), "cert1", []byte(x509Cert))
+	err := st.Put(c.Context(), "cert1", []byte(x509Cert))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
-	retrievedCertBytes, err := st.Get(context.Background(), "cert1")
+	retrievedCertBytes, err := st.Get(c.Context(), "cert1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(retrievedCertBytes), tc.Equals, x509Cert)
 
 	// Delete the inserted cert.
-	err = st.Delete(context.Background(), "cert1")
+	err = st.Delete(c.Context(), "cert1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the non-existent cert.
-	_, err = st.Get(context.Background(), "cert1")
+	_, err = st.Get(c.Context(), "cert1")
 	c.Assert(err, tc.ErrorIs, autocerterrors.NotFound)
 }

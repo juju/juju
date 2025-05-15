@@ -4,7 +4,6 @@
 package bundle
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,7 +40,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationEmptyModel(c *tc.C) {
 	}
 	machines := map[string]string{}
 
-	obtainedModel, err := BuildModelRepresentation(context.Background(), status, s.modelExtractor, false, machines)
+	obtainedModel, err := BuildModelRepresentation(c.Context(), status, s.modelExtractor, false, machines)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedModel.Applications, tc.HasLen, 0)
 	c.Assert(obtainedModel.Machines, tc.HasLen, 0)
@@ -81,7 +80,7 @@ func (s *buildModelRepSuite) testBuildModelRepresentationUseExistingMachines(c *
 		"1": "3",
 	}
 
-	obtainedModel, err := BuildModelRepresentation(context.Background(), status, s.modelExtractor, use, machines)
+	obtainedModel, err := BuildModelRepresentation(c.Context(), status, s.modelExtractor, use, machines)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedModel.Applications, tc.HasLen, 0)
 	c.Assert(obtainedModel.Machines, tc.HasLen, 4)
@@ -129,7 +128,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 	}
 	machines := map[string]string{}
 
-	obtainedModel, err := BuildModelRepresentation(context.Background(), status, s.modelExtractor, false, machines)
+	obtainedModel, err := BuildModelRepresentation(c.Context(), status, s.modelExtractor, false, machines)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedModel.Applications, tc.HasLen, 2)
 	obtainedWordpress, ok := obtainedModel.Applications["wordpress"]
@@ -391,7 +390,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 	}
 	machines := map[string]string{}
 
-	obtainedModel, err := BuildModelRepresentation(context.Background(), status, s.modelExtractor, false, machines)
+	obtainedModel, err := BuildModelRepresentation(c.Context(), status, s.modelExtractor, false, machines)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedModel.Applications, tc.HasLen, 1)
 	obtainedWordpress, ok := obtainedModel.Applications["wordpress"]

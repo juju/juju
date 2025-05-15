@@ -181,10 +181,10 @@ func (s *syncToolSuite) TestAPIAdaptorUploadTools(c *tc.C) {
 
 	current := coretesting.CurrentVersion()
 	uploadToolsErr := errors.New("uh oh")
-	fakeAPI.EXPECT().UploadTools(context.Background(), bytes.NewReader([]byte("abc")), current).Return(nil, uploadToolsErr)
+	fakeAPI.EXPECT().UploadTools(gomock.Any(), bytes.NewReader([]byte("abc")), current).Return(nil, uploadToolsErr)
 
 	a := syncToolAPIAdaptor{fakeAPI}
-	err := a.UploadTools(context.Background(), "released", "released", &coretools.Tools{Version: current}, []byte("abc"))
+	err := a.UploadTools(c.Context(), "released", "released", &coretools.Tools{Version: current}, []byte("abc"))
 	c.Assert(err, tc.Equals, uploadToolsErr)
 }
 

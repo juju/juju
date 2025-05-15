@@ -243,7 +243,7 @@ func (s *baseObjectStoreSuite) TestPruneWithNoData(c *tc.C) {
 		return nil
 	}
 
-	err := w.prune(context.Background(), list, delete)
+	err := w.prune(c.Context(), list, delete)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -268,7 +268,7 @@ func (s *baseObjectStoreSuite) TestPruneWithJustMetadata(c *tc.C) {
 		return nil
 	}
 
-	err := w.prune(context.Background(), list, delete)
+	err := w.prune(c.Context(), list, delete)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -294,7 +294,7 @@ func (s *baseObjectStoreSuite) TestPruneWithJustObjects(c *tc.C) {
 		return nil
 	}
 
-	err := w.prune(context.Background(), list, delete)
+	err := w.prune(c.Context(), list, delete)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -323,7 +323,7 @@ func (s *baseObjectStoreSuite) TestPruneWithMatches(c *tc.C) {
 		return nil
 	}
 
-	err := w.prune(context.Background(), list, delete)
+	err := w.prune(c.Context(), list, delete)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

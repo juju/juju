@@ -357,7 +357,7 @@ func (s *NewAPIClientSuite) TestDialedAddressIsCached(c *tc.C) {
 		// Allow the dials to complete.
 		close(start)
 	}()
-	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
+	conn, err := juju.NewAPIConnection(c.Context(), juju.NewAPIConnectionParams{
 		ControllerStore: store,
 		ControllerName:  "foo",
 		DialOpts: api.DialOpts{
@@ -419,7 +419,7 @@ func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	start := make(chan struct{})
-	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
+	conn, err := juju.NewAPIConnection(c.Context(), juju.NewAPIConnectionParams{
 		ControllerStore: store,
 		ControllerName:  "foo",
 		DialOpts: api.DialOpts{
@@ -498,7 +498,7 @@ func (s *NewAPIClientSuite) TestEndpointFiltering(c *tc.C) {
 		network.ProviderHostPort{ProviderAddress: network.NewMachineAddress("0.1.2.3").AsProviderAddress(), NetPort: 1235},
 	}})
 
-	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
+	conn, err := juju.NewAPIConnection(c.Context(), juju.NewAPIConnectionParams{
 		ControllerStore: store,
 		ControllerName:  "foo",
 		DialOpts: api.DialOpts{
@@ -544,7 +544,7 @@ func setupControllerWithPathSegment(c *tc.C, store *jujuclient.MemStore, modelUU
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
+	conn, err := juju.NewAPIConnection(c.Context(), juju.NewAPIConnectionParams{
 		ControllerStore: store,
 		ControllerName:  "foo",
 		DialOpts: api.DialOpts{
@@ -597,7 +597,7 @@ func (s *NewAPIClientSuite) TestStreamWithControllerPathSegment(c *tc.C) {
 		catcher := api.UrlCatcher{}
 		s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
-		stream, err := controllerConn.ConnectStream(context.Background(), "/bar", nil)
+		stream, err := controllerConn.ConnectStream(c.Context(), "/bar", nil)
 		c.Assert(err, tc.ErrorIsNil)
 		defer stream.Close()
 
@@ -702,7 +702,7 @@ func newAPIConnectionFromNames(
 		c.Assert(err, tc.ErrorIsNil)
 		args.ModelUUID = modelDetails.ModelUUID
 	}
-	return juju.NewAPIConnection(context.Background(), args)
+	return juju.NewAPIConnection(c.Context(), args)
 }
 
 type ipAddrResolverFunc func(ctx context.Context, host string) ([]net.IPAddr, error)

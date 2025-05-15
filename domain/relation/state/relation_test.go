@@ -73,7 +73,7 @@ func (s *addRelationSuite) TestAddRelation(c *tc.C) {
 	epUUID4 := s.addApplicationEndpointFromRelation(c, appUUID1, relRequirer)
 
 	// Act
-	ep1, ep2, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	ep1, ep2, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -82,7 +82,7 @@ func (s *addRelationSuite) TestAddRelation(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while inserting the first relation: %s",
 		errors.ErrorStack(err)))
-	ep3, ep4, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	ep3, ep4, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "req",
 	}, relation.CandidateEndpointIdentifier{
@@ -147,7 +147,7 @@ func (s *addRelationSuite) TestAddRelationSubordinate(c *tc.C) {
 	epUUID2 := s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
 
 	// Act
-	ep1, ep2, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	ep1, ep2, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -204,7 +204,7 @@ func (s *addRelationSuite) TestAddRelationSubordinateNotCompatible(c *tc.C) {
 	s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
 
 	// Act
-	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -218,7 +218,7 @@ func (s *addRelationSuite) TestAddRelationSubordinateNotCompatible(c *tc.C) {
 
 func (s *addRelationSuite) TestAddRelationErrorInfersEndpoint(c *tc.C) {
 	// Act
-	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 	}, relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-2",
@@ -246,7 +246,7 @@ func (s *addRelationSuite) TestAddRelationErrorAlreadyExists(c *tc.C) {
 	s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
 
 	// Act
-	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -255,7 +255,7 @@ func (s *addRelationSuite) TestAddRelationErrorAlreadyExists(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while inserting the first relation: %s",
 		errors.ErrorStack(err)))
-	_, _, err = s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err = s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -278,7 +278,7 @@ func (s *addRelationSuite) TestAddRelationErrorCandidateIsPeer(c *tc.C) {
 	s.addApplicationEndpointFromRelation(c, appUUID1, relPeer)
 
 	// Act
-	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application",
 		EndpointName:    "peer",
 	}, relation.CandidateEndpointIdentifier{
@@ -309,7 +309,7 @@ func (s *addRelationSuite) TestAddRelationErrorNotAliveFirstApp(c *tc.C) {
 	s.setLife(c, "application", appUUID1.String(), life.Dying)
 
 	// Act
-	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -341,7 +341,7 @@ func (s *addRelationSuite) TestAddRelationErrorNotAliveSecond(c *tc.C) {
 	s.setLife(c, "application", appUUID2.String(), life.Dying)
 
 	// Act
-	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -375,7 +375,7 @@ func (s *addRelationSuite) TestAddRelationErrorProviderCapacityExceeded(c *tc.C)
 	s.addApplicationEndpointFromRelation(c, appUUID3, relRequirer)
 
 	// Act
-	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -384,7 +384,7 @@ func (s *addRelationSuite) TestAddRelationErrorProviderCapacityExceeded(c *tc.C)
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while inserting the first relation: %s",
 		errors.ErrorStack(err)))
-	_, _, err = s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err = s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -417,7 +417,7 @@ func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *tc.C)
 	s.addApplicationEndpointFromRelation(c, appUUID3, relRequirer)
 
 	// Act
-	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err := s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -426,7 +426,7 @@ func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *tc.C)
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while inserting the first relation: %s",
 		errors.ErrorStack(err)))
-	_, _, err = s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+	_, _, err = s.state.AddRelation(c.Context(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-2",
 		EndpointName:    "prov",
 	}, relation.CandidateEndpointIdentifier{
@@ -459,7 +459,7 @@ func (s *addRelationSuite) TestAddRelationWithID(c *tc.C) {
 	expectedRelID := uint64(42)
 
 	// Act
-	obtainedRelUUID, err := s.state.SetRelationWithID(context.Background(), corerelation.EndpointIdentifier{
+	obtainedRelUUID, err := s.state.SetRelationWithID(c.Context(), corerelation.EndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "req",
 	}, corerelation.EndpointIdentifier{
@@ -559,7 +559,7 @@ func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 
 		// Act
 		var uuid1, uuid2 corerelation.EndpointUUID
-		err := db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			ep1, ep2, err := s.state.inferEndpoints(ctx, tx, identifier1, identifier2)
 			uuid1 = ep1.ApplicationEndpointUUID
 			uuid2 = ep2.ApplicationEndpointUUID
@@ -681,7 +681,7 @@ func (s *addRelationSuite) TestInferEndpointsError(c *tc.C) {
 		identifier2 := s.newEndpointIdentifier(c, testCase.input2)
 
 		// Act
-		err := db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			_, _, err = s.state.inferEndpoints(ctx, tx, identifier1, identifier2)
 			return err
 		})
@@ -815,7 +815,7 @@ func (s *relationSuite) TestGetRelationUUIDByID(c *tc.C) {
 	relationUUID := s.addRelationWithID(c, relationID)
 
 	// Act.
-	uuid, err := s.state.GetRelationUUIDByID(context.Background(), relationID)
+	uuid, err := s.state.GetRelationUUIDByID(c.Context(), relationID)
 
 	// Assert.
 	c.Assert(err, tc.ErrorIsNil)
@@ -824,7 +824,7 @@ func (s *relationSuite) TestGetRelationUUIDByID(c *tc.C) {
 
 func (s *relationSuite) TestGetRelationUUIDByIDNotFound(c *tc.C) {
 	// Act.
-	_, err := s.state.GetRelationUUIDByID(context.Background(), 1)
+	_, err := s.state.GetRelationUUIDByID(c.Context(), 1)
 
 	// Assert.
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
@@ -840,7 +840,7 @@ func (s *relationSuite) TestGetRelationEndpointUUID(c *tc.C) {
 	relationEndpointUUID := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID)
 
 	// Act: get the relation endpoint UUID.
-	uuid, err := s.state.GetRelationEndpointUUID(context.Background(), relation.GetRelationEndpointUUIDArgs{
+	uuid, err := s.state.GetRelationEndpointUUID(c.Context(), relation.GetRelationEndpointUUIDArgs{
 		ApplicationID: s.fakeApplicationUUID1,
 		RelationUUID:  relationUUID,
 	})
@@ -857,7 +857,7 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationNotFound(c *tc.C) {
 	// Arrange: nothing to do, no relations.
 
 	// Act: get a relation.
-	_, err := s.state.GetRelationEndpointUUID(context.Background(), relation.GetRelationEndpointUUIDArgs{
+	_, err := s.state.GetRelationEndpointUUID(c.Context(), relation.GetRelationEndpointUUIDArgs{
 		ApplicationID: s.fakeApplicationUUID1,
 		RelationUUID:  "not-found-relation-uuid",
 	})
@@ -873,7 +873,7 @@ func (s *relationSuite) TestGetRelationEndpointUUIDApplicationNotFound(c *tc.C) 
 	// Arrange: nothing to do, will fail on application fetch anyway.
 
 	// Act: get a relation.
-	_, err := s.state.GetRelationEndpointUUID(context.Background(), relation.GetRelationEndpointUUIDArgs{
+	_, err := s.state.GetRelationEndpointUUID(c.Context(), relation.GetRelationEndpointUUIDArgs{
 		ApplicationID: "not-found-application-uuid ",
 		RelationUUID:  "not-used-uuid",
 	})
@@ -891,7 +891,7 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationEndPointNotFound(c *t
 	s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
 
 	// Act: get a relation.
-	_, err := s.state.GetRelationEndpointUUID(context.Background(), relation.GetRelationEndpointUUIDArgs{
+	_, err := s.state.GetRelationEndpointUUID(c.Context(), relation.GetRelationEndpointUUIDArgs{
 		ApplicationID: s.fakeApplicationUUID1,
 		RelationUUID:  relationUUID,
 	})
@@ -936,7 +936,7 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *tc.C)
 
 	// Act: Get relation UUID from endpoints.
 	uuid, err := s.state.GetRegularRelationUUIDByEndpointIdentifiers(
-		context.Background(),
+		c.Context(),
 		corerelation.EndpointIdentifier{
 			ApplicationName: endpoint1.ApplicationName,
 			EndpointName:    endpoint1.Name,
@@ -976,7 +976,7 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationN
 
 	// Act: Try and get relation UUID from endpoints.
 	_, err := s.state.GetRegularRelationUUIDByEndpointIdentifiers(
-		context.Background(),
+		c.Context(),
 		corerelation.EndpointIdentifier{
 			ApplicationName: endpoint1.ApplicationName,
 			EndpointName:    endpoint1.Name,
@@ -994,7 +994,7 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationN
 func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationNotFound(c *tc.C) {
 	// Act: Try and get relation UUID from endpoints.
 	_, err := s.state.GetRegularRelationUUIDByEndpointIdentifiers(
-		context.Background(),
+		c.Context(),
 		corerelation.EndpointIdentifier{
 			ApplicationName: "fake-application-1",
 			EndpointName:    "fake-endpoint-name-1",
@@ -1031,7 +1031,7 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiers(c *tc.C) {
 
 	// Act: Get relation UUID from endpoint.
 	_, err := s.state.GetPeerRelationUUIDByEndpointIdentifiers(
-		context.Background(),
+		c.Context(),
 		corerelation.EndpointIdentifier{
 			ApplicationName: endpoint1.ApplicationName,
 			EndpointName:    endpoint1.Name,
@@ -1081,7 +1081,7 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotF
 
 	// Act: Try and get relation UUID from endpoint.
 	_, err := s.state.GetPeerRelationUUIDByEndpointIdentifiers(
-		context.Background(),
+		c.Context(),
 		corerelation.EndpointIdentifier{
 			ApplicationName: endpoint1.ApplicationName,
 			EndpointName:    endpoint1.Name,
@@ -1095,7 +1095,7 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotF
 func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersNotFound(c *tc.C) {
 	// Act: Try and get relation UUID from endpoint.
 	_, err := s.state.GetPeerRelationUUIDByEndpointIdentifiers(
-		context.Background(),
+		c.Context(),
 		corerelation.EndpointIdentifier{
 			ApplicationName: "fake-application-1",
 			EndpointName:    "fake-endpoint-name-1",
@@ -1148,7 +1148,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *tc.C) {
 	}}
 
 	// Act: Get relation status for unit.
-	results, err := s.state.GetRelationsStatusForUnit(context.Background(), unitUUID)
+	results, err := s.state.GetRelationsStatusForUnit(c.Context(), unitUUID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert): %v",
@@ -1209,7 +1209,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *tc.C) {
 	}}
 
 	// Act: Get relation status for unit.
-	results, err := s.state.GetRelationsStatusForUnit(context.Background(), unitUUID)
+	results, err := s.state.GetRelationsStatusForUnit(c.Context(), unitUUID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert): %v",
@@ -1221,7 +1221,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *tc.C) {
 // returned when a unit is in no relations.
 func (s *relationSuite) TestGetRelationsStatusForUnitEmptyResult(c *tc.C) {
 	// Act: Get relation endpoints.
-	results, err := s.state.GetRelationsStatusForUnit(context.Background(), "fake-unit-uuid")
+	results, err := s.state.GetRelationsStatusForUnit(c.Context(), "fake-unit-uuid")
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("%v", errors.ErrorStack(err)))
@@ -1271,7 +1271,7 @@ func (s *relationSuite) TestGetRelationDetails(c *tc.C) {
 	}
 
 	// Act: Get relation details.
-	details, err := s.state.GetRelationDetails(context.Background(), relationUUID)
+	details, err := s.state.GetRelationDetails(c.Context(), relationUUID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -1283,7 +1283,7 @@ func (s *relationSuite) TestGetRelationDetails(c *tc.C) {
 
 func (s *relationSuite) TestGetRelationDetailsNotFound(c *tc.C) {
 	// Act: Get relation details.
-	_, err := s.state.GetRelationDetails(context.Background(), "unknown-relation-uuid")
+	_, err := s.state.GetRelationDetails(c.Context(), "unknown-relation-uuid")
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
@@ -1301,7 +1301,7 @@ func (s *relationSuite) TestGetRelationUnit(c *tc.C) {
 	relUnitUUID := s.addRelationUnit(c, unitUUID, relEndpointUUID)
 
 	// Act
-	uuid, err := s.state.GetRelationUnit(context.Background(), relUUID, "my-app/0")
+	uuid, err := s.state.GetRelationUnit(c.Context(), relUUID, "my-app/0")
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -1310,7 +1310,7 @@ func (s *relationSuite) TestGetRelationUnit(c *tc.C) {
 
 func (s *relationSuite) TestGetRelationUnitNotFound(c *tc.C) {
 	// Act
-	_, err := s.state.GetRelationUnit(context.Background(), "unknown-relation-uuid", "some-unit-name")
+	_, err := s.state.GetRelationUnit(c.Context(), "unknown-relation-uuid", "some-unit-name")
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
@@ -1389,7 +1389,7 @@ func (s *relationSuite) TestGetAllRelationDetails(c *tc.C) {
 	}
 
 	// Act: Get relation details.
-	details, err := s.state.GetAllRelationDetails(context.Background())
+	details, err := s.state.GetAllRelationDetails(c.Context())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -1412,7 +1412,7 @@ func (s *relationSuite) TestGetAllRelationDetails(c *tc.C) {
 
 func (s *relationSuite) TestGetAllRelationDetailsNone(c *tc.C) {
 	// Act: Get relation details.
-	result, err := s.state.GetAllRelationDetails(context.Background())
+	result, err := s.state.GetAllRelationDetails(c.Context())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -1457,7 +1457,7 @@ func (s *relationSuite) TestEnterScope(c *tc.C) {
 	settings := map[string]string{"ingress-address": "x.x.x.x"}
 
 	// Act: Enter scope.
-	err := s.state.EnterScope(context.Background(), relationUUID, unitName, settings)
+	err := s.state.EnterScope(c.Context(), relationUUID, unitName, settings)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -1515,7 +1515,7 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *tc.C) {
 	s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
 	// Enter scope.
-	err := s.state.EnterScope(context.Background(), relationUUID, unitName, settings)
+	err := s.state.EnterScope(c.Context(), relationUUID, unitName, settings)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relationUnitUUID := s.getRelationUnitInScope(c, relationUUID, unitUUID)
@@ -1531,7 +1531,7 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *tc.C) {
 	newSettings := map[string]string{"ingress-address": "y.y.y.y"}
 
 	// EnterScope a second time, with change settings.
-	err = s.state.EnterScope(context.Background(), relationUUID, unitName, newSettings)
+	err = s.state.EnterScope(c.Context(), relationUUID, unitName, newSettings)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the same relation unit uuid is found and the settings have
@@ -1594,7 +1594,7 @@ func (s *relationSuite) TestEnterScopeSubordinate(c *tc.C) {
 
 	// Act: Try and enter scope with the unit 1, which is a subordinate to an
 	// application not in the relation.
-	err := s.state.EnterScope(context.Background(), relationUUID, unitName1, map[string]string{})
+	err := s.state.EnterScope(c.Context(), relationUUID, unitName1, map[string]string{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -1659,7 +1659,7 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c
 
 	// Act: Try and enter scope with the unit 1 of application 1, which is a
 	// subordinate to an application not in the relation (application 2).
-	err := s.state.EnterScope(context.Background(), relationUUID, unitName1, map[string]string{})
+	err := s.state.EnterScope(c.Context(), relationUUID, unitName1, map[string]string{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.PotentialRelationUnitNotValid)
@@ -1689,7 +1689,7 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValid(c *tc.C) {
 	s.addUnit(c, unitName, s.fakeApplicationUUID2, s.fakeCharmUUID2)
 
 	// Act: Enter scope.
-	err := s.state.EnterScope(context.Background(), relationUUID, unitName, map[string]string{})
+	err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.UnitNotInRelation)
@@ -1725,7 +1725,7 @@ func (s *relationSuite) TestEnterScopeRelationNotAlive(c *tc.C) {
 	s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Act: Enter scope.
-	err := s.state.EnterScope(context.Background(), relationUUID, unitName, map[string]string{})
+	err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
@@ -1761,7 +1761,7 @@ func (s *relationSuite) TestEnterScopeUnitNotAlive(c *tc.C) {
 	s.addUnitWithLife(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1, corelife.Dead)
 
 	// Act: Enter scope.
-	err := s.state.EnterScope(context.Background(), relationUUID, unitName, map[string]string{})
+	err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
@@ -1774,7 +1774,7 @@ func (s *relationSuite) TestEnterScopeRelationNotFound(c *tc.C) {
 	s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Act: Try and enter scope.
-	err := s.state.EnterScope(context.Background(), relationUUID, unitName, map[string]string{})
+	err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
@@ -1784,7 +1784,7 @@ func (s *relationSuite) TestEnterScopeUnitNotFound(c *tc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	// Act: Try and enter scope.
 	err := s.state.EnterScope(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		coreunittesting.GenNewName(c, "app1/0"),
 		map[string]string{},
@@ -1836,7 +1836,7 @@ func (s *relationSuite) TestLeaveScope(c *tc.C) {
 	s.addRelationUnitSettingsHash(c, relationUnitUUID, "hash")
 
 	// Act: Leave scope with the first unit.
-	err := s.state.LeaveScope(context.Background(), relationUnitUUID)
+	err := s.state.LeaveScope(c.Context(), relationUnitUUID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -1851,7 +1851,7 @@ func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
 	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
 
 	// Act: Leave scope with the first unit.
-	err := s.state.LeaveScope(context.Background(), relationUnitUUID)
+	err := s.state.LeaveScope(c.Context(), relationUnitUUID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
@@ -1892,7 +1892,7 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *tc.C) {
 
 	// Act:
 	result, err := s.state.GetMapperDataForWatchLifeSuspendedStatus(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 	)
@@ -1918,7 +1918,7 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatusWrongApp(c *
 
 	// Act:
 	_, err := s.state.GetMapperDataForWatchLifeSuspendedStatus(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		coreapplicationtesting.GenApplicationUUID(c),
 	)
@@ -1963,7 +1963,7 @@ func (s *relationSuite) TestGetOtherRelatedEndpointApplicationData(c *tc.C) {
 
 	// Act:
 	result, err := s.state.GetOtherRelatedEndpointApplicationData(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 	)
@@ -1996,7 +1996,7 @@ func (s *relationSuite) TestGetRelationEndpointScope(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Act:
-	obtainedScope, err := s.state.GetRelationEndpointScope(context.Background(),
+	obtainedScope, err := s.state.GetRelationEndpointScope(c.Context(),
 		relationUUID, s.fakeApplicationUUID1)
 
 	// Assert:
@@ -2010,7 +2010,7 @@ func (s *relationSuite) TestGetRelationEndpointScopeRelationNotFound(c *tc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	// Act:
-	_, err := s.state.GetRelationEndpointScope(context.Background(),
+	_, err := s.state.GetRelationEndpointScope(c.Context(),
 		relationUUID, applicationUUID)
 
 	// Assert:
@@ -2046,7 +2046,7 @@ func (s *relationSuite) TestGetRelationApplicationSettings(c *tc.C) {
 
 	// Act:
 	settings, err := s.state.GetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 	)
@@ -2076,7 +2076,7 @@ func (s *relationSuite) TestGetRelationApplicationSettingsEmptyList(c *tc.C) {
 
 	// Act:
 	settings, err := s.state.GetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 	)
@@ -2092,7 +2092,7 @@ func (s *relationSuite) TestGetRelationApplicationSettingsRelationNotFound(c *tc
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	// Act:
-	_, err := s.state.GetRelationApplicationSettings(context.Background(),
+	_, err := s.state.GetRelationApplicationSettings(c.Context(),
 		relationUUID, s.fakeApplicationUUID1)
 
 	// Assert:
@@ -2104,7 +2104,7 @@ func (s *relationSuite) TestGetRelationApplicationSettingsApplicationNotFoundFor
 	relationUUID := s.addRelation(c)
 
 	// Act:
-	_, err := s.state.GetRelationApplicationSettings(context.Background(),
+	_, err := s.state.GetRelationApplicationSettings(c.Context(),
 		relationUUID, s.fakeApplicationUUID1)
 
 	// Assert:
@@ -2141,7 +2141,7 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 
 	// Act
 	var changes relation.RelationUnitsChange
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		changes, err = s.state.GetRelationUnitChanges(ctx,
 			[]coreunit.UUID{noSettingUnitUUID, withSettingUnitUUID, departedUnitUUID},
 			[]coreapplication.ID{noSettingAppUUID, withSettingAppUUID},
@@ -2170,7 +2170,7 @@ func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *tc.C) {
 
 	// Act
 	var changes relation.RelationUnitsChange
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		changes, err = s.state.GetRelationUnitChanges(ctx, nil, nil)
 		return err
 	})
@@ -2220,7 +2220,7 @@ func (s *relationSuite) TestSetRelationApplicationSettings(c *tc.C) {
 
 	// Act:
 	err := s.state.SetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 		settingsUpdate,
@@ -2268,7 +2268,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsNothingToSet(c *tc.C) 
 
 	// Act:
 	err := s.state.SetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 		settingsUpdate,
@@ -2316,7 +2316,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsNothingToUnSet(c *tc.C
 
 	// Act:
 	err := s.state.SetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 		settingsUpdate,
@@ -2347,7 +2347,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsNilMap(c *tc.C) {
 
 	// Act:
 	err := s.state.SetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 		nil,
@@ -2383,7 +2383,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsHashUpdated(c *tc.C) {
 		"key1": "value1",
 	}
 	err := s.state.SetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 		initialSettings,
@@ -2394,7 +2394,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsHashUpdated(c *tc.C) {
 
 	// Act:
 	err = s.state.SetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 		map[string]string{
@@ -2433,7 +2433,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsHashConstant(c *tc.C) 
 		"key1": "value1",
 	}
 	err := s.state.SetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 		settings,
@@ -2444,7 +2444,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsHashConstant(c *tc.C) 
 
 	// Act:
 	err = s.state.SetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 		settings,
@@ -2464,7 +2464,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsApplicationNotFoundInR
 
 	// Act:
 	err := s.state.SetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 		nil,
@@ -2477,7 +2477,7 @@ func (s *relationSuite) TestSetRelationApplicationSettingsApplicationNotFoundInR
 func (s *relationSuite) TestSetRelationApplicationSettingsRelationNotFound(c *tc.C) {
 	// Act:
 	err := s.state.SetRelationApplicationSettings(
-		context.Background(),
+		c.Context(),
 		"bad-uuid",
 		s.fakeApplicationUUID1,
 		nil,
@@ -2505,7 +2505,7 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *tc.C) {
 
 	// Act
 	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationIDs(
-		context.Background(), subordinateUnitUUID)
+		c.Context(), subordinateUnitUUID)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -2525,7 +2525,7 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c
 
 	// Act
 	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationIDs(
-		context.Background(), principalUnitUUID)
+		c.Context(), principalUnitUUID)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -2567,7 +2567,7 @@ func (s *relationSuite) TestGetRelationUnitSettings(c *tc.C) {
 
 	// Act:
 	settings, err := s.state.GetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 	)
 
@@ -2601,7 +2601,7 @@ func (s *relationSuite) TestGetRelationUnitSettingsEmptyList(c *tc.C) {
 
 	// Act:
 	settings, err := s.state.GetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 	)
 
@@ -2617,7 +2617,7 @@ func (s *relationSuite) TestGetRelationUnitSettingsRelationUnitNotFound(c *tc.C)
 
 	// Act:
 	_, err := s.state.GetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 	)
 
@@ -2666,7 +2666,7 @@ func (s *relationSuite) TestSetRelationUnitSettings(c *tc.C) {
 
 	// Act:
 	err := s.state.SetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 		settingsUpdate,
 	)
@@ -2718,7 +2718,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToSet(c *tc.C) {
 
 	// Act:
 	err := s.state.SetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 		settingsUpdate,
 	)
@@ -2772,7 +2772,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToUnset(c *tc.C) {
 
 	// Act:
 	err := s.state.SetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 		settingsUpdate,
 	)
@@ -2807,7 +2807,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNilMap(c *tc.C) {
 
 	// Act:
 	err := s.state.SetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 		nil,
 	)
@@ -2847,7 +2847,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *tc.C) {
 		"key1": "value1",
 	}
 	err := s.state.SetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 		initialSettings,
 	)
@@ -2857,7 +2857,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *tc.C) {
 
 	// Act:
 	err = s.state.SetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 		map[string]string{
 			"key1": "value2",
@@ -2900,7 +2900,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 		"key1": "value1",
 	}
 	err := s.state.SetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 		settings,
 	)
@@ -2910,7 +2910,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 
 	// Act:
 	err = s.state.SetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 		settings,
 	)
@@ -2926,7 +2926,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 func (s *relationSuite) TestSetRelationUnitSettingsRelationUnitNotFound(c *tc.C) {
 	// Act:
 	err := s.state.SetRelationUnitSettings(
-		context.Background(),
+		c.Context(),
 		"bad-uuid",
 		nil,
 	)
@@ -2993,7 +2993,7 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) {
 
 	// Act:
 	err := s.state.SetRelationApplicationAndUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 		appSettingsUpdate,
 		unitSettingsUpdate,
@@ -3031,7 +3031,7 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsNilMap(c *tc.C)
 
 	// Act:
 	err := s.state.SetRelationApplicationAndUnitSettings(
-		context.Background(),
+		c.Context(),
 		relationUnitUUID,
 		nil,
 		nil,
@@ -3049,7 +3049,7 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsNilMap(c *tc.C)
 func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitNotFound(c *tc.C) {
 	// Act:
 	err := s.state.SetRelationApplicationAndUnitSettings(
-		context.Background(),
+		c.Context(),
 		"bad-uuid",
 		nil,
 		nil,
@@ -3129,7 +3129,7 @@ func (s *relationSuite) TestApplicationRelationsInfo(c *tc.C) {
 	}
 
 	// Act:
-	results, err := s.state.ApplicationRelationsInfo(context.Background(), app3)
+	results, err := s.state.ApplicationRelationsInfo(c.Context(), app3)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -3182,7 +3182,7 @@ func (s *relationSuite) TestApplicationRelationsInfoPeerRelation(c *tc.C) {
 	}
 
 	// Act:
-	results, err := s.state.ApplicationRelationsInfo(context.Background(), app3)
+	results, err := s.state.ApplicationRelationsInfo(c.Context(), app3)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -3194,7 +3194,7 @@ func (s *relationSuite) TestApplicationRelationsInfoNoApp(c *tc.C) {
 	appID := coreapplicationtesting.GenApplicationUUID(c)
 
 	// Act:
-	_, err := s.state.ApplicationRelationsInfo(context.Background(), appID)
+	_, err := s.state.ApplicationRelationsInfo(c.Context(), appID)
 
 	// Assert: fail if the application does not exist.
 	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotFound)
@@ -3202,7 +3202,7 @@ func (s *relationSuite) TestApplicationRelationsInfoNoApp(c *tc.C) {
 
 func (s *relationSuite) TestApplicationRelationsInfoNoRelations(c *tc.C) {
 	// Act:
-	_, err := s.state.ApplicationRelationsInfo(context.Background(), s.fakeApplicationUUID1)
+	_, err := s.state.ApplicationRelationsInfo(c.Context(), s.fakeApplicationUUID1)
 
 	// Assert: do not fail if an application has no relations.
 	c.Assert(err, tc.ErrorIsNil)
@@ -3227,7 +3227,7 @@ func (s *relationSuite) TestNeedsSubordinateUnit(c *tc.C) {
 	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
 
 	// Act:
-	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+	subAppID, err := s.state.NeedsSubordinateUnit(c.Context(), relationUUID, unitName)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -3256,7 +3256,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitGlobalScopedRelation(c *tc.C) {
 	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
 
 	// Act:
-	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+	subAppID, err := s.state.NeedsSubordinateUnit(c.Context(), relationUUID, unitName)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -3282,7 +3282,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitPeerRelation(c *tc.C) {
 	s.addRelationUnit(c, principalUnitUUID, relEndpointUUID)
 
 	// Act:
-	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+	subAppID, err := s.state.NeedsSubordinateUnit(c.Context(), relationUUID, unitName)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -3307,7 +3307,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitAppNotSubordinate(c *tc.C) {
 	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
 
 	// Act:
-	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+	subAppID, err := s.state.NeedsSubordinateUnit(c.Context(), relationUUID, unitName)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -3338,7 +3338,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExists(c *tc.C
 	s.addUnitPrincipal(c, principalUnitUUID, subordinateUnitUUID)
 
 	// Act:
-	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, principalUnitName)
+	subAppID, err := s.state.NeedsSubordinateUnit(c.Context(), relationUUID, principalUnitName)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -3368,7 +3368,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExistsButIsDyi
 	s.addUnitPrincipal(c, principalUnitUUID, subordinateUnitUUID)
 
 	// Act:
-	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, principalUnitName)
+	_, err := s.state.NeedsSubordinateUnit(c.Context(), relationUUID, principalUnitName)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeSubordinateNotAlive)
@@ -3396,7 +3396,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitRelationNotAlive(c *tc.C) {
 	s.setLife(c, "relation", relationUUID.String(), life.Dying)
 
 	// Act:
-	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+	_, err := s.state.NeedsSubordinateUnit(c.Context(), relationUUID, unitName)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
@@ -3407,7 +3407,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitRelationUnitNotFound(c *tc.C) {
 	relationUUID := s.addRelation(c)
 
 	// Act:
-	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, "")
+	_, err := s.state.NeedsSubordinateUnit(c.Context(), relationUUID, "")
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
@@ -3425,7 +3425,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitUnitNotAlive(c *tc.C) {
 	s.addRelationUnit(c, unitUUID, relEndpointUUID)
 
 	// Act:
-	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+	_, err := s.state.NeedsSubordinateUnit(c.Context(), relationUUID, unitName)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
@@ -3498,7 +3498,7 @@ func (s *relationSuite) TestGetGoalStateRelationDataForApplication(c *tc.C) {
 	}
 
 	// Act
-	obtained, err := s.state.GetGoalStateRelationDataForApplication(context.Background(), app3)
+	obtained, err := s.state.GetGoalStateRelationDataForApplication(c.Context(), app3)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -3508,20 +3508,20 @@ func (s *relationSuite) TestGetGoalStateRelationDataForApplication(c *tc.C) {
 
 func (s *relationSuite) TestGetGoalStateRelationDataForApplicationNoRows(c *tc.C) {
 	// Act
-	_, err := s.state.GetGoalStateRelationDataForApplication(context.Background(), s.fakeApplicationUUID1)
+	_, err := s.state.GetGoalStateRelationDataForApplication(c.Context(), s.fakeApplicationUUID1)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *relationSuite) TestGetApplicationIDByName(c *tc.C) {
-	obtainedID, err := s.state.GetApplicationIDByName(context.Background(), s.fakeApplicationName1)
+	obtainedID, err := s.state.GetApplicationIDByName(c.Context(), s.fakeApplicationName1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedID, tc.Equals, s.fakeApplicationUUID1)
 }
 
 func (s *relationSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
-	_, err := s.state.GetApplicationIDByName(context.Background(), "foo")
+	_, err := s.state.GetApplicationIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -3566,7 +3566,7 @@ func (s *relationSuite) TestDeleteImportedRelations(c *tc.C) {
 	}
 
 	// Act
-	err := s.state.DeleteImportedRelations(context.Background())
+	err := s.state.DeleteImportedRelations(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -3586,7 +3586,7 @@ FROM   %s
 `, colName, tableName)
 
 	values := []string{}
-	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	_ = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, query)
 
 		if err != nil {
@@ -3671,7 +3671,7 @@ func (s *relationSuite) TestExportRelations(c *tc.C) {
 	s.addRelationEndpoint(c, peerRelationUUID, applicationEndpointUUID3)
 
 	// Act:
-	exported, err := s.state.ExportRelations(context.Background())
+	exported, err := s.state.ExportRelations(c.Context())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -3740,7 +3740,7 @@ func (s *relationSuite) TestIsPeerRelation(c *tc.C) {
 	_ = s.addRelationEndpoint(c, peerRelationUUID, applicationEndpointUUID3)
 
 	// Act
-	obtained, err := s.state.IsPeerRelation(context.Background(), peerRelationUUID)
+	obtained, err := s.state.IsPeerRelation(c.Context(), peerRelationUUID)
 
 	// Assert
 	c.Check(err, tc.ErrorIsNil)
@@ -3776,7 +3776,7 @@ func (s *relationSuite) TestIsPeerRelationNotPeer(c *tc.C) {
 	_ = s.addRelationEndpoint(c, relUUID2, appEndpoint3)
 
 	// Act
-	obtained, err := s.state.IsPeerRelation(context.Background(), relUUID1)
+	obtained, err := s.state.IsPeerRelation(c.Context(), relUUID1)
 
 	// Assert
 	c.Check(err, tc.ErrorIsNil)
@@ -3788,7 +3788,7 @@ func (s *relationSuite) TestIsPeerRelationNotFound(c *tc.C) {
 	relUUID := corerelationtesting.GenRelationUUID(c)
 
 	// Act
-	obtained, err := s.state.IsPeerRelation(context.Background(), relUUID)
+	obtained, err := s.state.IsPeerRelation(c.Context(), relUUID)
 
 	// Assert
 	c.Check(err, tc.ErrorIs, relationerrors.RelationNotFound)
@@ -3834,7 +3834,7 @@ func (s *relationSuite) TestInferRelationUUIDByEndpoints(c *tc.C) {
 	}
 
 	// Act
-	obtainedUUID, err := s.state.InferRelationUUIDByEndpoints(context.Background(), candidate1, candidate2)
+	obtainedUUID, err := s.state.InferRelationUUIDByEndpoints(c.Context(), candidate1, candidate2)
 
 	// Assert
 	c.Check(err, tc.ErrorIsNil)
@@ -3877,7 +3877,7 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsFailInfer(c *tc.C) {
 	}
 
 	// Act
-	_, err := s.state.InferRelationUUIDByEndpoints(context.Background(), candidate1, candidate2)
+	_, err := s.state.InferRelationUUIDByEndpoints(c.Context(), candidate1, candidate2)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
@@ -3920,7 +3920,7 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsFailGetUUID(c *tc.C) {
 	}
 
 	// Act
-	_, err := s.state.InferRelationUUIDByEndpoints(context.Background(), candidate1, candidate2)
+	_, err := s.state.InferRelationUUIDByEndpoints(c.Context(), candidate1, candidate2)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
@@ -3965,7 +3965,7 @@ VALUES (?,?)
 // getRelationApplicationSettings gets the relation application settings.
 func (s *relationSuite) getRelationApplicationSettings(c *tc.C, relationEndpointUUID string) map[string]string {
 	settings := map[string]string{}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT key, value
 FROM relation_application_setting 
@@ -3993,7 +3993,7 @@ WHERE relation_endpoint_uuid = ?
 
 func (s *relationSuite) getRelationApplicationSettingsHash(c *tc.C, relationEndpointUUID string) string {
 	var hash string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
 SELECT sha256
 FROM   relation_application_settings_hash
@@ -4012,7 +4012,7 @@ WHERE  relation_endpoint_uuid = ?
 // getRelationUnitSettings gets the relation application settings.
 func (s *relationSuite) getRelationUnitSettings(c *tc.C, relationUnitUUID corerelation.UnitUUID) map[string]string {
 	settings := map[string]string{}
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT key, value
 FROM relation_unit_setting 
@@ -4040,7 +4040,7 @@ WHERE relation_unit_uuid = ?
 
 func (s *relationSuite) getRelationUnitSettingsHash(c *tc.C, relationUnitUUID corerelation.UnitUUID) string {
 	var hash string
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
 SELECT sha256
 FROM   relation_unit_settings_hash
@@ -4062,7 +4062,7 @@ WHERE  relation_unit_uuid = ?
 // corestatus.Status objects.
 func (s *addRelationSuite) fetchAllRelationStatusesOrderByRelationIDs(c *tc.C) []corestatus.Status {
 	var statuses []corestatus.Status
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		query := `
 SELECT rst.name
 FROM relation r 
@@ -4096,7 +4096,7 @@ ORDER BY r.relation_id
 // where the key is the relation ID and the value is a slice of EndpointUUIDs.
 func (s *addRelationSuite) fetchAllEndpointUUIDsByRelationIDs(c *tc.C) map[int][]corerelation.EndpointUUID {
 	epUUIDsByRelID := make(map[int][]corerelation.EndpointUUID)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		query := `
 SELECT re.endpoint_uuid, r.relation_id
 FROM relation_endpoint re 
@@ -4123,7 +4123,7 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 
 func (s *addRelationSuite) fetchRelationUUIDByRelationID(c *tc.C, id uint64) corerelation.UUID {
 	var relationUUID corerelation.UUID
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
 SELECT r.uuid
 FROM   relation AS r
@@ -4147,7 +4147,7 @@ func (s *relationSuite) getRelationUnitInScope(
 	unitUUID coreunit.UUID,
 ) corerelation.UnitUUID {
 	var relationUnitUUID corerelation.UnitUUID
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
 SELECT ru.uuid
 FROM   relation_unit AS ru

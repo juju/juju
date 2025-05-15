@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -57,7 +56,7 @@ func (s *importSuite) TestEmptyImport(c *tc.C) {
 
 	// Act:
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -153,7 +152,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	}})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -190,7 +189,7 @@ func (s *importSuite) TestImportRevisionOriginUpload(c *tc.C) {
 	}})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -220,7 +219,7 @@ func (s *importSuite) TestImportRevisionNotValidOriginStore(c *tc.C) {
 	})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceRevisionNotValid)
 }
 
@@ -243,7 +242,7 @@ func (s *importSuite) TestImportOriginNotValid(c *tc.C) {
 	})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, resourceerrors.OriginNotValid)
 }
 
@@ -264,6 +263,6 @@ func (s *importSuite) TestImportResourceNameNotValid(c *tc.C) {
 	})
 
 	op := s.newImportOperation()
-	err := op.Execute(context.Background(), model)
+	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }

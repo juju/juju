@@ -140,7 +140,7 @@ func (s *storageSuite) TestCreateVolumes(c *tc.C) {
 		makeSender("volume-2", 1),
 	}
 
-	results, err := volumeSource.CreateVolumes(context.Background(), params)
+	results, err := volumeSource.CreateVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
 	c.Check(results[0].Error, tc.ErrorIsNil)
@@ -231,7 +231,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *tc.C) {
 	s.createSenderWithUnauthorisedStatusCode()
 
 	c.Assert(s.invalidatedCredential, tc.IsFalse)
-	results, err := volumeSource.CreateVolumes(context.Background(), params)
+	results, err := volumeSource.CreateVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
 	c.Check(results[0].Error, tc.NotNil)
@@ -291,7 +291,7 @@ func (s *storageSuite) TestListVolumes(c *tc.C) {
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks`
 	s.sender = azuretesting.Senders{volumeSender}
 
-	volumeIds, err := volumeSource.ListVolumes(context.Background())
+	volumeIds, err := volumeSource.ListVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(volumeIds, tc.SameContents, []string{"volume-0", "volume-1"})
 }
@@ -301,7 +301,7 @@ func (s *storageSuite) TestListVolumesWithInvalidCredential(c *tc.C) {
 	s.createSenderWithUnauthorisedStatusCode()
 
 	c.Assert(s.invalidatedCredential, tc.IsFalse)
-	_, err := volumeSource.ListVolumes(context.Background())
+	_, err := volumeSource.ListVolumes(c.Context())
 	c.Assert(err, tc.NotNil)
 	c.Assert(s.invalidatedCredential, tc.IsTrue)
 }
@@ -314,7 +314,7 @@ func (s *storageSuite) TestListVolumesErrors(c *tc.C) {
 		sender,
 		sender, // for the retry attempt
 	}
-	_, err := volumeSource.ListVolumes(context.Background())
+	_, err := volumeSource.ListVolumes(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*listing disks: no disks for you")
 }
 
@@ -328,7 +328,7 @@ func (s *storageSuite) TestDescribeVolumes(c *tc.C) {
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
 	s.sender = azuretesting.Senders{volumeSender}
 
-	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-0"})
+	results, err := volumeSource.DescribeVolumes(c.Context(), []string{"volume-0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{
@@ -344,9 +344,9 @@ func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *tc.C) {
 	s.createSenderWithUnauthorisedStatusCode()
 
 	c.Assert(s.invalidatedCredential, tc.IsFalse)
-	_, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-0"})
+	_, err := volumeSource.DescribeVolumes(c.Context(), []string{"volume-0"})
 	c.Assert(err, tc.ErrorIsNil)
-	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-0"})
+	results, err := volumeSource.DescribeVolumes(c.Context(), []string{"volume-0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results[0].Error, tc.NotNil)
 	c.Assert(s.invalidatedCredential, tc.IsTrue)
@@ -362,7 +362,7 @@ func (s *storageSuite) TestDescribeVolumesNotFound(c *tc.C) {
 	)
 	volumeSender.AppendResponse(response)
 	s.sender = azuretesting.Senders{volumeSender}
-	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-42"})
+	results, err := volumeSource.DescribeVolumes(c.Context(), []string{"volume-42"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0].Error, tc.ErrorIs, errors.NotFound)
@@ -376,7 +376,7 @@ func (s *storageSuite) TestDestroyVolumes(c *tc.C) {
 	volume0Sender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
 	s.sender = azuretesting.Senders{volume0Sender}
 
-	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-0"})
+	results, err := volumeSource.DestroyVolumes(c.Context(), []string{"volume-0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0], tc.ErrorIsNil)
@@ -387,7 +387,7 @@ func (s *storageSuite) TestDestroyVolumesWithInvalidCredential(c *tc.C) {
 
 	s.createSenderWithUnauthorisedStatusCode()
 	c.Assert(s.invalidatedCredential, tc.IsFalse)
-	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-0"})
+	results, err := volumeSource.DestroyVolumes(c.Context(), []string{"volume-0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0], tc.NotNil)
@@ -403,7 +403,7 @@ func (s *storageSuite) TestDestroyVolumesNotFound(c *tc.C) {
 	))
 	s.sender = azuretesting.Senders{volume42Sender}
 
-	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-42"})
+	results, err := volumeSource.DestroyVolumes(c.Context(), []string{"volume-42"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
 	c.Assert(results[0], tc.ErrorIsNil)
@@ -480,7 +480,7 @@ func (s *storageSuite) TestAttachVolumes(c *tc.C) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.AttachVolumes(context.Background(), params)
+	results, err := volumeSource.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
 
@@ -584,7 +584,7 @@ func (s *storageSuite) TestDetachVolumes(c *tc.C) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.DetachVolumes(context.Background(), params)
+	results, err := volumeSource.DetachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
 
@@ -650,7 +650,7 @@ func (s *storageSuite) TestDetachVolumesFinal(c *tc.C) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.DetachVolumes(context.Background(), params)
+	results, err := volumeSource.DetachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
 	c.Assert(results[0], tc.ErrorIsNil)

@@ -4,7 +4,6 @@
 package apiservercertwatcher_test
 
 import (
-	"context"
 	"sync"
 
 	"github.com/juju/tc"
@@ -60,13 +59,13 @@ func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
-	_, err := s.manifold.Start(context.Background(), getter)
+	_, err := s.manifold.Start(c.Context(), getter)
 	c.Assert(err, tc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestNoStateServingInfo(c *tc.C) {
 	s.agent.conf.info = nil
-	_, err := s.manifold.Start(context.Background(), s.getter)
+	_, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorMatches, "setting up initial ca authority: no state serving info in agent config")
 }
 
@@ -85,7 +84,7 @@ func (s *ManifoldSuite) TestOutput(c *tc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
-	w, err := s.manifold.Start(context.Background(), s.getter)
+	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w

@@ -5,7 +5,6 @@ package testing
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -112,7 +111,7 @@ func makeTools(c tc.LikeC, metadataDir, stream string, versionStrings []string, 
 	c.Assert(err, tc.ErrorIsNil)
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = tools.MergeAndWriteMetadata(context.Background(), ss, store, stream, stream, toolsList, false)
+	err = tools.MergeAndWriteMetadata(c.Context(), ss, store, stream, stream, toolsList, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Sign metadata
@@ -150,7 +149,7 @@ func ParseMetadataFromStorage(c tc.LikeC, stor storage.StorageReader, stream str
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	indexRef, err := ss.GetIndexWithFormat(
-		context.Background(),
+		c.Context(),
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, tc.ErrorIsNil)
 

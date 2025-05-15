@@ -181,7 +181,7 @@ func (s *ModelCommandSuite) TestModelType(c *tc.C) {
 
 	cmd, err := runTestCommand(c, s.store)
 	c.Assert(err, tc.ErrorIsNil)
-	modelType, err := cmd.ModelType(context.Background())
+	modelType, err := cmd.ModelType(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(modelType, tc.Equals, model.IAAS)
 }
@@ -269,7 +269,7 @@ func (s *ModelCommandSuite) TestIAASOnlyCommandIAASModel(c *tc.C) {
 	cmd, err := runTestCommand(c, s.store)
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelType, err := cmd.ModelType(context.Background())
+	modelType, err := cmd.ModelType(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(modelType, tc.Equals, model.IAAS)
 }
@@ -311,7 +311,7 @@ func (s *ModelCommandSuite) TestAllowedCommandCAASModel(c *tc.C) {
 
 	cmd, err := runAllowedCAASCommand(c, s.store)
 	c.Assert(err, tc.ErrorIsNil)
-	modelType, err := cmd.ModelType(context.Background())
+	modelType, err := cmd.ModelType(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(modelType, tc.Equals, model.CAAS)
 }
@@ -322,7 +322,7 @@ func (s *ModelCommandSuite) TestPartialModelUUIDSuccess(c *tc.C) {
 	cmd, err := runTestCommand(c, s.store, "-m", "uuidfoo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelType, err := cmd.ModelType(context.Background())
+	modelType, err := cmd.ModelType(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(modelType, tc.Equals, model.IAAS)
 }

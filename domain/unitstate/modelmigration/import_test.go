@@ -4,8 +4,6 @@
 package modelmigration
 
 import (
-	"context"
-
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -61,7 +59,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	})
 
 	importOp := importOperation{service: s.service}
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -87,7 +85,7 @@ func (s *importSuite) TestImportPartial(c *tc.C) {
 	})
 
 	importOp := importOperation{service: s.service}
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -113,7 +111,7 @@ func (s *importSuite) TestImportError(c *tc.C) {
 	}).Return(unitstateerrors.UnitNotFound)
 
 	importOp := importOperation{service: s.service}
-	err := importOp.Execute(context.Background(), model)
+	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 

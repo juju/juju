@@ -4,7 +4,6 @@
 package vsphere_test
 
 import (
-	stdcontext "context"
 	"errors"
 	"net/url"
 
@@ -32,7 +31,7 @@ func (s *providerSuite) TestRegistered(c *tc.C) {
 
 func (s *providerSuite) TestOpen(c *tc.C) {
 	config := fakeConfig(c)
-	env, err := s.provider.Open(stdcontext.Background(), environs.OpenParams{
+	env, err := s.provider.Open(c.Context(), environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: config,
 	}, environs.NoopCredentialInvalidator())
@@ -62,7 +61,7 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *tc.C) {
 }
 
 func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := s.provider.Open(stdcontext.Background(), environs.OpenParams{
+	_, err := s.provider.Open(c.Context(), environs.OpenParams{
 		Cloud:  spec,
 		Config: fakeConfig(c),
 	}, environs.NoopCredentialInvalidator())
@@ -70,13 +69,13 @@ func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec,
 }
 
 func (s *providerSuite) TestValidateCloud(c *tc.C) {
-	err := s.provider.ValidateCloud(context.Background(), fakeCloudSpec())
+	err := s.provider.ValidateCloud(c.Context(), fakeCloudSpec())
 	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *providerSuite) TestValidate(c *tc.C) {
 	config := fakeConfig(c)
-	validCfg, err := s.provider.Validate(context.Background(), config, nil)
+	validCfg, err := s.provider.Validate(c.Context(), config, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()
@@ -119,7 +118,7 @@ func (s *pingSuite) TestPingInvalidHost(c *tc.C) {
 		"http://foo.test:77",
 	}
 	for _, t := range tests {
-		err := s.provider.Ping(context.Background(), t)
+		err := s.provider.Ping(c.Context(), t)
 		if err == nil {
 			c.Errorf("ping %q: expected error, but got nil.", t)
 			continue
@@ -132,12 +131,12 @@ func (s *pingSuite) TestPingInvalidHost(c *tc.C) {
 }
 
 func (s *pingSuite) TestPingInvalidURL(c *tc.C) {
-	err := s.provider.Ping(context.Background(), "abc%sdef")
+	err := s.provider.Ping(c.Context(), "abc%sdef")
 	c.Assert(err, tc.ErrorMatches, "Invalid endpoint format, please give a full url or IP/hostname.")
 }
 
 func (s *pingSuite) TestPingInvalidScheme(c *tc.C) {
-	err := s.provider.Ping(context.Background(), "gopher://abcdef.com")
+	err := s.provider.Ping(c.Context(), "gopher://abcdef.com")
 	c.Assert(err, tc.ErrorMatches, "Invalid endpoint format, please use an http or https URL.")
 }
 
@@ -145,7 +144,7 @@ func (s *pingSuite) TestPingLoginSucceeded(c *tc.C) {
 	// This test shows that when - against all odds - the
 	// login succeeds, Ping returns nil.
 
-	err := s.provider.Ping(context.Background(), "testing.invalid")
+	err := s.provider.Ping(c.Context(), "testing.invalid")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.dialStub.CheckCallNames(c, "Dial")

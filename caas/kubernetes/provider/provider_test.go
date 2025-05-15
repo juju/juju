@@ -4,8 +4,6 @@
 package provider_test
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas"
@@ -78,7 +76,7 @@ func (s *providerSuite) TestRegistered(c *tc.C) {
 func (s *providerSuite) TestOpen(c *tc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	config := fakeConfig(c)
-	broker, err := s.provider.Open(context.Background(), environs.OpenParams{
+	broker, err := s.provider.Open(c.Context(), environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: config,
 	}, environs.NoopCredentialInvalidator())
@@ -106,7 +104,7 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *tc.C) {
 }
 
 func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := s.provider.Open(context.Background(), environs.OpenParams{
+	_, err := s.provider.Open(c.Context(), environs.OpenParams{
 		Cloud:  spec,
 		Config: fakeConfig(c),
 	}, environs.NoopCredentialInvalidator())
@@ -114,13 +112,13 @@ func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec,
 }
 
 func (s *providerSuite) TestValidateCloud(c *tc.C) {
-	err := s.provider.ValidateCloud(context.Background(), fakeCloudSpec())
+	err := s.provider.ValidateCloud(c.Context(), fakeCloudSpec())
 	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *providerSuite) TestValidate(c *tc.C) {
 	config := fakeConfig(c)
-	validCfg, err := s.provider.Validate(context.Background(), config, nil)
+	validCfg, err := s.provider.Validate(c.Context(), config, nil)
 	c.Check(err, tc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()

@@ -80,7 +80,7 @@ func (s *providerServiceSuite) TestModel(c *tc.C) {
 	}
 	s.state.model = &model
 
-	got, err := svc.Model(context.Background())
+	got, err := svc.Model(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(got, tc.Equals, model)
@@ -105,7 +105,7 @@ func (s *providerServiceSuite) TestWatchModelCloudCredential(c *tc.C) {
 		&dummyProviderState{},
 		s.mockWatcherFactory,
 	)
-	w, err := svc.WatchModelCloudCredential(context.Background(), modelUUID)
+	w, err := svc.WatchModelCloudCredential(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {

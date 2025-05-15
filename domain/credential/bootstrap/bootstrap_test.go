@@ -4,8 +4,6 @@
 package bootstrap
 
 import (
-	"context"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -33,14 +31,14 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
-	ctx := context.Background()
+	ctx := c.Context()
 
 	userUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUserWithPermission(
-		context.Background(), userUUID,
+		c.Context(), userUUID,
 		usertesting.GenNewName(c, "fred"),
 		"test user",
 		false,

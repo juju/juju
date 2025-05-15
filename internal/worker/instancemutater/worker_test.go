@@ -178,7 +178,7 @@ func (s *workerSuite) SetUpTest(c *tc.C) {
 
 	s.logger = loggertesting.WrapCheckLog(c)
 
-	s.newWorkerFunc = instancemutater.NewEnvironTestWorker
+	s.newWorkerFunc = instancemutater.NewEnvironTestWorker(c)
 	s.machineTag = names.NewMachineTag("0")
 	s.getRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default", "juju-testing"}
@@ -707,7 +707,9 @@ func (s *workerContainerSuite) SetUpTest(c *tc.C) {
 	s.workerSuite.SetUpTest(c)
 
 	s.lxdContainerTag = names.NewMachineTag("0/lxd/0")
-	s.newWorkerFunc = instancemutater.NewContainerTestWorker
+	s.newWorkerFunc = func(config instancemutater.Config, ctxFn instancemutater.RequiredMutaterContextFunc) (worker.Worker, error) {
+		return instancemutater.NewContainerTestWorker(c)(config, ctxFn)
+	}
 	s.getRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default"}
 	}

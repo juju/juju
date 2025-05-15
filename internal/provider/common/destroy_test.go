@@ -35,7 +35,7 @@ func (s *DestroySuite) TestCannotGetInstances(c *tc.C) {
 		},
 		config: configGetter(c),
 	}
-	err := common.Destroy(env, context.Background())
+	err := common.Destroy(env, c.Context())
 	c.Assert(err, tc.ErrorMatches, "destroying instances: nope")
 }
 
@@ -55,7 +55,7 @@ func (s *DestroySuite) TestCannotStopInstances(c *tc.C) {
 		},
 		config: configGetter(c),
 	}
-	err := common.Destroy(env, context.Background())
+	err := common.Destroy(env, c.Context())
 	c.Assert(err, tc.ErrorMatches, "destroying instances: nah")
 }
 
@@ -78,7 +78,7 @@ func (s *DestroySuite) TestSuccessWhenStorageErrors(c *tc.C) {
 		},
 		config: configGetter(c),
 	}
-	err := common.Destroy(env, context.Background())
+	err := common.Destroy(env, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -102,7 +102,7 @@ func (s *DestroySuite) TestSuccess(c *tc.C) {
 		},
 		config: configGetter(c),
 	}
-	err = common.Destroy(env, context.Background())
+	err = common.Destroy(env, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// common.Destroy doesn't touch provider/object storage anymore.
@@ -124,7 +124,7 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *tc.C) {
 		},
 		config: configGetter(c),
 	}
-	err = common.Destroy(env, context.Background())
+	err = common.Destroy(env, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -156,14 +156,14 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *tc.C) {
 			},
 		},
 	}
-	err := common.Destroy(env, context.Background())
+	err := common.Destroy(env, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// common.Destroy will ignore machine-scoped storage providers.
 	storageProvider.CheckCallNames(c, "Dynamic", "Scope", "Supports", "VolumeSource")
 	volumeSource.CheckCalls(c, []testhelpers.StubCall{
-		{"ListVolumes", []interface{}{context.Background()}},
-		{"DestroyVolumes", []interface{}{context.Background(), []string{"vol-0", "vol-1", "vol-2"}}},
+		{"ListVolumes", []interface{}{c.Context()}},
+		{"DestroyVolumes", []interface{}{c.Context(), []string{"vol-0", "vol-1", "vol-2"}}},
 	})
 }
 
@@ -200,7 +200,7 @@ func (s *DestroySuite) TestDestroyVolumeErrors(c *tc.C) {
 			},
 		},
 	}
-	err := common.Destroy(env, context.Background())
+	err := common.Destroy(env, c.Context())
 	c.Assert(err, tc.ErrorMatches, "destroying storage: destroying volumes: cannot destroy vol-1, cannot destroy vol-2")
 }
 
@@ -221,7 +221,7 @@ func (s *DestroySuite) TestIgnoreStaticVolumes(c *tc.C) {
 			},
 		},
 	}
-	err := common.Destroy(env, context.Background())
+	err := common.Destroy(env, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// common.Destroy will ignore static storage providers.
@@ -245,7 +245,7 @@ func (s *DestroySuite) TestIgnoreMachineScopedVolumes(c *tc.C) {
 			},
 		},
 	}
-	err := common.Destroy(env, context.Background())
+	err := common.Destroy(env, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// common.Destroy will ignore machine-scoped storage providers.
@@ -272,7 +272,7 @@ func (s *DestroySuite) TestIgnoreNoVolumeSupport(c *tc.C) {
 			},
 		},
 	}
-	err := common.Destroy(env, context.Background())
+	err := common.Destroy(env, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// common.Destroy will ignore storage providers that don't support

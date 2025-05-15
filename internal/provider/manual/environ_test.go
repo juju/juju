@@ -4,7 +4,6 @@
 package manual
 
 import (
-	"context"
 	"os"
 
 	"github.com/juju/errors"
@@ -27,7 +26,7 @@ type baseEnvironSuite struct {
 
 func (s *baseEnvironSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := ManualProvider{}.Open(context.Background(), environs.OpenParams{
+	env, err := ManualProvider{}.Open(c.Context(), environs.OpenParams{
 		Cloud:  CloudSpec(),
 		Config: MinimalConfig(c),
 	}, environs.NoopCredentialInvalidator())
@@ -44,25 +43,25 @@ var _ = tc.Suite(&environSuite{})
 func (s *environSuite) TestInstances(c *tc.C) {
 	var ids []instance.Id
 
-	instances, err := s.env.Instances(context.Background(), ids)
+	instances, err := s.env.Instances(c.Context(), ids)
 	c.Assert(err, tc.Equals, environs.ErrNoInstances)
 	c.Assert(instances, tc.HasLen, 0)
 
 	ids = append(ids, BootstrapInstanceId)
-	instances, err = s.env.Instances(context.Background(), ids)
+	instances, err = s.env.Instances(c.Context(), ids)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.HasLen, 1)
 	c.Assert(instances[0], tc.NotNil)
 
 	ids = append(ids, BootstrapInstanceId)
-	instances, err = s.env.Instances(context.Background(), ids)
+	instances, err = s.env.Instances(c.Context(), ids)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.HasLen, 2)
 	c.Assert(instances[0], tc.NotNil)
 	c.Assert(instances[1], tc.NotNil)
 
 	ids = append(ids, instance.Id("invalid"))
-	instances, err = s.env.Instances(context.Background(), ids)
+	instances, err = s.env.Instances(c.Context(), ids)
 	c.Assert(err, tc.Equals, environs.ErrPartialInstances)
 	c.Assert(instances, tc.HasLen, 3)
 	c.Assert(instances[0], tc.NotNil)
@@ -70,7 +69,7 @@ func (s *environSuite) TestInstances(c *tc.C) {
 	c.Assert(instances[2], tc.IsNil)
 
 	ids = []instance.Id{instance.Id("invalid")}
-	instances, err = s.env.Instances(context.Background(), ids)
+	instances, err = s.env.Instances(c.Context(), ids)
 	c.Assert(err, tc.Equals, environs.ErrNoInstances)
 	c.Assert(instances, tc.HasLen, 1)
 	c.Assert(instances[0], tc.IsNil)
@@ -135,7 +134,7 @@ exit 0
 	for i, t := range tests {
 		c.Logf("test %d: %v", i, t)
 		resultStdout, resultErr = t.stdout, t.err
-		err := s.env.DestroyController(context.Background(), "controller-uuid")
+		err := s.env.DestroyController(c.Context(), "controller-uuid")
 		if t.match == "" {
 			c.Assert(err, tc.ErrorIsNil)
 		} else {
@@ -154,7 +153,7 @@ func (s *environSuite) TestConstraintsValidator(c *tc.C) {
 		},
 	)
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cores=2 mem=1G virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
@@ -168,7 +167,7 @@ func (s *environSuite) TestConstraintsValidatorInsideController(c *tc.C) {
 	s.PatchValue(&os.Args, []string{"/some/where/containing/jujud", "whatever"})
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 
-	validator, err := s.env.ConstraintsValidator(context.Background())
+	validator, err := s.env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	cons := constraints.MustParse("arch=arm64")
 	_, err = validator.Validate(cons)
@@ -184,7 +183,7 @@ func (s *environSuite) TestPrecheck(c *tc.C) {
 	constraint := constraints.MustParse("arch=amd64")
 
 	// Prechecks with an explicit placement should fail
-	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err := s.env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Placement:   "42",
 		Constraints: constraint,
 	})
@@ -192,7 +191,7 @@ func (s *environSuite) TestPrecheck(c *tc.C) {
 	c.Assert(err.Error(), tc.Equals, `use "juju add-machine ssh:[user@]<host>" to provision machines`)
 
 	// Prechecks with no placement should work if the constraints match
-	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
+	err = s.env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Constraints: constraint,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -234,7 +233,7 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *tc.C) {
 		c.Logf("test %d", i)
 		outputResult = test.output
 		errResult = test.err
-		instances, err := s.env.ControllerInstances(context.Background(), "not-used")
+		instances, err := s.env.ControllerInstances(c.Context(), "not-used")
 		if test.expectedErr == "" {
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(instances, tc.DeepEquals, []instance.Id{BootstrapInstanceId})
@@ -248,14 +247,14 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *tc.C) {
 func (s *controllerInstancesSuite) TestControllerInstancesStderr(c *tc.C) {
 	// Stderr should not affect the behaviour of ControllerInstances.
 	testhelpers.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 0")
-	_, err := s.env.ControllerInstances(context.Background(), "not-used")
+	_, err := s.env.ControllerInstances(c.Context(), "not-used")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *controllerInstancesSuite) TestControllerInstancesError(c *tc.C) {
 	// If the ssh execution fails, its stderr will be captured in the error message.
 	testhelpers.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
-	_, err := s.env.ControllerInstances(context.Background(), "not-used")
+	_, err := s.env.ControllerInstances(c.Context(), "not-used")
 	c.Assert(err, tc.ErrorMatches, "abc: .*")
 }
 
@@ -265,7 +264,7 @@ func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *tc.C) {
 	// Patch the ssh executable so that it would cause an error if we
 	// were to call it.
 	testhelpers.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
-	instances, err := s.env.ControllerInstances(context.Background(), "not-used")
+	instances, err := s.env.ControllerInstances(c.Context(), "not-used")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(instances, tc.DeepEquals, []instance.Id{BootstrapInstanceId})
 }

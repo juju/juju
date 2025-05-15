@@ -4,8 +4,6 @@
 package storageprovisioner_test
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -42,10 +40,10 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *tc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(context.Background())
+	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = storageprovisioner.NewStorageProvisionerAPIv4(
-		context.Background(),
+		c.Context(),
 		nil,
 		clock.WallClock,
 		backend,
@@ -64,13 +62,13 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *tc.C) {
 }
 
 func (s *provisionerSuite) TestVolumesEmptyArgs(c *tc.C) {
-	results, err := s.api.Volumes(context.Background(), params.Entities{})
+	results, err := s.api.Volumes(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }
 
 func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *tc.C) {
-	results, err := s.api.VolumeParams(context.Background(), params.Entities{})
+	results, err := s.api.VolumeParams(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 0)
 }

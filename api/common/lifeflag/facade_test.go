@@ -4,8 +4,6 @@
 package lifeflag_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -38,7 +36,7 @@ func (*FacadeSuite) TestLifeCall(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	facade.Life(context.Background(), names.NewApplicationTag("blah"))
+	facade.Life(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(called, tc.IsTrue)
 }
 
@@ -48,7 +46,7 @@ func (*FacadeSuite) TestLifeCallError(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	result, err := facade.Life(context.Background(), names.NewApplicationTag("blah"))
+	result, err := facade.Life(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.ErrorMatches, "crunch belch")
 	c.Check(result, tc.Equals, life.Value(""))
 }
@@ -59,7 +57,7 @@ func (*FacadeSuite) TestLifeNoResultsError(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	result, err := facade.Life(context.Background(), names.NewApplicationTag("blah"))
+	result, err := facade.Life(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.ErrorMatches, "expected 1 Life result, got 0")
 	c.Check(result, tc.Equals, life.Value(""))
 }
@@ -75,7 +73,7 @@ func (*FacadeSuite) TestLifeExtraResultsError(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	result, err := facade.Life(context.Background(), names.NewApplicationTag("blah"))
+	result, err := facade.Life(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.ErrorMatches, "expected 1 Life result, got 2")
 	c.Check(result, tc.Equals, life.Value(""))
 }
@@ -93,7 +91,7 @@ func (*FacadeSuite) TestLifeNotFoundError(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	result, err := facade.Life(context.Background(), names.NewApplicationTag("blah"))
+	result, err := facade.Life(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.Equals, lifeflag.ErrEntityNotFound)
 	c.Check(result, tc.Equals, life.Value(""))
 }
@@ -109,7 +107,7 @@ func (*FacadeSuite) TestLifeInvalidResultError(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	result, err := facade.Life(context.Background(), names.NewApplicationTag("blah"))
+	result, err := facade.Life(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.ErrorMatches, `life value "decomposed" not valid`)
 	c.Check(result, tc.Equals, life.Value(""))
 }
@@ -125,7 +123,7 @@ func (*FacadeSuite) TestLifeSuccess(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	result, err := facade.Life(context.Background(), names.NewApplicationTag("blah"))
+	result, err := facade.Life(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, life.Dying)
 }
@@ -142,7 +140,7 @@ func (*FacadeSuite) TestWatchCall(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	facade.Watch(context.Background(), names.NewApplicationTag("blah"))
+	facade.Watch(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(called, tc.IsTrue)
 }
 
@@ -152,7 +150,7 @@ func (*FacadeSuite) TestWatchCallError(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	watcher, err := facade.Watch(context.Background(), names.NewApplicationTag("blah"))
+	watcher, err := facade.Watch(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.ErrorMatches, "crunch belch")
 	c.Check(watcher, tc.IsNil)
 }
@@ -163,7 +161,7 @@ func (*FacadeSuite) TestWatchNoResultsError(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	watcher, err := facade.Watch(context.Background(), names.NewApplicationTag("blah"))
+	watcher, err := facade.Watch(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.ErrorMatches, "expected 1 Watch result, got 0")
 	c.Check(watcher, tc.IsNil)
 }
@@ -179,7 +177,7 @@ func (*FacadeSuite) TestWatchExtraResultsError(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	watcher, err := facade.Watch(context.Background(), names.NewApplicationTag("blah"))
+	watcher, err := facade.Watch(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.ErrorMatches, "expected 1 Watch result, got 2")
 	c.Check(watcher, tc.IsNil)
 }
@@ -197,7 +195,7 @@ func (*FacadeSuite) TestWatchNotFoundError(c *tc.C) {
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
 
-	watcher, err := facade.Watch(context.Background(), names.NewApplicationTag("blah"))
+	watcher, err := facade.Watch(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.Equals, lifeflag.ErrEntityNotFound)
 	c.Check(watcher, tc.IsNil)
 }
@@ -225,7 +223,7 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 		}
 	})
 	facade := lifeflag.NewClient(caller, "LifeFlag")
-	watcher, err := facade.Watch(context.Background(), names.NewApplicationTag("blah"))
+	watcher, err := facade.Watch(c.Context(), names.NewApplicationTag("blah"))
 	c.Check(err, tc.ErrorIsNil)
 	workertest.CheckKilled(c, watcher)
 }

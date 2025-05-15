@@ -182,7 +182,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.ID("deadbeef")).Return(constraints.Value{}, nil)
 	s.applicationService.EXPECT().GetDeviceConstraints(gomock.Any(), "gitlab").Return(map[string]devices.Constraints{}, nil)
 
-	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
+	result, err := s.api.ProvisioningInfo(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
 	c.Assert(err, tc.ErrorIsNil)
 
 	mc := tc.NewMultiChecker()
@@ -220,7 +220,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "gitlab").Return(locator, nil)
 	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(false, nil)
 
-	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
+	result, err := s.api.ProvisioningInfo(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, tc.ErrorMatches, `charm for application "gitlab" not provisioned`)
 }
@@ -248,7 +248,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *tc.C) {
 	modelConfigChanged <- []string{}
 	controllerConfigChanged <- []string{}
 
-	results, err := s.api.WatchProvisioningInfo(context.Background(), params.Entities{
+	results, err := s.api.WatchProvisioningInfo(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 		},
@@ -271,7 +271,7 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *tc.C) {
 		return nil
 	})
 
-	result, err := s.api.SetOperatorStatus(context.Background(), params.SetStatus{
+	result, err := s.api.SetOperatorStatus(c.Context(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag:    "application-gitlab",
 			Status: "started",
@@ -294,7 +294,7 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *tc.C) {
 		"gitlab/2": {Status: status.Unknown},
 	}, nil)
 
-	result, err := s.api.Units(context.Background(), params.Entities{
+	result, err := s.api.Units(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-gitlab",
 		}},
@@ -371,7 +371,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *tc.C) {
 		},
 	}, nil)
 
-	result, err := s.api.ApplicationOCIResources(context.Background(), params.Entities{
+	result, err := s.api.ApplicationOCIResources(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-gitlab",
 		}},
@@ -492,7 +492,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 		Since:   &now,
 	})
 
-	results, err := s.api.UpdateApplicationsUnits(context.Background(), args)
+	results, err := s.api.UpdateApplicationsUnits(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0], tc.DeepEquals, params.UpdateApplicationUnitResult{
 		Info: &params.UpdateApplicationUnitsInfo{
@@ -648,7 +648,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "another message"},
 	})
 
-	results, err := s.api.UpdateApplicationsUnits(context.Background(), args)
+	results, err := s.api.UpdateApplicationsUnits(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results[0], tc.DeepEquals, params.UpdateApplicationUnitResult{
 		Info: &params.UpdateApplicationUnitsInfo{
@@ -693,7 +693,7 @@ func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *tc.C
 		life: state.Alive,
 	}
 
-	result, err := s.api.ClearApplicationsResources(context.Background(), params.Entities{
+	result, err := s.api.ClearApplicationsResources(c.Context(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-gitlab",
 		}},
@@ -716,7 +716,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *tc.C) {
 	}
 	unitsChanges <- []string{"gitlab/0", "gitlab/1"}
 
-	results, err := s.api.WatchUnits(context.Background(), params.Entities{
+	results, err := s.api.WatchUnits(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 		},
@@ -741,7 +741,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *tc.C) {
 		ScaleTarget: 10,
 	}, nil)
 
-	setResult, err := s.api.SetProvisioningState(context.Background(), params.CAASApplicationProvisioningStateArg{
+	setResult, err := s.api.SetProvisioningState(c.Context(), params.CAASApplicationProvisioningStateArg{
 		Application: params.Entity{Tag: "application-gitlab"},
 		ProvisioningState: params.CAASApplicationProvisioningState{
 			Scaling:     true,
@@ -751,7 +751,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(setResult.Error, tc.IsNil)
 
-	result, err := s.api.ProvisioningState(context.Background(), params.Entity{Tag: "application-gitlab"})
+	result, err := s.api.ProvisioningState(c.Context(), params.Entity{Tag: "application-gitlab"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.ProvisioningState, tc.DeepEquals, &params.CAASApplicationProvisioningState{
 		Scaling:     true,
@@ -763,14 +763,14 @@ func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	result, err := s.api.ProvisionerConfig(context.Background())
+	result, err := s.api.ProvisionerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.ProvisionerConfig, tc.NotNil)
 	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, tc.HasLen, 0)
 
 	s.st.isController = true
-	result, err = s.api.ProvisionerConfig(context.Background())
+	result, err = s.api.ProvisionerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.ProvisionerConfig, tc.NotNil)
@@ -781,7 +781,7 @@ func (s *CAASApplicationProvisionerSuite) TestCharmStorageParamsPoolNotFound(c *
 	cfg, err := envconfig.New(envconfig.NoDefaults, coretesting.FakeConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	p, err := caasapplicationprovisioner.CharmStorageParams(
-		context.Background(), coretesting.ControllerTag.Id(),
+		c.Context(), coretesting.ControllerTag.Id(),
 		"notpool", cfg, model.UUID(coretesting.ModelTag.Id()), "", s.storagePoolGetter,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -806,7 +806,7 @@ func (s *CAASApplicationProvisionerSuite) TestRemove(c *tc.C) {
 
 	s.applicationService.EXPECT().RemoveUnit(gomock.Any(), coreunit.Name("gitlab/0"), s.leadershipRevoker)
 
-	result, err := s.api.Remove(context.Background(), params.Entities{Entities: []params.Entity{{
+	result, err := s.api.Remove(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "unit-gitlab-0",
 	}}})
 	c.Assert(err, tc.ErrorIsNil)

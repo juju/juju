@@ -50,7 +50,7 @@ func (s *logSinkServiceSuite) TestModel(c *tc.C) {
 	}
 	s.state.model = &model
 
-	got, err := svc.Model(context.Background(), id)
+	got, err := svc.Model(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(got, tc.Equals, model)

@@ -75,7 +75,7 @@ func (*unitsWatcherSuite) TestWatchUnits(c *tc.C) {
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"},
 	}}
-	result, err := w.WatchUnits(context.Background(), entities)
+	result, err := w.WatchUnits(c.Context(), entities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -97,7 +97,7 @@ func (*unitsWatcherSuite) TestWatchUnitsError(c *tc.C) {
 		resources,
 		getCanWatch,
 	)
-	_, err := w.WatchUnits(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
+	_, err := w.WatchUnits(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
 	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
@@ -111,7 +111,7 @@ func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *tc.C) {
 		resources,
 		getCanWatch,
 	)
-	result, err := w.WatchUnits(context.Background(), params.Entities{})
+	result, err := w.WatchUnits(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
 }

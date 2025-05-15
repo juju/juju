@@ -191,7 +191,7 @@ func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *tc.C) {
 	writer := mocks.NewMockWriter(ctrl)
 	writer.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes()
 	ctx := &cmd.Context{
-		Context: context.Background(),
+		Context: c.Context(),
 		Stderr:  writer,
 		Stdout:  writer,
 	}
@@ -227,7 +227,7 @@ func (s *charmSuite) TestDeployFromPredeployed(c *tc.C) {
 	writer := mocks.NewMockWriter(ctrl)
 	writer.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes()
 	ctx := &cmd.Context{
-		Context: context.Background(),
+		Context: c.Context(),
 		Stderr:  writer,
 		Stdout:  writer,
 	}

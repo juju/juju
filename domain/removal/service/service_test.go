@@ -4,7 +4,6 @@
 package service
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -46,7 +45,7 @@ func (s *serviceSuite) TestGetAllJobsSuccess(c *tc.C) {
 
 	s.state.EXPECT().GetAllJobs(gomock.Any()).Return(dbJobs, nil)
 
-	jobs, err := s.newService(c).GetAllJobs(context.Background())
+	jobs, err := s.newService(c).GetAllJobs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobs, tc.DeepEquals, dbJobs)
 }
@@ -56,7 +55,7 @@ func (s *serviceSuite) TestGetAllJobsError(c *tc.C) {
 
 	s.state.EXPECT().GetAllJobs(gomock.Any()).Return(nil, errors.New("the front fell off"))
 
-	jobs, err := s.newService(c).GetAllJobs(context.Background())
+	jobs, err := s.newService(c).GetAllJobs(c.Context())
 	c.Assert(err, tc.ErrorMatches, "the front fell off")
 	c.Check(jobs, tc.IsNil)
 }
@@ -68,6 +67,6 @@ func (s *serviceSuite) TestExecuteJobUnsupportedType(c *tc.C) {
 		RemovalType: unsupportedJobType,
 	}
 
-	err := s.newService(c).ExecuteJob(context.Background(), job)
+	err := s.newService(c).ExecuteJob(c.Context(), job)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobTypeNotSupported)
 }

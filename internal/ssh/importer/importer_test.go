@@ -4,7 +4,6 @@
 package importer
 
 import (
-	"context"
 	"net/url"
 	"slices"
 
@@ -41,7 +40,7 @@ func (i *importerSuite) TestInvalidURI(c *tc.C) {
 			"gh": i.resolver,
 		},
 	}
-	_, err = importer.FetchPublicKeysForSubject(context.Background(), uri)
+	_, err = importer.FetchPublicKeysForSubject(c.Context(), uri)
 	c.Check(err, tc.ErrorIs, errors.NotValid)
 }
 
@@ -57,7 +56,7 @@ func (i *importerSuite) TestNoResolver(c *tc.C) {
 			"gh": i.resolver,
 		},
 	}
-	_, err = importer.FetchPublicKeysForSubject(context.Background(), uri)
+	_, err = importer.FetchPublicKeysForSubject(c.Context(), uri)
 	c.Check(err, tc.ErrorIs, importererrors.NoResolver)
 }
 
@@ -76,7 +75,7 @@ func (i *importerSuite) TestSubjectNotFound(c *tc.C) {
 			"gh": i.resolver,
 		},
 	}
-	_, err = importer.FetchPublicKeysForSubject(context.Background(), uri)
+	_, err = importer.FetchPublicKeysForSubject(c.Context(), uri)
 	c.Check(err, tc.ErrorIs, importererrors.SubjectNotFound)
 }
 
@@ -99,7 +98,7 @@ func (i *importerSuite) TestFetchPublicKeysForSubject(c *tc.C) {
 			"gh": i.resolver,
 		},
 	}
-	keys, err := importer.FetchPublicKeysForSubject(context.Background(), uri)
+	keys, err := importer.FetchPublicKeysForSubject(c.Context(), uri)
 	c.Check(err, tc.ErrorIsNil)
 
 	expected := []string{

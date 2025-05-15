@@ -4,7 +4,6 @@
 package machinemanager
 
 import (
-	"context"
 	"strings"
 	"time"
 
@@ -167,7 +166,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 	}).Return(m2, nil)
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
-	machines, err := s.api.AddMachines(context.Background(), params.AddMachines{MachineParams: apiParams})
+	machines, err := s.api.AddMachines(c.Context(), params.AddMachines{MachineParams: apiParams})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machines.Machines, tc.HasLen, 2)
 }
@@ -178,7 +177,7 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *tc.C) {
 	s.st.EXPECT().AddOneMachine(gomock.Any()).Return(nil, errors.New("boom"))
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
-	results, err := s.api.AddMachines(context.Background(), params.AddMachines{
+	results, err := s.api.AddMachines(c.Context(), params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
 			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 		}},
@@ -346,7 +345,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
@@ -370,7 +369,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetr
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
@@ -396,7 +395,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 	s.st.EXPECT().Machine("1").Return(machine1, nil)
 
 	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
 	})
@@ -428,7 +427,7 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 	s.st.EXPECT().Machine("1").Return(machine1, nil)
 
 	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		Force:       true,
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
@@ -466,7 +465,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {
 	machine0 := s.expectDestroyMachine(ctrl, "0", nil, nil, false, false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
 		DryRun:      true,
 	})
@@ -501,7 +500,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *t
 	container0 := s.expectDestroyMachine(ctrl, "0/lxd/0", nil, nil, false, false, false)
 	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
 		DryRun:      true,
 	})
@@ -553,7 +552,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *tc.C)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		Keep:        true,
 		Force:       true,
 		MachineTags: []string{"machine-0"},
@@ -590,7 +589,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *tc.C
 	s.machineService.EXPECT().SetKeepInstance(gomock.Any(), coremachine.Name("0"), true)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		Keep:        true,
 		Force:       true,
 		MachineTags: []string{"machine-0"},
@@ -626,7 +625,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 	machine0 := s.expectDestroyMachine(ctrl, "0", nil, []string{"0/lxd/0"}, true, false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		Force:       false,
 		MachineTags: []string{"machine-0"},
 	})
@@ -651,7 +650,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c
 	container0 := s.expectDestroyMachine(ctrl, "0/lxd/0", nil, nil, true, false, true)
 	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(context.Background(), params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		Force:       true,
 		MachineTags: []string{"machine-0"},
 	})
@@ -847,7 +846,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *tc.C) {
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
 	}, nil)
 
-	result, err := s.api.ProvisioningScript(context.Background(), params.ProvisioningScriptParams{
+	result, err := s.api.ProvisioningScript(c.Context(), params.ProvisioningScriptParams{
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
@@ -878,7 +877,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *tc.C) 
 
 	machine0 := s.expectProvisioningMachine(ctrl, nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
-	_, err = s.api.ProvisioningScript(context.Background(), params.ProvisioningScriptParams{
+	_, err = s.api.ProvisioningScript(c.Context(), params.ProvisioningScriptParams{
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
@@ -914,7 +913,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 		gomock.Any(), coremachine.Name("0"),
 	).Return([]string{}, nil)
 
-	result, err := s.api.ProvisioningScript(context.Background(), params.ProvisioningScriptParams{
+	result, err := s.api.ProvisioningScript(c.Context(), params.ProvisioningScriptParams{
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
@@ -960,7 +959,7 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *tc.C) {
 	machine1.EXPECT().Id().Return("1")
 	s.st.EXPECT().AllMachines().Return([]Machine{machine0, machine1}, nil)
 
-	results, err := s.api.RetryProvisioning(context.Background(), params.RetryProvisioningArgs{
+	results, err := s.api.RetryProvisioning(c.Context(), params.RetryProvisioningArgs{
 		Machines: []string{"machine-0"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -981,7 +980,7 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	machine1.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "pending"}, nil)
 	s.st.EXPECT().AllMachines().Return([]Machine{machine0, machine1}, nil)
 
-	results, err := s.api.RetryProvisioning(context.Background(), params.RetryProvisioningArgs{
+	results, err := s.api.RetryProvisioning(c.Context(), params.RetryProvisioningArgs{
 		All: true,
 	})
 	c.Assert(err, tc.ErrorIsNil)

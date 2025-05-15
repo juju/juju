@@ -4,13 +4,13 @@
 package oci_test
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/tags"
@@ -47,7 +47,7 @@ func (s *storageVolumeSuite) newVolumeSource(c *tc.C) storage.VolumeSource {
 	return source
 }
 
-func (s *storageVolumeSuite) setupCreateVolumesExpectations(tag names.VolumeTag, size int64) {
+func (s *storageVolumeSuite) setupCreateVolumesExpectations(c *tc.C, tag names.VolumeTag, size int64) {
 	name := tag.String()
 	volTags := map[string]string{
 		tags.JujuModel: s.env.Config().UUID(),
@@ -88,8 +88,8 @@ func (s *storageVolumeSuite) setupCreateVolumesExpectations(tag names.VolumeTag,
 	getVolumeResponse := ociCore.GetVolumeResponse{
 		Volume: volumeAvailable,
 	}
-	s.storage.EXPECT().CreateVolume(context.Background(), request).Return(response, nil)
-	s.storage.EXPECT().GetVolume(context.Background(), getVolumeRequest).Return(getVolumeResponse, nil).AnyTimes()
+	s.storage.EXPECT().CreateVolume(gomock.Any(), request).Return(response, nil)
+	s.storage.EXPECT().GetVolume(gomock.Any(), getVolumeRequest).Return(getVolumeResponse, nil).AnyTimes()
 
 }
 
@@ -99,10 +99,10 @@ func (s *storageVolumeSuite) TestCreateVolumes(c *tc.C) {
 
 	source := s.newVolumeSource(c)
 	volumeTag := names.NewVolumeTag("1")
-	s.setupListInstancesExpectations(s.testInstanceID, ociCore.InstanceLifecycleStateRunning, 0)
-	s.setupCreateVolumesExpectations(volumeTag, 61440)
+	s.setupListInstancesExpectations(c, s.testInstanceID, ociCore.InstanceLifecycleStateRunning, 0)
+	s.setupCreateVolumesExpectations(c, volumeTag, 61440)
 
-	results, err := source.CreateVolumes(context.Background(), []storage.VolumeParams{
+	results, err := source.CreateVolumes(c.Context(), []storage.VolumeParams{
 		{
 			Size:     uint64(61440),
 			Tag:      names.NewVolumeTag("1"),
@@ -121,7 +121,7 @@ func (s *storageVolumeSuite) TestCreateVolumes(c *tc.C) {
 
 func (s *storageVolumeSuite) TestCreateVolumesInvalidSize(c *tc.C) {
 	source := s.newVolumeSource(c)
-	results, err := source.CreateVolumes(context.Background(), []storage.VolumeParams{
+	results, err := source.CreateVolumes(c.Context(), []storage.VolumeParams{
 		{
 			Size:     uint64(2048),
 			Tag:      names.NewVolumeTag("1"),
@@ -140,12 +140,12 @@ func (s *storageVolumeSuite) TestCreateVolumesInvalidSize(c *tc.C) {
 
 func (s *storageVolumeSuite) TestCreateVolumesNilParams(c *tc.C) {
 	source := s.newVolumeSource(c)
-	results, err := source.CreateVolumes(context.Background(), nil)
+	results, err := source.CreateVolumes(c.Context(), nil)
 	c.Assert(err, tc.IsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
 
-func (s *storageVolumeSuite) setupListVolumesExpectations(size int64) map[string]ociCore.Volume {
+func (s *storageVolumeSuite) setupListVolumesExpectations(c *tc.C, size int64) map[string]ociCore.Volume {
 	volTags := map[string]string{
 		tags.JujuModel: s.env.Config().UUID(),
 	}
@@ -168,7 +168,7 @@ func (s *storageVolumeSuite) setupListVolumesExpectations(size int64) map[string
 		},
 	}
 
-	s.storage.EXPECT().ListVolumes(context.Background(), &s.testCompartment).Return(volumes, nil).AnyTimes()
+	s.storage.EXPECT().ListVolumes(gomock.Any(), &s.testCompartment).Return(volumes, nil).AnyTimes()
 	asMap := map[string]ociCore.Volume{}
 	for _, vol := range volumes {
 		asMap[*vol.Id] = vol
@@ -180,11 +180,11 @@ func (s *storageVolumeSuite) TestListVolumes(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	s.setupListVolumesExpectations(60)
+	s.setupListVolumesExpectations(c, 60)
 
 	source := s.newVolumeSource(c)
 
-	volumes, err := source.ListVolumes(context.Background())
+	volumes, err := source.ListVolumes(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(len(volumes), tc.Equals, 2)
 	c.Assert(volumes, tc.SameContents, []string{"fakeVolumeId", "fakeVolumeId2"})
@@ -194,22 +194,22 @@ func (s *storageVolumeSuite) TestDescribeVolumes(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	s.setupListVolumesExpectations(60)
+	s.setupListVolumesExpectations(c, 60)
 
 	source := s.newVolumeSource(c)
 
-	results, err := source.DescribeVolumes(context.Background(), []string{"fakeVolumeId"})
+	results, err := source.DescribeVolumes(c.Context(), []string{"fakeVolumeId"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(len(results), tc.Equals, 1)
 	c.Assert(results[0].VolumeInfo.VolumeId, tc.Equals, "fakeVolumeId")
 	c.Assert(results[0].VolumeInfo.Size, tc.Equals, uint64(60*1024))
 	c.Assert(results[0].VolumeInfo.Persistent, tc.Equals, true)
 
-	results, err = source.DescribeVolumes(context.Background(), []string{"fakeVolumeId", "fakeVolumeId2"})
+	results, err = source.DescribeVolumes(c.Context(), []string{"fakeVolumeId", "fakeVolumeId2"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(len(results), tc.Equals, 2)
 
-	results, err = source.DescribeVolumes(context.Background(), []string{"IDontExist", "fakeVolumeId2"})
+	results, err = source.DescribeVolumes(c.Context(), []string{"IDontExist", "fakeVolumeId2"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(len(results), tc.Equals, 2)
 	c.Assert(results[0].Error, tc.NotNil)
@@ -237,8 +237,8 @@ func (s *storageVolumeSuite) TestValidateVolumeParams(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 }
 
-func (s *storageVolumeSuite) setupDeleteVolumesExpectations(size int64, id string) {
-	volumes := s.setupListVolumesExpectations(size)
+func (s *storageVolumeSuite) setupDeleteVolumesExpectations(c *tc.C, size int64, id string) {
+	volumes := s.setupListVolumesExpectations(c, size)
 
 	request := ociCore.DeleteVolumeRequest{
 		VolumeId: &id,
@@ -250,36 +250,36 @@ func (s *storageVolumeSuite) setupDeleteVolumesExpectations(size int64, id strin
 			StatusCode: 200,
 		},
 	}
-	s.storage.EXPECT().DeleteVolume(context.Background(), request).Return(response, nil).AnyTimes()
+	s.storage.EXPECT().DeleteVolume(gomock.Any(), request).Return(response, nil).AnyTimes()
 
 	getVolumeRequest := ociCore.GetVolumeRequest{VolumeId: terminatedVol.Id}
 	getVolumeResponse := ociCore.GetVolumeResponse{
 		Volume: terminatedVol,
 	}
-	s.storage.EXPECT().GetVolume(context.Background(), getVolumeRequest).Return(getVolumeResponse, nil).AnyTimes()
+	s.storage.EXPECT().GetVolume(gomock.Any(), getVolumeRequest).Return(getVolumeResponse, nil).AnyTimes()
 }
 
 func (s *storageVolumeSuite) TestDestroyVolumes(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	s.setupDeleteVolumesExpectations(60, "fakeVolumeId")
+	s.setupDeleteVolumesExpectations(c, 60, "fakeVolumeId")
 
 	source := s.newVolumeSource(c)
 
-	results, err := source.DestroyVolumes(context.Background(), []string{"fakeVolumeId"})
+	results, err := source.DestroyVolumes(c.Context(), []string{"fakeVolumeId"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(len(results), tc.Equals, 1)
 	c.Assert(results[0], tc.IsNil)
 
-	results, err = source.DestroyVolumes(context.Background(), []string{"bogusId"})
+	results, err = source.DestroyVolumes(c.Context(), []string{"bogusId"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(len(results), tc.Equals, 1)
 	c.Assert(results[0], tc.ErrorMatches, "no such volume.*")
 }
 
-func (s *storageVolumeSuite) setupUpdateVolumesExpectations(id string) {
-	volumes := s.setupListVolumesExpectations(60)
+func (s *storageVolumeSuite) setupUpdateVolumesExpectations(c *tc.C, id string) {
+	volumes := s.setupListVolumesExpectations(c, 60)
 	vol := volumes[id]
 	volTags := map[string]string{
 		tags.JujuModel: "",
@@ -292,28 +292,28 @@ func (s *storageVolumeSuite) setupUpdateVolumesExpectations(id string) {
 		UpdateVolumeDetails: requestDetails,
 		VolumeId:            vol.Id,
 	}
-	s.storage.EXPECT().UpdateVolume(context.Background(), request).Return(ociCore.UpdateVolumeResponse{}, nil).AnyTimes()
+	s.storage.EXPECT().UpdateVolume(gomock.Any(), request).Return(ociCore.UpdateVolumeResponse{}, nil).AnyTimes()
 }
 
 func (s *storageVolumeSuite) TestReleaseVolumes(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	s.setupUpdateVolumesExpectations("fakeVolumeId")
+	s.setupUpdateVolumesExpectations(c, "fakeVolumeId")
 	source := s.newVolumeSource(c)
 
-	results, err := source.ReleaseVolumes(context.Background(), []string{"fakeVolumeId"})
+	results, err := source.ReleaseVolumes(c.Context(), []string{"fakeVolumeId"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(len(results), tc.Equals, 1)
 	c.Assert(results[0], tc.IsNil)
 
-	results, err = source.ReleaseVolumes(context.Background(), []string{"IAmNotHereWhatIsHereIsntHereJustThereButWithoutTheT"})
+	results, err = source.ReleaseVolumes(c.Context(), []string{"IAmNotHereWhatIsHereIsntHereJustThereButWithoutTheT"})
 	c.Assert(err, tc.IsNil)
 	c.Assert(len(results), tc.Equals, 1)
 	c.Assert(results[0], tc.ErrorMatches, "no such volume.*")
 }
 
-func (s *storageVolumeSuite) setupGetInstanceExpectations(instance string, state ociCore.InstanceLifecycleStateEnum) {
+func (s *storageVolumeSuite) setupGetInstanceExpectations(c *tc.C, instance string, state ociCore.InstanceLifecycleStateEnum) {
 	requestMachine1, responseMachine1 := makeGetInstanceRequestResponse(
 		ociCore.Instance{
 			AvailabilityDomain: makeStringPointer("fakeZone1"),
@@ -326,13 +326,11 @@ func (s *storageVolumeSuite) setupGetInstanceExpectations(instance string, state
 			FreeformTags:       s.tags,
 		},
 	)
-	s.compute.EXPECT().GetInstance(
-		context.Background(), requestMachine1).Return(
+	s.compute.EXPECT().GetInstance(gomock.Any(), requestMachine1).Return(
 		responseMachine1, nil).AnyTimes()
 }
 
-func (s *storageVolumeSuite) makeListVolumeAttachmentExpectations(instance string, volumeId string, returnEmpty bool, times int) {
-
+func (s *storageVolumeSuite) makeListVolumeAttachmentExpectations(c *tc.C, instance string, volumeId string, returnEmpty bool, times int) {
 	port := 3260
 	response := []ociCore.VolumeAttachment{}
 
@@ -354,7 +352,7 @@ func (s *storageVolumeSuite) makeListVolumeAttachmentExpectations(instance strin
 			},
 		}
 	}
-	expect := s.compute.EXPECT().ListVolumeAttachments(context.Background(), &s.testCompartment, &instance).Return(response, nil)
+	expect := s.compute.EXPECT().ListVolumeAttachments(gomock.Any(), &s.testCompartment, &instance).Return(response, nil)
 	if times == 0 {
 		expect.AnyTimes()
 	} else {
@@ -367,13 +365,13 @@ func (s *storageVolumeSuite) TestAttachVolumeWithExistingAttachment(c *tc.C) {
 	defer ctrl.Finish()
 
 	volumeId := "fakeVolumeId"
-	s.setupListInstancesExpectations(s.testInstanceID, ociCore.InstanceLifecycleStateRunning, 0)
-	s.setupGetInstanceExpectations(s.testInstanceID, ociCore.InstanceLifecycleStateRunning)
-	s.makeListVolumeAttachmentExpectations(s.testInstanceID, volumeId, false, 0)
+	s.setupListInstancesExpectations(c, s.testInstanceID, ociCore.InstanceLifecycleStateRunning, 0)
+	s.setupGetInstanceExpectations(c, s.testInstanceID, ociCore.InstanceLifecycleStateRunning)
+	s.makeListVolumeAttachmentExpectations(c, s.testInstanceID, volumeId, false, 0)
 
 	source := s.newVolumeSource(c)
 
-	result, err := source.AttachVolumes(context.Background(), []storage.VolumeAttachmentParams{
+	result, err := source.AttachVolumes(c.Context(), []storage.VolumeAttachmentParams{
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,
@@ -402,11 +400,11 @@ func (s *storageVolumeSuite) TestAttachVolumeWithInvalidInstanceState(c *tc.C) {
 	defer ctrl.Finish()
 
 	volumeId := "fakeVolumeId"
-	s.setupListInstancesExpectations(s.testInstanceID, ociCore.InstanceLifecycleStateTerminated, 0)
+	s.setupListInstancesExpectations(c, s.testInstanceID, ociCore.InstanceLifecycleStateTerminated, 0)
 
 	source := s.newVolumeSource(c)
 
-	result, err := source.AttachVolumes(context.Background(), []storage.VolumeAttachmentParams{
+	result, err := source.AttachVolumes(c.Context(), []storage.VolumeAttachmentParams{
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,
@@ -423,7 +421,7 @@ func (s *storageVolumeSuite) TestAttachVolumeWithInvalidInstanceState(c *tc.C) {
 	c.Assert(result[0].Error, tc.ErrorMatches, "invalid instance state for volume attachment:.*")
 }
 
-func (s *storageVolumeSuite) setupAttachNewVolumeExpectations(instance, volumeId, attachmentId string) {
+func (s *storageVolumeSuite) setupAttachNewVolumeExpectations(c *tc.C, instance, volumeId, attachmentId string) {
 	useChap := true
 	displayName := fmt.Sprintf("%s_%s", instance, volumeId)
 	attachDetails := ociCore.AttachIScsiVolumeDetails{
@@ -444,7 +442,7 @@ func (s *storageVolumeSuite) setupAttachNewVolumeExpectations(instance, volumeId
 		},
 		VolumeAttachment: attachment,
 	}
-	s.compute.EXPECT().AttachVolume(context.Background(), request).Return(response, nil)
+	s.compute.EXPECT().AttachVolume(gomock.Any(), request).Return(response, nil)
 
 }
 
@@ -467,7 +465,7 @@ func (s *storageVolumeSuite) getVolumeAttachmentTemplate(instance, volume, attac
 }
 
 func (s *storageVolumeSuite) setupGetVolumeAttachmentExpectations(
-	instance, volumeId, attachmentId string, state ociCore.VolumeAttachmentLifecycleStateEnum) {
+	c *tc.C, instance, volumeId, attachmentId string, state ociCore.VolumeAttachmentLifecycleStateEnum) {
 	request := ociCore.GetVolumeAttachmentRequest{
 		VolumeAttachmentId: &attachmentId,
 	}
@@ -476,7 +474,7 @@ func (s *storageVolumeSuite) setupGetVolumeAttachmentExpectations(
 	response := ociCore.GetVolumeAttachmentResponse{
 		VolumeAttachment: attachment,
 	}
-	s.compute.EXPECT().GetVolumeAttachment(context.Background(), request).Return(response, nil).AnyTimes()
+	s.compute.EXPECT().GetVolumeAttachment(gomock.Any(), request).Return(response, nil).AnyTimes()
 }
 
 func (s *storageVolumeSuite) TestAttachVolume(c *tc.C) {
@@ -485,17 +483,17 @@ func (s *storageVolumeSuite) TestAttachVolume(c *tc.C) {
 
 	volumeId := "fakeVolumeId"
 	attachId := "fakeVolumeAttachmentId"
-	s.setupListInstancesExpectations(s.testInstanceID, ociCore.InstanceLifecycleStateRunning, 0)
-	s.setupGetInstanceExpectations(s.testInstanceID, ociCore.InstanceLifecycleStateRunning)
-	s.makeListVolumeAttachmentExpectations(s.testInstanceID, volumeId, true, 1)
-	s.setupAttachNewVolumeExpectations(s.testInstanceID, volumeId, attachId)
+	s.setupListInstancesExpectations(c, s.testInstanceID, ociCore.InstanceLifecycleStateRunning, 0)
+	s.setupGetInstanceExpectations(c, s.testInstanceID, ociCore.InstanceLifecycleStateRunning)
+	s.makeListVolumeAttachmentExpectations(c, s.testInstanceID, volumeId, true, 1)
+	s.setupAttachNewVolumeExpectations(c, s.testInstanceID, volumeId, attachId)
 	s.setupGetVolumeAttachmentExpectations(
-		s.testInstanceID, volumeId, attachId,
+		c, s.testInstanceID, volumeId, attachId,
 		ociCore.VolumeAttachmentLifecycleStateAttached)
 
 	source := s.newVolumeSource(c)
 
-	result, err := source.AttachVolumes(context.Background(), []storage.VolumeAttachmentParams{
+	result, err := source.AttachVolumes(c.Context(), []storage.VolumeAttachmentParams{
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,
@@ -512,7 +510,7 @@ func (s *storageVolumeSuite) TestAttachVolume(c *tc.C) {
 	c.Assert(result[0].Error, tc.IsNil)
 }
 
-func (s *storageVolumeSuite) setupDetachVolumesExpectations(attachmentId string) {
+func (s *storageVolumeSuite) setupDetachVolumesExpectations(c *tc.C, attachmentId string) {
 	request := ociCore.DetachVolumeRequest{
 		VolumeAttachmentId: &attachmentId,
 	}
@@ -521,7 +519,7 @@ func (s *storageVolumeSuite) setupDetachVolumesExpectations(attachmentId string)
 			StatusCode: 200,
 		},
 	}
-	s.compute.EXPECT().DetachVolume(context.Background(), request).Return(response, nil).AnyTimes()
+	s.compute.EXPECT().DetachVolume(gomock.Any(), request).Return(response, nil).AnyTimes()
 }
 
 func (s *storageVolumeSuite) TestDetachVolume(c *tc.C) {
@@ -530,16 +528,16 @@ func (s *storageVolumeSuite) TestDetachVolume(c *tc.C) {
 
 	volumeId := "fakeVolumeId"
 	attachId := "fakeVolumeAttachment1"
-	s.setupListInstancesExpectations(s.testInstanceID, ociCore.InstanceLifecycleStateRunning, 0)
-	s.makeListVolumeAttachmentExpectations(s.testInstanceID, volumeId, false, 1)
-	s.setupDetachVolumesExpectations(attachId)
+	s.setupListInstancesExpectations(c, s.testInstanceID, ociCore.InstanceLifecycleStateRunning, 0)
+	s.makeListVolumeAttachmentExpectations(c, s.testInstanceID, volumeId, false, 1)
+	s.setupDetachVolumesExpectations(c, attachId)
 	s.setupGetVolumeAttachmentExpectations(
-		s.testInstanceID, volumeId, attachId,
+		c, s.testInstanceID, volumeId, attachId,
 		ociCore.VolumeAttachmentLifecycleStateDetached)
 
 	source := s.newVolumeSource(c)
 
-	result, err := source.DetachVolumes(context.Background(), []storage.VolumeAttachmentParams{
+	result, err := source.DetachVolumes(c.Context(), []storage.VolumeAttachmentParams{
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,

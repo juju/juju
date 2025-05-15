@@ -4,7 +4,6 @@
 package rpcreflect_test
 
 import (
-	"context"
 	"reflect"
 
 	"github.com/juju/tc"
@@ -129,7 +128,7 @@ func (*reflectSuite) TestFindMethod(c *tc.C) {
 	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeOf(stringVal{}))
 	c.Assert(m.ResultType(), tc.Equals, reflect.TypeOf(stringVal{}))
 
-	ret, err := m.Call(context.Background(), "a99", reflect.ValueOf(stringVal{"foo"}))
+	ret, err := m.Call(c.Context(), "a99", reflect.ValueOf(stringVal{"foo"}))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(ret.Interface(), tc.Equals, stringVal{"Call1r1e ret"})
 }

@@ -181,8 +181,8 @@ func FmtModelStatus(data ModelData) string {
 	return fmtModelStatus(modelData(data))
 }
 
-func NewData(api destroyControllerAPI, ctrUUID string) (environmentStatus, error) {
-	return newData(context.Background(), api, ctrUUID)
+func NewData(ctx context.Context, api destroyControllerAPI, ctrUUID string) (environmentStatus, error) {
+	return newData(ctx, api, ctrUUID)
 }
 
 var (
