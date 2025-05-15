@@ -718,7 +718,7 @@ func (*StubClient) GetInstanceState(string) (*api.InstanceState, string, error) 
 // TODO (manadart 2018-07-20): This exists to satisfy the testing stub
 // interface. It is temporary, pending replacement with mocks and
 // should not be called in tests.
-func (conn *StubClient) UseTargetServer(name string) (*lxd.Server, error) {
+func (conn *StubClient) UseTargetServer(ctx context.Context, name string) (*lxd.Server, error) {
 	conn.AddCall("UseTargetServer", name)
 	return nil, conn.NextErr()
 }

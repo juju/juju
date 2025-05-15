@@ -160,7 +160,7 @@ func setMachineAddresses(ctx context.Context, tag names.MachineTag, m Machine) e
 		return nil
 	}
 	// Filter out any LXC or LXD bridge addresses.
-	hostAddresses = network.FilterBridgeAddresses(hostAddresses)
+	hostAddresses = network.FilterBridgeAddresses(ctx, hostAddresses)
 	logger.Infof(ctx, "setting addresses for %q to %v", tag, hostAddresses)
 
 	// TODO (manadart 2019-08-27): This needs refactoring.

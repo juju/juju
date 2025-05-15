@@ -4,6 +4,7 @@
 package downloader
 
 import (
+	"context"
 	"io"
 	"os"
 
@@ -37,18 +38,18 @@ func New(args NewArgs) *Downloader {
 }
 
 // Start starts a new download and returns it.
-func (dlr Downloader) Start(req Request) *Download {
-	return StartDownload(req, dlr.OpenBlob)
+func (dlr Downloader) Start(ctx context.Context, req Request) *Download {
+	return StartDownload(ctx, req, dlr.OpenBlob)
 }
 
 // Download starts a new download, waits for it to complete, and
 // returns the local name of the file. The download can be aborted by
 // closing the Abort channel in the Request provided.
-func (dlr Downloader) Download(req Request) (string, error) {
+func (dlr Downloader) Download(ctx context.Context, req Request) (string, error) {
 	if err := os.MkdirAll(req.TargetDir, 0755); err != nil {
 		return "", errors.Trace(err)
 	}
-	dl := dlr.Start(req)
+	dl := dlr.Start(ctx, req)
 	filename, err := dl.Wait()
 	return filename, errors.Trace(err)
 }

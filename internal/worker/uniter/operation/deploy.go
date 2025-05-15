@@ -26,7 +26,6 @@ type deploy struct {
 
 	callbacks Callbacks
 	deployer  charm.Deployer
-	abort     <-chan struct{}
 }
 
 // String is part of the Operation interface.
@@ -56,7 +55,7 @@ func (d *deploy) Prepare(ctx context.Context, state State) (*State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := d.deployer.Stage(ctx, info, d.abort); err != nil {
+	if err := d.deployer.Stage(ctx, info); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// note: yes, this *should* be in Prepare, not Execute. Before we can safely

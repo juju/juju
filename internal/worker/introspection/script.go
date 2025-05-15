@@ -146,10 +146,6 @@ juju_statepool_report () {
   juju_agent statepool
 }
 
-juju_pubsub_report () {
-  juju_agent pubsub
-}
-
 juju_metrics () {
   juju_agent metrics
 }
@@ -166,32 +162,6 @@ juju_machine_lock () {
 
 juju_unit_status () {
   juju_agent units?action=status
-}
-
-juju_stop_unit () {
-  # This requires some arguments.
-  if [ "$#" -lt 1 ]; then
-    echo "usage: juju_stop_unit <unit-name> [<unit-name>...]"
-    return 1
-  fi
-  args=""
-  for i in "$@"; do
-    args="$args unit=$i"
-  done
-  juju_agent --post units action=stop $args
-}
-
-juju_start_unit () {
-  # This requires some arguments.
-  if [ "$#" -lt 1 ]; then
-    echo "usage: juju_start_unit <unit-name> [<unit-name>...]"
-    return 1
-  fi
-  args=""
-  for i in "$@"; do
-    args="$args unit=$i"
-  done
-  juju_agent --post units action=start $args
 }
 
 juju_db_repl () {
@@ -235,11 +205,8 @@ if [ "$shell" = "bash" ]; then
   export -f juju_metrics
   export -f juju_statepool_report
   export -f juju_statetracker_report
-  export -f juju_pubsub_report
   export -f juju_machine_lock
   export -f juju_unit_status
-  export -f juju_start_unit
-  export -f juju_stop_unit
   export -f juju_db_repl
 fi
 `

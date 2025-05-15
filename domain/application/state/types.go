@@ -1219,8 +1219,8 @@ type machineParent struct {
 }
 
 type getApplicationEndpoint struct {
-	SpaceUUID    string `db:"space_uuid"`
-	EndpointName string `db:"name"`
+	SpaceUUID    sql.Null[string] `db:"space_uuid"`
+	EndpointName string           `db:"name"`
 }
 
 type unitWorkloadVersion struct {

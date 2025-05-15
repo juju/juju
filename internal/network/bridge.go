@@ -43,17 +43,19 @@ func (b *netplanBridger) Bridge(devices []DeviceToBridge) error {
 	if err != nil {
 		return errors.Errorf("bridge activation error: %s", err)
 	}
+
+	ctx := context.TODO()
 	if result != nil {
-		logger.Infof(context.TODO(), "bridger result=%v", result.Code)
+		logger.Infof(ctx, "bridger result=%v", result.Code)
 		if result.Code != 0 {
-			logger.Errorf(context.TODO(), "bridger stdout\n%s\n", result.Stdout)
-			logger.Errorf(context.TODO(), "bridger stderr\n%s\n", result.Stderr)
+			logger.Errorf(ctx, "bridger stdout\n%s\n", result.Stdout)
+			logger.Errorf(ctx, "bridger stderr\n%s\n", result.Stderr)
 			return errors.Errorf("bridger failed: %s", result.Stderr)
 		}
-		logger.Tracef(context.TODO(), "bridger stdout\n%s\n", result.Stdout)
-		logger.Tracef(context.TODO(), "bridger stderr\n%s\n", result.Stderr)
+		logger.Tracef(ctx, "bridger stdout\n%s\n", result.Stdout)
+		logger.Tracef(ctx, "bridger stderr\n%s\n", result.Stderr)
 	} else {
-		logger.Infof(context.TODO(), "bridger returned nothing")
+		logger.Infof(ctx, "bridger returned nothing")
 	}
 
 	return nil

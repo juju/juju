@@ -619,12 +619,12 @@ func (conn *Conn) runRequest(
 	// don't care, a new one will be curated for us.
 	ctx = trace.WithTraceScope(ctx, req.hdr.TraceID, req.hdr.SpanID, req.hdr.TraceFlags)
 
-	conn.withTrace(ctx, req.hdr.Request, func() {
+	conn.withTrace(ctx, req.hdr.Request, func(ctx context.Context) {
 		conn.callRequest(ctx, req, arg, version, recorder)
 	})
 }
 
-func (conn *Conn) withTrace(ctx context.Context, request Request, fn func()) {
+func (conn *Conn) withTrace(ctx context.Context, request Request, fn func(ctx context.Context)) {
 	ctx, span := conn.root.StartTrace(ctx)
 	defer span.End(
 		trace.StringAttr("request.type", request.Type),
@@ -636,7 +636,7 @@ func (conn *Conn) withTrace(ctx context.Context, request Request, fn func()) {
 	// the trace to the profile.
 	traceID, _ := trace.TraceIDFromContext(ctx)
 	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, traceID), func(ctx context.Context) {
-		fn()
+		fn(ctx)
 	})
 }
 

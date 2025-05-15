@@ -191,8 +191,9 @@ func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *tc.C) {
 	writer := mocks.NewMockWriter(ctrl)
 	writer.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes()
 	ctx := &cmd.Context{
-		Stderr: writer,
-		Stdout: writer,
+		Context: context.Background(),
+		Stderr:  writer,
+		Stdout:  writer,
 	}
 
 	repoCharm.uploadExistingPendingResources = func(_ context.Context, appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
@@ -226,8 +227,9 @@ func (s *charmSuite) TestDeployFromPredeployed(c *tc.C) {
 	writer := mocks.NewMockWriter(ctrl)
 	writer.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes()
 	ctx := &cmd.Context{
-		Stderr: writer,
-		Stdout: writer,
+		Context: context.Background(),
+		Stderr:  writer,
+		Stdout:  writer,
 	}
 
 	err := predeployedCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)

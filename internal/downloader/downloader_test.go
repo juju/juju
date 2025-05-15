@@ -4,6 +4,7 @@
 package downloader_test
 
 import (
+	"context"
 	"net/url"
 	"path/filepath"
 
@@ -55,7 +56,7 @@ func (s *DownloaderSuite) testStart(c *tc.C, hostnameVerification bool) {
 	dlr := downloader.New(downloader.NewArgs{
 		HostnameVerification: hostnameVerification,
 	})
-	dl := dlr.Start(downloader.Request{
+	dl := dlr.Start(context.Background(), downloader.Request{
 		URL:       s.URL(c, "/archive.tgz"),
 		TargetDir: tmp,
 	})
@@ -78,7 +79,7 @@ func (s *DownloaderSuite) TestDownload(c *tc.C) {
 	tmp := c.MkDir()
 	testhelpers.Server.Response(200, nil, []byte("archive"))
 	dlr := downloader.New(downloader.NewArgs{})
-	filename, err := dlr.Download(downloader.Request{
+	filename, err := dlr.Download(context.Background(), downloader.Request{
 		URL:       s.URL(c, "/archive.tgz"),
 		TargetDir: tmp,
 	})
@@ -92,7 +93,7 @@ func (s *DownloaderSuite) TestDownloadHandles409Responses(c *tc.C) {
 	tmp := c.MkDir()
 	testhelpers.Server.Response(409, nil, []byte("archive"))
 	dlr := downloader.New(downloader.NewArgs{})
-	_, err := dlr.Download(downloader.Request{
+	_, err := dlr.Download(context.Background(), downloader.Request{
 		URL:       s.URL(c, "/archive.tgz"),
 		TargetDir: tmp,
 	})

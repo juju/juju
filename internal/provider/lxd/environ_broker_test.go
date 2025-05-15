@@ -267,7 +267,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *tc.C) {
 		sExp.HostArch().Return(arch.AMD64),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
-		sExp.UseTargetServer("node01").Return(jujuTarget, nil),
+		sExp.UseTargetServer(gomock.Any(), "node01").Return(jujuTarget, nil),
 		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.HostArch().Return(arch.AMD64),
 	)

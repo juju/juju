@@ -137,7 +137,7 @@ func (ctx *Context) Infof(format string, params ...interface{}) {
 		//level (since `Infof` calls `Logf` internally). This is done so
 		//that this function can produce more accurate source location
 		//debug information.
-		logger.Logf(context.TODO(), corelogger.INFO, corelogger.Labels{}, format, params...)
+		logger.Logf(ctx, corelogger.INFO, corelogger.Labels{}, format, params...)
 	} else {
 		ctx.write(format, params...)
 	}
@@ -152,7 +152,7 @@ func (ctx *Context) Warningf(format string, params ...interface{}) {
 	// `logger.Warningf` to avoid introducing an additional call stack level
 	// (since `Warningf` calls Logf internally). This is done so that this
 	// function can produce more accurate source location debug information.
-	logger.Logf(context.TODO(), corelogger.WARNING, corelogger.Labels{}, format, params...)
+	logger.Logf(ctx, corelogger.WARNING, corelogger.Labels{}, format, params...)
 }
 
 // Verbosef will write the formatted string to Stderr if the verbose is true,
@@ -166,7 +166,7 @@ func (ctx *Context) Verbosef(format string, params ...interface{}) {
 		// level (since `Infof` calls `Logf` internally). This is done so
 		// that this function can produce more accurate source location
 		// debug information.
-		logger.Logf(context.TODO(), corelogger.INFO, corelogger.Labels{}, format, params...)
+		logger.Logf(ctx, corelogger.INFO, corelogger.Labels{}, format, params...)
 	}
 }
 
@@ -181,7 +181,7 @@ func (ctx *Context) Errorf(format string, params ...interface{}) {
 	// level (since `Errorf` calls `Logf` internally). This is done so
 	// that this function can produce more accurate source location
 	// debug information.
-	logger.Logf(context.TODO(), corelogger.ERROR, corelogger.Labels{}, format, params...)
+	logger.Logf(ctx, corelogger.ERROR, corelogger.Labels{}, format, params...)
 }
 
 // WriteError will output the formatted text to the writer with

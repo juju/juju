@@ -117,7 +117,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"provider-services",
 			"provider-tracker",
 			"proxy-config-updater",
-			"pubsub-forwarder",
 			"query-logger",
 			"reboot-executor",
 			"secret-backend-rotate",
@@ -196,7 +195,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"provider-services",
 			"provider-tracker",
 			"proxy-config-updater",
-			"pubsub-forwarder",
 			"query-logger",
 			"secret-backend-rotate",
 			"ssh-identity-writer",
@@ -285,7 +283,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"peer-grouper",
 		"provider-services",
 		"provider-tracker",
-		"pubsub-forwarder",
 		"query-logger",
 		"ssh-server",
 		"state-config-watcher",
@@ -1185,12 +1182,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"pubsub-forwarder": {
-		"agent",
-		"central-hub",
-		"state-config-watcher",
-	},
-
 	"object-store": {
 		"agent",
 		"change-stream",
@@ -2031,12 +2022,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
-	},
-
-	"pubsub-forwarder": {
-		"agent",
-		"central-hub",
-		"state-config-watcher",
 	},
 
 	"object-store": {

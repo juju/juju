@@ -336,7 +336,7 @@ func (s *Stream) loop() error {
 				case <-s.tomb.Dying():
 					return tomb.ErrDying
 				case <-s.clock.After(backOffStrategy(0, attempt)):
-					if err := s.reportIdleState(attempt); err != nil {
+					if err := s.reportIdleState(ctx, attempt); err != nil {
 						return errors.Trace(err)
 					}
 					continue
@@ -695,7 +695,7 @@ func (s *Stream) processWatermark(fn func(*termView) error) error {
 }
 
 // reportIdleState reports the idle state to the internal states channel.
-func (s *Stream) reportIdleState(attempt int) error {
+func (s *Stream) reportIdleState(ctx context.Context, attempt int) error {
 	// If there are no internal states, then we don't need to report the idle
 	// state. This is only used for testing.
 	if s.internalStates == nil {
@@ -708,7 +708,7 @@ func (s *Stream) reportIdleState(attempt int) error {
 	}
 
 	if bound := s.upperBound(); bound > 0 && maxChangeLogID > 0 && bound == maxChangeLogID {
-		s.logger.Tracef(context.TODO(), "no changes, backing off after %d attempt", attempt)
+		s.logger.Tracef(ctx, "no changes, backing off after %d attempt", attempt)
 
 		// Report the idle state to the internal states channel.
 		select {

@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/internal/handlers/objects"
-	handlerspubsub "github.com/juju/juju/apiserver/internal/handlers/pubsub"
 	handlersresources "github.com/juju/juju/apiserver/internal/handlers/resources"
 	resourcesdownload "github.com/juju/juju/apiserver/internal/handlers/resources/download"
 	"github.com/juju/juju/apiserver/logsink"
@@ -743,7 +742,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		},
 		srv.logDir,
 	), "log")
-	pubsubHandler := handlerspubsub.NewPubSubHandler(httpCtxt.stop(), srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteFunc(httpCtxt, srv.logSink),
 		httpCtxt.stop(),
@@ -880,16 +878,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
 
 	handlers := []handler{{
-		// This handler is model specific even though it only
-		// ever makes sense for a controller because the API
-		// caller that is handed to the worker that is forwarding
-		// the messages between controllers is bound to the
-		// /model/:modeluuid namespace.
-		pattern:    modelRoutePrefix + "/pubsub",
-		handler:    pubsubHandler,
-		tracked:    true,
-		authorizer: controllerAuthorizer{},
-	}, {
 		pattern: modelRoutePrefix + "/log",
 		handler: debugLogHandler,
 		tracked: true,

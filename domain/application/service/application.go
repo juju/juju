@@ -330,6 +330,14 @@ type ApplicationState interface {
 	// third is the namespace for the unit's resolved mode.
 	NamespaceForWatchUnitForLegacyUniter() (string, string, string)
 
+	// GetApplicationEndpointBindings returns the mapping for each endpoint name and
+	// the space ID it is bound to (or empty if unspecified). When no bindings are
+	// stored for the application, defaults are returned.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
+
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
 	// instances that specify which sources (spaces or CIDRs) can access the
@@ -860,6 +868,18 @@ func (s *Service) IsSubordinateApplication(ctx context.Context, appUUID coreappl
 	return subordinate, nil
 }
 
+// IsSubordinateApplicationByName returns true if the application is a subordinate
+// application.
+// The following errors may be returned:
+// - [appliationerrors.ApplicationNotFound] if the application does not exist
+func (s *Service) IsSubordinateApplicationByName(ctx context.Context, appName string) (bool, error) {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return s.IsSubordinateApplication(ctx, appID)
+}
+
 // SetApplicationScale sets the application's desired scale value, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
 // This is used on CAAS models.
@@ -1334,6 +1354,21 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 
 	cons, err := s.st.GetApplicationConstraints(ctx, appID)
 	return constraints.EncodeConstraints(cons), errors.Capture(err)
+}
+
+// GetApplicationEndpointBindings returns the mapping for each endpoint name and
+// the space ID it is bound to (or empty if unspecified). When no bindings are
+// stored for the application, defaults are returned.
+//
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *Service) GetApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID) (map[string]string, error) {
+	if err := appID.Validate(); err != nil {
+		return nil, errors.Errorf("validating application ID: %w", err)
+	}
+
+	bindings, err := s.st.GetApplicationEndpointBindings(ctx, appID)
+	return bindings, errors.Capture(err)
 }
 
 // GetDeviceConstraints returns the device constraints for an application.

@@ -232,9 +232,9 @@ func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachme
 		return nil, err
 	}
 	return &storage.FilesystemAttachment{
-		arg.Filesystem,
-		arg.Machine,
-		storage.FilesystemAttachmentInfo{
+		Filesystem: arg.Filesystem,
+		Machine:    arg.Machine,
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
 			Path: mountPoint,
 		},
 	}, nil

@@ -39,22 +39,13 @@ type Reporter interface {
 	IntrospectionReport() string
 }
 
-// StructuredHub is a pubsub hub used for messaging within the HA
-// controller applications.
-type StructuredHub interface {
-	Publish(topic string, data interface{}) (func(), error)
-	Subscribe(topic string, handler interface{}) (func(), error)
-}
-
 // Config describes the arguments required to create the introspection worker.
 type Config struct {
 	SocketName         string
 	DepEngine          DepEngineReporter
 	StatePool          Reporter
-	PubSub             Reporter
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
-	CentralHub         StructuredHub
 }
 
 // Validate checks the config values to assert they are valid to create the worker.
@@ -74,10 +65,8 @@ type socketListener struct {
 	listener           net.Listener
 	depEngine          DepEngineReporter
 	statePool          Reporter
-	pubsub             Reporter
 	machineLock        machinelock.Lock
 	prometheusGatherer prometheus.Gatherer
-	centralHub         StructuredHub
 	done               chan struct{}
 }
 
@@ -104,10 +93,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		listener:           l,
 		depEngine:          config.DepEngine,
 		statePool:          config.StatePool,
-		pubsub:             config.PubSub,
 		machineLock:        config.MachineLock,
 		prometheusGatherer: config.PrometheusGatherer,
-		centralHub:         config.CentralHub,
 		done:               make(chan struct{}),
 	}
 	w.tomb.Go(w.serve)
@@ -187,14 +174,6 @@ func (w *socketListener) RegisterHTTPHandlers(
 		})
 	} else {
 		handle("/statepool", notSupportedHandler{"State Pool"})
-	}
-	if w.pubsub != nil {
-		handle("/pubsub", introspectionReporterHandler{
-			name:     "PubSub Report",
-			reporter: w.pubsub,
-		})
-	} else {
-		handle("/pubsub", notSupportedHandler{"PubSub Report"})
 	}
 	// TODO(leases) - add metrics
 	handle("/leases", notSupportedHandler{"Leases"})

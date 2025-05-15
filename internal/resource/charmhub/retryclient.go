@@ -79,9 +79,9 @@ func (client ResourceRetryClient) GetResource(ctx context.Context, req ResourceR
 	var lastErr error
 	args.NotifyFunc = func(err error, i int) {
 		// Remember the error we're hiding and then retry!
-		client.logger.Warningf(context.TODO(), "attempt %d/%d to download resource %q from charm store [%scharm (%v), resource revision (%v)] failed with error (will retry): %v",
+		client.logger.Warningf(ctx, "attempt %d/%d to download resource %q from charm store [%scharm (%v), resource revision (%v)] failed with error (will retry): %v",
 			i, client.RetryArgs.Attempts, req.Name, channelStr, req.CharmID.URL, req.Revision, err)
-		client.logger.Tracef(context.TODO(), "resource get error stack: %v", errors.ErrorStack(err))
+		client.logger.Tracef(ctx, "resource get error stack: %v", errors.ErrorStack(err))
 		lastErr = err
 	}
 

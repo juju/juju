@@ -354,7 +354,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	b.agentConfig.SetStateServingInfo(servingInfo)
 
 	// Filter out any LXC or LXD bridge addresses from the machine addresses.
-	filteredBootstrapMachineAddresses := network.FilterBridgeAddresses(b.bootstrapMachineAddresses)
+	filteredBootstrapMachineAddresses := network.FilterBridgeAddresses(ctx, b.bootstrapMachineAddresses)
 
 	st, err := ctrl.SystemState()
 	if err != nil {
