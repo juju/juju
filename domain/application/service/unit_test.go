@@ -598,7 +598,7 @@ func (s *unitServiceSuite) TestGetPublicAddressWithCloudServiceError(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
-	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(nil, errors.New("boom"))
+	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(nil, errors.New("boom"))
 
 	_, err := s.service.GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -649,7 +649,7 @@ func (s *unitServiceSuite) TestGetPublicAddressNonMatchingAddresses(c *tc.C) {
 	}
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
-	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
+	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
 
 	_, err := s.service.GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorMatches, "no public address.*")
@@ -691,7 +691,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddress(c *tc.C) {
 	}
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
-	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
+	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
 
 	addr, err := s.service.GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -739,7 +739,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressSameOrigin(c *tc.C
 	}
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
-	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
+	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
 
 	addr, err := s.service.GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -787,7 +787,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOnly(c 
 	}
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
-	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
+	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
 
 	addr, err := s.service.GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -835,7 +835,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUn
 	}
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
-	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
+	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
 
 	addr, err := s.service.GetUnitPublicAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -889,7 +889,7 @@ func (s *unitServiceSuite) TestGetPublicAddresses(c *tc.C) {
 	}
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
-	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
+	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
 
 	addrs, err := s.service.GetUnitPublicAddresses(context.Background(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -942,7 +942,7 @@ func (s *unitServiceSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 	}
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
-	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
+	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
 
 	addrs, err := s.service.GetUnitPublicAddresses(context.Background(), unitName)
 	c.Assert(err, tc.ErrorIsNil)

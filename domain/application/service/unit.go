@@ -648,7 +648,7 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName coreunit.
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	addrs, err := s.st.GetUnitAddresses(ctx, unitUUID)
+	addrs, err := s.st.GetUnitAndK8sServiceAddresses(ctx, unitUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

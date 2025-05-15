@@ -1842,7 +1842,7 @@ WHERE  u.name = $getUnitMachine.unit_name
 	return arg.UnitMachine, nil
 }
 
-// GetUnitAddresses returns the addresses of the specified unit.
+// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
 // The addresses are taken by unioning the net node UUIDs of the cloud service
 // (if any) and the net node UUIDs of the unit, where each net node has an
 // associated address.
@@ -1851,7 +1851,7 @@ WHERE  u.name = $getUnitMachine.unit_name
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
-func (st *State) GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error) {
+func (st *State) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1879,11 +1879,52 @@ WHERE     n.uuid = $unitUUID.uuid
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDead(ctx, tx, unitUUID{UnitUUID: uuid}); err != nil {
+			return errors.Capture(err)
+		}
 		err := tx.Query(ctx, queryUnitPublicAddressesStmt, ident).GetAll(&address)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if err != nil {
 			return errors.Errorf("querying public addresses for unit %q: %w", uuid, err)
-		} else if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("%w: %s", applicationerrors.UnitNotFound, uuid)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return encodeIpAddresses(address), nil
+}
+
+// GetUnitAddresses returns the addresses of the specified unit.
+//
+// The following errors may be returned:
+// - [uniterrors.UnitNotFound] if the unit does not exist
+func (st *State) GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var address []spaceAddress
+	ident := unitUUID{UnitUUID: uuid}
+	queryUnitPublicAddressesStmt, err := st.Prepare(`
+SELECT    &spaceAddress.*
+FROM      unit u
+JOIN      link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
+JOIN      ip_address ip ON ip.device_uuid = lld.uuid
+LEFT JOIN subnet sn ON sn.uuid = ip.subnet_uuid
+WHERE     u.uuid = $unitUUID.uuid
+`, spaceAddress{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDead(ctx, tx, unitUUID{UnitUUID: uuid}); err != nil {
+			return errors.Capture(err)
+		}
+		err := tx.Query(ctx, queryUnitPublicAddressesStmt, ident).GetAll(&address)
+		if err != nil {
+			return errors.Errorf("querying public addresses for unit %q: %w", uuid, err)
 		}
 		return nil
 	})
