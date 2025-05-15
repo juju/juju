@@ -1749,6 +1749,23 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitApplicationNotAlive(c 
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
+func (s *unitStateSubordinateSuite) TestAddSubordinateUnitPrincialNotFound(c *tc.C) {
+	// Arrange:
+	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+
+	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
+
+	// Act:
+	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName,
+		ModelType:         model.IAAS,
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *unitStateSubordinateSuite) TestIsSubordinateApplication(c *tc.C) {
 	// Arrange:
 	appID := s.createSubordinateApplication(c, "sub", life.Alive)

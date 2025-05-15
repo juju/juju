@@ -646,6 +646,9 @@ func (st *State) AddSubordinateUnit(
 		if err := st.checkApplicationAlive(ctx, tx, arg.SubordinateAppID); err != nil {
 			return errors.Capture(err)
 		}
+		if err := st.checkUnitNotDeadByName(ctx, tx, arg.PrincipalUnitName); err != nil {
+			return errors.Capture(err)
+		}
 
 		// Check this unit does not already have a subordinate unit from this
 		// application.
