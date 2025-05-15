@@ -53,3 +53,26 @@ type NetInterface struct {
 	// Accordingly, we eschew setting them in Dqlite, but they should be added
 	// here and handled by network config updates if they become pertinent.
 }
+
+// DeviceType represents the type of a link layer device, as recorded
+// in the link_layer_device_type lookup table.
+type DeviceType int
+
+const (
+	DeviceTypeUnknown DeviceType = iota
+	DeviceTypeLoopback
+	DeviceTypeEthernet
+	DeviceType8021q
+	DeviceTypeBond
+	DeviceTypeBridge
+	DeviceTypeVXLAN
+)
+
+// VirtualPortType represents the type of a link layer device port, as
+// recorded in the virtual_port_type lookup table.
+type VirtualPortType int
+
+const (
+	NonVirtualPortType VirtualPortType = iota
+	OpenVswitchVirtualPortType
+)
