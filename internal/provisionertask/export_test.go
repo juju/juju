@@ -6,11 +6,12 @@ package provisionertask
 import (
 	"sort"
 
+	"github.com/juju/tc"
+
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/tc"
 )
 
 var ClassifyMachine = classifyMachine

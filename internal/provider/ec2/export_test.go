@@ -10,12 +10,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 	jujustorage "github.com/juju/juju/internal/storage"
-	"github.com/juju/tc"
 )
 
 func StorageEC2(vs jujustorage.VolumeSource) Client {

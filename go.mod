@@ -74,6 +74,7 @@ require (
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
 	github.com/juju/tc v0.0.0-20250514125847-7dcebc1fd940
+	github.com/juju/testing v1.2.0
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils/v4 v4.0.3
 	github.com/juju/webbrowser v1.0.0
@@ -117,6 +118,7 @@ require (
 	golang.org/x/tools v0.31.0
 	google.golang.org/api v0.215.0
 	google.golang.org/grpc v1.70.0
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/errgo.v1 v1.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.67.0
@@ -219,7 +221,6 @@ require (
 	github.com/juju/loggo v1.0.0 // indirect
 	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
-	github.com/juju/testing v1.2.0 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/utils/v3 v3.2.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
@@ -295,7 +296,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250224174004-546df14abb99 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/juju/environschema.v1 v1.0.1 // indirect

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/juju/tc"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
@@ -15,7 +16,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/tc"
 )
 
 var logger = internallogger.GetLogger("vsphereclient")
