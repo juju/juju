@@ -563,7 +563,7 @@ ON CONFLICT (controller_id) DO UPDATE SET lower_bound = $M.lower_bound, updated_
 func (s *workerSuite) insertChangeLogItems(c *tc.C, runner coredatabase.TxnRunner, start, amount int, now time.Time) {
 	query, err := sqlair.Prepare(`
 INSERT INTO change_log (id, edit_type_id, namespace_id, changed, created_at)
-VALUES ($M.id, 4, 2, 0, $M.created_at);
+VALUES ($M.id, 4, 10002, 0, $M.created_at);
 			`, sqlair.M{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -622,7 +622,7 @@ SELECT (id, edit_type_id, namespace_id, changed, created_at) AS (&ChangeLogItem.
 		}
 
 		c.Check(item.EditTypeID, tc.Equals, 4)
-		c.Check(item.Namespace, tc.Equals, 2)
+		c.Check(item.Namespace, tc.Equals, 10002)
 		c.Check(item.Changed, tc.Equals, 0)
 	}
 }

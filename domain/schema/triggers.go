@@ -9,6 +9,16 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+const (
+	// reservedCustomNamespaceIDOffset is the offset we use for standard
+	// auto-generated namespaces to give ourselves space to add our own custom
+	// namespaces. This is to prevent collisions with the trigger based
+	// namespace IDs.
+	// The namespace IDs indicate uniqueness not order, so we can safely have
+	// gaps in the IDs.
+	reservedCustomNamespaceIDOffset = 10000
+)
+
 type tableNamespaceID = int
 
 // triggersForImmutableTable returns a function that creates triggers to prevent

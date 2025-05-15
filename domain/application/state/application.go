@@ -1178,40 +1178,6 @@ WHERE a.name = $applicationName.name
 	return "application_config_hash", queryFunc
 }
 
-// InitialWatchStatementUnitAddressesHash returns the initial namespace query
-// for the unit addresses hash watcher as well as the tables to be watched
-// (ip_address and application_endpoint)
-func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID, netNodeUUID network.NetNodeUUID) (string, string, eventsource.NamespaceQuery) {
-	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
-
-		var (
-			spaceAddresses   []spaceAddress
-			endpointBindings map[string]string
-		)
-		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			var err error
-			spaceAddresses, err = st.getNetNodeSpaceAddresses(ctx, tx, netNodeUUID)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			endpointBindings, err = st.getEndpointBindings(ctx, tx, appUUID)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, errors.Errorf("querying application %q addresses hash: %w", appUUID, err)
-		}
-		hash, err := st.hashAddressesAndEndpoints(spaceAddresses, endpointBindings)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		return []string{hash}, nil
-	}
-	return "ip_address", "application_endpoint", queryFunc
-}
-
 // GetNetNodeUUIDByUnitName returns the net node UUID for the named unit or the
 // cloud service associated with the unit's application. This method is meant
 // to be used in the WatchUnitAddressesHash watcher as a filter for ip address

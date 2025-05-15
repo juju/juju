@@ -323,3 +323,42 @@ func (c *MockApplicationServiceWatchApplicationExposedCall) DoAndReturn(f func(c
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// WatchUnitAddRemoveOnMachine mocks base method.
+func (m *MockApplicationService) WatchUnitAddRemoveOnMachine(arg0 context.Context, arg1 machine.Name) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchUnitAddRemoveOnMachine", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchUnitAddRemoveOnMachine indicates an expected call of WatchUnitAddRemoveOnMachine.
+func (mr *MockApplicationServiceMockRecorder) WatchUnitAddRemoveOnMachine(arg0, arg1 any) *MockApplicationServiceWatchUnitAddRemoveOnMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnitAddRemoveOnMachine", reflect.TypeOf((*MockApplicationService)(nil).WatchUnitAddRemoveOnMachine), arg0, arg1)
+	return &MockApplicationServiceWatchUnitAddRemoveOnMachineCall{Call: call}
+}
+
+// MockApplicationServiceWatchUnitAddRemoveOnMachineCall wrap *gomock.Call
+type MockApplicationServiceWatchUnitAddRemoveOnMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceWatchUnitAddRemoveOnMachineCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockApplicationServiceWatchUnitAddRemoveOnMachineCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceWatchUnitAddRemoveOnMachineCall) Do(f func(context.Context, machine.Name) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchUnitAddRemoveOnMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceWatchUnitAddRemoveOnMachineCall) DoAndReturn(f func(context.Context, machine.Name) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchUnitAddRemoveOnMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

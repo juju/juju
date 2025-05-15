@@ -1890,6 +1890,69 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitApplicationNotAlive(c 
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
+func (s *unitStateSubordinateSuite) TestAddSubordinateUnitPrincialNotFound(c *tc.C) {
+	// Arrange:
+	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+
+	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
+
+	// Act:
+	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName,
+		ModelType:         model.IAAS,
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSubordinateSuite) TestDeleteUnitDeletesASubordinate(c *tc.C) {
+	// Arrange:
+	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+		UnitName: pUnitName,
+	})
+
+	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
+
+	sUnitName, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName,
+		ModelType:         model.IAAS,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act:
+	_, err = s.state.DeleteUnit(c.Context(), sUnitName)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *unitStateSubordinateSuite) TestDeleteUnitDeleteUnitWithSubordinate(c *tc.C) {
+	// Arrange:
+	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+		UnitName: pUnitName,
+	})
+
+	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
+
+	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName,
+		ModelType:         model.IAAS,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act:
+	_, err = s.state.DeleteUnit(c.Context(), pUnitName)
+
+	// Assert
+	c.Assert(err, tc.NotNil)
+}
+
 func (s *unitStateSubordinateSuite) TestIsSubordinateApplication(c *tc.C) {
 	// Arrange:
 	appID := s.createSubordinateApplication(c, "sub", life.Alive)
