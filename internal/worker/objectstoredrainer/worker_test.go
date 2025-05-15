@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -91,6 +92,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := NewWorker(context.Background(), Config{
 		ObjectStoreService: s.service,
 		Guard:              s.guard,
+		Logger:             loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return w
