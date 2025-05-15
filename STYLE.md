@@ -1,29 +1,27 @@
 ### Code formatting
 
-To format your code, run `go fmt`.
-
-> Note: Your editor may do this automatically.
+All code **must** be formatted using `go fmt`. 
 
 #### Line length
 
-Line length should not exceed 80 characters.
+Line length must not exceed 80 characters.
 
 ### Imports
 
-Import statements are grouped into 3 sections: standard library, 3rd party
+Import statements must be grouped into 3 sections: standard library, 3rd party
 libraries, juju imports. The tool "go fmt" can be used to ensure each
 group is alphabetically sorted. eg:
 
 ```go
-    import (
-        "fmt"
-        "time"
+import (
+    "fmt"
+    "time"
 
-        "github.com/juju/loggo/v2"
-        "github.com/juju/worker/v4"
+    "github.com/juju/loggo/v2"
+    "github.com/juju/worker/v4"
 
-        "github.com/juju/juju/core/model"
-    )
+    "github.com/juju/juju/core/model"
+)
 ```
 
 ### Method documentation
@@ -33,7 +31,7 @@ and every implementation method.
 Just use doc comment references with a brief comment relevant to the local
 use case.
 
-```
+```go
 // Bootstrapper provides the way for bootstrapping controller.
 type Bootstrapper interface {
     // PrepareForBootstrap will be called very early in the bootstrap
@@ -64,19 +62,19 @@ The implementation of an interface method on a receiver just needs a reference
 to the interface, but it may be useful to include a brief summary of the
 behaviour.
 
-```
+```go
 // Bootstrap is part of the [environs.Bootstrapper] interface.
 // It will create a new environment and a controller instance.
 func (e *Environ) Bootstrap(
     ctx BootstrapContext, params BootstrapParams,
 ) (*BootstrapResult, error) {
-...
-...
+    ...
+    ...
 }
 ```
 
 The same applies when declaring a subset of interface methods for local use.
-```
+```go
 // BootstrapService is a subset of the [environs.Bootstrapper] interface
 // used to create a new environment and a controller instance.
 type BootstrapperService interface {
@@ -90,7 +88,7 @@ type BootstrapperService interface {
 
 Method returning errors should be documented with the following pattern:
 
-```
+```go
 // LastModelLogin will return the last login time of the specified user.
 // The following errors may be returned:
 // - [accesserrors.UserNameNotValid] when the username is not valid.
@@ -100,7 +98,9 @@ Method returning errors should be documented with the following pattern:
 //   accessing the model.
 func (s *UserService) LastModelLogin(
     ctx context.Context, name user.Name, modelUUID coremodel.UUID,
-) (time.Time, error)
+) (time.Time, error) {
+    ....
+}
 ```
 
 Use the above approach even when there's only one error (for consistency).
