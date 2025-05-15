@@ -11,6 +11,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+type entityUUID struct {
+	// UUID uniquely identifies an entity.
+	UUID string `db:"uuid"`
+}
+
 // subnet represents a single row from the subnet table.
 type subnet struct {
 	// UUID is the subnet's UUID.
