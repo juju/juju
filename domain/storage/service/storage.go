@@ -11,6 +11,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/tags"
@@ -41,6 +42,9 @@ type StorageService struct {
 // - [coreerrors.NotSupported]: when the importing the kind of storage is not supported by the provider.
 // - [storageerrors.InvalidPoolNameError]: when the supplied pool name is invalid.
 func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorageParams) (corestorage.ID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if arg.Kind != internalstorage.StorageKindFilesystem {
 		// TODO(axw) implement support for volumes.
 		return "", errors.Errorf("storage kind %q not supported", arg.Kind.String()).Add(coreerrors.NotSupported)

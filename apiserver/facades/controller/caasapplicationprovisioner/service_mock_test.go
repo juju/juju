@@ -70,18 +70,18 @@ func (mr *MockControllerConfigServiceMockRecorder) ControllerConfig(arg0 any) *g
 }
 
 // WatchControllerConfig mocks base method.
-func (m *MockControllerConfigService) WatchControllerConfig() (watcher.Watcher[[]string], error) {
+func (m *MockControllerConfigService) WatchControllerConfig(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchControllerConfig")
+	ret := m.ctrl.Call(m, "WatchControllerConfig", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchControllerConfig indicates an expected call of WatchControllerConfig.
-func (mr *MockControllerConfigServiceMockRecorder) WatchControllerConfig() *gomock.Call {
+func (mr *MockControllerConfigServiceMockRecorder) WatchControllerConfig(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchControllerConfig", reflect.TypeOf((*MockControllerConfigService)(nil).WatchControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchControllerConfig", reflect.TypeOf((*MockControllerConfigService)(nil).WatchControllerConfig), arg0)
 }
 
 // MockModelConfigService is a mock of ModelConfigService interface.

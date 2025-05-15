@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/internal/errors"
 )
@@ -19,6 +20,9 @@ import (
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) IsApplicationExposed(ctx context.Context, appName string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -35,6 +39,9 @@ func (s *Service) IsApplicationExposed(ctx context.Context, appName string) (boo
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -51,6 +58,9 @@ func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (map[
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, exposedEndpoints set.Strings) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return errors.Capture(err)
@@ -66,6 +76,9 @@ func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, expos
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return errors.Capture(err)

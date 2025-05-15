@@ -88,7 +88,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *tc.C) {
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
 	controllerConfigService := NewMockControllerConfigService(ctrl)
-	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
+	controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(controllerConfigWatcher, nil)
 
 	// Expect config to be called just the once.
 	ctrlCfg := controller.Config{
@@ -134,7 +134,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
 	controllerConfigService := NewMockControllerConfigService(ctrl)
-	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
+	controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(controllerConfigWatcher, nil)
 
 	// Expect first call to have max concurrent connections of 10 and called once on worker startup.
 	controllerConfigService.EXPECT().
@@ -220,7 +220,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *tc.C) {
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
 	controllerConfigService := NewMockControllerConfigService(ctrl)
-	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
+	controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(controllerConfigWatcher, nil)
 
 	// Expect first call to have port of 22 and called once on worker startup.
 	controllerConfigService.EXPECT().

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/annotation"
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
 	"github.com/juju/juju/internal/errors"
@@ -51,6 +52,9 @@ func NewService(st State) *Service {
 // GetAnnotations retrieves all the annotations associated with a given ID. If
 // no annotations are found, an empty map is returned.
 func (s *Service) GetAnnotations(ctx context.Context, id annotations.ID) (map[string]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := id.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -61,6 +65,9 @@ func (s *Service) GetAnnotations(ctx context.Context, id annotations.ID) (map[st
 // GetCharmAnnotations retrieves all the annotations associated with a given
 // charm argument. If no annotations are found, an empty map is returned.
 func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs) (map[string]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := id.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -73,6 +80,9 @@ func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetChar
 // an annotation already exists for the given ID, then it will be updated with
 // the given value.
 func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotations map[string]string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := id.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -81,8 +91,7 @@ func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotat
 		return errors.Capture(err)
 	}
 
-	err := s.st.SetAnnotations(ctx, id, annotations)
-	if err != nil {
+	if err := s.st.SetAnnotations(ctx, id, annotations); err != nil {
 		return errors.Errorf("updating annotations for %q: %w", id.Name, err)
 	}
 	return nil
@@ -92,6 +101,9 @@ func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotat
 // argument. If an annotation already exists for the given ID, then it will be
 // updated with the given value.
 func (s *Service) SetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs, annotations map[string]string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := id.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -100,8 +112,7 @@ func (s *Service) SetCharmAnnotations(ctx context.Context, id annotation.GetChar
 		return errors.Capture(err)
 	}
 
-	err := s.st.SetCharmAnnotations(ctx, id, annotations)
-	if err != nil {
+	if err := s.st.SetCharmAnnotations(ctx, id, annotations); err != nil {
 		return errors.Errorf("updating annotations for %q: %w", id.Name, err)
 	}
 	return nil

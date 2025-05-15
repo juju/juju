@@ -386,7 +386,7 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 	}
 
 	legacyAppWatcher := app.Watch()
-	controllerConfigWatcher, err := a.controllerConfigService.WatchControllerConfig()
+	controllerConfigWatcher, err := a.controllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

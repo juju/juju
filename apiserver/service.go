@@ -25,7 +25,7 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 
 	// WatchControllerConfig watches the controller config for changes.
-	WatchControllerConfig() (watcher.StringsWatcher, error)
+	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
 // ProxyService defines the methods required to get proxy details.

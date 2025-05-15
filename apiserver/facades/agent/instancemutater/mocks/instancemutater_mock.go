@@ -1347,18 +1347,18 @@ func (c *MockApplicationServiceGetCharmLXDProfileCall) DoAndReturn(f func(contex
 }
 
 // WatchCharms mocks base method.
-func (m *MockApplicationService) WatchCharms() (watcher.Watcher[[]string], error) {
+func (m *MockApplicationService) WatchCharms(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchCharms")
+	ret := m.ctrl.Call(m, "WatchCharms", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchCharms indicates an expected call of WatchCharms.
-func (mr *MockApplicationServiceMockRecorder) WatchCharms() *MockApplicationServiceWatchCharmsCall {
+func (mr *MockApplicationServiceMockRecorder) WatchCharms(arg0 any) *MockApplicationServiceWatchCharmsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCharms", reflect.TypeOf((*MockApplicationService)(nil).WatchCharms))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCharms", reflect.TypeOf((*MockApplicationService)(nil).WatchCharms), arg0)
 	return &MockApplicationServiceWatchCharmsCall{Call: call}
 }
 
@@ -1374,13 +1374,13 @@ func (c *MockApplicationServiceWatchCharmsCall) Return(arg0 watcher.Watcher[[]st
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceWatchCharmsCall) Do(f func() (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchCharmsCall {
+func (c *MockApplicationServiceWatchCharmsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchCharmsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceWatchCharmsCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchCharmsCall {
+func (c *MockApplicationServiceWatchCharmsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchCharmsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -17,6 +18,9 @@ import (
 // GetSecretGrants returns the subjects which have the specified access to the secret.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]SecretAccess, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	accessors, err := s.secretState.GetSecretGrants(ctx, uri, role)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -60,6 +64,9 @@ func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, r
 // GetSecretAccessScope returns the access scope for the specified accessor's permission on the secret.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.URI, accessor SecretAccessor) (SecretAccessScope, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	ap := domainsecret.AccessParams{
 		SubjectID: accessor.ID,
 	}
@@ -126,6 +133,9 @@ func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, a
 // satisfying [secreterrors.InvalidSecretPermissionChange] is returned.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
 		return errors.Capture(err)
@@ -169,6 +179,9 @@ func grantParams(in SecretAccessParams) domainsecret.GrantParams {
 // RevokeSecretAccess revokes access to the secret for the specified subject.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
 		return errors.Capture(err)

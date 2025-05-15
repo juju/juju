@@ -11,6 +11,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
@@ -83,6 +84,9 @@ func (s *Service) AdoptResources(
 	ctx context.Context,
 	sourceControllerVersion semversion.Number,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	provider, err := s.resourceProviderGettter(ctx)
 
 	// Provider doesn't support adopting resources and this is ok!
@@ -126,6 +130,9 @@ func (s *Service) AdoptResources(
 func (s *Service) CheckMachines(
 	ctx context.Context,
 ) ([]modelmigration.MigrationMachineDiscrepancy, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	provider, err := s.instanceProviderGetter(ctx)
 	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
 		return nil, errors.Errorf(

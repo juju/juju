@@ -10,6 +10,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/macaroon"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	"github.com/juju/juju/internal/errors"
@@ -58,6 +59,9 @@ func NewRootKeyService(st RootKeyState, clock macaroon.Clock) *RootKeyService {
 // To satisfy dbrootkeystore.ContextBacking specification,
 // if not key is found, a bakery.ErrNotFound error is returned.
 func (s *RootKeyService) GetKeyContext(ctx context.Context, id []byte) (dbrootkeystore.RootKey, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	key, err := s.st.GetKey(ctx, id, s.clock.Now())
 	if errors.Is(err, macaroonerrors.KeyNotFound) {
 		return dbrootkeystore.RootKey{}, bakery.ErrNotFound
@@ -77,6 +81,9 @@ func (s *RootKeyService) GetKeyContext(ctx context.Context, id []byte) (dbrootke
 // if no such key is found, the zero root key is returned with a
 // nil error
 func (s *RootKeyService) FindLatestKeyContext(ctx context.Context, createdAfter, expiresAfter, expiresBefore time.Time) (dbrootkeystore.RootKey, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	key, err := s.st.FindLatestKey(ctx, createdAfter, expiresAfter, expiresBefore, s.clock.Now())
 	if errors.Is(err, macaroonerrors.KeyNotFound) {
 		return dbrootkeystore.RootKey{}, nil
@@ -88,6 +95,9 @@ func (s *RootKeyService) FindLatestKeyContext(ctx context.Context, createdAfter,
 // the given root key into state. If a key with matching
 // id already exists, return a macaroonerrors.KeyAlreadyExists error.
 func (s *RootKeyService) InsertKeyContext(ctx context.Context, key dbrootkeystore.RootKey) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.InsertKey(ctx, encodeRootKey(key))
 }
 

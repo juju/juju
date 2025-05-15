@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	cloudimageerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
 	"github.com/juju/juju/internal/errors"
@@ -48,6 +49,9 @@ func NewService(st State) *Service {
 // SaveMetadata saves the provided cloud image metadata if non-empty and valid.
 // It returns a [errors.NotValid] if at least one of the inputs are invalid.
 func (s Service) SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.Metadata) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if len(metadata) == 0 {
 		return nil
 	}
@@ -62,6 +66,9 @@ func (s Service) SaveMetadata(ctx context.Context, metadata []cloudimagemetadata
 // DeleteMetadataWithImageID removes all the metadata associated with the given imageID from the state.
 // It returns a [errors.EmptyImageID] if the provided imageID is empty.
 func (s Service) DeleteMetadataWithImageID(ctx context.Context, imageID string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if imageID == "" {
 		return cloudimageerrors.EmptyImageID
 	}
@@ -71,6 +78,9 @@ func (s Service) DeleteMetadataWithImageID(ctx context.Context, imageID string) 
 
 // FindMetadata retrieves a map of image metadata grouped by the source based on the provided filter criteria.
 func (s Service) FindMetadata(ctx context.Context, criteria cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	metadata, err := s.st.FindMetadata(ctx, criteria)
 	if err != nil {
 		return nil, err
@@ -84,6 +94,8 @@ func (s Service) FindMetadata(ctx context.Context, criteria cloudimagemetadata.M
 
 // AllCloudImageMetadata retrieves all cloud image metadata from the state and returns them as a list.
 func (s Service) AllCloudImageMetadata(ctx context.Context) ([]cloudimagemetadata.Metadata, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	return s.st.AllCloudImageMetadata(ctx)
 }
 

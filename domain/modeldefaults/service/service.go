@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	_ "github.com/juju/juju/domain/model/errors"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
@@ -224,6 +225,9 @@ func (s *Service) CloudDefaults(
 	ctx context.Context,
 	cloudName string,
 ) (modeldefaults.ModelDefaultAttributes, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
 		return nil, errors.Errorf(
@@ -282,6 +286,9 @@ func (s *Service) UpdateCloudDefaults(
 	cloudName string,
 	updateAttrs map[string]any,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
 		return errors.Errorf(
@@ -311,6 +318,9 @@ func (s *Service) UpdateCloudRegionDefaults(
 	regionName string,
 	updateAttrs map[string]any,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
 		return errors.Errorf(
@@ -342,6 +352,9 @@ func (s *Service) RemoveCloudDefaults(
 	cloudName string,
 	removeAttrs []string,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
 		return errors.Errorf(
@@ -367,6 +380,9 @@ func (s *Service) RemoveCloudRegionDefaults(
 	regionName string,
 	removeAttrs []string,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	cloudUUID, err := s.st.GetCloudUUID(ctx, cloudName)
 	if errors.Is(err, clouderrors.NotFound) {
 		return errors.Errorf(
@@ -400,6 +416,9 @@ func (s *Service) ModelDefaults(
 	ctx context.Context,
 	uuid coremodel.UUID,
 ) (modeldefaults.Defaults, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := uuid.Validate(); err != nil {
 		return modeldefaults.Defaults{}, errors.Errorf("model uuid: %w", err)
 	}
@@ -635,7 +654,10 @@ func coerceDefaultsToSchema(
 func (s *Service) ModelDefaultsProvider(
 	uuid coremodel.UUID,
 ) ModelDefaultsProviderFunc {
-	return func(ctx context.Context) (modeldefaults.Defaults, error) {
+	return func(ctx context.Context) (_ modeldefaults.Defaults, err error) {
+		ctx, span := trace.Start(ctx, trace.NameFromFunc())
+		defer span.End()
+
 		return s.ModelDefaults(ctx, uuid)
 	}
 }

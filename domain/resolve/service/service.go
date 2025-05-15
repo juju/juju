@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -71,6 +72,9 @@ func NewService(st State) *Service {
 // if no resolved marker is found for the unit, an error satisfying
 // [resolveerrors.UnitNotResolved] is returned.
 func (s *Service) UnitResolveMode(ctx context.Context, unitName coreunit.Name) (resolve.ResolveMode, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return "", err
 	}
@@ -86,6 +90,9 @@ func (s *Service) UnitResolveMode(ctx context.Context, unitName coreunit.Name) (
 // error state, an error satisfying [resolveerrors.UnitNotInErrorState] is
 // returned.
 func (s *Service) ResolveUnit(ctx context.Context, unitName coreunit.Name, mode resolve.ResolveMode) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return err
 	}
@@ -98,12 +105,17 @@ func (s *Service) ResolveUnit(ctx context.Context, unitName coreunit.Name, mode 
 
 // ResolveAllUnits marks all units as resolved.
 func (s *Service) ResolveAllUnits(ctx context.Context, mode resolve.ResolveMode) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	return s.st.ResolveAllUnits(ctx, mode)
 }
 
 // ClearResolved removes any resolved marker from the unit. If the unit is not
 // found, an error satisfying [resolveerrors.UnitNotFound] is returned.
 func (s *Service) ClearResolved(ctx context.Context, unitName coreunit.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return err
 	}
@@ -136,6 +148,9 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 // If the unit does not exist an error satisfying [resolveerrors.UnitNotFound]
 // will be returned.
 func (s *WatchableService) WatchUnitResolveMode(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return nil, err
 	}

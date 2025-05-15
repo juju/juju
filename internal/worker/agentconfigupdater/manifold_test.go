@@ -159,7 +159,7 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
 		controller.JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
 		controller.ObjectStoreType:   objectstore.FileBackend.String(),
 	}, nil)
-	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(wc, nil)
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(wc, nil)
 
 	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234
@@ -187,7 +187,7 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) 
 		controller.JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
 		controller.ObjectStoreType:   objectstore.FileBackend.String(),
 	}, nil)
-	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(wc, nil)
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(wc, nil)
 
 	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234

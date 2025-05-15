@@ -21,6 +21,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -122,6 +123,9 @@ func (s *ProviderService) CreateApplication(
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := validateCharmAndApplicationParams(
 		name,
 		args.ReferenceName,
@@ -217,6 +221,9 @@ func (s *ProviderService) CreateApplication(
 // If the agent version cannot be found, an error satisfying
 // [modelerrors.NotFound] will be returned.
 func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	agentVersion, err := s.agentVersionGetter.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return assumes.FeatureSet{}, err
@@ -255,6 +262,9 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := appID.Validate(); err != nil {
 		return errors.Errorf("application ID: %w", err)
 	}
@@ -287,6 +297,8 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // doesn't exist.
 // If no units are provided, it will return nil.
 func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	if len(units) == 0 {
 		return nil
 	}
@@ -381,6 +393,9 @@ func (s *Service) recordStatusHistory(
 // We pass in a CAAS broker to get app details from the k8s cluster - we will
 // probably make it a service attribute once more use cases emerge.
 func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	unitName, err := coreunit.NewName(unitNameStr)
 	if err != nil {
 		return false, errors.Errorf("parsing unit name %q: %w", unitNameStr, err)
@@ -432,6 +447,9 @@ func (s *ProviderService) RegisterCAASUnit(
 	ctx context.Context,
 	params application.RegisterCAASUnitParams,
 ) (coreunit.Name, string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if params.ProviderID == "" {
 		return "", "", errors.Errorf("provider id %w", coreerrors.NotValid)
 	}

@@ -75,7 +75,7 @@ func NewAPI(
 func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 
-	controllerConfigWatcher, err := a.controllerConfigService.WatchControllerConfig()
+	controllerConfigWatcher, err := a.controllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

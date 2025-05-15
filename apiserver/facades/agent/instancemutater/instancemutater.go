@@ -70,7 +70,7 @@ type ApplicationService interface {
 	// returned.
 	GetCharmLXDProfile(ctx context.Context, locator applicationcharm.CharmLocator) (charm.LXDProfile, applicationcharm.Revision, error)
 	// WatchCharms returns a watcher that observes changes to charms.
-	WatchCharms() (watcher.StringsWatcher, error)
+	WatchCharms(context.Context) (watcher.StringsWatcher, error)
 }
 
 // ModelInfoService provides access to information about the model.

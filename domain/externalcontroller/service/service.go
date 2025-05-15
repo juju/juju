@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
 )
@@ -65,6 +66,9 @@ func (s *Service) Controller(
 	ctx context.Context,
 	controllerUUID string,
 ) (*crossmodel.ControllerInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	controllerInfo, err := s.st.Controller(ctx, controllerUUID)
 	if err != nil {
 		return controllerInfo, errors.Errorf("retrieving external controller %s: %w", controllerUUID, err)
@@ -78,8 +82,10 @@ func (s *Service) ControllerForModel(
 	ctx context.Context,
 	modelUUID string,
 ) (*crossmodel.ControllerInfo, error) {
-	controllers, err := s.st.ControllersForModels(ctx, modelUUID)
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 
+	controllers, err := s.st.ControllersForModels(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Errorf("retrieving external controller for model %s: %w", modelUUID, err)
 	}
@@ -96,8 +102,10 @@ func (s *Service) ControllerForModel(
 func (s *Service) UpdateExternalController(
 	ctx context.Context, ec crossmodel.ControllerInfo,
 ) error {
-	err := s.st.UpdateExternalController(ctx, ec)
-	if err != nil {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.st.UpdateExternalController(ctx, ec); err != nil {
 		return errors.Errorf("updating external controller state: %w", err)
 	}
 	return nil
@@ -109,6 +117,9 @@ func (s *Service) ImportExternalControllers(
 	ctx context.Context,
 	externalControllers []crossmodel.ControllerInfo,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.ImportExternalControllers(ctx, externalControllers)
 }
 
@@ -118,6 +129,9 @@ func (s *Service) ModelsForController(
 	ctx context.Context,
 	controllerUUID string,
 ) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	models, err := s.st.ModelsForController(ctx, controllerUUID)
 	if err != nil {
 		return models, errors.Errorf("retrieving model UUIDs for controller %s: %w", controllerUUID, err)
@@ -133,6 +147,8 @@ func (s *Service) ControllersForModels(
 	ctx context.Context,
 	modelUUIDs ...string,
 ) ([]crossmodel.ControllerInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	return s.st.ControllersForModels(ctx, modelUUIDs...)
 }
 
@@ -154,7 +170,10 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 }
 
 // Watch returns a watcher that observes changes to external controllers.
-func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
+func (s *WatchableService) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if s.watcherFactory != nil {
 		return s.watcherFactory.NewUUIDsWatcher(
 			s.st.NamespaceForWatchExternalController(),

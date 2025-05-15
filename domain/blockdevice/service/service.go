@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/filesystem"
@@ -63,11 +64,17 @@ func NewService(st State, logger logger.Logger) *Service {
 
 // BlockDevices returns the block devices for a specified machine.
 func (s *Service) BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.BlockDevices(ctx, machineId)
 }
 
 // UpdateBlockDevices updates the block devices for a specified machine.
 func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	for i := range devices {
 		if devices[i].FilesystemType == "" {
 			devices[i].FilesystemType = filesystem.UnspecifiedType
@@ -78,6 +85,9 @@ func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devi
 
 // AllBlockDevices returns all block devices in the model, keyed on machine id.
 func (s *Service) AllBlockDevices(ctx context.Context) (map[string]blockdevice.BlockDevice, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	machineDevices, err := s.st.MachineBlockDevices(ctx)
 	if err != nil {
 		return nil, errors.Errorf("loading all block devices: %w", err)
@@ -114,5 +124,8 @@ func (s *WatchableService) WatchBlockDevices(
 	ctx context.Context,
 	machineId string,
 ) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.WatchBlockDevices(ctx, s.watcherFactory.NewNotifyWatcher, machineId)
 }

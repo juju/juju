@@ -612,8 +612,10 @@ func (srv *Server) loop(ready chan struct{}) error {
 		}
 	}
 
+	ctx := srv.catacomb.Context(context.Background())
+
 	controllerConfigService := srv.shared.controllerConfigService
-	controllerConfigWatcher, err := controllerConfigService.WatchControllerConfig()
+	controllerConfigWatcher, err := controllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -627,8 +629,6 @@ func (srv *Server) loop(ready chan struct{}) error {
 	srv.mu.Lock()
 	srv.healthStatus = "running"
 	srv.mu.Unlock()
-
-	ctx := srv.catacomb.Context(context.Background())
 
 	for {
 		select {

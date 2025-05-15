@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -33,6 +34,9 @@ func NewMigrationService(st MigrationState) *MigrationService {
 // GetApplicationLeadershipForModel returns the leadership information for the
 // model applications.
 func (s *MigrationService) GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (map[string]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := modelUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}

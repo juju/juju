@@ -38,6 +38,12 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.state.EXPECT().NamespaceForWatchUpgradeState().Return("upgrade_info").AnyTimes()
 
 	s.service = NewWatchableService(s.state, s.watcherFactory)
+
+	c.Cleanup(func() {
+		s.state = nil
+		s.watcherFactory = nil
+		s.service = nil
+	})
 	return ctrl
 }
 
@@ -61,6 +67,8 @@ func (s *serviceSuite) TestCreateUpgradeAlreadyExists(c *tc.C) {
 }
 
 func (s *serviceSuite) TestCreateUpgradeInvalidVersions(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, err := s.service.CreateUpgrade(c.Context(), semversion.MustParse("3.0.1"), semversion.MustParse("3.0.0"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 

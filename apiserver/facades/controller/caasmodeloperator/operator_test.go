@@ -82,7 +82,7 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *tc.C) {
 	apiHostPortsForAgentsChanged := make(chan struct{}, 1)
 
 	controllerConfigWatcher := watchertest.NewMockStringsWatcher(controllerConfigChanged)
-	m.controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
+	m.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(controllerConfigWatcher, nil)
 
 	m.state.apiHostPortsForAgentsWatcher = watchertest.NewMockNotifyWatcher(apiHostPortsForAgentsChanged)
 

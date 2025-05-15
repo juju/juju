@@ -34,7 +34,7 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ecService := NewMockECService(ctrl)
+	ecService := NewMockExternalControllerService(ctrl)
 
 	ctrlTag, err := names.ParseControllerTag(coretesting.ControllerTag.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -53,14 +53,14 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	results, err := api.ExternalControllerInfo(c.Context(), params.Entities{
 		Entities: []params.Entity{
-			{coretesting.ControllerTag.String()},
-			{"controller-" + coretesting.ModelTag.Id()},
-			{"machine-42"},
+			{Tag: coretesting.ControllerTag.String()},
+			{Tag: "controller-" + coretesting.ModelTag.Id()},
+			{Tag: "machine-42"},
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ExternalControllerInfoResults{
-		[]params.ExternalControllerInfoResult{{
+		Results: []params.ExternalControllerInfoResult{{
 			Result: &params.ExternalControllerInfo{
 				ControllerTag: coretesting.ControllerTag.String(),
 				Alias:         "foo",
@@ -82,7 +82,7 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ecService := NewMockECService(ctrl)
+	ecService := NewMockExternalControllerService(ctrl)
 
 	firstControllerTag := coretesting.ControllerTag.String()
 	firstControllerTagParsed, err := names.ParseControllerTag(firstControllerTag)
@@ -108,31 +108,31 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	results, err := api.SetExternalControllerInfo(c.Context(), params.SetExternalControllersInfoParams{
-		[]params.SetExternalControllerInfoParams{{
-			params.ExternalControllerInfo{
+		Controllers: []params.SetExternalControllerInfoParams{{
+			Info: params.ExternalControllerInfo{
 				ControllerTag: firstControllerTag,
 				Alias:         "foo",
 				Addrs:         []string{"bar"},
 				CACert:        "baz",
 			},
 		}, {
-			params.ExternalControllerInfo{
+			Info: params.ExternalControllerInfo{
 				ControllerTag: secondControllerTag,
 				Alias:         "qux",
 				Addrs:         []string{"quux"},
 				CACert:        "quuz",
 			},
 		}, {
-			params.ExternalControllerInfo{
+			Info: params.ExternalControllerInfo{
 				ControllerTag: "machine-42",
 			},
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{
-		[]params.ErrorResult{
-			{nil},
-			{nil},
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: nil},
 			{Error: &params.Error{Message: `"machine-42" is not a valid controller tag`}},
 		},
 	})
@@ -142,9 +142,9 @@ func (s *CrossControllerSuite) TestWatchExternalControllers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ecService := NewMockECService(ctrl)
+	ecService := NewMockExternalControllerService(ctrl)
 	mockKeysWatcher := NewMockStringsWatcher(ctrl)
-	ecService.EXPECT().Watch().Return(mockKeysWatcher, nil)
+	ecService.EXPECT().Watch(gomock.Any()).Return(mockKeysWatcher, nil)
 	changes := make(chan []string, 1)
 	mockKeysWatcher.EXPECT().Changes().Return(changes)
 	mockKeysWatcher.EXPECT().Kill().AnyTimes()
@@ -158,7 +158,7 @@ func (s *CrossControllerSuite) TestWatchExternalControllers(c *tc.C) {
 	results, err := api.WatchExternalControllers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.StringsWatchResults{
-		[]params.StringsWatchResult{{
+		Results: []params.StringsWatchResult{{
 			StringsWatcherId: "1",
 			Changes:          []string{"a", "b"},
 		}},
@@ -170,9 +170,9 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ecService := NewMockECService(ctrl)
+	ecService := NewMockExternalControllerService(ctrl)
 	mockKeysWatcher := NewMockStringsWatcher(ctrl)
-	ecService.EXPECT().Watch().Return(mockKeysWatcher, nil)
+	ecService.EXPECT().Watch(gomock.Any()).Return(mockKeysWatcher, nil)
 	changes := make(chan []string, 1)
 	mockKeysWatcher.EXPECT().Changes().Return(changes)
 	mockKeysWatcher.EXPECT().Kill().AnyTimes()
@@ -186,7 +186,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
 	results, err := api.WatchExternalControllers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.StringsWatchResults{
-		[]params.StringsWatchResult{{
+		Results: []params.StringsWatchResult{{
 			Error: &params.Error{Message: "watching external controllers changes: nope"},
 		}},
 	})

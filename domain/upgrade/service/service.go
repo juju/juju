@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/trace"
 	coreupgrade "github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -59,6 +60,8 @@ func NewService(st State, wf WatcherFactory) *Service {
 // CreateUpgrade creates an upgrade to and from specified versions
 // If an upgrade is already running/pending, return an AlreadyExists err
 func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVersion semversion.Number) (upgrade.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	if previousVersion.Compare(targetVersion) >= 0 {
 		return "", errors.Errorf("target version %q must be greater than current version %q %w", targetVersion, previousVersion, coreerrors.NotValid)
 	}
@@ -69,15 +72,20 @@ func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVers
 // to start its upgrade. All provisioned controllers need to be ready
 // before an upgrade can start
 func (s *Service) SetControllerReady(ctx context.Context, upgradeUUID upgrade.UUID, controllerID string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := upgradeUUID.Validate(); err != nil {
 		return errors.Capture(err)
 	}
-	err := s.st.SetControllerReady(ctx, upgradeUUID, controllerID)
-	return err
+	return s.st.SetControllerReady(ctx, upgradeUUID, controllerID)
 }
 
 // StartUpgrade starts the current upgrade if it exists
 func (s *Service) StartUpgrade(ctx context.Context, upgradeUUID upgrade.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := upgradeUUID.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -88,6 +96,9 @@ func (s *Service) StartUpgrade(ctx context.Context, upgradeUUID upgrade.UUID) er
 // completed its upgrades. When SetControllerDone is called by the
 // last provisioned controller, the upgrade will be archived.
 func (s *Service) SetControllerDone(ctx context.Context, upgradeUUID upgrade.UUID, controllerID string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := upgradeUUID.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -96,6 +107,9 @@ func (s *Service) SetControllerDone(ctx context.Context, upgradeUUID upgrade.UUI
 
 // SetDBUpgradeCompleted marks the upgrade as completed in the database
 func (s *Service) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID upgrade.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := upgradeUUID.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -105,6 +119,9 @@ func (s *Service) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID upgrade
 // SetDBUpgradeFailed marks the upgrade as failed in the database.
 // Manual intervention will be required if this has been invoked.
 func (s *Service) SetDBUpgradeFailed(ctx context.Context, upgradeUUID upgrade.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := upgradeUUID.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -114,11 +131,15 @@ func (s *Service) SetDBUpgradeFailed(ctx context.Context, upgradeUUID upgrade.UU
 // ActiveUpgrade returns the uuid of the current active upgrade.
 // If there are no active upgrades, return a NotFound error
 func (s *Service) ActiveUpgrade(ctx context.Context) (upgrade.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	return s.st.ActiveUpgrade(ctx)
 }
 
 // UpgradeInfo returns the upgrade info for the supplied upgradeUUID
 func (s *Service) UpgradeInfo(ctx context.Context, upgradeUUID upgrade.UUID) (coreupgrade.Info, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	if err := upgradeUUID.Validate(); err != nil {
 		return coreupgrade.Info{}, errors.Capture(err)
 	}
@@ -129,15 +150,16 @@ func (s *Service) UpgradeInfo(ctx context.Context, upgradeUUID upgrade.UUID) (co
 // This essentially asks is there any upgrades that are not in the terminal
 // states (completed or failed)
 func (s *Service) IsUpgrading(ctx context.Context) (bool, error) {
-	_, err := s.ActiveUpgrade(ctx)
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, upgradeerrors.NotFound) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if _, err := s.ActiveUpgrade(ctx); errors.Is(err, upgradeerrors.NotFound) {
 		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
 	}
 
-	return false, errors.Capture(err)
+	return true, nil
 }
 
 // WatchableService provides the API for working with upgrade info
@@ -159,11 +181,15 @@ func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
 // WatchForUpgradeReady creates a watcher which notifies when all controller
 // nodes have been registered, meaning the upgrade is ready to start.
 func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID upgrade.UUID) (watcher.NotifyWatcher, error) {
+
 	if err := upgradeUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) (_ []changestream.ChangeEvent, err error) {
+		ctx, span := trace.Start(ctx, trace.NameFromFunc())
+		defer span.End()
+
 		ready, err := s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -191,7 +217,10 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		return nil, errors.Capture(err)
 	}
 
-	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) (_ []changestream.ChangeEvent, err error) {
+		ctx, span := trace.Start(ctx, trace.NameFromFunc())
+		defer span.End()
+
 		info, err := s.st.UpgradeInfo(ctx, upgradeUUID)
 		if err != nil {
 			return nil, errors.Capture(err)

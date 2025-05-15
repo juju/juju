@@ -8,6 +8,7 @@ import (
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/trace"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -51,8 +52,10 @@ func NewService(st State) *Service {
 // CurateNodes modifies the known control plane by adding and removing
 // controller node records according to the input slices.
 func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) error {
-	err := s.st.CurateNodes(ctx, toAdd, toRemove)
-	if err != nil {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.st.CurateNodes(ctx, toAdd, toRemove); err != nil {
 		return errors.Errorf("curating controller codes; adding %v, removing %v: %w", toAdd, toRemove, err)
 	}
 	return nil
@@ -61,8 +64,10 @@ func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) err
 // UpdateDqliteNode sets the Dqlite node ID and bind address for the input
 // controller ID.
 func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
-	err := s.st.UpdateDqliteNode(ctx, controllerID, nodeID, addr)
-	if err != nil {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.st.UpdateDqliteNode(ctx, controllerID, nodeID, addr); err != nil {
 		return errors.Errorf("updating Dqlite node details for %q: %w", controllerID, err)
 	}
 	return nil
@@ -72,6 +77,9 @@ func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nod
 // If the namespace is not valid an error satisfying [errors.NotValid] is
 // returned.
 func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if namespace == "" {
 		return false, errors.Errorf("namespace %q is %w, cannot be empty", namespace, coreerrors.NotValid)
 	}
@@ -92,6 +100,9 @@ func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string
 // - [coreerrors.NotSupported] if the architecture is not supported.
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
 func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, controllerID string, version coreagentbinary.Version) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := version.Validate(); err != nil {
 		return errors.Errorf("agent version %+v is not valid: %w", version, err)
 	}

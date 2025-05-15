@@ -11,6 +11,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -182,6 +183,9 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 func (s *Service) GetMachinesNotAtTargetAgentVersion(
 	ctx context.Context,
 ) ([]machine.Name, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.GetMachinesNotAtTargetAgentVersion(context.Background())
 }
 
@@ -196,6 +200,9 @@ func (s *Service) GetMachineReportedAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
 ) (agentbinary.Version, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	uuid, err := s.st.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return agentbinary.Version{}, errors.Errorf(
@@ -233,6 +240,9 @@ func (s *Service) GetMachineReportedAgentVersion(
 func (s *Service) GetMachinesAgentBinaryMetadata(
 	ctx context.Context,
 ) (map[machine.Name]agentbinary.Metadata, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.GetMachinesAgentBinaryMetadata(ctx)
 }
 
@@ -245,6 +255,9 @@ func (s *Service) GetMachineTargetAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
 ) (agentbinary.Version, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	uuid, err := s.st.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return agentbinary.Version{}, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
@@ -274,6 +287,8 @@ func (s *Service) GetMachineTargetAgentVersion(
 func (s *Service) GetUnitsAgentBinaryMetadata(
 	ctx context.Context,
 ) (map[coreunit.Name]agentbinary.Metadata, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	return s.st.GetUnitsAgentBinaryMetadata(ctx)
 }
 
@@ -285,6 +300,9 @@ func (s *Service) GetUnitsAgentBinaryMetadata(
 func (s *Service) GetUnitsNotAtTargetAgentVersion(
 	ctx context.Context,
 ) ([]coreunit.Name, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.GetUnitsNotAtTargetAgentVersion(ctx)
 }
 
@@ -298,6 +316,9 @@ func (s *Service) GetUnitReportedAgentVersion(
 	ctx context.Context,
 	unitName coreunit.Name,
 ) (agentbinary.Version, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	uuid, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return agentbinary.Version{}, errors.Errorf(
@@ -328,6 +349,9 @@ func (s *Service) GetUnitTargetAgentVersion(
 	ctx context.Context,
 	unitName coreunit.Name,
 ) (agentbinary.Version, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	uuid, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return agentbinary.Version{}, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
@@ -346,6 +370,9 @@ func (s *Service) GetUnitTargetAgentVersion(
 // - [github.com/juju/juju/domain/modelagent/errors.AgentVersionFound] if no
 // agent version record exists.
 func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.GetModelTargetAgentVersion(ctx)
 }
 
@@ -365,6 +392,9 @@ func (s *Service) SetMachineReportedAgentVersion(
 	machineName machine.Name,
 	reportedVersion agentbinary.Version,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineName.Validate(); err != nil {
 		return errors.Errorf("setting reported agent version for machine: %w", err)
 	}
@@ -401,6 +431,9 @@ func (s *Service) SetModelAgentStream(
 	ctx context.Context,
 	agentStream agentbinary.AgentStream,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	domainAgentStream, err := modelagent.AgentStreamFromCoreAgentStream(agentStream)
 	if errors.Is(err, coreerrors.NotValid) {
 		return errors.Errorf(
@@ -434,6 +467,9 @@ func (s *Service) SetUnitReportedAgentVersion(
 	unitName coreunit.Name,
 	reportedVersion agentbinary.Version,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return errors.Errorf("unit name %q is not valid: %w", unitName, err)
 	}
@@ -471,8 +507,10 @@ func (s *WatchableService) WatchMachineTargetAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
 ) (watcher.NotifyWatcher, error) {
-	_, err := s.st.GetMachineUUIDByName(ctx, machineName)
-	if errors.Is(err, machineerrors.MachineNotFound) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if _, err := s.st.GetMachineUUIDByName(ctx, machineName); errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
 		return nil, errors.Errorf(
@@ -494,8 +532,10 @@ func (s *WatchableService) WatchUnitTargetAgentVersion(
 	ctx context.Context,
 	unitName coreunit.Name,
 ) (watcher.NotifyWatcher, error) {
-	_, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if _, err := s.st.GetUnitUUIDByName(ctx, unitName); errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
 		return nil, errors.Errorf("checking if unit %q exists when watching target agent version: %w", unitName, err)
@@ -512,6 +552,9 @@ func (s *WatchableService) WatchUnitTargetAgentVersion(
 // version of this model and reporting when a change has happened in the
 // version.
 func (s *WatchableService) WatchModelTargetAgentVersion(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	w, err := s.watcherFactory.NewNotifyWatcher(
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchAgentVersion(), changestream.All),
 	)

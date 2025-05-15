@@ -9,6 +9,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/environs/config"
@@ -47,6 +48,9 @@ func NewProviderService(
 
 // ModelConfig returns the current config for the model.
 func (s *ProviderService) ModelConfig(ctx context.Context) (*config.Config, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	stConfig, err := s.st.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting model config from state: %w", err)
@@ -80,6 +84,8 @@ func NewWatchableProviderService(
 // Watch returns a watcher that returns keys for any changes to model
 // config.
 func (s *WatchableProviderService) Watch() (watcher.StringsWatcher, error) {
+	// TODO (stickupkid): Wire up trace here. The fallout from this change
+	// is quite large.
 	return s.watcherFactory.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchModelConfig(), changestream.All),

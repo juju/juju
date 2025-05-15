@@ -9,6 +9,7 @@ import (
 	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -53,6 +54,9 @@ func NewProviderService(
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model is not found for a given uuid.
 func (s *ProviderService) Model(ctx context.Context) (coremodel.ModelInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.modelSt.GetModel(ctx)
 }
 
@@ -64,5 +68,7 @@ func (s *ProviderService) Model(ctx context.Context) (coremodel.ModelInfo, error
 // The following errors can be expected:
 // - [modelerrors.NotFound] when the model is not found.
 func (s *ProviderService) WatchModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	return watchModelCloudCredential(ctx, s.controllerSt, s.watcherFactory, modelUUID)
 }

@@ -8,6 +8,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/trace"
 	proxyerrors "github.com/juju/juju/domain/proxy/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
@@ -40,6 +41,9 @@ func NewService(providerGetter providertracker.ProviderGetter[Provider]) *Servic
 // return [errors.ProxyNotSupported], if the connection proxy info is not located
 // it will return [errors.ProxyNotFound].
 func (s *Service) GetConnectionProxyInfo(ctx context.Context) (proxy.Proxier, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	provider, err := s.providerGetter(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return nil, proxyerrors.ProxyInfoNotSupported
@@ -60,6 +64,9 @@ func (s *Service) GetConnectionProxyInfo(ctx context.Context) (proxy.Proxier, er
 // GetProxyToApplication returns the proxy information for the application
 // with the given port.
 func (s *Service) GetProxyToApplication(ctx context.Context, appName, remotePort string) (proxy.Proxier, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	provider, err := s.providerGetter(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return nil, proxyerrors.ProxyNotSupported

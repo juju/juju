@@ -14,6 +14,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -215,6 +216,9 @@ func (s *Service) AddSubordinateUnit(
 	subordinateAppID coreapplication.ID,
 	principalUnitName coreunit.Name,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := subordinateAppID.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -261,6 +265,9 @@ func (s *Service) AddSubordinateUnit(
 // [applicationerrors.ApplicationNotAlive] if the unit's application is not
 // alive.
 func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -311,6 +318,9 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 // is not found, an error satisfying [applicationerrors.UnitNotFound] is
 // returned.
 func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -337,13 +347,15 @@ func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leader
 // returning an error  satisfying [applicationerrors.UnitNotFoundError]
 // if the unit doesn't exist.
 func (s *Service) DestroyUnit(ctx context.Context, unitName coreunit.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
 
 	// For now, all we do is advance the unit's life to Dying.
-	err := s.st.SetUnitLife(ctx, unitName, life.Dying)
-	if err != nil {
+	if err := s.st.SetUnitLife(ctx, unitName, life.Dying); err != nil {
 		return errors.Errorf("destroying unit %q: %w", unitName, err)
 	}
 	return nil
@@ -357,6 +369,9 @@ func (s *Service) DestroyUnit(ctx context.Context, unitName coreunit.Name) error
 // the unit is not found, an error satisfying [applicationerrors.UnitNotFound]
 // is returned.
 func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -384,6 +399,9 @@ func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, le
 // GetUnitUUID returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -398,6 +416,9 @@ func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (core
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
 func (s *Service) GetUnitLife(ctx context.Context, unitName coreunit.Name) (corelife.Value, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -413,6 +434,9 @@ func (s *Service) GetUnitLife(ctx context.Context, unitName coreunit.Name) (core
 // is found, for example, when the unit is not a subordinate, then false is
 // returned.
 func (s *Service) GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) (coreunit.Name, bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return "", false, errors.Capture(err)
 	}
@@ -428,6 +452,9 @@ func (s *Service) GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) 
 //   - [applicationerrors.UnitNotFound] if the unit cannot be found.
 //   - [applicationerrors.UnitIsDead] if the unit is dead.
 func (s *Service) GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (machine.Name, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -448,6 +475,9 @@ func (s *Service) GetUnitMachineName(ctx context.Context, unitName coreunit.Name
 //   - [applicationerrors.UnitNotFound] if the unit cannot be found.
 //   - [applicationerrors.UnitIsDead] if the unit is dead.
 func (s *Service) GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (machine.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -466,6 +496,9 @@ func (s *Service) GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name
 // has been removed from mongo. The mongo calls are
 // DestroyMaybeRemove, DestroyWithForce, RemoveWithForce.
 func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -489,6 +522,9 @@ func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error 
 // This doesn't take into account life, so it can return the life of a unit
 // even if it's dead.
 func (s *Service) GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (application.UnitAttributes, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return application.UnitAttributes{}, errors.Capture(err)
 	}
@@ -498,6 +534,9 @@ func (s *Service) GetUnitRefreshAttributes(ctx context.Context, unitName coreuni
 
 // GetAllUnitNames returns a slice of all unit names in the model.
 func (s *Service) GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	names, err := s.st.GetAllUnitNames(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -510,6 +549,9 @@ func (s *Service) GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error) 
 // - [applicationerrors.ApplicationIsDead] if the application is dead
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (s *Service) GetUnitNamesForApplication(ctx context.Context, appName string) ([]coreunit.Name, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -525,6 +567,9 @@ func (s *Service) GetUnitNamesForApplication(ctx context.Context, appName string
 // The following errors may be returned:
 // - [applicationerrors.MachineNotFound] if the machine does not exist
 func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName machine.Name) ([]coreunit.Name, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	netNodeUUID, err := s.st.GetMachineNetNodeUUIDFromName(ctx, machineName)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -538,6 +583,9 @@ func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName machine
 
 // SetUnitWorkloadVersion sets the workload version for the given unit.
 func (s *Service) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -547,6 +595,9 @@ func (s *Service) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 
 // GetUnitWorkloadVersion returns the workload version for the given unit.
 func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitName.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -568,6 +619,9 @@ func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 // - [uniterrors.UnitNotFound] if the unit does not exist
 // - [network.NoAddressError] if the unit has no public address associated
 func (s *Service) GetUnitPublicAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
@@ -596,6 +650,9 @@ func (s *Service) GetUnitPublicAddress(ctx context.Context, unitName coreunit.Na
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
 func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)

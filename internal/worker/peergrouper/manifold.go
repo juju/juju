@@ -122,7 +122,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	supportsHA := ctrlModel.ModelType != coremodel.CAAS
 
 	w, err := config.NewWorker(Config{
-		State:                   StateShim{st},
+		State:                   StateShim{State: st},
 		ControllerConfigService: controllerConfigService,
 		MongoSession:            MongoSessionShim{mongoSession},
 		APIHostPortsSetter:      &CachingAPIHostPortsSetter{APIHostPortsSetter: st},

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -51,6 +52,9 @@ type Service struct {
 // CreateCloud creates the input cloud entity and provides Admin
 // permissions for the owner.
 func (s *Service) CreateCloud(ctx context.Context, owner user.Name, cloud cloud.Cloud) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	credUUID, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Errorf("creating uuid for cloud %q: %w", cloud.Name, err)
@@ -64,8 +68,10 @@ func (s *Service) CreateCloud(ctx context.Context, owner user.Name, cloud cloud.
 
 // UpdateCloud updates the specified cloud.
 func (s *Service) UpdateCloud(ctx context.Context, cloud cloud.Cloud) error {
-	err := s.st.UpdateCloud(ctx, cloud)
-	if err != nil {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.st.UpdateCloud(ctx, cloud); err != nil {
 		return errors.Errorf("updating cloud %q: %w", cloud.Name, err)
 	}
 	return nil
@@ -73,8 +79,10 @@ func (s *Service) UpdateCloud(ctx context.Context, cloud cloud.Cloud) error {
 
 // DeleteCloud removes the specified cloud.
 func (s *Service) DeleteCloud(ctx context.Context, name string) error {
-	err := s.st.DeleteCloud(ctx, name)
-	if err != nil {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.st.DeleteCloud(ctx, name); err != nil {
 		return errors.Errorf("deleting cloud %q: %w", name, err)
 	}
 	return nil
@@ -82,12 +90,18 @@ func (s *Service) DeleteCloud(ctx context.Context, name string) error {
 
 // ListAll returns all the clouds.
 func (s *Service) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	all, err := s.st.ListClouds(ctx)
 	return all, errors.Capture(err)
 }
 
 // Cloud returns the named cloud.
 func (s *Service) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	cloud, err := s.st.Cloud(ctx, name)
 	return cloud, errors.Capture(err)
 }
@@ -112,5 +126,8 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 
 // WatchCloud returns a watcher that observes changes to the specified cloud.
 func (s *WatchableService) WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.WatchCloud(ctx, s.watcherFactory.NewNotifyWatcher, name)
 }

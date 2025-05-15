@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -87,6 +88,9 @@ type WatcherState interface {
 // event contains the machine name which is associated with the changed port
 // range.
 func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	table, statement := s.st.InitialWatchMachineOpenedPortsStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		eventsource.InitialNamespaceChanges(statement),
@@ -99,6 +103,9 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher
 // watcher emits events for changes to the opened ports table that are associated
 // with the given application
 func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.watcherFactory.NewNotifyMapperWatcher(
 		s.filterForApplication(applicationUUID),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchOpenedPort(), changestream.All),

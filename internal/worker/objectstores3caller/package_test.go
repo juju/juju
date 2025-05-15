@@ -4,6 +4,7 @@
 package objectstores3caller
 
 import (
+	"context"
 	"testing"
 	time "time"
 
@@ -88,7 +89,7 @@ func (s *baseSuite) expectControllerConfig(c *tc.C, config controller.Config) {
 }
 
 func (s *baseSuite) expectControllerConfigWatch(c *tc.C) {
-	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		ch := make(chan []string)
 		go func() {
 			select {
@@ -102,7 +103,7 @@ func (s *baseSuite) expectControllerConfigWatch(c *tc.C) {
 }
 
 func (s *baseSuite) expectControllerConfigWatchWithChanges(c *tc.C, changes <-chan []string) {
-	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(changes), nil
 	})
 }

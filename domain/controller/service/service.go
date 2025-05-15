@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 )
 
 // State defines an interface for interacting with the underlying state.
@@ -28,5 +29,7 @@ func NewService(st State) *Service {
 
 // ControllerModelUUID returns the model UUID of the controller model.
 func (s *Service) ControllerModelUUID(ctx context.Context) (model.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	return s.st.ControllerModelUUID(ctx)
 }

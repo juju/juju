@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
@@ -60,6 +61,9 @@ func NewService(st State) *Service {
 
 // ControllerConfig returns the config values for the controller.
 func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	ctrlConfigMap, err := s.st.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Errorf("unable to get controller config: %w", err)
@@ -93,6 +97,9 @@ func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, erro
 
 // UpdateControllerConfig updates the controller config.
 func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	coerced, err := controller.EncodeToString(updateAttrs)
 	if err != nil {
 		return errors.Capture(err)
@@ -269,7 +276,10 @@ var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
 
 // Watch returns a watcher that returns keys for any changes to controller
 // config.
-func (s *WatchableService) WatchControllerConfig() (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchControllerConfig(ctx context.Context) (watcher.StringsWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.watcherFactory.NewNamespaceWatcher(
 		InitialNamespaceChanges(s.st.AllKeysQuery()),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerConfig(), changestream.All),

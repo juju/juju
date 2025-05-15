@@ -98,7 +98,7 @@ func (s *WorkerSuite) TestNormalStart(c *tc.C) {
 
 	ch := make(chan []string)
 
-	s.controllerConifgService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.controllerConifgService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		close(start)
 		return watchertest.NewMockStringsWatcher(ch), nil
 	})
@@ -571,7 +571,7 @@ func (s *WorkerSuite) runScenario(c *tc.C, newConfig controller.Config) (worker.
 	dispatched1 := make(chan struct{})
 	dispatched2 := make(chan struct{})
 
-	s.controllerConifgService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.controllerConifgService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		close(start)
 		return watchertest.NewMockStringsWatcher(ch), nil
 	})

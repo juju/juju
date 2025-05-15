@@ -8,12 +8,16 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 )
 
 // GetStatusHistory returns the status history based on the request.
 func (s *Service) GetStatusHistory(ctx context.Context, request StatusHistoryRequest) ([]status.DetailedStatus, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	reader, err := s.statusHistoryReaderFn()
 	if err != nil {
 		return nil, errors.Errorf("reading status history: %v", err)

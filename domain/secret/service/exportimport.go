@@ -8,6 +8,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secret"
@@ -17,6 +18,9 @@ import (
 // GetSecretsForExport returns a result containing all the information needed to
 // export secrets to a model description.
 func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	secrets, secretRevisions, err := s.secretState.ListSecrets(ctx, nil, nil, secret.NilLabels)
 	if err != nil {
 		return nil, errors.Errorf("loading secrets for export: %w", err)
@@ -144,6 +148,9 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 
 // ImportSecrets saves the supplied secret details to the model.
 func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretExport) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := s.importRemoteSecrets(ctx, modelSecrets.RemoteSecrets); err != nil {
 		return errors.Errorf("importing remote secrets: %w", err)
 	}

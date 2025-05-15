@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/ssh"
 )
@@ -36,6 +37,9 @@ func NewControllerKeyService(st ControllerKeyState) *ControllerKeyService {
 func (s *ControllerKeyService) ControllerAuthorisedKeys(
 	ctx context.Context,
 ) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	ctrlConfig, err := s.st.GetControllerConfigKeys(ctx, []string{controller.SystemSSHKeys})
 	if err != nil {
 		return nil, errors.Errorf("cannot get juju controller public ssh keys: %w", err)

@@ -7,12 +7,16 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/errors"
 )
 
 // DeleteObsoleteUserSecretRevisions deletes any obsolete user secret revisions that are marked as auto-prune.
 func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	deletedRevisionIDs, err := s.secretState.DeleteObsoleteUserSecretRevisions(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -28,6 +32,9 @@ func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) e
 // If revisions is nil or the last remaining revisions are removed.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, params DeleteSecretParams) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
 		return errors.Capture(err)
