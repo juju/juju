@@ -13,11 +13,12 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
+	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -165,11 +166,24 @@ type State interface {
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
 }
 
+// ControllerState is the controller state required by this service. This is the
+// controller database, not the model state.
+type ControllerState interface {
+	// GetModelState returns the model state for the given model.
+	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
+	GetModelState(context.Context, coremodel.UUID) (status.ModelState, error)
+
+	// GetModel returns the model for the given UUID.
+	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
+	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
+}
+
 // Service provides the API for working with the statuses of applications and
 // units.
 type Service struct {
 	st                    State
-	modelUUID             model.UUID
+	controllerState       ControllerState
+	modelUUID             coremodel.UUID
 	statusHistory         StatusHistory
 	statusHistoryReaderFn StatusHistoryReaderFunc
 	logger                logger.Logger
@@ -179,7 +193,8 @@ type Service struct {
 // NewService returns a new service reference wrapping the input state.
 func NewService(
 	st State,
-	modelUUID model.UUID,
+	controllerState ControllerState,
+	modelUUID coremodel.UUID,
 	statusHistory StatusHistory,
 	statusHistoryReaderFn StatusHistoryReaderFunc,
 	clock clock.Clock,
@@ -187,6 +202,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		st:                    st,
+		controllerState:       controllerState,
 		modelUUID:             modelUUID,
 		statusHistory:         statusHistory,
 		statusHistoryReaderFn: statusHistoryReaderFn,
@@ -749,4 +765,54 @@ func (s *Service) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInf
 	defer span.End()
 
 	return s.st.GetModelStatusInfo(ctx)
+}
+
+// GetStatus returns the current status of the model.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound]: When the model does not exist.
+func (s *Service) GetStatus(ctx context.Context) (domainmodel.StatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	modelState, err := s.controllerState.GetModelState(ctx, s.modelUUID)
+	if err != nil {
+		return domainmodel.StatusInfo{}, errors.Capture(err)
+	}
+	return s.statusFromModelState(ctx, modelState), nil
+}
+
+// statusFromModelState is responsible for converting the a [model.ModelState]
+// into a model status representation.
+func (s *Service) statusFromModelState(
+	ctx context.Context,
+	statusState status.ModelState,
+) domainmodel.StatusInfo {
+	now := s.clock.Now()
+	if statusState.HasInvalidCloudCredential {
+		return domainmodel.StatusInfo{
+			Status:  corestatus.Suspended,
+			Message: "suspended since cloud credential is not valid",
+			Reason:  statusState.InvalidCloudCredentialReason,
+			Since:   now,
+		}
+	}
+	if statusState.Destroying {
+		return domainmodel.StatusInfo{
+			Status:  corestatus.Destroying,
+			Message: "the model is being destroyed",
+			Since:   now,
+		}
+	}
+	if statusState.Migrating {
+		return domainmodel.StatusInfo{
+			Status:  corestatus.Busy,
+			Message: "the model is being migrated",
+			Since:   now,
+		}
+	}
+
+	return domainmodel.StatusInfo{
+		Status: corestatus.Available,
+		Since:  now,
+	}
 }
