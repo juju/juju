@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/worker/fortress"
 )
@@ -29,6 +30,7 @@ const (
 type Config struct {
 	FortressVistor    fortress.Guest
 	ObjectStoreGetter coreobjectstore.ObjectStoreGetter
+	Logger            logger.Logger
 }
 
 // Validate returns an error if the config cannot be expected to

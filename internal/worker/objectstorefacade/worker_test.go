@@ -15,6 +15,7 @@ import (
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/fortress"
 )
 
@@ -411,6 +412,7 @@ func (s *workerSuite) newWorker(c *tc.C) *Worker {
 	w, err := NewWorker(Config{
 		FortressVistor:    s.guest,
 		ObjectStoreGetter: s.objectStoreGetter,
+		Logger:            loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return w.(*Worker)
