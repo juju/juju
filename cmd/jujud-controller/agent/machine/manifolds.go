@@ -791,12 +791,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// can't accidentally interfere with a draining in progress. Such a
 		// manifold should depend on the objectstore facade, which will guard
 		// against any objectstore operations while the draining is in progress.
-		objectStoreFortressName: ifController(fortress.Manifold()),
+		objectStoreFortressName: fortress.Manifold(),
 		objectStoreDrainerName: objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
 			ObjectStoreServicesName: objectStoreServicesName,
 			FortressName:            objectStoreFortressName,
 			GeObjectStoreServicesFn: objectstoredrainer.GeObjectStoreServices,
 			NewWorker:               objectstoredrainer.NewWorker,
+			Logger:                  internallogger.GetLogger("juju.worker.objectstoredrainer"),
 		}),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
@@ -819,6 +820,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		objectStoreFacadeName: objectstorefacade.Manifold(objectstorefacade.ManifoldConfig{
 			ObjectStoreName: objectStoreName,
 			FortressName:    objectStoreFortressName,
+			NewWorker:       objectstorefacade.NewWorker,
+			Logger:          internallogger.GetLogger("juju.worker.objectstorefacade"),
 		}),
 
 		objectStoreServicesName: objectstoreservices.Manifold(objectstoreservices.ManifoldConfig{

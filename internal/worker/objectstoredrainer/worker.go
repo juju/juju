@@ -10,6 +10,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -30,6 +31,7 @@ type ObjectStoreService interface {
 type Config struct {
 	Guard              fortress.Guard
 	ObjectStoreService ObjectStoreService
+	Logger             logger.Logger
 }
 
 // Validate returns an error if the config cannot be expected to
@@ -40,6 +42,9 @@ func (config Config) Validate() error {
 	}
 	if config.ObjectStoreService == nil {
 		return errors.NotValidf("nil ObjectStoreService")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -55,6 +60,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "objectstoredrainer",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
@@ -110,11 +116,15 @@ func (w *Worker) loop() error {
 			// We're not draining, so we can unlock the guard and wait
 			// for the next change.
 			if !phase.IsDraining() {
+				w.config.Logger.Debugf(ctx, "object store is not draining, unlocking guard")
+
 				if err := w.config.Guard.Unlock(ctx); err != nil {
 					return errors.Errorf("failed to update guard: %v", err)
 				}
 				continue
 			}
+
+			w.config.Logger.Infof(ctx, "object store is draining, locking guard")
 
 			// TODO (stickupkid): Handle the draining phase.
 			if err := w.config.Guard.Lockdown(ctx); err != nil {

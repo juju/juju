@@ -7,10 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
+
+	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/worker/fortress"
 )
 
 // GetObjectStoreServiceServicesFunc is a function that retrieves the
@@ -25,6 +27,8 @@ type ManifoldConfig struct {
 
 	GeObjectStoreServicesFn GetObjectStoreServiceServicesFunc
 	NewWorker               func(context.Context, Config) (worker.Worker, error)
+
+	Logger logger.Logger
 }
 
 // validate is called by start to check for bad configuration.
@@ -40,6 +44,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -63,6 +70,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	worker, err := config.NewWorker(context, Config{
 		Guard:              fortress,
 		ObjectStoreService: objectStoreService,
+		Logger:             config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
