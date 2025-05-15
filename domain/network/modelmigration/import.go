@@ -60,8 +60,19 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import of the spaces and subnets contained in the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
+	spaceIDsMap, err := i.importSpaces(ctx, model.Spaces())
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := i.importSubnets(ctx, model.Subnets(), spaceIDsMap); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+func (i *importOperation) importSpaces(ctx context.Context, modelSpaces []description.Space) (map[string]string, error) {
 	spaceIDsMap := make(map[string]string)
-	for _, space := range model.Spaces() {
+	for _, space := range modelSpaces {
 		// The default space should not have been exported, but be defensive.
 		if space.Name() == network.AlphaSpaceName {
 			continue
@@ -73,7 +84,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 		spaceID, err := i.importService.AddSpace(ctx, spaceInfo)
 		if err != nil {
-			return errors.Errorf("creating space %s: %w", space.Name(), err)
+			return nil, errors.Errorf("creating space %s: %w", space.Name(), err)
 		}
 		// Update the space IDs mapping, which we need for subnets
 		// import. We do this for the pre-4.0 migrations, where
@@ -85,9 +96,16 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			spaceIDsMap[spaceID.String()] = spaceID.String()
 		}
 	}
+	return spaceIDsMap, nil
+}
 
-	// Now import the subnets.
-	for _, subnet := range model.Subnets() {
+func (i *importOperation) importSubnets(
+	ctx context.Context,
+	modelSubnets []description.Subnet,
+	spaceIDsMap map[string]string,
+) error {
+
+	for _, subnet := range modelSubnets {
 		subnetInfo := network.SubnetInfo{
 			ID:                network.Id(subnet.UUID()),
 			CIDR:              subnet.CIDR(),
@@ -113,6 +131,5 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("creating subnet %s: %w", subnet.CIDR(), err)
 		}
 	}
-
 	return nil
 }
