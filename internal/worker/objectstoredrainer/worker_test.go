@@ -89,7 +89,7 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 }
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
-	w, err := NewWorker(context.Background(), Config{
+	w, err := NewWorker(c.Context(), Config{
 		ObjectStoreService: s.service,
 		Guard:              s.guard,
 		Logger:             loggertesting.WrapCheckLog(c),

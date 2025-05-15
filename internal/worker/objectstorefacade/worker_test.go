@@ -33,7 +33,7 @@ func (s *workerSuite) TestObjectStoreGetObjectStore(c *tc.C) {
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	store, err := w.GetObjectStore(context.Background(), "foo")
+	store, err := w.GetObjectStore(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(store, tc.NotNil)
 }
@@ -46,7 +46,7 @@ func (s *workerSuite) TestObjectStoreGetObjectStoreError(c *tc.C) {
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	_, err := w.GetObjectStore(context.Background(), "foo")
+	_, err := w.GetObjectStore(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 

@@ -3894,7 +3894,7 @@ func (s *applicationStateSuite) TestGetNetNodeUnitNotFound(c *tc.C) {
 func (s *applicationStateSuite) TestShouldAllowCharmUpgradeOnError(c *tc.C) {
 	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setCharmUpgradeOnError(c, appUUID, true)
-	v, err := s.state.ShouldAllowCharmUpgradeOnError(context.Background(), "foo")
+	v, err := s.state.ShouldAllowCharmUpgradeOnError(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(v, tc.IsTrue)
 }
@@ -3902,18 +3902,18 @@ func (s *applicationStateSuite) TestShouldAllowCharmUpgradeOnError(c *tc.C) {
 func (s *applicationStateSuite) TestShouldAllowCharmUpgradeOnErrorFalse(c *tc.C) {
 	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	s.setCharmUpgradeOnError(c, appUUID, false)
-	v, err := s.state.ShouldAllowCharmUpgradeOnError(context.Background(), "foo")
+	v, err := s.state.ShouldAllowCharmUpgradeOnError(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(v, tc.IsFalse)
 }
 
 func (s *applicationStateSuite) TestShouldAllowCharmUpgradeOnErrorNotFound(c *tc.C) {
-	_, err := s.state.ShouldAllowCharmUpgradeOnError(context.Background(), "foo")
+	_, err := s.state.ShouldAllowCharmUpgradeOnError(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) setCharmUpgradeOnError(c *tc.C, appUUID coreapplication.ID, v bool) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 UPDATE application
 SET    charm_upgrade_on_error = ?
@@ -3992,7 +3992,7 @@ func (s *applicationStateSuite) assertCAASApplication(
 		gotScale     application.ScaleState
 		gotAvailable bool
 	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid, charm_uuid, name FROM application WHERE name=?", name).Scan(&gotUUID, &gotCharmUUID, &gotName)
 		if err != nil {
 			return err
