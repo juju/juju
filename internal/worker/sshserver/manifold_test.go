@@ -4,6 +4,7 @@
 package sshserver
 
 import (
+	"context"
 	"os"
 
 	"github.com/juju/errors"

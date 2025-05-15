@@ -31,7 +31,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 			loggertesting.WrapCheckLog(c),
 		),
 	)
-	watcher, err := svc.WatchControllerConfig(context.Background())
+	watcher, err := svc.WatchControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))

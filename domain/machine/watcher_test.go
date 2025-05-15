@@ -51,7 +51,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 
 	s.AssertChangeStreamIdle(c)
 
-	watcher, err := s.svc.WatchModelMachines(context.Background())
+	watcher, err := s.svc.WatchModelMachines(c.Context())
 	c.Assert(err, tc.IsNil)
 	defer watchertest.CleanKill(c, watcher)
 
