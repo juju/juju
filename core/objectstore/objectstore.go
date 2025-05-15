@@ -17,6 +17,11 @@ const (
 	// This error indicates to consuming workers that their dependency has
 	// become unmet and a restart by the dependency engine is imminent.
 	ErrObjectStoreDying = errors.ConstError("object store worker is dying")
+
+	// ErrTimeoutWaitingForDraining is used to indicate that the object store
+	// worker is taking too long to drain. This is used to indicate to
+	// *third parties* that the object store worker is draining.
+	ErrTimeoutWaitingForDraining = errors.ConstError("timeout waiting for draining to complete")
 )
 
 // Client provides access to the object store.
