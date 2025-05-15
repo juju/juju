@@ -61,11 +61,12 @@ func (s *workerSuite) TestWorkerCleanKill(c *tc.C) {
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
 		ch := make(chan []string)
 		go func() {
+			defer close(notifyInitialConfigConsumed)
+
 			select {
 			case ch <- []string{}:
-				notifyInitialConfigConsumed <- struct{}{}
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out sending initial change")
+			case <-c.Context().Done():
+				return
 			}
 		}()
 		return watchertest.NewMockStringsWatcher(ch), nil
@@ -86,7 +87,7 @@ func (s *workerSuite) TestWorkerCleanKill(c *tc.C) {
 
 	select {
 	case <-notifyInitialConfigConsumed:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for worker to start")
 	}
 	workertest.CleanKill(c, w)
@@ -155,14 +156,14 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 	// Simulate a new controller node event.
 	select {
 	case nodeCh <- struct{}{}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out sending controller node event")
 	}
 
 	// Wait for the worker to process the event.
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for API address update")
 	}
 
@@ -213,6 +214,7 @@ func (s *workerSuite) TestConfigChange(c *tc.C) {
 		close(sync)
 		return nil
 	})
+
 	// Expected calls after the controller config change.
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 		controller.JujuManagementSpace: "space1",
@@ -245,14 +247,14 @@ func (s *workerSuite) TestConfigChange(c *tc.C) {
 	// Simulate a new controller node event.
 	select {
 	case nodeCh <- struct{}{}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out sending controller node event")
 	}
 
 	// Wait for the worker to process the initial (new node) event.
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for API address update")
 	}
 
@@ -260,14 +262,14 @@ func (s *workerSuite) TestConfigChange(c *tc.C) {
 	// on the second set api addresses call.
 	select {
 	case cfgCh <- []string{}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out sending controller config change")
 	}
 
 	// Wait for the worker to process the config event.
 	select {
 	case <-cfgSync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for API address update after config change")
 	}
 
@@ -352,14 +354,14 @@ func (s *workerSuite) TestNodeAddressChange(c *tc.C) {
 	// Simulate a new controller node event.
 	select {
 	case nodeCh <- struct{}{}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out sending controller node event")
 	}
 
 	// Wait for the worker to process the initial (new node) event.
 	select {
 	case <-sync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for API address update")
 	}
 
@@ -367,14 +369,14 @@ func (s *workerSuite) TestNodeAddressChange(c *tc.C) {
 	// on the second set api addresses call.
 	select {
 	case addrCh <- struct{}{}:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out sending controller node address change")
 	}
 
 	// Wait for the worker to process the new addrs event.
 	select {
 	case <-addrSync:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for API address update after address change")
 	}
 

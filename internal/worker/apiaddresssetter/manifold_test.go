@@ -4,7 +4,6 @@
 package apiaddresssetter
 
 import (
-	"context"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -118,7 +117,7 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 		Logger: loggertesting.WrapCheckLog(c),
 	}
 
-	w, err := Manifold(cfg).Start(context.Background(), noGetter{})
+	w, err := Manifold(cfg).Start(c.Context(), noGetter{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.NotNil)
 }
