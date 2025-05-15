@@ -1215,11 +1215,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"object-store-fortress": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
+	"object-store-fortress": {},
 
 	"object-store-facade": {
 		"agent",
@@ -2124,11 +2120,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"object-store-fortress": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
+	"object-store-fortress": {},
 
 	"object-store-facade": {
 		"agent",

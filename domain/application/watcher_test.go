@@ -75,7 +75,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchCharms(context.Background())
+	watcher, err := svc.WatchCharms(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -1272,7 +1272,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	netNodeUUID := networktesting.GenNetNodeUUID(c)
 
 	// Insert a net node first.
