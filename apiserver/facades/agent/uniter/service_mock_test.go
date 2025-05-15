@@ -480,6 +480,45 @@ func (c *MockApplicationServiceGetCharmLXDProfileCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetCharmLocatorByApplicationName mocks base method.
+func (m *MockApplicationService) GetCharmLocatorByApplicationName(arg0 context.Context, arg1 string) (charm.CharmLocator, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmLocatorByApplicationName", arg0, arg1)
+	ret0, _ := ret[0].(charm.CharmLocator)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmLocatorByApplicationName indicates an expected call of GetCharmLocatorByApplicationName.
+func (mr *MockApplicationServiceMockRecorder) GetCharmLocatorByApplicationName(arg0, arg1 any) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmLocatorByApplicationName", reflect.TypeOf((*MockApplicationService)(nil).GetCharmLocatorByApplicationName), arg0, arg1)
+	return &MockApplicationServiceGetCharmLocatorByApplicationNameCall{Call: call}
+}
+
+// MockApplicationServiceGetCharmLocatorByApplicationNameCall wrap *gomock.Call
+type MockApplicationServiceGetCharmLocatorByApplicationNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) Return(arg0 charm.CharmLocator, arg1 error) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) Do(f func(context.Context, string) (charm.CharmLocator, error)) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm.CharmLocator, error)) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharmModifiedVersion mocks base method.
 func (m *MockApplicationService) GetCharmModifiedVersion(arg0 context.Context, arg1 application.ID) (int, error) {
 	m.ctrl.T.Helper()
@@ -866,6 +905,45 @@ func (c *MockApplicationServiceSetUnitWorkloadVersionCall) Do(f func(context.Con
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceSetUnitWorkloadVersionCall) DoAndReturn(f func(context.Context, unit.Name, string) error) *MockApplicationServiceSetUnitWorkloadVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ShouldAllowCharmUpgradeOnError mocks base method.
+func (m *MockApplicationService) ShouldAllowCharmUpgradeOnError(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShouldAllowCharmUpgradeOnError", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ShouldAllowCharmUpgradeOnError indicates an expected call of ShouldAllowCharmUpgradeOnError.
+func (mr *MockApplicationServiceMockRecorder) ShouldAllowCharmUpgradeOnError(arg0, arg1 any) *MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldAllowCharmUpgradeOnError", reflect.TypeOf((*MockApplicationService)(nil).ShouldAllowCharmUpgradeOnError), arg0, arg1)
+	return &MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall{Call: call}
+}
+
+// MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall wrap *gomock.Call
+type MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall) Return(arg0 bool, arg1 error) *MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall) Do(f func(context.Context, string) (bool, error)) *MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

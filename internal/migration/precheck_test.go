@@ -91,26 +91,7 @@ func (s *SourcePrecheckSuite) TestDyingModel(c *tc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestCharmUpgrades(c *tc.C) {
-	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
-
-	s.expectApplicationLife("spanner", life.Alive)
-	s.expectCheckUnitStatuses(nil)
-
-	backend := &fakeBackend{
-		apps: []migration.PrecheckApplication{
-			&fakeApp{
-				name:     "spanner",
-				charmURL: "ch:spanner-3",
-				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "spanner/0", charmURL: "ch:spanner-3"},
-					&fakeUnit{name: "spanner/1", charmURL: "ch:spanner-2"},
-				},
-			},
-		},
-	}
-	err := sourcePrecheck(c, backend, &fakeCredentialService{}, s.upgradeService, s.applicationService,
-		s.relationService, s.statusService, s.agentService)
-	c.Assert(err, tc.ErrorMatches, "unit spanner/1 is upgrading")
+	c.Skip("(aflynn) Re-enable when upgrades is moved to dqlite.")
 }
 
 func (s *SourcePrecheckSuite) TestTargetController3Failed(c *tc.C) {

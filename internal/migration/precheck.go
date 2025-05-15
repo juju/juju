@@ -350,10 +350,7 @@ func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplicatio
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
 		}
 
-		unitCharmURL := unit.CharmURL()
-		if unitCharmURL == nil || *appCharmURL != *unitCharmURL {
-			return errors.Errorf("unit %s is upgrading", unit.Name())
-		}
+		// TODO(aflynn): 2025-05-24 check if any units are mid-upgrade.
 	}
 	return nil
 }

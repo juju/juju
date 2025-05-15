@@ -30,6 +30,7 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -394,7 +395,6 @@ func (s *uniterSuite) TestAvailabilityZone(c *tc.C) {
 
 func (s *uniterSuite) TestAssignedMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-
 	// Arrange:
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -538,6 +538,67 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	})
 }
 
+func (s *uniterSuite) TestCharmURL(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange:
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "application-mysql"},
+		{Tag: "application-wordpress"},
+		{Tag: "application-foo"},
+		{Tag: "application-bar"},
+	}}
+	locator := domaincharm.CharmLocator{
+		Source:       domaincharm.CharmHubSource,
+		Revision:     42,
+		Architecture: architecture.AMD64,
+	}
+	// Arrange: expected unit calls
+	s.expectGetCharmLocatorByApplicationName(c, "mysql", locator, nil)
+
+	s.expectGetCharmLocatorByApplicationName(c, "wordpress", locator, nil)
+
+	boom := internalerrors.New("boom")
+	s.expectGetCharmLocatorByApplicationName(c, "foo", locator, boom)
+
+	// Arrange: expected application calls
+	s.expectShouldAllowCharmUpgradeOnError(c, "mysql", true, nil)
+	s.expectGetCharmLocatorByApplicationName(c, "mysql", locator, nil)
+
+	s.expectShouldAllowCharmUpgradeOnError(c, "wordpress", false, nil)
+	s.expectGetCharmLocatorByApplicationName(c, "wordpress", locator, nil)
+
+	s.expectShouldAllowCharmUpgradeOnError(c, "foo", false, boom)
+	s.badTag = names.NewApplicationTag("bar")
+
+	// Act:
+	result, err := s.uniter.CharmURL(context.Background(), args)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringBoolResults{
+		Results: []params.StringBoolResult{
+			{Result: "ch:amd64/-42", Ok: true},
+			{Result: "ch:amd64/-42", Ok: true},
+			{Error: apiservererrors.ServerError(boom)},
+			{Result: "ch:amd64/-42", Ok: true},
+			{Result: "ch:amd64/-42", Ok: false},
+			{Error: apiservererrors.ServerError(boom)},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) expectGetCharmLocatorByApplicationName(c *tc.C, appName string, charmLocator domaincharm.CharmLocator, err error) {
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), appName).Return(charmLocator, err)
+}
+
+func (s *uniterSuite) expectShouldAllowCharmUpgradeOnError(c *tc.C, appName string, v bool, err error) {
+	s.applicationService.EXPECT().ShouldAllowCharmUpgradeOnError(gomock.Any(), appName).Return(v, err)
+}
+
 func (s *uniterSuite) TestConfigSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -637,16 +698,18 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.resolveService = NewMockResolveService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
+	authFunc := func(ctx context.Context) (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return tag != s.badTag
+		}, nil
+	}
 	s.uniter = &UniterAPI{
 		applicationService: s.applicationService,
 		machineService:     s.machineService,
 		resolveService:     s.resolveService,
-		accessUnit: func(ctx context.Context) (common.AuthFunc, error) {
-			return func(tag names.Tag) bool {
-				return tag != s.badTag
-			}, nil
-		},
-		watcherRegistry: s.watcherRegistry,
+		accessUnit:         authFunc,
+		accessApplication:  authFunc,
+		watcherRegistry:    s.watcherRegistry,
 	}
 
 	return ctrl

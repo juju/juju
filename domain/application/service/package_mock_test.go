@@ -4247,6 +4247,45 @@ func (c *MockStateSetUnitWorkloadVersionCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// ShouldAllowCharmUpgradeOnError mocks base method.
+func (m *MockState) ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShouldAllowCharmUpgradeOnError", ctx, appName)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ShouldAllowCharmUpgradeOnError indicates an expected call of ShouldAllowCharmUpgradeOnError.
+func (mr *MockStateMockRecorder) ShouldAllowCharmUpgradeOnError(ctx, appName any) *MockStateShouldAllowCharmUpgradeOnErrorCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldAllowCharmUpgradeOnError", reflect.TypeOf((*MockState)(nil).ShouldAllowCharmUpgradeOnError), ctx, appName)
+	return &MockStateShouldAllowCharmUpgradeOnErrorCall{Call: call}
+}
+
+// MockStateShouldAllowCharmUpgradeOnErrorCall wrap *gomock.Call
+type MockStateShouldAllowCharmUpgradeOnErrorCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateShouldAllowCharmUpgradeOnErrorCall) Return(arg0 bool, arg1 error) *MockStateShouldAllowCharmUpgradeOnErrorCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateShouldAllowCharmUpgradeOnErrorCall) Do(f func(context.Context, string) (bool, error)) *MockStateShouldAllowCharmUpgradeOnErrorCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateShouldAllowCharmUpgradeOnErrorCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateShouldAllowCharmUpgradeOnErrorCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SpacesExist mocks base method.
 func (m *MockState) SpacesExist(ctx context.Context, spaceUUIDs set.Strings) error {
 	m.ctrl.T.Helper()
