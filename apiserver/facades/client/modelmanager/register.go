@@ -77,13 +77,21 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	}
 
 	domainServices := ctx.DomainServices()
+	modelStatusAPI := commonmodel.NewModelStatusAPI(
+		backend,
+		ctx.ControllerUUID(),
+		machineServiceGetter,
+		statusServiceGetter,
+		auth,
+		apiUser,
+	)
 
 	return NewModelManagerAPI(
 		stdCtx,
 		backend,
 		isAdmin,
 		apiUser,
-		commonmodel.NewModelStatusAPI(backend, machineServiceGetter, statusServiceGetter, auth, apiUser),
+		modelStatusAPI,
 		func(c context.Context, modelUUID coremodel.UUID, legacyState facade.LegacyStateExporter) (ModelExporter, error) {
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},

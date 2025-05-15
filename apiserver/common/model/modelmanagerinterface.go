@@ -33,21 +33,16 @@ type ModelManagerBackend interface {
 
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
-	AllModelUUIDs() ([]string, error)
-	GetModel(string) (Model, func() bool, error)
 	GetBackend(string) (ModelManagerBackend, func() bool, error)
 
-	ControllerModelTag() names.ModelTag
 	ControllerNodes() ([]ControllerNode, error)
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	AllMachines() (machines []Machine, err error)
 	AllFilesystems() ([]state.Filesystem, error)
 	AllVolumes() ([]state.Volume, error)
-	ControllerTag() names.ControllerTag
 	Export(store objectstore.ObjectStore) (description.Model, error)
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
-	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
 
 	MigrationMode() (state.MigrationMode, error)
 	LatestMigration() (state.ModelMigration, error)
@@ -76,7 +71,6 @@ type Machine interface {
 // and are reproduced here for use in tests.
 type Model interface {
 	Destroy(state.DestroyModelParams) error
-	UUID() string
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

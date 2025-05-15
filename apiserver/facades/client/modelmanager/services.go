@@ -229,6 +229,11 @@ type ModelInfoService interface {
 	// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
 	// user does not have access to the model.
 	GetUserModelSummary(ctx context.Context, userUUID coreuser.UUID) (coremodel.UserModelSummary, error)
+
+	// IsControllerModel returns true if the model is the controller model.
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does not exist.
+	IsControllerModel(context.Context) (bool, error)
 }
 
 // ModelExporter defines a interface for exporting models.

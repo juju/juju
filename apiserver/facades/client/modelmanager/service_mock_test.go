@@ -1357,6 +1357,45 @@ func (c *MockModelInfoServiceGetUserModelSummaryCall) DoAndReturn(f func(context
 	return c
 }
 
+// IsControllerModel mocks base method.
+func (m *MockModelInfoService) IsControllerModel(arg0 context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsControllerModel", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsControllerModel indicates an expected call of IsControllerModel.
+func (mr *MockModelInfoServiceMockRecorder) IsControllerModel(arg0 any) *MockModelInfoServiceIsControllerModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerModel", reflect.TypeOf((*MockModelInfoService)(nil).IsControllerModel), arg0)
+	return &MockModelInfoServiceIsControllerModelCall{Call: call}
+}
+
+// MockModelInfoServiceIsControllerModelCall wrap *gomock.Call
+type MockModelInfoServiceIsControllerModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelInfoServiceIsControllerModelCall) Return(arg0 bool, arg1 error) *MockModelInfoServiceIsControllerModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelInfoServiceIsControllerModelCall) Do(f func(context.Context) (bool, error)) *MockModelInfoServiceIsControllerModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelInfoServiceIsControllerModelCall) DoAndReturn(f func(context.Context) (bool, error)) *MockModelInfoServiceIsControllerModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelConfigService is a mock of ModelConfigService interface.
 type MockModelConfigService struct {
 	ctrl     *gomock.Controller

@@ -805,10 +805,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 	}
 
 	destroyModel := func(modelUUID string, destroyStorage, force *bool, maxWait *time.Duration, timeout *time.Duration) error {
-		modelTag, err := names.ParseModelTag(modelUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		modelTag := names.NewModelTag(modelUUID)
 		if !m.isAdmin {
 			if err := m.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag); err != nil {
 				return err
@@ -832,6 +829,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			destroyStorage, force, maxWait, timeout,
 		)
 		if err != nil {
+			logger.Warningf(ctx, "failed destroying model %v: %v", modelUUID, err)
 			return errors.Trace(err)
 		}
 
