@@ -122,7 +122,7 @@ func (s *serviceSuite) TestIsSubordinateApplicationForSubordinate(c *tc.C) {
 func (s *serviceSuite) TestIsSubordinateApplicationByNameForPrincipal(c *tc.C) {
 	s.createApplication(c, "foo")
 
-	subordinate, err := s.svc.IsSubordinateApplicationByName(context.Background(), "foo")
+	subordinate, err := s.svc.IsSubordinateApplicationByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subordinate, tc.IsFalse)
 }
@@ -130,7 +130,7 @@ func (s *serviceSuite) TestIsSubordinateApplicationByNameForPrincipal(c *tc.C) {
 func (s *serviceSuite) TestIsSubordinateApplicationByNameForSubordinate(c *tc.C) {
 	s.createSubordinateApplication(c, "foo")
 
-	subordinate, err := s.svc.IsSubordinateApplicationByName(context.Background(), "foo")
+	subordinate, err := s.svc.IsSubordinateApplicationByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subordinate, tc.IsTrue)
 }

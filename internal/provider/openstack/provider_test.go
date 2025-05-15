@@ -192,7 +192,7 @@ func (t *localTests) TestGetServerAddresses(c *tc.C) {
 				addresses[t.networks[1]] = t.public
 			}
 		}
-		addr := InstanceAddress(t.floatingIP, addresses)
+		addr := InstanceAddress(c, t.floatingIP, addresses)
 		c.Check(addr, tc.Equals, t.expected)
 	}
 }

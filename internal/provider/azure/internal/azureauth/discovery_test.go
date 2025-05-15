@@ -24,7 +24,7 @@ var _ = tc.Suite(&DiscoverySuite{})
 //	sender.AppendResponse(resp)
 //
 //	client := armsubscriptions.NewClient()
-//	sdkCtx := context.Background()
+//	sdkCtx := c.Context()
 //	client.Sender = sender
 //	authURI, err := azureauth.DiscoverTenantID(sdkCtx, client, "subscription_id")
 //	c.Assert(err, tc.ErrorIsNil)
@@ -42,7 +42,7 @@ var _ = tc.Suite(&DiscoverySuite{})
 //
 //	client := subscriptions.NewClient()
 //	client.Sender = sender
-//	sdkCtx := context.Background()
+//	sdkCtx := c.Context()
 //	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
 //	c.Assert(err, tc.ErrorMatches, `WWW-Authenticate header not found`)
 //}
@@ -55,7 +55,7 @@ var _ = tc.Suite(&DiscoverySuite{})
 //
 //	client := subscriptions.NewClient()
 //	client.Sender = sender
-//	sdkCtx := context.Background()
+//	sdkCtx := c.Context()
 //	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
 //	c.Assert(err, tc.ErrorMatches, `authorization_uri not found in WWW-Authenticate header \("foo bar baz"\)`)
 //}
@@ -67,7 +67,7 @@ var _ = tc.Suite(&DiscoverySuite{})
 //
 //	client := subscriptions.NewClient()
 //	client.Sender = sender
-//	sdkCtx := context.Background()
+//	sdkCtx := c.Context()
 //	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
 //	c.Assert(err, tc.ErrorMatches, "expected unauthorized error response")
 //}
@@ -79,7 +79,7 @@ var _ = tc.Suite(&DiscoverySuite{})
 //
 //	client := subscriptions.NewClient()
 //	client.Sender = sender
-//	sdkCtx := context.Background()
+//	sdkCtx := c.Context()
 //	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
 //	c.Assert(err, tc.ErrorMatches, "expected unauthorized error response, got 404: .*")
 //}

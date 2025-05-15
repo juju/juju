@@ -1036,7 +1036,7 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindingsNotFound(c *
 
 	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationNotFound)
 
-	_, err := s.service.GetApplicationEndpointBindings(context.Background(), appID)
+	_, err := s.service.GetApplicationEndpointBindings(c.Context(), appID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1049,7 +1049,7 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
 		"foo": "bar",
 	}, nil)
 
-	result, err := s.service.GetApplicationEndpointBindings(context.Background(), appID)
+	result, err := s.service.GetApplicationEndpointBindings(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[string]string{
 		"foo": "bar",

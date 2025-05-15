@@ -82,7 +82,7 @@ func (s *stateSuite) TestSaveMetadata(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
-	obtained, err := s.retrieveMetadataFromDB()
+	obtained, err := s.retrieveMetadataFromDB(c)
 	for i := range obtained {
 		c.Check(obtained[i].CreationTime, tc.After, testBeginTime)
 		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
@@ -113,7 +113,7 @@ func (s *stateSuite) TestSaveMetadataWithDateCreated(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
-	obtained, err := s.retrieveMetadataFromDB()
+	obtained, err := s.retrieveMetadataFromDB(c)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.SameContents, expected)
 }
@@ -149,7 +149,7 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadata(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
-	obtained, err := s.retrieveMetadataFromDB()
+	obtained, err := s.retrieveMetadataFromDB(c)
 	for i := range obtained {
 		c.Check(obtained[i].CreationTime, tc.After, testBeginTime)
 		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
@@ -184,7 +184,7 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
-	obtained, err := s.retrieveMetadataFromDB()
+	obtained, err := s.retrieveMetadataFromDB(c)
 	for i := range obtained {
 		c.Check(obtained[i].CreationTime, tc.After, testBeginTime)
 		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
@@ -255,7 +255,7 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadataWithInvalidArchitecture(c *t
 // TestDeleteMetadataWithImageID verifies that the DeleteMetadataWithImageID method correctly removes specified entries from the cloud_image_metadata table.
 func (s *stateSuite) TestDeleteMetadataWithImageID(c *tc.C) {
 	// Arrange
-	s.runQuery(`
+	s.runQuery(c, `
 INSERT INTO cloud_image_metadata (uuid, created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
 VALUES 
 ('a', datetime('now','localtime'), 'custom', 'stream', 'region-1', '22.04',0, 'virtType-test', 'rootStorageType-test', 42, 'to-keep'),
@@ -268,7 +268,7 @@ VALUES
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	obtained, err := s.retrieveMetadataFromDB()
+	obtained, err := s.retrieveMetadataFromDB(c)
 	for i := range obtained {
 		obtained[i].CreationTime = time.Time{} // ignore time
 	}
@@ -289,7 +289,7 @@ VALUES
 // TestFindMetadata tests the retrieval of metadata from the cloud_image_metadata table using various filters.
 func (s *stateSuite) TestFindMetadata(c *tc.C) {
 	// Arrange
-	err := s.runQuery(`
+	err := s.runQuery(c, `
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
 VALUES 
 ('a',datetime('now','localtime'), 'non-custom', 'stream', 'region', '08.04',0, 'virtType', 'storage', 42, 'id'),
@@ -303,7 +303,7 @@ VALUES
 ('i',datetime('now','localtime'), 'non-custom', 'stream', 'region', '24.04',3, 'virtType', 'storage', 42, 'unique');
 `)
 	c.Assert(err, tc.ErrorIsNil)
-	expectedBase, err := s.retrieveMetadataFromDB()
+	expectedBase, err := s.retrieveMetadataFromDB(c)
 	c.Assert(err, tc.ErrorIsNil)
 
 	for _, testCase := range []struct {
@@ -366,7 +366,7 @@ VALUES
 // TestFindMetadataNotFound verifies that FindMetadata returns a NotFound error when no matching metadata is found.
 func (s *stateSuite) TestFindMetadataNotFound(c *tc.C) {
 	// Arrange
-	err := s.runQuery(`
+	err := s.runQuery(c, `
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
 VALUES 
 ('a',datetime('now','localtime'), 'non-custom', 'stream', 'unique', '08.04',0, 'virtType', 'storage', 42, 'id'),
@@ -384,7 +384,7 @@ VALUES
 // TestFindMetadataExpired checks that non custom expired metadata entries are correctly excluded from query results.
 func (s *stateSuite) TestFindMetadataExpired(c *tc.C) {
 	// Arrange
-	err := s.runQuery(`
+	err := s.runQuery(c, `
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
 VALUES 
 ('a',datetime('now','-3 days'), 'non-custom', 'stream', 'region', '08.04',0, 'virtType', 'storage', 42, 'id'),
@@ -434,7 +434,7 @@ VALUES
 // except expired one.
 func (s *stateSuite) TestAllCloudImageMetadata(c *tc.C) {
 	// Arrange
-	err := s.runQuery(`
+	err := s.runQuery(c, `
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
 VALUES 
 ('a',datetime('now','-3 days'), 'non-custom', 'stream', 'region', '08.04',0, 'virtType', 'storage', 42, 'id'),
@@ -486,7 +486,7 @@ VALUES
 // without error if all entries have expired.
 func (s *stateSuite) TestAllCloudImageMetadataNoMetadata(c *tc.C) {
 	// Arrange
-	err := s.runQuery(`
+	err := s.runQuery(c, `
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
 VALUES 
 ('a',datetime('now','-3 days'), 'non-custom', 'stream', 'region', '08.04',0, 'virtType', 'storage', 42, 'id'),
@@ -507,7 +507,7 @@ VALUES
 // Custom source never expires.
 func (s *stateSuite) TestCleanupMetatada(c *tc.C) {
 	// Arrange
-	err := s.runQuery(`
+	err := s.runQuery(c, `
 INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,root_storage_size,priority,image_id)
 VALUES 
 ('a',datetime('now','-3 days'), 'cloud', 'stream', 'region', '08.04',0, 'virtType', 'storage', 128, 42, 'id'),
@@ -532,7 +532,7 @@ VALUES
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
-	obtained, err := s.retrieveMetadataFromDB()
+	obtained, err := s.retrieveMetadataFromDB(c)
 	for i := range obtained {
 		obtained[i].CreationTime = time.Time{} // ignore time for simplicity
 	}

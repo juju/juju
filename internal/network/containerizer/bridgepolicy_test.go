@@ -4,7 +4,6 @@
 package containerizer
 
 import (
-	"context"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -102,7 +101,7 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *tc.C) {
 	exp := s.guest.EXPECT()
 	exp.Constraints().Return(constraints.MustParse("spaces=foo,bar,^baz"), nil)
 
-	obtained, err := s.policy().determineContainerSpaces(context.Background(), s.machine, s.guest)
+	obtained, err := s.policy().determineContainerSpaces(c.Context(), s.machine, s.guest)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := corenetwork.SpaceInfos{
 		*s.spaces.GetByName("foo"),
@@ -117,7 +116,7 @@ func (s *bridgePolicySuite) TestDetermineContainerNoSpacesConstraints(c *tc.C) {
 	exp := s.guest.EXPECT()
 	exp.Constraints().Return(constraints.MustParse(""), nil)
 
-	obtained, err := s.policy().determineContainerSpaces(context.Background(), s.machine, s.guest)
+	obtained, err := s.policy().determineContainerSpaces(c.Context(), s.machine, s.guest)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := corenetwork.SpaceInfos{
 		*s.spaces.GetByName(corenetwork.AlphaSpaceName),

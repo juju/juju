@@ -349,7 +349,7 @@ func (s *WorkerSuite) TestFetchInfo(c *tc.C) {
 		},
 	}}
 
-	cfg, err := charmhub.RefreshOne(context.Background(), id.instanceKey, id.id, id.revision, id.channel, charmhub.RefreshBase{
+	cfg, err := charmhub.RefreshOne(c.Context(), id.instanceKey, id.id, id.revision, id.channel, charmhub.RefreshBase{
 		Architecture: id.arch,
 		Name:         id.osType,
 		Channel:      id.osChannel,
@@ -445,7 +445,7 @@ func (s *WorkerSuite) TestFetchInfoInvalidResponseLength(c *tc.C) {
 
 	apps := []appInfo{}
 
-	cfg, err := charmhub.RefreshOne(context.Background(), id.instanceKey, id.id, id.revision, id.channel, charmhub.RefreshBase{
+	cfg, err := charmhub.RefreshOne(c.Context(), id.instanceKey, id.id, id.revision, id.channel, charmhub.RefreshBase{
 		Architecture: id.arch,
 		Name:         id.osType,
 		Channel:      id.osChannel,
@@ -513,7 +513,7 @@ func (s *WorkerSuite) TestRequest(c *tc.C) {
 	}}
 	id := ids[0]
 
-	cfg, err := charmhub.RefreshOne(context.Background(), id.instanceKey, id.id, id.revision, id.channel, charmhub.RefreshBase{
+	cfg, err := charmhub.RefreshOne(c.Context(), id.instanceKey, id.id, id.revision, id.channel, charmhub.RefreshBase{
 		Architecture: id.arch,
 		Name:         id.osType,
 		Channel:      id.osChannel,
@@ -594,7 +594,7 @@ func (s *WorkerSuite) TestRequestWithResources(c *tc.C) {
 	}}
 	id := ids[0]
 
-	cfg, err := charmhub.RefreshOne(context.Background(), id.instanceKey, id.id, id.revision, id.channel, charmhub.RefreshBase{
+	cfg, err := charmhub.RefreshOne(c.Context(), id.instanceKey, id.id, id.revision, id.channel, charmhub.RefreshBase{
 		Architecture: id.arch,
 		Name:         id.osType,
 		Channel:      id.osChannel,

@@ -684,11 +684,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *tc.C) {
 	// Attempt to open an API connection to the migrated model as a user
 	// that had NO access to the model before it got migrated. The server
 	// should return a not-authorized error when attempting to log in.
-	// TODO(aflynn): reinstate check for unauthorised user (JUJU-6669).
-	//info.Tag = names.NewUserTag("some-other-user")
-	//_, err = api.Open(context.Background(), info, fastDialOpts)
-	//c.Assert(params.ErrCode(errors.Cause(err)), tc.Equals, params.CodeUnauthorized)
-
+c.Context()
 	// Attempt to open an API connection to the migrated model as the
 	// anonymous user; this should also be allowed on account of CMRs.
 	info.Tag = names.NewUserTag(api.AnonymousUsername)

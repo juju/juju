@@ -4,10 +4,9 @@
 package instancemutater
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/agent/instancemutater"
@@ -38,28 +37,32 @@ func NewMachineContext(
 	}
 }
 
-func NewEnvironTestWorker(config Config, ctxFn RequiredMutaterContextFunc) (worker.Worker, error) {
-	config.GetMachineWatcher = config.Facade.WatchModelMachines
-	config.GetRequiredLXDProfiles = func(modelName string) []string {
-		return []string{"default", "juju-" + modelName}
+func NewEnvironTestWorker(c *tc.C) func(config Config, ctxFn RequiredMutaterContextFunc) (worker.Worker, error) {
+	return func(config Config, ctxFn RequiredMutaterContextFunc) (worker.Worker, error) {
+		config.GetMachineWatcher = config.Facade.WatchModelMachines
+		config.GetRequiredLXDProfiles = func(modelName string) []string {
+			return []string{"default", "juju-" + modelName}
+		}
+		config.GetRequiredContext = ctxFn
+		return newWorker(c.Context(), config)
 	}
-	config.GetRequiredContext = ctxFn
-	return newWorker(context.Background(), config)
 }
 
-func NewContainerTestWorker(config Config, ctxFn RequiredMutaterContextFunc) (worker.Worker, error) {
-	m, err := config.Facade.Machine(context.Background(), config.Tag.(names.MachineTag))
-	if err != nil {
-		return nil, errors.Trace(err)
+func NewContainerTestWorker(c *tc.C) func(config Config, ctxFn RequiredMutaterContextFunc) (worker.Worker, error) {
+	return func(config Config, ctxFn RequiredMutaterContextFunc) (worker.Worker, error) {
+		m, err := config.Facade.Machine(c.Context(), config.Tag.(names.MachineTag))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		config.GetRequiredLXDProfiles = func(_ string) []string { return []string{"default"} }
+		config.GetMachineWatcher = m.WatchContainers
+		config.GetRequiredContext = ctxFn
+		return newWorker(c.Context(), config)
 	}
-	config.GetRequiredLXDProfiles = func(_ string) []string { return []string{"default"} }
-	config.GetMachineWatcher = m.WatchContainers
-	config.GetRequiredContext = ctxFn
-	return newWorker(context.Background(), config)
 }
 
-func ProcessMachineProfileChanges(m *MutaterMachine, info *instancemutater.UnitProfileInfo) error {
-	return m.processMachineProfileChanges(context.Background(), info)
+func ProcessMachineProfileChanges(c *tc.C, m *MutaterMachine, info *instancemutater.UnitProfileInfo) error {
+	return m.processMachineProfileChanges(c.Context(), info)
 }
 
 func GatherProfileData(m *MutaterMachine, info *instancemutater.UnitProfileInfo) ([]lxdprofile.ProfilePost, error) {

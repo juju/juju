@@ -4,7 +4,6 @@
 package cmd_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -225,7 +224,7 @@ func (*documentationSuite) TestWriteIndex(c *tc.C) {
 	err := superCmd.Init([]string{"documentation", "--split", "--out", docsDir})
 	c.Assert(err, tc.IsNil)
 	err = superCmd.Run(&cmd.Context{
-		Context: context.Background(),
+		Context: c.Context(),
 	})
 	c.Assert(err, tc.IsNil)
 

@@ -56,7 +56,7 @@ func (s *environSuite) TestDestroy(c *tc.C) {
 		s.client.CheckNoCalls(c)
 		return nil
 	})
-	err := s.env.Destroy(context.Background())
+	err := s.env.Destroy(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(destroyCalled, tc.IsTrue)
 	s.client.CheckCallNames(c, "DestroyVMFolder", "Close")
@@ -89,7 +89,7 @@ func (s *environSuite) TestDestroyController(c *tc.C) {
 		s.client.CheckNoCalls(c)
 		return nil
 	})
-	err := s.env.DestroyController(context.Background(), "foo")
+	err := s.env.DestroyController(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(destroyCalled, tc.IsTrue)
 
@@ -120,7 +120,7 @@ func (s *environSuite) TestDestroyController(c *tc.C) {
 }
 
 func (s *environSuite) TestAdoptResources(c *tc.C) {
-	err := s.env.AdoptResources(context.Background(), "foo", semversion.Number{})
+	err := s.env.AdoptResources(c.Context(), "foo", semversion.Number{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.dialStub.CheckCallNames(c, "Dial")
@@ -135,7 +135,7 @@ func (s *environSuite) TestAdoptResources(c *tc.C) {
 }
 
 func (s *environSuite) TestPrepareForBootstrap(c *tc.C) {
-	err := s.env.PrepareForBootstrap(envtesting.BootstrapContext(context.Background(), c), "controller-1")
+	err := s.env.PrepareForBootstrap(envtesting.BootstrapContext(c.Context(), c), "controller-1")
 	c.Check(err, tc.ErrorIsNil)
 }
 

@@ -542,7 +542,7 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *tc.C) {
 	err = env.Destroy(c.Context())
 	c.Assert(err, tc.NotNil)
 
-	terminated, err := ec2.TerminatedInstances(env)
+	terminated, err := ec2.TerminatedInstances(c, env)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(terminated, tc.HasLen, 1)
 	c.Assert(terminated[0].Id(), tc.DeepEquals, inst1.Id())

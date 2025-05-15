@@ -23,7 +23,6 @@ import (
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 	"github.com/vmware/govmomi/vim25/xml"
-	"golang.org/x/net/context"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -79,6 +78,7 @@ func (s *clientSuite) SetUpTest(c *tc.C) {
 		},
 	}
 	s.roundTripper = mockRoundTripper{
+		c:          c,
 		collectors: make(map[string]*collector),
 		taskResult: make(map[types.ManagedObjectReference]types.AnyType),
 		taskError:  make(map[types.ManagedObjectReference]*types.LocalizedMethodFault),
@@ -591,7 +591,7 @@ func (s *clientSuite) TestDial(c *tc.C) {
 	url, err := url.Parse(server.URL)
 	c.Assert(err, tc.ErrorIsNil)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	client, err := Dial(ctx, url, "dc", loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(client, tc.NotNil)
@@ -599,14 +599,14 @@ func (s *clientSuite) TestDial(c *tc.C) {
 
 func (s *clientSuite) TestClose(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	err := client.Close(context.Background())
+	err := client.Close(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	s.roundTripper.CheckCallNames(c, "Logout")
 }
 
 func (s *clientSuite) TestComputeResources(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	result, err := client.ComputeResources(context.Background())
+	result, err := client.ComputeResources(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
@@ -625,7 +625,7 @@ func (s *clientSuite) TestComputeResources(c *tc.C) {
 
 func (s *clientSuite) TestFolders(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	result, err := client.Folders(context.Background())
+	result, err := client.Folders(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
@@ -642,7 +642,7 @@ func (s *clientSuite) TestFolders(c *tc.C) {
 
 func (s *clientSuite) TestDestroyVMFolder(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	err := client.DestroyVMFolder(context.Background(), "foo")
+	err := client.DestroyVMFolder(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
@@ -665,13 +665,13 @@ func (s *clientSuite) TestDestroyVMFolderRace(c *tc.C) {
 		Fault: &types.ManagedObjectNotFound{},
 	}
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	err := client.DestroyVMFolder(context.Background(), "foo")
+	err := client.DestroyVMFolder(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestEnsureVMFolder(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	folder, err := client.EnsureVMFolder(context.Background(), "", "foo/bar")
+	folder, err := client.EnsureVMFolder(c.Context(), "", "foo/bar")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(folder, tc.NotNil)
 
@@ -688,7 +688,7 @@ func (s *clientSuite) TestEnsureVMFolder(c *tc.C) {
 
 func (s *clientSuite) TestFindFolder(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	folder, err := client.FindFolder(context.Background(), "foo/bar")
+	folder, err := client.FindFolder(c.Context(), "foo/bar")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(folder, tc.NotNil)
 	c.Assert(folder.InventoryPath, tc.Equals, "/dc0/vm/foo/bar")
@@ -696,7 +696,7 @@ func (s *clientSuite) TestFindFolder(c *tc.C) {
 
 func (s *clientSuite) TestFindFolderRelativePath(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	folder, err := client.FindFolder(context.Background(), "./foo/bar")
+	folder, err := client.FindFolder(c.Context(), "./foo/bar")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(folder, tc.NotNil)
 	c.Assert(folder.InventoryPath, tc.Equals, "/dc0/vm/foo/bar")
@@ -704,14 +704,14 @@ func (s *clientSuite) TestFindFolderRelativePath(c *tc.C) {
 
 func (s *clientSuite) TestFindFolderAbsolutePath(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	_, err := client.FindFolder(context.Background(), "/foo/bar")
+	_, err := client.FindFolder(c.Context(), "/foo/bar")
 	// mock not set up to have a /foo/bar folder
 	c.Assert(err, tc.ErrorMatches, `folder path "/foo/bar" not found`)
 }
 
 func (s *clientSuite) TestFindFolderSubPath(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	folder, err := client.FindFolder(context.Background(), "/dc0/vm/foo/bar")
+	folder, err := client.FindFolder(c.Context(), "/dc0/vm/foo/bar")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(folder, tc.NotNil)
 	c.Assert(folder.InventoryPath, tc.Equals, "/dc0/vm/foo/bar")
@@ -719,7 +719,7 @@ func (s *clientSuite) TestFindFolderSubPath(c *tc.C) {
 
 func (s *clientSuite) TestMoveVMFolderInto(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	err := client.MoveVMFolderInto(context.Background(), "foo", "foo/bar")
+	err := client.MoveVMFolderInto(c.Context(), "foo", "foo/bar")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
@@ -748,7 +748,7 @@ func (s *clientSuite) TestMoveVMFolderInto(c *tc.C) {
 func (s *clientSuite) TestMoveVMsInto(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	err := client.MoveVMsInto(
-		context.Background(), "foo",
+		c.Context(), "foo",
 		types.ManagedObjectReference{
 			Type:  "VirtualMachine",
 			Value: "vm-0",
@@ -777,7 +777,7 @@ func (s *clientSuite) TestMoveVMsInto(c *tc.C) {
 
 func (s *clientSuite) TestRemoveVirtualMachines(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	err := client.RemoveVirtualMachines(context.Background(), "foo/bar/*")
+	err := client.RemoveVirtualMachines(c.Context(), "foo/bar/*")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
@@ -813,7 +813,7 @@ func (s *clientSuite) TestRemoveVirtualMachinesDestroyRace(c *tc.C) {
 		Fault: &types.ManagedObjectNotFound{},
 	}
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	err := client.RemoveVirtualMachines(context.Background(), "foo/bar/*")
+	err := client.RemoveVirtualMachines(c.Context(), "foo/bar/*")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -829,7 +829,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersionNotSet(c *tc.C) {
 	}
 
 	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
-	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{})
+	err := client.maybeUpgradeVMHardware(c.Context(), args, vmObj, &taskWaiter{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// No calls should be made. ForceVMHardwareVersion was not set.
@@ -848,7 +848,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersionLowerThanSourceVM(c *tc.C) {
 	}
 
 	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
-	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{})
+	err := client.maybeUpgradeVMHardware(c.Context(), args, vmObj, &taskWaiter{})
 	c.Assert(err, tc.ErrorMatches, `selected HW \(9\) version is lower than VM hardware`)
 
 	// ForceVMHardwareVersion was set, but is lower than the VM version (vmx-10).
@@ -876,7 +876,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersionNotSupportedByEnv(c *tc.C) {
 	}
 
 	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
-	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{})
+	err := client.maybeUpgradeVMHardware(c.Context(), args, vmObj, &taskWaiter{})
 
 	// We ignore the request and log the event.
 	c.Assert(err, tc.ErrorMatches, `hardware version 14 not supported by target \(max version 13\)`)
@@ -920,7 +920,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersion(c *tc.C) {
 	}
 
 	vmObj := object.NewVirtualMachine(client.client.Client, vm.Reference())
-	err := client.maybeUpgradeVMHardware(context.Background(), args, vmObj, &taskWaiter{
+	err := client.maybeUpgradeVMHardware(c.Context(), args, vmObj, &taskWaiter{
 		clock:                  args.StatusUpdateParams.Clock,
 		updateProgress:         args.StatusUpdateParams.UpdateProgress,
 		updateProgressInterval: args.StatusUpdateParams.UpdateProgressInterval,
@@ -968,7 +968,7 @@ func (s *clientSuite) TestUpdateVirtualMachineExtraConfig(c *tc.C) {
 		Value: "FakeVm0",
 	}
 	err := client.UpdateVirtualMachineExtraConfig(
-		context.Background(), &vm, map[string]string{
+		c.Context(), &vm, map[string]string{
 			"k0": "v0",
 			"k1": "",
 		},
@@ -985,7 +985,7 @@ func (s *clientSuite) TestUpdateVirtualMachineExtraConfig(c *tc.C) {
 
 func (s *clientSuite) TestVirtualMachines(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	result, err := client.VirtualMachines(context.Background(), "foo/bar/*")
+	result, err := client.VirtualMachines(c.Context(), "foo/bar/*")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
@@ -1009,7 +1009,7 @@ func (s *clientSuite) TestVirtualMachines(c *tc.C) {
 
 func (s *clientSuite) TestListVMTemplates(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	result, err := client.ListVMTemplates(context.Background(), "foo/bar/*")
+	result, err := client.ListVMTemplates(c.Context(), "foo/bar/*")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
@@ -1031,7 +1031,7 @@ func (s *clientSuite) TestListVMTemplates(c *tc.C) {
 
 func (s *clientSuite) TestDatastores(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	result, err := client.Datastores(context.Background())
+	result, err := client.Datastores(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
@@ -1050,7 +1050,7 @@ func (s *clientSuite) TestDatastores(c *tc.C) {
 
 func (s *clientSuite) TestDeleteDatastoreFile(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	err := client.DeleteDatastoreFile(context.Background(), "[datastore1] file/path")
+	err := client.DeleteDatastoreFile(c.Context(), "[datastore1] file/path")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
@@ -1069,7 +1069,7 @@ func (s *clientSuite) TestDeleteDatastoreFileNotFound(c *tc.C) {
 	}
 
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	err := client.DeleteDatastoreFile(context.Background(), "[datastore1] file/path")
+	err := client.DeleteDatastoreFile(c.Context(), "[datastore1] file/path")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1080,13 +1080,13 @@ func (s *clientSuite) TestDeleteDatastoreError(c *tc.C) {
 	}
 
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	err := client.DeleteDatastoreFile(context.Background(), "[datastore1] file/path")
+	err := client.DeleteDatastoreFile(c.Context(), "[datastore1] file/path")
 	c.Assert(err, tc.ErrorMatches, "nope")
 }
 
 func (s *clientSuite) TestResourcePools(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	result, err := client.ResourcePools(context.Background(), "z0/...")
+	result, err := client.ResourcePools(c.Context(), "z0/...")
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -1111,7 +1111,7 @@ func (s *clientSuite) TestResourcePools(c *tc.C) {
 
 func (s *clientSuite) TestUserHasRootLevelPrivilege(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
-	result, err := client.UserHasRootLevelPrivilege(context.Background(), "Some.Privilege")
+	result, err := client.UserHasRootLevelPrivilege(c.Context(), "Some.Privilege")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, true)
 
@@ -1126,12 +1126,12 @@ func (s *clientSuite) TestUserHasRootLevelPrivilege(c *tc.C) {
 	})
 
 	s.roundTripper.SetErrors(nil, permissionError)
-	result, err = client.UserHasRootLevelPrivilege(context.Background(), "System.Read")
+	result, err = client.UserHasRootLevelPrivilege(c.Context(), "System.Read")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.Equals, false)
 
 	s.roundTripper.SetErrors(nil, permissionError)
-	_, err = client.UserHasRootLevelPrivilege(context.Background(), "Other.Privilege")
+	_, err = client.UserHasRootLevelPrivilege(c.Context(), "Other.Privilege")
 	c.Assert(err, tc.ErrorMatches, `checking for "Other.Privilege" privilege: ServerFaultCode: Permission to perform this operation was denied.`)
 }
 

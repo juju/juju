@@ -297,7 +297,7 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *tc.C) {
 			ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{},
 		},
 	}
-	startInstanceParams, err := provisionertask.SetupToStartMachine(task, m0, &vers, res)
+	startInstanceParams, err := provisionertask.SetupToStartMachine(c, task, m0, &vers, res)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(startInstanceParams.InstanceConfig, tc.NotNil)
 	c.Assert(startInstanceParams.InstanceConfig.APIInfo, tc.NotNil)

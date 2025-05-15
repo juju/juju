@@ -5,7 +5,6 @@ package commands
 
 import (
 	"bytes"
-	"context"
 	"os/exec"
 	"strings"
 
@@ -203,7 +202,7 @@ func (s *ReplSuite) TestMissingCommandHelp(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := &cmd.Context{
-		Context: context.Background(),
+		Context: c.Context(),
 		Dir:     c.MkDir(),
 		Stdout:  bytes.NewBuffer(nil),
 		Stderr:  bytes.NewBuffer(nil),

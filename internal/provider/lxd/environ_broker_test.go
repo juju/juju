@@ -565,7 +565,7 @@ func (s *environBrokerSuite) TestImageSourcesDefault(c *tc.C) {
 	svr := lxd.NewMockServer(ctrl)
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 
-	sources, err := lxd.GetImageSources(s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator))
+	sources, err := lxd.GetImageSources(c, s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
@@ -585,7 +585,7 @@ func (s *environBrokerSuite) TestImageMetadataURL(c *tc.C) {
 		"image-metadata-url": "https://my-test.com/images/",
 	}, environscloudspec.CloudSpec{}, invalidator)
 
-	sources, err := lxd.GetImageSources(env)
+	sources, err := lxd.GetImageSources(c, env)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
@@ -607,7 +607,7 @@ func (s *environBrokerSuite) TestImageMetadataURLEnsuresHTTPS(c *tc.C) {
 		"image-metadata-url": "http://my-test.com/images/",
 	}, environscloudspec.CloudSpec{}, invalidator)
 
-	sources, err := lxd.GetImageSources(env)
+	sources, err := lxd.GetImageSources(c, env)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
@@ -628,7 +628,7 @@ func (s *environBrokerSuite) TestImageStreamReleased(c *tc.C) {
 		"image-stream": "released",
 	}, environscloudspec.CloudSpec{}, invalidator)
 
-	sources, err := lxd.GetImageSources(env)
+	sources, err := lxd.GetImageSources(c, env)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
@@ -648,7 +648,7 @@ func (s *environBrokerSuite) TestImageStreamDaily(c *tc.C) {
 		"image-stream": "daily",
 	}, environscloudspec.CloudSpec{}, invalidator)
 
-	sources, err := lxd.GetImageSources(env)
+	sources, err := lxd.GetImageSources(c, env)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{

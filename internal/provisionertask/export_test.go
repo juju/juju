@@ -4,13 +4,13 @@
 package provisionertask
 
 import (
-	"context"
 	"sort"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/tc"
 )
 
 var ClassifyMachine = classifyMachine
@@ -39,10 +39,11 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 }
 
 func SetupToStartMachine(
+	c *tc.C,
 	p ProvisionerTask,
 	machine apiprovisioner.MachineProvisioner,
 	version *semversion.Number,
 	pInfoResult params.ProvisioningInfoResult,
 ) (environs.StartInstanceParams, error) {
-	return p.(*provisionerTask).setupToStartMachine(context.Background(), machine, version, pInfoResult)
+	return p.(*provisionerTask).setupToStartMachine(c.Context(), machine, version, pInfoResult)
 }

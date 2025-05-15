@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 	jujustorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/tc"
 )
 
 func StorageEC2(vs jujustorage.VolumeSource) Client {
@@ -37,8 +38,8 @@ func InstanceSDKEC2(inst instances.Instance) types.Instance {
 	return inst.(*sdkInstance).i
 }
 
-func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
-	return e.(*environ).allInstancesByState(context.Background(), "shutting-down", "terminated")
+func TerminatedInstances(c *tc.C, e environs.Environ) ([]instances.Instance, error) {
+	return e.(*environ).allInstancesByState(c.Context(), "shutting-down", "terminated")
 }
 
 func InstanceSecurityGroups(e environs.Environ, ctx context.Context, ids []instance.Id, states ...string) ([]types.GroupIdentifier, error) {

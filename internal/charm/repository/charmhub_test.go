@@ -119,7 +119,7 @@ func (s *charmHubRepositorySuite) TestResolveForUpgrade(c *tc.C) {
 		Channel: &channel,
 	}
 
-	cfg, err := charmhub.RefreshOne(context.Background(),
+	cfg, err := charmhub.RefreshOne(c.Context(),
 		"instance-key", "charmCHARMcharmCHARMcharmCHARM01", 16, "latest/stable", charmhub.RefreshBase{
 			Architecture: arch.DefaultArchitecture,
 		})
@@ -577,7 +577,7 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *tc.C) {
 
 func (s *charmHubRepositorySuite) TestResolveResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefresh(true)
+	s.expectRefresh(c, true)
 	s.expectListResourceRevisions(2)
 
 	result, err := s.newClient(c).ResolveResources(c.Context(), []charmresource.Resource{{
@@ -611,7 +611,7 @@ func (s *charmHubRepositorySuite) TestResolveResources(c *tc.C) {
 
 func (s *charmHubRepositorySuite) TestResolveResourcesFromStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefresh(false)
+	s.expectRefresh(c, false)
 	s.expectListResourceRevisions(1)
 
 	id := charmID()
@@ -634,7 +634,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStore(c *tc.C) {
 
 func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefreshWithRevision(1, true)
+	s.expectRefreshWithRevision(c, 1, true)
 
 	result, err := s.newClient(c).ResolveResources(c.Context(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
@@ -654,8 +654,8 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevision(c *tc.
 
 func (s *charmHubRepositorySuite) TestResolveResourcesNoMatchingRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefresh(true)
-	s.expectRefreshWithRevision(99, true)
+	s.expectRefresh(c, true)
+	s.expectRefreshWithRevision(c, 99, true)
 	s.expectListResourceRevisions(3)
 
 	_, err := s.newClient(c).ResolveResources(c.Context(), []charmresource.Resource{{
@@ -669,7 +669,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesNoMatchingRevision(c *tc.C
 
 func (s *charmHubRepositorySuite) TestResolveResourcesUpload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefresh(false)
+	s.expectRefresh(c, false)
 
 	id := charmID()
 	id.Origin.ID = ""
@@ -694,7 +694,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesUpload(c *tc.C) {
 
 func (s *charmHubRepositorySuite) TestResourceInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefreshWithRevision(25, false)
+	s.expectRefreshWithRevision(c, 25, false)
 
 	curl := charm.MustParseURL("ch:amd64/focal/ubuntu-19")
 	rev := curl.Revision
@@ -723,7 +723,7 @@ func (s *charmHubRepositorySuite) TestResourceInfo(c *tc.C) {
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannel(c *tc.C, hash string) {
-	cfg, err := charmhub.InstallOneFromChannel(context.Background(),
+	cfg, err := charmhub.InstallOneFromChannel(c.Context(),
 		"wordpress", "latest/stable", charmhub.RefreshBase{
 			Architecture: arch.DefaultArchitecture,
 		})
@@ -772,7 +772,7 @@ options:
 }
 
 func (s *charmHubRepositorySuite) expectBundleRefresh(c *tc.C) {
-	cfg, err := charmhub.InstallOneFromChannel(context.Background(),
+	cfg, err := charmhub.InstallOneFromChannel(c.Context(),
 		"core-kubernetes", "latest/stable", charmhub.RefreshBase{
 			Architecture: arch.DefaultArchitecture,
 		})
@@ -842,7 +842,7 @@ func (s *charmHubRepositorySuite) expectedRefreshRevisionNotFoundError() {
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannelFullBase(c *tc.C) {
-	cfg, err := charmhub.InstallOneFromChannel(context.Background(), "wordpress", "latest/stable", charmhub.RefreshBase{
+	cfg, err := charmhub.InstallOneFromChannel(c.Context(), "wordpress", "latest/stable", charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture, Name: "ubuntu", Channel: "20.04",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -850,7 +850,7 @@ func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannelFullBas
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneByRevisionResources(c *tc.C, hash string) {
-	cfg, err := charmhub.InstallOneFromRevision(context.Background(), "wordpress", 16)
+	cfg, err := charmhub.InstallOneFromRevision(c.Context(), "wordpress", 16)
 	c.Assert(err, tc.ErrorIsNil)
 	s.expectCharmRefresh(c, cfg, hash)
 }
@@ -915,11 +915,11 @@ func (s *charmHubRepositorySuite) newClient(c *tc.C) *CharmHubRepository {
 	}
 }
 
-func (s *charmHubRepositorySuite) expectRefresh(id bool) {
-	s.expectRefreshWithRevision(0, id)
+func (s *charmHubRepositorySuite) expectRefresh(c *tc.C, id bool) {
+	s.expectRefreshWithRevision(c, 0, id)
 }
 
-func (s *charmHubRepositorySuite) expectRefreshWithRevision(rev int, id bool) {
+func (s *charmHubRepositorySuite) expectRefreshWithRevision(c *tc.C, rev int, id bool) {
 	resp := []transport.RefreshResponse{
 		{
 			Entity: transport.RefreshEntity{
@@ -940,7 +940,7 @@ func (s *charmHubRepositorySuite) expectRefreshWithRevision(rev int, id bool) {
 			Result:           "download",
 		},
 	}
-	s.client.EXPECT().Refresh(gomock.Any(), charmhubConfigMatcher{id: id}).Return(resp, nil)
+	s.client.EXPECT().Refresh(gomock.Any(), charmhubConfigMatcher{c: c, id: id}).Return(resp, nil)
 }
 
 func (s *charmHubRepositorySuite) expectListResourceRevisions(rev int) {
@@ -966,13 +966,13 @@ func (s *refreshConfigSuite) TestRefreshByChannel(c *tc.C) {
 		Channel:  &channel,
 	}
 
-	cfg, err := refreshConfig(context.Background(), name, origin)
+	cfg, err := refreshConfig(c.Context(), name, origin)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ch := channel.String()
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, err := cfg.Build(context.Background())
+	build, err := cfg.Build(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
@@ -1000,13 +1000,13 @@ func (s *refreshConfigSuite) TestRefreshByChannelVersion(c *tc.C) {
 		Channel:  &channel,
 	}
 
-	cfg, err := refreshConfig(context.Background(), name, origin)
+	cfg, err := refreshConfig(c.Context(), name, origin)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ch := channel.String()
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, err := cfg.Build(context.Background())
+	build, err := cfg.Build(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
@@ -1034,12 +1034,12 @@ func (s *refreshConfigSuite) TestRefreshByRevision(c *tc.C) {
 		Revision: &revision,
 	}
 
-	cfg, err := refreshConfig(context.Background(), name, origin)
+	cfg, err := refreshConfig(c.Context(), name, origin)
 	c.Assert(err, tc.ErrorIsNil)
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, err := cfg.Build(context.Background())
+	build, err := cfg.Build(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
@@ -1067,12 +1067,12 @@ func (s *refreshConfigSuite) TestRefreshByID(c *tc.C) {
 		InstanceKey: "instance-key",
 	}
 
-	cfg, err := refreshConfig(context.Background(), "wordpress", origin)
+	cfg, err := refreshConfig(c.Context(), "wordpress", origin)
 	c.Assert(err, tc.ErrorIsNil)
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 
-	build, err := cfg.Build(context.Background())
+	build, err := cfg.Build(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(build, tc.DeepEquals, transport.RefreshRequest{
 		Actions: []transport.RefreshRequestAction{{
@@ -1190,7 +1190,7 @@ func (s *selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *tc.C) {
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *tc.C) {
 	channel := corecharm.MustParseChannel("stable/foo")
 	repo := new(CharmHubRepository)
-	err := repo.handleRevisionNotFound(context.Background(), []transport.Release{}, corecharm.Origin{
+	err := repo.handleRevisionNotFound(c.Context(), []transport.Release{}, corecharm.Origin{
 		Channel: &channel,
 	})
 	c.Assert(err, tc.ErrorMatches, `no releases available`)
@@ -1199,7 +1199,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c *tc.C) {
 	channel := corecharm.MustParseChannel("stable/foo")
 	repo := new(CharmHubRepository)
-	err := repo.handleRevisionNotFound(context.Background(), []transport.Release{
+	err := repo.handleRevisionNotFound(c.Context(), []transport.Release{
 		{},
 	}, corecharm.Origin{
 		Channel: &channel,
@@ -1213,7 +1213,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *
 	}
 
 	channel := corecharm.MustParseChannel("stable")
-	err := repo.handleRevisionNotFound(context.Background(), []transport.Release{{
+	err := repo.handleRevisionNotFound(c.Context(), []transport.Release{{
 		Base: transport.Base{
 			Name:         "os",
 			Channel:      "series",
@@ -1230,7 +1230,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *tc.C)
 	repo := &CharmHubRepository{
 		logger: loggertesting.WrapCheckLog(c),
 	}
-	err := repo.handleRevisionNotFound(context.Background(), []transport.Release{{
+	err := repo.handleRevisionNotFound(c.Context(), []transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
 			Channel:      "20.04",
@@ -1258,7 +1258,7 @@ func (s *composeSuggestionsSuite) TestNoReleases(c *tc.C) {
 	repo := &CharmHubRepository{
 		logger: loggertesting.WrapCheckLog(c),
 	}
-	suggestions := repo.composeSuggestions(context.Background(), []transport.Release{}, corecharm.Origin{})
+	suggestions := repo.composeSuggestions(c.Context(), []transport.Release{}, corecharm.Origin{})
 	c.Assert(suggestions, tc.DeepEquals, []string(nil))
 }
 
@@ -1266,7 +1266,7 @@ func (s *composeSuggestionsSuite) TestNoMatchingArch(c *tc.C) {
 	repo := &CharmHubRepository{
 		logger: loggertesting.WrapCheckLog(c),
 	}
-	suggestions := repo.composeSuggestions(context.Background(), []transport.Release{{
+	suggestions := repo.composeSuggestions(c.Context(), []transport.Release{{
 		Base: transport.Base{
 			Name:         "os",
 			Channel:      "series",
@@ -1281,7 +1281,7 @@ func (s *composeSuggestionsSuite) TestSuggestion(c *tc.C) {
 	repo := &CharmHubRepository{
 		logger: loggertesting.WrapCheckLog(c),
 	}
-	suggestions := repo.composeSuggestions(context.Background(), []transport.Release{{
+	suggestions := repo.composeSuggestions(c.Context(), []transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
 			Channel:      "20.04",
@@ -1302,7 +1302,7 @@ func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *tc.C) {
 	repo := &CharmHubRepository{
 		logger: loggertesting.WrapCheckLog(c),
 	}
-	suggestions := repo.composeSuggestions(context.Background(), []transport.Release{{
+	suggestions := repo.composeSuggestions(c.Context(), []transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
 			Channel:      "20.04/stable",
@@ -1323,7 +1323,7 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *tc.C) {
 	repo := &CharmHubRepository{
 		logger: loggertesting.WrapCheckLog(c),
 	}
-	suggestions := repo.composeSuggestions(context.Background(), []transport.Release{{
+	suggestions := repo.composeSuggestions(c.Context(), []transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
 			Channel:      "20.04",
@@ -1366,7 +1366,7 @@ func (s *composeSuggestionsSuite) TestCentosSuggestion(c *tc.C) {
 	repo := &CharmHubRepository{
 		logger: loggertesting.WrapCheckLog(c),
 	}
-	suggestions := repo.composeSuggestions(context.Background(), []transport.Release{{
+	suggestions := repo.composeSuggestions(c.Context(), []transport.Release{{
 		Base: transport.Base{
 			Name:         "centos",
 			Channel:      "7",
@@ -1397,10 +1397,10 @@ func (m RefreshConfigMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	cb, err := m.Config.Build(context.Background())
+	cb, err := m.Config.Build(m.c.Context())
 	m.c.Assert(err, tc.ErrorIsNil)
 
-	rcb, err := rc.Build(context.Background())
+	rcb, err := rc.Build(m.c.Context())
 	m.c.Assert(err, tc.ErrorIsNil)
 	m.c.Assert(len(cb.Actions), tc.Equals, len(rcb.Actions))
 
@@ -1417,6 +1417,7 @@ func (m RefreshConfigMatcher) String() string {
 // charmhubConfigMatcher matches only the charm IDs and revisions of a
 // charmhub.RefreshMany config.
 type charmhubConfigMatcher struct {
+	c  *tc.C
 	id bool
 }
 
@@ -1425,7 +1426,7 @@ func (m charmhubConfigMatcher) Matches(x interface{}) bool {
 	if !ok {
 		return false
 	}
-	h, err := config.Build(context.Background())
+	h, err := config.Build(m.c.Context())
 	if err != nil {
 		return false
 	}

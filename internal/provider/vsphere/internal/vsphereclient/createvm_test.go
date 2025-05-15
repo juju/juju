@@ -15,7 +15,6 @@ import (
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -57,7 +56,7 @@ func (s *clientSuite) TestCreateTemplateVM(c *tc.C) {
 		statusUpdates = append(statusUpdates, status)
 	}
 
-	_, err := client.CreateTemplateVM(context.Background(), args)
+	_, err := client.CreateTemplateVM(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(statusUpdates, tc.DeepEquals, []string{
 		fmt.Sprintf(`creating template VM "juju-template-%s"`, args.OVASHA256),
@@ -135,7 +134,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *tc.C) {
 		statusUpdates = append(statusUpdates, status)
 	}
 
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(statusUpdates, tc.DeepEquals, []string{
 		"cloning template",
@@ -215,7 +214,7 @@ func (s *clientSuite) TestCreateVirtualMachineForceHWVersion(c *tc.C) {
 		Type:  "EnvironmentBrowser",
 		Value: "FakeEnvironmentBrowser",
 	}
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCall(c, 18, "RetrieveProperties", "FakeVm1")
@@ -230,7 +229,7 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.EnableDiskUUID = false
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
@@ -273,7 +272,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *tc.C) {
 	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.DiskProvisioningType = DiskTypeThickLazyZero
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
@@ -319,7 +318,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *
 	args := baseCreateVirtualMachineParams(c, client)
 	args.DiskProvisioningType = DiskTypeThick
 
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
@@ -365,7 +364,7 @@ func (s *clientSuite) TestCreateVirtualMachineThinDiskProvisioning(c *tc.C) {
 	args := baseCreateVirtualMachineParams(c, client)
 	args.DiskProvisioningType = DiskTypeThin
 
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
@@ -414,7 +413,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *tc.C) {
 		Value: "FakeDatastore1",
 	}}
 
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	datastoreLocation := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
@@ -457,7 +456,7 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFound(c *tc.C) {
 	args := baseCreateVirtualMachineParams(c, client)
 	datastore := "datastore3"
 
-	_, err := client.GetTargetDatastore(context.Background(), args.ComputeResource, datastore)
+	_, err := client.GetTargetDatastore(c.Context(), args.ComputeResource, datastore)
 	c.Assert(err, tc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore2"`)
 }
 
@@ -469,7 +468,7 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNoneAccessible(c *tc.C) {
 		Value: "FakeDatastore1",
 	}}
 
-	_, err := client.GetTargetDatastore(context.Background(), args.ComputeResource, args.Datastore.Name())
+	_, err := client.GetTargetDatastore(c.Context(), args.ComputeResource, args.Datastore.Name())
 	c.Assert(err, tc.ErrorMatches, "no accessible datastores available")
 }
 
@@ -491,7 +490,7 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithMultipleAvailab
 		}},
 	)
 
-	_, err := client.GetTargetDatastore(context.Background(), args.ComputeResource, datastore)
+	_, err := client.GetTargetDatastore(c.Context(), args.ComputeResource, datastore)
 	c.Assert(err, tc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore1", "datastore2"`)
 }
 
@@ -513,7 +512,7 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithNoAvailable(c *
 		}},
 	)
 
-	_, err := client.GetTargetDatastore(context.Background(), args.ComputeResource, datastore)
+	_, err := client.GetTargetDatastore(c.Context(), args.ComputeResource, datastore)
 	c.Assert(err, tc.ErrorMatches, `no accessible datastores available`)
 }
 
@@ -525,7 +524,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 		{Network: "arpa"},
 	}
 
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var networkDevice1, networkDevice2 types.VirtualVmxnet3
@@ -608,7 +607,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *tc.
 		{Network: "yoink"},
 	}
 
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var networkDevice types.VirtualVmxnet3
@@ -681,7 +680,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *tc.C) {
 		{Network: "fourtytwo"},
 	}
 
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `cloning template VM: building clone VM config: network "fourtytwo" not found`)
 }
 
@@ -692,7 +691,7 @@ func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *tc.C) {
 		{MAC: "00:11:22:33:44:55"},
 	}
 
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `cloning template VM: building clone VM config: adding network device 0 - network VM Network: invalid MAC address: "00:11:22:33:44:55"`)
 }
 
@@ -702,7 +701,7 @@ func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *tc.C) {
 	rootDisk := uint64(1024 * 20) // 20 GiB
 	args.Constraints.RootDisk = &rootDisk
 
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.roundTripper.CheckCall(c, 19, "ReconfigVM_Task", types.VirtualMachineConfigSpec{
@@ -733,7 +732,7 @@ func (s *clientSuite) TestCreateVirtualMachineWithCustomizedVMFolder(c *tc.C) {
 
 	args.Folder = "k8s"
 
-	_, err := client.CreateVirtualMachine(context.Background(), args)
+	_, err := client.CreateVirtualMachine(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 
 	datastore := types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"}
