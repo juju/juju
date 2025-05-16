@@ -208,12 +208,6 @@ type ModelInfoService interface {
 	// question.
 	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
 
-	// GetStatus returns the current status of the model.
-	// The following error types can be expected to be returned:
-	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model
-	// does not exist.
-	GetStatus(context.Context) (model.StatusInfo, error)
-
 	// GetModelSummary returns a summary of the current model as a
 	// [coremodel.ModelSummary] type.
 	// The following error types can be expected:
@@ -307,6 +301,11 @@ type StatusService interface {
 	// The following error types can be expected to be returned:
 	// - [modelerrors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
+
+	// GetModelStatus returns the current status of the model.
+	// The following error types can be expected to be returned:
+	// - [modelerrors.NotFound]: When the model does not exist.
+	GetModelStatus(ctx context.Context) (status.ModelStatus, error)
 }
 
 // SecretBackendService is an interface for interacting with secret backend service.

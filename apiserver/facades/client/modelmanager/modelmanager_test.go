@@ -40,6 +40,7 @@ import (
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modeldefaults"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
@@ -80,6 +81,7 @@ type modelManagerSuite struct {
 	applicationService   *MockApplicationService
 	blockCommandService  *MockBlockCommandService
 	modelInfoService     *MockModelInfoService
+	statusService        *MockStatusService
 	authoriser           apiservertesting.FakeAuthorizer
 	api                  *modelmanager.ModelManagerAPI
 	controllerUUID       uuid.UUID
@@ -293,6 +295,8 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	networkService := NewMockNetworkService(ctrl)
 
+	s.statusService = NewMockStatusService(ctrl)
+
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	modelAgentService := NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(s.modelInfoService).AnyTimes()
@@ -301,7 +305,7 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
 
 	// Expect calls to functions of the model services.
-	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
+	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(domainstatus.ModelStatus{
 		Status: status.Available,
 		Since:  time.Now(),
 	}, nil)

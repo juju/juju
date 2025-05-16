@@ -68,7 +68,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.serviceGetter = func(modelUUID model.UUID) ExportService {
 		return service.NewService(
 			state.NewState(scope.ModelDB(), e.clock, e.logger),
-			state.NewControllerState(scope.ControllerDB(), e.clock, e.logger),
+			state.NewControllerState(scope.ControllerDB()),
 			modelUUID,
 			// TODO(jack): This is currently the wrong logger. We should construct
 			// the StatusHistory using the model logger, however, at the moment, we

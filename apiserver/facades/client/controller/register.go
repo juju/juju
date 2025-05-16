@@ -99,6 +99,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		pool,
 		authorizer,
 		resources,
+		ctx.ModelUUID(),
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),

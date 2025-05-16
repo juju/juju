@@ -9,10 +9,7 @@ import (
 
 	"github.com/juju/tc"
 
-	corecloud "github.com/juju/juju/core/cloud"
-	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/user"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -21,12 +18,7 @@ import (
 type controllerStateSuite struct {
 	schematesting.ControllerSuite
 
-	uuid     coremodel.UUID
-	userUUID user.UUID
-	userName user.Name
-
-	cloudUUID      corecloud.UUID
-	credentialUUID corecredential.UUID
+	uuid coremodel.UUID
 }
 
 var _ = tc.Suite(&controllerStateSuite{})

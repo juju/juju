@@ -825,7 +825,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 
 		err = commonmodel.DestroyModel(
 			ctx, st, // TODO: remove mongo state from the commonmodel.DestroyModel.
-			domainServices.BlockCommand(), domainServices.ModelInfo(),
+			domainServices.BlockCommand(), domainServices.Status(),
 			destroyStorage, force, maxWait, timeout,
 		)
 		if err != nil {
@@ -1023,7 +1023,8 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 	}
 	info.AgentVersion = &agentVersion
 
-	status, err := modelInfoService.GetStatus(ctx)
+	statusService := modelDomainServices.Status()
+	status, err := statusService.GetModelStatus(ctx)
 	if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}

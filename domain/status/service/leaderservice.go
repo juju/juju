@@ -16,7 +16,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/status"
+	domainstatus "github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -124,8 +124,8 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 		return corestatus.StatusInfo{}, nil, errors.Errorf("getting application id: %w", err)
 	}
 
-	var applicationStatus status.StatusInfo[status.WorkloadStatusType]
-	var fullUnitStatuses status.FullUnitStatuses
+	var applicationStatus domainstatus.StatusInfo[domainstatus.WorkloadStatusType]
+	var fullUnitStatuses domainstatus.FullUnitStatuses
 	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
 		var err error
 		applicationStatus, err = s.st.GetApplicationStatus(ctx, appID)
@@ -153,7 +153,7 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 		unitWorkloadStatuses[unitName] = workloadStatus
 	}
 
-	if applicationStatus.Status == status.WorkloadStatusUnset {
+	if applicationStatus.Status == domainstatus.WorkloadStatusUnset {
 		applicationDisplayStatus, err = applicationDisplayStatusFromUnits(fullUnitStatuses)
 		if err != nil {
 			return corestatus.StatusInfo{}, nil, errors.Capture(err)
@@ -203,4 +203,54 @@ func (s *LeadershipService) SetRelationStatus(
 	}
 
 	return nil
+}
+
+// GetModelStatus returns the current status of the model.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound]: When the model does not exist.
+func (s *Service) GetModelStatus(ctx context.Context) (domainstatus.ModelStatus, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	modelState, err := s.controllerState.GetModelState(ctx, s.modelUUID)
+	if err != nil {
+		return domainstatus.ModelStatus{}, errors.Capture(err)
+	}
+	return s.statusFromModelState(ctx, modelState), nil
+}
+
+// statusFromModelState is responsible for converting the a [model.ModelState]
+// into a model status representation.
+func (s *Service) statusFromModelState(
+	ctx context.Context,
+	statusState domainstatus.ModelState,
+) domainstatus.ModelStatus {
+	now := s.clock.Now()
+	if statusState.HasInvalidCloudCredential {
+		return domainstatus.ModelStatus{
+			Status:  corestatus.Suspended,
+			Message: "suspended since cloud credential is not valid",
+			Reason:  statusState.InvalidCloudCredentialReason,
+			Since:   now,
+		}
+	}
+	if statusState.Destroying {
+		return domainstatus.ModelStatus{
+			Status:  corestatus.Destroying,
+			Message: "the model is being destroyed",
+			Since:   now,
+		}
+	}
+	if statusState.Migrating {
+		return domainstatus.ModelStatus{
+			Status:  corestatus.Busy,
+			Message: "the model is being migrated",
+			Since:   now,
+		}
+	}
+
+	return domainstatus.ModelStatus{
+		Status: corestatus.Available,
+		Since:  now,
+	}
 }

@@ -64,6 +64,7 @@ type ControllerAPI struct {
 	authorizer                facade.Authorizer
 	apiUser                   names.UserTag
 	resources                 facade.Resources
+	controllerModelUUID       coremodel.UUID
 	credentialService         CredentialService
 	upgradeService            UpgradeService
 	controllerConfigService   ControllerConfigService
@@ -97,6 +98,7 @@ func NewControllerAPI(
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
+	controllerModelUUID coremodel.UUID,
 	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
 	externalControllerService common.ExternalControllerService,
@@ -153,6 +155,7 @@ func NewControllerAPI(
 		authorizer:                authorizer,
 		apiUser:                   apiUser,
 		resources:                 resources,
+		controllerModelUUID:       controllerModelUUID,
 		logger:                    logger,
 		controllerConfigService:   controllerConfigService,
 		credentialService:         credentialService,

@@ -179,6 +179,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		pool,
 		authorizer,
 		resources,
+		ctx.ModelUUID(),
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),
@@ -295,7 +296,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *tc.C) {
 
 	err := model.DestroyModel(
 		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
-		domainServices.BlockCommand(), domainServices.ModelInfo(),
+		domainServices.BlockCommand(), domainServices.Status(),
 		nil, nil, nil, nil,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -327,7 +328,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 	)
 	err := model.DestroyModel(
 		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
-		domainServices.BlockCommand(), domainServices.ModelInfo(),
+		domainServices.BlockCommand(), domainServices.Status(),
 		nil, nil, nil, nil,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -346,7 +347,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 
 	err := model.DestroyModel(
 		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
-		domainServices.BlockCommand(), domainServices.ModelInfo(),
+		domainServices.BlockCommand(), domainServices.Status(),
 		nil, nil, nil, nil,
 	)
 	c.Assert(err, tc.ErrorIsNil)

@@ -8,6 +8,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
@@ -89,6 +90,18 @@ func DecodeK8sPodStatus(s int) (K8sPodStatusType, error) {
 type ModelStatusInfo struct {
 	// Type is the type of the model in question.
 	Type coremodel.ModelType
+}
+
+// StatusInfo represents the current status of a model.
+type ModelStatus struct {
+	// Status is the current status of the model.
+	Status status.Status
+	// Message is a human-readable message that describes the current status of the model.
+	Message string
+	// Reason is a human-readable message that describes the reason for the current status of the model.
+	Reason string
+	// Since is the time when the model entered the current status.
+	Since time.Time
 }
 
 // ModelState describes the state of a model.

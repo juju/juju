@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
-	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/relation"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs/cloudspec"
@@ -72,10 +71,6 @@ type ModelService interface {
 
 // ModelInfoService defines domain service methods for managing a model.
 type ModelInfoService interface {
-	// GetStatus returns the current status of the model. The following error
-	// types can be expected to be returned:
-	//  - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does not exist.
-	GetStatus(context.Context) (domainmodel.StatusInfo, error)
 	// IsControllerModel returns true if the model is the controller model.
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] When the model does not exist.
@@ -105,14 +100,21 @@ type StatusService interface {
 	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
 	// in the model indicate they can be migrated.
 	CheckUnitStatusesReadyForMigration(context.Context) error
+
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+
 	// GetModelStatusInfo returns information about the current model for the
 	// purpose of reporting its status.
 	// The following error types can be expected to be returned:
-	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does not exist.
+	// - [modelerrors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
+
+	// GetModelStatus returns the current status of the model.
+	// The following error types can be expected to be returned:
+	// - [modelerrors.NotFound]: When the model does not exist.
+	GetModelStatus(ctx context.Context) (domainstatus.ModelStatus, error)
 }
 
 // ProxyService provides access to the proxy service.

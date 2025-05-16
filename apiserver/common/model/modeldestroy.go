@@ -36,11 +36,13 @@ type BlockCommandService interface {
 // remaining.
 func DestroyController(
 	ctx context.Context,
+	controllerModelUUID model.UUID,
 	modelUUIDs []model.UUID,
 	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
 	modelInfoService ModelInfoService,
 	modelService ModelService,
+	statusServiceGetter StatusServiceGetter,
 	blockCommandServiceGetter func(context.Context, model.UUID) (BlockCommandService, error),
 	destroyHostedModels bool,
 	destroyStorage *bool,
@@ -74,7 +76,13 @@ func DestroyController(
 			}
 		}
 	}
-	return destroyModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
+
+	statusService, err := statusServiceGetter(ctx, controllerModelUUID)
+	if err != nil {
+		return interrors.Capture(err)
+	}
+
+	return destroyModel(ctx, st, blockCommandService, statusService, state.DestroyModelParams{
 		DestroyHostedModels: destroyHostedModels,
 		DestroyStorage:      destroyStorage,
 		Force:               force,
@@ -89,13 +97,13 @@ func DestroyModel(
 	ctx context.Context,
 	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
-	modelInfoService ModelInfoService,
+	statusService StatusService,
 	destroyStorage *bool,
 	force *bool,
 	maxWait *time.Duration,
 	timeout *time.Duration,
 ) error {
-	return destroyModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
+	return destroyModel(ctx, st, blockCommandService, statusService, state.DestroyModelParams{
 		DestroyStorage: destroyStorage,
 		Force:          force,
 		MaxWait:        common.MaxWait(maxWait),
@@ -107,7 +115,7 @@ func destroyModel(
 	ctx context.Context,
 	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
-	modelInfoService ModelInfoService,
+	statusService StatusService,
 	args state.DestroyModelParams,
 ) error {
 	check := common.NewBlockChecker(blockCommandService)
@@ -122,7 +130,7 @@ func destroyModel(
 	notForcing := args.Force == nil || !*args.Force
 	if notForcing {
 		// If model status is suspended, then model's cloud credential is invalid.
-		modelStatus, err := modelInfoService.GetStatus(ctx)
+		modelStatus, err := statusService.GetModelStatus(ctx)
 		if err != nil {
 			return interrors.Capture(err)
 		}
