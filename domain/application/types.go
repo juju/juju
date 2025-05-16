@@ -247,7 +247,6 @@ type UnitStatusArg struct {
 
 type SubordinateUnitArg struct {
 	UnitStatusArg
-	ModelType         model.ModelType
 	SubordinateAppID  application.ID
 	PrincipalUnitName coreunit.Name
 }
