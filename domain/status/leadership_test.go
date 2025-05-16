@@ -190,38 +190,39 @@ func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...appli
 	}
 	ctx := c.Context()
 
-	appID, err := appState.CreateApplication(ctx, name, application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: name,
-				Provides: map[string]charm.Relation{
-					"endpoint": {
-						Name:  "endpoint",
-						Role:  charm.RoleProvider,
-						Scope: charm.ScopeGlobal,
-					},
-					"misc": {
-						Name:  "misc",
-						Role:  charm.RoleProvider,
-						Scope: charm.ScopeGlobal,
+	appID, err := appState.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: name,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+						"misc": {
+							Name:  "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
 					},
 				},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: name,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
 			},
-			Manifest:      s.minimalManifest(c),
-			ReferenceName: name,
-			Source:        charm.CharmHubSource,
-			Revision:      42,
-			Hash:          "hash",
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
 		},
-		CharmDownloadInfo: &charm.DownloadInfo{
-			Provenance:         charm.ProvenanceDownload,
-			CharmhubIdentifier: "ident",
-			DownloadURL:        "https://example.com",
-			DownloadSize:       42,
-		},
-		Scale: len(units),
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
