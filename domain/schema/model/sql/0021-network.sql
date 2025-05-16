@@ -184,11 +184,11 @@ INSERT INTO ip_address_config_type VALUES
 CREATE TABLE ip_address (
     uuid TEXT NOT NULL PRIMARY KEY,
     -- the link layer device this address belongs to.
+    net_node_uuid TEXT NOT NULL,
     device_uuid TEXT NOT NULL,
     -- The value of the configured IP address.
     -- e.g. 192.168.1.2 or 2001:db8:0000:0000:0000:0000:0000:00001.
     address_value TEXT NOT NULL,
-    net_node_uuid TEXT NOT NULL,
     -- NOTE (manadart 2025-03--25): The fact that this is nullable is a wart
     -- from our Kubernetes provider. There is nothing to say we couldn't do
     -- subnet discovery on K8s by listing nodes, then accumulating

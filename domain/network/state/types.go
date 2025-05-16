@@ -376,6 +376,7 @@ func encodeVirtualPortType(kind corenetwork.VirtualPortType) (int64, error) {
 // ipAddressDML is for writing data to the ip_address table.
 type ipAddressDML struct {
 	UUID         string  `db:"uuid"`
+	NodeUUID     string  `db:"net_node_uuid"`
 	DeviceUUID   string  `db:"device_uuid"`
 	AddressValue string  `db:"address_value"`
 	SubnetUUID   *string `db:"subnet_uuid"`
@@ -395,13 +396,10 @@ type ipAddressDML struct {
 // address.
 // It is expected that the maps will be populated as part of the reconciliation
 // process prior to calling this method.
-func netAddrToDML(addr network.NetAddr, devNameToUUID, ipToUUID map[string]string) (ipAddressDML, error) {
+func netAddrToDML(
+	addr network.NetAddr, nodeUUID, devUUID string, ipToUUID map[string]string,
+) (ipAddressDML, error) {
 	var dml ipAddressDML
-
-	devUUID, ok := devNameToUUID[addr.InterfaceName]
-	if !ok {
-		return dml, errors.Errorf("no UUID associated with device %q", addr.InterfaceName)
-	}
 
 	addrUUID, ok := ipToUUID[addr.AddressValue]
 	if !ok {
@@ -430,6 +428,7 @@ func netAddrToDML(addr network.NetAddr, devNameToUUID, ipToUUID map[string]strin
 
 	dml = ipAddressDML{
 		UUID:         addrUUID,
+		NodeUUID:     nodeUUID,
 		DeviceUUID:   devUUID,
 		AddressValue: addr.AddressValue,
 		SubnetUUID:   nil,

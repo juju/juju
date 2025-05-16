@@ -65,14 +65,12 @@ func (s *typesSuite) TestNetAddrToDMLSuccess(c *tc.C) {
 	addr := getNetAddr()
 
 	dml, err := netAddrToDML(
-		addr,
-		map[string]string{"eth0": "some-device-uuid"},
-		map[string]string{"10.0.0.13/24": "some-addr-uuid"},
-	)
+		addr, "some-node-uuid", "some-device-uuid", map[string]string{"10.0.0.13/24": "some-addr-uuid"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(dml, tc.DeepEquals, ipAddressDML{
 		UUID:         "some-addr-uuid",
+		NodeUUID:     "some-node-uuid",
 		DeviceUUID:   "some-device-uuid",
 		AddressValue: "10.0.0.13/24",
 		SubnetUUID:   nil,
@@ -90,10 +88,7 @@ func (s *typesSuite) TestNetAddrToDMLBadAddressTypeError(c *tc.C) {
 	addr.AddressType = "bad-type"
 
 	_, err := netAddrToDML(
-		addr,
-		map[string]string{"eth0": "some-device-uuid"},
-		map[string]string{"10.0.0.13/24": "some-addr-uuid"},
-	)
+		addr, "some-node-uuid", "some-device-uuid", map[string]string{"10.0.0.13/24": "some-addr-uuid"})
 	c.Assert(err, tc.ErrorMatches, "unsupported address type.*")
 }
 
@@ -125,7 +120,7 @@ func getNetAddr() network.NetAddr {
 		InterfaceName: "eth0",
 		AddressValue:  "10.0.0.13/24",
 
-		// TODO (manadart 2025--05-08): This, combined with the CIDR determined
+		// TODO (manadart 2025-05-08): This, combined with the CIDR determined
 		// from the address will be used to determine a subnet UUID (if extant)
 		// when we are resolving as part of network detection.
 		ProviderSubnetID: nil,
