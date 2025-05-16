@@ -177,7 +177,7 @@ func TargetPrecheck(
 		if model.UUID() == modelInfo.UUID && mode != state.MigrationModeImporting {
 			return errors.Errorf("model with same UUID already exists (%s)", modelInfo.UUID)
 		}
-		if model.Name() == modelInfo.Name && model.Owner() == modelInfo.Owner {
+		if model.Name() == modelInfo.Name && model.Owner().Id() == modelInfo.Namespace {
 			return errors.Errorf("model named %q already exists", model.Name())
 		}
 	}

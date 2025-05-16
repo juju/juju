@@ -230,7 +230,7 @@ func (c *killCommand) DirectDestroyRemaining(
 			logger.Warningf(ctx, "could not kill %s directly: %v", model.Name, model.Error)
 			continue
 		}
-		ctx.Infof("Killing %s/%s directly", model.Owner.Id(), model.Name)
+		ctx.Infof("Killing %s/%s directly", model.Namespace, model.Name)
 		cfg, err := config.New(config.NoDefaults, model.Config)
 		if err != nil {
 			logger.Warningf(ctx, err.Error())

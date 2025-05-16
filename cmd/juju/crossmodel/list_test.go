@@ -87,7 +87,7 @@ func (s *ListSuite) TestListFilterArgs(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mockAPI.filters, tc.HasLen, 1)
 	c.Assert(s.mockAPI.filters[0], tc.DeepEquals, model.ApplicationOfferFilter{
-		OwnerName:       "fred",
+		ModelNamespace:  "fred",
 		ModelName:       "test",
 		ApplicationName: "mysql-lite",
 		Endpoints: []model.EndpointFilterTerm{{
@@ -103,9 +103,9 @@ func (s *ListSuite) TestListOfferArg(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.mockAPI.filters, tc.HasLen, 1)
 	c.Assert(s.mockAPI.filters[0], tc.DeepEquals, model.ApplicationOfferFilter{
-		OwnerName: "fred",
-		ModelName: "test",
-		OfferName: "^mysql-lite$",
+		ModelNamespace: "fred",
+		ModelName:      "test",
+		OfferName:      "^mysql-lite$",
 	})
 }
 

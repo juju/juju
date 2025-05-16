@@ -42,13 +42,13 @@ var _ = tc.Suite(&ClientSuite{})
 
 func (s *ClientSuite) TestWatch(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			NotifyWatcherId: "123",
 		}
 		return nil
-	})
+	}, BestVersion: 5}
 	expectWatch := &struct{ watcher.NotifyWatcher }{}
 	newWatcher := func(caller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
 		c.Check(caller, tc.NotNil)
@@ -175,18 +175,17 @@ func (s *ClientSuite) TestSetStatusMessageError(c *tc.C) {
 
 func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 	var stub testhelpers.Stub
-	owner := names.NewUserTag("owner")
-	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, v int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
 			UUID:                   "uuid",
 			Name:                   "name",
-			OwnerTag:               owner.String(),
+			Namespace:              "owner",
 			AgentVersion:           semversion.MustParse("1.2.3"),
 			ControllerAgentVersion: semversion.MustParse("1.2.4"),
 		}
 		return nil
-	})
+	}, BestVersion: 5}
 	client := migrationmaster.NewClient(apiCaller, nil)
 	model, err := client.ModelInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -197,7 +196,7 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 	c.Check(model, tc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
-		Owner:                  owner,
+		Namespace:              "owner",
 		AgentVersion:           semversion.MustParse("1.2.3"),
 		ControllerAgentVersion: semversion.MustParse("1.2.4"),
 	})
@@ -211,19 +210,18 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var stub testhelpers.Stub
-	owner := names.NewUserTag("owner")
-	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, v int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
 			UUID:                   "uuid",
 			Name:                   "name",
-			OwnerTag:               owner.String(),
+			Namespace:              "owner",
 			AgentVersion:           semversion.MustParse("1.2.3"),
 			ControllerAgentVersion: semversion.MustParse("1.2.4"),
 			ModelDescription:       serialized,
 		}
 		return nil
-	})
+	}, BestVersion: 5}
 	client := migrationmaster.NewClient(apiCaller, nil)
 	model, err := client.ModelInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -234,7 +232,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 	c.Check(model, tc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
-		Owner:                  owner,
+		Namespace:              "owner",
 		AgentVersion:           semversion.MustParse("1.2.3"),
 		ControllerAgentVersion: semversion.MustParse("1.2.4"),
 		ModelDescription:       modelDescription,
@@ -271,10 +269,10 @@ func (s *ClientSuite) TestSourceControllerInfo(c *tc.C) {
 
 func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return errors.New("blam")
-	})
+	}, BestVersion: 5}
 	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.Prechecks(c.Context())
 	c.Check(err, tc.ErrorMatches, "blam")

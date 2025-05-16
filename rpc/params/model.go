@@ -29,7 +29,7 @@ type ModelConfigResults struct {
 // aggressively.
 type HostedModelConfig struct {
 	Name      string                 `json:"name"`
-	OwnerTag  string                 `json:"owner"`
+	Namespace string                 `json:"namespace"`
 	Config    map[string]interface{} `json:"config,omitempty"`
 	CloudSpec *CloudSpec             `json:"cloud-spec,omitempty"`
 	Error     *Error                 `json:"error,omitempty"`
@@ -144,8 +144,8 @@ type ModelInfo struct {
 	// CloudCredentialValidity contains if model credential is valid, if known.
 	CloudCredentialValidity *bool `json:"cloud-credential-validity,omitempty"`
 
-	// OwnerTag is the tag of the user that owns the model.
-	OwnerTag string `json:"owner-tag"`
+	// Namespace is the namespace of the model.
+	Namespace string `json:"namespace"`
 
 	// Life is the current lifecycle state of the model.
 	Life life.Value `json:"life"`
@@ -203,8 +203,8 @@ type ModelSummary struct {
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
 
-	// OwnerTag is the tag of the user that owns the model.
-	OwnerTag string `json:"owner-tag"`
+	// Namespace is the namespace of the model.
+	Namespace string `json:"namespace"`
 
 	// Life is the current lifecycle state of the model.
 	Life life.Value `json:"life"`

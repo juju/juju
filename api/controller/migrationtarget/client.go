@@ -76,10 +76,23 @@ func (c *Client) Prechecks(ctx context.Context, model coremigration.ModelInfo) e
 		versions[name] = version
 	}
 
+	if c.BestFacadeVersion() < 5 {
+		args := params.MigrationModelInfoLegacy{
+			UUID:                   model.UUID,
+			Name:                   model.Name,
+			OwnerTag:               names.NewUserTag(model.Namespace).String(),
+			AgentVersion:           model.AgentVersion,
+			ControllerAgentVersion: model.ControllerAgentVersion,
+			FacadeVersions:         versions,
+			ModelDescription:       serialised,
+		}
+		return errors.Trace(c.caller.FacadeCall(ctx, "Prechecks", args, nil))
+	}
+
 	args := params.MigrationModelInfo{
 		UUID:                   model.UUID,
 		Name:                   model.Name,
-		OwnerTag:               model.Owner.String(),
+		Namespace:              model.Namespace,
 		AgentVersion:           model.AgentVersion,
 		ControllerAgentVersion: model.ControllerAgentVersion,
 		FacadeVersions:         versions,
