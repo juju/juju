@@ -84,10 +84,10 @@ func NewProviderService(
 	}
 }
 
-// CreateApplication creates the specified application and units if required,
+// CreateIAASApplication creates the specified application and units if required,
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
-func (s *ProviderService) CreateApplication(
+func (s *ProviderService) CreateIAASApplication(
 	ctx context.Context,
 	name string,
 	charm internalcharm.Charm,
@@ -186,6 +186,14 @@ func (s *ProviderService) CreateApplication(
 	}
 
 	return appID, nil
+}
+
+func (s *ProviderService) prepareIAASApplication() {
+
+}
+
+func (s *ProviderService) prepareCAASApplication() {
+
 }
 
 // GetSupportedFeatures returns the set of features that the model makes

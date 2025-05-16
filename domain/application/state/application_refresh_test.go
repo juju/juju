@@ -205,12 +205,13 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 		Revision:      42,
 	}
 
-	appID, err := s.state.CreateIAASApplication(c.Context(), appName, application.AddApplicationArg{
-		Platform:          platform,
-		Charm:             originalCharm,
-		CharmDownloadInfo: nil,
-		Scale:             1,
-		Channel:           channel,
+	appID, err := s.state.CreateIAASApplication(c.Context(), appName, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform:          platform,
+			Charm:             originalCharm,
+			CharmDownloadInfo: nil,
+			Channel:           channel,
+		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to create application %q", appName))
 	return appID
