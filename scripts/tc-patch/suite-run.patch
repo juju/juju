@@ -1,0 +1,10 @@
+# Replace tc.Suite(...) with a test that runs tc.Run(...)
+@@
+var tc, x identifier
+@@
+import tc "github.com/juju/tc"
++import stdtesting "testing"
+-var _ = tc.Suite(&x{})
++func TestXXX[H x](t *stdtesting.T) {
++	tc.Run(t, &x{})
++}
