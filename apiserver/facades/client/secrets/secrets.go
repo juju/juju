@@ -519,7 +519,7 @@ func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorRe
 	// TODO(secrets): JUJU-4719.
 	return commonsecrets.RemoveUserSecrets(
 		s.secretsState, s.adminBackendConfigGetter,
-		s.authTag, args, s.modelUUID,
+		args, s.modelUUID,
 		func(uri *coresecrets.URI) error {
 			if err := s.checkCanWrite(); err != nil {
 				return errors.Trace(err)
