@@ -106,6 +106,45 @@ func (c *MockStateAddCAASUnitsCall) DoAndReturn(f func(context.Context, applicat
 	return c
 }
 
+// AddIAASSubordinateUnit mocks base method.
+func (m *MockState) AddIAASSubordinateUnit(arg0 context.Context, arg1 application0.SubordinateUnitArg) (unit.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddIAASSubordinateUnit", arg0, arg1)
+	ret0, _ := ret[0].(unit.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddIAASSubordinateUnit indicates an expected call of AddIAASSubordinateUnit.
+func (mr *MockStateMockRecorder) AddIAASSubordinateUnit(arg0, arg1 any) *MockStateAddIAASSubordinateUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddIAASSubordinateUnit", reflect.TypeOf((*MockState)(nil).AddIAASSubordinateUnit), arg0, arg1)
+	return &MockStateAddIAASSubordinateUnitCall{Call: call}
+}
+
+// MockStateAddIAASSubordinateUnitCall wrap *gomock.Call
+type MockStateAddIAASSubordinateUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAddIAASSubordinateUnitCall) Return(arg0 unit.Name, arg1 error) *MockStateAddIAASSubordinateUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAddIAASSubordinateUnitCall) Do(f func(context.Context, application0.SubordinateUnitArg) (unit.Name, error)) *MockStateAddIAASSubordinateUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAddIAASSubordinateUnitCall) DoAndReturn(f func(context.Context, application0.SubordinateUnitArg) (unit.Name, error)) *MockStateAddIAASSubordinateUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddIAASUnits mocks base method.
 func (m *MockState) AddIAASUnits(arg0 context.Context, arg1 application.ID, arg2 ...application0.AddUnitArg) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
@@ -189,45 +228,6 @@ func (c *MockStateAddStorageForUnitCall) DoAndReturn(f func(context.Context, sto
 	return c
 }
 
-// AddSubordinateUnit mocks base method.
-func (m *MockState) AddSubordinateUnit(arg0 context.Context, arg1 application0.SubordinateUnitArg) (unit.Name, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSubordinateUnit", arg0, arg1)
-	ret0, _ := ret[0].(unit.Name)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddSubordinateUnit indicates an expected call of AddSubordinateUnit.
-func (mr *MockStateMockRecorder) AddSubordinateUnit(arg0, arg1 any) *MockStateAddSubordinateUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubordinateUnit", reflect.TypeOf((*MockState)(nil).AddSubordinateUnit), arg0, arg1)
-	return &MockStateAddSubordinateUnitCall{Call: call}
-}
-
-// MockStateAddSubordinateUnitCall wrap *gomock.Call
-type MockStateAddSubordinateUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateAddSubordinateUnitCall) Return(arg0 unit.Name, arg1 error) *MockStateAddSubordinateUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateAddSubordinateUnitCall) Do(f func(context.Context, application0.SubordinateUnitArg) (unit.Name, error)) *MockStateAddSubordinateUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddSubordinateUnitCall) DoAndReturn(f func(context.Context, application0.SubordinateUnitArg) (unit.Name, error)) *MockStateAddSubordinateUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // AttachStorage mocks base method.
 func (m *MockState) AttachStorage(ctx context.Context, storageUUID storage.UUID, unitUUID unit.UUID) error {
 	m.ctrl.T.Helper()
@@ -266,41 +266,80 @@ func (c *MockStateAttachStorageCall) DoAndReturn(f func(context.Context, storage
 	return c
 }
 
-// CreateApplication mocks base method.
-func (m *MockState) CreateApplication(arg0 context.Context, arg1 string, arg2 application0.AddApplicationArg, arg3 []application0.AddUnitArg) (application.ID, error) {
+// CreateCAASApplication mocks base method.
+func (m *MockState) CreateCAASApplication(arg0 context.Context, arg1 string, arg2 application0.AddCAASApplicationArg, arg3 []application0.AddUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateApplication", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "CreateCAASApplication", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(application.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CreateApplication indicates an expected call of CreateApplication.
-func (mr *MockStateMockRecorder) CreateApplication(arg0, arg1, arg2, arg3 any) *MockStateCreateApplicationCall {
+// CreateCAASApplication indicates an expected call of CreateCAASApplication.
+func (mr *MockStateMockRecorder) CreateCAASApplication(arg0, arg1, arg2, arg3 any) *MockStateCreateCAASApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockState)(nil).CreateApplication), arg0, arg1, arg2, arg3)
-	return &MockStateCreateApplicationCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCAASApplication", reflect.TypeOf((*MockState)(nil).CreateCAASApplication), arg0, arg1, arg2, arg3)
+	return &MockStateCreateCAASApplicationCall{Call: call}
 }
 
-// MockStateCreateApplicationCall wrap *gomock.Call
-type MockStateCreateApplicationCall struct {
+// MockStateCreateCAASApplicationCall wrap *gomock.Call
+type MockStateCreateCAASApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCreateApplicationCall) Return(arg0 application.ID, arg1 error) *MockStateCreateApplicationCall {
+func (c *MockStateCreateCAASApplicationCall) Return(arg0 application.ID, arg1 error) *MockStateCreateCAASApplicationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateApplicationCall) Do(f func(context.Context, string, application0.AddApplicationArg, []application0.AddUnitArg) (application.ID, error)) *MockStateCreateApplicationCall {
+func (c *MockStateCreateCAASApplicationCall) Do(f func(context.Context, string, application0.AddCAASApplicationArg, []application0.AddUnitArg) (application.ID, error)) *MockStateCreateCAASApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateApplicationCall) DoAndReturn(f func(context.Context, string, application0.AddApplicationArg, []application0.AddUnitArg) (application.ID, error)) *MockStateCreateApplicationCall {
+func (c *MockStateCreateCAASApplicationCall) DoAndReturn(f func(context.Context, string, application0.AddCAASApplicationArg, []application0.AddUnitArg) (application.ID, error)) *MockStateCreateCAASApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CreateIAASApplication mocks base method.
+func (m *MockState) CreateIAASApplication(arg0 context.Context, arg1 string, arg2 application0.AddIAASApplicationArg, arg3 []application0.AddUnitArg) (application.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateIAASApplication", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateIAASApplication indicates an expected call of CreateIAASApplication.
+func (mr *MockStateMockRecorder) CreateIAASApplication(arg0, arg1, arg2, arg3 any) *MockStateCreateIAASApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIAASApplication", reflect.TypeOf((*MockState)(nil).CreateIAASApplication), arg0, arg1, arg2, arg3)
+	return &MockStateCreateIAASApplicationCall{Call: call}
+}
+
+// MockStateCreateIAASApplicationCall wrap *gomock.Call
+type MockStateCreateIAASApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCreateIAASApplicationCall) Return(arg0 application.ID, arg1 error) *MockStateCreateIAASApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCreateIAASApplicationCall) Do(f func(context.Context, string, application0.AddIAASApplicationArg, []application0.AddUnitArg) (application.ID, error)) *MockStateCreateIAASApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCreateIAASApplicationCall) DoAndReturn(f func(context.Context, string, application0.AddIAASApplicationArg, []application0.AddUnitArg) (application.ID, error)) *MockStateCreateIAASApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

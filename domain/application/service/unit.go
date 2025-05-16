@@ -139,10 +139,10 @@ type UnitState interface {
 	// GetUnitNamesForNetNode returns a slice of the unit names for the given net node
 	GetUnitNamesForNetNode(context.Context, network.NetNodeUUID) ([]coreunit.Name, error)
 
-	// AddSubordinateUnit adds a new unit to the subordinate application. On
+	// AddIAASubordinateUnit adds a new unit to the subordinate application. On
 	// IAAS, the new unit will be colocated on machine with the principal unit.
 	// The principal-subordinate relationship is also recorded.
-	AddSubordinateUnit(context.Context, application.SubordinateUnitArg) (coreunit.Name, error)
+	AddIAASSubordinateUnit(context.Context, application.SubordinateUnitArg) (coreunit.Name, error)
 
 	// GetMachineNetNodeUUIDFromName returns the net node UUID for the named
 	// machine. The following errors may be returned: -
@@ -242,7 +242,7 @@ func (s *Service) makeUnitStatusArgs(workloadMessage string) application.UnitSta
 //     principal unit does not have a machine.
 //   - [applicationerrors.SubordinateUnitAlreadyExists] when the principal unit
 //     already has a subordinate from this application
-func (s *Service) AddSubordinateUnit(
+func (s *Service) AddIAASSubordinateUnit(
 	ctx context.Context,
 	subordinateAppID coreapplication.ID,
 	principalUnitName coreunit.Name,
@@ -264,19 +264,13 @@ func (s *Service) AddSubordinateUnit(
 		return applicationerrors.ApplicationNotSubordinate
 	}
 
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return errors.Errorf("getting model type: %w", err)
-	}
-
-	statusArg := s.makeUnitStatusArgs(modelType)
-	unitName, err := s.st.AddSubordinateUnit(
+	statusArg := s.makeIAASUnitStatusArgs()
+	unitName, err := s.st.AddIAASSubordinateUnit(
 		ctx,
 		application.SubordinateUnitArg{
 			SubordinateAppID:  subordinateAppID,
 			PrincipalUnitName: principalUnitName,
 			UnitStatusArg:     statusArg,
-			ModelType:         modelType,
 		},
 	)
 	if errors.Is(err, applicationerrors.UnitAlreadyHasSubordinate) {

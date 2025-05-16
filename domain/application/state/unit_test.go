@@ -1746,7 +1746,7 @@ type unitStateSubordinateSuite struct {
 
 var _ = tc.Suite(&unitStateSubordinateSuite{})
 
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnit(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
 	s.createIAASApplication(c, "principal", life.Alive, application.InsertUnitArg{
@@ -1756,10 +1756,9 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnit(c *tc.C) {
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
 	// Act:
-	sUnitName, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	sUnitName, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert
@@ -1769,9 +1768,9 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnit(c *tc.C) {
 	s.assertUnitMachinesMatch(c, pUnitName, sUnitName)
 }
 
-// TestAddSubordinateUnitSecondSubordinate tests that a second subordinate unit
+// TestAddIAASSubordinateUnitSecondSubordinate tests that a second subordinate unit
 // can be added to an app with no issues.
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitSecondSubordinate(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitSecondSubordinate(c *tc.C) {
 	// Arrange: add subordinate application.
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
@@ -1783,18 +1782,16 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitSecondSubordinate(c *t
 	}, application.InsertUnitArg{
 		UnitName: pUnitName2,
 	})
-	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName1,
-		ModelType:         model.IAAS,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: Add a second subordinate unit
-	sUnitName2, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	sUnitName2, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName2,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert
@@ -1804,29 +1801,7 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitSecondSubordinate(c *t
 	s.assertUnitMachinesMatch(c, pUnitName2, sUnitName2)
 }
 
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitCAAS(c *tc.C) {
-	// Arrange:
-	pUnitName := coreunittesting.GenNewName(c, "foo/666")
-	s.createIAASApplication(c, "principal", life.Alive, application.InsertUnitArg{
-		UnitName: pUnitName,
-	})
-
-	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
-
-	// Act:
-	sUnitName, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
-		SubordinateAppID:  sAppID,
-		PrincipalUnitName: pUnitName,
-		ModelType:         model.CAAS,
-	})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(sUnitName, tc.Equals, coreunittesting.GenNewName(c, "subordinate/0"))
-	s.assertUnitPrincipal(c, pUnitName, sUnitName)
-}
-
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitTwiceToSameUnit(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitTwiceToSameUnit(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
 	s.createIAASApplication(c, "principal", life.Alive, application.InsertUnitArg{
@@ -1836,25 +1811,23 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitTwiceToSameUnit(c *tc.
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
 	// Arrange: Add the first subordinate.
-	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: try adding a second subordinate to the same unit.
-	_, err = s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err = s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitAlreadyHasSubordinate)
 }
 
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitWithoutMachine(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitWithoutMachine(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
 	pAppUUID := s.createIAASApplication(c, "principal", life.Alive)
@@ -1863,27 +1836,25 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitWithoutMachine(c *tc.C
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
 	// Act:
-	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
 }
 
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitApplicationNotAlive(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitApplicationNotAlive(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
 
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Dying)
 
 	// Act:
-	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert

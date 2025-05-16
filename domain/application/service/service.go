@@ -31,11 +31,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -93,6 +95,40 @@ func NewService(
 		charmStore:            charmStore,
 		statusHistory:         statusHistory,
 	}
+}
+
+func (s *Service) recordStatusHistory(
+	ctx context.Context,
+	unitName coreunit.Name,
+	statusArg application.UnitStatusArg,
+) error {
+	// The agent and workload status are required to be provided when adding
+	// a unit.
+	if statusArg.AgentStatus == nil || statusArg.WorkloadStatus == nil {
+		return errors.Errorf("unit %q status not provided", unitName)
+	}
+
+	// Force the presence to be recorded as true, as the unit has just been
+	// added.
+	if agentStatus, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
+		StatusInfo: *statusArg.AgentStatus,
+		Present:    true,
+	}); err == nil && agentStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.UnitAgentNamespace.WithID(unitName.String()), *agentStatus); err != nil {
+			s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
+		}
+	}
+
+	if workloadStatus, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
+		StatusInfo: *statusArg.WorkloadStatus,
+		Present:    true,
+	}); err == nil && workloadStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.UnitWorkloadNamespace.WithID(unitName.String()), *workloadStatus); err != nil {
+			s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
+		}
+	}
+
+	return nil
 }
 
 // AgentVersionGetter is responsible for retrieving the target
