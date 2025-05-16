@@ -33,6 +33,7 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}
+	watcherRegistry := ctx.WatcherRegistry()
 
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
@@ -55,6 +56,7 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 		ctx.ObjectStore(),
 		resources,
 		leadershipRevoker,
+		watcherRegistry,
 		systemState,
 		ctx.Clock(),
 	)

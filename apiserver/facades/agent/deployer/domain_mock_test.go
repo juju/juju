@@ -16,7 +16,9 @@ import (
 	controller "github.com/juju/juju/controller"
 	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
+	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
+	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -216,6 +218,45 @@ func (c *MockApplicationServiceRemoveUnitCall) Do(f func(context.Context, unit.N
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceRemoveUnitCall) DoAndReturn(f func(context.Context, unit.Name, leadership.Revoker) error) *MockApplicationServiceRemoveUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchUnitInsertDeleteOnMachine mocks base method.
+func (m *MockApplicationService) WatchUnitInsertDeleteOnMachine(arg0 context.Context, arg1 machine.Name) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchUnitInsertDeleteOnMachine", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchUnitInsertDeleteOnMachine indicates an expected call of WatchUnitInsertDeleteOnMachine.
+func (mr *MockApplicationServiceMockRecorder) WatchUnitInsertDeleteOnMachine(arg0, arg1 any) *MockApplicationServiceWatchUnitInsertDeleteOnMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnitInsertDeleteOnMachine", reflect.TypeOf((*MockApplicationService)(nil).WatchUnitInsertDeleteOnMachine), arg0, arg1)
+	return &MockApplicationServiceWatchUnitInsertDeleteOnMachineCall{Call: call}
+}
+
+// MockApplicationServiceWatchUnitInsertDeleteOnMachineCall wrap *gomock.Call
+type MockApplicationServiceWatchUnitInsertDeleteOnMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceWatchUnitInsertDeleteOnMachineCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockApplicationServiceWatchUnitInsertDeleteOnMachineCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceWatchUnitInsertDeleteOnMachineCall) Do(f func(context.Context, machine.Name) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchUnitInsertDeleteOnMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceWatchUnitInsertDeleteOnMachineCall) DoAndReturn(f func(context.Context, machine.Name) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchUnitInsertDeleteOnMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
