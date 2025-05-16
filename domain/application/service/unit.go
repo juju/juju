@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
@@ -170,7 +169,7 @@ type UnitState interface {
 	GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]network.NetNodeUUID, error)
 }
 
-func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
+func (s *Service) makeIAASUnitArgs(units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
 	args := make([]application.AddUnitArg, len(units))
 	for i, u := range units {
 		placement, err := deployment.ParsePlacement(u.Placement)
@@ -181,7 +180,7 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 		arg := application.AddUnitArg{
 			Constraints:   constraints,
 			Placement:     placement,
-			UnitStatusArg: s.makeUnitStatusArgs(modelType),
+			UnitStatusArg: s.makeIAASUnitStatusArgs(),
 		}
 		args[i] = arg
 	}
@@ -189,11 +188,34 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 	return args, nil
 }
 
-func (s *Service) makeUnitStatusArgs(modelType coremodel.ModelType) application.UnitStatusArg {
-	workloadMessage := corestatus.MessageInstallingAgent
-	if modelType == coremodel.IAAS {
-		workloadMessage = corestatus.MessageWaitForMachine
+func (s *Service) makeCAASUnitArgs(units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
+	args := make([]application.AddUnitArg, len(units))
+	for i, u := range units {
+		placement, err := deployment.ParsePlacement(u.Placement)
+		if err != nil {
+			return nil, errors.Errorf("invalid placement: %w", err)
+		}
+
+		arg := application.AddUnitArg{
+			Constraints:   constraints,
+			Placement:     placement,
+			UnitStatusArg: s.makeCAASUnitStatusArgs(),
+		}
+		args[i] = arg
 	}
+
+	return args, nil
+}
+
+func (s *Service) makeIAASUnitStatusArgs() application.UnitStatusArg {
+	return s.makeUnitStatusArgs(corestatus.MessageWaitForMachine)
+}
+
+func (s *Service) makeCAASUnitStatusArgs() application.UnitStatusArg {
+	return s.makeUnitStatusArgs(corestatus.MessageInstallingAgent)
+}
+
+func (s *Service) makeUnitStatusArgs(workloadMessage string) application.UnitStatusArg {
 	now := ptr(s.clock.Now())
 	return application.UnitStatusArg{
 		AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{

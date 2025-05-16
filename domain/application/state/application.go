@@ -3554,8 +3554,7 @@ func precheckUpgradeRelation(meta *internalcharm.Meta, relations []relationInfo)
 		}
 		// The relation will always be found. If not, it would have caused
 		// the previous check to fail.
-		spec, _ := relSpec[rel.Name]
-		if rel.Count > spec.Limit {
+		if spec := relSpec[rel.Name]; rel.Count > spec.Limit {
 			return errors.Errorf("new charm version imposes a maximum relation limit of %d for %s:%s which cannot be"+
 				" satisfied by the number of already established relations (%d)", spec.Limit, rel.ApplicationName,
 				rel.Name, rel.Count)
