@@ -224,6 +224,7 @@ extensions = [
     # new_tab_link_show_external_link_icon must also be set to True
     'sphinx_new_tab_link',
     'sphinxcontrib.lightbox2',
+    'sphinxcontrib.kroki',
     ]
 
 
