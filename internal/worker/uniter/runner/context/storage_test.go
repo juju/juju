@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -17,8 +19,7 @@ type StorageSuite struct {
 	BaseHookContextSuite
 }
 
-var _ = tc.Suite(&StorageSuite{})
-
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &StorageSuite{}) }
 func (s *StorageSuite) TestAddUnitStorage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

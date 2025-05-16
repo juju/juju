@@ -4,6 +4,7 @@
 package operation_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,8 +29,7 @@ type RunActionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RunActionSuite{})
-
+func TestRunActionSuite(t *stdtesting.T) { tc.Run(t, &RunActionSuite{}) }
 func newOpFactory(c *tc.C, runnerFactory runner.Factory, callbacks operation.Callbacks) operation.Factory {
 	actionResult := params.ActionResult{
 		Action: &params.Action{Name: "backup"},

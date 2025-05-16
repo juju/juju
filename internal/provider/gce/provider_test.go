@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -19,8 +21,7 @@ type providerSuite struct {
 	spec     environscloudspec.CloudSpec
 }
 
-var _ = tc.Suite(&providerSuite{})
-
+func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
 func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

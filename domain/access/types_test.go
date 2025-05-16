@@ -4,6 +4,8 @@
 package access
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -13,8 +15,7 @@ import (
 
 type typesSuite struct{}
 
-var _ = tc.Suite(&typesSuite{})
-
+func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
 func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *tc.C) {
 	argsToTest := []UpdatePermissionArgs{
 		{}, { // Missing Subject

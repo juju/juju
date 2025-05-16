@@ -6,6 +6,7 @@ package refresher
 import (
 	"fmt"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,8 +20,7 @@ import (
 
 type refresherFactorySuite struct{}
 
-var _ = tc.Suite(&refresherFactorySuite{})
-
+func TestRefresherFactorySuite(t *stdtesting.T) { tc.Run(t, &refresherFactorySuite{}) }
 func (s *refresherFactorySuite) TestRefresh(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -150,8 +150,7 @@ func (s *refresherFactorySuite) TestRefreshCallsRefreshersEvenAfterExhaustedErro
 
 type baseRefresherSuite struct{}
 
-var _ = tc.Suite(&baseRefresherSuite{})
-
+func TestBaseRefresherSuite(t *stdtesting.T) { tc.Run(t, &baseRefresherSuite{}) }
 func (s *baseRefresherSuite) TestResolveCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -238,8 +237,9 @@ func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *tc.C) {
 
 type localCharmRefresherSuite struct{}
 
-var _ = tc.Suite(&localCharmRefresherSuite{})
-
+func TestLocalCharmRefresherSuite(t *stdtesting.T) {
+	tc.Run(t, &localCharmRefresherSuite{})
+}
 func (s *localCharmRefresherSuite) TestRefresh(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -314,8 +314,9 @@ func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *tc.C) {
 
 type charmHubCharmRefresherSuite struct{}
 
-var _ = tc.Suite(&charmHubCharmRefresherSuite{})
-
+func TestCharmHubCharmRefresherSuite(t *stdtesting.T) {
+	tc.Run(t, &charmHubCharmRefresherSuite{})
+}
 func (s *charmHubCharmRefresherSuite) TestRefresh(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

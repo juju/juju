@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -57,8 +58,7 @@ type maasEnvironSuite struct {
 	maasSuite
 }
 
-var _ = tc.Suite(&maasEnvironSuite{})
-
+func TestMaasEnvironSuite(t *stdtesting.T) { tc.Run(t, &maasEnvironSuite{}) }
 func (suite *maasEnvironSuite) getEnvWithServer(c *tc.C) (*maasEnviron, error) {
 	testServer := gomaasapi.NewSimpleServer()
 	testServer.AddGetResponse("/api/2.0/version/", http.StatusOK, maasVersionResponse)

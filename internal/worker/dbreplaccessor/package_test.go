@@ -5,7 +5,7 @@ package dbreplaccessor
 
 import (
 	"context"
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination clock_mock_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbreplaccessor -destination sql_mock_test.go database/sql/driver Driver
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

@@ -6,6 +6,7 @@ package provisioner_test
 import (
 	"net/http"
 	"net/http/httptest"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -34,8 +35,7 @@ type ImageMetadataSuite struct {
 	provisionerSuite
 }
 
-var _ = tc.Suite(&ImageMetadataSuite{})
-
+func TestImageMetadataSuite(t *stdtesting.T) { tc.Run(t, &ImageMetadataSuite{}) }
 func (s *ImageMetadataSuite) SetUpSuite(c *tc.C) {
 	s.provisionerSuite.SetUpSuite(c)
 

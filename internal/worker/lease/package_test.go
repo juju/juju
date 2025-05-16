@@ -4,7 +4,7 @@
 package lease
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus"
@@ -19,7 +19,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package lease -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -typed -package lease -destination prometheus_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

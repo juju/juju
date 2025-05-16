@@ -5,6 +5,7 @@ package highavailability_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -34,7 +35,7 @@ type clientSuite struct {
 	store objectstore.ObjectStore
 }
 
-var _ = tc.Suite(&clientSuite{})
+func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
 
 var (
 	emptyCons      = constraints.Value{}

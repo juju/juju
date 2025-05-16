@@ -4,6 +4,8 @@
 package dbreplaccessor
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -19,8 +21,7 @@ type workerSuite struct {
 	driver    *MockDriver
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

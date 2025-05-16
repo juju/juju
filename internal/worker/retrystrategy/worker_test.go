@@ -5,6 +5,8 @@
 package retrystrategy_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -17,8 +19,7 @@ type WorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&WorkerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
 func (s *WorkerSuite) testValidate(c *tc.C, config retrystrategy.WorkerConfig, errMsg string) {
 	check := func(err error) {
 		c.Check(err, tc.ErrorMatches, errMsg)

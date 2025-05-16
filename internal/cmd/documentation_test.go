@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
@@ -16,8 +17,7 @@ import (
 
 type documentationSuite struct{}
 
-var _ = tc.Suite(&documentationSuite{})
-
+func TestDocumentationSuite(t *stdtesting.T) { tc.Run(t, &documentationSuite{}) }
 func (s *documentationSuite) TestFormatCommand(c *tc.C) {
 	tests := []struct {
 		command  cmd.Command

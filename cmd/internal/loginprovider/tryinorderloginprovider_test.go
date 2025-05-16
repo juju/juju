@@ -6,6 +6,7 @@ package loginprovider_test
 import (
 	"context"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,8 +19,9 @@ import (
 
 type tryInOrderLoginProviderSuite struct{}
 
-var _ = tc.Suite(&tryInOrderLoginProviderSuite{})
-
+func TestTryInOrderLoginProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &tryInOrderLoginProviderSuite{})
+}
 func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *tc.C) {
 	p1 := &mockLoginProvider{err: errors.New("provider 1 error")}
 	p2 := &mockLoginProvider{err: errors.New("provider 2 error")}

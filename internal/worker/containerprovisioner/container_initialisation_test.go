@@ -6,6 +6,7 @@ package containerprovisioner
 import (
 	"errors"
 	"sync"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -50,9 +51,7 @@ func (s *containerSetupSuite) SetUpTest(c *tc.C) {
 
 	s.machineLock = &fakeMachineLock{}
 }
-
-var _ = tc.Suite(&containerSetupSuite{})
-
+func TestContainerSetupSuite(t *stdtesting.T) { tc.Run(t, &containerSetupSuite{}) }
 func (s *containerSetupSuite) TestInitialiseContainersLXD(c *tc.C) {
 	s.testInitialiseContainers(c, instance.LXD)
 }

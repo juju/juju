@@ -4,6 +4,8 @@
 package payloadshookcontext_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -16,8 +18,7 @@ type suite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&suite{})
-
+func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
 func (s *suite) TestTrack(c *tc.C) {
 	a := unitfacade.NewUnitFacadeV1()
 	args := params.TrackPayloadArgs{

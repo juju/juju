@@ -5,6 +5,7 @@ package network_test
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,8 +17,7 @@ type nicSuite struct {
 	info network.InterfaceInfos
 }
 
-var _ = tc.Suite(&nicSuite{})
-
+func TestNicSuite(t *stdtesting.T) { tc.Run(t, &nicSuite{}) }
 func (s *nicSuite) SetUpTest(_ *tc.C) {
 	s.info = network.InterfaceInfos{
 		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0", MACAddress: "00:16:3e:aa:bb:cc"},

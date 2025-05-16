@@ -4,6 +4,7 @@
 package auditconfigupdater
 
 import (
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/collections/set"
@@ -23,8 +24,7 @@ type workerSuite struct {
 	states chan string
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) TestNewWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

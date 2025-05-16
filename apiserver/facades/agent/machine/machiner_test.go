@@ -4,6 +4,7 @@
 package machine_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -31,8 +32,7 @@ type machinerSuite struct {
 	watcherRegistry *MockWatcherRegistry
 }
 
-var _ = tc.Suite(&machinerSuite{})
-
+func TestMachinerSuite(t *stdtesting.T) { tc.Run(t, &machinerSuite{}) }
 func (s *machinerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

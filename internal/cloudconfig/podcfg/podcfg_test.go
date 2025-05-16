@@ -4,6 +4,8 @@
 package podcfg_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
@@ -19,8 +21,7 @@ type podcfgSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&podcfgSuite{})
-
+func TestPodcfgSuite(t *stdtesting.T) { tc.Run(t, &podcfgSuite{}) }
 func (*podcfgSuite) TestPodLabelsController(c *tc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{})
 	controllerJobs := []model.MachineJob{model.JobManageModel}

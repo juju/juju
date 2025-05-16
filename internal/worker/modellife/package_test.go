@@ -4,7 +4,7 @@
 package modellife
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
@@ -12,7 +12,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package modellife -destination services_mock_test.go github.com/juju/juju/internal/worker/modellife ModelService
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

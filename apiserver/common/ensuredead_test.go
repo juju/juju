@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,7 +21,7 @@ import (
 
 type deadEnsurerSuite struct{}
 
-var _ = tc.Suite(&deadEnsurerSuite{})
+func TestDeadEnsurerSuite(t *stdtesting.T) { tc.Run(t, &deadEnsurerSuite{}) }
 
 type fakeDeadEnsurer struct {
 	state.Entity

@@ -4,7 +4,7 @@
 package reboot
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -14,7 +14,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/instance_mock.go github.com/juju/juju/environs/instances Instance
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

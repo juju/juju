@@ -5,12 +5,12 @@ package path
 
 import (
 	"net/url"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

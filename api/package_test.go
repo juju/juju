@@ -4,21 +4,20 @@
 package api
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 
 type ImportSuite struct{}
 
-var _ = tc.Suite(&ImportSuite{})
-
+func TestImportSuite(t *stdtesting.T) { tc.Run(t, &ImportSuite{}) }
 func (*ImportSuite) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/api")
 

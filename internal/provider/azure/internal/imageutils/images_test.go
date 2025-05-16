@@ -5,6 +5,7 @@ package imageutils_test
 
 import (
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -29,8 +30,7 @@ type imageutilsSuite struct {
 	invalidator *MockCredentialInvalidator
 }
 
-var _ = tc.Suite(&imageutilsSuite{})
-
+func TestImageutilsSuite(t *stdtesting.T) { tc.Run(t, &imageutilsSuite{}) }
 func (s *imageutilsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockSender = &azuretesting.MockSender{}

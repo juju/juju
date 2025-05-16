@@ -4,6 +4,8 @@
 package upgrader_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,8 +15,7 @@ type unitUpgraderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&unitUpgraderSuite{})
-
+func TestUnitUpgraderSuite(t *stdtesting.T) { tc.Run(t, &unitUpgraderSuite{}) }
 func (s *unitUpgraderSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
  - TestWatchAPIVersionNothing: Not an error to watch nothing

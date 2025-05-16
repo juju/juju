@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -18,8 +20,7 @@ type modelSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&modelSuite{})
-
+func TestModelSuite(t *stdtesting.T) { tc.Run(t, &modelSuite{}) }
 func (s *modelSuite) TestModel(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, tc.Equals, "Uniter")

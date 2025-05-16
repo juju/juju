@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"net/url"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -26,8 +27,7 @@ type execSuite struct {
 	BaseSuite
 }
 
-var _ = tc.Suite(&execSuite{})
-
+func TestExecSuite(t *stdtesting.T) { tc.Run(t, &execSuite{}) }
 func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()

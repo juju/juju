@@ -4,6 +4,8 @@
 package relation
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -16,8 +18,7 @@ type relationKeySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&relationKeySuite{})
-
+func TestRelationKeySuite(t *stdtesting.T) { tc.Run(t, &relationKeySuite{}) }
 func (s *relationKeySuite) TestParseRelationKey(c *tc.C) {
 	tests := []struct {
 		summary     string

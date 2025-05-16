@@ -6,6 +6,7 @@ package provider_test
 import (
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -16,8 +17,7 @@ import (
 
 type providerCommonSuite struct{}
 
-var _ = tc.Suite(&providerCommonSuite{})
-
+func TestProviderCommonSuite(t *stdtesting.T) { tc.Run(t, &providerCommonSuite{}) }
 func (s *providerCommonSuite) TestCommonProvidersExported(c *tc.C) {
 	registry := provider.CommonStorageProviders()
 	var common []storage.ProviderType

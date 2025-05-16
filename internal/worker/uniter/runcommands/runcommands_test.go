@@ -5,6 +5,7 @@ package runcommands_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -31,8 +32,7 @@ type runcommandsSuite struct {
 	commandCompleted func(string)
 }
 
-var _ = tc.Suite(&runcommandsSuite{})
-
+func TestRuncommandsSuite(t *stdtesting.T) { tc.Run(t, &runcommandsSuite{}) }
 func (s *runcommandsSuite) SetUpTest(c *tc.C) {
 	s.charmURL = "ch:precise/mysql-2"
 	s.remoteState = remotestate.Snapshot{

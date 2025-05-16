@@ -4,7 +4,7 @@
 package provisioner_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -13,6 +13,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package provisioner -destination interface_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine,BridgePolicy,Unit,Application
 //go:generate go run go.uber.org/mock/mockgen -typed -package provisioner -destination containerizer_mock_test.go github.com/juju/juju/internal/network/containerizer LinkLayerDevice
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }

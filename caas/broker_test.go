@@ -4,6 +4,8 @@
 package caas_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -15,8 +17,7 @@ type brokerSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&brokerSuite{})
-
+func TestBrokerSuite(t *stdtesting.T) { tc.Run(t, &brokerSuite{}) }
 func (s *brokerSuite) TestDeploymentTypeValidation(c *tc.C) {
 
 	validTypes := []caas.DeploymentType{

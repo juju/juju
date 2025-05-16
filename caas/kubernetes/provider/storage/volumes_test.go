@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
 
@@ -15,8 +17,7 @@ type storageSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&storageSuite{})
-
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
 func (s *storageSuite) TestParseStorageConfig(c *tc.C) {
 	cfg, err := storage.ParseStorageConfig(map[string]interface{}{
 		"storage-class":       "juju-ebs",

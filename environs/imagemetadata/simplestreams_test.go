@@ -346,8 +346,7 @@ func (s *simplestreamsSuite) TestFetch(c *tc.C) {
 
 type productSpecSuite struct{}
 
-var _ = tc.Suite(&productSpecSuite{})
-
+func TestProductSpecSuite(t *stdtesting.T) { tc.Run(t, &productSpecSuite{}) }
 func (s *productSpecSuite) TestIdWithDefaultStream(c *tc.C) {
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		Releases: []string{"12.04"},

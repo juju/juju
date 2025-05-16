@@ -4,7 +4,7 @@
 package service
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,6 +15,6 @@ var _ State = (*state.State)(nil)
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/port/service State
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }

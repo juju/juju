@@ -4,7 +4,7 @@
 package systemd_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -15,6 +15,6 @@ import (
 // and generate all mocks with the command above.
 //go:generate go run go.uber.org/mock/mockgen -typed -package systemd -destination shims_mock_test.go github.com/juju/juju/internal/service/systemd ShimExec
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }

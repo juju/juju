@@ -4,6 +4,8 @@
 package charmhub
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/arch"
@@ -17,8 +19,7 @@ type filterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&filterSuite{})
-
+func TestFilterSuite(t *stdtesting.T) { tc.Run(t, &filterSuite{}) }
 func (s *filterSuite) TestFilterChannels(c *tc.C) {
 	tests := []struct {
 		Name     string

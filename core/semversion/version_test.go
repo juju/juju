@@ -6,6 +6,7 @@ package semversion_test
 import (
 	"encoding/json"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v3"
@@ -15,8 +16,7 @@ import (
 
 type suite struct{}
 
-var _ = tc.Suite(&suite{})
-
+func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
 func (*suite) TestCompare(c *tc.C) {
 	cmpTests := []struct {
 		v1, v2  string

@@ -4,6 +4,8 @@
 package state
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	corenetwork "github.com/juju/juju/core/network"
@@ -15,8 +17,7 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&typesSuite{})
-
+func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
 func (s *typesSuite) TestNetInterfaceToDMLSuccess(c *tc.C) {
 	dev := getNetInterface()
 

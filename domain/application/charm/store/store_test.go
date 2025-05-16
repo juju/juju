@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -31,8 +32,7 @@ type storeSuite struct {
 	objectStoreGetter *MockModelObjectStoreGetter
 }
 
-var _ = tc.Suite(&storeSuite{})
-
+func TestStoreSuite(t *stdtesting.T) { tc.Run(t, &storeSuite{}) }
 func (s *storeSuite) TestStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

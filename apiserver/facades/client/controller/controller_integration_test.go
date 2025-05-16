@@ -4,6 +4,8 @@
 package controller_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/controller/controller"
@@ -21,8 +23,9 @@ type ControllerIntegrationSuite struct {
 	client *controller.Client
 }
 
-var _ = tc.Suite(&ControllerIntegrationSuite{})
-
+func TestControllerIntegrationSuite(t *stdtesting.T) {
+	tc.Run(t, &ControllerIntegrationSuite{})
+}
 func (s *ControllerIntegrationSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 

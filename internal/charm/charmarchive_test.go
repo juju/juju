@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type CharmArchiveSuite struct {
 	archivePath string
 }
 
-var _ = tc.Suite(&CharmArchiveSuite{})
-
+func TestCharmArchiveSuite(t *stdtesting.T) { tc.Run(t, &CharmArchiveSuite{}) }
 func (s *CharmArchiveSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 	s.archivePath = archivePath(c, readCharmDir(c, "dummy"))

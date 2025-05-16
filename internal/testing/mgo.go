@@ -4,7 +4,7 @@
 package testing
 
 import (
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
@@ -16,7 +16,7 @@ import (
 // The server will be configured without SSL enabled, which slows down
 // tests. For tests that care about security (which should be few), use
 // MgoSSLTestPackage.
-func MgoTestPackage(t *testing.T) {
+func MgoTestPackage(t *stdtesting.T) {
 	mgotesting.MgoServer.EnableReplicaSet = true
 	// Tests tend to cause enough contention that the default lock request
 	// timeout of 5ms is not enough. We may need to consider increasing the
@@ -27,7 +27,7 @@ func MgoTestPackage(t *testing.T) {
 
 // MgoSSLTestPackage should be called to register the tests for any package
 // that requires a secure (SSL) connection to a MongoDB server.
-func MgoSSLTestPackage(t *testing.T) {
+func MgoSSLTestPackage(t *stdtesting.T) {
 	mgotesting.MgoServer.EnableReplicaSet = true
 	// Tests tend to cause enough contention that the default lock request
 	// timeout of 5ms is not enough. We may need to consider increasing the

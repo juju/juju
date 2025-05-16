@@ -4,6 +4,8 @@
 package utils_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -15,8 +17,7 @@ type annotationSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&annotationSuite{})
-
+func TestAnnotationSuite(t *stdtesting.T) { tc.Run(t, &annotationSuite{}) }
 func (s *annotationSuite) TestAnnotations(c *tc.C) {
 	c.Assert(utils.AnnotationJujuStorageKey(constants.LegacyLabelVersion), tc.DeepEquals, "juju-storage")
 	c.Assert(utils.AnnotationJujuStorageKey(constants.LabelVersion1), tc.DeepEquals, "storage.juju.is/name")

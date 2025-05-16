@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -15,8 +17,7 @@ type filesystemSuite struct {
 	baseStorageSuite
 }
 
-var _ = tc.Suite(&filesystemSuite{})
-
+func TestFilesystemSuite(t *stdtesting.T) { tc.Run(t, &filesystemSuite{}) }
 func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 	return params.FilesystemDetails{
 		FilesystemTag: s.filesystemTag.String(),

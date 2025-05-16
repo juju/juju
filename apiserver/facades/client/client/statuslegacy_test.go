@@ -4,6 +4,8 @@
 package client_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,8 +15,7 @@ type statusSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&statusSuite{})
-
+func TestStatusSuite(t *stdtesting.T) { tc.Run(t, &statusSuite{}) }
 func (s *statusSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Full status (assert on machine, application, unit, relation, offers, model).
@@ -29,8 +30,7 @@ type statusUnitTestSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&statusUnitTestSuite{})
-
+func TestStatusUnitTestSuite(t *stdtesting.T) { tc.Run(t, &statusUnitTestSuite{}) }
 func (s *statusUnitTestSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 -- Note: This comment was taken from the original test suite:

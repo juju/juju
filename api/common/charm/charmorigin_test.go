@@ -4,6 +4,8 @@
 package charm_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -14,8 +16,7 @@ import (
 
 type originSuite struct{}
 
-var _ = tc.Suite(&originSuite{})
-
+func TestOriginSuite(t *stdtesting.T) { tc.Run(t, &originSuite{}) }
 func (originSuite) TestCoreChannel(c *tc.C) {
 	track := "latest"
 	branch := "foo"

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/gnuflag"
@@ -84,8 +85,7 @@ type ServerSuite struct {
 	err    chan error
 }
 
-var _ = tc.Suite(&ServerSuite{})
-
+func TestServerSuite(t *stdtesting.T) { tc.Run(t, &ServerSuite{}) }
 func (s *ServerSuite) osDependentSockPath(c *tc.C) sockets.Socket {
 	pipeRoot := c.MkDir()
 	sock := filepath.Join(pipeRoot, "test.sock")
@@ -238,7 +238,7 @@ type NewCommandSuite struct {
 	relationSuite
 }
 
-var _ = tc.Suite(&NewCommandSuite{})
+func TestNewCommandSuite(t *stdtesting.T) { tc.Run(t, &NewCommandSuite{}) }
 
 var newCommandTests = []struct {
 	name string

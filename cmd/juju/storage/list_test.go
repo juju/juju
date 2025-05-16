@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,8 +25,7 @@ type ListSuite struct {
 	mockAPI *mockListAPI
 }
 
-var _ = tc.Suite(&ListSuite{})
-
+func TestListSuite(t *stdtesting.T) { tc.Run(t, &ListSuite{}) }
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 

@@ -4,6 +4,7 @@
 package secretbackends
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -34,8 +35,7 @@ type SecretsSuite struct {
 	mockBackendService *MockSecretBackendService
 }
 
-var _ = tc.Suite(&SecretsSuite{})
-
+func TestSecretsSuite(t *stdtesting.T) { tc.Run(t, &SecretsSuite{}) }
 func (s *SecretsSuite) setup(c *tc.C) (*SecretBackendsAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 

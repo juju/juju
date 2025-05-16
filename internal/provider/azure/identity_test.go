@@ -4,6 +4,8 @@
 package azure
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -21,8 +23,7 @@ type identitySuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&identitySuite{})
-
+func TestIdentitySuite(t *stdtesting.T) { tc.Run(t, &identitySuite{}) }
 func (s *identitySuite) TestFinaliseBootstrapCredentialNoInstanceRole(c *tc.C) {
 	env := azureEnviron{subscriptionId: fakeSubscriptionId}
 	cred := cloud.NewCredential("service-principal-secret", map[string]string{

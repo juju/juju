@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&SnapSuite{})
+func TestSnapSuite(t *stdtesting.T) { tc.Run(t, &SnapSuite{}) }
 
 type SnapSuite struct {
 	testhelpers.IsolationSuite

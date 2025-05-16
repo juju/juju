@@ -5,6 +5,7 @@ package jujuclient_test
 
 import (
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,7 @@ type AccountsFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&AccountsFileSuite{})
+func TestAccountsFileSuite(t *stdtesting.T) { tc.Run(t, &AccountsFileSuite{}) }
 
 const testLegacyAccountsYAML = `
 controllers:

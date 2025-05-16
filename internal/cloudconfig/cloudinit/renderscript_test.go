@@ -5,6 +5,7 @@ package cloudinit_test
 
 import (
 	"regexp"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -18,7 +19,7 @@ type configureSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&configureSuite{})
+func TestConfigureSuite(t *stdtesting.T) { tc.Run(t, &configureSuite{}) }
 
 type testProvider struct {
 	environs.CloudEnvironProvider

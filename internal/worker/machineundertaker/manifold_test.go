@@ -4,6 +4,8 @@
 package machineundertaker_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -24,8 +26,7 @@ type manifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&manifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
 func (*manifoldSuite) TestMissingCaller(c *tc.C) {
 	manifold := makeManifold(c, nil, nil)
 	result, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{

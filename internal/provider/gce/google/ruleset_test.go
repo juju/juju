@@ -4,6 +4,8 @@
 package google
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
@@ -17,8 +19,7 @@ type RuleSetSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&RuleSetSuite{})
-
+func TestRuleSetSuite(t *stdtesting.T) { tc.Run(t, &RuleSetSuite{}) }
 func makeRuleSet() ruleSet {
 	return newRuleSetFromRules(corefirewall.IngressRules{
 		corefirewall.NewIngressRule(network.MustParsePortRange("8000-8099/tcp")),

@@ -5,6 +5,7 @@ package secrets_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -25,8 +26,7 @@ type ShowSuite struct {
 	secretsAPI *mocks.MockListSecretsAPI
 }
 
-var _ = tc.Suite(&ShowSuite{})
-
+func TestShowSuite(t *stdtesting.T) { tc.Run(t, &ShowSuite{}) }
 func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

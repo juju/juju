@@ -4,6 +4,7 @@
 package crossmodelrelations_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
@@ -18,7 +19,7 @@ import (
 
 const longerThanExpiryTime = 11 * time.Minute
 
-var _ = tc.Suite(&MacaroonCacheSuite{})
+func TestMacaroonCacheSuite(t *stdtesting.T) { tc.Run(t, &MacaroonCacheSuite{}) }
 
 type MacaroonCacheSuite struct {
 	coretesting.BaseSuite

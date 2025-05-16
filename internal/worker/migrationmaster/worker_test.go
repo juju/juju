@@ -9,6 +9,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"reflect"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -51,7 +52,7 @@ type Suite struct {
 	config        migrationmaster.Config
 }
 
-var _ = tc.Suite(&Suite{})
+func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
 
 var (
 	fakeModelBytes      = []byte("model")

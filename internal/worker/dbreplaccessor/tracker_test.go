@@ -7,6 +7,7 @@ import (
 	"context"
 	sql "database/sql"
 	"errors"
+	stdtesting "testing"
 	time "time"
 
 	sqlair "github.com/canonical/sqlair"
@@ -23,8 +24,9 @@ type trackedDBReplWorkerSuite struct {
 	states chan string
 }
 
-var _ = tc.Suite(&trackedDBReplWorkerSuite{})
-
+func TestTrackedDBReplWorkerSuite(t *stdtesting.T) {
+	tc.Run(t, &trackedDBReplWorkerSuite{})
+}
 func (s *trackedDBReplWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -5,6 +5,7 @@ package modelconfig
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -42,8 +43,7 @@ type modelConfigSuite struct {
 	modelID model.UUID
 }
 
-var _ = tc.Suite(&modelConfigSuite{})
-
+func TestModelConfigSuite(t *stdtesting.T) { tc.Run(t, &modelConfigSuite{}) }
 func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 	s.ControllerModelSuite.SetUpTest(c)
 

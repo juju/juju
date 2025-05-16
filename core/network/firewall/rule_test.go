@@ -4,13 +4,15 @@
 package firewall
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&IngressRuleSuite{})
+func TestIngressRuleSuite(t *stdtesting.T) { tc.Run(t, &IngressRuleSuite{}) }
 
 type IngressRuleSuite struct {
 	testhelpers.IsolationSuite

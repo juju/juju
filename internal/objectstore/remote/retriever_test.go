@@ -10,6 +10,7 @@ import (
 	io "io"
 	"math/rand/v2"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	jujuerrors "github.com/juju/errors"
@@ -36,8 +37,7 @@ type retrieverSuite struct {
 	clock            *MockClock
 }
 
-var _ = tc.Suite(&retrieverSuite{})
-
+func TestRetrieverSuite(t *stdtesting.T) { tc.Run(t, &retrieverSuite{}) }
 func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

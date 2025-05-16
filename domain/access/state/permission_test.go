@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"sort"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -33,8 +34,7 @@ type permissionStateSuite struct {
 	debug            bool
 }
 
-var _ = tc.Suite(&permissionStateSuite{})
-
+func TestPermissionStateSuite(t *stdtesting.T) { tc.Run(t, &permissionStateSuite{}) }
 func (s *permissionStateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.controllerUUID = s.SeedControllerUUID(c)

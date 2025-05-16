@@ -6,7 +6,7 @@ package action_test
 import (
 	"context"
 	"os"
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -40,7 +40,7 @@ const (
 	invalidApplicationId = "something-strange-"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

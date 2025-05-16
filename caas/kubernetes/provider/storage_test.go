@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 	core "k8s.io/api/core/v1"
@@ -15,7 +17,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-var _ = tc.Suite(&storageSuite{})
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
 
 type storageSuite struct {
 	BaseSuite

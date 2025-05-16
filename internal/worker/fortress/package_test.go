@@ -4,13 +4,13 @@
 package fortress_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

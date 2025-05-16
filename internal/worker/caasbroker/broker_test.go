@@ -5,6 +5,7 @@ package caasbroker_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -24,8 +25,7 @@ type TrackerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&TrackerSuite{})
-
+func TestTrackerSuite(t *stdtesting.T) { tc.Run(t, &TrackerSuite{}) }
 func (s *TrackerSuite) validConfig(c *tc.C) caasbroker.Config {
 	return caasbroker.Config{
 		ConfigAPI: &runContext{},

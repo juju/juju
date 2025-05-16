@@ -5,6 +5,7 @@ package application
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,8 +26,9 @@ type AddRemoteRelationSuiteNewAPI struct {
 	baseAddRemoteRelationSuite
 }
 
-var _ = tc.Suite(&AddRemoteRelationSuiteNewAPI{})
-
+func TestAddRemoteRelationSuiteNewAPI(t *stdtesting.T) {
+	tc.Run(t, &AddRemoteRelationSuiteNewAPI{})
+}
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationNoRemoteApplications(c *tc.C) {
 	err := s.runAddRelation(c, "applicationname2", "applicationname")
 	c.Assert(err, tc.ErrorIsNil)
@@ -136,8 +138,9 @@ type AddRelationValidationSuite struct {
 	baseAddRemoteRelationSuite
 }
 
-var _ = tc.Suite(&AddRelationValidationSuite{})
-
+func TestAddRelationValidationSuite(t *stdtesting.T) {
+	tc.Run(t, &AddRelationValidationSuite{})
+}
 func (s *AddRelationValidationSuite) TestAddRelationInvalidEndpoint(c *tc.C) {
 	s.assertInvalidEndpoint(c, "applicationname:inva#lid", `endpoint "applicationname:inva#lid" not valid`)
 }

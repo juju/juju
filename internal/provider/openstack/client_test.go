@@ -4,6 +4,8 @@
 package openstack
 
 import (
+	stdtesting "testing"
+
 	"github.com/go-goose/goose/v5/client"
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/juju/errors"
@@ -19,8 +21,7 @@ type clientSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&clientSuite{})
-
+func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
 func (s *clientSuite) TestFactoryInit(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

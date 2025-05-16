@@ -4,7 +4,7 @@
 package storageregistry
 
 import (
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package storageregistry -destination provider_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package storageregistry -destination storageregistry_mock_test.go github.com/juju/juju/internal/worker/storageregistry StorageRegistryWorker
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

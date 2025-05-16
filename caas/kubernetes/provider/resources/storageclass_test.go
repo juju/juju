@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	storagev1 "k8s.io/api/storage/v1"
@@ -17,8 +19,7 @@ type storageClassSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&storageClassSuite{})
-
+func TestStorageClassSuite(t *stdtesting.T) { tc.Run(t, &storageClassSuite{}) }
 func (s *storageClassSuite) TestApply(c *tc.C) {
 	ds := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{

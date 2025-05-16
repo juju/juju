@@ -4,6 +4,8 @@
 package changestream
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -17,8 +19,7 @@ type changestreamSuite struct {
 	txnRunner *MockTxnRunner
 }
 
-var _ = tc.Suite(&changestreamSuite{})
-
+func TestChangestreamSuite(t *stdtesting.T) { tc.Run(t, &changestreamSuite{}) }
 func (s *changestreamSuite) TestTxnRunnerFactory(c *tc.C) {
 	db, err := NewTxnRunnerFactory(s.getWatchableDB)()
 	c.Assert(err, tc.IsNil)

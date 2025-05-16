@@ -6,6 +6,7 @@ package fortress_test
 import (
 	"context"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,8 +22,7 @@ type FortressSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&FortressSuite{})
-
+func TestFortressSuite(t *stdtesting.T) { tc.Run(t, &FortressSuite{}) }
 func (s *FortressSuite) TestOutputBadSource(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)

@@ -34,8 +34,7 @@ type MachinerSuite struct {
 	addresses  []net.Addr
 }
 
-var _ = tc.Suite(&MachinerSuite{})
-
+func TestMachinerSuite(t *stdtesting.T) { tc.Run(t, &MachinerSuite{}) }
 func (s *MachinerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.accessor = &mockMachineAccessor{}

@@ -5,6 +5,7 @@ package pki_test
 
 import (
 	"net"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,8 +17,7 @@ import (
 type LeafSuite struct {
 }
 
-var _ = tc.Suite(&LeafSuite{})
-
+func TestLeafSuite(t *stdtesting.T) { tc.Run(t, &LeafSuite{}) }
 func (l *LeafSuite) TestLeafHasDNSNames(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, tc.ErrorIsNil)

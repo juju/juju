@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -27,8 +28,7 @@ type createSuite struct {
 	expectedErr string
 }
 
-var _ = tc.Suite(&createSuite{})
-
+func TestCreateSuite(t *stdtesting.T) { tc.Run(t, &createSuite{}) }
 func (s *createSuite) SetUpTest(c *tc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = backups.NewCreateCommandForTest(s.store)

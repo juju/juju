@@ -4,6 +4,8 @@
 package lease_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,8 +19,7 @@ type RevokeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RevokeSuite{})
-
+func TestRevokeSuite(t *stdtesting.T) { tc.Run(t, &RevokeSuite{}) }
 func (s *RevokeSuite) TestHolderSuccess(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{

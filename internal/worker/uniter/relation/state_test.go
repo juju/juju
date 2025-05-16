@@ -5,6 +5,7 @@ package relation_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +20,7 @@ type stateSuite struct {
 
 type msi map[string]int64
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 
 // writeTests verify the behaviour of sequences of HookInfos on a relation
 // state that starts off containing defaultMembers.

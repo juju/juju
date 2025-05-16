@@ -4,9 +4,9 @@
 package tls_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
-func TestSuite(t *testing.T) { tc.TestingT(t) }
+func TestSuite(t *stdtesting.T) { tc.TestingT(t) }

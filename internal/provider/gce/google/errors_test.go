@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -21,8 +22,7 @@ type ErrorSuite struct {
 	internalError *googlyError
 }
 
-var _ = tc.Suite(&ErrorSuite{})
-
+func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &ErrorSuite{}) }
 func (s *ErrorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.internalError = &googlyError{"400 Bad Request"}

@@ -4,6 +4,8 @@
 package database
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/database/schema"
@@ -15,8 +17,7 @@ type migrationSuite struct {
 	testing.DqliteSuite
 }
 
-var _ = tc.Suite(&migrationSuite{})
-
+func TestMigrationSuite(t *stdtesting.T) { tc.Run(t, &migrationSuite{}) }
 func (s *migrationSuite) TestMigrationSuccess(c *tc.C) {
 	patches := schema.New()
 	patches.Add(

@@ -4,6 +4,8 @@
 package usersecretsdrain_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -12,7 +14,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&userSecretsdrainSuite{})
+func TestUserSecretsdrainSuite(t *stdtesting.T) { tc.Run(t, &userSecretsdrainSuite{}) }
 
 type userSecretsdrainSuite struct {
 	coretesting.BaseSuite

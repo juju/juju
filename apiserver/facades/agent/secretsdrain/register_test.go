@@ -4,6 +4,8 @@
 package secretsdrain_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -17,8 +19,7 @@ type drainSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&drainSuite{})
-
+func TestDrainSuite(t *stdtesting.T) { tc.Run(t, &drainSuite{}) }
 func (s *drainSuite) TestNewSecretManagerAPIPermissionCheck(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

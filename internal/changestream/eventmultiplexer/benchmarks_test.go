@@ -5,7 +5,7 @@ package eventmultiplexer
 
 import (
 	"fmt"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -25,7 +25,7 @@ func (*mockMetrics) SubscriptionsClear()                              {}
 func (*mockMetrics) DispatchDurationObserve(val float64, failed bool) {}
 func (*mockMetrics) DispatchErrorsInc()                               {}
 
-func benchmarkSignal(b *testing.B, changes ChangeSet) {
+func benchmarkSignal(b *stdtesting.B, changes ChangeSet) {
 	c := &tc.TBC{TB: b}
 	sub := newSubscription(0, func() {})
 	defer workertest.CleanKill(c, sub)
@@ -57,7 +57,7 @@ func create(size int) ChangeSet {
 	return changes
 }
 
-func consume(b *testing.B, sub changestream.Subscription) chan<- struct{} {
+func consume(b *stdtesting.B, sub changestream.Subscription) chan<- struct{} {
 	done := make(chan struct{})
 	go func() {
 		for {
@@ -71,23 +71,23 @@ func consume(b *testing.B, sub changestream.Subscription) chan<- struct{} {
 	return done
 }
 
-func BenchmarkSignal_1(b *testing.B) {
+func BenchmarkSignal_1(b *stdtesting.B) {
 	benchmarkSignal(b, create(1))
 }
 
-func BenchmarkSignal_10(b *testing.B) {
+func BenchmarkSignal_10(b *stdtesting.B) {
 	benchmarkSignal(b, create(10))
 }
 
-func BenchmarkSignal_100(b *testing.B) {
+func BenchmarkSignal_100(b *stdtesting.B) {
 	benchmarkSignal(b, create(100))
 }
 
-func BenchmarkSignal_1000(b *testing.B) {
+func BenchmarkSignal_1000(b *stdtesting.B) {
 	benchmarkSignal(b, create(1000))
 }
 
-func benchmarkSubscriptions(b *testing.B, numSubs, numEvents int, ns string) {
+func benchmarkSubscriptions(b *stdtesting.B, numSubs, numEvents int, ns string) {
 	c := &tc.TBC{TB: b}
 	terms := make(chan changestream.Term)
 
@@ -125,99 +125,99 @@ func benchmarkSubscriptions(b *testing.B, numSubs, numEvents int, ns string) {
 	workertest.CleanKill(c, em)
 }
 
-func BenchmarkMatching_1_1(b *testing.B) {
+func BenchmarkMatching_1_1(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1, 1, "test")
 }
 
-func BenchmarkMatching_1_10(b *testing.B) {
+func BenchmarkMatching_1_10(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1, 10, "test")
 }
 
-func BenchmarkMatching_1_100(b *testing.B) {
+func BenchmarkMatching_1_100(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1, 100, "test")
 }
 
-func BenchmarkMatching_10_1(b *testing.B) {
+func BenchmarkMatching_10_1(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 10, 1, "test")
 }
 
-func BenchmarkMatching_10_10(b *testing.B) {
+func BenchmarkMatching_10_10(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 10, 10, "test")
 }
 
-func BenchmarkMatching_10_100(b *testing.B) {
+func BenchmarkMatching_10_100(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 10, 100, "test")
 }
 
-func BenchmarkMatching_100_1(b *testing.B) {
+func BenchmarkMatching_100_1(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 100, 1, "test")
 }
 
-func BenchmarkMatching_100_10(b *testing.B) {
+func BenchmarkMatching_100_10(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 100, 10, "test")
 }
 
-func BenchmarkMatching_100_100(b *testing.B) {
+func BenchmarkMatching_100_100(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 100, 100, "test")
 }
 
-func BenchmarkMatching_1000_1(b *testing.B) {
+func BenchmarkMatching_1000_1(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1000, 1, "test")
 }
 
-func BenchmarkMatching_1000_10(b *testing.B) {
+func BenchmarkMatching_1000_10(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1000, 10, "test")
 }
 
-func BenchmarkMatching_1000_100(b *testing.B) {
+func BenchmarkMatching_1000_100(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1000, 100, "test")
 }
 
-func BenchmarkNonMatching_1_1(b *testing.B) {
+func BenchmarkNonMatching_1_1(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1, 1, "bar")
 }
 
-func BenchmarkNonMatching_1_10(b *testing.B) {
+func BenchmarkNonMatching_1_10(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1, 10, "bar")
 }
 
-func BenchmarkNonMatching_1_100(b *testing.B) {
+func BenchmarkNonMatching_1_100(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1, 100, "bar")
 }
 
-func BenchmarkNonMatching_10_1(b *testing.B) {
+func BenchmarkNonMatching_10_1(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 10, 1, "bar")
 }
 
-func BenchmarkNonMatching_10_10(b *testing.B) {
+func BenchmarkNonMatching_10_10(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 10, 10, "bar")
 }
 
-func BenchmarkNonMatching_10_100(b *testing.B) {
+func BenchmarkNonMatching_10_100(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 10, 100, "bar")
 }
 
-func BenchmarkNonMatching_100_1(b *testing.B) {
+func BenchmarkNonMatching_100_1(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 100, 1, "bar")
 }
 
-func BenchmarkNonMatching_100_10(b *testing.B) {
+func BenchmarkNonMatching_100_10(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 100, 10, "bar")
 }
 
-func BenchmarkNonMatching_100_100(b *testing.B) {
+func BenchmarkNonMatching_100_100(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 100, 100, "bar")
 }
 
-func BenchmarkNonMatching_1000_1(b *testing.B) {
+func BenchmarkNonMatching_1000_1(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1000, 1, "bar")
 }
 
-func BenchmarkNonMatching_1000_10(b *testing.B) {
+func BenchmarkNonMatching_1000_10(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1000, 10, "bar")
 }
 
-func BenchmarkNonMatching_1000_100(b *testing.B) {
+func BenchmarkNonMatching_1000_100(b *stdtesting.B) {
 	benchmarkSubscriptions(b, 1000, 100, "bar")
 }
 

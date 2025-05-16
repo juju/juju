@@ -4,6 +4,8 @@
 package jujuclient_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
@@ -18,8 +20,7 @@ type SetModelsSuite struct {
 	controller     jujuclient.ControllerDetails
 }
 
-var _ = tc.Suite(&SetModelsSuite{})
-
+func TestSetModelsSuite(t *stdtesting.T) { tc.Run(t, &SetModelsSuite{}) }
 func (s *SetModelsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclient.NewFileClientStore()

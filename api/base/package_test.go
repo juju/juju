@@ -4,7 +4,7 @@
 package base
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -12,6 +12,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/clientfacade_mock.go github.com/juju/juju/api/base APICallCloser,ClientFacade
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }

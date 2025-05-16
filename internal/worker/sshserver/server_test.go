@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	net "net"
+	stdtesting "testing"
 	"time"
 
 	"github.com/gliderlabs/ssh"
@@ -35,8 +36,7 @@ type sshServerSuite struct {
 	sessionHandler *MockSessionHandler
 }
 
-var _ = tc.Suite(&sshServerSuite{})
-
+func TestSshServerSuite(t *stdtesting.T) { tc.Run(t, &sshServerSuite{}) }
 func (s *sshServerSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 

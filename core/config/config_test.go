@@ -4,6 +4,8 @@
 package config_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/schema"
 	"github.com/juju/tc"
@@ -17,7 +19,7 @@ type ConfigSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
 
 var testFields = configschema.Fields{
 	"field1": {

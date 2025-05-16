@@ -3,9 +3,13 @@
 
 package hooks
 
-import "github.com/juju/tc"
+import (
+	stdtesting "testing"
 
-var _ = tc.Suite(&HooksSuite{})
+	"github.com/juju/tc"
+)
+
+func TestHooksSuite(t *stdtesting.T) { tc.Run(t, &HooksSuite{}) }
 
 type HooksSuite struct{}
 

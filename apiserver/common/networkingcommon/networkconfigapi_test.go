@@ -4,6 +4,8 @@
 package networkingcommon_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
@@ -43,8 +45,7 @@ type networkConfigSuite struct {
 	modelOp modelOpRecorder
 }
 
-var _ = tc.Suite(&networkConfigSuite{})
-
+func TestNetworkConfigSuite(t *stdtesting.T) { tc.Run(t, &networkConfigSuite{}) }
 func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissionError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

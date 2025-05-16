@@ -5,6 +5,7 @@ package resource_test
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&CharmResourcesSuite{})
+func TestCharmResourcesSuite(t *stdtesting.T) { tc.Run(t, &CharmResourcesSuite{}) }
 
 type CharmResourcesSuite struct {
 	testhelpers.IsolationSuite

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -15,7 +16,7 @@ import (
 	testing "github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&tcpProxySuite{})
+func TestTcpProxySuite(t *stdtesting.T) { tc.Run(t, &tcpProxySuite{}) }
 
 type tcpProxySuite struct{}
 

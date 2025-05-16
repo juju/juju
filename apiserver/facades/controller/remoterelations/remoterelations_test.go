@@ -4,6 +4,8 @@
 package remoterelations_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -29,7 +31,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&remoteRelationsSuite{})
+func TestRemoteRelationsSuite(t *stdtesting.T) { tc.Run(t, &remoteRelationsSuite{}) }
 
 type remoteRelationsSuite struct {
 	coretesting.BaseSuite

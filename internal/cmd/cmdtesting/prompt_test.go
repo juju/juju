@@ -8,6 +8,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,8 +21,7 @@ type prompterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&prompterSuite{})
-
+func TestPrompterSuite(t *stdtesting.T) { tc.Run(t, &prompterSuite{}) }
 func (*prompterSuite) TestPrompter(c *tc.C) {
 	noPrompt := func(p string) (string, error) {
 		c.Fatalf("unpexected prompt (text %q)", p)

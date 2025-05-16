@@ -6,6 +6,7 @@ package agentconfigupdater_test
 import (
 	"context"
 	"maps"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -34,8 +35,7 @@ type WorkerSuite struct {
 	controllerConifgService *MockControllerConfigService
 }
 
-var _ = tc.Suite(&WorkerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
 func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	for i, test := range []struct {
 		name      string

@@ -4,7 +4,7 @@
 package stateauthenticator_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -13,6 +13,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package stateauthenticator -destination authentication_mock_test.go github.com/juju/juju/apiserver/authentication EntityAuthenticator,AgentPasswordService
 //go:generate go run go.uber.org/mock/mockgen -typed -package stateauthenticator -destination expirable_storage_mock.go github.com/juju/juju/internal/macaroon ExpirableStorage
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }

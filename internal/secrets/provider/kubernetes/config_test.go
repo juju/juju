@@ -4,6 +4,7 @@
 package kubernetes
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -16,8 +17,7 @@ type configSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&configSuite{})
-
+func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
 func (s *configSuite) TestValidateConfig(c *tc.C) {
 	p, err := provider.Provider(BackendType)
 	c.Assert(err, tc.ErrorIsNil)

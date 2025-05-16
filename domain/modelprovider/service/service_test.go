@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -23,7 +24,7 @@ type serviceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
 
 var (
 	testCloud = cloud.Cloud{

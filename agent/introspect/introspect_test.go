@@ -36,9 +36,7 @@ func (s *IntrospectCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&config.DataDir, c.MkDir())
 }
-
-var _ = tc.Suite(&IntrospectCommandSuite{})
-
+func TestIntrospectCommandSuite(t *stdtesting.T) { tc.Run(t, &IntrospectCommandSuite{}) }
 func (s *IntrospectCommandSuite) TestInitErrors(c *tc.C) {
 	s.assertInitError(c, "either a query path or a --listen address must be specified")
 	s.assertInitError(c, "a query path may not be specified with --listen", "query-path", "--listen=foo")

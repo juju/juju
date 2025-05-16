@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
@@ -21,9 +22,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&CmdSuite{})
-var _ = tc.Suite(&CmdHelpSuite{})
-var _ = tc.Suite(&CmdDocumentationSuite{})
+func TestCmdSuite(t *stdtesting.T)              { tc.Run(t, &CmdSuite{}) }
+func TestCmdHelpSuite(t *stdtesting.T)          { tc.Run(t, &CmdHelpSuite{}) }
+func TestCmdDocumentationSuite(t *stdtesting.T) { tc.Run(t, &CmdDocumentationSuite{}) }
 
 type CmdSuite struct {
 	testhelpers.LoggingCleanupSuite

@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -26,8 +27,7 @@ type regionsSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&regionsSuite{})
-
+func TestRegionsSuite(t *stdtesting.T) { tc.Run(t, &regionsSuite{}) }
 func (s *regionsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeShowCloudAPI{}

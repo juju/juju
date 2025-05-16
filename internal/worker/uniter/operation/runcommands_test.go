@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	utilexec "github.com/juju/utils/v4/exec"
@@ -17,8 +19,7 @@ type RunCommandsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RunCommandsSuite{})
-
+func TestRunCommandsSuite(t *stdtesting.T) { tc.Run(t, &RunCommandsSuite{}) }
 func (s *RunCommandsSuite) TestPrepareError(c *tc.C) {
 	runnerFactory := &MockRunnerFactory{
 		MockNewCommandRunner: &MockNewCommandRunner{err: errors.New("blooey")},

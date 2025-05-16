@@ -7,6 +7,7 @@ package app
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,8 +18,7 @@ type onceErrorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&onceErrorSuite{})
-
+func TestOnceErrorSuite(t *stdtesting.T) { tc.Run(t, &onceErrorSuite{}) }
 func (s *onceErrorSuite) TestDoWithNil(c *tc.C) {
 	var oe onceError
 	err := oe.Do(func() error {

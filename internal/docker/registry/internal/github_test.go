@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -30,8 +31,7 @@ type githubSuite struct {
 	isPrivate        bool
 }
 
-var _ = tc.Suite(&githubSuite{})
-
+func TestGithubSuite(t *stdtesting.T) { tc.Run(t, &githubSuite{}) }
 func (s *githubSuite) TearDownTest(c *tc.C) {
 	s.imageRepoDetails = nil
 	s.IsolationSuite.TearDownTest(c)

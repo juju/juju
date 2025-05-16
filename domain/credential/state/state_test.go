@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"regexp"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -37,8 +38,7 @@ type credentialSuite struct {
 	controllerUUID string
 }
 
-var _ = tc.Suite(&credentialSuite{})
-
+func TestCredentialSuite(t *stdtesting.T) { tc.Run(t, &credentialSuite{}) }
 func (s *credentialSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 

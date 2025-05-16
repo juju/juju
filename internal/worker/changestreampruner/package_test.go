@@ -4,7 +4,7 @@
 package changestreampruner
 
 import (
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,7 +21,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination worker_mock_test.go github.com/juju/worker/v4 Worker
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

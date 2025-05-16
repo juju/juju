@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -33,8 +34,7 @@ type updateCredentialSuite struct {
 	api         *fakeUpdateCredentialAPI
 }
 
-var _ = tc.Suite(&updateCredentialSuite{})
-
+func TestUpdateCredentialSuite(t *stdtesting.T) { tc.Run(t, &updateCredentialSuite{}) }
 func (s *updateCredentialSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = &jujuclient.MemStore{

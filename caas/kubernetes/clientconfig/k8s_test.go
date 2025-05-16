@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 	"text/template"
 
 	"github.com/juju/tc"
@@ -22,7 +23,7 @@ type k8sConfigSuite struct {
 	dir string
 }
 
-var _ = tc.Suite(&k8sConfigSuite{})
+func TestK8sConfigSuite(t *stdtesting.T) { tc.Run(t, &k8sConfigSuite{}) }
 
 var (
 	prefixConfigYAML = `

@@ -4,6 +4,8 @@
 package instance_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -11,7 +13,7 @@ import (
 
 type HardwareSuite struct{}
 
-var _ = tc.Suite(&HardwareSuite{})
+func TestHardwareSuite(t *stdtesting.T) { tc.Run(t, &HardwareSuite{}) }
 
 type parseHardwareTestSpec struct {
 	summary string

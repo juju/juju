@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -19,8 +21,7 @@ type environPolSuite struct {
 	gce.BaseSuite
 }
 
-var _ = tc.Suite(&environPolSuite{})
-
+func TestEnvironPolSuite(t *stdtesting.T) { tc.Run(t, &environPolSuite{}) }
 func (s *environPolSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

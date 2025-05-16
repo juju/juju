@@ -5,6 +5,7 @@ package user_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -26,8 +27,7 @@ type UserListCommandSuite struct {
 	BaseSuite
 }
 
-var _ = tc.Suite(&UserListCommandSuite{})
-
+func TestUserListCommandSuite(t *stdtesting.T) { tc.Run(t, &UserListCommandSuite{}) }
 func (s *UserListCommandSuite) newUserListCommand() cmd.Command {
 	clock := &fakeClock{now: time.Date(2016, 9, 15, 12, 0, 0, 0, time.UTC)}
 	api := &fakeUserListAPI{clock}

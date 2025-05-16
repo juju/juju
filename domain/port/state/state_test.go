@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -42,7 +43,7 @@ type stateSuite struct {
 	appUUID coreapplication.ID
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 
 var (
 	machineUUIDs = []string{"machine-0-uuid", "machine-1-uuid"}

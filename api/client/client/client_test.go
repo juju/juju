@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -23,7 +24,7 @@ import (
 
 type clientSuite struct{}
 
-var _ = tc.Suite(&clientSuite{})
+func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
 
 // TODO(jam) 2013-08-27 http://pad.lv/1217282
 // Right now most of the direct tests for client.Client behavior are in

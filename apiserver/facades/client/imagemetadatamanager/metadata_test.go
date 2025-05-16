@@ -5,6 +5,7 @@ package imagemetadatamanager
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,8 +22,7 @@ type metadataSuite struct {
 	baseImageMetadataSuite
 }
 
-var _ = tc.Suite(&metadataSuite{})
-
+func TestMetadataSuite(t *stdtesting.T) { tc.Run(t, &metadataSuite{}) }
 func (s *metadataSuite) TestFindNil(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 

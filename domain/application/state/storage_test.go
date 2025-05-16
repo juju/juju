@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -728,8 +729,7 @@ type caasStorageSuite struct {
 	baseStorageSuite
 }
 
-var _ = tc.Suite(&caasStorageSuite{})
-
+func TestCaasStorageSuite(t *stdtesting.T) { tc.Run(t, &caasStorageSuite{}) }
 func (s *caasStorageSuite) SetUpTest(c *tc.C) {
 	s.baseStorageSuite.SetUpTest(c)
 
@@ -963,8 +963,7 @@ type iaasStorageSuite struct {
 	baseStorageSuite
 }
 
-var _ = tc.Suite(&iaasStorageSuite{})
-
+func TestIaasStorageSuite(t *stdtesting.T) { tc.Run(t, &iaasStorageSuite{}) }
 func (s *iaasStorageSuite) SetUpTest(c *tc.C) {
 	s.baseStorageSuite.SetUpTest(c)
 

@@ -4,6 +4,7 @@
 package crossmodelsecrets_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -20,7 +21,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&CrossControllerSuite{})
+func TestCrossControllerSuite(t *stdtesting.T) { tc.Run(t, &CrossControllerSuite{}) }
 
 type CrossControllerSuite struct {
 	coretesting.BaseSuite

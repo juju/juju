@@ -4,7 +4,7 @@
 package secretbackendmanager
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

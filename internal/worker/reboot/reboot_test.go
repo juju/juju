@@ -4,6 +4,8 @@
 package reboot_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -22,8 +24,7 @@ type rebootSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&rebootSuite{})
-
+func TestRebootSuite(t *stdtesting.T) { tc.Run(t, &rebootSuite{}) }
 func (s *rebootSuite) TestStartStop(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

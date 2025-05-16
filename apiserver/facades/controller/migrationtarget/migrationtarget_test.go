@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -59,8 +60,7 @@ type Suite struct {
 	facadeContext facadetest.ModelContext
 }
 
-var _ = tc.Suite(&Suite{})
-
+func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
 func (s *Suite) SetUpSuite(c *tc.C) {
 	c.Skip(`
 Skip added by tlm. The reason we are skipping these tests is currently they are

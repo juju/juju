@@ -4,6 +4,8 @@
 package charm
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -17,8 +19,7 @@ type computedBaseSuite struct {
 	testhelpers.CleanupSuite
 }
 
-var _ = tc.Suite(&computedBaseSuite{})
-
+func TestComputedBaseSuite(t *stdtesting.T) { tc.Run(t, &computedBaseSuite{}) }
 func (s *computedBaseSuite) TestComputedBase(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

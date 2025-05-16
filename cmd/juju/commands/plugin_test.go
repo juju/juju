@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	stdtesting "testing"
 	"text/template"
 	"time"
 
@@ -27,8 +28,7 @@ type PluginSuite struct {
 	oldPath string
 }
 
-var _ = tc.Suite(&PluginSuite{})
-
+func TestPluginSuite(t *stdtesting.T) { tc.Run(t, &PluginSuite{}) }
 func (suite *PluginSuite) SetUpTest(c *tc.C) {
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	suite.oldPath = os.Getenv("PATH")

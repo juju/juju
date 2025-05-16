@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -51,7 +53,7 @@ type provisionerMockSuite struct {
 	application *MockApplication
 }
 
-var _ = tc.Suite(&provisionerMockSuite{})
+func TestProvisionerMockSuite(t *stdtesting.T) { tc.Run(t, &provisionerMockSuite{}) }
 
 // Even when the provider supports container addresses, manually provisioned
 // machines should fall back to DHCP.

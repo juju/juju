@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -18,8 +19,9 @@ import (
 
 type relationUnitsWatcherSuite struct{}
 
-var _ = tc.Suite(&relationUnitsWatcherSuite{})
-
+func TestRelationUnitsWatcherSuite(t *stdtesting.T) {
+	tc.Run(t, &relationUnitsWatcherSuite{})
+}
 func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromDomain(c *tc.C) {
 
 	source := &mockRUWatcher{

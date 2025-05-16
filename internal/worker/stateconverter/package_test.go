@@ -4,7 +4,7 @@
 package stateconverter
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/dependency_mock.go github.com/juju/worker/v4/dependency Getter
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/agent_mock.go github.com/juju/juju/agent Agent,Config
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -29,8 +30,7 @@ type SwitchSimpleSuite struct {
 	onRefresh func()
 }
 
-var _ = tc.Suite(&SwitchSimpleSuite{})
-
+func TestSwitchSimpleSuite(t *stdtesting.T) { tc.Run(t, &SwitchSimpleSuite{}) }
 func (s *SwitchSimpleSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.Stub.ResetCalls()

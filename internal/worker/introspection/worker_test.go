@@ -13,6 +13,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -30,8 +31,7 @@ type suite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&suite{})
-
+func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
 func (s *suite) TestConfigValidation(c *tc.C) {
 	socketName := path.Join(c.MkDir(), "introspection-test.socket")
 	w, err := introspection.NewWorker(introspection.Config{})
@@ -73,8 +73,7 @@ type introspectionSuite struct {
 	gatherer prometheus.Gatherer
 }
 
-var _ = tc.Suite(&introspectionSuite{})
-
+func TestIntrospectionSuite(t *stdtesting.T) { tc.Run(t, &introspectionSuite{}) }
 func (s *introspectionSuite) SetUpTest(c *tc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip("introspection worker not supported on non-linux")

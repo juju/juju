@@ -5,6 +5,7 @@ package agenttools
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +21,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = tc.Suite(&AgentToolsSuite{})
+func TestAgentToolsSuite(t *stdtesting.T) { tc.Run(t, &AgentToolsSuite{}) }
 
 type AgentToolsSuite struct {
 	coretesting.BaseSuite

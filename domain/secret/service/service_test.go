@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -52,8 +53,7 @@ type serviceSuite struct {
 	fakeUUID uuid.UUID
 }
 
-var _ = tc.Suite(&serviceSuite{})
-
+func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.modelID = modeltesting.GenModelUUID(c)
 	var err error

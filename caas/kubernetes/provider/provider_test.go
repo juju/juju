@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas"
@@ -59,8 +61,7 @@ type providerSuite struct {
 	provider caas.ContainerEnvironProvider
 }
 
-var _ = tc.Suite(&providerSuite{})
-
+func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
 func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.dialStub.ResetCalls()

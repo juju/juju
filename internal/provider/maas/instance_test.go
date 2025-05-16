@@ -4,6 +4,8 @@
 package maas
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
 
@@ -16,8 +18,7 @@ type maasInstanceSuite struct {
 	maasSuite
 }
 
-var _ = tc.Suite(&maasInstanceSuite{})
-
+func TestMaasInstanceSuite(t *stdtesting.T) { tc.Run(t, &maasInstanceSuite{}) }
 func (s *maasInstanceSuite) TestString(c *tc.C) {
 	machine := &fakeMachine{hostname: "peewee", systemID: "herman"}
 	instance := &maasInstance{machine: machine}

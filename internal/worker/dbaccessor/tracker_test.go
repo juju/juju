@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -30,8 +31,7 @@ type trackedDBWorkerSuite struct {
 	states chan string
 }
 
-var _ = tc.Suite(&trackedDBWorkerSuite{})
-
+func TestTrackedDBWorkerSuite(t *stdtesting.T) { tc.Run(t, &trackedDBWorkerSuite{}) }
 func (s *trackedDBWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

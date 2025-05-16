@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -28,8 +29,7 @@ type addCharmSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&addCharmSuite{})
-
+func TestAddCharmSuite(t *stdtesting.T) { tc.Run(t, &addCharmSuite{}) }
 func (s *addCharmSuite) TestAddLocalCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

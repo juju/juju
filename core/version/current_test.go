@@ -5,6 +5,7 @@ package version
 
 import (
 	"os/exec"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -13,8 +14,7 @@ import (
 
 type CurrentSuite struct{}
 
-var _ = tc.Suite(&CurrentSuite{})
-
+func TestCurrentSuite(t *stdtesting.T) { tc.Run(t, &CurrentSuite{}) }
 func (*CurrentSuite) TestCurrentSeries(c *tc.C) {
 	b, err := coreos.HostBase()
 	if err != nil {

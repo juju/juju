@@ -4,7 +4,7 @@
 package filenotifywatcher
 
 import (
-	"testing"
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
@@ -16,7 +16,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package filenotifywatcher -destination watcher_mock_test.go github.com/juju/juju/internal/worker/filenotifywatcher FileNotifyWatcher,FileWatcher
 //go:generate go run go.uber.org/mock/mockgen -typed -package filenotifywatcher -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

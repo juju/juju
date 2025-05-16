@@ -4,6 +4,8 @@
 package devices_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/devices"
@@ -14,8 +16,7 @@ type ConstraintsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ConstraintsSuite{})
-
+func TestConstraintsSuite(t *stdtesting.T) { tc.Run(t, &ConstraintsSuite{}) }
 func (*ConstraintsSuite) testParse(c *tc.C, s string, expect devices.Constraints) {
 	cons, err := devices.ParseConstraints(s)
 	c.Assert(err, tc.ErrorIsNil)

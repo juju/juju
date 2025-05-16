@@ -4,6 +4,7 @@
 package google
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -26,8 +27,7 @@ type rawConnSuite struct {
 	opCallErr              error
 }
 
-var _ = tc.Suite(&rawConnSuite{})
-
+func TestRawConnSuite(t *stdtesting.T) { tc.Run(t, &rawConnSuite{}) }
 func (s *rawConnSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
@@ -160,8 +160,7 @@ func (s *rawConnSuite) TestConnectionWaitOperationError(c *tc.C) {
 
 type firewallNameSuite struct{}
 
-var _ = tc.Suite(&firewallNameSuite{})
-
+func TestFirewallNameSuite(t *stdtesting.T) { tc.Run(t, &firewallNameSuite{}) }
 func (s *firewallNameSuite) TestSimplePattern(c *tc.C) {
 	res := MatchesPrefix("juju-3-123", "juju-3")
 	c.Assert(res, tc.Equals, true)

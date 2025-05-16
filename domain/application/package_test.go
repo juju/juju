@@ -4,7 +4,7 @@
 package application
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -14,6 +14,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination leadership_mock_test.go github.com/juju/juju/core/leadership Revoker
 //go:generate go run go.uber.org/mock/mockgen -typed -package application_test -destination lease_mock_test.go github.com/juju/juju/core/lease Checker
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }

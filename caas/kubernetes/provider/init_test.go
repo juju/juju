@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -14,8 +16,7 @@ type initSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&initSuite{})
-
+func TestInitSuite(t *stdtesting.T) { tc.Run(t, &initSuite{}) }
 func (s *initSuite) TestLabelSelectorGlobalResourcesLifecycle(c *tc.C) {
 	c.Assert(
 		provider.CompileLifecycleModelTeardownSelector().String(), tc.DeepEquals,

@@ -4,6 +4,7 @@
 package controllerconfig
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -22,8 +23,7 @@ type controllerconfigSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&controllerconfigSuite{})
-
+func TestControllerconfigSuite(t *stdtesting.T) { tc.Run(t, &controllerconfigSuite{}) }
 func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *tc.C) {
 	st := domainstate.NewState(s.TxnRunnerFactory())
 	srv := service.NewService(st)

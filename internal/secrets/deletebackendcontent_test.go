@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,8 +23,7 @@ type deleteBackendSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&deleteBackendSuite{})
-
+func TestDeleteBackendSuite(t *stdtesting.T) { tc.Run(t, &deleteBackendSuite{}) }
 func (s *deleteBackendSuite) TestGetContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

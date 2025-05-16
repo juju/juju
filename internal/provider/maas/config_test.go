@@ -4,6 +4,8 @@
 package maas
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/tc"
 
@@ -20,7 +22,7 @@ type configSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&configSuite{})
+func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
 
 // newConfig creates a MAAS environment config from attributes.
 func newConfig(c *tc.C, values map[string]interface{}) (*maasModelConfig, error) {

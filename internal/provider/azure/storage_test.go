@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -35,8 +36,7 @@ type storageSuite struct {
 	invalidatedCredential bool
 }
 
-var _ = tc.Suite(&storageSuite{})
-
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
 func (s *storageSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.requests = nil

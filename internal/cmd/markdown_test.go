@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +16,7 @@ import (
 
 type markdownSuite struct{}
 
-var _ = tc.Suite(&markdownSuite{})
+func TestMarkdownSuite(t *stdtesting.T) { tc.Run(t, &markdownSuite{}) }
 
 // TestWriteError ensures that the cmd.PrintMarkdown function surfaces errors
 // returned by the writer.

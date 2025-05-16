@@ -5,6 +5,7 @@ package operation_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,8 +29,7 @@ type NewExecutorSuite struct {
 	mockStateRW *mocks.MockUnitStateReadWriter
 }
 
-var _ = tc.Suite(&NewExecutorSuite{})
-
+func TestNewExecutorSuite(t *stdtesting.T) { tc.Run(t, &NewExecutorSuite{}) }
 func failAcquireLock(_, _ string) (func(), error) {
 	return nil, errors.New("wat")
 }
@@ -115,8 +115,7 @@ type ExecutorSuite struct {
 	mockStateRW *mocks.MockUnitStateReadWriter
 }
 
-var _ = tc.Suite(&ExecutorSuite{})
-
+func TestExecutorSuite(t *stdtesting.T) { tc.Run(t, &ExecutorSuite{}) }
 func (s *ExecutorSuite) TearDownTest(c *tc.C) {
 	s.IsolationSuite.TearDownTest(c)
 	s.mockStateRW = nil

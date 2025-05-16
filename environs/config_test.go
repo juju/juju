@@ -4,6 +4,8 @@
 package environs_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -16,7 +18,7 @@ type suite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&suite{})
+func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
 
 type dummyProvider struct {
 	environs.CloudEnvironProvider

@@ -4,6 +4,7 @@
 package secretbackends_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -25,8 +26,7 @@ type ListSuite struct {
 	secretBackendsAPI *secretbackends.MockListSecretBackendsAPI
 }
 
-var _ = tc.Suite(&ListSuite{})
-
+func TestListSuite(t *stdtesting.T) { tc.Run(t, &ListSuite{}) }
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

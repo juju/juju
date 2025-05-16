@@ -4,21 +4,20 @@
 package instance_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 
 type InstanceSuite struct{}
 
-var _ = tc.Suite(&InstanceSuite{})
-
+func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &InstanceSuite{}) }
 func (s *InstanceSuite) TestParseContainerType(c *tc.C) {
 	ctype, err := instance.ParseContainerType("lxd")
 	c.Assert(err, tc.ErrorIsNil)

@@ -5,11 +5,11 @@
 package machineactions_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }

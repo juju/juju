@@ -5,6 +5,8 @@
 package reboot_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -56,8 +58,7 @@ type rebootSuite struct {
 	machineService  *service.WatchableService
 }
 
-var _ = tc.Suite(&rebootSuite{})
-
+func TestRebootSuite(t *stdtesting.T) { tc.Run(t, &rebootSuite{}) }
 func (s *rebootSuite) createMachine(c *tc.C, tag names.MachineTag) *testMachine {
 	uuid, err := s.machineService.CreateMachine(c.Context(), coremachine.Name(tag.Id()))
 	c.Assert(err, tc.ErrorIsNil)

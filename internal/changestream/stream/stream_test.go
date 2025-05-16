@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -35,8 +36,7 @@ type streamSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&streamSuite{})
-
+func TestStreamSuite(t *stdtesting.T) { tc.Run(t, &streamSuite{}) }
 func (s *streamSuite) TestWithNoNamespace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

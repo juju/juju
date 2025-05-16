@@ -5,6 +5,7 @@ package providertracker
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -27,8 +28,7 @@ type trackerWorkerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&trackerWorkerSuite{})
-
+func TestTrackerWorkerSuite(t *stdtesting.T) { tc.Run(t, &trackerWorkerSuite{}) }
 func (s *trackerWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

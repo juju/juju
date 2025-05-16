@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"os"
 	"path"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -18,8 +19,7 @@ type configSuite struct {
 	configPath string
 }
 
-var _ = tc.Suite(&configSuite{})
-
+func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
 func (s *configSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.configPath = path.Join(c.MkDir(), "controller.conf")

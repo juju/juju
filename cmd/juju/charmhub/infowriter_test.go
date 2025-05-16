@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"bytes"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,8 +17,7 @@ type printInfoSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&printInfoSuite{})
-
+func TestPrintInfoSuite(t *stdtesting.T) { tc.Run(t, &printInfoSuite{}) }
 func (s *printInfoSuite) TestCharmPrintInfo(c *tc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)

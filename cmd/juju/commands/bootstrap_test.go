@@ -14,7 +14,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -97,8 +97,7 @@ type BootstrapSuite struct {
 	clock        *testclock.Clock
 }
 
-var _ = tc.Suite(&BootstrapSuite{})
-
+func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &BootstrapSuite{}) }
 func init() {
 	dummyProvider, err := environs.Provider("dummy")
 	if err != nil {
@@ -179,7 +178,7 @@ func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
 func (s *BootstrapSuite) TestRunTests(c *tc.C) {
 	for i, test := range bootstrapTests {
 		c.Logf("\ntest %d: %s", i, test.info)
-		c.Run(fmt.Sprintf("Test%d", i), func(t *testing.T) {
+		c.Run(fmt.Sprintf("Test%d", i), func(t *stdtesting.T) {
 			c := &tc.TBC{t}
 			s.run(c, test)
 		})

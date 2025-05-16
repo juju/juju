@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -36,8 +37,7 @@ type stateSuite struct {
 	adminUUID uuid.UUID
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.adminUUID = uuid.MustNewUUID()

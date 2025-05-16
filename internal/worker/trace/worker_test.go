@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -29,8 +30,7 @@ type workerSuite struct {
 	called        int64
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) TestKilledGetTracerErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

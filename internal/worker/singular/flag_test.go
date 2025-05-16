@@ -5,6 +5,7 @@ package singular
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	jujuerrors "github.com/juju/errors"
@@ -32,8 +33,7 @@ type FlagSuite struct {
 	entityID string
 }
 
-var _ = tc.Suite(&FlagSuite{})
-
+func TestFlagSuite(t *stdtesting.T) { tc.Run(t, &FlagSuite{}) }
 func (s *FlagSuite) SetUpTest(c *tc.C) {
 	s.unitTag = names.NewUnitTag("foo/0")
 	s.entityID = uuid.MustNewUUID().String()

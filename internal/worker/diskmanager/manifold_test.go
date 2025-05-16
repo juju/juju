@@ -4,6 +4,8 @@
 package diskmanager_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -20,8 +22,7 @@ type manifoldSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&manifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
 func (s *manifoldSuite) TestMachineDiskmanager(c *tc.C) {
 
 	called := false

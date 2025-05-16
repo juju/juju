@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"fmt"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -21,8 +22,7 @@ type defaultCredentialSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&defaultCredentialSuite{})
-
+func TestDefaultCredentialSuite(t *stdtesting.T) { tc.Run(t, &defaultCredentialSuite{}) }
 func (s *defaultCredentialSuite) TestBadArgs(c *tc.C) {
 	cmd := cloud.NewSetDefaultCredentialCommand()
 	_, err := cmdtesting.RunCommand(c, cmd)

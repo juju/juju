@@ -6,6 +6,7 @@ package simplestreams_test
 import (
 	"bytes"
 	"io"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -22,8 +23,7 @@ type fetchDataSuite struct {
 	expectedCalls            []string
 }
 
-var _ = tc.Suite(&fetchDataSuite{})
-
+func TestFetchDataSuite(t *stdtesting.T) { tc.Run(t, &fetchDataSuite{}) }
 func (s *fetchDataSuite) SetUpTest(c *tc.C) {
 	s.source = testing.NewStubDataSource()
 }

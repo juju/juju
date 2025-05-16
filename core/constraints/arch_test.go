@@ -4,6 +4,8 @@
 package constraints
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,8 +15,7 @@ type archSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&archSuite{})
-
+func TestArchSuite(t *stdtesting.T) { tc.Run(t, &archSuite{}) }
 func (s *archSuite) TestArchOrDefault(c *tc.C) {
 	a := ArchOrDefault(MustParse("mem=4G"), nil)
 	c.Assert(a, tc.Equals, "amd64")

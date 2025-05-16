@@ -4,6 +4,7 @@
 package observer_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -22,8 +23,7 @@ type recorderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&recorderSuite{})
-
+func TestRecorderSuite(t *stdtesting.T) { tc.Run(t, &recorderSuite{}) }
 func (s *recorderSuite) TestServerRequest(c *tc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}

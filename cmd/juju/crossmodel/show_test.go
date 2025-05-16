@@ -6,6 +6,7 @@ package crossmodel
 import (
 	"context"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -32,8 +33,7 @@ type showSuite struct {
 	mockAPI *mockShowAPI
 }
 
-var _ = tc.Suite(&showSuite{})
-
+func TestShowSuite(t *stdtesting.T) { tc.Run(t, &showSuite{}) }
 func (s *showSuite) SetUpTest(c *tc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 

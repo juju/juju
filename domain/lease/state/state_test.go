@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -22,8 +23,7 @@ type stateSuite struct {
 	store *state.State
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 

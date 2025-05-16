@@ -5,7 +5,7 @@ package eventmultiplexer
 
 import (
 	"sync/atomic"
-	"testing"
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
@@ -22,7 +22,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination metrics_mock_test.go github.com/juju/juju/internal/changestream/eventmultiplexer MetricsCollector
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -17,8 +19,7 @@ type restrictAnonymousSuite struct {
 	root rpc.Root
 }
 
-var _ = tc.Suite(&restrictAnonymousSuite{})
-
+func TestRestrictAnonymousSuite(t *stdtesting.T) { tc.Run(t, &restrictAnonymousSuite{}) }
 func (s *restrictAnonymousSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingAnonymousRoot()

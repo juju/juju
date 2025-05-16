@@ -6,7 +6,7 @@ package caasunitterminationworker_test
 import (
 	"context"
 	"os"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
@@ -20,11 +20,10 @@ import (
 	"github.com/juju/juju/internal/worker/caasunitterminationworker"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
-
-var _ = tc.Suite(&TerminationWorkerSuite{})
+func TestTerminationWorkerSuite(t *stdtesting.T) { tc.Run(t, &TerminationWorkerSuite{}) }
 
 type TerminationWorkerSuite struct {
 	state      *mockState

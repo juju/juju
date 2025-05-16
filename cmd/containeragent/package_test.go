@@ -5,12 +5,12 @@ package main
 
 import (
 	"runtime"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("containeragent only runs on Linux")
 	}

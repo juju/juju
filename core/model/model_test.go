@@ -4,6 +4,8 @@
 package model
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -15,8 +17,7 @@ type ModelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ModelSuite{})
-
+func TestModelSuite(t *stdtesting.T) { tc.Run(t, &ModelSuite{}) }
 func (*ModelSuite) TestValidModelTypes(c *tc.C) {
 	validTypes := []ModelType{
 		CAAS,

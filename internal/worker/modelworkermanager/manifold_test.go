@@ -5,6 +5,7 @@ package modelworkermanager_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -51,8 +52,7 @@ type ManifoldSuite struct {
 	stub testhelpers.Stub
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 	var err error

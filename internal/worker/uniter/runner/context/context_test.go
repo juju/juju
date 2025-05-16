@@ -6,6 +6,7 @@ package context_test
 import (
 	stdcontext "context"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -40,8 +41,7 @@ type InterfaceSuite struct {
 	BaseHookContextSuite
 }
 
-var _ = tc.Suite(&InterfaceSuite{})
-
+func TestInterfaceSuite(t *stdtesting.T) { tc.Run(t, &InterfaceSuite{}) }
 func (s *InterfaceSuite) TestUnitName(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -734,8 +734,7 @@ func (p *mockProcess) Kill() error {
 func (p *mockProcess) Pid() int {
 	return 123
 }
-
-var _ = tc.Suite(&HookContextSuite{})
+func TestHookContextSuite(t *stdtesting.T) { tc.Run(t, &HookContextSuite{}) }
 
 type HookContextSuite struct {
 	testhelpers.IsolationSuite

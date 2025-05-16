@@ -5,6 +5,7 @@ package image_test
 
 import (
 	"encoding/json"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
@@ -18,8 +19,7 @@ type imageSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&imageSuite{})
-
+func TestImageSuite(t *stdtesting.T) { tc.Run(t, &imageSuite{}) }
 func (s *imageSuite) TestImageInfo(c *tc.C) {
 	imageInfo := image.NewImageInfo(semversion.MustParse("2.9.13"))
 	dataJSON, err := json.Marshal(imageInfo)

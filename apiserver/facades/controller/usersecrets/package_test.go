@@ -4,7 +4,7 @@
 package usersecrets
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,7 +15,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/service.go github.com/juju/juju/apiserver/facades/controller/usersecrets SecretService
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher.go github.com/juju/juju/core/watcher NotifyWatcher
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

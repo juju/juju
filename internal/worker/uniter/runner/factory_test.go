@@ -5,6 +5,7 @@ package runner_test
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type FactorySuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&FactorySuite{})
-
+func TestFactorySuite(t *stdtesting.T) { tc.Run(t, &FactorySuite{}) }
 func (s *FactorySuite) AssertPaths(c *tc.C, rnr runner.Runner) {
 	c.Assert(runner.RunnerPaths(rnr), tc.DeepEquals, s.paths)
 }

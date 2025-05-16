@@ -4,13 +4,13 @@
 package firewall_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package firewall_test -destination service_mock_test.go github.com/juju/juju/apiserver/common/firewall ModelConfigService
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	tc.TestingT(t)
 }

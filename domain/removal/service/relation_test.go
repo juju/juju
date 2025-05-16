@@ -4,6 +4,7 @@
 package service
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,8 +21,7 @@ type relationSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&relationSuite{})
-
+func TestRelationSuite(t *stdtesting.T) { tc.Run(t, &relationSuite{}) }
 func (s *relationSuite) TestRemoveRelationNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

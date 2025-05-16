@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -52,8 +53,7 @@ type applicationSuite struct {
 	charm       *MockCharm
 }
 
-var _ = tc.Suite(&applicationSuite{})
-
+func TestApplicationSuite(t *stdtesting.T) { tc.Run(t, &applicationSuite{}) }
 func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

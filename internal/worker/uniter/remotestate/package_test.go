@@ -4,13 +4,13 @@
 package remotestate
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

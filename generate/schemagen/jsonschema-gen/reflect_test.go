@@ -1,7 +1,7 @@
 package jsonschema
 
 import (
-	"testing"
+	stdtesting "testing"
 	"time"
 )
 
@@ -39,7 +39,7 @@ type TestUser struct {
 }
 
 // TestUnusedWorkaround bypasses unused variable error from the linter.
-func TestUnusedWorkaround(t *testing.T) {
+func TestUnusedWorkaround(t *stdtesting.T) {
 	base := SomeBaseType{
 		somePrivateBaseProperty:            "foo",
 		someUnexportedUntaggedBaseProperty: true,
@@ -55,7 +55,7 @@ func TestUnusedWorkaround(t *testing.T) {
 // - fields marked with "-" are ignored
 // - non-exported fields are ignored
 // - anonymous fields are expanded
-func TestSchemaGeneration(t *testing.T) {
+func TestSchemaGeneration(t *stdtesting.T) {
 	s := Reflect(&TestUser{})
 
 	expectedProperties := map[string]string{

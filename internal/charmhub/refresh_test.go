@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -432,8 +433,7 @@ type RefreshConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RefreshConfigSuite{})
-
+func TestRefreshConfigSuite(t *stdtesting.T) { tc.Run(t, &RefreshConfigSuite{}) }
 func (s *RefreshConfigSuite) TestRefreshOneBuild(c *tc.C) {
 	id := "foo"
 	config, err := RefreshOne(c.Context(), "instance-key", id, 1, "latest/stable", RefreshBase{

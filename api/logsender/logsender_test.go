@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"net/url"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type LogSenderSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&LogSenderSuite{})
-
+func TestLogSenderSuite(t *stdtesting.T) { tc.Run(t, &LogSenderSuite{}) }
 func (s *LogSenderSuite) TestNewAPI(c *tc.C) {
 	conn := &mockConnector{
 		c: c,

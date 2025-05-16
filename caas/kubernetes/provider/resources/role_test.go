@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -17,8 +19,7 @@ type roleSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&roleSuite{})
-
+func TestRoleSuite(t *stdtesting.T) { tc.Run(t, &roleSuite{}) }
 func (s *roleSuite) TestApply(c *tc.C) {
 	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{

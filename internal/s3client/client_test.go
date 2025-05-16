@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,8 +22,7 @@ type s3ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&s3ClientSuite{})
-
+func TestS3ClientSuite(t *stdtesting.T) { tc.Run(t, &s3ClientSuite{}) }
 func (s *s3ClientSuite) TestObjectExists(c *tc.C) {
 	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, tc.Equals, http.MethodHead)

@@ -4,13 +4,13 @@
 package database
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package database -destination network_mock_test.go github.com/juju/juju/core/network ConfigSource,ConfigSourceNIC,ConfigSourceAddr
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }

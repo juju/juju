@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	stdtesting "testing"
 
 	"github.com/google/uuid"
 	"github.com/juju/tc"
@@ -26,8 +27,7 @@ type jwtParserSuite struct {
 	client     mockHTTPClient
 }
 
-var _ = tc.Suite(&jwtParserSuite{})
-
+func TestJwtParserSuite(t *stdtesting.T) { tc.Run(t, &jwtParserSuite{}) }
 func (s *jwtParserSuite) SetUpTest(c *tc.C) {
 	s.keySet, s.signingKey = NewJWKSet(c)
 	s.url = "fakeurl.com/keys"

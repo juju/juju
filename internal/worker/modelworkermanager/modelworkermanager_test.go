@@ -5,6 +5,7 @@ package modelworkermanager_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/transform"
@@ -33,7 +34,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var _ = tc.Suite(&suite{})
+func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
 
 type suite struct {
 	testhelpers.IsolationSuite

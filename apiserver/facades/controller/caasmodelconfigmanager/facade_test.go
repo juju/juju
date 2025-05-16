@@ -4,6 +4,8 @@
 package caasmodelconfigmanager_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -13,7 +15,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&caasmodelconfigmanagerSuite{})
+func TestCaasmodelconfigmanagerSuite(t *stdtesting.T) {
+	tc.Run(t, &caasmodelconfigmanagerSuite{})
+}
 
 type caasmodelconfigmanagerSuite struct {
 	testhelpers.IsolationSuite

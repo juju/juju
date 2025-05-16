@@ -6,6 +6,7 @@ package maas_test
 
 import (
 	"encoding/base64"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -20,8 +21,7 @@ type RenderersSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&RenderersSuite{})
-
+func TestRenderersSuite(t *stdtesting.T) { tc.Run(t, &RenderersSuite{}) }
 func (s *RenderersSuite) TestMAASUnix(c *tc.C) {
 	renderer := maas.MAASRenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}

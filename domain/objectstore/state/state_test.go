@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -19,8 +20,7 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) TestGetMetadataNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

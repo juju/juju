@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -50,7 +50,7 @@ notes:
 
 `[1:]
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

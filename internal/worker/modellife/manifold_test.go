@@ -5,6 +5,7 @@ package modellife
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -24,8 +25,7 @@ type ManifoldSuite struct {
 	modelService *MockModelService
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), tc.ErrorIsNil)

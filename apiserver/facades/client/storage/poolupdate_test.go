@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -18,8 +19,7 @@ type poolUpdateSuite struct {
 	baseStorageSuite
 }
 
-var _ = tc.Suite(&poolUpdateSuite{})
-
+func TestPoolUpdateSuite(t *stdtesting.T) { tc.Run(t, &poolUpdateSuite{}) }
 func (s *poolUpdateSuite) TestUpdatePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

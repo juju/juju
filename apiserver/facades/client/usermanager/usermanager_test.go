@@ -5,6 +5,7 @@ package usermanager_test
 
 import (
 	"sort"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -42,8 +43,7 @@ type userManagerSuite struct {
 	blockCommandService *MockBlockCommandService
 }
 
-var _ = tc.Suite(&userManagerSuite{})
-
+func TestUserManagerSuite(t *stdtesting.T) { tc.Run(t, &userManagerSuite{}) }
 func (s *userManagerSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 

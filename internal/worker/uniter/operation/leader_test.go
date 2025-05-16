@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/hooks"
@@ -17,8 +19,7 @@ type LeaderSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&LeaderSuite{})
-
+func TestLeaderSuite(t *stdtesting.T) { tc.Run(t, &LeaderSuite{}) }
 func (s *LeaderSuite) newFactory(c *tc.C) operation.Factory {
 	return operation.NewFactory(operation.FactoryParams{
 		Logger: loggertesting.WrapCheckLog(c),

@@ -6,6 +6,7 @@ package auditlog_test
 import (
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -20,8 +21,7 @@ type AuditLogSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&AuditLogSuite{})
-
+func TestAuditLogSuite(t *stdtesting.T) { tc.Run(t, &AuditLogSuite{}) }
 func (s *AuditLogSuite) TestAuditLogFile(c *tc.C) {
 	dir := c.MkDir()
 	logFile := auditlog.NewLogFile(dir, 300, 10)

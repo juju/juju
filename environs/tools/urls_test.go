@@ -6,6 +6,7 @@ package tools_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,8 +26,7 @@ type URLsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&URLsSuite{})
-
+func TestURLsSuite(t *stdtesting.T) { tc.Run(t, &URLsSuite{}) }
 func (s *URLsSuite) env(c *tc.C, toolsMetadataURL string) environs.Environ {
 	attrs := coretesting.FakeConfig()
 	if toolsMetadataURL != "" {

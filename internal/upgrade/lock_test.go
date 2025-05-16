@@ -4,6 +4,8 @@
 package upgrade
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -20,8 +22,7 @@ type lockSuite struct {
 	agentConfig *MockConfig
 }
 
-var _ = tc.Suite(&lockSuite{})
-
+func TestLockSuite(t *stdtesting.T) { tc.Run(t, &lockSuite{}) }
 func (s *lockSuite) TestNewLockSameVersionUnlocked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

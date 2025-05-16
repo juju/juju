@@ -4,6 +4,8 @@
 package imagemetadata_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
@@ -21,7 +23,7 @@ var (
 	testVersion = "22.04"
 )
 
-var _ = tc.Suite(&generateSuite{})
+func TestGenerateSuite(t *stdtesting.T) { tc.Run(t, &generateSuite{}) }
 
 type generateSuite struct {
 	coretesting.BaseSuite

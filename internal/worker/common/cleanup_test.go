@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -18,8 +20,7 @@ type cleanupSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&cleanupSuite{})
-
+func TestCleanupSuite(t *stdtesting.T) { tc.Run(t, &cleanupSuite{}) }
 func (s *cleanupSuite) TestCleansUpOnce(c *tc.C) {
 	var w fakeWorker
 	cleanup := func() {

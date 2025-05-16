@@ -4,6 +4,8 @@
 package google
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
 
@@ -33,8 +35,7 @@ type BaseSuite struct {
 	Instance         Instance
 }
 
-var _ = tc.Suite(&BaseSuite{})
-
+func TestBaseSuite(t *stdtesting.T) { tc.Run(t, &BaseSuite{}) }
 func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

@@ -5,6 +5,7 @@ package machinemanager_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,7 +19,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&MachinemanagerSuite{})
+func TestMachinemanagerSuite(t *stdtesting.T) { tc.Run(t, &MachinemanagerSuite{}) }
 
 type MachinemanagerSuite struct {
 }

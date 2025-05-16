@@ -6,6 +6,7 @@ package subnet_test
 import (
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -18,8 +19,7 @@ type ListSuite struct {
 	BaseSubnetSuite
 }
 
-var _ = tc.Suite(&ListSuite{})
-
+func TestListSuite(t *stdtesting.T) { tc.Run(t, &ListSuite{}) }
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.BaseSubnetSuite.SetUpTest(c)
 	s.newCommand = subnet.NewListCommand

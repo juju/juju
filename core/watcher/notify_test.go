@@ -6,6 +6,7 @@ package watcher_test
 import (
 	"context"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type notifyWorkerSuite struct {
 	actor  *notifyHandler
 }
 
-var _ = tc.Suite(&notifyWorkerSuite{})
-
+func TestNotifyWorkerSuite(t *stdtesting.T) { tc.Run(t, &notifyWorkerSuite{}) }
 func newNotifyHandlerWorker(c *tc.C, setupError, handlerError, teardownError error) (*notifyHandler, worker.Worker) {
 	nh := &notifyHandler{
 		actions:       nil,

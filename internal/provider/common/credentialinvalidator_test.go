@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type ErrorsSuite struct {
 	credentialInvalidator *mocks.MockCredentialInvalidator
 }
 
-var _ = tc.Suite(&ErrorsSuite{})
-
+func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &ErrorsSuite{}) }
 func (*ErrorsSuite) TestWrapZoneIndependentError(c *tc.C) {
 	err1 := errors.New("foo")
 	err2 := errors.Annotate(err1, "bar")

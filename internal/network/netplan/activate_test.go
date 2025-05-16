@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -20,8 +21,7 @@ type ActivateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ActivateSuite{})
-
+func TestActivateSuite(t *stdtesting.T) { tc.Run(t, &ActivateSuite{}) }
 func (s *ActivateSuite) TestNoDevices(c *tc.C) {
 	params := netplan.ActivationParams{}
 	result, err := netplan.BridgeAndActivate(params)

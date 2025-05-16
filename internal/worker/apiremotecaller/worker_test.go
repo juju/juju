@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/url"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -34,8 +35,7 @@ type WorkerSuite struct {
 	finished map[string]chan struct{}
 }
 
-var _ = tc.Suite(&WorkerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
 func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

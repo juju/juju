@@ -5,6 +5,7 @@ package firewall_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,8 +23,7 @@ type SetRuleSuite struct {
 	mockAPI *mockSetRuleAPI
 }
 
-var _ = tc.Suite(&SetRuleSuite{})
-
+func TestSetRuleSuite(t *stdtesting.T) { tc.Run(t, &SetRuleSuite{}) }
 func (s *SetRuleSuite) SetUpTest(c *tc.C) {
 	s.mockAPI = &mockSetRuleAPI{}
 }

@@ -4,6 +4,8 @@
 package verifycharmprofile_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
@@ -16,8 +18,7 @@ import (
 
 type verifySuite struct{}
 
-var _ = tc.Suite(&verifySuite{})
-
+func TestVerifySuite(t *stdtesting.T) { tc.Run(t, &verifySuite{}) }
 func (s *verifySuite) TestNextOpNotInstallNorUpgrade(c *tc.C) {
 	local := resolver.LocalState{
 		State: operation.State{Kind: operation.RunAction},

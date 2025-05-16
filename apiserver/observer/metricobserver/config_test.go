@@ -4,6 +4,8 @@
 package metricobserver_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,8 +19,7 @@ type configSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&configSuite{})
-
+func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
 func (*configSuite) TestValidateValid(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

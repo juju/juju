@@ -3,12 +3,15 @@
 
 package relation
 
-import "github.com/juju/tc"
+import (
+	stdtesting "testing"
+
+	"github.com/juju/tc"
+)
 
 type typesSuite struct{}
 
-var _ = tc.Suite(&typesSuite{})
-
+func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
 func (s *typesSuite) TestValidate(c *tc.C) {
 	// Arrange
 	args := GetRelationUUIDForRemovalArgs{

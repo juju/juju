@@ -4,6 +4,8 @@
 package modelcmd_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,8 +19,9 @@ import (
 
 type DestroyConfirmationCommandBaseSuite struct{}
 
-var _ = tc.Suite(&DestroyConfirmationCommandBaseSuite{})
-
+func TestDestroyConfirmationCommandBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &DestroyConfirmationCommandBaseSuite{})
+}
 func (*DestroyConfirmationCommandBaseSuite) getCmdBase(args []string) modelcmd.DestroyConfirmationCommandBase {
 	f := cmdtesting.NewFlagSet()
 	cmd := modelcmd.DestroyConfirmationCommandBase{}
@@ -43,8 +46,9 @@ type RemoveConfirmationCommandBaseSuite struct {
 	modelConfigAPI *mocks.MockModelConfigAPI
 }
 
-var _ = tc.Suite(&RemoveConfirmationCommandBaseSuite{})
-
+func TestRemoveConfirmationCommandBaseSuite(t *stdtesting.T) {
+	tc.Run(t, &RemoveConfirmationCommandBaseSuite{})
+}
 func (s *RemoveConfirmationCommandBaseSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.modelConfigAPI = mocks.NewMockModelConfigAPI(ctrl)

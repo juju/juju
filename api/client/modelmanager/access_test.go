@@ -4,6 +4,8 @@
 package modelmanager_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -17,7 +19,7 @@ type accessSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&accessSuite{})
+func TestAccessSuite(t *stdtesting.T) { tc.Run(t, &accessSuite{}) }
 
 const (
 	someModelUUID = "63f5e78f-2d21-4d0c-a5c1-73463f3443bf"

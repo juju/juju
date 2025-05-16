@@ -5,6 +5,7 @@ package charm_test
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -13,8 +14,7 @@ import (
 
 type ProfileSuite struct{}
 
-var _ = tc.Suite(&ProfileSuite{})
-
+func TestProfileSuite(t *stdtesting.T) { tc.Run(t, &ProfileSuite{}) }
 func (s *ProfileSuite) TestValidate(c *tc.C) {
 	var profileTests = []struct {
 		description   string

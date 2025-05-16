@@ -5,6 +5,7 @@ package sshtunneler
 
 import (
 	"encoding/base64"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -16,8 +17,7 @@ type authenticationSuite struct {
 	clock *MockClock
 }
 
-var _ = tc.Suite(&authenticationSuite{})
-
+func TestAuthenticationSuite(t *stdtesting.T) { tc.Run(t, &authenticationSuite{}) }
 func (s *authenticationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

@@ -4,11 +4,11 @@
 package uuid
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	tc.TestingT(t)
 }

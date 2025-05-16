@@ -5,6 +5,7 @@ package service
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -21,8 +22,7 @@ type exposedServiceSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&exposedServiceSuite{})
-
+func TestExposedServiceSuite(t *stdtesting.T) { tc.Run(t, &exposedServiceSuite{}) }
 func (s *exposedServiceSuite) TestApplicationExposedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

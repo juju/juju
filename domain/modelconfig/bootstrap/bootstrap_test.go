@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -33,8 +34,7 @@ type bootstrapSuite struct {
 
 type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)
 
-var _ = tc.Suite(&bootstrapSuite{})
-
+func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
 func (f ModelDefaultsProviderFunc) ModelDefaults(
 	c context.Context,
 ) (modeldefaults.Defaults, error) {

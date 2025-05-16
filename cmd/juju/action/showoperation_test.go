@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -24,8 +25,7 @@ type ShowOperationSuite struct {
 	BaseActionSuite
 }
 
-var _ = tc.Suite(&ShowOperationSuite{})
-
+func TestShowOperationSuite(t *stdtesting.T) { tc.Run(t, &ShowOperationSuite{}) }
 func (s *ShowOperationSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 }

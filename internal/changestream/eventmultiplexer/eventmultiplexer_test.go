@@ -5,6 +5,7 @@ package eventmultiplexer
 
 import (
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -30,8 +31,7 @@ type eventMultiplexerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&eventMultiplexerSuite{})
-
+func TestEventMultiplexerSuite(t *stdtesting.T) { tc.Run(t, &eventMultiplexerSuite{}) }
 func (s *eventMultiplexerSuite) TestSubscribe(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -25,8 +26,7 @@ type baseObjectStoreSuite struct {
 	claimExtender *MockClaimExtender
 }
 
-var _ = tc.Suite(&baseObjectStoreSuite{})
-
+func TestBaseObjectStoreSuite(t *stdtesting.T) { tc.Run(t, &baseObjectStoreSuite{}) }
 func (s *baseObjectStoreSuite) TestScopedContext(c *tc.C) {
 	w := &baseObjectStore{}
 

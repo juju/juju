@@ -5,6 +5,7 @@ package sshserver
 
 import (
 	"sync/atomic"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -21,8 +22,7 @@ type workerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func newServerWrapperWorkerConfig(
 	c *tc.C, ctrl *gomock.Controller, modifier func(*ServerWrapperWorkerConfig),
 ) *ServerWrapperWorkerConfig {

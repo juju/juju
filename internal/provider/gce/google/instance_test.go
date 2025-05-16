@@ -4,6 +4,8 @@
 package google_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
 
@@ -14,8 +16,7 @@ type instanceSuite struct {
 	google.BaseSuite
 }
 
-var _ = tc.Suite(&instanceSuite{})
-
+func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &instanceSuite{}) }
 func (s *instanceSuite) TestNewInstance(c *tc.C) {
 	inst := google.NewInstanceRaw(&s.RawInstanceFull, &s.InstanceSpec)
 

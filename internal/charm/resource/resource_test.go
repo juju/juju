@@ -4,6 +4,8 @@
 package resource_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -12,7 +14,7 @@ import (
 
 var fingerprint = []byte("123456789012345678901234567890123456789012345678")
 
-var _ = tc.Suite(&ResourceSuite{})
+func TestResourceSuite(t *stdtesting.T) { tc.Run(t, &ResourceSuite{}) }
 
 type ResourceSuite struct{}
 

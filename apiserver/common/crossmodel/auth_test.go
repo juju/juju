@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -32,7 +33,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&authSuite{})
+func TestAuthSuite(t *stdtesting.T) { tc.Run(t, &authSuite{}) }
 
 type authSuite struct {
 	coretesting.BaseSuite

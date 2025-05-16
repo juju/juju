@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,7 +25,7 @@ import (
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&CheckMachinesSuite{})
+func TestCheckMachinesSuite(t *stdtesting.T) { tc.Run(t, &CheckMachinesSuite{}) }
 
 type CheckMachinesSuite struct {
 	testhelpers.IsolationSuite
@@ -274,8 +275,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
-
-var _ = tc.Suite(&ModelCredentialSuite{})
+func TestModelCredentialSuite(t *stdtesting.T) { tc.Run(t, &ModelCredentialSuite{}) }
 
 type ModelCredentialSuite struct {
 	testhelpers.IsolationSuite

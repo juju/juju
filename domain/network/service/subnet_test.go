@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -21,8 +22,7 @@ type subnetSuite struct {
 	st *MockState
 }
 
-var _ = tc.Suite(&subnetSuite{})
-
+func TestSubnetSuite(t *stdtesting.T) { tc.Run(t, &subnetSuite{}) }
 func (s *subnetSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

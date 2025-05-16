@@ -4,6 +4,8 @@
 package action_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -17,8 +19,7 @@ type actionSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&actionSuite{})
-
+func TestActionSuite(t *stdtesting.T) { tc.Run(t, &actionSuite{}) }
 func (s *actionSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Enqueueing an action against multiple units, verifying persisted receivers/params/status etc.

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	pebbleclient "github.com/canonical/pebble/client"
@@ -26,7 +27,7 @@ import (
 
 type pebblePollerSuite struct{}
 
-var _ = tc.Suite(&pebblePollerSuite{})
+func TestPebblePollerSuite(t *stdtesting.T) { tc.Run(t, &pebblePollerSuite{}) }
 
 const (
 	pebbleSocketPathRegexpString = "/charm/containers/([^/]+)/pebble.socket"

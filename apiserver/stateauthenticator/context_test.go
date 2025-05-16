@@ -4,6 +4,7 @@
 package stateauthenticator
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -82,8 +83,9 @@ type macaroonAuthWrongPublicKeySuite struct {
 	macaroonCommonSuite
 }
 
-var _ = tc.Suite(&macaroonAuthWrongPublicKeySuite{})
-
+func TestMacaroonAuthWrongPublicKeySuite(t *stdtesting.T) {
+	tc.Run(t, &macaroonAuthWrongPublicKeySuite{})
+}
 func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *tc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)
 	wrongKey, err := bakery.GenerateKey()
@@ -127,8 +129,7 @@ type macaroonNoURLSuite struct {
 	macaroonCommonSuite
 }
 
-var _ = tc.Suite(&macaroonNoURLSuite{})
-
+func TestMacaroonNoURLSuite(t *stdtesting.T) { tc.Run(t, &macaroonNoURLSuite{}) }
 func (s *macaroonNoURLSuite) TestNoBakeryWhenNoIdentityURL(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

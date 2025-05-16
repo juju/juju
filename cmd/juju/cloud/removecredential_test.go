@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -28,8 +29,7 @@ type removeCredentialSuite struct {
 	fakeClient      *fakeRemoveCredentialAPI
 }
 
-var _ = tc.Suite(&removeCredentialSuite{})
-
+func TestRemoveCredentialSuite(t *stdtesting.T) { tc.Run(t, &removeCredentialSuite{}) }
 func (s *removeCredentialSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.cloudByNameFunc = jujucloud.CloudByName

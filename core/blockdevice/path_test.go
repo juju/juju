@@ -4,6 +4,8 @@
 package blockdevice_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/blockdevice"
@@ -11,8 +13,7 @@ import (
 
 type BlockDevicePathSuite struct{}
 
-var _ = tc.Suite(&BlockDevicePathSuite{})
-
+func TestBlockDevicePathSuite(t *stdtesting.T) { tc.Run(t, &BlockDevicePathSuite{}) }
 func (s *BlockDevicePathSuite) TestBlockDevicePathSerial(c *tc.C) {
 	testBlockDevicePath(c, blockdevice.BlockDevice{
 		HardwareId: "SPR_OSUM_123",

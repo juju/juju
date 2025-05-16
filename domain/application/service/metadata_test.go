@@ -4,6 +4,8 @@
 package service
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/relation"
@@ -19,7 +21,7 @@ type metadataSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&metadataSuite{})
+func TestMetadataSuite(t *stdtesting.T) { tc.Run(t, &metadataSuite{}) }
 
 var metadataTestCases = [...]struct {
 	name   string

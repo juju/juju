@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -21,8 +22,7 @@ type ConfigCommandSuite struct {
 	fakeEnvSuite
 }
 
-var _ = tc.Suite(&ConfigCommandSuite{})
-
+func TestConfigCommandSuite(t *stdtesting.T) { tc.Run(t, &ConfigCommandSuite{}) }
 func (s *ConfigCommandSuite) run(c *tc.C, args ...string) (*cmd.Context, error) {
 	command := model.NewConfigCommandForTest(s.fake)
 	return cmdtesting.RunCommand(c, command, args...)

@@ -4,6 +4,8 @@
 package caasapplication_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -18,8 +20,7 @@ type provisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&provisionerSuite{})
-
+func TestProvisionerSuite(t *stdtesting.T) { tc.Run(t, &provisionerSuite{}) }
 func newClient(f basetesting.APICallerFunc) *caasapplication.Client {
 	return caasapplication.NewClient(basetesting.BestVersionCaller{f, 1})
 }

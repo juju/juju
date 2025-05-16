@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"slices"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -24,8 +25,7 @@ type stateSuite struct {
 	state *State
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))

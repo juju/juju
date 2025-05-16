@@ -4,6 +4,8 @@
 package service
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -31,7 +33,7 @@ type storageSuite struct {
 	filesystemImporter *MockFilesystemImporter
 }
 
-var _ = tc.Suite(&storageSuite{})
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
 
 type volumeImporter struct {
 	*MockVolumeSource

@@ -6,6 +6,7 @@ package machinelock_test
 import (
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/mutex/v2"
@@ -35,8 +36,7 @@ type lockSuite struct {
 	release      chan struct{}
 }
 
-var _ = tc.Suite(&lockSuite{})
-
+func TestLockSuite(t *stdtesting.T) { tc.Run(t, &lockSuite{}) }
 func (s *lockSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = &fakeClock{time.Date(2018, 7, 10, 12, 0, 0, 0, time.UTC)}

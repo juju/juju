@@ -4,6 +4,8 @@
 package statushistory
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -18,8 +20,7 @@ type loggerSuite struct {
 	logger *MockLogger
 }
 
-var _ = tc.Suite(&loggerSuite{})
-
+func TestLoggerSuite(t *stdtesting.T) { tc.Run(t, &loggerSuite{}) }
 func (s *loggerSuite) TestRecord(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

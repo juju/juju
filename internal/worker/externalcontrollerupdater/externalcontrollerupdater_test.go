@@ -5,6 +5,7 @@ package externalcontrollerupdater_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -23,7 +24,9 @@ import (
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
 )
 
-var _ = tc.Suite(&ExternalControllerUpdaterSuite{})
+func TestExternalControllerUpdaterSuite(t *stdtesting.T) {
+	tc.Run(t, &ExternalControllerUpdaterSuite{})
+}
 
 type ExternalControllerUpdaterSuite struct {
 	coretesting.BaseSuite

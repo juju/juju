@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -32,8 +33,7 @@ func (s *ModelCommandSuite) SetUpTest(c *tc.C) {
 
 	s.store = jujuclient.NewMemStore()
 }
-
-var _ = tc.Suite(&ModelCommandSuite{})
+func TestModelCommandSuite(t *stdtesting.T) { tc.Run(t, &ModelCommandSuite{}) }
 
 var modelCommandModelTests = []struct {
 	about            string

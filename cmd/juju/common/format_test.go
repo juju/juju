@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -14,8 +15,7 @@ import (
 
 type FormatTimeSuite struct{}
 
-var _ = tc.Suite(&FormatTimeSuite{})
-
+func TestFormatTimeSuite(t *stdtesting.T) { tc.Run(t, &FormatTimeSuite{}) }
 func (s *FormatTimeSuite) TestFormatTime(c *tc.C) {
 	now := time.Now().Round(time.Second)
 	utcFormat := "2006-01-02 15:04:05Z"
@@ -53,8 +53,9 @@ func (s *FormatTimeSuite) TestFormatTime(c *tc.C) {
 
 type FormatTimeAsTimestampSuite struct{}
 
-var _ = tc.Suite(&FormatTimeAsTimestampSuite{})
-
+func TestFormatTimeAsTimestampSuite(t *stdtesting.T) {
+	tc.Run(t, &FormatTimeAsTimestampSuite{})
+}
 func (s *FormatTimeAsTimestampSuite) TestFormatTimeAsTimestamp(c *tc.C) {
 	now := time.Now().Round(time.Second)
 	utcFormat := "15:04:05"
@@ -97,8 +98,7 @@ func (s *FormatTimeAsTimestampSuite) TestFormatTimeAsTimestamp(c *tc.C) {
 
 type ConformSuite struct{}
 
-var _ = tc.Suite(&ConformSuite{})
-
+func TestConformSuite(t *stdtesting.T) { tc.Run(t, &ConformSuite{}) }
 func (s *ConformSuite) TestConformYAML(c *tc.C) {
 	var goodInterfaceTests = []struct {
 		description       string
@@ -204,8 +204,7 @@ type HumaniseSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&HumaniseSuite{})
-
+func TestHumaniseSuite(t *stdtesting.T) { tc.Run(t, &HumaniseSuite{}) }
 func (*HumaniseSuite) TestUserFriendlyDuration(c *tc.C) {
 	// lp:1558657
 	now := time.Now()

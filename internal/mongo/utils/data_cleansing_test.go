@@ -4,6 +4,8 @@
 package utils_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/mongo/utils"
@@ -14,8 +16,7 @@ type dataCleansingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&dataCleansingSuite{})
-
+func TestDataCleansingSuite(t *stdtesting.T) { tc.Run(t, &dataCleansingSuite{}) }
 func (s *dataCleansingSuite) TestEscapeKeys_EscapesPeriods(c *tc.C) {
 	before := map[string]interface{}{
 		"a.b": "c",

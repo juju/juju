@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -25,8 +27,7 @@ type watcherSuite struct {
 	svc *service.WatchableService
 }
 
-var _ = tc.Suite(&watcherSuite{})
-
+func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 

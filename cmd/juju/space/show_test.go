@@ -6,6 +6,7 @@ package space_test
 import (
 	"bytes"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,8 +22,7 @@ type ShowSuite struct {
 	BaseSpaceSuite
 }
 
-var _ = tc.Suite(&ShowSuite{})
-
+func TestShowSuite(t *stdtesting.T) { tc.Run(t, &ShowSuite{}) }
 func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewShowSpaceCommand

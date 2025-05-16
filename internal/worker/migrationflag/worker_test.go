@@ -4,6 +4,8 @@
 package migrationflag_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -17,8 +19,7 @@ type WorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&WorkerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
 func (*WorkerSuite) TestPhaseErrorOnStartup(c *tc.C) {
 	stub := &testhelpers.Stub{}
 	stub.SetErrors(errors.New("gaah"))

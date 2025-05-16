@@ -6,6 +6,7 @@ package removal
 import (
 	"context"
 	"reflect"
+	stdtesting "testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -28,8 +29,7 @@ type workerSuite struct {
 	clk *MockClock
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) TestWorkerStartStop(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 

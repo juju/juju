@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"golang.org/x/crypto/openpgp"
@@ -25,8 +26,7 @@ type Suite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&Suite{})
-
+func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
 func newTestDataSource(factory simplestreams.DataSourceFactory, s string) simplestreams.DataSource {
 	return imagedownloads.NewDataSource(factory, s+"/"+imagemetadata.ReleasedImagesPath)
 }

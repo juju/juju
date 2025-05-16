@@ -4,6 +4,8 @@
 package lease_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -36,9 +38,7 @@ func (s *PinSuite) SetUpTest(c *tc.C) {
 		s.machine,
 	}
 }
-
-var _ = tc.Suite(&PinSuite{})
-
+func TestPinSuite(t *stdtesting.T) { tc.Run(t, &PinSuite{}) }
 func (s *PinSuite) TestPinLease_Success(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{

@@ -4,7 +4,7 @@
 package reboot_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -14,8 +14,7 @@ import (
 
 type monitorSuite struct{}
 
-var _ = tc.Suite(&monitorSuite{})
-
+func TestMonitorSuite(t *stdtesting.T) { tc.Run(t, &monitorSuite{}) }
 func (s *monitorSuite) TestQueryMonitor(c *tc.C) {
 	transientDir := c.MkDir()
 	mon := reboot.NewMonitor(transientDir)
@@ -73,6 +72,6 @@ func (s *monitorSuite) TestQueryMonitorForDifferentEntities(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rebootDetected, tc.IsFalse, tc.Commentf("got unexpected reboot notification"))
 }
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	tc.TestingT(t)
 }

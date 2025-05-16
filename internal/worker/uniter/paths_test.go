@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,8 +21,7 @@ type PathsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&PathsSuite{})
-
+func TestPathsSuite(t *stdtesting.T) { tc.Run(t, &PathsSuite{}) }
 func relPathFunc(base string) func(parts ...string) string {
 	return func(parts ...string) string {
 		allParts := append([]string{base}, parts...)

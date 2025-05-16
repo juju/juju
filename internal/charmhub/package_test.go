@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -19,7 +19,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package charmhub -destination client_mock_test.go github.com/juju/juju/internal/charmhub HTTPClient,RESTClient,FileSystem,ProgressBar
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

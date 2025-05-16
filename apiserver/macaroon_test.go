@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"net/http"
 	"net/url"
+	stdtesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -26,7 +27,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&macaroonLoginSuite{})
+func TestMacaroonLoginSuite(t *stdtesting.T) { tc.Run(t, &macaroonLoginSuite{}) }
 
 type macaroonLoginSuite struct {
 	remoteUser user.Name

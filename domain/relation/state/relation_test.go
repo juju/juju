@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -46,8 +47,7 @@ type addRelationSuite struct {
 	charmByApp map[coreapplication.ID]corecharm.ID
 }
 
-var _ = tc.Suite(&addRelationSuite{})
-
+func TestAddRelationSuite(t *stdtesting.T) { tc.Run(t, &addRelationSuite{}) }
 func (s *addRelationSuite) SetUpTest(c *tc.C) {
 	s.baseRelationSuite.SetUpTest(c)
 	s.charmByApp = make(map[coreapplication.ID]corecharm.ID)
@@ -793,8 +793,7 @@ type relationSuite struct {
 	fakeCharmRelationProvidesUUID string
 }
 
-var _ = tc.Suite(&relationSuite{})
-
+func TestRelationSuite(t *stdtesting.T) { tc.Run(t, &relationSuite{}) }
 func (s *relationSuite) SetUpTest(c *tc.C) {
 	s.baseRelationSuite.SetUpTest(c)
 

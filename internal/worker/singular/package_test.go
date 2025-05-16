@@ -4,7 +4,7 @@
 package singular
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
@@ -14,7 +14,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package singular -destination clock_mock_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package singular -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

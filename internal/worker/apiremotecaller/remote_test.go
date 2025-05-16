@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"sync"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -29,8 +30,7 @@ type RemoteSuite struct {
 	apiConnection *MockConnection
 }
 
-var _ = tc.Suite(&RemoteSuite{})
-
+func TestRemoteSuite(t *stdtesting.T) { tc.Run(t, &RemoteSuite{}) }
 func (s *RemoteSuite) TestNotConnectedConnection(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

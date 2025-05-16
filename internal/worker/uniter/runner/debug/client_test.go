@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"regexp"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -16,8 +17,7 @@ import (
 
 type DebugHooksClientSuite struct{}
 
-var _ = tc.Suite(&DebugHooksClientSuite{})
-
+func TestDebugHooksClientSuite(t *stdtesting.T) { tc.Run(t, &DebugHooksClientSuite{}) }
 func (*DebugHooksClientSuite) TestClientScript(c *tc.C) {
 	ctx := debug.NewHooksContext("foo/8")
 

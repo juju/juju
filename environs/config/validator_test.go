@@ -4,6 +4,8 @@
 package config_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -15,8 +17,7 @@ import (
 type validatorSuite struct {
 }
 
-var _ = tc.Suite(&validatorSuite{})
-
+func TestValidatorSuite(t *stdtesting.T) { tc.Run(t, &validatorSuite{}) }
 func (*validatorSuite) TestControllerNotContainingValidator(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, map[string]any{
 		config.NameKey:                 "wallyworld",

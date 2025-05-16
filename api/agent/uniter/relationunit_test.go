@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -20,8 +22,7 @@ type relationUnitSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&relationUnitSuite{})
-
+func TestRelationUnitSuite(t *stdtesting.T) { tc.Run(t, &relationUnitSuite{}) }
 func (s *relationUnitSuite) getRelationUnit(c *tc.C) *uniter.RelationUnit {
 	relUnitArg := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{

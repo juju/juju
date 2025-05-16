@@ -4,12 +4,14 @@
 package firewall_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&addressWatcherSuite{})
+func TestAddressWatcherSuite(t *stdtesting.T) { tc.Run(t, &addressWatcherSuite{}) }
 
 type addressWatcherSuite struct {
 	coretesting.BaseSuite

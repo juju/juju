@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	stdtesting "testing"
 	"text/template"
 
 	"github.com/juju/loggo/v2"
@@ -41,8 +42,7 @@ type GenerateAgentsSuite struct {
 	publicStorageDir string
 }
 
-var _ = tc.Suite(&GenerateAgentsSuite{})
-
+func TestGenerateAgentsSuite(t *stdtesting.T) { tc.Run(t, &GenerateAgentsSuite{}) }
 func (s *GenerateAgentsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{

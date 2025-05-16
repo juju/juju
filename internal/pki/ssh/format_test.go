@@ -7,6 +7,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	cryptossh "golang.org/x/crypto/ssh"
@@ -17,8 +18,7 @@ import (
 type FormatSuite struct {
 }
 
-var _ = tc.Suite(&FormatSuite{})
-
+func TestFormatSuite(t *stdtesting.T) { tc.Run(t, &FormatSuite{}) }
 func (s *FormatSuite) TestKeyProfilesFormat(c *tc.C) {
 	tests := []struct {
 		name          string

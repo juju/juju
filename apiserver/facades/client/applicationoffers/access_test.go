@@ -6,6 +6,7 @@ package applicationoffers_test
 import (
 	"context"
 	"regexp"
+	stdtesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
@@ -34,8 +35,7 @@ type offerAccessSuite struct {
 	api *applicationoffers.OffersAPIv5
 }
 
-var _ = tc.Suite(&offerAccessSuite{})
-
+func TestOfferAccessSuite(t *stdtesting.T) { tc.Run(t, &offerAccessSuite{}) }
 func (s *offerAccessSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.authorizer.Tag = names.NewUserTag("admin")

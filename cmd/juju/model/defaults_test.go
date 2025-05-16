@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -26,8 +27,7 @@ type DefaultsCommandSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&DefaultsCommandSuite{})
-
+func TestDefaultsCommandSuite(t *stdtesting.T) { tc.Run(t, &DefaultsCommandSuite{}) }
 func (s *DefaultsCommandSuite) SetUpTest(c *tc.C) {
 	s.fakeModelDefaultEnvSuite.SetUpTest(c)
 	s.store = jujuclient.NewMemStore()

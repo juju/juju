@@ -4,6 +4,8 @@
 package modelconfig
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -42,8 +44,7 @@ type modelconfigSuite struct {
 	controllerUUID string
 }
 
-var _ = tc.Suite(&modelconfigSuite{})
-
+func TestModelconfigSuite(t *stdtesting.T) { tc.Run(t, &modelconfigSuite{}) }
 func (s *modelconfigSuite) SetUpTest(c *tc.C) {
 	s.controllerUUID = uuid.MustNewUUID().String()
 	s.modelUUID = modeltesting.GenModelUUID(c)

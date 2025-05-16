@@ -5,7 +5,7 @@ package state
 
 import (
 	"context"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

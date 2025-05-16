@@ -26,8 +26,7 @@ type machinerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&machinerSuite{})
-
+func TestMachinerSuite(t *stdtesting.T) { tc.Run(t, &machinerSuite{}) }
 func (s *machinerSuite) TestMachineAndMachineTag(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Machiner")

@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -16,8 +18,7 @@ type registrySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&registrySuite{})
-
+func TestRegistrySuite(t *stdtesting.T) { tc.Run(t, &registrySuite{}) }
 func (*registrySuite) TestProvider(c *tc.C) {
 	_, err := provider.Provider("bad")
 	c.Assert(err, tc.ErrorIs, errors.NotFound)

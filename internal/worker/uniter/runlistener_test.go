@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
@@ -21,8 +22,7 @@ type ListenerSuite struct {
 	socketPath sockets.Socket
 }
 
-var _ = tc.Suite(&ListenerSuite{})
-
+func TestListenerSuite(t *stdtesting.T) { tc.Run(t, &ListenerSuite{}) }
 func (s *ListenerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	sockPath := filepath.Join(c.MkDir(), "test.listener")
@@ -98,8 +98,9 @@ type ChannelCommandRunnerSuite struct {
 	runner         *uniter.ChannelCommandRunner
 }
 
-var _ = tc.Suite(&ChannelCommandRunnerSuite{})
-
+func TestChannelCommandRunnerSuite(t *stdtesting.T) {
+	tc.Run(t, &ChannelCommandRunnerSuite{})
+}
 func (s *ChannelCommandRunnerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.abort = make(chan struct{}, 1)

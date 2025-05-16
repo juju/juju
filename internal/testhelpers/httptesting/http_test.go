@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +21,7 @@ import (
 
 type requestsSuite struct{}
 
-var _ = tc.Suite(&requestsSuite{})
+func TestRequestsSuite(t *stdtesting.T) { tc.Run(t, &requestsSuite{}) }
 
 // handlerResponse holds the body of a testing handler response.
 type handlerResponse struct {
@@ -323,8 +324,9 @@ type urlRewritingTransportSuite struct {
 	server *httptest.Server
 }
 
-var _ = tc.Suite(&urlRewritingTransportSuite{})
-
+func TestUrlRewritingTransportSuite(t *stdtesting.T) {
+	tc.Run(t, &urlRewritingTransportSuite{})
+}
 func (s *urlRewritingTransportSuite) SetUpTest(c *tc.C) {
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(r.URL.String()))

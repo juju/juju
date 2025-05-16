@@ -5,6 +5,7 @@ package maas
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -16,8 +17,7 @@ import (
 
 type utilSuite struct{}
 
-var _ = tc.Suite(&utilSuite{})
-
+func TestUtilSuite(t *stdtesting.T) { tc.Run(t, &utilSuite{}) }
 func (*utilSuite) TestExtractSystemId(c *tc.C) {
 	instanceId := instance.Id("/MAAS/api/1.0/nodes/system_id/")
 

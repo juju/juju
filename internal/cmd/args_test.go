@@ -6,6 +6,7 @@ package cmd_test
 import (
 	"fmt"
 	"io"
+	stdtesting "testing"
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
@@ -18,8 +19,7 @@ type ArgsSuite struct {
 	testhelpers.LoggingSuite
 }
 
-var _ = tc.Suite(&ArgsSuite{})
-
+func TestArgsSuite(t *stdtesting.T) { tc.Run(t, &ArgsSuite{}) }
 func (*ArgsSuite) TestFlagsUsage(c *tc.C) {
 	for i, test := range []struct {
 		message       string

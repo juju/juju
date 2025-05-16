@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	utilexec "github.com/juju/utils/v4/exec"
@@ -25,8 +27,7 @@ type FactorySuite struct {
 	actionErr *params.Error
 }
 
-var _ = tc.Suite(&FactorySuite{})
-
+func TestFactorySuite(t *stdtesting.T) { tc.Run(t, &FactorySuite{}) }
 func (s *FactorySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	// Yes, this factory will produce useless ops; this suite is just for

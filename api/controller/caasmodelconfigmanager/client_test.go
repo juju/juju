@@ -4,6 +4,8 @@
 package caasmodelconfigmanager_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -17,8 +19,9 @@ type caasmodelconfigmanagerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&caasmodelconfigmanagerSuite{})
-
+func TestCaasmodelconfigmanagerSuite(t *stdtesting.T) {
+	tc.Run(t, &caasmodelconfigmanagerSuite{})
+}
 func newClient(f basetesting.APICallerFunc) (*caasmodelconfigmanager.Client, error) {
 	return caasmodelconfigmanager.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 1})
 }

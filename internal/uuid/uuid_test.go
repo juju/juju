@@ -4,6 +4,8 @@
 package uuid
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,8 +15,7 @@ type uuidSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&uuidSuite{})
-
+func TestUuidSuite(t *stdtesting.T) { tc.Run(t, &uuidSuite{}) }
 func (*uuidSuite) TestUUID(c *tc.C) {
 	uuid, err := NewUUID()
 	c.Assert(err, tc.IsNil)

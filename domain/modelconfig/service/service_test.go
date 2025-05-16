@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -23,8 +24,7 @@ type serviceSuite struct {
 	mockState *MockState
 }
 
-var _ = tc.Suite(&serviceSuite{})
-
+func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
 func (f ModelDefaultsProviderFunc) ModelDefaults(
 	c context.Context,
 ) (modeldefaults.Defaults, error) {

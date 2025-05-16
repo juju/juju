@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,8 +26,7 @@ type secretsSuite struct {
 	secretsClient   *mocks.MockSecretsClient
 }
 
-var _ = tc.Suite(&secretsSuite{})
-
+func TestSecretsSuite(t *stdtesting.T) { tc.Run(t, &secretsSuite{}) }
 func (s *secretsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.stateReadWriter = operationmocks.NewMockUnitStateReadWriter(ctrl)

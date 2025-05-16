@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/provider/gce"
@@ -13,8 +15,7 @@ type environFirewallSuite struct {
 	gce.BaseSuite
 }
 
-var _ = tc.Suite(&environFirewallSuite{})
-
+func TestEnvironFirewallSuite(t *stdtesting.T) { tc.Run(t, &environFirewallSuite{}) }
 func (s *environFirewallSuite) TestGlobalFirewallName(c *tc.C) {
 	uuid := s.Config.UUID()
 	fwname := gce.GlobalFirewallName(s.Env)

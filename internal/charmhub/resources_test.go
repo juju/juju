@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,8 +22,7 @@ type ResourcesSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&ResourcesSuite{})
-
+func TestResourcesSuite(t *stdtesting.T) { tc.Run(t, &ResourcesSuite{}) }
 func (s *ResourcesSuite) TestListResourceRevisions(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

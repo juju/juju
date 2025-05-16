@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -18,8 +20,7 @@ type applierSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&applierSuite{})
-
+func TestApplierSuite(t *stdtesting.T) { tc.Run(t, &applierSuite{}) }
 func (s *applierSuite) TestRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

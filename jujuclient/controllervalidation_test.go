@@ -4,6 +4,8 @@
 package jujuclient_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
@@ -25,9 +27,9 @@ func (s *ControllerValidationSuite) SetUpTest(c *tc.C) {
 		CloudRegion:    "southeastasia",
 	}
 }
-
-var _ = tc.Suite(&ControllerValidationSuite{})
-
+func TestControllerValidationSuite(t *stdtesting.T) {
+	tc.Run(t, &ControllerValidationSuite{})
+}
 func (s *ControllerValidationSuite) TestValidateControllerName(c *tc.C) {
 	c.Assert(jujuclient.ValidateControllerName(""), tc.ErrorMatches, "empty controller name not valid")
 }

@@ -4,6 +4,8 @@
 package state
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -23,7 +25,7 @@ type suite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&suite{})
+func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
 
 // TestGetModelConfigKeyValues tests that State.GetModelConfigKeyValues behaves
 // as expected:

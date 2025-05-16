@@ -4,6 +4,8 @@
 package service
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -16,8 +18,7 @@ type serviceSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&serviceSuite{})
-
+func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
 func (s *serviceSuite) TestEncodeChannelAndPlatform(c *tc.C) {
 	ch, pl, err := encodeChannelAndPlatform(corecharm.Origin{
 		Channel: ptr(internalcharm.MakePermissiveChannel("track", "stable", "branch")),

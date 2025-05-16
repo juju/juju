@@ -4,6 +4,8 @@
 package path
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,8 +15,7 @@ type PathSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&PathSuite{})
-
+func TestPathSuite(t *stdtesting.T) { tc.Run(t, &PathSuite{}) }
 func (s *PathSuite) TestJoin(c *tc.C) {
 	rawURL := MustParseURL(c, "http://foobar/v1/path/")
 

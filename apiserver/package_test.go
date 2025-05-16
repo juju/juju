@@ -4,7 +4,7 @@
 package apiserver
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 
@@ -17,7 +17,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination provider_factory_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination tools_mock_test.go github.com/juju/juju/apiserver AgentBinaryStore,BlockChecker,ControllerConfigService
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 

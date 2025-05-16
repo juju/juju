@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	appsv1 "k8s.io/api/apps/v1"
@@ -17,8 +19,7 @@ type daemonsetSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&daemonsetSuite{})
-
+func TestDaemonsetSuite(t *stdtesting.T) { tc.Run(t, &daemonsetSuite{}) }
 func (s *daemonsetSuite) TestApply(c *tc.C) {
 	ds := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{

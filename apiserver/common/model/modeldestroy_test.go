@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,8 +15,7 @@ type destroyModelSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&destroyModelSuite{})
-
+func TestDestroyModelSuite(t *stdtesting.T) { tc.Run(t, &destroyModelSuite{}) }
 func (s *destroyModelSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Destroy model

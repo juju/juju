@@ -5,6 +5,7 @@ package bundlechanges
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -13,8 +14,7 @@ import (
 type changesSortSuite struct {
 }
 
-var _ = tc.Suite(&changesSortSuite{})
-
+func TestChangesSortSuite(t *stdtesting.T) { tc.Run(t, &changesSortSuite{}) }
 func (s *changesSortSuite) TestSortVerifyRequirementsMet(c *tc.C) {
 	ahead := set.NewStrings()
 	sorted, err := csOne().sorted()

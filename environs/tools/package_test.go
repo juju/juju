@@ -5,20 +5,20 @@ package tools_test
 
 import (
 	"os"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	setupToolsTests()
 	setupSimpleStreamsTests(t)
 	tc.TestingT(t)
 }
 
-func TestMain(m *testing.M) {
+func TestMain(m *stdtesting.M) {
 	testhelpers.ExecHelperProcess()
 	os.Exit(m.Run())
 }

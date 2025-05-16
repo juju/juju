@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -53,8 +54,9 @@ type ApplicationStatusAPISuite struct {
 	statusBaseSuite
 }
 
-var _ = tc.Suite(&ApplicationStatusAPISuite{})
-
+func TestApplicationStatusAPISuite(t *stdtesting.T) {
+	tc.Run(t, &ApplicationStatusAPISuite{})
+}
 func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -313,8 +315,7 @@ type UnitStatusAPISuite struct {
 	statusBaseSuite
 }
 
-var _ = tc.Suite(&UnitStatusAPISuite{})
-
+func TestUnitStatusAPISuite(t *stdtesting.T) { tc.Run(t, &UnitStatusAPISuite{}) }
 func (s *UnitStatusAPISuite) TestSetUnitStatusUnauthorised(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

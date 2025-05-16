@@ -5,7 +5,7 @@ package caasrbacmapper_test
 
 import (
 	"sync"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -32,9 +32,8 @@ type MapperSuite struct {
 	mockSharedIndexInformer *mocks.MockSharedIndexInformer
 }
 
-var _ = tc.Suite(&MapperSuite{})
-
-func TestMapperSuite(t *testing.T) { tc.TestingT(t) }
+func TestMapperSuite(t *stdtesting.T) { tc.Run(t, &MapperSuite{}) }
+func TestMapperSuite(t *stdtesting.T)        { tc.TestingT(t) }
 
 func (m *MapperSuite) SetUpTest(c *tc.C) {
 	m.ctrl = gomock.NewController(c)

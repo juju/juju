@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -20,7 +22,7 @@ type ConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the ec2 section of a config file matches baseConfigResult

@@ -4,7 +4,7 @@
 package objectstoreservices
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,7 +17,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoreservices -destination servicefactory_mock_test.go github.com/juju/juju/internal/services ObjectStoreServices,ObjectStoreServicesGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoreservices -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

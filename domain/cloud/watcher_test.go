@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -28,8 +29,7 @@ type watcherSuite struct {
 	adminUUID uuid.UUID
 }
 
-var _ = tc.Suite(&watcherSuite{})
-
+func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.adminUUID = uuid.MustNewUUID()

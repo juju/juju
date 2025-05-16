@@ -4,6 +4,8 @@
 package upgradesteps
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,8 +19,7 @@ import (
 type manifoldSuite struct {
 }
 
-var _ = tc.Suite(&manifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
 func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig(c)
 	c.Check(cfg.Validate(), tc.ErrorIsNil)

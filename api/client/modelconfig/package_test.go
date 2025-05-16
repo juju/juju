@@ -4,14 +4,14 @@
 package modelconfig
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

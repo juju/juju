@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -35,7 +36,9 @@ type applicationEndpointStateSuite struct {
 	state *State
 }
 
-var _ = tc.Suite(&applicationEndpointStateSuite{})
+func TestApplicationEndpointStateSuite(t *stdtesting.T) {
+	tc.Run(t, &applicationEndpointStateSuite{})
+}
 
 // SetUpTest sets up the testing environment by initializing the suite's state
 // and arranging the required database context:

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
@@ -24,8 +25,7 @@ type eksSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&eksSuite{})
-
+func TestEksSuite(t *stdtesting.T) { tc.Run(t, &eksSuite{}) }
 func (s *eksSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := os.Setenv("PATH", "/path/to/here")

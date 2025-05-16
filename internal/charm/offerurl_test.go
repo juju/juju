@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -14,7 +15,7 @@ import (
 
 type OfferURLSuite struct{}
 
-var _ = tc.Suite(&OfferURLSuite{})
+func TestOfferURLSuite(t *stdtesting.T) { tc.Run(t, &OfferURLSuite{}) }
 
 var offerURLTests = []struct {
 	s, err string

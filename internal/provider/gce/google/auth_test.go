@@ -4,6 +4,8 @@
 package google
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -13,8 +15,7 @@ type authSuite struct {
 	BaseSuite
 }
 
-var _ = tc.Suite(&authSuite{})
-
+func TestAuthSuite(t *stdtesting.T) { tc.Run(t, &authSuite{}) }
 func (s *authSuite) TestNewComputeService(c *tc.C) {
 	_, err := newComputeService(c.Context(), s.Credentials, jujuhttp.NewClient())
 	c.Assert(err, tc.ErrorIsNil)

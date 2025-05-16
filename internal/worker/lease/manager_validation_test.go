@@ -4,6 +4,7 @@
 package lease_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -25,8 +26,7 @@ type ValidationSuite struct {
 	config lease.ManagerConfig
 }
 
-var _ = tc.Suite(&ValidationSuite{})
-
+func TestValidationSuite(t *stdtesting.T) { tc.Run(t, &ValidationSuite{}) }
 func (s *ValidationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = lease.ManagerConfig{

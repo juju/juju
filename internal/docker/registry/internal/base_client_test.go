@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -27,8 +28,7 @@ type baseSuite struct {
 	isPrivate        bool
 }
 
-var _ = tc.Suite(&baseSuite{})
-
+func TestBaseSuite(t *stdtesting.T) { tc.Run(t, &baseSuite{}) }
 func (s *baseSuite) getAuthToken(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 }

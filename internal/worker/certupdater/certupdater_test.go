@@ -30,8 +30,7 @@ type CertUpdaterSuite struct {
 	stateServingInfo controller.StateServingInfo
 }
 
-var _ = tc.Suite(&CertUpdaterSuite{})
-
+func TestCertUpdaterSuite(t *stdtesting.T) { tc.Run(t, &CertUpdaterSuite{}) }
 func (s *CertUpdaterSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

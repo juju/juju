@@ -5,6 +5,7 @@ package caasoperatorupgrader_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -18,7 +19,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&CAASProvisionerSuite{})
+func TestCAASProvisionerSuite(t *stdtesting.T) { tc.Run(t, &CAASProvisionerSuite{}) }
 
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite

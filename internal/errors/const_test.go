@@ -6,7 +6,7 @@ package errors
 import (
 	"errors"
 	"fmt"
-	"testing"
+	stdtesting "testing"
 )
 
 func ExampleConstError() {
@@ -22,7 +22,7 @@ func ExampleConstError() {
 
 // TestConstErrorComparable is asserting the properties of a ConstError and that
 // two ConstErrors with the same value are comparable to true and satisfy Is().
-func TestConstErrorComparable(t *testing.T) {
+func TestConstErrorComparable(t *stdtesting.T) {
 	comp1 := ConstError("cannot compute value in the future")
 	comp2 := ConstError("cannot compute value in the future")
 
@@ -38,7 +38,7 @@ func TestConstErrorComparable(t *testing.T) {
 // TestConstErrorNotComparable is asserting the properties of a ConstError and
 // that two ConstErrors with different values are not comparable and don't
 // satisfy Is().
-func TestConstErrorNotComparable(t *testing.T) {
+func TestConstErrorNotComparable(t *stdtesting.T) {
 	comp1 := ConstError("not your error")
 	comp2 := ConstError("not the same error")
 
@@ -53,7 +53,7 @@ func TestConstErrorNotComparable(t *testing.T) {
 
 // TestConstErrorError asserts that the value used to construct a ConstError is
 // the same comparable value that is returned via the Error() func.
-func TestConstErrorError(t *testing.T) {
+func TestConstErrorError(t *stdtesting.T) {
 	comp1 := ConstError("zerocool")
 
 	if comp1.Error() != "zerocool" {
@@ -64,7 +64,7 @@ func TestConstErrorError(t *testing.T) {
 // TestConstErrorPrinting asserts that when using fmt style functions with
 // ConstError the value it uses is not altered from that of the original value
 // it was constructed with.
-func TestConstErrorPrinting(t *testing.T) {
+func TestConstErrorPrinting(t *stdtesting.T) {
 	comp1 := ConstError("printable error")
 	val := fmt.Sprintf("%v", comp1)
 	if val != "printable error" {

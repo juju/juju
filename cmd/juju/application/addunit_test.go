@@ -6,6 +6,7 @@ package application_test
 import (
 	"context"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -93,8 +94,7 @@ func (s *AddUnitSuite) SetUpTest(c *tc.C) {
 	}
 	s.store = jujuclienttesting.MinimalStore()
 }
-
-var _ = tc.Suite(&AddUnitSuite{})
+func TestAddUnitSuite(t *stdtesting.T) { tc.Run(t, &AddUnitSuite{}) }
 
 var initAddUnitErrorTests = []struct {
 	args []string

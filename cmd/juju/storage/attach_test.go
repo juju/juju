@@ -6,6 +6,7 @@ package storage_test
 import (
 	"context"
 	"regexp"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -21,8 +22,7 @@ type AttachStorageSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&AttachStorageSuite{})
-
+func TestAttachStorageSuite(t *stdtesting.T) { tc.Run(t, &AttachStorageSuite{}) }
 func (s *AttachStorageSuite) TestAttach(c *tc.C) {
 	fake := fakeEntityAttacher{results: []params.ErrorResult{
 		{},

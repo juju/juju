@@ -5,6 +5,7 @@ package singular
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -32,8 +33,7 @@ type ManifoldSuite struct {
 	modelTag names.ModelTag
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

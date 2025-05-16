@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -25,8 +26,7 @@ type CharmHubSuite struct {
 	client *MockDownloadClient
 }
 
-var _ = tc.Suite(&CharmHubSuite{})
-
+func TestCharmHubSuite(t *stdtesting.T) { tc.Run(t, &CharmHubSuite{}) }
 func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 	// Arrange:
 	ctrl := gomock.NewController(c)

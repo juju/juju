@@ -5,7 +5,7 @@ package secretsmanager
 
 import (
 	"context"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
@@ -19,7 +19,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

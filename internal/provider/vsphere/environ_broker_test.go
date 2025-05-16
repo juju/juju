@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -45,8 +46,9 @@ type legacyEnvironBrokerSuite struct {
 	statusCallbackStub testhelpers.Stub
 }
 
-var _ = tc.Suite(&legacyEnvironBrokerSuite{})
-
+func TestLegacyEnvironBrokerSuite(t *stdtesting.T) {
+	tc.Run(t, &legacyEnvironBrokerSuite{})
+}
 func (s *legacyEnvironBrokerSuite) SetUpTest(c *tc.C) {
 	s.EnvironFixture.SetUpTest(c)
 	s.statusCallbackStub.ResetCalls()
@@ -486,8 +488,7 @@ type environBrokerSuite struct {
 	imageServerURL string
 }
 
-var _ = tc.Suite(&environBrokerSuite{})
-
+func TestEnvironBrokerSuite(t *stdtesting.T) { tc.Run(t, &environBrokerSuite{}) }
 func (s *environBrokerSuite) setUpClient(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

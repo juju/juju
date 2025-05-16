@@ -4,6 +4,8 @@
 package crossmodel
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
@@ -16,9 +18,7 @@ type funcSuite struct {
 func (s *funcSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
-
-var _ = tc.Suite(&funcSuite{})
-
+func TestFuncSuite(t *stdtesting.T) { tc.Run(t, &funcSuite{}) }
 func (s *funcSuite) TestMaxFirstBigger(c *tc.C) {
 	c.Assert(max(3, 1), tc.DeepEquals, 3)
 }

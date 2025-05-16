@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -47,7 +48,7 @@ type cloudinitSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&cloudinitSuite{})
+func TestCloudinitSuite(t *stdtesting.T) { tc.Run(t, &cloudinitSuite{}) }
 
 var (
 	envConstraints       = constraints.MustParse("mem=2G")

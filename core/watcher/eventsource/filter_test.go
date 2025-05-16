@@ -4,6 +4,8 @@
 package eventsource
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
@@ -14,8 +16,7 @@ type filterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&filterSuite{})
-
+func TestFilterSuite(t *stdtesting.T) { tc.Run(t, &filterSuite{}) }
 func (s *filterSuite) TestPredicateFilter(c *tc.C) {
 	predicate := func(s string) bool {
 		return s == "bar"

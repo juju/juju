@@ -5,6 +5,7 @@ package providertracker
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -26,7 +27,7 @@ type ephemeralProviderConfigGetter struct {
 	EphemeralProviderConfig
 }
 
-var _ = tc.Suite(&providerSuite{})
+func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
 
 // GetEphemeralProviderConfig returns the ephemeral provider config set on this
 // getter. This func implements the [EphemeralProviderConfigGetter] interface.

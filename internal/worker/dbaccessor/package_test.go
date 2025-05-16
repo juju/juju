@@ -5,7 +5,7 @@ package dbaccessor
 
 import (
 	"context"
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -26,7 +26,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/controlleragentconfig ConfigWatcher
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

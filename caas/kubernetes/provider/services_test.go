@@ -4,6 +4,8 @@
 package provider
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
@@ -17,8 +19,7 @@ type servicesSuite struct {
 	client *fake.Clientset
 }
 
-var _ = tc.Suite(&servicesSuite{})
-
+func TestServicesSuite(t *stdtesting.T) { tc.Run(t, &servicesSuite{}) }
 func (s *servicesSuite) SetUpTest(c *tc.C) {
 	s.client = fake.NewSimpleClientset()
 }

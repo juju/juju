@@ -4,6 +4,8 @@
 package sshclient_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -21,8 +23,7 @@ import (
 type FacadeSuite struct {
 }
 
-var _ = tc.Suite(&FacadeSuite{})
-
+func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
 func (s *FacadeSuite) TestAddresses(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -6,6 +6,7 @@ package secretbackends_test
 import (
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,8 +25,7 @@ type UpdateSuite struct {
 	updateSecretBackendsAPI *secretbackends.MockUpdateSecretBackendsAPI
 }
 
-var _ = tc.Suite(&UpdateSuite{})
-
+func TestUpdateSuite(t *stdtesting.T) { tc.Run(t, &UpdateSuite{}) }
 func (s *UpdateSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,7 +17,7 @@ type stateGetSuite struct {
 	stateSuite
 }
 
-var _ = tc.Suite(&stateGetSuite{})
+func TestStateGetSuite(t *stdtesting.T) { tc.Run(t, &stateGetSuite{}) }
 
 type runStateGetCmd struct {
 	description string

@@ -4,6 +4,8 @@
 package space_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -14,8 +16,7 @@ type RenameSuite struct {
 	BaseSpaceSuite
 }
 
-var _ = tc.Suite(&RenameSuite{})
-
+func TestRenameSuite(t *stdtesting.T) { tc.Run(t, &RenameSuite{}) }
 func (s *RenameSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewRenameCommand

@@ -6,6 +6,7 @@ package state
 import (
 	"database/sql"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) TestGetAnnotations(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

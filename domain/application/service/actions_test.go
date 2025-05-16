@@ -4,6 +4,8 @@
 package service
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/application/charm"
@@ -15,7 +17,7 @@ type actionsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&actionsSuite{})
+func TestActionsSuite(t *stdtesting.T) { tc.Run(t, &actionsSuite{}) }
 
 var actionsTestCases = [...]struct {
 	name   string

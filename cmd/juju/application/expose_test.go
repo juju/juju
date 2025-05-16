@@ -5,6 +5,7 @@ package application
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -22,8 +23,7 @@ type ExposeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ExposeSuite{})
-
+func TestExposeSuite(t *stdtesting.T) { tc.Run(t, &ExposeSuite{}) }
 func runExpose(c *tc.C, api ApplicationExposeAPI, args ...string) error {
 	exposeCmd := &exposeCommand{api: api}
 	exposeCmd.SetClientStore(jujuclienttesting.MinimalStore())

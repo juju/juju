@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -21,8 +23,7 @@ type grantSuite struct {
 	secretsAPI *mocks.MockGrantRevokeSecretsAPI
 }
 
-var _ = tc.Suite(&grantSuite{})
-
+func TestGrantSuite(t *stdtesting.T) { tc.Run(t, &grantSuite{}) }
 func (s *grantSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()
@@ -71,8 +72,7 @@ type revokeSuite struct {
 	secretsAPI *mocks.MockGrantRevokeSecretsAPI
 }
 
-var _ = tc.Suite(&revokeSuite{})
-
+func TestRevokeSuite(t *stdtesting.T) { tc.Run(t, &revokeSuite{}) }
 func (s *revokeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

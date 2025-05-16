@@ -6,6 +6,7 @@ package model_test
 import (
 	"context"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -23,7 +24,7 @@ type retryProvisioningSuite struct {
 	fake *fakeRetryProvisioningClient
 }
 
-var _ = tc.Suite(&retryProvisioningSuite{})
+func TestRetryProvisioningSuite(t *stdtesting.T) { tc.Run(t, &retryProvisioningSuite{}) }
 
 // fakeRetryProvisioningClient contains some minimal information
 // about machines in the environment to mock out the behavior

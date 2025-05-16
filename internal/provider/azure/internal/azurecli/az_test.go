@@ -6,6 +6,7 @@ package azurecli_test
 import (
 	"os/exec"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -15,8 +16,7 @@ import (
 
 type azSuite struct{}
 
-var _ = tc.Suite(&azSuite{})
-
+func TestAzSuite(t *stdtesting.T) { tc.Run(t, &azSuite{}) }
 func (s *azSuite) TestShowAccount(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{

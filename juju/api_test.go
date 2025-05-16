@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/url"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -42,8 +43,7 @@ type NewAPIClientSuite struct {
 
 var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
 
-var _ = tc.Suite(&NewAPIClientSuite{})
-
+func TestNewAPIClientSuite(t *stdtesting.T) { tc.Run(t, &NewAPIClientSuite{}) }
 func (s *NewAPIClientSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)

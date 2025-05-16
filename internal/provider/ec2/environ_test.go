@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	stdtesting "testing"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/tc"
@@ -28,7 +30,7 @@ var (
 
 type Suite struct{}
 
-var _ = tc.Suite(&Suite{})
+func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
 
 type RootDiskTest struct {
 	series         string

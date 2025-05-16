@@ -4,6 +4,8 @@
 package google_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
 
@@ -14,8 +16,7 @@ type diskSuite struct {
 	google.BaseSuite
 }
 
-var _ = tc.Suite(&diskSuite{})
-
+func TestDiskSuite(t *stdtesting.T) { tc.Run(t, &diskSuite{}) }
 func (s *diskSuite) TestDiskSpecTooSmall(c *tc.C) {
 	tooSmall := s.DiskSpec.TooSmall()
 

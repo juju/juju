@@ -6,6 +6,7 @@ package jujuc_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -35,9 +36,7 @@ type nonActionLogContext struct {
 func (ctx *nonActionLogContext) LogActionMessage(_ context.Context, message string) error {
 	return fmt.Errorf("not running an action")
 }
-
-var _ = tc.Suite(&ActionLogSuite{})
-
+func TestActionLogSuite(t *stdtesting.T) { tc.Run(t, &ActionLogSuite{}) }
 func (s *ActionLogSuite) TestActionLog(c *tc.C) {
 	var actionLogTests = []struct {
 		summary string

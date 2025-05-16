@@ -4,6 +4,8 @@
 package relation
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -15,8 +17,7 @@ type relationUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&relationUUIDSuite{})
-
+func TestRelationUUIDSuite(t *stdtesting.T) { tc.Run(t, &relationUUIDSuite{}) }
 func (*relationUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and
 	// fails as expected.
@@ -54,8 +55,7 @@ type relationUnitUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&relationUnitUUIDSuite{})
-
+func TestRelationUnitUUIDSuite(t *stdtesting.T) { tc.Run(t, &relationUnitUUIDSuite{}) }
 func (*relationUnitUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and
 	// fails as expected.
@@ -93,8 +93,9 @@ type relationEndpointUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&relationEndpointUUIDSuite{})
-
+func TestRelationEndpointUUIDSuite(t *stdtesting.T) {
+	tc.Run(t, &relationEndpointUUIDSuite{})
+}
 func (*relationEndpointUUIDSuite) TestUUIDValidate(c *tc.C) {
 	// Test that the uuid.Validate method succeeds and
 	// fails as expected.

@@ -6,6 +6,7 @@ package state
 import (
 	"crypto/rand"
 	"database/sql"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -34,8 +35,7 @@ type userStateSuite struct {
 	controllerUUID string
 }
 
-var _ = tc.Suite(&userStateSuite{})
-
+func TestUserStateSuite(t *stdtesting.T) { tc.Run(t, &userStateSuite{}) }
 func (s *userStateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.controllerUUID = s.SeedControllerUUID(c)

@@ -6,6 +6,7 @@ package agentconfigupdater_test
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -40,8 +41,7 @@ type AgentConfigUpdaterSuite struct {
 	controllerConfigService  *MockControllerConfigService
 }
 
-var _ = tc.Suite(&AgentConfigUpdaterSuite{})
-
+func TestAgentConfigUpdaterSuite(t *stdtesting.T) { tc.Run(t, &AgentConfigUpdaterSuite{}) }
 func (s *AgentConfigUpdaterSuite) TestInputs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupManifold(c)

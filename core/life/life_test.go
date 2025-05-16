@@ -4,6 +4,8 @@
 package life_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -15,8 +17,7 @@ type LifeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&LifeSuite{})
-
+func TestLifeSuite(t *stdtesting.T) { tc.Run(t, &LifeSuite{}) }
 func (*LifeSuite) TestValidateValid(c *tc.C) {
 	for i, test := range []life.Value{
 		life.Alive, life.Dying, life.Dead,

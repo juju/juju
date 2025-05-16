@@ -3,12 +3,15 @@
 
 package instance
 
-import "github.com/juju/tc"
+import (
+	stdtesting "testing"
+
+	"github.com/juju/tc"
+)
 
 type VirtTypeSuite struct{}
 
-var _ = tc.Suite(&VirtTypeSuite{})
-
+func TestVirtTypeSuite(t *stdtesting.T) { tc.Run(t, &VirtTypeSuite{}) }
 func (s *VirtTypeSuite) TestParseVirtType(c *tc.C) {
 	parseVirtTypeTests := []struct {
 		arg   string

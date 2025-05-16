@@ -57,10 +57,10 @@ type UpgraderSuite struct {
 
 type AllowedTargetVersionSuite struct{}
 
-var _ = tc.Suite(&UpgraderSuite{})
-
-var _ = tc.Suite(&AllowedTargetVersionSuite{})
-
+func TestUpgraderSuite(t *stdtesting.T) { tc.Run(t, &UpgraderSuite{}) }
+func TestAllowedTargetVersionSuite(t *stdtesting.T) {
+	tc.Run(t, &AllowedTargetVersionSuite{})
+}
 func (s *UpgraderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

@@ -5,6 +5,7 @@ package undertaker_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -32,8 +33,7 @@ type OldUndertakerSuite struct {
 	fix fixture
 }
 
-var _ = tc.Suite(&OldUndertakerSuite{})
-
+func TestOldUndertakerSuite(t *stdtesting.T) { tc.Run(t, &OldUndertakerSuite{}) }
 func (s *OldUndertakerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	minute := time.Minute
@@ -293,8 +293,7 @@ func (s *OldUndertakerSuite) TestEnvironDestroyForceTimeoutZero(c *tc.C) {
 
 type UndertakerSuite struct{}
 
-var _ = tc.Suite(&UndertakerSuite{})
-
+func TestUndertakerSuite(t *stdtesting.T) { tc.Run(t, &UndertakerSuite{}) }
 func (s *UndertakerSuite) TestExitOnModelChanged(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

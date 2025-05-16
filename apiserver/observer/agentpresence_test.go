@@ -4,6 +4,8 @@
 package observer
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,8 +26,7 @@ type AgentPresenceSuite struct {
 	statusService        *MockStatusService
 }
 
-var _ = tc.Suite(&AgentPresenceSuite{})
-
+func TestAgentPresenceSuite(t *stdtesting.T) { tc.Run(t, &AgentPresenceSuite{}) }
 func (s *AgentPresenceSuite) TestLoginForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

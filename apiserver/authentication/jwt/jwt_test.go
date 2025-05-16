@@ -6,6 +6,7 @@ package jwt_test
 import (
 	"encoding/base64"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -22,8 +23,7 @@ import (
 
 type loginTokenSuite struct{}
 
-var _ = tc.Suite(&loginTokenSuite{})
-
+func TestLoginTokenSuite(t *stdtesting.T) { tc.Run(t, &loginTokenSuite{}) }
 func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelTag := names.NewModelTag(modelUUID.String())

@@ -6,6 +6,7 @@ package objectstore
 import (
 	"bytes"
 	"io"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -26,8 +27,9 @@ type remoteFileObjectStoreSuite struct {
 	reader io.ReadCloser
 }
 
-var _ = tc.Suite(&remoteFileObjectStoreSuite{})
-
+func TestRemoteFileObjectStoreSuite(t *stdtesting.T) {
+	tc.Run(t, &remoteFileObjectStoreSuite{})
+}
 func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreDies(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

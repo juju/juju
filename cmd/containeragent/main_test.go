@@ -4,6 +4,8 @@
 package main
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,7 +17,7 @@ type containerAgentSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&containerAgentSuite{})
+func TestContainerAgentSuite(t *stdtesting.T) { tc.Run(t, &containerAgentSuite{}) }
 
 type mainWrapperTC struct {
 	args []string

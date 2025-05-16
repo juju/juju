@@ -5,6 +5,7 @@ package machine_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
@@ -23,8 +24,7 @@ type MachineStartupSuite struct {
 	startCalled bool
 }
 
-var _ = tc.Suite(&MachineStartupSuite{})
-
+func TestMachineStartupSuite(t *stdtesting.T) { tc.Run(t, &MachineStartupSuite{}) }
 func (s *MachineStartupSuite) SetUpTest(c *tc.C) {
 	s.startCalled = false
 	s.manifold = machine.MachineStartupManifold(machine.MachineStartupConfig{

@@ -5,6 +5,7 @@ package action_test
 
 import (
 	"bytes"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,8 +22,7 @@ type CancelSuite struct {
 	subcommand cmd.Command
 }
 
-var _ = tc.Suite(&CancelSuite{})
-
+func TestCancelSuite(t *stdtesting.T) { tc.Run(t, &CancelSuite{}) }
 func (s *CancelSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.subcommand, _ = action.NewCancelCommandForTest(s.store)

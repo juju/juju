@@ -7,7 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

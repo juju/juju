@@ -8,6 +8,7 @@ import (
 	stderrors "errors"
 	"net/http"
 	"reflect"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -30,7 +31,7 @@ type errorsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&errorsSuite{})
+func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &errorsSuite{}) }
 
 var errorTransformTests = []struct {
 	err          error

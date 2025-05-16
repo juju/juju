@@ -4,6 +4,8 @@
 package agenttools_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base/testing"
@@ -15,8 +17,7 @@ type AgentToolsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&AgentToolsSuite{})
-
+func TestAgentToolsSuite(t *stdtesting.T) { tc.Run(t, &AgentToolsSuite{}) }
 func (s *AgentToolsSuite) TestUpdateToolsVersion(c *tc.C) {
 	called := false
 	apiCaller := testing.APICallerFunc(

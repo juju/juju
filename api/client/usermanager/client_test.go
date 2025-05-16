@@ -4,6 +4,8 @@
 package usermanager_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -17,8 +19,7 @@ import (
 
 type usermanagerSuite struct{}
 
-var _ = tc.Suite(&usermanagerSuite{})
-
+func TestUsermanagerSuite(t *stdtesting.T) { tc.Run(t, &usermanagerSuite{}) }
 func (s *usermanagerSuite) TestAddExistingUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

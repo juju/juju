@@ -13,6 +13,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -38,8 +39,7 @@ type ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ClientSuite{})
-
+func TestClientSuite(t *stdtesting.T) { tc.Run(t, &ClientSuite{}) }
 func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *testhelpers.Stub) {
 	var stub testhelpers.Stub
 	apiCaller := apitesting.BestVersionCaller{APICallerFunc: apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {

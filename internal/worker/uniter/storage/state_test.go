@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -18,8 +20,7 @@ type stateSuite struct {
 	st   *storage.State
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.tag1 = names.NewStorageTag("test/1")
 	s.st = storage.NewState()
@@ -105,8 +106,7 @@ type stateOpsSuite struct {
 	tag3 names.StorageTag
 }
 
-var _ = tc.Suite(&stateOpsSuite{})
-
+func TestStateOpsSuite(t *stdtesting.T) { tc.Run(t, &stateOpsSuite{}) }
 func (s *stateOpsSuite) SetUpSuite(c *tc.C) {
 	s.tag1 = names.NewStorageTag("test/1")
 	s.tag2 = names.NewStorageTag("test/2")

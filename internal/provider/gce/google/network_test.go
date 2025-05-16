@@ -5,6 +5,7 @@ package google_test
 
 import (
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"google.golang.org/api/compute/v1"
@@ -17,8 +18,7 @@ type networkSuite struct {
 	google.BaseSuite
 }
 
-var _ = tc.Suite(&networkSuite{})
-
+func TestNetworkSuite(t *stdtesting.T) { tc.Run(t, &networkSuite{}) }
 func (s *networkSuite) TestNetworkSpecPath(c *tc.C) {
 	spec := google.NetworkSpec{
 		Name: "spam",

@@ -4,14 +4,14 @@
 package internal
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/docker"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

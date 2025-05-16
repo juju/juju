@@ -5,6 +5,7 @@ package trace
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,8 +17,7 @@ type nameSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&nameSuite{})
-
+func TestNameSuite(t *stdtesting.T) { tc.Run(t, &nameSuite{}) }
 func (s *nameSuite) TestNameFromFuncMethod(c *tc.C) {
 	name := NameFromFunc()
 	c.Assert(name, tc.Equals, Name("trace.(*nameSuite).TestNameFromFuncMethod"))
@@ -31,8 +31,7 @@ type namespaceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&namespaceSuite{})
-
+func TestNamespaceSuite(t *stdtesting.T) { tc.Run(t, &namespaceSuite{}) }
 func (s *namespaceSuite) TestNamespaceShortNamespace(c *tc.C) {
 	tests := []struct {
 		workerName string

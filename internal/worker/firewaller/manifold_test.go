@@ -5,6 +5,7 @@ package firewaller_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,8 +27,7 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *tc.C) {
 	ctx := &mockDependencyGetter{
 		env: &mockEnviron{
@@ -68,8 +68,7 @@ type ManifoldConfigSuite struct {
 	config firewaller.ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldConfigSuite{})
-
+func TestManifoldConfigSuite(t *stdtesting.T) { tc.Run(t, &ManifoldConfigSuite{}) }
 func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = validConfig(c)

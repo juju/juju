@@ -5,6 +5,7 @@ package engine_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -24,8 +25,7 @@ type HousingSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&HousingSuite{})
-
+func TestHousingSuite(t *stdtesting.T) { tc.Run(t, &HousingSuite{}) }
 func (*HousingSuite) TestEmptyHousingEmptyManifold(c *tc.C) {
 	manifold := engine.Housing{}.Decorate(dependency.Manifold{})
 

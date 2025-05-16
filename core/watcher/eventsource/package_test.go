@@ -5,7 +5,7 @@ package eventsource
 
 import (
 	"fmt"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
@@ -21,7 +21,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventsource -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription,WatchableDB,EventSource
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventsource -destination watcher_mock_test.go -source=./consume.go
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)
@@ -29,8 +29,7 @@ func TestPackage(t *testing.T) {
 
 type ImportTest struct{}
 
-var _ = tc.Suite(&ImportTest{})
-
+func TestImportTest(t *stdtesting.T) { tc.Run(t, &ImportTest{}) }
 func (*ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher/eventsource")
 

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
@@ -16,8 +17,7 @@ import (
 
 type ParserSuite struct{}
 
-var _ = tc.Suite(&ParserSuite{})
-
+func TestParserSuite(t *stdtesting.T) { tc.Run(t, &ParserSuite{}) }
 func (s *ParserSuite) TestNestedExpressionUnmarshalingFromYAML(c *tc.C) {
 	payload := `
 assumes:

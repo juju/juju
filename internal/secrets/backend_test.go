@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -20,8 +22,7 @@ type backendSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&backendSuite{})
-
+func TestBackendSuite(t *stdtesting.T) { tc.Run(t, &backendSuite{}) }
 func (s *backendSuite) TestSaveContent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

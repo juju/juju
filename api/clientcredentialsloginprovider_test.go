@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,8 +26,9 @@ type clientCredentialsLoginProviderProviderSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&clientCredentialsLoginProviderProviderSuite{})
-
+func TestClientCredentialsLoginProviderProviderSuite(t *stdtesting.T) {
+	tc.Run(t, &clientCredentialsLoginProviderProviderSuite{})
+}
 func (s *clientCredentialsLoginProviderProviderSuite) APIInfo() *api.Info {
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
 		var err error
@@ -106,8 +108,9 @@ type clientCredentialsLoginProviderBasicSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&clientCredentialsLoginProviderBasicSuite{})
-
+func TestClientCredentialsLoginProviderBasicSuite(t *stdtesting.T) {
+	tc.Run(t, &clientCredentialsLoginProviderBasicSuite{})
+}
 func (s *clientCredentialsLoginProviderBasicSuite) TestClientCredentialsAuthHeader(c *tc.C) {
 	clientID := "test-client-id"
 	clientSecret := "test-client-secret"

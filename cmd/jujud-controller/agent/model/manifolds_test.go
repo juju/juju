@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -19,8 +21,7 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ManifoldsSuite{})
-
+func TestManifoldsSuite(t *stdtesting.T) { tc.Run(t, &ManifoldsSuite{}) }
 func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 	actual := set.NewStrings()
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{

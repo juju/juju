@@ -5,6 +5,7 @@ package jujuclient_test
 
 import (
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +21,7 @@ type CredentialsFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&CredentialsFileSuite{})
+func TestCredentialsFileSuite(t *stdtesting.T) { tc.Run(t, &CredentialsFileSuite{}) }
 
 const testCredentialsYAML = `
 credentials:

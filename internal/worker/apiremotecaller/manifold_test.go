@@ -4,6 +4,8 @@
 package apiremotecaller
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
@@ -23,8 +25,7 @@ type ManifoldSuite struct {
 	config ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = ManifoldConfig{

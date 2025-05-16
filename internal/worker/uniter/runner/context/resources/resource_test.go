@@ -5,6 +5,7 @@ package resources_test
 
 import (
 	"io"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -14,7 +15,7 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
 
-var _ = tc.Suite(&OpenedResourceSuite{})
+func TestOpenedResourceSuite(t *stdtesting.T) { tc.Run(t, &OpenedResourceSuite{}) }
 
 type OpenedResourceSuite struct {
 	testhelpers.IsolationSuite

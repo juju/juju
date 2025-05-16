@@ -5,7 +5,7 @@ package simplestreams_test
 
 import (
 	"strings"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	registerSimpleStreamsTests()
 	tc.Suite(&jsonSuite{})
 	tc.TestingT(t)

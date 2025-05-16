@@ -4,11 +4,11 @@
 package introspection
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
-func TestSuite(t *testing.T) {
+func TestSuite(t *stdtesting.T) {
 	tc.TestingT(t)
 }

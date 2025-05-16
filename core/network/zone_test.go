@@ -4,6 +4,8 @@
 package network
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -16,8 +18,7 @@ type zoneSuite struct {
 	zones AvailabilityZones
 }
 
-var _ = tc.Suite(&zoneSuite{})
-
+func TestZoneSuite(t *stdtesting.T) { tc.Run(t, &zoneSuite{}) }
 func (s *zoneSuite) SetUpTest(c *tc.C) {
 	s.zones = AvailabilityZones{
 		&az{name: "zone1", available: true},

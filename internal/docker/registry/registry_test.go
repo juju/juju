@@ -4,6 +4,8 @@
 package registry_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/docker"
@@ -13,8 +15,7 @@ import (
 type registrySuite struct {
 }
 
-var _ = tc.Suite(&registrySuite{})
-
+func TestRegistrySuite(t *stdtesting.T) { tc.Run(t, &registrySuite{}) }
 func (s *registrySuite) TestErrorsOnDockerDefault(c *tc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
 		Repository: "jujusolutions",

@@ -4,6 +4,8 @@
 package modelmanager_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -18,8 +20,7 @@ type modelInfoSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&modelInfoSuite{})
-
+func TestModelInfoSuite(t *stdtesting.T) { tc.Run(t, &modelInfoSuite{}) }
 func (s *modelInfoSuite) checkCall(c *tc.C, objType string, id, request string) {
 	c.Check(objType, tc.Equals, "ModelManager")
 	c.Check(id, tc.Equals, "")

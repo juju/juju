@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	stdtesting "testing"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -48,7 +49,7 @@ type addCAASSuite struct {
 	credentialStoreAPI            *mocks.MockCredentialStoreAPI
 }
 
-var _ = tc.Suite(&addCAASSuite{})
+func TestAddCAASSuite(t *stdtesting.T) { tc.Run(t, &addCAASSuite{}) }
 
 var kubeConfigStr = `
 apiVersion: v1

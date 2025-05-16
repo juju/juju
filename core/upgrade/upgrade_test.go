@@ -4,6 +4,8 @@
 package upgrade
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,8 +15,7 @@ type upgradeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&upgradeSuite{})
-
+func TestUpgradeSuite(t *stdtesting.T) { tc.Run(t, &upgradeSuite{}) }
 func (s *upgradeSuite) TestParseState(c *tc.C) {
 	tests := []struct {
 		str string

@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -29,9 +30,7 @@ func (s *SuspendRelationSuite) SetUpTest(c *tc.C) {
 		return s.mockAPI.NextErr()
 	}
 }
-
-var _ = tc.Suite(&SuspendRelationSuite{})
-
+func TestSuspendRelationSuite(t *stdtesting.T) { tc.Run(t, &SuspendRelationSuite{}) }
 func (s *SuspendRelationSuite) runSuspendRelation(c *tc.C, args ...string) error {
 	store := jujuclienttesting.MinimalStore()
 	_, err := cmdtesting.RunCommand(c, application.NewSuspendRelationCommandForTest(s.mockAPI, store), args...)

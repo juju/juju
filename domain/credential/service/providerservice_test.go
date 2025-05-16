@@ -4,6 +4,8 @@
 package service
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -19,8 +21,7 @@ type providerServiceSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&providerServiceSuite{})
-
+func TestProviderServiceSuite(t *stdtesting.T) { tc.Run(t, &providerServiceSuite{}) }
 func (s *providerServiceSuite) service() *WatchableProviderService {
 	return NewWatchableProviderService(s.state, s.watcherFactory)
 }

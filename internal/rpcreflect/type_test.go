@@ -5,6 +5,7 @@ package rpcreflect_test
 
 import (
 	"reflect"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -13,8 +14,7 @@ import (
 
 type reflectSuite struct{}
 
-var _ = tc.Suite(&reflectSuite{})
-
+func TestReflectSuite(t *stdtesting.T) { tc.Run(t, &reflectSuite{}) }
 func (*reflectSuite) SetUpTest(c *tc.C) {
 	rpcreflect.ResetCaches()
 }

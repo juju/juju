@@ -5,6 +5,7 @@ package vsphere_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/vmware/govmomi/object"
@@ -20,8 +21,7 @@ type environAvailzonesSuite struct {
 	EnvironFixture
 }
 
-var _ = tc.Suite(&environAvailzonesSuite{})
-
+func TestEnvironAvailzonesSuite(t *stdtesting.T) { tc.Run(t, &environAvailzonesSuite{}) }
 func makeFolders(host string) *object.DatacenterFolders {
 	return &object.DatacenterFolders{
 		HostFolder: &object.Folder{

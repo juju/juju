@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +21,7 @@ type cloudSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&cloudSuite{})
+func TestCloudSuite(t *stdtesting.T) { tc.Run(t, &cloudSuite{}) }
 
 var publicCloudNames = []string{
 	"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "oracle",

@@ -4,6 +4,7 @@
 package database
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -15,8 +16,7 @@ type typesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&typesSuite{})
-
+func TestTypesSuite(t *stdtesting.T) { tc.Run(t, &typesSuite{}) }
 func (s *typesSuite) TestNullDuration(c *tc.C) {
 	nd := NullDuration{Duration: 10 * time.Second, Valid: true}
 	v, err := nd.Value()

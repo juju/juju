@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -23,8 +25,7 @@ type bootstrapSuite struct {
 	controllerUUID string
 }
 
-var _ = tc.Suite(&bootstrapSuite{})
-
+func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
 func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.controllerUUID = s.SeedControllerUUID(c)

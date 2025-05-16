@@ -26,8 +26,7 @@ type clientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&clientSuite{})
-
+func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
 func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Agent")

@@ -4,6 +4,8 @@
 package proxyupdater_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
@@ -24,8 +26,7 @@ type ManifoldSuite struct {
 	startErr error
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func MakeUpdateFunc(name string) func(proxy.Settings) error {
 	// So we can tell the difference between update funcs.
 	return func(proxy.Settings) error {

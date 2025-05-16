@@ -5,6 +5,7 @@ package service_test
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -20,8 +21,7 @@ type serviceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&serviceSuite{})
-
+func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
 func (s *serviceSuite) TestNewService(c *tc.C) {
 	cfg := common.Conf{Desc: "test", ExecStart: "/path/to/script"}
 	svc, err := service.NewService("fred", cfg)
@@ -98,8 +98,7 @@ type restartSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&restartSuite{})
-
+func TestRestartSuite(t *stdtesting.T) { tc.Run(t, &restartSuite{}) }
 func (s *restartSuite) TestRestartStopAndStart(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

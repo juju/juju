@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
@@ -33,7 +34,7 @@ type credentialsSuite struct {
 	lxd.BaseSuite
 }
 
-var _ = tc.Suite(&credentialsSuite{})
+func TestCredentialsSuite(t *stdtesting.T) { tc.Run(t, &credentialsSuite{}) }
 
 var errNotFound = api.StatusErrorf(http.StatusNotFound, "")
 

@@ -5,6 +5,7 @@ package iptables_test
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -18,8 +19,7 @@ type IptablesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&IptablesSuite{})
-
+func TestIptablesSuite(t *stdtesting.T) { tc.Run(t, &IptablesSuite{}) }
 func (*IptablesSuite) TestDropCommand(c *tc.C) {
 	assertRender(c,
 		iptables.DropCommand{},

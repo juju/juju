@@ -5,6 +5,7 @@ package httpserverargs
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -31,8 +32,7 @@ type workerConfigSuite struct {
 	config workerConfig
 }
 
-var _ = tc.Suite(&workerConfigSuite{})
-
+func TestWorkerConfigSuite(t *stdtesting.T) { tc.Run(t, &workerConfigSuite{}) }
 func (s *workerConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = workerConfig{
@@ -79,8 +79,7 @@ type workerSuite struct {
 	stateAuthFunc NewStateAuthenticatorFunc
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
 	return func(
 		ctx context.Context,

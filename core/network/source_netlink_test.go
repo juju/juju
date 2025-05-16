@@ -7,6 +7,7 @@ package network
 
 import (
 	"net"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/vishvananda/netlink"
@@ -19,8 +20,7 @@ type sourceNetlinkSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&sourceNetlinkSuite{})
-
+func TestSourceNetlinkSuite(t *stdtesting.T) { tc.Run(t, &sourceNetlinkSuite{}) }
 func (s *sourceNetlinkSuite) TestNetlinkAddr(c *tc.C) {
 	raw, err := netlink.ParseAddr("192.168.20.1/24")
 	c.Assert(err, tc.ErrorIsNil)

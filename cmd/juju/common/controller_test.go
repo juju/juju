@@ -6,6 +6,7 @@ package common
 import (
 	"context"
 	"io"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -24,7 +25,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&controllerSuite{})
+func TestControllerSuite(t *stdtesting.T) { tc.Run(t, &controllerSuite{}) }
 
 type controllerSuite struct {
 	testing.BaseSuite

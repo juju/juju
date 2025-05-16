@@ -4,6 +4,8 @@
 package application_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -28,8 +30,7 @@ type charmSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&charmSuite{})
-
+func TestCharmSuite(t *stdtesting.T) { tc.Run(t, &charmSuite{}) }
 func (s *charmSuite) TestSetCharmWithArchitecture(c *tc.C) {
 	service := s.setupService(c)
 

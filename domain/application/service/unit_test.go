@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"reflect"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -34,8 +35,7 @@ type unitServiceSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&unitServiceSuite{})
-
+func TestUnitServiceSuite(t *stdtesting.T) { tc.Run(t, &unitServiceSuite{}) }
 func (s *unitServiceSuite) TestGetUnitUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

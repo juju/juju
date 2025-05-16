@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -31,8 +32,9 @@ type UnitResourcesHandlerSuite struct {
 	recorder *httptest.ResponseRecorder
 }
 
-var _ = tc.Suite(&UnitResourcesHandlerSuite{})
-
+func TestUnitResourcesHandlerSuite(t *stdtesting.T) {
+	tc.Run(t, &UnitResourcesHandlerSuite{})
+}
 func (s *UnitResourcesHandlerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

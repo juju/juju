@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -20,7 +21,7 @@ type goalStateSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&goalStateSuite{})
+func TestGoalStateSuite(t *stdtesting.T) { tc.Run(t, &goalStateSuite{}) }
 
 var (
 	timestamp = time.Date(2200, time.November, 5, 0, 0, 0, 0, time.UTC)

@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"net/http"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/lxd/shared/api"
@@ -28,8 +29,7 @@ type containerSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = tc.Suite(&containerSuite{})
-
+func TestContainerSuite(t *stdtesting.T) { tc.Run(t, &containerSuite{}) }
 func (s *containerSuite) TestContainerMetadata(c *tc.C) {
 	container := lxd.Container{}
 	container.Config = map[string]string{"user.juju-controller-uuid": "something"}

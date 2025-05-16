@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/secrets"
@@ -11,8 +13,7 @@ import (
 
 type RoleSuite struct{}
 
-var _ = tc.Suite(&RoleSuite{})
-
+func TestRoleSuite(t *stdtesting.T) { tc.Run(t, &RoleSuite{}) }
 func (s *SecretValueSuite) TestAllowed(c *tc.C) {
 	c.Assert(secrets.RoleNone.Allowed(secrets.RoleView), tc.IsFalse)
 	c.Assert(secrets.RoleNone.Allowed(secrets.RoleRotate), tc.IsFalse)

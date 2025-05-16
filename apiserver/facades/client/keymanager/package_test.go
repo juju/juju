@@ -4,7 +4,7 @@
 package keymanager
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -12,6 +12,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package keymanager -destination keymanager_mock.go github.com/juju/juju/apiserver/facades/client/keymanager BlockChecker
 //go:generate go run go.uber.org/mock/mockgen -typed -package keymanager -destination service_mock.go github.com/juju/juju/apiserver/facades/client/keymanager KeyManagerService,UserService
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	tc.TestingT(t)
 }

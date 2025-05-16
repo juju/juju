@@ -5,6 +5,7 @@ package block_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -16,7 +17,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
-var _ = tc.Suite(&disableCommandSuite{})
+func TestDisableCommandSuite(t *stdtesting.T) { tc.Run(t, &disableCommandSuite{}) }
 
 type disableCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite

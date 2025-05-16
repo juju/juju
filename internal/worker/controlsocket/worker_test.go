@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -39,8 +40,7 @@ type workerSuite struct {
 	metricsUserName   coreuser.Name
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.metricsUserName = usertesting.GenNewName(c, "juju-metrics-r0")

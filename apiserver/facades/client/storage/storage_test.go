@@ -6,6 +6,7 @@ package storage_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -32,8 +33,7 @@ type storageSuite struct {
 	baseStorageSuite
 }
 
-var _ = tc.Suite(&storageSuite{})
-
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
 func (s *storageSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenerios:
 - ListStorageDetails but retrieving units returns an error (is this a useful test?)

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,8 +17,7 @@ import (
 
 type CreateSecretSuite struct{}
 
-var _ = tc.Suite(&CreateSecretSuite{})
-
+func TestCreateSecretSuite(t *stdtesting.T) { tc.Run(t, &CreateSecretSuite{}) }
 func (s *CreateSecretSuite) TestBadKey(c *tc.C) {
 	_, err := secrets.CreateSecretData([]string{"fo=bar"})
 	c.Assert(err, tc.ErrorMatches, `key "fo" not valid`)

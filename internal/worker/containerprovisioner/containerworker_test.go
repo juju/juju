@@ -6,6 +6,7 @@ package containerprovisioner_test
 import (
 	"context"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -63,9 +64,7 @@ func (s *containerWorkerSuite) SetUpTest(c *tc.C) {
 	s.machineLock = &fakeMachineLock{}
 	s.done = make(chan struct{})
 }
-
-var _ = tc.Suite(&containerWorkerSuite{})
-
+func TestContainerWorkerSuite(t *stdtesting.T) { tc.Run(t, &containerWorkerSuite{}) }
 func (s *containerWorkerSuite) TestContainerSetupAndProvisioner(c *tc.C) {
 	defer s.patch(c).Finish()
 

@@ -4,13 +4,13 @@
 package charmdownloader
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package charmdownloader -destination downloader_mock_test.go github.com/juju/juju/internal/charm/charmdownloader DownloadClient
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }

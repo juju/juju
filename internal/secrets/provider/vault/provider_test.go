@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/collections/set"
@@ -31,8 +32,7 @@ type providerSuite struct {
 	mockRoundTripper *mocks.MockRoundTripper
 }
 
-var _ = tc.Suite(&providerSuite{})
-
+func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
 func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)

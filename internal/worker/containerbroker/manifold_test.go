@@ -5,6 +5,7 @@ package containerbroker_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,8 +23,7 @@ type manifoldConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&manifoldConfigSuite{})
-
+func TestManifoldConfigSuite(t *stdtesting.T) { tc.Run(t, &manifoldConfigSuite{}) }
 func (s *manifoldConfigSuite) TestInvalidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -118,8 +118,7 @@ type manifoldSuite struct {
 	machineLock *mocks.MockLock
 }
 
-var _ = tc.Suite(&manifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
 func (s *manifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

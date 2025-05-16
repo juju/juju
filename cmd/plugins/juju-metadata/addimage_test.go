@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,7 +27,7 @@ type addImageSuite struct {
 	mockAPI *mockAddAPI
 }
 
-var _ = tc.Suite(&addImageSuite{})
+func TestAddImageSuite(t *stdtesting.T) { tc.Run(t, &addImageSuite{}) }
 
 var emptyMetadata = []params.CloudImageMetadata{}
 

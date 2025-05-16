@@ -5,14 +5,14 @@ package unit
 
 import (
 	"math"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
 type unitNameSuite struct{}
 
-var _ = tc.Suite(&unitNameSuite{})
-
+func TestUnitNameSuite(t *stdtesting.T) { tc.Run(t, &unitNameSuite{}) }
 func (*unitNameSuite) TestNameValidate(c *tc.C) {
 	tests := []struct {
 		name string

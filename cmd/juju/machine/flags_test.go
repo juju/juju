@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/machine"
@@ -15,8 +17,7 @@ type FlagsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&FlagsSuite{})
-
+func TestFlagsSuite(t *stdtesting.T) { tc.Run(t, &FlagsSuite{}) }
 func (*FlagsSuite) TestDisksFlagErrors(c *tc.C) {
 	var disks []storage.Directive
 	f := machine.NewDisksFlag(&disks)

@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
@@ -11,8 +13,7 @@ import (
 
 type ConstantsSuite struct{}
 
-var _ = tc.Suite(&ConstantsSuite{})
-
+func TestConstantsSuite(t *stdtesting.T) { tc.Run(t, &ConstantsSuite{}) }
 func (s *ConstantsSuite) TestAnyJobNeedsState(c *tc.C) {
 	c.Assert(model.AnyJobNeedsState(), tc.IsFalse)
 	c.Assert(model.AnyJobNeedsState(model.JobHostUnits), tc.IsFalse)

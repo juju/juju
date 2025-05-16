@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -16,8 +17,7 @@ import (
 
 type commonSuite struct{}
 
-var _ = tc.Suite(&commonSuite{})
-
+func TestCommonSuite(t *stdtesting.T) { tc.Run(t, &commonSuite{}) }
 func errorAuth(context.Context) (common.AuthFunc, error) {
 	return nil, fmt.Errorf("pow")
 }

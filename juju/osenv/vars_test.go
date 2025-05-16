@@ -6,6 +6,7 @@ package osenv_test
 
 import (
 	"runtime"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,8 +18,7 @@ type varsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&varsSuite{})
-
+func TestVarsSuite(t *stdtesting.T) { tc.Run(t, &varsSuite{}) }
 func (s *varsSuite) TestJujuXDGDataHomeEnvVar(c *tc.C) {
 	path := "/foo/bar/baz"
 	s.PatchEnvironment(osenv.JujuXDGDataHomeEnvKey, path)

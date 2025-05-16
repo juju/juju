@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -32,8 +33,7 @@ type providerWorkerSuite struct {
 	ephemeralCalled int64
 }
 
-var _ = tc.Suite(&providerWorkerSuite{})
-
+func TestProviderWorkerSuite(t *stdtesting.T) { tc.Run(t, &providerWorkerSuite{}) }
 func (s *providerWorkerSuite) TestKilledSingularWorkerProviderErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

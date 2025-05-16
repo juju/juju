@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -21,7 +22,7 @@ type poolSuite struct {
 	baseStorageSuite
 }
 
-var _ = tc.Suite(&poolSuite{})
+func TestPoolSuite(t *stdtesting.T) { tc.Run(t, &poolSuite{}) }
 
 const (
 	tstName = "testpool"

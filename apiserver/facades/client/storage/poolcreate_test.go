@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -16,8 +18,7 @@ type poolCreateSuite struct {
 	baseStorageSuite
 }
 
-var _ = tc.Suite(&poolCreateSuite{})
-
+func TestPoolCreateSuite(t *stdtesting.T) { tc.Run(t, &poolCreateSuite{}) }
 func (s *poolCreateSuite) TestCreatePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

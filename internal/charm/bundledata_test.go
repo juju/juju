@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -20,7 +21,7 @@ type bundleDataSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&bundleDataSuite{})
+func TestBundleDataSuite(t *stdtesting.T) { tc.Run(t, &bundleDataSuite{}) }
 
 const mediawikiBundle = `
 default-base: ubuntu@20.04

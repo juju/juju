@@ -4,7 +4,7 @@
 package oci_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -15,6 +15,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package testing -destination testing/mocks_firewall.go -write_package_comment=false github.com/juju/juju/internal/provider/oci FirewallClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package testing -destination testing/mocks_storage.go -write_package_comment=false github.com/juju/juju/internal/provider/oci StorageClient
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }

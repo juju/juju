@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -26,8 +27,7 @@ type workerSuite struct {
 	trackedDB *MockTrackedDB
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

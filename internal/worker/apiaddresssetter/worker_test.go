@@ -5,6 +5,7 @@ package apiaddresssetter
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -29,8 +30,7 @@ type workerSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

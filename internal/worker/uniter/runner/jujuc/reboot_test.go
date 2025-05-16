@@ -5,6 +5,8 @@
 package jujuc_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 
@@ -17,8 +19,7 @@ type JujuRebootSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&JujuRebootSuite{})
-
+func TestJujuRebootSuite(t *stdtesting.T) { tc.Run(t, &JujuRebootSuite{}) }
 func (s *JujuRebootSuite) TestNewJujuRebootCommand(c *tc.C) {
 	cmd, err := jujuc.NewJujuRebootCommand(nil)
 	c.Assert(err, tc.ErrorIsNil)

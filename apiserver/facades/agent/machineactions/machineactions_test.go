@@ -6,6 +6,7 @@ package machineactions_test
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type FacadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&FacadeSuite{})
-
+func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
 func (*FacadeSuite) TestAcceptsMachineAgent(c *tc.C) {
 	facade, err := machineactions.NewFacade(nil, nil, agentAuth{machine: true})
 	c.Check(err, tc.ErrorIsNil)

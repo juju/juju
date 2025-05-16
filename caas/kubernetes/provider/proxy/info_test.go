@@ -4,6 +4,7 @@
 package proxy_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -21,8 +22,7 @@ type infoSuite struct {
 	clock  *testclock.Clock
 }
 
-var _ = tc.Suite(&infoSuite{})
-
+func TestInfoSuite(t *stdtesting.T) { tc.Run(t, &infoSuite{}) }
 func (i *infoSuite) SetUpTest(c *tc.C) {
 	i.clock = testclock.NewClock(time.Time{})
 

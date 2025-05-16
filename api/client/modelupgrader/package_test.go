@@ -4,7 +4,7 @@
 package modelupgrader_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -12,6 +12,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/apibase_mock.go github.com/juju/juju/api/base APICallCloser
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/httprequest_mock.go gopkg.in/httprequest.v1 Doer
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	tc.TestingT(t)
 }

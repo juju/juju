@@ -5,6 +5,7 @@ package caasfirewaller_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -44,8 +45,7 @@ type appWorkerSuite struct {
 	portsWatcher watcher.NotifyWatcher
 }
 
-var _ = tc.Suite(&appWorkerSuite{})
-
+func TestAppWorkerSuite(t *stdtesting.T) { tc.Run(t, &appWorkerSuite{}) }
 func (s *appWorkerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

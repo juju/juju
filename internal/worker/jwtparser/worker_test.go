@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -22,8 +23,7 @@ type workerSuite struct {
 	controllerConfig *MockControllerConfigService
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = NewMockHTTPClient(ctrl)

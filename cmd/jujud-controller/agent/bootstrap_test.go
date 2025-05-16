@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -78,8 +79,7 @@ type BootstrapSuite struct {
 	dqliteInitializerFunc func(*tc.C, ...database.BootstrapOpt) agentbootstrap.DqliteInitializerFunc
 }
 
-var _ = tc.Suite(&BootstrapSuite{})
-
+func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &BootstrapSuite{}) }
 func (s *BootstrapSuite) SetUpSuite(c *tc.C) {
 	storageDir := c.MkDir()
 	restorer := testhelpers.PatchValue(&envtools.DefaultBaseURL, storageDir)

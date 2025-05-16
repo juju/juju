@@ -5,6 +5,7 @@ package upgrader
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -28,8 +29,7 @@ type upgraderWatchSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-var _ = tc.Suite(&upgraderWatchSuite{})
-
+func TestUpgraderWatchSuite(t *stdtesting.T) { tc.Run(t, &upgraderWatchSuite{}) }
 func (s *upgraderWatchSuite) TestWatchAPIVersionNothing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

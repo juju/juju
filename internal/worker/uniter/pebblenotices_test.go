@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/pebble/client"
@@ -27,8 +28,7 @@ type pebbleNoticerSuite struct {
 	workloadEvents    container.WorkloadEvents
 }
 
-var _ = tc.Suite(&pebbleNoticerSuite{})
-
+func TestPebbleNoticerSuite(t *stdtesting.T) { tc.Run(t, &pebbleNoticerSuite{}) }
 func (s *pebbleNoticerSuite) setUpWorker(c *tc.C, containerNames []string) {
 	s.clock = testclock.NewClock(time.Time{})
 	s.workloadEventChan = make(chan string)

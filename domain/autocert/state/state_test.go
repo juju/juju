@@ -5,6 +5,7 @@ package state
 
 import (
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,8 +18,7 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) TestRetrieveCertX509(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()

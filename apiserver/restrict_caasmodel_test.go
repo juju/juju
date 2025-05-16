@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -17,8 +19,7 @@ type RestrictCAASModelSuite struct {
 	root rpc.Root
 }
 
-var _ = tc.Suite(&RestrictCAASModelSuite{})
-
+func TestRestrictCAASModelSuite(t *stdtesting.T) { tc.Run(t, &RestrictCAASModelSuite{}) }
 func (s *RestrictCAASModelSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingCAASModelOnlyRoot()

@@ -4,7 +4,7 @@
 package vault
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -13,7 +13,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/http_mock.go net/http RoundTripper
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

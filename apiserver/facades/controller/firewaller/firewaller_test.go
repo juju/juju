@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,8 +15,7 @@ type firewallerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&firewallerSuite{})
-
+func TestFirewallerSuite(t *stdtesting.T) { tc.Run(t, &firewallerSuite{}) }
 func (s *firewallerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 

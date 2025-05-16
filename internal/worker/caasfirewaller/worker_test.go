@@ -5,6 +5,7 @@ package caasfirewaller_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -41,8 +42,7 @@ type workerSuite struct {
 	applicationChanges chan []string
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

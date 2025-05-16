@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -29,8 +30,7 @@ type ImageMetadataSuite struct {
 	store   *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&ImageMetadataSuite{})
-
+func TestImageMetadataSuite(t *stdtesting.T) { tc.Run(t, &ImageMetadataSuite{}) }
 func (s *ImageMetadataSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.environ = os.Environ()

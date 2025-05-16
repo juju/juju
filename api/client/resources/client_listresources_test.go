@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -14,7 +16,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&ListResourcesSuite{})
+func TestListResourcesSuite(t *stdtesting.T) { tc.Run(t, &ListResourcesSuite{}) }
 
 type ListResourcesSuite struct{}
 

@@ -4,7 +4,7 @@
 package externalcontrollerupdater_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -12,6 +12,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package externalcontrollerupdater_test -destination domain_mock_test.go github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater ExternalControllerService
 //go:generate go run go.uber.org/mock/mockgen -typed -package externalcontrollerupdater_test -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	tc.TestingT(t)
 }

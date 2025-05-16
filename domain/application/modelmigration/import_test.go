@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
@@ -55,8 +56,7 @@ type importSuite struct {
 	charmAction  *MockCharmAction
 }
 
-var _ = tc.Suite(&importSuite{})
-
+func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
 func (s *importSuite) TestRollback(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

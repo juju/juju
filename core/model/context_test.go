@@ -3,12 +3,15 @@
 
 package model
 
-import "github.com/juju/tc"
+import (
+	stdtesting "testing"
+
+	"github.com/juju/tc"
+)
 
 type contextSuite struct{}
 
-var _ = tc.Suite(&contextSuite{})
-
+func TestContextSuite(t *stdtesting.T) { tc.Run(t, &contextSuite{}) }
 func (s *contextSuite) TestContextModelUUIDIsPassed(c *tc.C) {
 	ctx := WithContextModelUUID(c.Context(), UUID("model-uuid"))
 	modelUUID, ok := ModelUUIDFromContext(ctx)

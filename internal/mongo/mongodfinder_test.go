@@ -6,6 +6,7 @@ package mongo_test
 import (
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -22,7 +23,7 @@ type MongodFinderSuite struct {
 	search *mongo.MockSearchTools
 }
 
-var _ = tc.Suite(&MongodFinderSuite{})
+func TestMongodFinderSuite(t *stdtesting.T) { tc.Run(t, &MongodFinderSuite{}) }
 
 // setUpMock must be called at the start of each test, and then s.ctrl.Finish() called (you can use defer()).
 // this cannot be done in SetUpTest() and TearDownTest() because gomock.NewController assumes the TestReporter is valid
@@ -60,8 +61,7 @@ type OSSearchToolsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&OSSearchToolsSuite{})
-
+func TestOSSearchToolsSuite(t *stdtesting.T) { tc.Run(t, &OSSearchToolsSuite{}) }
 func (s *OSSearchToolsSuite) TestExists(c *tc.C) {
 	dir := c.MkDir()
 	path := filepath.Join(dir, "filename")

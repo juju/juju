@@ -6,6 +6,7 @@ package schema
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -19,8 +20,7 @@ type secretSchemaSuite struct {
 	schemaBaseSuite
 }
 
-var _ = tc.Suite(&secretSchemaSuite{})
-
+func TestSecretSchemaSuite(t *stdtesting.T) { tc.Run(t, &secretSchemaSuite{}) }
 func (s *secretSchemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *tc.C) {
 	s.applyDDL(c, ControllerDDL())
 

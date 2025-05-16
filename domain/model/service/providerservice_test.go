@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -50,8 +51,7 @@ type providerServiceSuite struct {
 	mockWatcherFactory  *MockWatcherFactory
 }
 
-var _ = tc.Suite(&providerServiceSuite{})
-
+func TestProviderServiceSuite(t *stdtesting.T) { tc.Run(t, &providerServiceSuite{}) }
 func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockControllerState = NewMockState(ctrl)

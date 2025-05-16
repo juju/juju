@@ -5,6 +5,7 @@ package deployer_test
 
 import (
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type ManifoldsSuite struct {
 	config deployer.UnitManifoldsConfig
 }
 
-var _ = tc.Suite(&ManifoldsSuite{})
-
+func TestManifoldsSuite(t *stdtesting.T) { tc.Run(t, &ManifoldsSuite{}) }
 func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = deployer.UnitManifoldsConfig{

@@ -5,7 +5,7 @@ package trace
 
 import (
 	"context"
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -24,7 +24,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package trace -destination tracer_mock_test.go github.com/juju/juju/internal/worker/trace TrackedTracer,Client,ClientTracer,ClientTracerProvider
 //go:generate go run go.uber.org/mock/mockgen -typed -package trace -destination trace_mock_test.go go.opentelemetry.io/otel/trace Span
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

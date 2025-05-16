@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -15,8 +17,7 @@ type instanceSuite struct {
 	gce.BaseSuite
 }
 
-var _ = tc.Suite(&instanceSuite{})
-
+func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &instanceSuite{}) }
 func (s *instanceSuite) TestNewInstance(c *tc.C) {
 	inst := gce.NewInstance(s.BaseInstance, s.Env)
 

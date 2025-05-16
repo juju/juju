@@ -5,6 +5,7 @@ package errors_test
 
 import (
 	stderrors "errors"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&ErrorsSuite{})
+func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &ErrorsSuite{}) }
 
 type ErrorsSuite struct {
 	testhelpers.IsolationSuite

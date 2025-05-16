@@ -7,6 +7,7 @@ package manager_test
 import (
 	"os"
 	"os/exec"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -15,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&RunSuite{})
+func TestRunSuite(t *stdtesting.T) { tc.Run(t, &RunSuite{}) }
 
 type RunSuite struct {
 	testhelpers.IsolationSuite

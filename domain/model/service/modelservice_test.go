@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -50,9 +51,7 @@ func (s *modelServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.mockEnvironVersionProvider = NewMockEnvironVersionProvider(ctrl)
 	return ctrl
 }
-
-var _ = tc.Suite(&modelServiceSuite{})
-
+func TestModelServiceSuite(t *stdtesting.T) { tc.Run(t, &modelServiceSuite{}) }
 func ptr[T any](v T) *T {
 	return &v
 }
@@ -655,8 +654,9 @@ type providerModelServiceSuite struct {
 	mockCloudInfoProvider *MockCloudInfoProvider
 }
 
-var _ = tc.Suite(&providerModelServiceSuite{})
-
+func TestProviderModelServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &providerModelServiceSuite{})
+}
 func (s *providerModelServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.modelServiceSuite.setupMocks(c)
 	s.mockProvider = NewMockModelResourcesProvider(ctrl)

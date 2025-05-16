@@ -9,6 +9,7 @@ package leadership_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -26,7 +27,7 @@ type leadershipSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&leadershipSuite{})
+func TestLeadershipSuite(t *stdtesting.T) { tc.Run(t, &leadershipSuite{}) }
 
 const (
 	StubAppNm  = "stub-application"

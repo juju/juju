@@ -4,6 +4,8 @@
 package assumes
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,8 +15,7 @@ type FeatureSetSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&FeatureSetSuite{})
-
+func TestFeatureSetSuite(t *stdtesting.T) { tc.Run(t, &FeatureSetSuite{}) }
 func (s *FeatureSetSuite) TestAsList(c *tc.C) {
 	var fs FeatureSet
 	fs.Add(

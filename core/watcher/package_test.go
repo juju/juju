@@ -17,8 +17,7 @@ func TestPackage(t *stdtesting.T) {
 
 type ImportTest struct{}
 
-var _ = tc.Suite(&ImportTest{})
-
+func TestImportTest(t *stdtesting.T) { tc.Run(t, &ImportTest{}) }
 func (s *ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher")
 

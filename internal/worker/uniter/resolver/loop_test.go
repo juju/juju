@@ -6,6 +6,7 @@ package resolver_test
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/mutex/v2"
@@ -34,8 +35,7 @@ type LoopSuite struct {
 	onIdle    func() error
 }
 
-var _ = tc.Suite(&LoopSuite{})
-
+func TestLoopSuite(t *stdtesting.T) { tc.Run(t, &LoopSuite{}) }
 func (s *LoopSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resolver = resolver.ResolverFunc(func(context.Context, resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {

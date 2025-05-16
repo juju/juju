@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -41,8 +42,7 @@ type lxdProfileSuite struct {
 	applicationService *uniter.MockApplicationService
 }
 
-var _ = tc.Suite(&lxdProfileSuite{})
-
+func TestLxdProfileSuite(t *stdtesting.T) { tc.Run(t, &lxdProfileSuite{}) }
 func (s *lxdProfileSuite) SetUpTest(c *tc.C) {
 	s.machineTag1 = names.NewMachineTag("1")
 	s.unitTag1 = names.NewUnitTag("mysql/1")

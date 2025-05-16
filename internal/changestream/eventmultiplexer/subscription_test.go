@@ -6,6 +6,7 @@ package eventmultiplexer
 import (
 	"context"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -19,8 +20,7 @@ type subscriptionSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&subscriptionSuite{})
-
+func TestSubscriptionSuite(t *stdtesting.T) { tc.Run(t, &subscriptionSuite{}) }
 func (s *subscriptionSuite) TestSubscriptionIsDone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

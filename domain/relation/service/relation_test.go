@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -35,7 +36,7 @@ type relationServiceSuite struct {
 	service *Service
 }
 
-var _ = tc.Suite(&relationServiceSuite{})
+func TestRelationServiceSuite(t *stdtesting.T) { tc.Run(t, &relationServiceSuite{}) }
 
 // TestAddRelation verifies the behavior of the AddRelation method when adding
 // a relation between two endpoints.
@@ -1175,8 +1176,9 @@ type relationLeadershipServiceSuite struct {
 	leaderEnsurer     *MockEnsurer
 }
 
-var _ = tc.Suite(&relationLeadershipServiceSuite{})
-
+func TestRelationLeadershipServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &relationLeadershipServiceSuite{})
+}
 func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

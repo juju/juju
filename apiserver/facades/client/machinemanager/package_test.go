@@ -4,7 +4,7 @@
 package machinemanager
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -16,7 +16,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package machinemanager -destination environ_mock_test.go github.com/juju/juju/environs Environ,InstanceTypesFetcher,BootstrapEnviron
 //go:generate go run go.uber.org/mock/mockgen -typed -package machinemanager -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	// TODO(wallyworld) - needed until instance config tests converted to gomock
 	coretesting.MgoTestPackage(t)
 }

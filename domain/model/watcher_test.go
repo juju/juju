@@ -6,6 +6,7 @@ package model_test
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -41,8 +42,7 @@ type watcherSuite struct {
 	userUUID user.UUID
 }
 
-var _ = tc.Suite(&watcherSuite{})
-
+func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
 func insertModelDependencies(c *tc.C, dbTxnRunnerFactory database.TxnRunnerFactory,
 	dbTxnRunner database.TxnRunner, userUUID user.UUID, userName user.Name) {
 	accessState := accessstate.NewState(dbTxnRunnerFactory, loggertesting.WrapCheckLog(c))

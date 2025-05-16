@@ -6,6 +6,7 @@ package testhelpers_test
 import (
 	"errors"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -14,8 +15,7 @@ import (
 
 type PatchValueSuite struct{}
 
-var _ = tc.Suite(&PatchValueSuite{})
-
+func TestPatchValueSuite(t *stdtesting.T) { tc.Run(t, &PatchValueSuite{}) }
 func (*PatchValueSuite) TestSetInt(c *tc.C) {
 	i := 99
 	restore := testing.PatchValue(&i, 88)
@@ -60,8 +60,7 @@ func (*PatchValueSuite) TestSetPanicsWhenNotAssignable(c *tc.C) {
 
 type PatchEnvironmentSuite struct{}
 
-var _ = tc.Suite(&PatchEnvironmentSuite{})
-
+func TestPatchEnvironmentSuite(t *stdtesting.T) { tc.Run(t, &PatchEnvironmentSuite{}) }
 func (*PatchEnvironmentSuite) TestPatchEnvironment(c *tc.C) {
 	const envName = "TESTING_PATCH_ENVIRONMENT"
 	// remember the old value, and set it to something we can check

@@ -4,6 +4,8 @@
 package user_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -23,8 +25,7 @@ type WhoAmITestSuite struct {
 	expectedErr    string
 }
 
-var _ = tc.Suite(&WhoAmITestSuite{})
-
+func TestWhoAmITestSuite(t *stdtesting.T) { tc.Run(t, &WhoAmITestSuite{}) }
 func (s *WhoAmITestSuite) TestEmptyStore(c *tc.C) {
 	s.expectedOutput = `
 There is no current controller.

@@ -4,6 +4,8 @@
 package openstack
 
 import (
+	stdtesting "testing"
+
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/errors"
@@ -32,8 +34,7 @@ type networkingSuite struct {
 	ip3             string
 }
 
-var _ = tc.Suite(&networkingSuite{})
-
+func TestNetworkingSuite(t *stdtesting.T) { tc.Run(t, &networkingSuite{}) }
 func (s *networkingSuite) SetUpTest(c *tc.C) {
 	s.serverAZ = "test-me"
 	s.externalNetwork = "ext-net"

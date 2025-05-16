@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -25,8 +26,7 @@ type APIRequesterSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&APIRequesterSuite{})
-
+func TestAPIRequesterSuite(t *stdtesting.T) { tc.Run(t, &APIRequesterSuite{}) }
 func (s *APIRequesterSuite) TestDo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -174,8 +174,7 @@ type RESTSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&RESTSuite{})
-
+func TestRESTSuite(t *stdtesting.T) { tc.Run(t, &RESTSuite{}) }
 func (s *RESTSuite) TestGet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

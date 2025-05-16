@@ -6,6 +6,7 @@ package reboot_test
 import (
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -30,8 +31,7 @@ type NewRebootSuite struct {
 	clock            *mocks.MockClock
 }
 
-var _ = tc.Suite(&NewRebootSuite{})
-
+func TestNewRebootSuite(t *stdtesting.T) { tc.Run(t, &NewRebootSuite{}) }
 func (s *NewRebootSuite) TestExecuteReboot(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectManagerIsInitialized(false, 1)
@@ -133,8 +133,7 @@ type NixRebootSuite struct {
 	rebootScriptName string
 }
 
-var _ = tc.Suite(&NixRebootSuite{})
-
+func TestNixRebootSuite(t *stdtesting.T) { tc.Run(t, &NixRebootSuite{}) }
 func (s *NixRebootSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	testhelpers.PatchExecutableAsEchoArgs(c, s, rebootBin)

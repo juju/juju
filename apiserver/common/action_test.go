@@ -5,6 +5,8 @@
 package common_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -22,8 +24,7 @@ type actionsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&actionsSuite{})
-
+func TestActionsSuite(t *stdtesting.T) { tc.Run(t, &actionsSuite{}) }
 func (s *actionsSuite) TestTagToActionReceiverFn(c *tc.C) {
 	stubActionReceiver := fakeActionReceiver{}
 	stubEntity := fakeEntity{}

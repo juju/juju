@@ -6,6 +6,7 @@ package jujuc_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -23,8 +24,7 @@ type JujuLogSuite struct {
 	relationSuite
 }
 
-var _ = tc.Suite(&JujuLogSuite{})
-
+func TestJujuLogSuite(t *stdtesting.T) { tc.Run(t, &JujuLogSuite{}) }
 func (s *JujuLogSuite) newJujuLogCommand(c *tc.C) cmd.Command {
 	ctx, _ := s.newHookContext(-1, "", "")
 	cmd, err := jujuc.NewJujuLogCommand(ctx)

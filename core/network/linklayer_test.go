@@ -5,6 +5,7 @@ package network
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,8 +16,7 @@ type linkLayerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&linkLayerSuite{})
-
+func TestLinkLayerSuite(t *stdtesting.T) { tc.Run(t, &linkLayerSuite{}) }
 func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeValid(c *tc.C) {
 	validTypes := []LinkLayerDeviceType{
 		LoopbackDevice,

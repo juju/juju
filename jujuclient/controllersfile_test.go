@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,7 +22,7 @@ type ControllersFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&ControllersFileSuite{})
+func TestControllersFileSuite(t *stdtesting.T) { tc.Run(t, &ControllersFileSuite{}) }
 
 const testControllersYAML = `
 controllers:

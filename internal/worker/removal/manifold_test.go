@@ -4,6 +4,8 @@
 package removal
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -20,8 +22,7 @@ type manifoldConfigSuite struct {
 	config ManifoldConfig
 }
 
-var _ = tc.Suite(&manifoldConfigSuite{})
-
+func TestManifoldConfigSuite(t *stdtesting.T) { tc.Run(t, &manifoldConfigSuite{}) }
 func (s *manifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
@@ -73,8 +74,7 @@ type manifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&manifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
 func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	cfg := ManifoldConfig{
 		DomainServicesName: "domain-services",

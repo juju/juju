@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -34,8 +35,7 @@ type stateSuite struct {
 	modelCloudRegionName string
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 

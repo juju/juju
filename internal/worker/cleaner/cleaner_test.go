@@ -6,6 +6,7 @@ package cleaner_test
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -27,8 +28,7 @@ type CleanerSuite struct {
 	logger    logger.Logger
 }
 
-var _ = tc.Suite(&CleanerSuite{})
-
+func TestCleanerSuite(t *stdtesting.T) { tc.Run(t, &CleanerSuite{}) }
 func (s *CleanerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockState = &cleanerMock{

@@ -5,6 +5,7 @@ package authentication_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -32,8 +33,7 @@ type userAuthenticatorSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-var _ = tc.Suite(&userAuthenticatorSuite{})
-
+func TestUserAuthenticatorSuite(t *stdtesting.T) { tc.Run(t, &userAuthenticatorSuite{}) }
 func (s *userAuthenticatorSuite) TestMachineLoginFails(c *tc.C) {
 
 	authenticator := &authentication.LocalUserAuthenticator{}
@@ -441,7 +441,9 @@ type macaroonAuthenticatorSuite struct {
 	username string
 }
 
-var _ = tc.Suite(&macaroonAuthenticatorSuite{})
+func TestMacaroonAuthenticatorSuite(t *stdtesting.T) {
+	tc.Run(t, &macaroonAuthenticatorSuite{})
+}
 
 var authenticateSuccessTests = []struct {
 	about              string

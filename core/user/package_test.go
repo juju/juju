@@ -4,21 +4,20 @@
 package user
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 
 type ImportTest struct{}
 
-var _ = tc.Suite(&ImportTest{})
-
+func TestImportTest(t *stdtesting.T) { tc.Run(t, &ImportTest{}) }
 func (*ImportTest) TestImports(c *tc.C) {
 	// TODO (stickupkid): There is a circular dependency between the user
 	// package and the testing package, caused by the model package.

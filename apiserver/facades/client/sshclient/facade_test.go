@@ -5,6 +5,7 @@ package sshclient_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -40,8 +41,7 @@ type facadeSuite struct {
 	modelUUID      model.UUID
 }
 
-var _ = tc.Suite(&facadeSuite{})
-
+func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &facadeSuite{}) }
 func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

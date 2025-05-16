@@ -6,6 +6,7 @@ package tls_test
 import (
 	"crypto/tls"
 	"net"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -20,8 +21,7 @@ type SNISuite struct {
 	sniGetter func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 }
 
-var _ = tc.Suite(&SNISuite{})
-
+func TestSNISuite(t *stdtesting.T) { tc.Run(t, &SNISuite{}) }
 func (s *SNISuite) SetUpTest(c *tc.C) {
 	pki.DefaultKeyProfile = pkitest.OriginalDefaultKeyProfile
 	authority, err := pkitest.NewTestAuthority()

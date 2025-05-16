@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -16,8 +18,7 @@ type serverSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = tc.Suite(&serverSuite{})
-
+func TestServerSuite(t *stdtesting.T) { tc.Run(t, &serverSuite{}) }
 func (s *serverSuite) TestUpdateServerConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -61,9 +62,7 @@ func (s *embeddedCliSuite) SetUpTest(c *tc.C) {
 
 	s.ApiServerSuite.SetUpTest(c)
 }
-
-var _ = tc.Suite(&embeddedCliSuite{})
-
+func TestEmbeddedCliSuite(t *stdtesting.T) { tc.Run(t, &embeddedCliSuite{}) }
 func (s *embeddedCliSuite) TestEmbeddedCommand(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		User:     "fred",

@@ -3,12 +3,16 @@
 
 package juju
 
-import "github.com/juju/tc"
+import (
+	stdtesting "testing"
+
+	"github.com/juju/tc"
+)
 
 type APIHelperSuite struct {
 }
 
-var _ = tc.Suite(&APIHelperSuite{})
+func TestAPIHelperSuite(t *stdtesting.T) { tc.Run(t, &APIHelperSuite{}) }
 
 var moveToFrontTests = []struct {
 	item   string

@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,8 +26,7 @@ type deleteImageSuite struct {
 	deletedIds []string
 }
 
-var _ = tc.Suite(&deleteImageSuite{})
-
+func TestDeleteImageSuite(t *stdtesting.T) { tc.Run(t, &deleteImageSuite{}) }
 func (s *deleteImageSuite) SetUpTest(c *tc.C) {
 	s.BaseCloudImageMetadataSuite.SetUpTest(c)
 

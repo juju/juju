@@ -5,6 +5,7 @@ package logger
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -18,8 +19,7 @@ type loggoSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&loggoSuite{})
-
+func TestLoggoSuite(t *stdtesting.T) { tc.Run(t, &loggoSuite{}) }
 func (s *loggoSuite) TestLog(c *tc.C) {
 	cases := []struct {
 		fn            func(ctx context.Context, logger logger.Logger)

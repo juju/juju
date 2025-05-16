@@ -5,6 +5,7 @@ package domain
 
 import (
 	"database/sql"
+	stdtesting "testing"
 
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/tc"
@@ -23,7 +24,7 @@ func (a asError) Error() string {
 
 type errorsSuite struct{}
 
-var _ = tc.Suite(&errorsSuite{})
+func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &errorsSuite{}) }
 
 // TestCoerceForNilError checks that if you pass a nil error to CoerceError you
 // get back a nil error.

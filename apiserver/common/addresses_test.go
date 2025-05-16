@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,7 +20,7 @@ type apiAddresserSuite struct {
 	fake      *fakeAddresses
 }
 
-var _ = tc.Suite(&apiAddresserSuite{})
+func TestApiAddresserSuite(t *stdtesting.T) { tc.Run(t, &apiAddresserSuite{}) }
 
 // Verify that APIAddressAccessor is satisfied by *state.State.
 var _ common.APIAddressAccessor = (*state.State)(nil)

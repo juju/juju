@@ -4,6 +4,8 @@
 package caasmodeloperator_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -18,8 +20,7 @@ type ModelOperatorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ModelOperatorSuite{})
-
+func TestModelOperatorSuite(t *stdtesting.T) { tc.Run(t, &ModelOperatorSuite{}) }
 func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	var (
 		apiAddresses = []string{"fe80:abcd::1"}

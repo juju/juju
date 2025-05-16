@@ -4,7 +4,7 @@
 package crossmodel
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/http_mock.go net/http RoundTripper
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/crossmodel_mock.go github.com/juju/juju/apiserver/common/crossmodel OfferBakeryInterface,Backend,BakeryConfigService,AccessService,ApplicationService,RelationNetworks,StatusService
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

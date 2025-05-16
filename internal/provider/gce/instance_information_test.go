@@ -4,6 +4,7 @@
 package gce
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -17,8 +18,9 @@ type instanceInformationSuite struct {
 	BaseSuite
 }
 
-var _ = tc.Suite(&instanceInformationSuite{})
-
+func TestInstanceInformationSuite(t *stdtesting.T) {
+	tc.Run(t, &instanceInformationSuite{})
+}
 func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *tc.C) {
 	zone := google.NewZone("a-zone", google.StatusUp, "", "")
 	s.FakeConn.Zones = []google.AvailabilityZone{zone}

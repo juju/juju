@@ -6,6 +6,7 @@ package eventsource
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -25,8 +26,7 @@ type namespaceSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&namespaceSuite{})
-
+func TestNamespaceSuite(t *stdtesting.T) { tc.Run(t, &namespaceSuite{}) }
 func (s *namespaceSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.ApplyDDL(c, schemaDDLApplier{})

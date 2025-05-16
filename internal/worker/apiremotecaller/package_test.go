@@ -4,7 +4,7 @@
 package apiremotecaller
 
 import (
-	"testing"
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
@@ -18,7 +18,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiremotecaller -destination clock_mocks_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiremotecaller -destination connection_mocks_test.go github.com/juju/juju/api Connection
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

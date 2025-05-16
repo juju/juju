@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -18,8 +19,7 @@ type linkLayerSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&linkLayerSuite{})
-
+func TestLinkLayerSuite(t *stdtesting.T) { tc.Run(t, &linkLayerSuite{}) }
 func (s *linkLayerSuite) TestMachineInterfaceViewFitsType(c *tc.C) {
 	db, err := s.TxnRunnerFactory()()
 	c.Assert(err, tc.ErrorIsNil)

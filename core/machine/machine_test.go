@@ -4,6 +4,8 @@
 package machine
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -14,7 +16,7 @@ type machineSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&machineSuite{})
+func TestMachineSuite(t *stdtesting.T) { tc.Run(t, &machineSuite{}) }
 
 // TestNameValidate is testing good and not so good machine names to check
 // that the validate method produces the correct result.

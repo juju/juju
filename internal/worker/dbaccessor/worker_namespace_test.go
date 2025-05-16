@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
@@ -22,8 +23,7 @@ type namespaceSuite struct {
 	dbBaseSuite
 }
 
-var _ = tc.Suite(&namespaceSuite{})
-
+func TestNamespaceSuite(t *stdtesting.T) { tc.Run(t, &namespaceSuite{}) }
 func (s *namespaceSuite) TestEnsureNamespaceForController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

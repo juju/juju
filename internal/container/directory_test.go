@@ -6,6 +6,7 @@ package container_test
 import (
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -19,8 +20,7 @@ type DirectorySuite struct {
 	removedDir   string
 }
 
-var _ = tc.Suite(&DirectorySuite{})
-
+func TestDirectorySuite(t *stdtesting.T) { tc.Run(t, &DirectorySuite{}) }
 func (s *DirectorySuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.containerDir = c.MkDir()

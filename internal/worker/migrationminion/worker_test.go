@@ -7,6 +7,7 @@ import (
 	"context"
 	"reflect"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -49,8 +50,7 @@ type Suite struct {
 	clock  *testclock.Clock
 }
 
-var _ = tc.Suite(&Suite{})
-
+func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
 func (s *Suite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.stub = new(testhelpers.Stub)

@@ -4,6 +4,8 @@
 package service
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -25,7 +27,7 @@ type storagePoolServiceSuite struct {
 	registry storage.ProviderRegistry
 }
 
-var _ = tc.Suite(&storagePoolServiceSuite{})
+func TestStoragePoolServiceSuite(t *stdtesting.T) { tc.Run(t, &storagePoolServiceSuite{}) }
 
 const validationError = errors.ConstError("missing attribute foo")
 

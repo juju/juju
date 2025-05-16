@@ -4,6 +4,8 @@
 package modelmigration
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -22,8 +24,7 @@ type migrationSuite struct {
 	scope Scope
 }
 
-var _ = tc.Suite(&migrationSuite{})
-
+func TestMigrationSuite(t *stdtesting.T) { tc.Run(t, &migrationSuite{}) }
 func (s *migrationSuite) TestAdd(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -5,6 +5,7 @@ package eventsource
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -22,8 +23,7 @@ type notifySuite struct {
 
 var _ watcher.NotifyWatcher = &NotifyWatcher{}
 
-var _ = tc.Suite(&notifySuite{})
-
+func TestNotifySuite(t *stdtesting.T) { tc.Run(t, &notifySuite{}) }
 func (s *notifySuite) TestNotificationsByNamespaceFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

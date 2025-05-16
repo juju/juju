@@ -4,13 +4,13 @@
 package controlsocket
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package controlsocket -destination services_mock_test.go github.com/juju/juju/internal/worker/controlsocket AccessService
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }

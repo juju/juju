@@ -4,6 +4,8 @@
 package state
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -18,8 +20,7 @@ type storagePoolSuite struct {
 	testing.ModelSuite
 }
 
-var _ = tc.Suite(&storagePoolSuite{})
-
+func TestStoragePoolSuite(t *stdtesting.T) { tc.Run(t, &storagePoolSuite{}) }
 func newStoragePoolState(factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),

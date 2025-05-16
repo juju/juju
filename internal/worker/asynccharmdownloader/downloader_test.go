@@ -6,6 +6,7 @@ package asynccharmdownloader
 import (
 	"context"
 	"net/url"
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
@@ -29,8 +30,7 @@ type asyncWorkerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&asyncWorkerSuite{})
-
+func TestAsyncWorkerSuite(t *stdtesting.T) { tc.Run(t, &asyncWorkerSuite{}) }
 func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

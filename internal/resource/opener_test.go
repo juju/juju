@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -56,8 +57,7 @@ type OpenerSuite struct {
 	unleash sync.Mutex
 }
 
-var _ = tc.Suite(&OpenerSuite{})
-
+func TestOpenerSuite(t *stdtesting.T) { tc.Run(t, &OpenerSuite{}) }
 func (s *OpenerSuite) TestOpenResource(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
 	res := coreresource.Resource{

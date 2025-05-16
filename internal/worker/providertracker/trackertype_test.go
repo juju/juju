@@ -4,6 +4,8 @@
 package providertracker
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -13,8 +15,7 @@ type trackerTypeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&trackerTypeSuite{})
-
+func TestTrackerTypeSuite(t *stdtesting.T) { tc.Run(t, &trackerTypeSuite{}) }
 func (s *trackerTypeSuite) TestSingularNamespace(c *tc.C) {
 	single := SingularType("foo")
 	namespace, ok := single.SingularNamespace()

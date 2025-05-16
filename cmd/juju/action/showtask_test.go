@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -27,8 +28,7 @@ type ShowTaskSuite struct {
 	BaseActionSuite
 }
 
-var _ = tc.Suite(&ShowTaskSuite{})
-
+func TestShowTaskSuite(t *stdtesting.T) { tc.Run(t, &ShowTaskSuite{}) }
 func (s *ShowTaskSuite) TestInit(c *tc.C) {
 	tests := []struct {
 		should      string

@@ -5,6 +5,7 @@ package agent
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,8 +26,7 @@ type agentSuite struct {
 	passwordService *MockAgentPasswordService
 }
 
-var _ = tc.Suite(&agentSuite{})
-
+func TestAgentSuite(t *stdtesting.T) { tc.Run(t, &agentSuite{}) }
 func (s *agentSuite) TestSetUnitPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

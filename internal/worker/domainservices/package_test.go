@@ -5,7 +5,7 @@ package domainservices
 
 import (
 	"net/http"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -35,7 +35,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination lease_mock_test.go github.com/juju/juju/core/lease Checker,Manager,LeaseManagerGetter,ModelLeaseManagerGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination logger_mock_test.go github.com/juju/juju/core/logger LoggerContextGetter,LoggerContext
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

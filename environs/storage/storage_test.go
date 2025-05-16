@@ -21,8 +21,7 @@ import (
 func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
-
-var _ = tc.Suite(&datasourceSuite{})
+func TestDatasourceSuite(t *stdtesting.T) { tc.Run(t, &datasourceSuite{}) }
 
 type datasourceSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
@@ -95,8 +94,7 @@ func (s *datasourceSuite) TestURLWithBasePath(c *tc.C) {
 	expectedURL, _ := s.stor.URL("base/bar")
 	c.Assert(url, tc.Equals, expectedURL)
 }
-
-var _ = tc.Suite(&storageSuite{})
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
 
 type storageSuite struct{}
 

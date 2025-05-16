@@ -6,7 +6,7 @@ package maas
 import (
 	"context"
 	"path/filepath"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/juju/keys"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

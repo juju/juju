@@ -6,6 +6,7 @@ package modellife
 import (
 	"context"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	jujuerrors "github.com/juju/errors"
@@ -32,8 +33,7 @@ type workerSuite struct {
 	modelUUID model.UUID
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), tc.IsNil)

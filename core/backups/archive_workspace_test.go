@@ -6,6 +6,7 @@ package backups_test
 import (
 	"io"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -18,9 +19,8 @@ type workspaceSuiteV0 struct {
 	baseArchiveDataSuite
 }
 
-var _ = tc.Suite(&workspaceSuiteV0{})
-var _ = tc.Suite(&workspaceSuiteV1{})
-
+func TestWorkspaceSuiteV0(t *stdtesting.T) { tc.Run(t, &workspaceSuiteV0{}) }
+func TestWorkspaceSuiteV1(t *stdtesting.T) { tc.Run(t, &workspaceSuiteV1{}) }
 func (s *workspaceSuiteV0) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)

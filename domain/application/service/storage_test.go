@@ -4,6 +4,8 @@
 package service
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -28,8 +30,7 @@ type storageSuite struct {
 	service *Service
 }
 
-var _ = tc.Suite(&storageSuite{})
-
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
 func (s *storageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockState = NewMockState(ctrl)

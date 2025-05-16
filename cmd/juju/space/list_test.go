@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,8 +20,7 @@ type ListSuite struct {
 	BaseSpaceSuite
 }
 
-var _ = tc.Suite(&ListSuite{})
-
+func TestListSuite(t *stdtesting.T) { tc.Run(t, &ListSuite{}) }
 func (s *ListSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewListCommand

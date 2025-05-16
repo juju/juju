@@ -4,6 +4,7 @@
 package caasprobebinder_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -17,8 +18,7 @@ import (
 
 type binderSuite struct{}
 
-var _ = tc.Suite(&binderSuite{})
-
+func TestBinderSuite(t *stdtesting.T) { tc.Run(t, &binderSuite{}) }
 func (s *binderSuite) TestBindingUnbinding(c *tc.C) {
 	probes := caasprober.NewCAASProbes()
 	worker, err := caasprobebinder.NewProbeBinder(probes, map[string]probe.ProbeProvider{

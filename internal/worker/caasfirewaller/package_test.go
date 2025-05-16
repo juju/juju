@@ -4,7 +4,7 @@
 package caasfirewaller
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/domain_mocks.go github.com/juju/juju/internal/worker/caasfirewaller ApplicationService,PortService
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/services_mocks.go github.com/juju/juju/internal/services ModelDomainServices
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

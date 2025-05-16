@@ -4,7 +4,7 @@
 package application
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -17,7 +17,7 @@ import (
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

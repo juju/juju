@@ -4,6 +4,8 @@
 package lxdprofile_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/lxdprofile"
@@ -14,8 +16,7 @@ type LXDProfileNameSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&LXDProfileNameSuite{})
-
+func TestLXDProfileNameSuite(t *stdtesting.T) { tc.Run(t, &LXDProfileNameSuite{}) }
 func (*LXDProfileNameSuite) TestProfileNames(c *tc.C) {
 	testCases := []struct {
 		input  []string

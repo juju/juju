@@ -5,6 +5,7 @@ package hostkeyreporter_test
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,8 +20,7 @@ type facadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&facadeSuite{})
-
+func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &facadeSuite{}) }
 func (s *facadeSuite) TestReportKeys(c *tc.C) {
 	stub := new(testhelpers.Stub)
 	apiCaller := basetesting.APICallerFunc(func(

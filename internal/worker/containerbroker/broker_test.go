@@ -4,6 +4,8 @@
 package containerbroker_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -26,8 +28,7 @@ type brokerConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&brokerConfigSuite{})
-
+func TestBrokerConfigSuite(t *stdtesting.T) { tc.Run(t, &brokerConfigSuite{}) }
 func (s *brokerConfigSuite) TestInvalidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -123,8 +124,7 @@ type trackerSuite struct {
 	machineTag names.MachineTag
 }
 
-var _ = tc.Suite(&trackerSuite{})
-
+func TestTrackerSuite(t *stdtesting.T) { tc.Run(t, &trackerSuite{}) }
 func (s *trackerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

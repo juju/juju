@@ -6,6 +6,7 @@ package blockdevice_test
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -26,8 +27,7 @@ type watcherSuite struct {
 	testing.ModelSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
-
+func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
 func (s *watcherSuite) createMachine(c *tc.C, name string) string {
 	db := s.TxnRunner()
 

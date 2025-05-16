@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -21,8 +22,7 @@ type DetachStorageSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&DetachStorageSuite{})
-
+func TestDetachStorageSuite(t *stdtesting.T) { tc.Run(t, &DetachStorageSuite{}) }
 func (s *DetachStorageSuite) TestDetach(c *tc.C) {
 	fake := fakeEntityDetacher{results: []params.ErrorResult{
 		{},

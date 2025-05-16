@@ -4,6 +4,8 @@
 package objectstore
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -15,8 +17,7 @@ type ObjectStoreUUIDSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ObjectStoreUUIDSuite{})
-
+func TestObjectStoreUUIDSuite(t *stdtesting.T) { tc.Run(t, &ObjectStoreUUIDSuite{}) }
 func (*ObjectStoreUUIDSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string

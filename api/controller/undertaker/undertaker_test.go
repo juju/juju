@@ -4,6 +4,8 @@
 package undertaker_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
@@ -19,8 +21,7 @@ type UndertakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&UndertakerSuite{})
-
+func TestUndertakerSuite(t *stdtesting.T) { tc.Run(t, &UndertakerSuite{}) }
 func (s *UndertakerSuite) TestModelInfo(c *tc.C) {
 	var called bool
 	client := s.mockClient(c, "ModelInfo", func(response interface{}) {

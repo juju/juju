@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -41,8 +42,7 @@ type brokerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&brokerSuite{})
-
+func TestBrokerSuite(t *stdtesting.T) { tc.Run(t, &brokerSuite{}) }
 func (s *brokerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	broker.PatchNewMachineInitReader(s, newFakeMachineInitReader)

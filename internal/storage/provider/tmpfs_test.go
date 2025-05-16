@@ -6,6 +6,7 @@ package provider_test
 import (
 	"errors"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -15,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&tmpfsSuite{})
+func TestTmpfsSuite(t *stdtesting.T) { tc.Run(t, &tmpfsSuite{}) }
 
 type tmpfsSuite struct {
 	testing.BaseSuite

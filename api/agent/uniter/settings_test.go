@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -15,8 +17,7 @@ type settingsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&settingsSuite{})
-
+func TestSettingsSuite(t *stdtesting.T) { tc.Run(t, &settingsSuite{}) }
 func (s *settingsSuite) TestNewSettingsAndMap(c *tc.C) {
 	// Make sure newSettings accepts nil settings.
 	settings := uniter.NewSettings("blah", "foo", nil)

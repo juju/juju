@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -21,8 +22,7 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) TestStateBaseGetDB(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)

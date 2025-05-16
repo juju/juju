@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,8 +20,7 @@ type FlagsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&FlagsSuite{})
-
+func TestFlagsSuite(t *stdtesting.T) { tc.Run(t, &FlagsSuite{}) }
 func (*FlagsSuite) TestConfigFlagSet(c *tc.C) {
 	var f ConfigFlag
 	c.Assert(f.Set("a.yaml"), tc.ErrorIsNil)

@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"path"
 	"reflect"
+	stdtesting "testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -118,8 +119,7 @@ type environSuite struct {
 	invalidatedCredential bool
 }
 
-var _ = tc.Suite(&environSuite{})
-
+func TestEnvironSuite(t *stdtesting.T) { tc.Run(t, &environSuite{}) }
 func (s *environSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.sender = nil

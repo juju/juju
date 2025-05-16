@@ -5,12 +5,12 @@ package introspect_test
 
 import (
 	"runtime"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("introspection socket only runs on Linux")
 	}

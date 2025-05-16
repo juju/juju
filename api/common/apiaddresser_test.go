@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,8 +21,7 @@ type apiaddresserSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&apiaddresserSuite{})
-
+func TestApiaddresserSuite(t *stdtesting.T) { tc.Run(t, &apiaddresserSuite{}) }
 func (s *apiaddresserSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }

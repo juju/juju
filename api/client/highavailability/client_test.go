@@ -4,6 +4,8 @@
 package highavailability_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -16,8 +18,7 @@ import (
 type clientSuite struct {
 }
 
-var _ = tc.Suite(&clientSuite{})
-
+func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
 func (s *clientSuite) TestClientEnableHA(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

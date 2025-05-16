@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/httprequest.v1"
@@ -16,8 +17,7 @@ type downloadSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&downloadSuite{})
-
+func TestDownloadSuite(t *stdtesting.T) { tc.Run(t, &downloadSuite{}) }
 func (s *downloadSuite) TestDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

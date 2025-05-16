@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,7 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 )
 
-var _ = tc.Suite(&DiskManagerSuite{})
+func TestDiskManagerSuite(t *stdtesting.T) { tc.Run(t, &DiskManagerSuite{}) }
 
 var _ agenttools.ToolsManager = (*agenttools.DiskManager)(nil)
 

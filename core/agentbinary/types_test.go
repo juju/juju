@@ -4,6 +4,8 @@
 package agentbinary
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/arch"
@@ -13,7 +15,7 @@ import (
 
 type typeSuite struct{}
 
-var _ = tc.Suite(&typeSuite{})
+func TestTypeSuite(t *stdtesting.T) { tc.Run(t, &typeSuite{}) }
 
 // TestVersionValidation verifies that validation succeeds when given valid
 // version attributes.

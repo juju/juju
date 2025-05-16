@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -45,7 +46,7 @@ type UniterSuite struct {
 	deployer               *mockDeployer
 }
 
-var _ = tc.Suite(&UniterSuite{})
+func TestUniterSuite(t *stdtesting.T) { tc.Run(t, &UniterSuite{}) }
 
 // This guarantees that we get proper platform
 // specific error directly from their source

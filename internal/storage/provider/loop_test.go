@@ -6,6 +6,7 @@ package provider_test
 import (
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -16,7 +17,7 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ = tc.Suite(&loopSuite{})
+func TestLoopSuite(t *stdtesting.T) { tc.Run(t, &loopSuite{}) }
 
 type loopSuite struct {
 	testing.BaseSuite

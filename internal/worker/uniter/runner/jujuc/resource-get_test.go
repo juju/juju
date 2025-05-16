@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -15,7 +17,7 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/mocks"
 )
 
-var _ = tc.Suite(&ResourceGetCmdSuite{})
+func TestResourceGetCmdSuite(t *stdtesting.T) { tc.Run(t, &ResourceGetCmdSuite{}) }
 
 type ResourceGetCmdSuite struct {
 	testhelpers.IsolationSuite

@@ -4,6 +4,8 @@
 package backups
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -15,8 +17,7 @@ type createSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&createSuite{})
-
+func TestCreateSuite(t *stdtesting.T) { tc.Run(t, &createSuite{}) }
 func (s *createSuite) TestCreate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

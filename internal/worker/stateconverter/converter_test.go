@@ -4,6 +4,8 @@
 package stateconverter_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -14,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/worker/stateconverter/mocks"
 )
 
-var _ = tc.Suite(&converterSuite{})
+func TestConverterSuite(t *stdtesting.T) { tc.Run(t, &converterSuite{}) }
 
 type converterSuite struct {
 	machine  *mocks.MockMachine

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,8 +22,7 @@ type bundleDataOverlaySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&bundleDataOverlaySuite{})
-
+func TestBundleDataOverlaySuite(t *stdtesting.T) { tc.Run(t, &bundleDataOverlaySuite{}) }
 func (*bundleDataOverlaySuite) TestEmptyBaseApplication(c *tc.C) {
 	data := `
 applications:

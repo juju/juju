@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,8 +17,7 @@ type SecretGrantSuite struct {
 	relationSuite
 }
 
-var _ = tc.Suite(&SecretGrantSuite{})
-
+func TestSecretGrantSuite(t *stdtesting.T) { tc.Run(t, &SecretGrantSuite{}) }
 func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 

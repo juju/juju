@@ -4,6 +4,8 @@
 package docker_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/docker"
@@ -11,8 +13,7 @@ import (
 
 type DockerResourceSuite struct{}
 
-var _ = tc.Suite(&DockerResourceSuite{})
-
+func TestDockerResourceSuite(t *stdtesting.T) { tc.Run(t, &DockerResourceSuite{}) }
 func (s *DockerResourceSuite) TestValidRegistryPath(c *tc.C) {
 	for _, registryTest := range []struct {
 		registryPath string

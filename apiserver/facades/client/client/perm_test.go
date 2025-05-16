@@ -4,6 +4,8 @@
 package client_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -18,14 +20,13 @@ type permSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&permSuite{})
+func TestPermSuite(t *stdtesting.T) { tc.Run(t, &permSuite{}) }
 
 type watcherPermSuite struct {
 	permSuite
 }
 
-var _ = tc.Suite(&watcherPermSuite{})
-
+func TestWatcherPermSuite(t *stdtesting.T) { tc.Run(t, &watcherPermSuite{}) }
 func (s *permSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Not found should be returned when trying to add a relation between non-exsting endpoints.

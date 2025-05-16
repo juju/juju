@@ -24,7 +24,7 @@ type MetadataSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&MetadataSuite{})
+func TestMetadataSuite(t *stdtesting.T) { tc.Run(t, &MetadataSuite{}) }
 
 var metadataCommandNames = []string{
 	"add-image",

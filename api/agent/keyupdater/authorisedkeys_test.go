@@ -4,6 +4,8 @@
 package keyupdater_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -17,8 +19,7 @@ type keyupdaterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&keyupdaterSuite{})
-
+func TestKeyupdaterSuite(t *stdtesting.T) { tc.Run(t, &keyupdaterSuite{}) }
 func (s *keyupdaterSuite) TestAuthorisedKeys(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "KeyUpdater")

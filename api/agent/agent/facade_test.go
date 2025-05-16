@@ -4,6 +4,8 @@
 package agent_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,8 +21,7 @@ type FacadeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&FacadeSuite{})
-
+func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
 func (s *FacadeSuite) TestLifeCallError(c *tc.C) {
 	apiCaller := apiCaller(c, func(request string, arg, _ interface{}) error {
 		c.Check(request, tc.Equals, "GetEntities")

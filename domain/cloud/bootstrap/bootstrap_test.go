@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -15,8 +17,7 @@ type bootstrapSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&bootstrapSuite{})
-
+func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
 func (s *bootstrapSuite) TestInsertCloud(c *tc.C) {
 	cld := cloud.Cloud{Name: "cirrus", Type: "ec2", AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType}}
 	err := InsertCloud(coreuser.AdminUserName, cld)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())

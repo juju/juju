@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,8 +26,7 @@ type deployerSuite struct {
 	passwordService *MockAgentPasswordService
 }
 
-var _ = tc.Suite(&deployerSuite{})
-
+func TestDeployerSuite(t *stdtesting.T) { tc.Run(t, &deployerSuite{}) }
 func (s *deployerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 	

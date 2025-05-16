@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -16,8 +18,7 @@ type restrictUpgradesSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&restrictUpgradesSuite{})
-
+func TestRestrictUpgradesSuite(t *stdtesting.T) { tc.Run(t, &restrictUpgradesSuite{}) }
 func (r *restrictUpgradesSuite) TestAllowedMethods(c *tc.C) {
 	root := apiserver.TestingUpgradingRoot()
 	checkAllowed := func(facade, method string, version int) {

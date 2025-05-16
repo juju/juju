@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -73,8 +74,7 @@ type listenerSuite struct {
 	listener *MockListener
 }
 
-var _ = tc.Suite(&listenerSuite{})
-
+func TestListenerSuite(t *stdtesting.T) { tc.Run(t, &listenerSuite{}) }
 func (s *listenerSuite) TestAcceptOnceListener(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

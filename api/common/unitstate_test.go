@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,8 +22,7 @@ type unitStateSuite struct {
 	tag names.UnitTag
 }
 
-var _ = tc.Suite(&unitStateSuite{})
-
+func TestUnitStateSuite(t *stdtesting.T) { tc.Run(t, &unitStateSuite{}) }
 func (s *unitStateSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewUnitTag("test-unit/0")
 }

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -31,8 +32,7 @@ type fileObjectStoreSuite struct {
 	remote *MockRemoteRetriever
 }
 
-var _ = tc.Suite(&fileObjectStoreSuite{})
-
+func TestFileObjectStoreSuite(t *stdtesting.T) { tc.Run(t, &fileObjectStoreSuite{}) }
 func (s *fileObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -6,6 +6,7 @@ package maas
 import (
 	"bytes"
 	"io"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
@@ -18,8 +19,7 @@ type maasStorageSuite struct {
 	maasSuite
 }
 
-var _ = tc.Suite(&maasStorageSuite{})
-
+func TestMaasStorageSuite(t *stdtesting.T) { tc.Run(t, &maasStorageSuite{}) }
 func makeCall(funcName string, args ...interface{}) testhelpers.StubCall {
 	return testhelpers.StubCall{funcName, args}
 }

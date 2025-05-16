@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"bytes"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -46,8 +47,7 @@ type UnregisterSuite struct {
 	store *fakeStore
 }
 
-var _ = tc.Suite(&UnregisterSuite{})
-
+func TestUnregisterSuite(t *stdtesting.T) { tc.Run(t, &UnregisterSuite{}) }
 func (s *UnregisterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.store = &fakeStore{}

@@ -4,6 +4,8 @@
 package charms_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -28,8 +30,7 @@ type charmInfoSuite struct {
 	authorizer   *facademocks.MockAuthorizer
 }
 
-var _ = tc.Suite(&charmInfoSuite{})
-
+func TestCharmInfoSuite(t *stdtesting.T) { tc.Run(t, &charmInfoSuite{}) }
 func (s *charmInfoSuite) TestCharmInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

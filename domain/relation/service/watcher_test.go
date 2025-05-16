@@ -4,6 +4,8 @@
 package service
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -33,7 +35,7 @@ type watcherSuite struct {
 	service *WatchableService
 }
 
-var _ = tc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
 
 // TestSubordinateSendChangeEventRelationScopeGlobal tests that if the
 // subordinate unit's relation endpoint is global scoped, an event is

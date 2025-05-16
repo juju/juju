@@ -8,6 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"net"
 	"net/url"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,8 +18,7 @@ import (
 type CertificateSuite struct {
 }
 
-var _ = tc.Suite(&CertificateSuite{})
-
+func TestCertificateSuite(t *stdtesting.T) { tc.Run(t, &CertificateSuite{}) }
 func (cs *CertificateSuite) VerifyCSRToCertificate(c *tc.C) {
 	jujuURL, err := url.Parse("https://discourse.juju.is")
 	c.Assert(err, tc.ErrorIsNil)

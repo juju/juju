@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -30,8 +31,7 @@ type dispatchSuite struct {
 	unique int64
 }
 
-var _ = tc.Suite(&dispatchSuite{})
-
+func TestDispatchSuite(t *stdtesting.T) { tc.Run(t, &dispatchSuite{}) }
 func (s *dispatchSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

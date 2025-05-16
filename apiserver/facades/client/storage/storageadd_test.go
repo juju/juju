@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -21,8 +22,7 @@ type storageAddSuite struct {
 	baseStorageSuite
 }
 
-var _ = tc.Suite(&storageAddSuite{})
-
+func TestStorageAddSuite(t *stdtesting.T) { tc.Run(t, &storageAddSuite{}) }
 func (s *storageAddSuite) assertStorageAddedNoErrors(c *tc.C, args params.StorageAddParams) {
 	s.assertStoragesAddedNoErrors(c,
 		params.StoragesAddParams{Storages: []params.StorageAddParams{args}},

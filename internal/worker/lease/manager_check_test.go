@@ -4,6 +4,7 @@
 package lease_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -19,8 +20,7 @@ type TokenSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&TokenSuite{})
-
+func TestTokenSuite(t *stdtesting.T) { tc.Run(t, &TokenSuite{}) }
 func (s *TokenSuite) TestSuccess(c *tc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{

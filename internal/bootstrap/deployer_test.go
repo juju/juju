@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -37,8 +38,7 @@ type deployerSuite struct {
 	clock *MockClock
 }
 
-var _ = tc.Suite(&deployerSuite{})
-
+func TestDeployerSuite(t *stdtesting.T) { tc.Run(t, &deployerSuite{}) }
 func (s *deployerSuite) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

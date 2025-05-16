@@ -4,6 +4,8 @@
 package httpattachment_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testing"
@@ -13,7 +15,7 @@ type requestSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&requestSuite{})
+func TestRequestSuite(t *stdtesting.T) { tc.Run(t, &requestSuite{}) }
 
 // TODO the functions in this package should be tested directly.
 // https://bugs.launchpad.net/juju-core/+bug/1503990

@@ -5,6 +5,7 @@ package observer_test
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -19,8 +20,7 @@ type auditFilterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&auditFilterSuite{})
-
+func TestAuditFilterSuite(t *stdtesting.T) { tc.Run(t, &auditFilterSuite{}) }
 func (s *auditFilterSuite) TestFiltersUninterestingConversations(c *tc.C) {
 	target := &apitesting.FakeAuditLog{}
 	filter := func(r auditlog.Request) bool {

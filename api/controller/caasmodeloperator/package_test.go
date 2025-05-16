@@ -4,9 +4,9 @@
 package caasmodeloperator_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
-func TestAll(t *testing.T) { tc.TestingT(t) }
+func TestAll(t *stdtesting.T) { tc.TestingT(t) }

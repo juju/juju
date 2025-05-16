@@ -4,6 +4,8 @@
 package state
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/blockcommand"
@@ -15,8 +17,7 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) TestSetBlock(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetBlock(c.Context(), blockcommand.DestroyBlock, "block-message")

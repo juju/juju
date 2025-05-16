@@ -6,6 +6,7 @@ package sshserver
 import (
 	"context"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -29,8 +30,7 @@ type manifoldSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-var _ = tc.Suite(&manifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
 func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, featureflag.SSHJump)
 	c.Assert(err, tc.ErrorIsNil)

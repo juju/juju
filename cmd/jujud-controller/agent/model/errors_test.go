@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
@@ -17,8 +19,7 @@ type ErrorsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ErrorsSuite{})
-
+func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &ErrorsSuite{}) }
 func (*ErrorsSuite) TestIsFatal_Nil(c *tc.C) {
 	result := model.IsFatal(nil)
 	c.Check(result, tc.IsFalse)

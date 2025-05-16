@@ -4,6 +4,8 @@
 package storagecommon_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -14,8 +16,7 @@ import (
 type BlockDeviceSuite struct {
 }
 
-var _ = tc.Suite(&BlockDeviceSuite{})
-
+func TestBlockDeviceSuite(t *stdtesting.T) { tc.Run(t, &BlockDeviceSuite{}) }
 func (s *BlockDeviceSuite) TestBlockDeviceMatchingSerialID(c *tc.C) {
 	blockDevices := []blockdevice.BlockDevice{{
 		DeviceName: "sdb",

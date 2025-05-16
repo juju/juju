@@ -4,7 +4,7 @@
 package user
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -17,7 +17,7 @@ import (
 // None of the tests in this package require mongo.
 // Full command integration tests are found in cmd/juju/user_test.go
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

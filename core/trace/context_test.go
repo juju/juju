@@ -5,6 +5,7 @@ package trace
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,8 +16,7 @@ type contextSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&contextSuite{})
-
+func TestContextSuite(t *stdtesting.T) { tc.Run(t, &contextSuite{}) }
 func (s *contextSuite) TestTracerFromContextEmpty(c *tc.C) {
 	tracer, enabled := TracerFromContext(c.Context())
 	c.Assert(tracer, tc.NotNil)

@@ -4,6 +4,8 @@
 package modelmigration
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
@@ -26,8 +28,7 @@ type exportApplicationSuite struct {
 	exportSuite
 }
 
-var _ = tc.Suite(&exportApplicationSuite{})
-
+func TestExportApplicationSuite(t *stdtesting.T) { tc.Run(t, &exportApplicationSuite{}) }
 func (s *exportApplicationSuite) TestApplicationExportEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

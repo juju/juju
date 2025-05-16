@@ -7,6 +7,7 @@ package network
 
 import (
 	"net"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,8 +18,7 @@ type sourceOtherSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&sourceOtherSuite{})
-
+func TestSourceOtherSuite(t *stdtesting.T) { tc.Run(t, &sourceOtherSuite{}) }
 func (s *sourceOtherSuite) TestNewNetAddr(c *tc.C) {
 	addr, err := newNetAddr("192.168.20.1/24")
 	c.Assert(err, tc.ErrorIsNil)

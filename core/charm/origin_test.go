@@ -4,6 +4,8 @@
 package charm_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/charm"
@@ -14,8 +16,7 @@ type sourceSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&sourceSuite{})
-
+func TestSourceSuite(t *stdtesting.T) { tc.Run(t, &sourceSuite{}) }
 func (s *sourceSuite) TestMatches(c *tc.C) {
 	ok := charm.Source("xxx").Matches("xxx")
 	c.Assert(ok, tc.IsTrue)
@@ -30,8 +31,7 @@ type platformSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&platformSuite{})
-
+func TestPlatformSuite(t *stdtesting.T) { tc.Run(t, &platformSuite{}) }
 func (s *platformSuite) TestParsePlatform(c *tc.C) {
 	tests := []struct {
 		Name        string

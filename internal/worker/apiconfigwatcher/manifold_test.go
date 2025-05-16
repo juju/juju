@@ -5,6 +5,7 @@ package apiconfigwatcher_test
 
 import (
 	"sync"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/voyeur"
@@ -28,8 +29,7 @@ type ManifoldSuite struct {
 	agentConfigChanged *voyeur.Value
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

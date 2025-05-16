@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"errors"
+	stdtesting "testing"
 	"time"
 
 	lxdclient "github.com/canonical/lxd/client"
@@ -19,7 +20,7 @@ import (
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 )
 
-var _ = tc.Suite(&imageSuite{})
+func TestImageSuite(t *stdtesting.T) { tc.Run(t, &imageSuite{}) }
 
 type imageSuite struct {
 	lxdtesting.BaseSuite

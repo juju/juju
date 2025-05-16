@@ -6,6 +6,7 @@ package application
 import (
 	"context"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -31,8 +32,7 @@ type BindSuite struct {
 	cmd               cmd.Command
 }
 
-var _ = tc.Suite(&BindSuite{})
-
+func TestBindSuite(t *stdtesting.T) { tc.Run(t, &BindSuite{}) }
 func (s *BindSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub.ResetCalls()

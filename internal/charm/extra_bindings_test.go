@@ -4,12 +4,14 @@
 package charm_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm"
 )
 
-var _ = tc.Suite(&extraBindingsSuite{})
+func TestExtraBindingsSuite(t *stdtesting.T) { tc.Run(t, &extraBindingsSuite{}) }
 
 type extraBindingsSuite struct {
 	riakMeta charm.Meta

@@ -4,6 +4,7 @@
 package secrets_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -13,8 +14,7 @@ import (
 
 type SecretBackendSuite struct{}
 
-var _ = tc.Suite(&SecretBackendSuite{})
-
+func TestSecretBackendSuite(t *stdtesting.T) { tc.Run(t, &SecretBackendSuite{}) }
 func (s *SecretBackendSuite) TestNextBackendRotateTimeTooShort(c *tc.C) {
 	_, err := secrets.NextBackendRotateTime(time.Now(), time.Minute)
 	c.Assert(err, tc.ErrorMatches, `token rotate interval "1m0s" less than 1h not valid`)

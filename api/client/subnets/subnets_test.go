@@ -4,6 +4,8 @@
 package subnets_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -18,7 +20,7 @@ import (
 type SubnetsSuite struct {
 }
 
-var _ = tc.Suite(&SubnetsSuite{})
+func TestSubnetsSuite(t *stdtesting.T) { tc.Run(t, &SubnetsSuite{}) }
 
 // TestNewAPISuccess checks that a new subnets API is created when passed a non-nil caller
 func (s *SubnetsSuite) TestNewAPISuccess(c *tc.C) {

@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"slices"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -56,7 +57,7 @@ type stateSuite struct {
 	credentialUUID corecredential.UUID
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 
 // insertÇloud is a helper method to create new cloud's in the database during
 // testing.

@@ -5,6 +5,7 @@ package upgradedatabase
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -39,8 +40,7 @@ type workerSuite struct {
 	upgradeUUID domainupgrade.UUID
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) TestLockAlreadyUnlocked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

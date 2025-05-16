@@ -7,7 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -17,7 +17,7 @@ import (
 	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

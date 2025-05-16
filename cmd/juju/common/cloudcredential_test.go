@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"bytes"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -19,7 +20,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = tc.Suite(&cloudCredentialSuite{})
+func TestCloudCredentialSuite(t *stdtesting.T) { tc.Run(t, &cloudCredentialSuite{}) }
 
 type cloudCredentialSuite struct {
 	testhelpers.IsolationSuite

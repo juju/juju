@@ -3,12 +3,15 @@
 
 package uniter_test
 
-import "github.com/juju/tc"
+import (
+	stdtesting "testing"
+
+	"github.com/juju/tc"
+)
 
 type uniterNetworkInfoSuite struct{}
 
-var _ = tc.Suite(&uniterNetworkInfoSuite{})
-
+func TestUniterNetworkInfoSuite(t *stdtesting.T) { tc.Run(t, &uniterNetworkInfoSuite{}) }
 func (s *uniterNetworkInfoSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite had tests with the following names. To re-ensure coverage, check the 3.6 branch for definitions:
 - TestNetworkInfoPermissions

@@ -22,8 +22,7 @@ func TestPackage(t *stdtesting.T) {
 
 type testingSuite struct{}
 
-var _ = tc.Suite(&testingSuite{})
-
+func TestTestingSuite(t *stdtesting.T) { tc.Run(t, &testingSuite{}) }
 func (*testingSuite) TestSaveAttemptStrategiesSaves(c *tc.C) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{

@@ -4,6 +4,8 @@
 package migration_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -26,8 +28,7 @@ type ExportImportSuite struct {
 	objectStoreGetter       *MockModelObjectStoreGetter
 }
 
-var _ = tc.Suite(&ExportImportSuite{})
-
+func TestExportImportSuite(t *stdtesting.T) { tc.Run(t, &ExportImportSuite{}) }
 func (s *ExportImportSuite) SetUpSuite(c *tc.C) {
 	c.Skip(`
 TODO tlm: We are skipping these tests as they are currently relying heavily on

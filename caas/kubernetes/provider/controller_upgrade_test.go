@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -30,8 +31,7 @@ type ControllerUpgraderSuite struct {
 	broker *dummyUpgradeCAASController
 }
 
-var _ = tc.Suite(&ControllerUpgraderSuite{})
-
+func TestControllerUpgraderSuite(t *stdtesting.T) { tc.Run(t, &ControllerUpgraderSuite{}) }
 func (d *dummyUpgradeCAASController) Client() kubernetes.Interface {
 	return d.client
 }

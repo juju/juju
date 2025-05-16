@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -14,8 +16,7 @@ type cloudChangesSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&cloudChangesSuite{})
-
+func TestCloudChangesSuite(t *stdtesting.T) { tc.Run(t, &cloudChangesSuite{}) }
 func (s *cloudChangesSuite) TestPluralityNone(c *tc.C) {
 	c.Assert(adjustPlurality("item", 0), tc.Equals, "")
 }

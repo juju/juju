@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -15,7 +17,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&storageSuite{})
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
 
 type storageSuite struct {
 	coretesting.BaseSuite

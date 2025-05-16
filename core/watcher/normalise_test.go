@@ -4,6 +4,8 @@
 package watcher_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 
@@ -13,8 +15,7 @@ import (
 
 type normaliseWatcherSuite struct{}
 
-var _ = tc.Suite(&normaliseWatcherSuite{})
-
+func TestNormaliseWatcherSuite(t *stdtesting.T) { tc.Run(t, &normaliseWatcherSuite{}) }
 func (s *normaliseWatcherSuite) TestStringsWatcher(c *tc.C) {
 	ch := make(chan []string, 1)
 	source := watchertest.NewMockStringsWatcher(ch)

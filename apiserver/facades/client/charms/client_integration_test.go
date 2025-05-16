@@ -5,6 +5,7 @@ package charms_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -24,8 +25,9 @@ type clientMacaroonIntegrationSuite struct {
 	jujutesting.MacaroonSuite
 }
 
-var _ = tc.Suite(&clientMacaroonIntegrationSuite{})
-
+func TestClientMacaroonIntegrationSuite(t *stdtesting.T) {
+	tc.Run(t, &clientMacaroonIntegrationSuite{})
+}
 func (s *clientMacaroonIntegrationSuite) createTestClient(c *tc.C) *charms.LocalCharmClient {
 	username := usertesting.GenNewName(c, "testuser@somewhere")
 	s.AddModelUser(c, username)

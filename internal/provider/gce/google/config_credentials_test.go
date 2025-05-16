@@ -6,6 +6,7 @@ package google_test
 import (
 	"bytes"
 	"encoding/json"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,8 +18,7 @@ type credentialsSuite struct {
 	google.BaseSuite
 }
 
-var _ = tc.Suite(&credentialsSuite{})
-
+func TestCredentialsSuite(t *stdtesting.T) { tc.Run(t, &credentialsSuite{}) }
 func (s *credentialsSuite) TestNewCredentials(c *tc.C) {
 	values := map[string]string{
 		google.OSEnvClientID:    "abc",

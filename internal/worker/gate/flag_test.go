@@ -4,6 +4,8 @@
 package gate_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -20,8 +22,7 @@ type FlagSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&FlagSuite{})
-
+func TestFlagSuite(t *stdtesting.T) { tc.Run(t, &FlagSuite{}) }
 func (*FlagSuite) TestManifoldInputs(c *tc.C) {
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
 		GateName: "emperrasque",

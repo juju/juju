@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -20,8 +21,7 @@ type PollsterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&PollsterSuite{})
-
+func TestPollsterSuite(t *stdtesting.T) { tc.Run(t, &PollsterSuite{}) }
 func (s *PollsterSuite) TearDownTest(c *tc.C) {
 	s.IsolationSuite.TearDownTest(c)
 	os.Unsetenv("SCHEMA_VAR")

@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	apps "k8s.io/api/apps/v1"
@@ -27,8 +28,7 @@ type modelUpgraderSuite struct {
 	broker *dummyUpgradeCAASModel
 }
 
-var _ = tc.Suite(&modelUpgraderSuite{})
-
+func TestModelUpgraderSuite(t *stdtesting.T) { tc.Run(t, &modelUpgraderSuite{}) }
 func (d *dummyUpgradeCAASModel) Client() kubernetes.Interface {
 	return d.client
 }

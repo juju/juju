@@ -4,6 +4,8 @@
 package testing_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -15,7 +17,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&fakeAPISuite{})
+func TestFakeAPISuite(t *stdtesting.T) { tc.Run(t, &fakeAPISuite{}) }
 
 type fakeAPISuite struct {
 	testhelpers.IsolationSuite

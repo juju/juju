@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"golang.org/x/sys/windows/registry"
@@ -124,8 +125,7 @@ type windowsNanoBaseSuite struct {
 	windowsBaseSuite
 }
 
-var _ = tc.Suite(&windowsNanoBaseSuite{})
-
+func TestWindowsNanoBaseSuite(t *stdtesting.T) { tc.Run(t, &windowsNanoBaseSuite{}) }
 func (s *windowsNanoBaseSuite) SetUpTest(c *tc.C) {
 	s.windowsBaseSuite.SetUpTest(c)
 	s.createRegKey(c, &isNanoKey)

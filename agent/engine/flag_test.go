@@ -4,6 +4,8 @@
 package engine_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 
@@ -15,8 +17,7 @@ type FlagSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&FlagSuite{})
-
+func TestFlagSuite(t *stdtesting.T) { tc.Run(t, &FlagSuite{}) }
 func (*FlagSuite) TestFlagOutputBadWorker(c *tc.C) {
 	in := &stubWorker{}
 	var out engine.Flag

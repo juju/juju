@@ -5,6 +5,7 @@ package engine_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,8 +26,7 @@ type AgentAPIManifoldSuite struct {
 	worker   worker.Worker
 }
 
-var _ = tc.Suite(&AgentAPIManifoldSuite{})
-
+func TestAgentAPIManifoldSuite(t *stdtesting.T) { tc.Run(t, &AgentAPIManifoldSuite{}) }
 func (s *AgentAPIManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testhelpers.Stub{}

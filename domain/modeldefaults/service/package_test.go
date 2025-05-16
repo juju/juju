@@ -4,7 +4,7 @@
 package service
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -12,6 +12,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination service_mock_test.go github.com/juju/juju/domain/modeldefaults/service State
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination environs_mock_test.go github.com/juju/juju/environs ModelConfigProvider
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }

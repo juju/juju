@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	stdtesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
@@ -23,7 +24,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&CrossModelRelationsSuite{})
+func TestCrossModelRelationsSuite(t *stdtesting.T) {
+	tc.Run(t, &CrossModelRelationsSuite{})
+}
 
 type CrossModelRelationsSuite struct {
 	coretesting.BaseSuite

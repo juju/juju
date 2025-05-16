@@ -4,6 +4,8 @@
 package relation_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -244,9 +246,7 @@ func (s *stateManagerSuite) TestRemoveFailRequest(c *tc.C) {
 	found := mgr.RelationFound(99)
 	c.Assert(found, tc.IsTrue)
 }
-
-var _ = tc.Suite(&stateManagerSuite{})
-
+func TestStateManagerSuite(t *stdtesting.T) { tc.Run(t, &stateManagerSuite{}) }
 func (s *stateManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	s.mockUnitRW = mocks.NewMockUnitStateReadWriter(ctlr)

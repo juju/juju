@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -19,8 +20,9 @@ type hashFileSystemAccessorSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&hashFileSystemAccessorSuite{})
-
+func TestHashFileSystemAccessorSuite(t *stdtesting.T) {
+	tc.Run(t, &hashFileSystemAccessorSuite{})
+}
 func (s *hashFileSystemAccessorSuite) TestHashExistsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

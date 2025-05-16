@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,8 +16,7 @@ import (
 
 type metadataSuite struct{}
 
-var _ = tc.Suite(&metadataSuite{})
-
+func TestMetadataSuite(t *stdtesting.T) { tc.Run(t, &metadataSuite{}) }
 func (s *metadataSuite) TestCannedRoundTripper(c *tc.C) {
 	aContent := "a-content"
 	vrt := testing.NewCannedRoundTripper(map[string]string{

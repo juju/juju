@@ -4,6 +4,8 @@
 package usersecrets_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -26,8 +28,7 @@ type userSecretsSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-var _ = tc.Suite(&userSecretsSuite{})
-
+func TestUserSecretsSuite(t *stdtesting.T) { tc.Run(t, &userSecretsSuite{}) }
 func (s *userSecretsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

@@ -4,6 +4,8 @@
 package bootstrap_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -22,8 +24,7 @@ type PrepareSuite struct {
 	envtesting.ToolsFixture
 }
 
-var _ = tc.Suite(&PrepareSuite{})
-
+func TestPrepareSuite(t *stdtesting.T) { tc.Run(t, &PrepareSuite{}) }
 func (s *PrepareSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)

@@ -5,6 +5,7 @@ package domain
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -22,8 +23,7 @@ type leaseServiceSuite struct {
 	token             *MockToken
 }
 
-var _ = tc.Suite(&leaseServiceSuite{})
-
+func TestLeaseServiceSuite(t *stdtesting.T) { tc.Run(t, &leaseServiceSuite{}) }
 func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

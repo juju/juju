@@ -4,6 +4,8 @@
 package modelmigration
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -17,7 +19,7 @@ type exportSuite struct {
 	modelExportService *MockExportService
 }
 
-var _ = tc.Suite(&exportSuite{})
+func TestExportSuite(t *stdtesting.T) { tc.Run(t, &exportSuite{}) }
 
 // ptr returns a pointer to the value t passed in.
 func ptr[T any](t T) *T {

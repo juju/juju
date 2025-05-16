@@ -4,6 +4,8 @@
 package machine
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -15,8 +17,7 @@ type MachineSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&MachineSuite{})
-
+func TestMachineSuite(t *stdtesting.T) { tc.Run(t, &MachineSuite{}) }
 func (*MachineSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string

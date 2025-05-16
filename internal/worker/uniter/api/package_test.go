@@ -4,7 +4,7 @@
 package api
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -13,6 +13,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package api -destination domain_mocks.go github.com/juju/juju/internal/worker/uniter/api Unit,Relation,RelationUnit,Application,Charm
 //go:generate go run go.uber.org/mock/mockgen -typed -package api -destination secrets_mocks.go github.com/juju/juju/internal/worker/uniter/api SecretsClient,SecretsBackend
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }

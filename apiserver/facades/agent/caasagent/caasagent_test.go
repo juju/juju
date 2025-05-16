@@ -5,6 +5,7 @@ package caasagent_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
@@ -30,7 +31,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&caasagentSuite{})
+func TestCaasagentSuite(t *stdtesting.T) { tc.Run(t, &caasagentSuite{}) }
 
 type caasagentSuite struct {
 	coretesting.BaseSuite

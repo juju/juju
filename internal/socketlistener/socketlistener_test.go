@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	stdtesting "testing"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -29,8 +30,7 @@ type socketListenerSuite struct {
 	logger logger.Logger
 }
 
-var _ = tc.Suite(&socketListenerSuite{})
-
+func TestSocketListenerSuite(t *stdtesting.T) { tc.Run(t, &socketListenerSuite{}) }
 func (s *socketListenerSuite) SetUpTest(c *tc.C) {
 	s.logger = loggertesting.WrapCheckLog(c)
 }

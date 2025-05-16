@@ -5,6 +5,7 @@ package logsink
 
 import (
 	"maps"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -34,8 +35,7 @@ type ManifoldSuite struct {
 	stub  testhelpers.Stub
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

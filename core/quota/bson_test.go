@@ -4,13 +4,17 @@
 package quota_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/quota"
 )
 
-var _ = tc.Suite(&BSONTotalSizeCheckerSuite{})
+func TestBSONTotalSizeCheckerSuite(t *stdtesting.T) {
+	tc.Run(t, &BSONTotalSizeCheckerSuite{})
+}
 
 type BSONTotalSizeCheckerSuite struct {
 }

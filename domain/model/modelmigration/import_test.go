@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
@@ -35,8 +36,7 @@ type importSuite struct {
 	userService        *MockUserService
 }
 
-var _ = tc.Suite(&importSuite{})
-
+func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

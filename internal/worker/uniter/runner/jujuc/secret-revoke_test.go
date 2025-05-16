@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,8 +17,7 @@ type SecretRevokeSuite struct {
 	relationSuite
 }
 
-var _ = tc.Suite(&SecretRevokeSuite{})
-
+func TestSecretRevokeSuite(t *stdtesting.T) { tc.Run(t, &SecretRevokeSuite{}) }
 func (s *SecretRevokeSuite) TestRevokeSecretInvalidArgs(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 

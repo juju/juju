@@ -4,6 +4,8 @@
 package vsphere_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"github.com/vmware/govmomi/vim25/mo"
 
@@ -19,8 +21,7 @@ type InstanceSuite struct {
 	EnvironFixture
 }
 
-var _ = tc.Suite(&InstanceSuite{})
-
+func TestInstanceSuite(t *stdtesting.T) { tc.Run(t, &InstanceSuite{}) }
 func (s *InstanceSuite) TestInstances(c *tc.C) {
 	s.client.virtualMachines = []*mo.VirtualMachine{
 		buildVM("inst-0").vm(),

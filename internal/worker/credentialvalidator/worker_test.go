@@ -4,6 +4,7 @@
 package credentialvalidator_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -30,8 +31,7 @@ type WorkerSuite struct {
 	exists     bool
 }
 
-var _ = tc.Suite(&WorkerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
 func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type transportSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&transportSuite{})
-
+func TestTransportSuite(t *stdtesting.T) { tc.Run(t, &transportSuite{}) }
 func (s *transportSuite) TestErrorTransport(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

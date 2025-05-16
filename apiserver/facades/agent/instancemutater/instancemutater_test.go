@@ -5,6 +5,7 @@ package instancemutater_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -119,8 +120,9 @@ type InstanceMutaterAPILifeSuite struct {
 	instanceMutaterAPISuite
 }
 
-var _ = tc.Suite(&InstanceMutaterAPILifeSuite{})
-
+func TestInstanceMutaterAPILifeSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceMutaterAPILifeSuite{})
+}
 func (s *InstanceMutaterAPILifeSuite) TestLife(c *tc.C) {
 	defer s.setup(c).Finish()
 
@@ -241,8 +243,9 @@ type InstanceMutaterAPICharmProfilingInfoSuite struct {
 	application *mocks.MockApplication
 }
 
-var _ = tc.Suite(&InstanceMutaterAPICharmProfilingInfoSuite{})
-
+func TestInstanceMutaterAPICharmProfilingInfoSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceMutaterAPICharmProfilingInfoSuite{})
+}
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
@@ -469,8 +472,9 @@ type InstanceMutaterAPISetCharmProfilesSuite struct {
 	machine *mocks.MockMachine
 }
 
-var _ = tc.Suite(&InstanceMutaterAPISetCharmProfilesSuite{})
-
+func TestInstanceMutaterAPISetCharmProfilesSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceMutaterAPISetCharmProfilesSuite{})
+}
 func (s *InstanceMutaterAPISetCharmProfilesSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
@@ -547,8 +551,9 @@ type InstanceMutaterAPISetModificationStatusSuite struct {
 	machine *mocks.MockMachine
 }
 
-var _ = tc.Suite(&InstanceMutaterAPISetModificationStatusSuite{})
-
+func TestInstanceMutaterAPISetModificationStatusSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceMutaterAPISetModificationStatusSuite{})
+}
 func (s *InstanceMutaterAPISetModificationStatusSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
@@ -623,8 +628,9 @@ type InstanceMutaterAPIWatchMachinesSuite struct {
 	watcher *mocks.MockStringsWatcher
 }
 
-var _ = tc.Suite(&InstanceMutaterAPIWatchMachinesSuite{})
-
+func TestInstanceMutaterAPIWatchMachinesSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceMutaterAPIWatchMachinesSuite{})
+}
 func (s *InstanceMutaterAPIWatchMachinesSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
@@ -749,8 +755,9 @@ type InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite struct {
 	watcher *mocks.MockNotifyWatcher
 }
 
-var _ = tc.Suite(&InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite{})
-
+func TestInstanceMutaterAPIWatchLXDProfileVerificationNeededSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite{})
+}
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
@@ -904,8 +911,9 @@ type InstanceMutaterAPIWatchContainersSuite struct {
 	watcher *mocks.MockStringsWatcher
 }
 
-var _ = tc.Suite(&InstanceMutaterAPIWatchContainersSuite{})
-
+func TestInstanceMutaterAPIWatchContainersSuite(t *stdtesting.T) {
+	tc.Run(t, &InstanceMutaterAPIWatchContainersSuite{})
+}
 func (s *InstanceMutaterAPIWatchContainersSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 

@@ -4,6 +4,8 @@
 package caasunitprovisioner_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -17,8 +19,7 @@ type unitprovisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&unitprovisionerSuite{})
-
+func TestUnitprovisionerSuite(t *stdtesting.T) { tc.Run(t, &unitprovisionerSuite{}) }
 func newClient(f basetesting.APICallerFunc) *caasunitprovisioner.Client {
 	return caasunitprovisioner.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 1})
 }

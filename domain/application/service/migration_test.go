@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -36,8 +37,7 @@ type migrationServiceSuite struct {
 	service *MigrationService
 }
 
-var _ = tc.Suite(&migrationServiceSuite{})
-
+func TestMigrationServiceSuite(t *stdtesting.T) { tc.Run(t, &migrationServiceSuite{}) }
 func (s *migrationServiceSuite) TestGetCharmIDWithoutRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

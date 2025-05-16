@@ -4,7 +4,7 @@
 package stream
 
 import (
-	"testing"
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package stream -destination metrics_mock_test.go github.com/juju/juju/internal/changestream/stream MetricsCollector
 //go:generate go run go.uber.org/mock/mockgen -typed -package stream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

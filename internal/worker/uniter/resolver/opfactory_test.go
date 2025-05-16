@@ -5,6 +5,7 @@ package resolver_test
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -21,8 +22,7 @@ type ResolverOpFactorySuite struct {
 	opFactory *mockOpFactory
 }
 
-var _ = tc.Suite(&ResolverOpFactorySuite{})
-
+func TestResolverOpFactorySuite(t *stdtesting.T) { tc.Run(t, &ResolverOpFactorySuite{}) }
 func (s *ResolverOpFactorySuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.opFactory = &mockOpFactory{}

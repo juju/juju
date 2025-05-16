@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -50,8 +51,7 @@ type providerSuite struct {
 	namespace string
 }
 
-var _ = tc.Suite(&providerSuite{})
-
+func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
 func (s *providerSuite) SetUpTest(c *tc.C) {
 	s.namespace = "test"
 	s.PatchValue(&kubernetes.NewK8sClient, func(config *rest.Config) (kubernetes2.Interface, error) {

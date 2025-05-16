@@ -4,6 +4,8 @@
 package eventsource
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 
@@ -12,8 +14,7 @@ import (
 
 type multiWatcherSuite struct{}
 
-var _ = tc.Suite(&multiWatcherSuite{})
-
+func TestMultiWatcherSuite(t *stdtesting.T) { tc.Run(t, &multiWatcherSuite{}) }
 func (*multiWatcherSuite) TestNotifyMultiWatcher(c *tc.C) {
 	ch0 := make(chan struct{}, 1)
 	w0 := watchertest.NewMockNotifyWatcher(ch0)

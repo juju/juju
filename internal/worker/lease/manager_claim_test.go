@@ -5,6 +5,7 @@ package lease_test
 
 import (
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -21,8 +22,7 @@ type ClaimSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ClaimSuite{})
-
+func TestClaimSuite(t *stdtesting.T) { tc.Run(t, &ClaimSuite{}) }
 func (s *ClaimSuite) TestClaimLease_Success(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{

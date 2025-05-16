@@ -6,6 +6,7 @@ package introspection
 import (
 	"os"
 	"runtime"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,8 +17,7 @@ type profileSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&profileSuite{})
-
+func TestProfileSuite(t *stdtesting.T) { tc.Run(t, &profileSuite{}) }
 func (*profileSuite) TestProfileFilename(c *tc.C) {
 	c.Assert(profileFilename(ProfileDir), tc.Equals, "/etc/profile.d/juju-introspection.sh")
 }

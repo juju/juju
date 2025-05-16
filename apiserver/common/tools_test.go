@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -37,8 +38,7 @@ type getToolsSuite struct {
 	store             *mocks.MockObjectStore
 }
 
-var _ = tc.Suite(&getToolsSuite{})
-
+func TestGetToolsSuite(t *stdtesting.T) { tc.Run(t, &getToolsSuite{}) }
 func (s *getToolsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -133,8 +133,7 @@ type findToolsSuite struct {
 	mockAgentBinaryService *mocks.MockAgentBinaryService
 }
 
-var _ = tc.Suite(&findToolsSuite{})
-
+func TestFindToolsSuite(t *stdtesting.T) { tc.Run(t, &findToolsSuite{}) }
 func (s *findToolsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
@@ -301,15 +300,13 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *tc.C) {
 	// do we continue on to searching simplestreams.
 	c.Assert(err, tc.ErrorMatches, "AllMetadata failed")
 }
-
-var _ = tc.Suite(&getUrlSuite{})
+func TestGetUrlSuite(t *stdtesting.T) { tc.Run(t, &getUrlSuite{}) }
 
 type getUrlSuite struct {
 	apiHostPortsGetter *mocks.MockAPIHostPortsForAgentsGetter
 }
 
-var _ = tc.Suite(&getUrlSuite{})
-
+func TestGetUrlSuite(t *stdtesting.T) { tc.Run(t, &getUrlSuite{}) }
 func (s *getUrlSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

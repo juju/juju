@@ -4,6 +4,8 @@
 package upgradevalidation_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
@@ -15,7 +17,7 @@ type versionSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&versionSuite{})
+func TestVersionSuite(t *stdtesting.T) { tc.Run(t, &versionSuite{}) }
 
 type versionCheckTC struct {
 	from    string

@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -14,8 +15,7 @@ import (
 type cloudSuite struct {
 }
 
-var _ = tc.Suite(&cloudSuite{})
-
+func TestCloudSuite(t *stdtesting.T) { tc.Run(t, &cloudSuite{}) }
 func (*cloudSuite) TestFinalizeCloudSetAuthTypes(c *tc.C) {
 	environCloud := environProviderCloud{}
 	r, err := environCloud.FinalizeCloud(nil, cloud.Cloud{})

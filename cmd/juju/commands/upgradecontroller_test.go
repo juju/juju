@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -46,8 +47,7 @@ type upgradeControllerSuite struct {
 	store          *mocks.MockClientStore
 }
 
-var _ = tc.Suite(&upgradeControllerSuite{})
-
+func TestUpgradeControllerSuite(t *stdtesting.T) { tc.Run(t, &upgradeControllerSuite{}) }
 func (s *upgradeControllerSuite) upgradeControllerCommand(c *tc.C, isCAAS bool) (*gomock.Controller, cmd.Command) {
 	ctrl := gomock.NewController(c)
 	s.modelConfigAPI = mocks.NewMockModelConfigAPI(ctrl)

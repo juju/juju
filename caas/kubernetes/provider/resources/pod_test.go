@@ -4,7 +4,7 @@
 package resources_test
 
 import (
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,8 +21,7 @@ type podSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&podSuite{})
-
+func TestPodSuite(t *stdtesting.T) { tc.Run(t, &podSuite{}) }
 func (s *podSuite) TestApply(c *tc.C) {
 	ds := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -95,7 +94,7 @@ func (s *podSuite) TestDelete(c *tc.C) {
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
-func TestTerminatedPodJujuStatus(t *testing.T) {
+func TestTerminatedPodJujuStatus(t *stdtesting.T) {
 	pod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			DeletionTimestamp: &metav1.Time{Time: time.Now()},
@@ -131,7 +130,7 @@ func TestTerminatedPodJujuStatus(t *testing.T) {
 	}
 }
 
-func TestPodConditionListJujuStatus(t *testing.T) {
+func TestPodConditionListJujuStatus(t *stdtesting.T) {
 	tests := []struct {
 		Name    string
 		Pod     corev1.Pod
@@ -461,7 +460,7 @@ func TestPodConditionListJujuStatus(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
+		t.Run(test.Name, func(t *stdtesting.T) {
 			testTime := time.Now()
 			eventGetter := func() ([]corev1.Event, error) {
 				return []corev1.Event{}, nil

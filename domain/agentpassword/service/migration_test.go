@@ -4,6 +4,8 @@
 package service
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -19,8 +21,7 @@ type migrationServiceSuite struct {
 	state *MockMigrationState
 }
 
-var _ = tc.Suite(&migrationServiceSuite{})
-
+func TestMigrationServiceSuite(t *stdtesting.T) { tc.Run(t, &migrationServiceSuite{}) }
 func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
@@ -17,8 +19,7 @@ type serviceSuite struct {
 	resourceSuite
 }
 
-var _ = tc.Suite(&serviceSuite{})
-
+func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
 func (s *serviceSuite) TestApply(c *tc.C) {
 	ds := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

@@ -4,7 +4,7 @@
 package charmrevisioner
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
@@ -14,7 +14,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package charmrevisioner -destination clock_mocks_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package charmrevisioner -destination http_mocks_test.go github.com/juju/juju/core/http HTTPClientGetter,HTTPClient
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

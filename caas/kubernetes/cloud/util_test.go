@@ -5,6 +5,7 @@ package cloud
 
 import (
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -12,8 +13,7 @@ import (
 type utilSuite struct {
 }
 
-var _ = tc.Suite(&utilSuite{})
-
+func TestUtilSuite(t *stdtesting.T) { tc.Run(t, &utilSuite{}) }
 func (u *utilSuite) TestDataOrFile(c *tc.C) {
 	tests := []struct {
 		dataContents     []byte

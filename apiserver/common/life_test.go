@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,7 +20,7 @@ import (
 
 type lifeSuite struct{}
 
-var _ = tc.Suite(&lifeSuite{})
+func TestLifeSuite(t *stdtesting.T) { tc.Run(t, &lifeSuite{}) }
 
 type fakeLifer struct {
 	state.Entity

@@ -5,6 +5,7 @@ package http
 import (
 	"context"
 	"net/http"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -19,7 +20,9 @@ type DialContextMiddlewareSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&DialContextMiddlewareSuite{})
+func TestDialContextMiddlewareSuite(t *stdtesting.T) {
+	tc.Run(t, &DialContextMiddlewareSuite{})
+}
 
 var isLocalAddrTests = []struct {
 	addr    string
@@ -68,8 +71,7 @@ type LocalDialBreakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&LocalDialBreakerSuite{})
-
+func TestLocalDialBreakerSuite(t *stdtesting.T) { tc.Run(t, &LocalDialBreakerSuite{}) }
 func (s *LocalDialBreakerSuite) TestAllowed(c *tc.C) {
 	breaker := NewLocalDialBreaker(true)
 
@@ -112,8 +114,7 @@ type RetrySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RetrySuite{})
-
+func TestRetrySuite(t *stdtesting.T) { tc.Run(t, &RetrySuite{}) }
 func (s *RetrySuite) TestRetryNotRequired(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

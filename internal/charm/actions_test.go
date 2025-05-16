@@ -6,14 +6,14 @@ package charm
 import (
 	"bytes"
 	"encoding/json"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
 type ActionsSuite struct{}
 
-var _ = tc.Suite(&ActionsSuite{})
-
+func TestActionsSuite(t *stdtesting.T) { tc.Run(t, &ActionsSuite{}) }
 func (s *ActionsSuite) TestNewActions(c *tc.C) {
 	emptyAction := NewActions()
 	c.Assert(emptyAction, tc.DeepEquals, &Actions{})

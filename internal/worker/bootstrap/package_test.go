@@ -4,7 +4,7 @@
 package bootstrap
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -28,7 +28,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination http_client_mock_test.go github.com/juju/juju/core/http HTTPClientGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServices
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,7 +21,7 @@ type PermissionSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&PermissionSuite{})
+func TestPermissionSuite(t *stdtesting.T) { tc.Run(t, &PermissionSuite{}) }
 
 type fakeUserAccess struct {
 	userNames []user.Name

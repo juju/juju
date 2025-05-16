@@ -4,6 +4,8 @@
 package domainservices
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,8 +28,7 @@ type workerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -23,7 +24,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&ResourcesFacadeClientSuite{})
+func TestResourcesFacadeClientSuite(t *stdtesting.T) {
+	tc.Run(t, &ResourcesFacadeClientSuite{})
+}
 
 type ResourcesFacadeClientSuite struct {
 	testhelpers.IsolationSuite

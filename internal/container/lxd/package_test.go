@@ -5,20 +5,20 @@ package lxd
 
 import (
 	"os"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 
-func TestMain(m *testing.M) {
+func TestMain(m *stdtesting.M) {
 	testhelpers.ExecHelperProcess()
 	os.Exit(m.Run())
 }

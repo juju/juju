@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -53,7 +54,7 @@ type resourceSuite struct {
 	}
 }
 
-var _ = tc.Suite(&resourceSuite{})
+func TestResourceSuite(t *stdtesting.T) { tc.Run(t, &resourceSuite{}) }
 
 const fakeCharmUUID = "fake-charm-uuid"
 

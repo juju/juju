@@ -5,6 +5,7 @@ package context_test
 
 import (
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
@@ -26,8 +27,7 @@ type EnvSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&EnvSuite{})
-
+func TestEnvSuite(t *stdtesting.T) { tc.Run(t, &EnvSuite{}) }
 func (s *EnvSuite) assertVars(c *tc.C, actual []string, expect ...[]string) {
 	var fullExpect []string
 	for _, someExpect := range expect {

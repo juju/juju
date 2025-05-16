@@ -7,6 +7,7 @@ import (
 	"net"
 	"os/exec"
 	"runtime"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -18,8 +19,7 @@ type GatewaySuite struct {
 	network.BaseSuite
 }
 
-var _ = tc.Suite(&GatewaySuite{})
-
+func TestGatewaySuite(t *stdtesting.T) { tc.Run(t, &GatewaySuite{}) }
 func (s *GatewaySuite) TestDefaultRouteOnMachine(c *tc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip("skipping default route on-machine test on non-linux")

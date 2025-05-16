@@ -4,6 +4,8 @@
 package controller_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
@@ -15,8 +17,7 @@ type EncodeToStringSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&EncodeToStringSuite{})
-
+func TestEncodeToStringSuite(t *stdtesting.T) { tc.Run(t, &EncodeToStringSuite{}) }
 func (s *EncodeToStringSuite) TestEncodeToString(c *tc.C) {
 	cfg := jujutesting.FakeControllerConfig()
 

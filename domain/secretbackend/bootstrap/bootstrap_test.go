@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -14,8 +16,7 @@ type bootstrapSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&bootstrapSuite{})
-
+func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
 func (s *bootstrapSuite) TestCreateDefaultBackendsIAAS(c *tc.C) {
 	err := CreateDefaultBackends(coremodel.IAAS)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)

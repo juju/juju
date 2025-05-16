@@ -5,6 +5,7 @@ package bundlechanges_test
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
@@ -23,8 +24,7 @@ type diffSuite struct {
 	logger logger.Logger
 }
 
-var _ = tc.Suite(&diffSuite{})
-
+func TestDiffSuite(t *stdtesting.T) { tc.Run(t, &diffSuite{}) }
 func (s *diffSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.logger = loggertesting.WrapCheckLog(c)

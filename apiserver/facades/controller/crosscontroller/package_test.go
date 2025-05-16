@@ -4,13 +4,13 @@
 package crosscontroller
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/tomb.v2"
 )
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

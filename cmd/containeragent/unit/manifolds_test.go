@@ -4,6 +4,8 @@
 package unit_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
@@ -17,8 +19,7 @@ type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&ManifoldsSuite{})
-
+func TestManifoldsSuite(t *stdtesting.T) { tc.Run(t, &ManifoldsSuite{}) }
 func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 	manifolds := unit.Manifolds(unit.ManifoldsConfig{
 		Agent: fakeAgent{},

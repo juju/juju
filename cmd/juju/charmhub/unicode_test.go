@@ -4,6 +4,8 @@
 package charmhub
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -15,8 +17,7 @@ type unicodeSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&unicodeSuite{})
-
+func TestUnicodeSuite(t *stdtesting.T) { tc.Run(t, &unicodeSuite{}) }
 func (s *unicodeSuite) TestCanUnicode(c *tc.C) {
 	result := canUnicode("always", nil)
 	c.Assert(result, tc.IsTrue)

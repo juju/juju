@@ -5,7 +5,7 @@ package charmhub
 
 import (
 	"bytes"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +16,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ./mocks/os_mock.go github.com/juju/juju/cmd/juju/charmhub OSEnviron
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ./mocks/fsys_mock.go github.com/juju/juju/cmd/modelcmd Filesystem,ReadSeekCloser
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -17,7 +18,7 @@ import (
 
 type ConstraintsSuite struct{}
 
-var _ = tc.Suite(&ConstraintsSuite{})
+func TestConstraintsSuite(t *stdtesting.T) { tc.Run(t, &ConstraintsSuite{}) }
 
 var parseConstraintsTests = []struct {
 	summary string

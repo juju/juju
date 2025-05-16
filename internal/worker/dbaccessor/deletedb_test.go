@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -19,8 +20,7 @@ type deleteDBSuite struct {
 	databasetesting.DqliteSuite
 }
 
-var _ = tc.Suite(&deleteDBSuite{})
-
+func TestDeleteDBSuite(t *stdtesting.T) { tc.Run(t, &deleteDBSuite{}) }
 func (s *deleteDBSuite) TestDeleteDBContentsOnEmptyDB(c *tc.C) {
 	runner := s.TxnRunner()
 

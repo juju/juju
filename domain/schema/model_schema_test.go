@@ -4,6 +4,8 @@
 package schema
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -16,8 +18,7 @@ type modelSchemaSuite struct {
 	schemaBaseSuite
 }
 
-var _ = tc.Suite(&modelSchemaSuite{})
-
+func TestModelSchemaSuite(t *stdtesting.T) { tc.Run(t, &modelSchemaSuite{}) }
 func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 

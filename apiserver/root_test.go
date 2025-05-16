@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -25,8 +26,7 @@ type pingSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&pingSuite{})
-
+func TestPingSuite(t *stdtesting.T) { tc.Run(t, &pingSuite{}) }
 func (r *pingSuite) TestPingTimeout(c *tc.C) {
 	triggered := make(chan struct{})
 	action := func() {
@@ -90,8 +90,7 @@ type errRootSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&errRootSuite{})
-
+func TestErrRootSuite(t *stdtesting.T) { tc.Run(t, &errRootSuite{}) }
 func (s *errRootSuite) TestErrorRoot(c *tc.C) {
 	origErr := fmt.Errorf("my custom error")
 	errRoot := apiserver.NewErrRoot(origErr)
@@ -116,8 +115,7 @@ type rootSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&rootSuite{})
-
+func TestRootSuite(t *stdtesting.T) { tc.Run(t, &rootSuite{}) }
 func (r *rootSuite) TestFindMethodUnknownFacade(c *tc.C) {
 	root := apiserver.TestingAPIRoot(new(facade.Registry))
 	caller, err := root.FindMethod("unknown-testing-facade", 0, "Method")

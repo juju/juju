@@ -6,6 +6,7 @@ package vsphere_test
 import (
 	"errors"
 	"net/url"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -21,8 +22,7 @@ type providerSuite struct {
 	ProviderFixture
 }
 
-var _ = tc.Suite(&providerSuite{})
-
+func TestProviderSuite(t *stdtesting.T) { tc.Run(t, &providerSuite{}) }
 func (s *providerSuite) TestRegistered(c *tc.C) {
 	provider, err := environs.Provider("vsphere")
 	c.Assert(err, tc.ErrorIsNil)
@@ -104,8 +104,7 @@ type pingSuite struct {
 	ProviderFixture
 }
 
-var _ = tc.Suite(&pingSuite{})
-
+func TestPingSuite(t *stdtesting.T) { tc.Run(t, &pingSuite{}) }
 func (s *pingSuite) TestPingInvalidHost(c *tc.C) {
 	s.dialStub.SetErrors(
 		errors.New("foo"),

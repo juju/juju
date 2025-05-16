@@ -4,6 +4,7 @@
 package charmrevisioner
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -21,8 +22,7 @@ type ManifoldConfigSuite struct {
 	config ManifoldConfig
 }
 
-var _ = tc.Suite(&ManifoldConfigSuite{})
-
+func TestManifoldConfigSuite(t *stdtesting.T) { tc.Run(t, &ManifoldConfigSuite{}) }
 func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = validConfig(c)

@@ -4,6 +4,8 @@
 package jujuclient_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
@@ -23,9 +25,7 @@ func (s *ModelValidationSuite) SetUpTest(c *tc.C) {
 		ModelType: model.IAAS,
 	}
 }
-
-var _ = tc.Suite(&ModelValidationSuite{})
-
+func TestModelValidationSuite(t *stdtesting.T) { tc.Run(t, &ModelValidationSuite{}) }
 func (s *ModelValidationSuite) TestValidateModelName(c *tc.C) {
 	c.Assert(jujuclient.ValidateModelName("foo@bar/baz"), tc.ErrorIsNil)
 	c.Assert(jujuclient.ValidateModelName("foo"), tc.ErrorMatches, `validating model name "foo": unqualified model name "foo" not valid`)

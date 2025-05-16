@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"fmt"
 	"regexp"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus"
@@ -20,8 +21,7 @@ type apiservermetricsSuite struct {
 	collector prometheus.Collector
 }
 
-var _ = tc.Suite(&apiservermetricsSuite{})
-
+func TestApiservermetricsSuite(t *stdtesting.T) { tc.Run(t, &apiservermetricsSuite{}) }
 func (s *apiservermetricsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.collector = apiserver.NewMetricsCollector()

@@ -5,6 +5,7 @@ package instancemutater_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -26,8 +27,9 @@ type modelManifoldConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&modelManifoldConfigSuite{})
-
+func TestModelManifoldConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &modelManifoldConfigSuite{})
+}
 func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -144,8 +146,7 @@ type environAPIManifoldSuite struct {
 	worker    *mocks.MockWorker
 }
 
-var _ = tc.Suite(&environAPIManifoldSuite{})
-
+func TestEnvironAPIManifoldSuite(t *stdtesting.T) { tc.Run(t, &environAPIManifoldSuite{}) }
 func (s *environAPIManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -236,8 +237,7 @@ type modelManifoldSuite struct {
 	api         *mocks.MockInstanceMutaterAPI
 }
 
-var _ = tc.Suite(&modelManifoldSuite{})
-
+func TestModelManifoldSuite(t *stdtesting.T) { tc.Run(t, &modelManifoldSuite{}) }
 func (s *modelManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -393,8 +393,9 @@ type machineManifoldConfigSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&machineManifoldConfigSuite{})
-
+func TestMachineManifoldConfigSuite(t *stdtesting.T) {
+	tc.Run(t, &machineManifoldConfigSuite{})
+}
 func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -511,8 +512,7 @@ type brokerAPIManifoldSuite struct {
 	worker    *mocks.MockWorker
 }
 
-var _ = tc.Suite(&brokerAPIManifoldSuite{})
-
+func TestBrokerAPIManifoldSuite(t *stdtesting.T) { tc.Run(t, &brokerAPIManifoldSuite{}) }
 func (s *brokerAPIManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -603,8 +603,7 @@ type machineManifoldSuite struct {
 	api         *mocks.MockInstanceMutaterAPI
 }
 
-var _ = tc.Suite(&machineManifoldSuite{})
-
+func TestMachineManifoldSuite(t *stdtesting.T) { tc.Run(t, &machineManifoldSuite{}) }
 func (s *machineManifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

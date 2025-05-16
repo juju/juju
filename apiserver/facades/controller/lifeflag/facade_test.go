@@ -4,6 +4,8 @@
 package lifeflag_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,8 +26,7 @@ type FacadeSuite struct {
 	watcherRegistry *MockWatcherRegistry
 }
 
-var _ = tc.Suite(&FacadeSuite{})
-
+func TestFacadeSuite(t *stdtesting.T) { tc.Run(t, &FacadeSuite{}) }
 func (s *FacadeSuite) SetUpTest(c *tc.C) {
 	s.modelUUID = modeltesting.GenModelUUID(c)
 }

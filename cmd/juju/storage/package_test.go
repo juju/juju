@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-func TestAll(t *testing.T) {
+func TestAll(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

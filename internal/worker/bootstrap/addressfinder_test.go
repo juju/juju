@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -20,8 +21,7 @@ type addressFinderSuite struct {
 	instanceLister *MockInstanceLister
 }
 
-var _ = tc.Suite(&addressFinderSuite{})
-
+func TestAddressFinderSuite(t *stdtesting.T) { tc.Run(t, &addressFinderSuite{}) }
 func (s *addressFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.instanceLister = NewMockInstanceLister(ctrl)

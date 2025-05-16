@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/storage"
@@ -14,8 +16,7 @@ type DirectiveSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&DirectiveSuite{})
-
+func TestDirectiveSuite(t *stdtesting.T) { tc.Run(t, &DirectiveSuite{}) }
 func (s *DirectiveSuite) TestParseConstraintsStoragePool(c *tc.C) {
 	s.testParse(c, "pool,1M", storage.Directive{
 		Pool:  "pool",

@@ -4,6 +4,8 @@
 package secretbackend
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -16,7 +18,7 @@ type backendtypeSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = tc.Suite(&backendtypeSuite{})
+func TestBackendtypeSuite(t *stdtesting.T) { tc.Run(t, &backendtypeSuite{}) }
 
 // TestBackendTypeDBValues ensures there's no skew between what's in the
 // database table for role and the typed consts used in the secretbackend package.

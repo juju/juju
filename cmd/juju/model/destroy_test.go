@@ -6,6 +6,7 @@ package model_test
 import (
 	"bytes"
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -36,7 +37,7 @@ type DestroySuite struct {
 	clock testclock.AdvanceableClock
 }
 
-var _ = tc.Suite(&DestroySuite{})
+func TestDestroySuite(t *stdtesting.T) { tc.Run(t, &DestroySuite{}) }
 
 // fakeDestroyAPI mocks out the client API
 type fakeAPI struct {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -25,8 +26,7 @@ type statusHistorySuite struct {
 	now           time.Time
 }
 
-var _ = tc.Suite(&statusHistorySuite{})
-
+func TestStatusHistorySuite(t *stdtesting.T) { tc.Run(t, &statusHistorySuite{}) }
 func (s *statusHistorySuite) TestGetStatusHistoryNoData(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

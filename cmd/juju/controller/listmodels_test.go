@@ -6,6 +6,7 @@ package controller_test
 import (
 	"context"
 	"regexp"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -32,7 +33,7 @@ type ModelsSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&ModelsSuite{})
+func TestModelsSuite(t *stdtesting.T) { tc.Run(t, &ModelsSuite{}) }
 
 type fakeModelMgrAPIClient struct {
 	*testhelpers.Stub

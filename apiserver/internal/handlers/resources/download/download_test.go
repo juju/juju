@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -25,8 +26,7 @@ type ValidateSuite struct {
 	fileSystem *MockFileSystem
 }
 
-var _ = tc.Suite(&ValidateSuite{})
-
+func TestValidateSuite(t *stdtesting.T) { tc.Run(t, &ValidateSuite{}) }
 func (s *ValidateSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

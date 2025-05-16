@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type apiserverSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-var _ = tc.Suite(&apiserverSuite{})
-
+func TestApiserverSuite(t *stdtesting.T) { tc.Run(t, &apiserverSuite{}) }
 func (s *apiserverSuite) TestCleanStop(c *tc.C) {
 	err := workertest.CheckKill(c, s.Server)
 	if err != nil {

@@ -4,6 +4,8 @@
 package instancemutater_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -42,8 +44,7 @@ type lxdProfileWatcherSuite struct {
 	wc0 watchertest.NotifyWatcherC
 }
 
-var _ = tc.Suite(&lxdProfileWatcherSuite{})
-
+func TestLxdProfileWatcherSuite(t *stdtesting.T) { tc.Run(t, &lxdProfileWatcherSuite{}) }
 func (s *lxdProfileWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

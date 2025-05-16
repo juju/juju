@@ -4,6 +4,7 @@
 package storageprovisioner_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -30,8 +31,7 @@ type storageProvisionerSuite struct {
 	managedFilesystemSource *mockManagedFilesystemSource
 }
 
-var _ = tc.Suite(&storageProvisionerSuite{})
-
+func TestStorageProvisionerSuite(t *stdtesting.T) { tc.Run(t, &storageProvisionerSuite{}) }
 func (s *storageProvisionerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = &dummyProvider{dynamic: true}
@@ -2107,8 +2107,9 @@ type caasStorageProvisionerSuite struct {
 	registry storage.ProviderRegistry
 }
 
-var _ = tc.Suite(&caasStorageProvisionerSuite{})
-
+func TestCaasStorageProvisionerSuite(t *stdtesting.T) {
+	tc.Run(t, &caasStorageProvisionerSuite{})
+}
 func (s *caasStorageProvisionerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = &dummyProvider{dynamic: true}

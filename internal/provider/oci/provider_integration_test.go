@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -30,7 +31,7 @@ type credentialsSuite struct {
 	spec     environscloudspec.CloudSpec
 }
 
-var _ = tc.Suite(&credentialsSuite{})
+func TestCredentialsSuite(t *stdtesting.T) { tc.Run(t, &credentialsSuite{}) }
 
 var singleSectionTemplate = `[%s]
 user=fake

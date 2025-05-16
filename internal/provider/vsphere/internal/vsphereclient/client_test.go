@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -39,8 +40,7 @@ type clientSuite struct {
 	clock          *testclock.Clock
 }
 
-var _ = tc.Suite(&clientSuite{})
-
+func TestClientSuite(t *stdtesting.T) { tc.Run(t, &clientSuite{}) }
 func (s *clientSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.serviceContent = types.ServiceContent{

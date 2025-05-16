@@ -5,6 +5,7 @@ package lifeflag_test
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,8 +21,7 @@ type WorkerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&WorkerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
 func (*WorkerSuite) TestCreateNotFoundError(c *tc.C) {
 	stub := &testhelpers.Stub{}
 	stub.SetErrors(apilifeflag.ErrEntityNotFound)

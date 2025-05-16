@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -26,8 +28,7 @@ type FlushContextSuite struct {
 	stub testhelpers.Stub
 }
 
-var _ = tc.Suite(&FlushContextSuite{})
-
+func TestFlushContextSuite(t *stdtesting.T) { tc.Run(t, &FlushContextSuite{}) }
 func (s *FlushContextSuite) SetUpTest(c *tc.C) {
 	s.BaseHookContextSuite.SetUpTest(c)
 	s.stub.ResetCalls()

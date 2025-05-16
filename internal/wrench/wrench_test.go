@@ -26,8 +26,7 @@ type wrenchSuite struct {
 	logWriter loggo.TestWriter
 }
 
-var _ = tc.Suite(&wrenchSuite{})
-
+func TestWrenchSuite(t *stdtesting.T) { tc.Run(t, &wrenchSuite{}) }
 func (s *wrenchSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

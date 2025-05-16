@@ -3,12 +3,15 @@
 
 package settings
 
-import "github.com/juju/tc"
+import (
+	stdtesting "testing"
+
+	"github.com/juju/tc"
+)
 
 type settingsSuite struct{}
 
-var _ = tc.Suite(&settingsSuite{})
-
+func TestSettingsSuite(t *stdtesting.T) { tc.Run(t, &settingsSuite{}) }
 func (*settingsSuite) TestItemChangeType(c *tc.C) {
 	a := MakeAddition("key", "new-val")
 	m := MakeModification("key", "old-val", "new-val")

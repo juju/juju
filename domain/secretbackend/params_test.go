@@ -4,6 +4,8 @@
 package secretbackend
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -11,8 +13,7 @@ import (
 
 type paramsSuite struct{}
 
-var _ = tc.Suite(&paramsSuite{})
-
+func TestParamsSuite(t *stdtesting.T) { tc.Run(t, &paramsSuite{}) }
 func (s *paramsSuite) TestBackendIdentifierString(c *tc.C) {
 	id := BackendIdentifier{
 		ID:   "backend-id",

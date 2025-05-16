@@ -5,6 +5,7 @@ package caasmodeloperator_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -35,8 +36,9 @@ type dummyBroker struct {
 
 type ModelOperatorManagerSuite struct{}
 
-var _ = tc.Suite(&ModelOperatorManagerSuite{})
-
+func TestModelOperatorManagerSuite(t *stdtesting.T) {
+	tc.Run(t, &ModelOperatorManagerSuite{})
+}
 func (b *dummyBroker) EnsureModelOperator(ctx context.Context, modelUUID, agentPath string, c *caas.ModelOperatorConfig) error {
 	if b.ensureModelOperator == nil {
 		return nil

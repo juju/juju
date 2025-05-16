@@ -5,6 +5,7 @@ package params_test
 
 import (
 	"encoding/json"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -23,8 +24,7 @@ type (
 
 type NetworkSuite struct{}
 
-var _ = tc.Suite(&NetworkSuite{})
-
+func TestNetworkSuite(t *stdtesting.T) { tc.Run(t, &NetworkSuite{}) }
 func (s *NetworkSuite) TestPortsResults(c *tc.C) {
 	// Convenience helpers.
 	mkPortsResults := func(prs ...params.PortsResult) params.PortsResults {

@@ -6,6 +6,7 @@ package resource_test
 import (
 	"bytes"
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +19,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&UploadSuite{})
+func TestUploadSuite(t *stdtesting.T) { tc.Run(t, &UploadSuite{}) }
 
 type UploadSuite struct {
 	testhelpers.IsolationSuite

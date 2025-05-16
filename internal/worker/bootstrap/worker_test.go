@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -50,8 +51,7 @@ type workerSuite struct {
 	states chan string
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.adminUserID = usertesting.GenUserUUID(c)
 	s.controllerModel = coremodel.Model{

@@ -4,6 +4,8 @@
 package cmd_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	environscmd "github.com/juju/juju/environs/cmd"
@@ -15,8 +17,7 @@ type contextSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&contextSuite{})
-
+func TestContextSuite(t *stdtesting.T) { tc.Run(t, &contextSuite{}) }
 func (s *contextSuite) TestBootstrapContext(c *tc.C) {
 	ctx := environscmd.BootstrapContext(c.Context(), &cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), tc.IsTrue)

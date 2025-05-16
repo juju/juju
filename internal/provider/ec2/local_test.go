@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -213,8 +214,7 @@ type localServerSuite struct {
 	useIAMRole bool
 }
 
-var _ = tc.Suite(&localServerSuite{})
-
+func TestLocalServerSuite(t *stdtesting.T) { tc.Run(t, &localServerSuite{}) }
 func (t *localServerSuite) SetUpSuite(c *tc.C) {
 	t.BaseSuite.SetUpSuite(c)
 	t.Credential = cloud.NewCredential(

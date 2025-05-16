@@ -4,6 +4,8 @@
 package controlleragentconfig
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -21,8 +23,7 @@ type manifoldSuite struct {
 	agent *mockAgent
 }
 
-var _ = tc.Suite(&manifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
 func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 

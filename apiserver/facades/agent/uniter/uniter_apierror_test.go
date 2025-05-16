@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -21,8 +23,7 @@ type uniterAPIErrorSuite struct {
 	testing.ApiServerSuite
 }
 
-var _ = tc.Suite(&uniterAPIErrorSuite{})
-
+func TestUniterAPIErrorSuite(t *stdtesting.T) { tc.Run(t, &uniterAPIErrorSuite{}) }
 func (s *uniterAPIErrorSuite) SetupTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 

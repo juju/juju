@@ -4,6 +4,7 @@
 package objectstore_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -24,8 +25,7 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
-
+func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
 func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 

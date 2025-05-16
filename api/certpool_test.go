@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -22,8 +23,7 @@ type certPoolSuite struct {
 	logs *certLogs
 }
 
-var _ = tc.Suite(&certPoolSuite{})
-
+func TestCertPoolSuite(t *stdtesting.T) { tc.Run(t, &certPoolSuite{}) }
 func (s *certPoolSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.logs = &certLogs{}

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -28,7 +28,7 @@ import (
 	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 
-var _ = tc.Suite(&DebugHooksSuite{})
+func TestDebugHooksSuite(t *stdtesting.T) { tc.Run(t, &DebugHooksSuite{}) }
 
 type DebugHooksSuite struct {
 	SSHMachineSuite
@@ -134,7 +134,7 @@ var actions = charm.Actions{
 func (s *DebugHooksSuite) TestDebugHooksCommand(c *tc.C) {
 	for i, test := range debugHooksTests {
 		c.Logf("test %d: %s\n\t%s\n", i, test.info, test.args)
-		c.Run(fmt.Sprintf("Test%d", i), func(t *testing.T) {
+		c.Run(fmt.Sprintf("Test%d", i), func(t *stdtesting.T) {
 			c := &tc.TBC{t}
 			ctrl := gomock.NewController(c)
 			defer ctrl.Finish()

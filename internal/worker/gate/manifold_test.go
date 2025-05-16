@@ -4,6 +4,8 @@
 package gate_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -19,8 +21,7 @@ type ManifoldSuite struct {
 	worker   worker.Worker
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.manifold = gate.Manifold()

@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
@@ -71,7 +71,7 @@ func getLiveURLs() (map[string]liveTestData, error) {
 	}, nil
 }
 
-func setupSimpleStreamsTests(t *testing.T) {
+func setupSimpleStreamsTests(t *stdtesting.T) {
 	if *live {
 		if *vendor == "" {
 			t.Fatal("missing vendor")
@@ -480,8 +480,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *tc.C) {
 
 type productSpecSuite struct{}
 
-var _ = tc.Suite(&productSpecSuite{})
-
+func TestProductSpecSuite(t *stdtesting.T) { tc.Run(t, &productSpecSuite{}) }
 func (s *productSpecSuite) TestIndexIdNoStream(c *tc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
 		Releases: []string{"ubuntu"},
@@ -614,8 +613,7 @@ type metadataHelperSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&metadataHelperSuite{})
-
+func TestMetadataHelperSuite(t *stdtesting.T) { tc.Run(t, &metadataHelperSuite{}) }
 func (*metadataHelperSuite) TestMetadataFromTools(c *tc.C) {
 	metadata := tools.MetadataFromTools(nil, "proposed")
 	c.Assert(metadata, tc.HasLen, 0)

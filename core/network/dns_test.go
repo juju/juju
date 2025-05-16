@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -18,8 +19,7 @@ type dnsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&dnsSuite{})
-
+func TestDnsSuite(t *stdtesting.T) { tc.Run(t, &dnsSuite{}) }
 func (*dnsSuite) TestParseResolvConfEmptyOrMissingPath(c *tc.C) {
 	emptyPath := ""
 	missingPath := filepath.Join(c.MkDir(), "missing")

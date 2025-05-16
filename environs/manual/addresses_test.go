@@ -6,6 +6,7 @@ package manual_test
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -24,8 +25,7 @@ type addressesSuite struct {
 	netLookupHostCalled int
 }
 
-var _ = tc.Suite(&addressesSuite{})
-
+func TestAddressesSuite(t *stdtesting.T) { tc.Run(t, &addressesSuite{}) }
 func (s *addressesSuite) SetUpTest(c *tc.C) {
 	s.netLookupHostCalled = 0
 	s.PatchValue(manual.NetLookupHost, func(host string) ([]string, error) {

@@ -4,6 +4,8 @@
 package usersecretsdrain_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -29,8 +31,7 @@ type drainSuite struct {
 	facade               *usersecretsdrain.SecretsDrainAPI
 }
 
-var _ = tc.Suite(&drainSuite{})
-
+func TestDrainSuite(t *stdtesting.T) { tc.Run(t, &drainSuite{}) }
 func (s *drainSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

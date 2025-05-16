@@ -5,6 +5,7 @@ package instances
 
 import (
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -16,7 +17,7 @@ type instanceTypeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&instanceTypeSuite{})
+func TestInstanceTypeSuite(t *stdtesting.T) { tc.Run(t, &instanceTypeSuite{}) }
 
 var hvm = "hvm"
 

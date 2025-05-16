@@ -5,6 +5,7 @@ package testhelpers_test
 
 import (
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,8 +16,7 @@ type cleanupSuite struct {
 	testhelpers.CleanupSuite
 }
 
-var _ = tc.Suite(&cleanupSuite{})
-
+func TestCleanupSuite(t *stdtesting.T) { tc.Run(t, &cleanupSuite{}) }
 func (s *cleanupSuite) TestTearDownSuiteEmpty(c *tc.C) {
 	// The suite stack is empty initially, check we can tear that down.
 	s.TearDownSuite(c)
@@ -116,8 +116,9 @@ func (s cleanupSuite) TestAddCleanupPanicIfUnsafe(c *tc.C) {
 type cleanupSuiteAndTestLifetimes struct {
 }
 
-var _ = tc.Suite(&cleanupSuiteAndTestLifetimes{})
-
+func TestCleanupSuiteAndTestLifetimes(t *stdtesting.T) {
+	tc.Run(t, &cleanupSuiteAndTestLifetimes{})
+}
 func (s *cleanupSuiteAndTestLifetimes) TestAddCleanupBeforeSetUpSuite(c *tc.C) {
 	suite := &testhelpers.CleanupSuite{}
 	c.Assert(func() { suite.AddCleanup(noopCleanup) },

@@ -6,6 +6,7 @@ package retrystrategy_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,8 +21,7 @@ type retryStrategySuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&retryStrategySuite{})
-
+func TestRetryStrategySuite(t *stdtesting.T) { tc.Run(t, &retryStrategySuite{}) }
 func (s *retryStrategySuite) TestRetryStrategyOk(c *tc.C) {
 	tag := names.NewUnitTag("wp/1")
 	expectedRetryStrategy := params.RetryStrategy{

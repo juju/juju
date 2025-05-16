@@ -25,8 +25,7 @@ type ScriptRunnerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ScriptRunnerSuite{})
-
+func TestScriptRunnerSuite(t *stdtesting.T) { tc.Run(t, &ScriptRunnerSuite{}) }
 func (s *ScriptRunnerSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 }

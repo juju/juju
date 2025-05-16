@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	stdtesting "testing"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/juju/errors"
@@ -16,8 +18,7 @@ type IAMSuite struct {
 	server *testing.IAMServer
 }
 
-var _ = tc.Suite(&IAMSuite{})
-
+func TestIAMSuite(t *stdtesting.T) { tc.Run(t, &IAMSuite{}) }
 func (i *IAMSuite) SetUpTest(c *tc.C) {
 	server, err := testing.NewIAMServer()
 	c.Assert(err, tc.ErrorIsNil)

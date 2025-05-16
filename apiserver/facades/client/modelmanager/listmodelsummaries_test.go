@@ -4,6 +4,8 @@
 package modelmanager_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	_ "github.com/juju/juju/internal/provider/azure"
@@ -14,8 +16,7 @@ import (
 
 type ListModelsWithInfoSuite struct{}
 
-var _ = tc.Suite(&ListModelsWithInfoSuite{})
-
+func TestListModelsWithInfoSuite(t *stdtesting.T) { tc.Run(t, &ListModelsWithInfoSuite{}) }
 func (s *ListModelsWithInfoSuite) TestStub(c *tc.C) {
 	c.Skip(`skipping test (tlm): Missing tests for the following cases.
 	- Happy path list test for a user.

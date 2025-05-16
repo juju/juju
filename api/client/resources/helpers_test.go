@@ -5,6 +5,7 @@ package resources
 
 import (
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,8 +23,7 @@ type HelpersSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&HelpersSuite{})
-
+func TestHelpersSuite(t *stdtesting.T) { tc.Run(t, &HelpersSuite{}) }
 func (s *HelpersSuite) TestResource2API(c *tc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, tc.ErrorIsNil)

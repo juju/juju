@@ -4,6 +4,8 @@
 package database
 
 import (
+	stdtesting "testing"
+
 	dqlite "github.com/canonical/go-dqlite/v2/driver"
 	"github.com/juju/tc"
 	"github.com/mattn/go-sqlite3"
@@ -15,8 +17,7 @@ type errorSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&errorSuite{})
-
+func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &errorSuite{}) }
 func (s *errorSuite) TestIsErrConstraintUnique(c *tc.C) {
 	c.Check(IsErrConstraintUnique(nil), tc.IsFalse)
 

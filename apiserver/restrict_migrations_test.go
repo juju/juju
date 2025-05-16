@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -16,8 +18,7 @@ type restrictMigrationsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&restrictMigrationsSuite{})
-
+func TestRestrictMigrationsSuite(t *stdtesting.T) { tc.Run(t, &restrictMigrationsSuite{}) }
 func (r *restrictMigrationsSuite) TestAllowedMethods(c *tc.C) {
 	root := apiserver.TestingMigratingRoot()
 	checkAllowed := func(facade, method string, version int) {

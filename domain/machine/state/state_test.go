@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"sort"
+	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -33,7 +34,7 @@ type stateSuite struct {
 	state *State
 }
 
-var _ = tc.Suite(&stateSuite{})
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 
 // runQuery executes the provided SQL query string using the current state's database connection.
 //

@@ -4,6 +4,8 @@
 package kubernetes
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	rbacv1 "k8s.io/api/rbac/v1"
 
@@ -14,8 +16,7 @@ type rulesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&rulesSuite{})
-
+func TestRulesSuite(t *stdtesting.T) { tc.Run(t, &rulesSuite{}) }
 func (s *rulesSuite) TestRulesForSecretAccessNew(c *tc.C) {
 	owned := []string{"owned-secret-1"}
 	read := []string{"read-secret-1"}

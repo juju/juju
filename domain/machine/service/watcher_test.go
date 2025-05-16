@@ -4,6 +4,8 @@
 package service
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -19,8 +21,7 @@ type mapperSuite struct {
 	state *MockState
 }
 
-var _ = tc.Suite(&mapperSuite{})
-
+func TestMapperSuite(t *stdtesting.T) { tc.Run(t, &mapperSuite{}) }
 func (s *mapperSuite) TestUuidToNameMapper(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange

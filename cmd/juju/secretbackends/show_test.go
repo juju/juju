@@ -4,6 +4,7 @@
 package secretbackends_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -23,8 +24,7 @@ type ShowSuite struct {
 	secretBackendsAPI *secretbackends.MockListSecretBackendsAPI
 }
 
-var _ = tc.Suite(&ShowSuite{})
-
+func TestShowSuite(t *stdtesting.T) { tc.Run(t, &ShowSuite{}) }
 func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	store := jujuclient.NewMemStore()

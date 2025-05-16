@@ -4,6 +4,7 @@
 package service
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -14,7 +15,7 @@ import (
 
 type statusSuite struct{}
 
-var _ = tc.Suite(&statusSuite{})
+func TestStatusSuite(t *stdtesting.T) { tc.Run(t, &statusSuite{}) }
 
 var now = time.Now()
 

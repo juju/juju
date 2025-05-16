@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -45,8 +46,7 @@ type resourcesUploadSuite struct {
 	srv *httptest.Server
 }
 
-var _ = tc.Suite(&resourcesUploadSuite{})
-
+func TestResourcesUploadSuite(t *stdtesting.T) { tc.Run(t, &resourcesUploadSuite{}) }
 func (s *resourcesUploadSuite) SetUpTest(c *tc.C) {
 	s.content = "resource-content"
 	s.origin = charmresource.OriginStore

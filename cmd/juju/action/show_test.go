@@ -6,6 +6,7 @@ package action_test
 import (
 	"errors"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -21,8 +22,7 @@ type ShowSuite struct {
 	command        *action.ShowCommand
 }
 
-var _ = tc.Suite(&ShowSuite{})
-
+func TestShowSuite(t *stdtesting.T) { tc.Run(t, &ShowSuite{}) }
 func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = action.NewShowCommandForTest(s.store)

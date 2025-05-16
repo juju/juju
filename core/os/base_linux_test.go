@@ -6,6 +6,7 @@ package os
 import (
 	"io/ioutil"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,7 @@ type linuxBaseSuite struct {
 	testhelpers.CleanupSuite
 }
 
-var _ = tc.Suite(&linuxBaseSuite{})
+func TestLinuxBaseSuite(t *stdtesting.T) { tc.Run(t, &linuxBaseSuite{}) }
 
 var readBaseTests = []struct {
 	contents string

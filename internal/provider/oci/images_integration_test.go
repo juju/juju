@@ -4,6 +4,7 @@
 package oci_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -25,8 +26,7 @@ type imagesSuite struct {
 	testCompartment string
 }
 
-var _ = tc.Suite(&imagesSuite{})
-
+func TestImagesSuite(t *stdtesting.T) { tc.Run(t, &imagesSuite{}) }
 func (s *imagesSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	oci.SetImageCache(&oci.ImageCache{})

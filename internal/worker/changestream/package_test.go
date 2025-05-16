@@ -4,7 +4,7 @@
 package changestream
 
 import (
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -19,7 +19,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestream -destination source_mock_test.go github.com/juju/juju/core/changestream EventSource
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestream -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

@@ -5,6 +5,7 @@ package cmd_test
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
@@ -18,8 +19,7 @@ type HelpCommandSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&HelpCommandSuite{})
-
+func TestHelpCommandSuite(t *stdtesting.T) { tc.Run(t, &HelpCommandSuite{}) }
 func (s *HelpCommandSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	loggo.GetLogger("juju.cmd").SetLogLevel(loggo.DEBUG)

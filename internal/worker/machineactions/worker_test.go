@@ -6,6 +6,7 @@ package machineactions_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -27,8 +28,7 @@ type WorkerSuite struct {
 	lock   *mocks.MockLock
 }
 
-var _ = tc.Suite(&WorkerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &WorkerSuite{}) }
 func (*WorkerSuite) TestInvalidFacade(c *tc.C) {
 	worker, err := machineactions.NewMachineActionsWorker(machineactions.WorkerConfig{
 		Facade: nil,

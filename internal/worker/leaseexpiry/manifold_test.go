@@ -5,6 +5,7 @@ package leaseexpiry_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -30,8 +31,7 @@ type manifoldSuite struct {
 	store *MockExpiryStore
 }
 
-var _ = tc.Suite(&manifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	cfg := s.newManifoldConfig(c)
 

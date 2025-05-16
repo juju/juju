@@ -19,8 +19,7 @@ import (
 
 type suite struct{}
 
-var _ = tc.Suite(&suite{})
-
+func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
 func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }

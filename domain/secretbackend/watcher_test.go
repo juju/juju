@@ -4,6 +4,7 @@
 package secretbackend_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -29,8 +30,7 @@ type watcherSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
-
+func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
 func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	c.Skip("FIXME: rename of secret is firing secretbackend_rotation_changes")
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secretbackend_rotation_changes")

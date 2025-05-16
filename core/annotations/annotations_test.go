@@ -4,6 +4,8 @@
 package annotations
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -17,8 +19,7 @@ type annotationsSuite struct {
 	annotations Annotation
 }
 
-var _ = tc.Suite(&annotationsSuite{})
-
+func TestAnnotationsSuite(t *stdtesting.T) { tc.Run(t, &annotationsSuite{}) }
 func (s *annotationsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 

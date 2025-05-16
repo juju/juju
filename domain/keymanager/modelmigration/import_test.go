@@ -4,6 +4,8 @@
 package modelmigration
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -21,8 +23,7 @@ type importSuite struct {
 	userService *MockUserService
 }
 
-var _ = tc.Suite(&importSuite{})
-
+func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.coordinator = NewMockCoordinator(ctrl)

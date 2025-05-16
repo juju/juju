@@ -4,6 +4,8 @@
 package repository
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/arch"
@@ -12,8 +14,9 @@ import (
 
 type sanitiseCharmOriginSuite struct{}
 
-var _ = tc.Suite(&sanitiseCharmOriginSuite{})
-
+func TestSanitiseCharmOriginSuite(t *stdtesting.T) {
+	tc.Run(t, &sanitiseCharmOriginSuite{})
+}
 func (s *sanitiseCharmOriginSuite) TestSanitise(c *tc.C) {
 	received := corecharm.Origin{
 		Platform: corecharm.Platform{

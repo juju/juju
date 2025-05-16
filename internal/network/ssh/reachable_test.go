@@ -5,6 +5,7 @@ package ssh_test
 
 import (
 	"net"
+	stdtesting "testing"
 	"time"
 
 	_ "github.com/juju/errors"
@@ -20,7 +21,9 @@ type SSHReachableHostPortSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&SSHReachableHostPortSuite{})
+func TestSSHReachableHostPortSuite(t *stdtesting.T) {
+	tc.Run(t, &SSHReachableHostPortSuite{})
+}
 
 var searchTimeout = 300 * time.Millisecond
 var dialTimeout = 100 * time.Millisecond

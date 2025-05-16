@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,8 +21,7 @@ type modelwatcherTests struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&modelwatcherTests{})
-
+func TestModelwatcherTests(t *stdtesting.T) { tc.Run(t, &modelwatcherTests{}) }
 func (s *modelwatcherTests) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }

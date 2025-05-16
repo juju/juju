@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -28,7 +29,7 @@ type upgradeSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&upgradeSuite{})
+func TestUpgradeSuite(t *stdtesting.T) { tc.Run(t, &upgradeSuite{}) }
 
 type mockUpgradeOperation struct {
 	targetVersion semversion.Number

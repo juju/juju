@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -24,8 +26,7 @@ type ControllerSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&ControllerSuite{})
-
+func TestControllerSuite(t *stdtesting.T) { tc.Run(t, &ControllerSuite{}) }
 func (s *ControllerSuite) TestPopulateControllerCharmLocalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

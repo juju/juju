@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"encoding/pem"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -15,8 +16,7 @@ type sharedSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = tc.Suite(&sharedSuite{})
-
+func TestSharedSuite(t *stdtesting.T) { tc.Run(t, &sharedSuite{}) }
 func (s *sharedSuite) TestGenerateMemCert(c *tc.C) {
 	cert, key, err := GenerateMemCert(false, true)
 	if err != nil {

@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -36,9 +38,8 @@ type iaasAttachmentsSuite struct {
 	attachmentsSuite
 }
 
-var _ = tc.Suite(&caasAttachmentsSuite{})
-var _ = tc.Suite(&iaasAttachmentsSuite{})
-
+func TestCaasAttachmentsSuite(t *stdtesting.T) { tc.Run(t, &caasAttachmentsSuite{}) }
+func TestIaasAttachmentsSuite(t *stdtesting.T) { tc.Run(t, &iaasAttachmentsSuite{}) }
 func (s *attachmentsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storSt = storage.NewState()

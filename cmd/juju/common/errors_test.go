@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"bytes"
+	stdtesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
@@ -18,8 +19,7 @@ type errorsSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&errorsSuite{})
-
+func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &errorsSuite{}) }
 func (s *errorsSuite) TestTermsRequiredPassThru(c *tc.C) {
 	err := errors.New("nothing about terms")
 	c.Assert(err, tc.Equals, common.MaybeTermsAgreementError(err))

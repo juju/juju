@@ -5,6 +5,7 @@ package credentialvalidator_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,8 +23,7 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (*ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := credentialvalidator.Manifold(validManifoldConfig(c))
 	c.Check(manifold.Inputs, tc.DeepEquals, []string{"api-caller"})

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,8 +30,7 @@ type transactionRunnerSuite struct {
 	clock *MockClock
 }
 
-var _ = tc.Suite(&transactionRunnerSuite{})
-
+func TestTransactionRunnerSuite(t *stdtesting.T) { tc.Run(t, &transactionRunnerSuite{}) }
 func (s *transactionRunnerSuite) TestTxn(c *tc.C) {
 	runner := txn.NewRetryingTxnRunner()
 

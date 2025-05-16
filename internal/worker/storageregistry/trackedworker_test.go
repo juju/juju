@@ -4,6 +4,8 @@
 package storageregistry
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -19,8 +21,7 @@ type trackedWorkerSuite struct {
 	provider *MockProvider
 }
 
-var _ = tc.Suite(&trackedWorkerSuite{})
-
+func TestTrackedWorkerSuite(t *stdtesting.T) { tc.Run(t, &trackedWorkerSuite{}) }
 func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

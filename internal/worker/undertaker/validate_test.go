@@ -5,6 +5,7 @@ package undertaker_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -21,8 +22,7 @@ type ValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ValidateSuite{})
-
+func TestValidateSuite(t *stdtesting.T) { tc.Run(t, &ValidateSuite{}) }
 func (*ValidateSuite) TestNilFacade(c *tc.C) {
 	config := validConfig(c)
 	config.Facade = nil

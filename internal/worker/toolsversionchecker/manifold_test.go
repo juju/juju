@@ -4,6 +4,8 @@
 package toolsversionchecker_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -23,8 +25,7 @@ type ManifoldSuite struct {
 	newCalled bool
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.newCalled = false
 	s.PatchValue(&toolsversionchecker.New,

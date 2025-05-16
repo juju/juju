@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/juju/errors"
@@ -28,8 +29,7 @@ type ErrorSuite struct {
 	azureError *azcore.ResponseError
 }
 
-var _ = tc.Suite(&ErrorSuite{})
-
+func TestErrorSuite(t *stdtesting.T) { tc.Run(t, &ErrorSuite{}) }
 func (s *ErrorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.azureError = &azcore.ResponseError{

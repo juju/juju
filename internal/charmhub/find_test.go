@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -21,8 +22,7 @@ type FindSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&FindSuite{})
-
+func TestFindSuite(t *stdtesting.T) { tc.Run(t, &FindSuite{}) }
 func (s *FindSuite) TestFind(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

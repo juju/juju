@@ -4,7 +4,7 @@
 package unit_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -12,14 +12,13 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 
 type importSuite struct{}
 
-var _ = tc.Suite(&importSuite{})
-
+func TestImportSuite(t *stdtesting.T) { tc.Run(t, &importSuite{}) }
 func (*importSuite) TestImports(c *tc.C) {
 	// TODO(sidecar) - improve test performance
 	c.Skip("test times out on Jenkins")

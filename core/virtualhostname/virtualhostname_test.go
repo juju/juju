@@ -4,19 +4,18 @@
 package virtualhostname
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 
 type HostnameSuite struct{}
 
-var _ = tc.Suite(&HostnameSuite{})
-
+func TestHostnameSuite(t *stdtesting.T) { tc.Run(t, &HostnameSuite{}) }
 func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 	testCases := []struct {
 		desc        string

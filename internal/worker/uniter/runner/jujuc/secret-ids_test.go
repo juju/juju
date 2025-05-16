@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,8 +17,7 @@ type SecretIdsSuite struct {
 	ContextSuite
 }
 
-var _ = tc.Suite(&SecretIdsSuite{})
-
+func TestSecretIdsSuite(t *stdtesting.T) { tc.Run(t, &SecretIdsSuite{}) }
 func (s *SecretIdsSuite) TestSecretIds(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 

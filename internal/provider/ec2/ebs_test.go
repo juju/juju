@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	stdtesting "testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -38,8 +39,7 @@ type ebsSuite struct {
 	modelConfig *config.Config
 }
 
-var _ = tc.Suite(&ebsSuite{})
-
+func TestEbsSuite(t *stdtesting.T) { tc.Run(t, &ebsSuite{}) }
 func (s *ebsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
@@ -1105,8 +1105,7 @@ type blockDeviceMappingSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&blockDeviceMappingSuite{})
-
+func TestBlockDeviceMappingSuite(t *stdtesting.T) { tc.Run(t, &blockDeviceMappingSuite{}) }
 func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *tc.C) {
 	var nextName func() (string, string, error)
 	expect := func(expectRequest, expectActual string) {

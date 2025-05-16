@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -17,8 +19,7 @@ type charmSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&charmSuite{})
-
+func TestCharmSuite(t *stdtesting.T) { tc.Run(t, &charmSuite{}) }
 func (s *charmSuite) TestCharmWithNilFails(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil

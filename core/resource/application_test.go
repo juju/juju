@@ -4,6 +4,8 @@
 package resource_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/resource"
@@ -16,8 +18,7 @@ type ServiceResourcesSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ServiceResourcesSuite{})
-
+func TestServiceResourcesSuite(t *stdtesting.T) { tc.Run(t, &ServiceResourcesSuite{}) }
 func (s *ServiceResourcesSuite) TestUpdatesUploaded(c *tc.C) {
 	csRes := newStoreResource(c, "spam", "a-application", 2)
 	res := csRes // a copy

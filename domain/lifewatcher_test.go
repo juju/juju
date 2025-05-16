@@ -5,6 +5,7 @@ package domain
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -34,9 +35,7 @@ func (c changeEvent) Namespace() string {
 func (c changeEvent) Changed() string {
 	return c.changed
 }
-
-var _ = tc.Suite(&lifeWatcherSuite{})
-
+func TestLifeWatcherSuite(t *stdtesting.T) { tc.Run(t, &lifeWatcherSuite{}) }
 func (s *lifeWatcherSuite) lifeGetter(ctx context.Context, ids []string) (map[string]life.Life, error) {
 	result := make(map[string]life.Life)
 	for _, id := range ids {

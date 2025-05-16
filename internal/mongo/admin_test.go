@@ -4,6 +4,8 @@
 package mongo_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
@@ -17,8 +19,7 @@ type adminSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&adminSuite{})
-
+func TestAdminSuite(t *stdtesting.T) { tc.Run(t, &adminSuite{}) }
 func (s *adminSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(mongo.InstallMongo, func(string) error {

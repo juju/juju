@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -27,8 +28,7 @@ type ModelHandlersSuite struct {
 	server *httptest.Server
 }
 
-var _ = tc.Suite(&ModelHandlersSuite{})
-
+func TestModelHandlersSuite(t *stdtesting.T) { tc.Run(t, &ModelHandlersSuite{}) }
 func (s *ModelHandlersSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

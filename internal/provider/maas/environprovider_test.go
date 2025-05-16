@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/gomaasapi/v2"
@@ -25,8 +26,7 @@ type EnvironProviderSuite struct {
 	maasSuite
 }
 
-var _ = tc.Suite(&EnvironProviderSuite{})
-
+func TestEnvironProviderSuite(t *stdtesting.T) { tc.Run(t, &EnvironProviderSuite{}) }
 func (s *EnvironProviderSuite) cloudSpec() environscloudspec.CloudSpec {
 	credential := oauthCredential("aa:bb:cc")
 	return environscloudspec.CloudSpec{
@@ -126,8 +126,7 @@ type MaasPingSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&MaasPingSuite{})
-
+func TestMaasPingSuite(t *stdtesting.T) { tc.Run(t, &MaasPingSuite{}) }
 func (s *MaasPingSuite) TestPingNoEndpoint(c *tc.C) {
 	endpoint := "https://foo.com/MAAS"
 	var serverURLs []string

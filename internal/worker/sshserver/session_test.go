@@ -8,6 +8,7 @@ import (
 	"io"
 	net "net"
 	"sync/atomic"
+	stdtesting "testing"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
@@ -26,7 +27,7 @@ type machineSessionSuite struct {
 	mockConnector *MockSSHConnector
 }
 
-var _ = tc.Suite(&machineSessionSuite{})
+func TestMachineSessionSuite(t *stdtesting.T) { tc.Run(t, &machineSessionSuite{}) }
 
 type testServer struct {
 	server   *ssh.Server

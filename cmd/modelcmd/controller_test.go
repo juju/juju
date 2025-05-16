@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -25,8 +26,7 @@ type ControllerCommandSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ControllerCommandSuite{})
-
+func TestControllerCommandSuite(t *stdtesting.T) { tc.Run(t, &ControllerCommandSuite{}) }
 func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *tc.C) {
 	command, err := runTestControllerCommand(c, jujuclient.NewMemStore())
 	c.Assert(err, tc.ErrorIsNil)
@@ -148,8 +148,9 @@ type OptionalControllerCommandSuite struct {
 	coretesting.JujuOSEnvSuite
 }
 
-var _ = tc.Suite(&OptionalControllerCommandSuite{})
-
+func TestOptionalControllerCommandSuite(t *stdtesting.T) {
+	tc.Run(t, &OptionalControllerCommandSuite{})
+}
 func (s *OptionalControllerCommandSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)

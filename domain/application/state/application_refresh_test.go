@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
@@ -31,8 +32,7 @@ type applicationRefreshSuite struct {
 	otherAppCount int
 }
 
-var _ = tc.Suite(&applicationRefreshSuite{})
-
+func TestApplicationRefreshSuite(t *stdtesting.T) { tc.Run(t, &applicationRefreshSuite{}) }
 func (s *applicationRefreshSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 

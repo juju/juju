@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -22,8 +24,7 @@ type storageSuite struct {
 	provider storage.Provider
 }
 
-var _ = tc.Suite(&storageSuite{})
-
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
 func (s *storageSuite) TestStorageProviderTypes(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 

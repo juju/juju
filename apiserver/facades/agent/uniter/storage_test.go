@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,8 +26,7 @@ type storageSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&storageSuite{})
-
+func TestStorageSuite(t *stdtesting.T) { tc.Run(t, &storageSuite{}) }
 func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 	resources := common.NewResources()
 	getCanAccess := func(ctx context.Context) (common.AuthFunc, error) {
@@ -500,8 +500,9 @@ type watchStorageAttachmentSuite struct {
 	storageAttachmentWatcher *apiservertesting.FakeNotifyWatcher
 }
 
-var _ = tc.Suite(&watchStorageAttachmentSuite{})
-
+func TestWatchStorageAttachmentSuite(t *stdtesting.T) {
+	tc.Run(t, &watchStorageAttachmentSuite{})
+}
 func (s *watchStorageAttachmentSuite) SetUpTest(c *tc.C) {
 	s.storageTag = names.NewStorageTag("osd-devices/0")
 	s.machineTag = names.NewMachineTag("0")

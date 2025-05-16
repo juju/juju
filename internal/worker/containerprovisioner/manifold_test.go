@@ -4,6 +4,8 @@
 package containerprovisioner_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,8 +22,7 @@ type containerManifoldSuite struct {
 	getter  *MockContainerMachineGetter
 }
 
-var _ = tc.Suite(&containerManifoldSuite{})
-
+func TestContainerManifoldSuite(t *stdtesting.T) { tc.Run(t, &containerManifoldSuite{}) }
 func (s *containerManifoldSuite) TestConfigValidateAgentName(c *tc.C) {
 	cfg := containerprovisioner.ManifoldConfig{}
 	err := cfg.Validate()

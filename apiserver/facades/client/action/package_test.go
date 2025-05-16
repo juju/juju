@@ -4,7 +4,7 @@
 package action
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -23,7 +23,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination leader_mock_test.go github.com/juju/juju/core/leadership Reader
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination blockservices_mock_test.go github.com/juju/juju/apiserver/common BlockCommandService
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 

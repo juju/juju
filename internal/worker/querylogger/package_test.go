@@ -4,7 +4,7 @@
 package querylogger
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -15,7 +15,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package querylogger -destination logger_mock_test.go github.com/juju/juju/core/logger Logger
 //go:generate go run go.uber.org/mock/mockgen -typed -package querylogger -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

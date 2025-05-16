@@ -22,7 +22,7 @@ type CmdSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&CmdSuite{})
+func TestCmdSuite(t *stdtesting.T) { tc.Run(t, &CmdSuite{}) }
 
 // Reentrancy point for testing (something as close as possible to) the juju
 // tool itself.

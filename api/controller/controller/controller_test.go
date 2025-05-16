@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"encoding/json"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -31,8 +32,7 @@ type Suite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&Suite{})
-
+func TestSuite(t *stdtesting.T) { tc.Run(t, &Suite{}) }
 func (s *Suite) TestDestroyController(c *tc.C) {
 	var stub testhelpers.Stub
 	apiCaller := apitesting.BestVersionCaller{

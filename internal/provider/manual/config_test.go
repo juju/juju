@@ -4,6 +4,8 @@
 package manual
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -15,8 +17,7 @@ type configSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&configSuite{})
-
+func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &configSuite{}) }
 func CloudSpec() environscloudspec.CloudSpec {
 	return environscloudspec.CloudSpec{
 		Name:     "manual",

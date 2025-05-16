@@ -5,6 +5,7 @@ package state
 
 import (
 	"math"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -18,7 +19,7 @@ type rootKeyStateSuite struct {
 	testing.ControllerSuite
 }
 
-var _ = tc.Suite(&rootKeyStateSuite{})
+func TestRootKeyStateSuite(t *stdtesting.T) { tc.Run(t, &rootKeyStateSuite{}) }
 
 var (
 	// Ensure we use one time for all the tests, so that we can reliably compare

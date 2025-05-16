@@ -5,6 +5,7 @@ package modelmanager_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -88,8 +89,7 @@ type modelManagerSuite struct {
 	modelStatusAPI *MockModelStatusAPI
 }
 
-var _ = tc.Suite(&modelManagerSuite{})
-
+func TestModelManagerSuite(t *stdtesting.T) { tc.Run(t, &modelManagerSuite{}) }
 func (s *modelManagerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -997,8 +997,7 @@ type modelManagerStateSuite struct {
 	controllerUUID uuid.UUID
 }
 
-var _ = tc.Suite(&modelManagerStateSuite{})
-
+func TestModelManagerStateSuite(t *stdtesting.T) { tc.Run(t, &modelManagerStateSuite{}) }
 func (s *modelManagerStateSuite) SetUpSuite(c *tc.C) {
 	coretesting.SkipUnlessControllerOS(c)
 	s.ApiServerSuite.SetUpSuite(c)

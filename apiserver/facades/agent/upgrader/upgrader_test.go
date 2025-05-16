@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -60,8 +61,7 @@ type upgraderSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
-var _ = tc.Suite(&upgraderSuite{})
-
+func TestUpgraderSuite(t *stdtesting.T) { tc.Run(t, &upgraderSuite{}) }
 func (s *upgraderSuite) SetUpTest(c *tc.C) {
 	s.mockModelUUID = modeltesting.GenModelUUID(c)
 	s.ControllerModelConfigAttrs = map[string]interface{}{

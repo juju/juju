@@ -6,6 +6,7 @@ package mongo_test
 import (
 	"errors"
 	"reflect"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/mgo/v3"
@@ -23,8 +24,7 @@ type oplogSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&oplogSuite{})
-
+func TestOplogSuite(t *stdtesting.T) { tc.Run(t, &oplogSuite{}) }
 func (s *oplogSuite) TestWithRealOplog(c *tc.C) {
 	_, session := s.startMongoWithReplicaset(c)
 

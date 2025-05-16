@@ -4,6 +4,8 @@
 package action_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/pkg/errors"
@@ -30,8 +32,7 @@ type runSuite struct {
 	client *action.ActionAPI
 }
 
-var _ = tc.Suite(&runSuite{})
-
+func TestRunSuite(t *stdtesting.T) { tc.Run(t, &runSuite{}) }
 func (s *runSuite) TestBlockRunOnAllMachines(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

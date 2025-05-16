@@ -6,6 +6,7 @@ package gce_test
 
 import (
 	"encoding/base64"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -20,8 +21,7 @@ type UserdataSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&UserdataSuite{})
-
+func TestUserdataSuite(t *stdtesting.T) { tc.Run(t, &UserdataSuite{}) }
 func (s *UserdataSuite) TestGCEUnix(c *tc.C) {
 	renderer := gce.GCERenderer{}
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}

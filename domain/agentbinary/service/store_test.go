@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	io "io"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -35,8 +36,7 @@ type storeSuite struct {
 	mockObjectStore       *MockObjectStore
 }
 
-var _ = tc.Suite(&storeSuite{})
-
+func TestStoreSuite(t *stdtesting.T) { tc.Run(t, &storeSuite{}) }
 func (s *storeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockState = NewMockState(ctrl)

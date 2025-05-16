@@ -34,8 +34,7 @@ type BaseSubnetSuite struct {
 	api        *StubAPI
 }
 
-var _ = tc.Suite(&BaseSubnetSuite{})
-
+func TestBaseSubnetSuite(t *stdtesting.T) { tc.Run(t, &BaseSubnetSuite{}) }
 func (s *BaseSubnetSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 }

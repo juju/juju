@@ -5,6 +5,7 @@ package provider_test
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -23,7 +24,7 @@ type K8sMetadataSuite struct {
 	BaseSuite
 }
 
-var _ = tc.Suite(&K8sMetadataSuite{})
+func TestK8sMetadataSuite(t *stdtesting.T) { tc.Run(t, &K8sMetadataSuite{}) }
 
 var (
 	annotatedWorkloadStorage = &storagev1.StorageClass{

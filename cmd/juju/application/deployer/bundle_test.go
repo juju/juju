@@ -4,6 +4,8 @@
 package deployer
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
@@ -13,8 +15,7 @@ import (
 type bundleSuite struct {
 }
 
-var _ = tc.Suite(&bundleSuite{})
-
+func TestBundleSuite(t *stdtesting.T) { tc.Run(t, &bundleSuite{}) }
 func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 	explicitBaseErrorUbuntu := "base must be explicitly provided for \"ch:ubuntu\" when image-id constraint is used"
 	explicitBaseError := "base must be explicitly provided for(.)*"

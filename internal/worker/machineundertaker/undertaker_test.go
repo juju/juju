@@ -5,6 +5,7 @@ package machineundertaker_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,7 +26,7 @@ type undertakerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&undertakerSuite{})
+func TestUndertakerSuite(t *stdtesting.T) { tc.Run(t, &undertakerSuite{}) }
 
 // Some tests to check that the handler is wired up to the
 // NotifyWorker first.

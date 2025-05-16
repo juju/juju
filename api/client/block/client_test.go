@@ -4,6 +4,8 @@
 package block_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -16,8 +18,7 @@ import (
 
 type blockMockSuite struct{}
 
-var _ = tc.Suite(&blockMockSuite{})
-
+func TestBlockMockSuite(t *stdtesting.T) { tc.Run(t, &blockMockSuite{}) }
 func (s *blockMockSuite) TestSwitchBlockOn(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

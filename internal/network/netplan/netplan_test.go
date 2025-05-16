@@ -11,6 +11,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -26,8 +27,7 @@ type NetplanSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&NetplanSuite{})
-
+func TestNetplanSuite(t *stdtesting.T) { tc.Run(t, &NetplanSuite{}) }
 func MustNetplanFromYaml(c *tc.C, input string) *netplan.Netplan {
 	var np netplan.Netplan
 	if strings.HasPrefix(input, "\n") {

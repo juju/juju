@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -31,8 +32,7 @@ type gitlabSuite struct {
 	authToken        string
 }
 
-var _ = tc.Suite(&gitlabSuite{})
-
+func TestGitlabSuite(t *stdtesting.T) { tc.Run(t, &gitlabSuite{}) }
 func (s *gitlabSuite) getRegistry(c *tc.C) (registry.Registry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 

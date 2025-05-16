@@ -6,6 +6,7 @@ package azure_test
 import (
 	"context"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -32,8 +33,7 @@ type environUpgradeSuite struct {
 	invalidatedCredential bool
 }
 
-var _ = tc.Suite(&environUpgradeSuite{})
-
+func TestEnvironUpgradeSuite(t *stdtesting.T) { tc.Run(t, &environUpgradeSuite{}) }
 func (s *environUpgradeSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.sender = nil

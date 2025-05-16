@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/cmd"
@@ -15,8 +17,7 @@ type storageAddSuite struct {
 	storageSuite
 }
 
-var _ = tc.Suite(&storageAddSuite{})
-
+func TestStorageAddSuite(t *stdtesting.T) { tc.Run(t, &storageAddSuite{}) }
 func (s *storageAddSuite) getStorageUnitAddCommand(c *tc.C) cmd.Command {
 	hctx, _ := s.ContextSuite.NewHookContext()
 	com, err := jujuc.NewCommand(hctx, "storage-add")

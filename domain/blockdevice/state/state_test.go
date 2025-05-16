@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -19,8 +20,7 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) TestBlockDevicesNone(c *tc.C) {
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(c.Context(), "666")
 	c.Assert(err, tc.ErrorIsNil)

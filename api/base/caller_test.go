@@ -4,6 +4,8 @@
 package base_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -19,8 +21,7 @@ type apiCallerSuite struct {
 	apiCaller *mocks.MockAPICaller
 }
 
-var _ = tc.Suite(&apiCallerSuite{})
-
+func TestApiCallerSuite(t *stdtesting.T) { tc.Run(t, &apiCallerSuite{}) }
 func (s *apiCallerSuite) TestNewFacadeCaller(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

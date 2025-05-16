@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -43,8 +44,7 @@ type sshContainerSuite struct {
 	sshC ssh.SSHContainerInterfaceForTest
 }
 
-var _ = tc.Suite(&sshContainerSuite{})
-
+func TestSshContainerSuite(t *stdtesting.T) { tc.Run(t, &sshContainerSuite{}) }
 func (s *sshContainerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.modelUUID = "e0453597-8109-4f7d-a58f-af08bc72a414"

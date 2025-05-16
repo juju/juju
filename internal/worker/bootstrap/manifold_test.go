@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -21,8 +22,7 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&manifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
 func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

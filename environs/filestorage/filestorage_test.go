@@ -13,7 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 
@@ -33,8 +33,7 @@ type filestorageSuite struct {
 	writer storage.StorageWriter
 }
 
-var _ = tc.Suite(&filestorageSuite{})
-
+func TestFilestorageSuite(t *stdtesting.T) { tc.Run(t, &filestorageSuite{}) }
 func (s *filestorageSuite) SetUpTest(c *tc.C) {
 	s.dir = c.MkDir()
 	var err error

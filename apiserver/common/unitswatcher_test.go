@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -18,7 +19,7 @@ import (
 
 type unitsWatcherSuite struct{}
 
-var _ = tc.Suite(&unitsWatcherSuite{})
+func TestUnitsWatcherSuite(t *stdtesting.T) { tc.Run(t, &unitsWatcherSuite{}) }
 
 type fakeUnitsWatcher struct {
 	state.UnitsWatcher

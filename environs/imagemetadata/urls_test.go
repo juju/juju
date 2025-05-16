@@ -6,6 +6,7 @@ package imagemetadata_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,8 +18,7 @@ type URLsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&URLsSuite{})
-
+func TestURLsSuite(t *stdtesting.T) { tc.Run(t, &URLsSuite{}) }
 func (s *URLsSuite) TestImageMetadataURL(c *tc.C) {
 	var imageTests = []struct {
 		in          string

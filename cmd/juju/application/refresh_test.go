@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -78,8 +79,7 @@ type RefreshSuite struct {
 	BaseRefreshSuite
 }
 
-var _ = tc.Suite(&RefreshSuite{})
-
+func TestRefreshSuite(t *stdtesting.T) { tc.Run(t, &RefreshSuite{}) }
 func (s *RefreshSuite) SetUpTest(c *tc.C) {
 	s.BaseRefreshSuite.SetUpSuite(c)
 	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@12.10"), charm.MustParseURL("ch:foo-1"), charm.MustParseURL("ch:foo-2"))
@@ -1023,8 +1023,7 @@ type RefreshCharmHubSuite struct {
 	BaseRefreshSuite
 }
 
-var _ = tc.Suite(&RefreshCharmHubSuite{})
-
+func TestRefreshCharmHubSuite(t *stdtesting.T) { tc.Run(t, &RefreshCharmHubSuite{}) }
 func (s *RefreshCharmHubSuite) SetUpTest(c *tc.C) {
 	s.BaseRefreshSuite.SetUpSuite(c)
 	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@12.10"), charm.MustParseURL("ch:foo-1"), charm.MustParseURL("ch:foo-2"))

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -27,8 +28,7 @@ type ShowUnitSuite struct {
 	mockAPI *mockShowUnitAPI
 }
 
-var _ = tc.Suite(&ShowUnitSuite{})
-
+func TestShowUnitSuite(t *stdtesting.T) { tc.Run(t, &ShowUnitSuite{}) }
 func (s *ShowUnitSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 

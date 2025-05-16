@@ -4,6 +4,8 @@
 package agent_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -19,8 +21,7 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	inputAgent := &dummyAgent{}
 	manifold := agent.Manifold(inputAgent)

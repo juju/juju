@@ -4,6 +4,8 @@
 package resource_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -15,8 +17,7 @@ type OriginSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&OriginSuite{})
-
+func TestOriginSuite(t *stdtesting.T) { tc.Run(t, &OriginSuite{}) }
 func (s *OriginSuite) TestParseOriginKnown(c *tc.C) {
 	recognized := map[string]resource.Origin{
 		"upload": resource.OriginUpload,

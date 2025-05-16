@@ -4,6 +4,7 @@
 package pinger
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -19,8 +20,7 @@ type suite struct {
 	clock *MockClock
 }
 
-var _ = tc.Suite(&suite{})
-
+func TestSuite(t *stdtesting.T) { tc.Run(t, &suite{}) }
 func (s *suite) TestPing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

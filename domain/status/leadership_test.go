@@ -6,6 +6,7 @@ package status_test
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -40,8 +41,7 @@ type leadershipSuite struct {
 	leadership *MockChecker
 }
 
-var _ = tc.Suite(&leadershipSuite{})
-
+func TestLeadershipSuite(t *stdtesting.T) { tc.Run(t, &leadershipSuite{}) }
 func (s *leadershipSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 

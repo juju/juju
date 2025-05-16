@@ -4,6 +4,8 @@
 package charmhub
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charmhub/transport"
@@ -13,8 +15,7 @@ type ErrorsSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&ErrorsSuite{})
-
+func TestErrorsSuite(t *stdtesting.T) { tc.Run(t, &ErrorsSuite{}) }
 func (s *ErrorsSuite) TestHandleBasicAPIErrors(c *tc.C) {
 	var list transport.APIErrors
 	err := handleBasicAPIErrors(c.Context(), list, s.logger)

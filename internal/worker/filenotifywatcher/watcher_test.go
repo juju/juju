@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
@@ -19,8 +20,7 @@ type watcherSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
-
+func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
 func (s *watcherSuite) TestWatching(c *tc.C) {
 	dir, err := os.MkdirTemp("", "inotify")
 	c.Assert(err, tc.ErrorIsNil)

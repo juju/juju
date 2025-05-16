@@ -5,6 +5,7 @@ package tools_test
 
 import (
 	"encoding/json"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -12,7 +13,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 )
 
-var _ = tc.Suite(&marshalSuite{})
+func TestMarshalSuite(t *stdtesting.T) { tc.Run(t, &marshalSuite{}) }
 
 type marshalSuite struct {
 	streamMetadata map[string][]*tools.ToolsMetadata

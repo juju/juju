@@ -6,6 +6,7 @@ package commands
 import (
 	"context"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/loggo/v2"
@@ -23,8 +24,7 @@ type DebugLogSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&DebugLogSuite{})
-
+func TestDebugLogSuite(t *stdtesting.T) { tc.Run(t, &DebugLogSuite{}) }
 func (s *DebugLogSuite) TestArgParsing(c *tc.C) {
 	for i, test := range []struct {
 		args     []string

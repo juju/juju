@@ -5,6 +5,7 @@ package context
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"gopkg.in/tomb.v2"
@@ -17,8 +18,7 @@ type contextSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&contextSuite{})
-
+func TestContextSuite(t *stdtesting.T) { tc.Run(t, &contextSuite{}) }
 func (s *contextSuite) TestSourceableErrorIsNilIfErrorIsNotContextError(c *tc.C) {
 	var tomb tomb.Tomb
 	tomb.Kill(errors.New("tomb error"))

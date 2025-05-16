@@ -4,7 +4,7 @@
 package resources
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/http"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

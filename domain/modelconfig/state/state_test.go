@@ -6,6 +6,7 @@ package state_test
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -18,8 +19,7 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) TestModelConfigUpdate(c *tc.C) {
 	// tests are purposefully additive in this approach.
 	tests := []struct {

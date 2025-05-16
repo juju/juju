@@ -4,7 +4,7 @@
 package objectstore
 
 import (
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -23,7 +23,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination lease_mock_test.go github.com/juju/juju/core/lease Manager
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination client_mock_test.go github.com/juju/juju/core/objectstore Client,Session
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

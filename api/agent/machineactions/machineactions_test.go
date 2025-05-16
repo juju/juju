@@ -5,6 +5,8 @@
 package machineactions_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -20,8 +22,7 @@ type ClientSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ClientSuite{})
-
+func TestClientSuite(t *stdtesting.T) { tc.Run(t, &ClientSuite{}) }
 func (s *ClientSuite) TestWatchFails(c *tc.C) {
 	tag := names.NewMachineTag("2")
 	expectErr := errors.Errorf("kuso")

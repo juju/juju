@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -26,8 +27,7 @@ type UpgradeModelSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&UpgradeModelSuite{})
-
+func TestUpgradeModelSuite(t *stdtesting.T) { tc.Run(t, &UpgradeModelSuite{}) }
 func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

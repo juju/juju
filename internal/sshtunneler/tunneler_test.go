@@ -9,6 +9,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -27,8 +28,7 @@ type sshTunnelerSuite struct {
 	clock      *MockClock
 }
 
-var _ = tc.Suite(&sshTunnelerSuite{})
-
+func TestSshTunnelerSuite(t *stdtesting.T) { tc.Run(t, &sshTunnelerSuite{}) }
 func (s *sshTunnelerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

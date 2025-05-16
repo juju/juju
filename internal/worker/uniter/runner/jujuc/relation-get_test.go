@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -22,8 +23,7 @@ type RelationGetSuite struct {
 	relationSuite
 }
 
-var _ = tc.Suite(&RelationGetSuite{})
-
+func TestRelationGetSuite(t *stdtesting.T) { tc.Run(t, &RelationGetSuite{}) }
 func (s *RelationGetSuite) newHookContext(relid int, remote string, app string) (jujuc.Context, *relationInfo) {
 	hctx, info := s.relationSuite.newHookContext(relid, remote, app)
 	info.rels[0].Units["u/0"]["private-address"] = "foo: bar\n"

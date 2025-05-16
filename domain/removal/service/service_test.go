@@ -4,6 +4,7 @@
 package service
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -18,8 +19,7 @@ type serviceSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&serviceSuite{})
-
+func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
 func (s *serviceSuite) TestGetAllJobsSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

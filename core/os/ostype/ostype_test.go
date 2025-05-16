@@ -3,12 +3,15 @@
 
 package ostype
 
-import "github.com/juju/tc"
+import (
+	stdtesting "testing"
+
+	"github.com/juju/tc"
+)
 
 type osTypeSuite struct{}
 
-var _ = tc.Suite(&osTypeSuite{})
-
+func TestOsTypeSuite(t *stdtesting.T) { tc.Run(t, &osTypeSuite{}) }
 func (s *osTypeSuite) TestEquivalentTo(c *tc.C) {
 	c.Check(Ubuntu.EquivalentTo(CentOS), tc.IsTrue)
 	c.Check(Ubuntu.EquivalentTo(GenericLinux), tc.IsTrue)

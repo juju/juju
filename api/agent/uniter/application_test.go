@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -26,8 +27,7 @@ type applicationSuite struct {
 	statusSet bool
 }
 
-var _ = tc.Suite(&applicationSuite{})
-
+func TestApplicationSuite(t *stdtesting.T) { tc.Run(t, &applicationSuite{}) }
 func (s *applicationSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.life = life.Alive

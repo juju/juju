@@ -4,6 +4,8 @@
 package oci_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	"go.uber.org/mock/gomock"
@@ -16,8 +18,7 @@ type networkingSuite struct {
 	commonSuite
 }
 
-var _ = tc.Suite(&networkingSuite{})
-
+func TestNetworkingSuite(t *stdtesting.T) { tc.Run(t, &networkingSuite{}) }
 func (s *networkingSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)
 }

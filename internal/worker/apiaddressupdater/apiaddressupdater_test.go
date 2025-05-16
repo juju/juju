@@ -4,6 +4,7 @@
 package apiaddressupdater_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -26,8 +27,7 @@ type APIAddressUpdaterSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&APIAddressUpdaterSuite{})
-
+func TestAPIAddressUpdaterSuite(t *stdtesting.T) { tc.Run(t, &APIAddressUpdaterSuite{}) }
 func (s *APIAddressUpdaterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.PatchValue(&network.AddressesForInterfaceName, func(string) ([]string, error) {
@@ -258,8 +258,7 @@ type ValidateSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ValidateSuite{})
-
+func TestValidateSuite(t *stdtesting.T) { tc.Run(t, &ValidateSuite{}) }
 func (*ValidateSuite) TestValid(c *tc.C) {
 	err := validConfig(c).Validate()
 	c.Check(err, tc.ErrorIsNil)

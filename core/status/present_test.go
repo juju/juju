@@ -4,6 +4,8 @@
 package status_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
@@ -11,8 +13,7 @@ import (
 
 type viableSuite struct{}
 
-var _ = tc.Suite(&viableSuite{})
-
+func TestViableSuite(t *stdtesting.T) { tc.Run(t, &viableSuite{}) }
 func (s *viableSuite) TestIsMachinePresent(c *tc.C) {
 	testcases := []struct {
 		name   string

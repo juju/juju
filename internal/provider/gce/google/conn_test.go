@@ -5,6 +5,7 @@ package google_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,8 +19,7 @@ type connSuite struct {
 	google.BaseSuite
 }
 
-var _ = tc.Suite(&connSuite{})
-
+func TestConnSuite(t *stdtesting.T) { tc.Run(t, &connSuite{}) }
 func (s *connSuite) TestConnect(c *tc.C) {
 	google.SetRawConn(s.Conn, nil)
 	service := &compute.Service{}

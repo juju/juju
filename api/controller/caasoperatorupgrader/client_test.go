@@ -4,6 +4,8 @@
 package caasoperatorupgrader_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -17,8 +19,7 @@ type provisionerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&provisionerSuite{})
-
+func TestProvisionerSuite(t *stdtesting.T) { tc.Run(t, &provisionerSuite{}) }
 func newClient(f basetesting.APICallerFunc) *caasoperatorupgrader.Client {
 	return caasoperatorupgrader.NewClient(basetesting.BestVersionCaller{f, 5})
 }

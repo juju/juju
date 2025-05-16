@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"sort"
 	"sync/atomic"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -29,8 +30,7 @@ type logSinkSuite struct {
 	closed int64
 }
 
-var _ = tc.Suite(&logSinkSuite{})
-
+func TestLogSinkSuite(t *stdtesting.T) { tc.Run(t, &logSinkSuite{}) }
 func (s *logSinkSuite) TestLogWithNoBatching(c *tc.C) {
 	sink, buffer := s.newLogSink(c, 1)
 	defer workertest.DirtyKill(c, sink)

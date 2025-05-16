@@ -4,6 +4,7 @@
 package secretexpire_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -33,8 +34,7 @@ type workerSuite struct {
 	expiredSecrets      chan []string
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }

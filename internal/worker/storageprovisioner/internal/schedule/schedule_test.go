@@ -4,6 +4,7 @@
 package schedule_test
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -17,8 +18,7 @@ type scheduleSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&scheduleSuite{})
-
+func TestScheduleSuite(t *stdtesting.T) { tc.Run(t, &scheduleSuite{}) }
 func (*scheduleSuite) TestNextNoEvents(c *tc.C) {
 	s := schedule.NewSchedule(testclock.NewClock(time.Time{}))
 	next := s.Next()

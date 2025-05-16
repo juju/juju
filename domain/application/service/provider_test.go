@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -45,8 +46,7 @@ type providerServiceSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&providerServiceSuite{})
-
+func TestProviderServiceSuite(t *stdtesting.T) { tc.Run(t, &providerServiceSuite{}) }
 func (s *providerServiceSuite) TestCreateApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

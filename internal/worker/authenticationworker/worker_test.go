@@ -5,6 +5,7 @@ package authenticationworker_test
 
 import (
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -29,8 +30,7 @@ type workerSuite struct {
 	existingKeys      []string
 }
 
-var _ = tc.Suite(&workerSuite{})
-
+func TestWorkerSuite(t *stdtesting.T) { tc.Run(t, &workerSuite{}) }
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Default ssh user is currently "ubuntu".

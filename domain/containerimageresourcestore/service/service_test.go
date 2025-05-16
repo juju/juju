@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -32,8 +33,9 @@ type containerImageResourceStoreSuite struct {
 	fingerprint                 resourcestore.Fingerprint
 }
 
-var _ = tc.Suite(&containerImageResourceStoreSuite{})
-
+func TestContainerImageResourceStoreSuite(t *stdtesting.T) {
+	tc.Run(t, &containerImageResourceStoreSuite{})
+}
 func (s *containerImageResourceStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

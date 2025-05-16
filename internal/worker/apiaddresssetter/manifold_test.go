@@ -5,6 +5,7 @@ package apiaddresssetter
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/testing"
@@ -23,8 +24,7 @@ type manifoldConfigSuite struct {
 	config ManifoldConfig
 }
 
-var _ = tc.Suite(&manifoldConfigSuite{})
-
+func TestManifoldConfigSuite(t *stdtesting.T) { tc.Run(t, &manifoldConfigSuite{}) }
 func (s *manifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
@@ -73,8 +73,7 @@ type manifoldSuite struct {
 	controllerConfigService *MockControllerConfigService
 }
 
-var _ = tc.Suite(&manifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &manifoldSuite{}) }
 func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

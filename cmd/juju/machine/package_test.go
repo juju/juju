@@ -5,7 +5,7 @@ package machine_test
 
 import (
 	"encoding/json"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -15,7 +15,7 @@ import (
 
 // None of the tests in this package require mongo.
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

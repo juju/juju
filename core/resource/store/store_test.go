@@ -4,6 +4,8 @@
 package store_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -16,8 +18,7 @@ type resourcesStoreSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&resourcesStoreSuite{})
-
+func TestResourcesStoreSuite(t *stdtesting.T) { tc.Run(t, &resourcesStoreSuite{}) }
 func (*resourcesStoreSuite) TestFileResourceStoreID(c *tc.C) {
 	expectedUUID := objectstoretesting.GenObjectStoreUUID(c)
 	storeID, err := store.NewFileResourceID(expectedUUID)

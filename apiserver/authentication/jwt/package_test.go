@@ -6,7 +6,7 @@ package jwt_test
 import (
 	"context"
 	"encoding/base64"
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +15,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

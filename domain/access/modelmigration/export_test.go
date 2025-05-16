@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -20,8 +21,7 @@ type exportSuite struct {
 	service     *MockExportService
 }
 
-var _ = tc.Suite(&exportSuite{})
-
+func TestExportSuite(t *stdtesting.T) { tc.Run(t, &exportSuite{}) }
 func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

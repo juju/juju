@@ -4,6 +4,7 @@
 package state
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -17,8 +18,7 @@ type stateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = tc.Suite(&stateSuite{})
-
+func TestStateSuite(t *stdtesting.T) { tc.Run(t, &stateSuite{}) }
 func (s *stateSuite) TestGetAllJobsNoRows(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 

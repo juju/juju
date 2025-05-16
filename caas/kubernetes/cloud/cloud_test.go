@@ -5,6 +5,7 @@ package cloud_test
 
 import (
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -17,8 +18,7 @@ import (
 type cloudSuite struct {
 }
 
-var _ = tc.Suite(&cloudSuite{})
-
+func TestCloudSuite(t *stdtesting.T) { tc.Run(t, &cloudSuite{}) }
 func (s *cloudSuite) TestConfigFromReader(c *tc.C) {
 	rawConf := `
 apiVersion: v1

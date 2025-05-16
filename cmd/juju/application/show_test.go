@@ -6,6 +6,7 @@ package application_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -28,8 +29,7 @@ type ShowSuite struct {
 	mockAPI *mockShowAPI
 }
 
-var _ = tc.Suite(&ShowSuite{})
-
+func TestShowSuite(t *stdtesting.T) { tc.Run(t, &ShowSuite{}) }
 func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 

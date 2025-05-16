@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -73,9 +74,7 @@ func (s *cloudSuite) setup(c *tc.C, userTag names.UserTag) *gomock.Controller {
 	})
 	return ctrl
 }
-
-var _ = tc.Suite(&cloudSuite{})
-
+func TestCloudSuite(t *stdtesting.T) { tc.Run(t, &cloudSuite{}) }
 func (s *cloudSuite) TestCloud(c *tc.C) {
 	defer s.setup(c, names.NewUserTag("admin")).Finish()
 

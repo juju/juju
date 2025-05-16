@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
@@ -17,8 +19,7 @@ type facadeVersionSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&facadeVersionSuite{})
-
+func TestFacadeVersionSuite(t *stdtesting.T) { tc.Run(t, &facadeVersionSuite{}) }
 func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *tc.C) {
 	// The client side code doesn't want to directly import the server side
 	// code just to list out what versions are available. However, we do

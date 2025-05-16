@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
@@ -20,7 +21,7 @@ type storageGetSuite struct {
 	storageSuite
 }
 
-var _ = tc.Suite(&storageGetSuite{})
+func TestStorageGetSuite(t *stdtesting.T) { tc.Run(t, &storageGetSuite{}) }
 
 var storageGetTests = []struct {
 	args   []string

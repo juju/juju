@@ -4,6 +4,8 @@
 package modelmigration
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -19,8 +21,7 @@ type exportCharmSuite struct {
 	exportSuite
 }
 
-var _ = tc.Suite(&exportCharmSuite{})
-
+func TestExportCharmSuite(t *stdtesting.T) { tc.Run(t, &exportCharmSuite{}) }
 func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

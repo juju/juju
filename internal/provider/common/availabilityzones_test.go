@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -22,8 +23,7 @@ type AvailabilityZoneSuite struct {
 	env mockZonedEnviron
 }
 
-var _ = tc.Suite(&AvailabilityZoneSuite{})
-
+func TestAvailabilityZoneSuite(t *stdtesting.T) { tc.Run(t, &AvailabilityZoneSuite{}) }
 func (s *AvailabilityZoneSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 

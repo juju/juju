@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -22,8 +23,7 @@ type RemoveStorageSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&RemoveStorageSuite{})
-
+func TestRemoveStorageSuite(t *stdtesting.T) { tc.Run(t, &RemoveStorageSuite{}) }
 func (s *RemoveStorageSuite) TestRemoveStorage(c *tc.C) {
 	fake := fakeStorageRemover{results: []params.ErrorResult{
 		{},

@@ -6,6 +6,7 @@ package diskmanager_test
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -19,7 +20,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&DiskManagerSuite{})
+func TestDiskManagerSuite(t *stdtesting.T) { tc.Run(t, &DiskManagerSuite{}) }
 
 type DiskManagerSuite struct {
 	coretesting.BaseSuite

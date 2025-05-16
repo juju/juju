@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -25,8 +26,7 @@ type bootstrapSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&bootstrapSuite{})
-
+func TestBootstrapSuite(t *stdtesting.T) { tc.Run(t, &bootstrapSuite{}) }
 func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 	mgr := &testNodeManager{c: c}
 

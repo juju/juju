@@ -4,6 +4,8 @@
 package charmhub
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -21,8 +23,7 @@ type findSuite struct {
 	charmHubAPI *mocks.MockCharmHubClient
 }
 
-var _ = tc.Suite(&findSuite{})
-
+func TestFindSuite(t *stdtesting.T) { tc.Run(t, &findSuite{}) }
 func (s *findSuite) TestInitNoArgs(c *tc.C) {
 	// You can query the find api with no arguments.
 	command := &findCommand{

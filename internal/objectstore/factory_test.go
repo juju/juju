@@ -4,6 +4,8 @@
 package objectstore
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -18,8 +20,7 @@ type objectStoreFactorySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&objectStoreFactorySuite{})
-
+func TestObjectStoreFactorySuite(t *stdtesting.T) { tc.Run(t, &objectStoreFactorySuite{}) }
 func (s *objectStoreFactorySuite) TestNewObjectStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

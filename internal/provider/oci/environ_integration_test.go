@@ -6,6 +6,7 @@ package oci_test
 import (
 	"fmt"
 	"net/http"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -29,8 +30,7 @@ type environSuite struct {
 	listInstancesResponse []ociCore.Instance
 }
 
-var _ = tc.Suite(&environSuite{})
-
+func TestEnvironSuite(t *stdtesting.T) { tc.Run(t, &environSuite{}) }
 func (s *environSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)
 	*oci.MaxPollIterations = 2

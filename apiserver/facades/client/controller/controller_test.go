@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -72,8 +73,7 @@ type controllerSuite struct {
 	mockModelService *mocks.MockModelService
 }
 
-var _ = tc.Suite(&controllerSuite{})
-
+func TestControllerSuite(t *stdtesting.T) { tc.Run(t, &controllerSuite{}) }
 func (s *controllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
@@ -1110,8 +1110,7 @@ type accessSuite struct {
 	controllerUUID string
 }
 
-var _ = tc.Suite(&accessSuite{})
-
+func TestAccessSuite(t *stdtesting.T) { tc.Run(t, &accessSuite{}) }
 func (s *accessSuite) SetUpTest(c *tc.C) {
 	// Initial config needs to be set before the StateSuite SetUpTest.
 	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{

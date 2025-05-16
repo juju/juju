@@ -5,6 +5,7 @@ package changestream
 
 import (
 	"bytes"
+	stdtesting "testing"
 	time "time"
 
 	"github.com/juju/tc"
@@ -17,8 +18,7 @@ type metricsSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&metricsSuite{})
-
+func TestMetricsSuite(t *stdtesting.T) { tc.Run(t, &metricsSuite{}) }
 func (s *metricsSuite) TestMetricsAreCollected(c *tc.C) {
 	collector := NewMetricsCollector()
 

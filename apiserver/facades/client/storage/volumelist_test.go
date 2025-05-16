@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -17,8 +19,7 @@ type volumeSuite struct {
 	baseStorageSuite
 }
 
-var _ = tc.Suite(&volumeSuite{})
-
+func TestVolumeSuite(t *stdtesting.T) { tc.Run(t, &volumeSuite{}) }
 func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 	return params.VolumeDetails{
 		VolumeTag: s.volumeTag.String(),

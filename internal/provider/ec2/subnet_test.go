@@ -4,6 +4,8 @@
 package ec2_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/tc"
@@ -13,7 +15,7 @@ import (
 
 type subnetMatcherSuite struct{}
 
-var _ = tc.Suite(&subnetMatcherSuite{})
+func TestSubnetMatcherSuite(t *stdtesting.T) { tc.Run(t, &subnetMatcherSuite{}) }
 
 var cannedSubnets = []types.Subnet{{
 	SubnetId:                aws.String("subnet-1234abcd"),

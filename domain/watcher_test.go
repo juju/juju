@@ -6,6 +6,7 @@ package domain
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -27,8 +28,7 @@ type watcherSuite struct {
 	events *MockEventSource
 }
 
-var _ = tc.Suite(&watcherSuite{})
-
+func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
 func (*watcherSuite) TestNewUUIDsWatcherFail(c *tc.C) {
 	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
 		return nil, errors.New("fail getting db instance")

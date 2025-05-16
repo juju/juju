@@ -4,6 +4,8 @@
 package hook_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm/hooks"
@@ -15,7 +17,7 @@ type InfoSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&InfoSuite{})
+func TestInfoSuite(t *stdtesting.T) { tc.Run(t, &InfoSuite{}) }
 
 var validateTests = []struct {
 	info hook.Info

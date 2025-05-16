@@ -4,6 +4,8 @@
 package subnets
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -31,8 +33,7 @@ type SubnetsSuite struct {
 	facade *API
 }
 
-var _ = tc.Suite(&SubnetsSuite{})
-
+func TestSubnetsSuite(t *stdtesting.T) { tc.Run(t, &SubnetsSuite{}) }
 func (s *SubnetsSuite) TestAuthDenied(c *tc.C) {
 	_, err := newAPI(facadetest.ModelContext{
 		Auth_: apiservertesting.FakeAuthorizer{

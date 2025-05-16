@@ -7,6 +7,7 @@ import (
 	"context"
 	"slices"
 	"strings"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/transform"
@@ -54,8 +55,7 @@ type serviceSuite struct {
 	changestreamtesting.ControllerSuite
 }
 
-var _ = tc.Suite(&serviceSuite{})
-
+func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	var err error
 	s.userUUID = usertesting.GenUserUUID(c)

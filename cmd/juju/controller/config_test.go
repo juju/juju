@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -22,8 +23,7 @@ type ConfigSuite struct {
 	baseControllerSuite
 }
 
-var _ = tc.Suite(&ConfigSuite{})
-
+func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
 func (s *ConfigSuite) SetUpTest(c *tc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 	s.createTestClientStore(c)

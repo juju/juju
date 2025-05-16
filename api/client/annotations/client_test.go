@@ -5,6 +5,7 @@ package annotations_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
@@ -17,8 +18,7 @@ import (
 
 type annotationsMockSuite struct{}
 
-var _ = tc.Suite(&annotationsMockSuite{})
-
+func TestAnnotationsMockSuite(t *stdtesting.T) { tc.Run(t, &annotationsMockSuite{}) }
 func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

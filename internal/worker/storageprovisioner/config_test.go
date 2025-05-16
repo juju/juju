@@ -4,6 +4,8 @@
 package storageprovisioner_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -24,8 +26,7 @@ type ConfigSuite struct {
 	config storageprovisioner.Config
 }
 
-var _ = tc.Suite(&ConfigSuite{})
-
+func TestConfigSuite(t *stdtesting.T) { tc.Run(t, &ConfigSuite{}) }
 func (s *ConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = validEnvironConfig()

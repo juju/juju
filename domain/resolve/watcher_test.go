@@ -6,6 +6,7 @@ package resolve_test
 import (
 	"context"
 	"database/sql"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -34,8 +35,7 @@ type watcherSuite struct {
 	changestreamtesting.ModelSuite
 }
 
-var _ = tc.Suite(&watcherSuite{})
-
+func TestWatcherSuite(t *stdtesting.T) { tc.Run(t, &watcherSuite{}) }
 func (s *watcherSuite) TestWatchUnitResolveModeNotFound(c *tc.C) {
 	svc := s.setupService(c)
 

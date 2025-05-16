@@ -3,14 +3,17 @@
 
 package action_test
 
-import "github.com/juju/tc"
+import (
+	stdtesting "testing"
+
+	"github.com/juju/tc"
+)
 
 type operationSuite struct {
 	baseSuite
 }
 
-var _ = tc.Suite(&operationSuite{})
-
+func TestOperationSuite(t *stdtesting.T) { tc.Run(t, &operationSuite{}) }
 func (s *operationSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - ListOperations querying by status.

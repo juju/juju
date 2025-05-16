@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	stdtesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
@@ -22,8 +23,7 @@ type APIContextSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = tc.Suite(&APIContextSuite{})
-
+func TestAPIContextSuite(t *stdtesting.T) { tc.Run(t, &APIContextSuite{}) }
 func (s *APIContextSuite) TestNewAPIContext(c *tc.C) {
 	store := jujuclient.NewFileClientStore()
 

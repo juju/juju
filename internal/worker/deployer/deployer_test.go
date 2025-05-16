@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -32,8 +33,7 @@ type deployerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&deployerSuite{})
-
+func TestDeployerSuite(t *stdtesting.T) { tc.Run(t, &deployerSuite{}) }
 func (s *deployerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	loggo.GetLogger("test.deployer").SetLogLevel(loggo.TRACE)

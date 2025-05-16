@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
@@ -13,8 +15,7 @@ import (
 
 type machineSuite struct{}
 
-var _ = tc.Suite(&machineSuite{})
-
+func TestMachineSuite(t *stdtesting.T) { tc.Run(t, &machineSuite{}) }
 func (s *machineSuite) TestMachineJobFromParams(c *tc.C) {
 	var tests = []struct {
 		name model.MachineJob

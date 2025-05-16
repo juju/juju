@@ -4,6 +4,8 @@
 package machineundertaker_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -22,8 +24,7 @@ type undertakerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(&undertakerSuite{})
-
+func TestUndertakerSuite(t *stdtesting.T) { tc.Run(t, &undertakerSuite{}) }
 func (s *undertakerSuite) TestRequiresModelConnection(c *tc.C) {
 	api, err := machineundertaker.NewAPI(&fakeAPICaller{hasModelTag: false}, nil)
 	c.Assert(err, tc.ErrorMatches, "machine undertaker client requires a model API connection")

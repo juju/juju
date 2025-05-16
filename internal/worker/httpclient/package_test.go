@@ -4,7 +4,7 @@
 package httpclient
 
 import (
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
@@ -20,7 +20,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package httpclient -destination http_mock_test.go github.com/juju/juju/core/http HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package httpclient -destination httpclient_mock_test.go github.com/juju/juju/internal/worker/httpclient HTTPClientWorker
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 
 	tc.TestingT(t)

@@ -5,6 +5,7 @@ package cloudspec_test
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,7 +18,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(&CloudSpecSuite{})
+func TestCloudSpecSuite(t *stdtesting.T) { tc.Run(t, &CloudSpecSuite{}) }
 
 type CloudSpecSuite struct {
 	testhelpers.IsolationSuite

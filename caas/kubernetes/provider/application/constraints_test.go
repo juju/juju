@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
@@ -19,8 +20,7 @@ type applyConstraintsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = tc.Suite(&applyConstraintsSuite{})
-
+func TestApplyConstraintsSuite(t *stdtesting.T) { tc.Run(t, &applyConstraintsSuite{}) }
 func (s *applyConstraintsSuite) TestMemory(c *tc.C) {
 	pod := &corev1.PodSpec{}
 	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {

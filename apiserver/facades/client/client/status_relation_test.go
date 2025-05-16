@@ -5,6 +5,7 @@ package client
 
 import (
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,8 +25,7 @@ type relationStatusSuite struct {
 	statusService   *MockStatusService
 }
 
-var _ = tc.Suite(&relationStatusSuite{})
-
+func TestRelationStatusSuite(t *stdtesting.T) { tc.Run(t, &relationStatusSuite{}) }
 func (s *relationStatusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	logger = loggertesting.WrapCheckLog(c)

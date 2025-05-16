@@ -5,6 +5,7 @@ package fortress_test
 
 import (
 	"context"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,8 +22,7 @@ type OccupySuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&OccupySuite{})
-
+func TestOccupySuite(t *stdtesting.T) { tc.Run(t, &OccupySuite{}) }
 func (*OccupySuite) TestAbort(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)

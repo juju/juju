@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -28,8 +29,7 @@ type MachineWatcherSuite struct {
 	watcherRegistry        facade.WatcherRegistry
 }
 
-var _ = tc.Suite(&MachineWatcherSuite{})
-
+func TestMachineWatcherSuite(t *stdtesting.T) { tc.Run(t, &MachineWatcherSuite{}) }
 func (s *MachineWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	var err error
 	ctrl := gomock.NewController(c)

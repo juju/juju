@@ -4,7 +4,7 @@
 package controlleragentconfig
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }
 

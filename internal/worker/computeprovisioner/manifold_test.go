@@ -4,6 +4,8 @@
 package computeprovisioner_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
@@ -24,8 +26,7 @@ type ManifoldSuite struct {
 	stub testhelpers.Stub
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (s *ManifoldSuite) makeManifold(c *tc.C) dependency.Manifold {
 	fakeNewProvFunc := func(computeprovisioner.ControllerAPI, computeprovisioner.MachineService, computeprovisioner.MachinesAPI, computeprovisioner.ToolsFinder,
 		computeprovisioner.DistributionGroupFinder, agent.Config, logger.Logger, computeprovisioner.Environ,

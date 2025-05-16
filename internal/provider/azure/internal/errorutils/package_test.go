@@ -4,13 +4,13 @@
 package errorutils_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package errorutils_test -destination environs_mock_test.go github.com/juju/juju/environs CredentialInvalidator
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	tc.TestingT(t)
 }

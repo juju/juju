@@ -5,6 +5,7 @@ package user_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
@@ -17,8 +18,7 @@ type RemoveUserCommandSuite struct {
 	mockAPI *mockRemoveUserAPI
 }
 
-var _ = tc.Suite(&RemoveUserCommandSuite{})
-
+func TestRemoveUserCommandSuite(t *stdtesting.T) { tc.Run(t, &RemoveUserCommandSuite{}) }
 func (s *RemoveUserCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockRemoveUserAPI{}

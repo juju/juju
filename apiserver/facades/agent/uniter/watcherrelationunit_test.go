@@ -8,6 +8,7 @@ import (
 	"errors"
 	"maps"
 	"slices"
+	stdtesting "testing"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
@@ -40,8 +41,9 @@ type watcherrelationunitSuite struct {
 	uniter *UniterAPI
 }
 
-var _ = tc.Suite(&watcherrelationunitSuite{})
-
+func TestWatcherrelationunitSuite(t *stdtesting.T) {
+	tc.Run(t, &watcherrelationunitSuite{})
+}
 func (s *watcherrelationunitSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

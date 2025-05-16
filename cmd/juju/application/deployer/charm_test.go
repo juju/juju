@@ -6,6 +6,7 @@ package deployer
 import (
 	"bytes"
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -42,8 +43,7 @@ type charmSuite struct {
 	url               *charm.URL
 }
 
-var _ = tc.Suite(&charmSuite{})
-
+func TestCharmSuite(t *stdtesting.T) { tc.Run(t, &charmSuite{}) }
 func (s *charmSuite) SetUpTest(c *tc.C) {
 	s.ctx = cmdtesting.Context(c)
 	s.deployResourceIDs = make(map[string]string)

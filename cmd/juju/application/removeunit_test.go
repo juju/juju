@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"bytes"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -35,8 +36,7 @@ type RemoveUnitSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = tc.Suite(&RemoveUnitSuite{})
-
+func TestRemoveUnitSuite(t *stdtesting.T) { tc.Run(t, &RemoveUnitSuite{}) }
 func (s *RemoveUnitSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclienttesting.MinimalStore()

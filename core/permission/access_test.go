@@ -4,6 +4,8 @@
 package permission_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -13,8 +15,7 @@ import (
 
 type accessSuite struct{}
 
-var _ = tc.Suite(&accessSuite{})
-
+func TestAccessSuite(t *stdtesting.T) { tc.Run(t, &accessSuite{}) }
 func (*accessSuite) TestEqualOrGreaterModelAccessThan(c *tc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (

@@ -4,6 +4,7 @@
 package service
 
 import (
+	stdtesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -24,7 +25,7 @@ type rootKeyServiceSuite struct {
 	clock macaroon.Clock
 }
 
-var _ = tc.Suite(&rootKeyServiceSuite{})
+func TestRootKeyServiceSuite(t *stdtesting.T) { tc.Run(t, &rootKeyServiceSuite{}) }
 
 var moment = time.Now()
 

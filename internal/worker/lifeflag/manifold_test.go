@@ -5,6 +5,7 @@ package lifeflag_test
 
 import (
 	"context"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,8 +26,7 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
-var _ = tc.Suite(&ManifoldSuite{})
-
+func TestManifoldSuite(t *stdtesting.T) { tc.Run(t, &ManifoldSuite{}) }
 func (*ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
 		APICallerName: "boris",

@@ -4,7 +4,7 @@
 package openstack_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 )
@@ -13,6 +13,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package openstack -destination cloud_mock_test.go github.com/juju/juju/internal/cloudconfig/cloudinit NetworkingConfig
 //go:generate go run go.uber.org/mock/mockgen -typed -package openstack -destination goose_mock_test.go github.com/go-goose/goose/v5/client AuthenticatingClient
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	tc.TestingT(t)
 }
