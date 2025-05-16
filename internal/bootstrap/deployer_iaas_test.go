@@ -114,6 +114,7 @@ func (s *deployerIAASSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *deployerIAASSuite) newConfig(c *tc.C) IAASDeployerConfig {
 	return IAASDeployerConfig{
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
+		ApplicationService: s.iaasApplicationService,
 		MachineGetter:      s.machineGetter,
 	}
 }

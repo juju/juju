@@ -161,7 +161,6 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		DataDir:              cfg.DataDir,
 		ObjectStore:          cfg.ObjectStore,
 		AgentPasswordService: cfg.AgentPasswordService,
-		ApplicationService:   cfg.ApplicationService,
 		ModelConfigService:   cfg.ModelConfigService,
 		Constraints:          cfg.BootstrapMachineConstraints,
 		ControllerConfig:     cfg.ControllerConfig,

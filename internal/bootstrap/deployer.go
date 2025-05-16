@@ -21,16 +21,14 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
@@ -76,8 +74,11 @@ type ControllerCharmDeployer interface {
 	// DeployCharmhubCharm deploys the controller charm from charm hub.
 	DeployCharmhubCharm(context.Context, string, corebase.Base) (DeployCharmInfo, error)
 
-	// AddControllerApplication adds the controller application.
-	AddControllerApplication(context.Context, DeployCharmInfo, string) (coreunit.Name, error)
+	// AddIAASControllerApplication adds the controller application.
+	AddIAASControllerApplication(context.Context, DeployCharmInfo, string) (coreunit.Name, error)
+
+	// AddCAASControllerApplication adds the controller application.
+	AddCAASControllerApplication(context.Context, DeployCharmInfo, string) (coreunit.Name, error)
 
 	// ControllerAddress returns the address of the controller that should be
 	// used.
@@ -169,9 +170,6 @@ func (c BaseDeployerConfig) Validate() error {
 	if c.DataDir == "" {
 		return errors.Errorf("DataDir").Add(coreerrors.NotValid)
 	}
-	if c.ApplicationService == nil {
-		return errors.Errorf("ApplicationService").Add(coreerrors.NotValid)
-	}
 	if c.AgentPasswordService == nil {
 		return errors.Errorf("AgentPasswordService").Add(coreerrors.NotValid)
 	}
@@ -222,8 +220,8 @@ type baseDeployer struct {
 func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 	return baseDeployer{
 		dataDir:             config.DataDir,
-		passwordService:     config.AgentPasswordService,
 		applicationService:  config.ApplicationService,
+		passwordService:     config.AgentPasswordService,
 		modelConfigService:  config.ModelConfigService,
 		objectStore:         config.ObjectStore,
 		constraints:         config.Constraints,
@@ -401,76 +399,6 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 	}, nil
 }
 
-// AddControllerApplication adds the controller application.
-func (b *baseDeployer) AddControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) (coreunit.Name, error) {
-	if err := info.Validate(); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	origin := *info.Origin
-
-	cfg := charm.Settings{
-		"is-juju": true,
-	}
-	cfg["identity-provider-url"] = b.controllerConfig.IdentityURL()
-
-	// Attempt to set the controller URL on to the controller charm config.
-	addr := b.controllerConfig.PublicDNSAddress()
-	if addr == "" {
-		addr = controllerAddress
-	}
-	if addr != "" {
-		cfg["controller-url"] = api.ControllerAPIURL(addr, b.controllerConfig.APIPort())
-	}
-
-	// DownloadInfo is not required for local charms, so we only set it if
-	// it's not nil.
-	if info.URL.Schema == charm.Local.String() && info.DownloadInfo != nil {
-		return "", errors.New("download info should not be set for local charms")
-	}
-
-	var downloadInfo *applicationcharm.DownloadInfo
-	if info.DownloadInfo != nil {
-		downloadInfo = &applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceBootstrap,
-			CharmhubIdentifier: info.DownloadInfo.CharmhubIdentifier,
-			DownloadURL:        info.DownloadInfo.DownloadURL,
-			DownloadSize:       info.DownloadInfo.DownloadSize,
-		}
-	}
-	_, err := b.applicationService.CreateApplication(ctx,
-		bootstrap.ControllerApplicationName,
-		info.Charm,
-		origin,
-		applicationservice.AddApplicationArgs{
-			ReferenceName:        bootstrap.ControllerCharmName,
-			CharmStoragePath:     info.ArchivePath,
-			CharmObjectStoreUUID: info.ObjectStoreUUID,
-			DownloadInfo:         downloadInfo,
-			ApplicationSettings: domainapplication.ApplicationSettings{
-				Trust: true,
-			},
-			ApplicationStatus: &status.StatusInfo{
-				Status: status.Unset,
-				Since:  ptr(b.clock.Now()),
-			},
-		},
-		applicationservice.AddUnitArg{},
-	)
-	if err != nil {
-		return "", errors.Errorf("creating controller application: %w", err)
-	}
-
-	// We can deduce that the unit name must be controller/0 since we're
-	// currently bootstrapping the controller, so this unit is the first unit
-	// to be created.
-	unitName, err := coreunit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
-	if err != nil {
-		return "", errors.Errorf("creating unit name %q: %w", bootstrap.ControllerApplicationName, err)
-	}
-	return unitName, nil
-}
-
 func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64) (string, string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -489,6 +417,23 @@ func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64
 	sha256 := hex.EncodeToString(hasher256.Sum(nil))
 	sha384 := hex.EncodeToString(hasher384.Sum(nil))
 	return sha256, sha384, nil
+}
+
+func (b *baseDeployer) createCharmSettings(controllerAddress string) (config.ConfigAttributes, error) {
+	cfg := config.ConfigAttributes{
+		"is-juju": true,
+	}
+	cfg["identity-provider-url"] = b.controllerConfig.IdentityURL()
+
+	// Attempt to set the controller URL on to the controller charm config.
+	addr := b.controllerConfig.PublicDNSAddress()
+	if addr == "" {
+		addr = controllerAddress
+	}
+	if addr != "" {
+		cfg["controller-url"] = api.ControllerAPIURL(addr, b.controllerConfig.APIPort())
+	}
+	return cfg, nil
 }
 
 func ptr[T any](v T) *T {
