@@ -230,6 +230,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		pool,
 		authorizer,
 		resources,
+		ctx.ModelUUID(),
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),
@@ -1105,9 +1106,10 @@ type accessSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	accessService  *mocks.MockControllerAccessService
-	modelService   *mocks.MockModelService
-	controllerUUID string
+	accessService       *mocks.MockControllerAccessService
+	modelService        *mocks.MockModelService
+	controllerModelUUID model.UUID
+	controllerUUID      string
 }
 
 var _ = tc.Suite(&accessSuite{})
@@ -1148,6 +1150,7 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		s.StatePool,
 		s.authorizer,
 		s.resources,
+		s.controllerModelUUID,
 		loggertesting.WrapCheckLog(c),
 		nil,
 		nil,

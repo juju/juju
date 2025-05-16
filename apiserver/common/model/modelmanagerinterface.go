@@ -97,6 +97,11 @@ type StatusService interface {
 	// The following error types can be expected to be returned:
 	// - [modelerrors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
+
+	// GetModelStatus returns the current status of the model.
+	// The following error types can be expected to be returned:
+	// - [modelerrors.NotFound]: When the model does not exist.
+	GetModelStatus(context.Context) (domainstatus.ModelStatus, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

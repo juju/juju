@@ -18,7 +18,6 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
-	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -765,54 +764,4 @@ func (s *Service) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInf
 	defer span.End()
 
 	return s.st.GetModelStatusInfo(ctx)
-}
-
-// GetStatus returns the current status of the model.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.NotFound]: When the model does not exist.
-func (s *Service) GetStatus(ctx context.Context) (domainmodel.StatusInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	modelState, err := s.controllerState.GetModelState(ctx, s.modelUUID)
-	if err != nil {
-		return domainmodel.StatusInfo{}, errors.Capture(err)
-	}
-	return s.statusFromModelState(ctx, modelState), nil
-}
-
-// statusFromModelState is responsible for converting the a [model.ModelState]
-// into a model status representation.
-func (s *Service) statusFromModelState(
-	ctx context.Context,
-	statusState status.ModelState,
-) domainmodel.StatusInfo {
-	now := s.clock.Now()
-	if statusState.HasInvalidCloudCredential {
-		return domainmodel.StatusInfo{
-			Status:  corestatus.Suspended,
-			Message: "suspended since cloud credential is not valid",
-			Reason:  statusState.InvalidCloudCredentialReason,
-			Since:   now,
-		}
-	}
-	if statusState.Destroying {
-		return domainmodel.StatusInfo{
-			Status:  corestatus.Destroying,
-			Message: "the model is being destroyed",
-			Since:   now,
-		}
-	}
-	if statusState.Migrating {
-		return domainmodel.StatusInfo{
-			Status:  corestatus.Busy,
-			Message: "the model is being migrated",
-			Since:   now,
-		}
-	}
-
-	return domainmodel.StatusInfo{
-		Status: corestatus.Available,
-		Since:  now,
-	}
 }
