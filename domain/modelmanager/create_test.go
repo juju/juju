@@ -101,8 +101,6 @@ func (*createTypesSuite) TestCreationArgsAllSet(c *tc.C) {
 // [CreationArgs] struct is invalid the caller gets back an error that
 // satisfies [coreerrors.NotValid].
 func (*createTypesSuite) TestCreationArgsValidationError(c *tc.C) {
-	userUUID := usertesting.GenUserUUID(c)
-
 	tests := []struct {
 		Args CreationArgs
 		Name string
@@ -114,7 +112,7 @@ func (*createTypesSuite) TestCreationArgsValidationError(c *tc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "",
-				Owner:       userUUID,
+				Owner:       usertesting.GenUserUUID(c),
 			},
 		},
 		// Owner uuid cannot be zero value.
@@ -134,7 +132,7 @@ func (*createTypesSuite) TestCreationArgsValidationError(c *tc.C) {
 				Cloud:       "",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
-				Owner:       userUUID,
+				Owner:       usertesting.GenUserUUID(c),
 			},
 		},
 		// Testing that credential is a valid credential key
@@ -147,12 +145,14 @@ func (*createTypesSuite) TestCreationArgsValidationError(c *tc.C) {
 					Owner: usertesting.GenNewName(c, "wallyworld"),
 				},
 				Name:  "my-awesome-model",
-				Owner: userUUID,
+				Owner: usertesting.GenUserUUID(c),
 			},
 		},
 	}
 
 	for _, test := range tests {
-		c.Check(test.Args.Validate(), tc.ErrorIs, coreerrors.NotValid)
+		c.Run(test.Name, func(t *testing.T) {
+			tc.Check(t, test.Args.Validate(), tc.ErrorIs, coreerrors.NotValid)
+		})
 	}
 }
