@@ -11,6 +11,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -244,6 +245,9 @@ func (s *Service) CheckModelExists(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
 ) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := modelUUID.Validate(); err != nil {
 		return false, errors.Errorf("validating model uuid: %w", err)
 	}
@@ -281,6 +285,9 @@ func (s *Service) CreateModel(
 	ctx context.Context,
 	args modelmanager.CreationArgs,
 ) (coremodel.UUID, ModelActivatorFunc, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	modelUUID, err := coremodel.NewUUID()
 	if err != nil {
 		return "", nil, errors.Errorf(
@@ -328,6 +335,9 @@ func (s *Service) createModel(
 	modelUUID coremodel.UUID,
 	args modelmanager.CreationArgs,
 ) (ModelActivatorFunc, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := args.Validate(); err != nil {
 		return nil, errors.Errorf(
 			"validating model creationg arguments: %w", err,
@@ -402,6 +412,9 @@ func (s *Service) createModel(
 // The following errors can be expected:
 // - [modelerrors.NotFound] when no controller model exists.
 func (s *Service) GetControllerModelUUID(ctx context.Context) (coremodel.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.GetControllerModelUUID(ctx)
 }
 
@@ -418,6 +431,9 @@ func (s *Service) GetControllerModelUUID(ctx context.Context) (coremodel.UUID, e
 func (s *Service) GetDefaultModelCloudInfo(
 	ctx context.Context,
 ) (string, string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	ctrlUUID, err := s.st.GetControllerModelUUID(ctx)
 	if errors.Is(err, modelerrors.NotFound) {
 		return "", "", errors.New(
@@ -458,6 +474,9 @@ func (s *Service) GetModelUUIDForNameAndOwner(
 	modelName string,
 	ownerName coreuser.Name,
 ) (coremodel.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if ownerName.IsZero() {
 		return "", errors.New("owner name is required").Add(coreerrors.NotValid)
 	}
@@ -544,6 +563,9 @@ func (s *Service) ImportModel(
 	ctx context.Context,
 	args modelmanager.ImportArgs,
 ) (ModelActivatorFunc, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := args.UUID.Validate(); err != nil {
 		return nil, errors.Errorf("validating model uuid: %w", err)
 	}
@@ -554,6 +576,9 @@ func (s *Service) ImportModel(
 // ListModelUUIDs returns a list of all model UUIDs in the controller that are
 // active. If no models exist a zero value slice is returned.
 func (s *Service) ListModelUUIDs(ctx context.Context) ([]coremodel.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.ListModelUUIDs(ctx)
 }
 
@@ -569,6 +594,9 @@ func (s *Service) ListModelUUIDsForUser(
 	ctx context.Context,
 	userUUID coreuser.UUID,
 ) ([]coremodel.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := userUUID.Validate(); err != nil {
 		return nil, errors.Errorf("validating user uuid: %w", err)
 	}
@@ -593,6 +621,9 @@ func (s *Service) RemoveNonActivatedModel(
 	modelUUID coremodel.UUID,
 	opts ...modelmanager.RemoveModelOption,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := modelUUID.Validate(); err != nil {
 		return errors.Errorf("validating model uuid: %w", err)
 	}
@@ -632,6 +663,9 @@ func (s *Service) RemoveNonActivatedModel(
 func (s *WatchableService) WatchActivatedModels(
 	ctx context.Context,
 ) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	mapper := getWatchActivatedModelsMapper(s.st)
 	tableName, stmt := s.st.InitialWatchActivatedModelsStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
