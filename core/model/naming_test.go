@@ -83,8 +83,7 @@ func (*NameSuite) TestInvalidModelNames(c *tc.C) {
 
 	for _, invalidName := range invalidModelNames {
 		c.Run(invalidName, func(t *testing.T) {
-			c := &tc.C{T: t}
-			c.Check(model.IsValidModelName(invalidName), tc.IsFalse)
+			tc.Check(t, model.IsValidModelName(invalidName), tc.IsFalse)
 		})
 	}
 }
@@ -103,8 +102,7 @@ func (*NameSuite) TestValidModelNames(c *tc.C) {
 
 	for _, validName := range validModelNames {
 		c.Run(validName, func(t *testing.T) {
-			c := &tc.C{T: t}
-			c.Check(model.IsValidModelName(validName), tc.IsTrue)
+			tc.Check(t, model.IsValidModelName(validName), tc.IsTrue)
 		})
 	}
 }
