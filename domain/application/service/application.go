@@ -59,6 +59,9 @@ type ApplicationState interface {
 	// GetModelType returns the model type for the underlying model. If the
 	// model does not exist then an error satisfying [modelerrors.NotFound] will
 	// be returned.
+	// Deprecated: This method will be removed, as there should be no need to
+	// determine the model type from the state or service. That's an artifact of
+	// the caller to call the correct methods.
 	GetModelType(context.Context) (coremodel.ModelType, error)
 
 	// StorageDefaults returns the default storage sources for a model.

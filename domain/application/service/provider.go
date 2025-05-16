@@ -84,34 +84,6 @@ func NewProviderService(
 	}
 }
 
-func (s *Service) poolStorageProvider(
-	ctx context.Context,
-	registry storage.ProviderRegistry,
-	poolNameOrType string,
-) (storage.Provider, error) {
-	pool, err := s.st.GetStoragePoolByName(ctx, poolNameOrType)
-	if errors.Is(err, storageerrors.PoolNotFoundError) {
-		// If there's no pool called poolNameOrType, maybe a provider type
-		// has been specified directly.
-		providerType := storage.ProviderType(poolNameOrType)
-		aProvider, registryErr := registry.StorageProvider(providerType)
-		if registryErr != nil {
-			// The name can't be resolved as a storage provider type,
-			// so return the original "pool not found" error.
-			return nil, errors.Capture(err)
-		}
-		return aProvider, nil
-	} else if err != nil {
-		return nil, errors.Capture(err)
-	}
-	providerType := storage.ProviderType(pool.Provider)
-	aProvider, err := registry.StorageProvider(providerType)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return aProvider, nil
-}
-
 // CreateApplication creates the specified application and units if required,
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
@@ -556,4 +528,32 @@ func (s *ProviderService) validateConstraints(ctx context.Context, cons corecons
 	}
 
 	return nil
+}
+
+func (s *Service) poolStorageProvider(
+	ctx context.Context,
+	registry storage.ProviderRegistry,
+	poolNameOrType string,
+) (storage.Provider, error) {
+	pool, err := s.st.GetStoragePoolByName(ctx, poolNameOrType)
+	if errors.Is(err, storageerrors.PoolNotFoundError) {
+		// If there's no pool called poolNameOrType, maybe a provider type
+		// has been specified directly.
+		providerType := storage.ProviderType(poolNameOrType)
+		aProvider, registryErr := registry.StorageProvider(providerType)
+		if registryErr != nil {
+			// The name can't be resolved as a storage provider type,
+			// so return the original "pool not found" error.
+			return nil, errors.Capture(err)
+		}
+		return aProvider, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+	providerType := storage.ProviderType(pool.Provider)
+	aProvider, err := registry.StorageProvider(providerType)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return aProvider, nil
 }
