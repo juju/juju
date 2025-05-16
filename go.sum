@@ -162,8 +162,8 @@ github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8 h1:zGaJEJI9qPVy
 github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8/go.mod h1:ZZFeR9K9iGgpwOaLYF9PdT44/+lfSJ9sQz3B+SsGsYU=
 github.com/canonical/lxd v0.0.0-20241209155119-76da976c6ee7 h1:D+lFLV2E9um9NcknxFVBzboPSXpxJDEXspBbHMs4KxQ=
 github.com/canonical/lxd v0.0.0-20241209155119-76da976c6ee7/go.mod h1:RJwBW5w8gxwp7W4+tZJDDKp3uA5vB1W9f4qveoWA59U=
-github.com/canonical/pebble v1.19.0 h1:eY6MwsR93pDqS2XwvGsxZGg4hcaAtS3ZkHh/t5oSbmw=
-github.com/canonical/pebble v1.19.0/go.mod h1:fPtK3xrfuiRQBKSzfm3iBfdmIxlD/nup8yS1FVS8ZKQ=
+github.com/canonical/pebble v1.19.1 h1:9QzX58/KU03w7WtJevNi1Bnq+LQPHhgGqn76I3Fhvq0=
+github.com/canonical/pebble v1.19.1/go.mod h1:fPtK3xrfuiRQBKSzfm3iBfdmIxlD/nup8yS1FVS8ZKQ=
 github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b h1:Da2fardddn+JDlVEYtrzBLTtyzoyU3nIS0Cf0GvjmwU=
 github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b/go.mod h1:upTK9n6rlqITN9rCN69hdreI37dRDFUk2thlGGD5Cg8=
 github.com/cenkalti/backoff/v3 v3.0.0 h1:ske+9nBpD9qZsTBoF41nW5L+AIuFBKMeze18XQ3eG1c=
