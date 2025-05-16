@@ -13,12 +13,15 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/objectstore"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -44,6 +47,13 @@ type ApplicationService interface {
 	GetUnitLife(context.Context, coreunit.Name) (life.Value, error)
 	EnsureUnitDead(context.Context, coreunit.Name, leadership.Revoker) error
 	RemoveUnit(context.Context, coreunit.Name, leadership.Revoker) error
+
+	// WatchUnitInsertDeleteOnMachine returns a watcher that observes changes to the
+	// units on a specified machine, emitting the names of the units. That is, we
+	// emit unit names only when a unit is create or deleted on the specified machine.
+	// The following errors may be returned:
+	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	WatchUnitInsertDeleteOnMachine(context.Context, machine.Name) (watcher.StringsWatcher, error)
 }
 
 type StatusService interface {
@@ -60,7 +70,6 @@ type StatusService interface {
 type DeployerAPI struct {
 	*common.PasswordChanger
 	*common.APIAddresser
-	*common.UnitsWatcher
 	unitStatusSetter *common.UnitStatusSetter
 
 	canRead  func(tag names.Tag) bool
@@ -70,10 +79,12 @@ type DeployerAPI struct {
 	applicationService     ApplicationService
 	leadershipRevoker      leadership.Revoker
 
-	store      objectstore.ObjectStore
-	st         *state.State
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	store           objectstore.ObjectStore
+	st              *state.State
+	resources       facade.Resources
+	authorizer      facade.Authorizer
+	getCanWatch     common.GetAuthFunc
+	watcherRegistry facade.WatcherRegistry
 }
 
 // NewDeployerAPI creates a new server-side DeployerAPI facade.
@@ -87,6 +98,7 @@ func NewDeployerAPI(
 	store objectstore.ObjectStore,
 	resources facade.Resources,
 	leadershipRevoker leadership.Revoker,
+	watcherRegistry facade.WatcherRegistry,
 	systemState *state.State,
 	clock clock.Clock,
 ) (*DeployerAPI, error) {
@@ -120,7 +132,6 @@ func NewDeployerAPI(
 	return &DeployerAPI{
 		PasswordChanger:        common.NewPasswordChanger(agentPasswordService, st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),
-		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
 		unitStatusSetter:       common.NewUnitStatusSetter(statusService, clock, getAuthFunc),
 		controllerConfigGetter: controllerConfigGetter,
 		applicationService:     applicationService,
@@ -131,6 +142,56 @@ func NewDeployerAPI(
 		st:                     st,
 		resources:              resources,
 		authorizer:             authorizer,
+		getCanWatch:            getCanWatch,
+		watcherRegistry:        watcherRegistry,
+	}, nil
+}
+
+func (d *DeployerAPI) WatchUnits(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+
+	canWatch, err := d.getCanWatch(ctx)
+	if err != nil {
+		return params.StringsWatchResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		entityResult, err := d.watchOneUnit(ctx, canWatch, machineTag)
+		result.Results[i] = entityResult
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+func (s *DeployerAPI) watchOneUnit(ctx context.Context, canWatch common.AuthFunc, machineTag names.MachineTag) (params.StringsWatchResult, error) {
+	if !canWatch(machineTag) {
+		return params.StringsWatchResult{}, apiservererrors.ErrPerm
+	}
+
+	machineName := machine.Name(machineTag.Id())
+	watcher, err := s.applicationService.WatchUnitInsertDeleteOnMachine(ctx, machineName)
+	if errors.Is(err, applicationerrors.MachineNotFound) {
+		return params.StringsWatchResult{}, errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
+		return params.StringsWatchResult{}, errors.Trace(err)
+	}
+
+	id, initial, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, watcher)
+	if err != nil {
+		return params.StringsWatchResult{}, errors.Trace(err)
+	}
+	return params.StringsWatchResult{
+		StringsWatcherId: id,
+		Changes:          initial,
 	}, nil
 }
 

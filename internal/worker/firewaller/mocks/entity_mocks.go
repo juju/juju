@@ -15,7 +15,6 @@ import (
 
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
-	watcher "github.com/juju/juju/core/watcher"
 	firewaller "github.com/juju/juju/internal/worker/firewaller"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
@@ -194,45 +193,6 @@ func (c *MockMachineTagCall) Do(f func() names.MachineTag) *MockMachineTagCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineTagCall) DoAndReturn(f func() names.MachineTag) *MockMachineTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchUnits mocks base method.
-func (m *MockMachine) WatchUnits(arg0 context.Context) (watcher.Watcher[[]string], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchUnits", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchUnits indicates an expected call of WatchUnits.
-func (mr *MockMachineMockRecorder) WatchUnits(arg0 any) *MockMachineWatchUnitsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnits", reflect.TypeOf((*MockMachine)(nil).WatchUnits), arg0)
-	return &MockMachineWatchUnitsCall{Call: call}
-}
-
-// MockMachineWatchUnitsCall wrap *gomock.Call
-type MockMachineWatchUnitsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineWatchUnitsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockMachineWatchUnitsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineWatchUnitsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachineWatchUnitsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineWatchUnitsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachineWatchUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

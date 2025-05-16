@@ -181,6 +181,7 @@ func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, 
 
 	for _, table := range []string{
 		"unit_agent_version",
+		"unit_principal",
 		"unit_state",
 		"unit_state_charm",
 		"unit_state_relation",
@@ -644,6 +645,9 @@ func (st *State) AddSubordinateUnit(
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check the application is alive.
 		if err := st.checkApplicationAlive(ctx, tx, arg.SubordinateAppID); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.checkUnitNotDeadByName(ctx, tx, arg.PrincipalUnitName); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -1603,6 +1607,19 @@ func (st *State) GetUnitNamesForNetNode(ctx context.Context, uuid string) ([]cor
 		return nil, errors.Capture(err)
 	}
 
+	var unitNames []coreunit.Name
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		unitNames, err = st.getUnitNamesForNetNode(ctx, tx, uuid)
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("querying unit names for net node %q: %w", uuid, err)
+	}
+	return unitNames, nil
+}
+
+func (st *State) getUnitNamesForNetNode(ctx context.Context, tx *sqlair.TX, uuid string) ([]coreunit.Name, error) {
 	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}
 	verifyExistsQuery := `SELECT COUNT(*) AS &countResult.count FROM net_node WHERE uuid = $netNodeUUID.uuid`
 	verifyExistsStmt, err := st.Prepare(verifyExistsQuery, countResult{}, netNodeUUID)
@@ -1616,27 +1633,22 @@ func (st *State) GetUnitNamesForNetNode(ctx context.Context, uuid string) ([]cor
 		return nil, errors.Capture(err)
 	}
 
-	var result []unitName
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var count countResult
-		if err := tx.Query(ctx, verifyExistsStmt, netNodeUUID).Get(&count); err != nil {
-			return errors.Capture(err)
-		}
-		if count.Count == 0 {
-			return applicationerrors.NetNodeNotFound
-		}
-
-		err := tx.Query(ctx, stmt, netNodeUUID).GetAll(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Errorf("querying unit names for net node %q: %w", uuid, err)
+	var count countResult
+	if err := tx.Query(ctx, verifyExistsStmt, netNodeUUID).Get(&count); err != nil {
+		return nil, errors.Capture(err)
 	}
+	if count.Count == 0 {
+		return nil, applicationerrors.NetNodeNotFound
+	}
+
+	var result []unitName
+	err = tx.Query(ctx, stmt, netNodeUUID).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	return transform.Slice(result, func(r unitName) coreunit.Name {
 		return r.Name
 	}), nil

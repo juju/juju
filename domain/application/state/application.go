@@ -1208,6 +1208,26 @@ func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.
 	return "ip_address", "application_endpoint", queryFunc
 }
 
+// InitialWatchStatementUnitInsertDeleteOnNetNode returns the initial namespace
+// query for unit insert and deletes events on a specific net node, as well as
+// the watcher namespace to watch.
+func (st *State) InitialWatchStatementUnitInsertDeleteOnNetNode(netNodeUUID string) (string, eventsource.NamespaceQuery) {
+	return "unit_insert_delete", func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		var unitNames []coreunit.Name
+		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			var err error
+			unitNames, err = st.getUnitNamesForNetNode(ctx, tx, netNodeUUID)
+			return err
+		})
+		if err != nil {
+			return nil, errors.Errorf("querying unit names for net node %q: %w", netNodeUUID, err)
+		}
+		return transform.Slice(unitNames, func(unitName coreunit.Name) string {
+			return unitName.String()
+		}), nil
+	}
+}
+
 // GetNetNodeUUIDByUnitName returns the net node UUID for the named unit or the
 // cloud service associated with the unit's application. This method is meant
 // to be used in the WatchUnitAddressesHash watcher as a filter for ip address
