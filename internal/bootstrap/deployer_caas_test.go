@@ -130,7 +130,7 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *tc.C) {
 
 	unitName := unit.Name("controller/0")
 
-	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
+	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: ptr("controller-0"),
 	})
 	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
@@ -162,6 +162,7 @@ func (s *deployerCAASSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *deployerCAASSuite) newConfig(c *tc.C) CAASDeployerConfig {
 	return CAASDeployerConfig{
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
+		ApplicationService: s.caasApplicationService,
 		CloudServiceGetter: s.cloudServiceGetter,
 		UnitPassword:       uuid.MustNewUUID().String(),
 	}

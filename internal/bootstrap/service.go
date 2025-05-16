@@ -23,21 +23,33 @@ type AgentPasswordService interface {
 	SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error
 }
 
-// ApplicationService instances create an application.
 type ApplicationService interface {
-	// CreateApplication creates a new application with the given name and
-	// charm.
-	CreateApplication(
-		context.Context, string, charm.Charm, corecharm.Origin,
-		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
-	) (coreapplication.ID, error)
-
 	// ResolveControllerCharmDownload resolves the controller charm download
 	// slot.
 	ResolveControllerCharmDownload(
 		ctx context.Context,
 		resolve application.ResolveControllerCharmDownload,
 	) (application.ResolvedControllerCharmDownload, error)
+}
+
+// IAASApplicationService instances create an IAAS application.
+type IAASApplicationService interface {
+	// CreateIAASApplication creates a new application with the given name and
+	// charm.
+	CreateIAASApplication(
+		context.Context, string, charm.Charm, corecharm.Origin,
+		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
+	) (coreapplication.ID, error)
+}
+
+// CAASApplicationService instances create an IAAS application.
+type CAASApplicationService interface {
+	// CreateCAASApplication creates a new application with the given name and
+	// charm.
+	CreateCAASApplication(
+		context.Context, string, charm.Charm, corecharm.Origin,
+		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
+	) (coreapplication.ID, error)
 
 	// UpdateApplication updates the application with the given name.
 	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error
