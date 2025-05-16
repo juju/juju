@@ -238,9 +238,6 @@ func (s *Service) modelsUsingCredential(ctx context.Context, key corecredential.
 // CheckAndUpdateCredential updates the credential after first checking that any models which use the credential
 // can still access the cloud resources. If force is true, update the credential even if there are issues
 // validating the credential.
-// TODO(wallyworld) - the validation getter can be set during service construction once dqlite is used everywhere.
-// Note - it is expected that `WithValidationContextGetter` is called to set up the service to have a non-nil
-// validationContextGetter prior to calling this function, or else an error will be returned.
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
 func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
@@ -252,7 +249,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 	}
 
 	models, err := s.modelsUsingCredential(ctx, key)
-	if err != nil {
+	if err != nil && !errors.Is(err, credentialerrors.NotFound) {
 		return nil, errors.Capture(err)
 	}
 
@@ -265,6 +262,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 			ModelUUID: uuid,
 			ModelName: name,
 		}
+		result.Errors = s.validateModelCredential(ctx, uuid, cred)
 		modelsResult = append(modelsResult, result)
 		if len(result.Errors) > 0 {
 			modelsErred = true
@@ -288,6 +286,13 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 		return nil, errors.Capture(err)
 	}
 	return modelsResult, nil
+}
+
+// validateModelCredential attempts to ensure the credential is valid for the
+// specified model and returns any errors encountered.
+func (s *Service) validateModelCredential(ctx context.Context, modelUUID coremodel.UUID, cred cloud.Credential) []error {
+	// TODO - implement
+	return nil
 }
 
 // CheckAndRevokeCredential removes the credential after first checking that any models which use the credential

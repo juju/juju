@@ -45,7 +45,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 func (st *State) CredentialUUIDForKey(ctx context.Context, key corecredential.Key) (corecredential.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return corecredential.UUID(""), errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	var rval corecredential.UUID
@@ -882,20 +882,11 @@ func (st *State) ModelsUsingCloudCredential(ctx context.Context, key corecredent
 		return nil, errors.Capture(err)
 	}
 
-	credKey := credentialKey{
-		CredentialName: key.Name,
-		CloudName:      key.Cloud,
-		OwnerName:      key.Owner.Name(),
-	}
-
-	query := `
-SELECT m.* AS &modelNameAndUUID.*
+	stmt, err := st.Prepare(`
+SELECT &modelNameAndUUID.*
 FROM   v_model m
-WHERE  m.cloud_credential_name = $credentialKey.name
-AND    m.cloud_name = $credentialKey.cloud_name
-AND    m.owner_name = $credentialKey.owner_name
-`
-	stmt, err := st.Prepare(query, credKey, modelNameAndUUID{})
+WHERE  m.cloud_credential_uuid = $credentialUUID.uuid
+`, credentialUUID{}, modelNameAndUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -903,7 +894,12 @@ AND    m.owner_name = $credentialKey.owner_name
 	result := make(map[coremodel.UUID]string)
 	var modelNameAndUUIDs []modelNameAndUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, credKey).GetAll(&modelNameAndUUIDs)
+		uuid, err := st.credentialUUIDForKey(ctx, tx, key)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		credUUID := credentialUUID{UUID: uuid.String()}
+		err = tx.Query(ctx, stmt, credUUID).GetAll(&modelNameAndUUIDs)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return err
 		}
