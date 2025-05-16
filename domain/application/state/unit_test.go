@@ -2110,7 +2110,7 @@ WHERE u2.name = ?
 func (s *unitStateSubordinateSuite) createSubordinateApplication(c *tc.C, name string, l life.Life) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	appID, err := state.CreateApplication(c.Context(), name, application.AddApplicationArg{
+	appID, err := state.CreateIAASApplication(c.Context(), name, application.AddApplicationArg{
 		Charm: charm.Charm{
 			Metadata: charm.Metadata{
 				Name:        name,

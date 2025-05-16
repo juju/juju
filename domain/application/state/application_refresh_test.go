@@ -205,7 +205,7 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 		Revision:      42,
 	}
 
-	appID, err := s.state.CreateApplication(c.Context(), appName, application.AddApplicationArg{
+	appID, err := s.state.CreateIAASApplication(c.Context(), appName, application.AddApplicationArg{
 		Platform:          platform,
 		Charm:             originalCharm,
 		CharmDownloadInfo: nil,
