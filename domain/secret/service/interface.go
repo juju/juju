@@ -99,7 +99,7 @@ type State interface {
 	) (tableName string, statement eventsource.NamespaceQuery)
 	GetRevisionIDsForObsolete(
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
-	) ([]string, error)
+	) (map[string]string, error)
 
 	// For watching obsolete user secret revisions to prune.
 	GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context) ([]string, error)
@@ -222,4 +222,10 @@ type WatcherFactory interface {
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
+
+	NewNamespaceMapperWatcher(
+		initialQuery eventsource.NamespaceQuery,
+		mapper eventsource.Mapper,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
 }

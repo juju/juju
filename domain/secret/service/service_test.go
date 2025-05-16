@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -58,6 +59,8 @@ func TestServiceSuite(t *testing.T) {
 }
 
 func (s *serviceSuite) SetUpTest(c *tc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.modelID = modeltesting.GenModelUUID(c)
 	var err error
 	s.fakeUUID, err = uuid.NewUUID()
@@ -1933,14 +1936,18 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *tc.C) {
 	c.Assert(gotLabel, tc.DeepEquals, ptr("foo"))
 }
 
+func newStringWatcher(ctrl *gomock.Controller, ch <-chan []string) watcher.Watcher[[]string] {
+	watcher := NewMockStringsWatcher(ctrl)
+	watcher.EXPECT().Changes().Return(ch).AnyTimes()
+	watcher.EXPECT().Wait().Return(nil).AnyTimes()
+	watcher.EXPECT().Kill().AnyTimes()
+	return watcher
+}
+
 func (s *serviceSuite) watcherSetupAssertionsForWatchObsolete(
 	c *tc.C, ctrl *gomock.Controller,
-	mockWatcherFactory *MockWatcherFactory, sourceCh chan []string,
+	mockWatcherFactory *MockWatcherFactory, sourceCh chan []changestream.ChangeEvent,
 ) {
-	sourceWatcher := NewMockStringsWatcher(ctrl)
-	sourceWatcher.EXPECT().Changes().Return(sourceCh).AnyTimes()
-	sourceWatcher.EXPECT().Wait().Return(nil).AnyTimes()
-	sourceWatcher.EXPECT().Kill().AnyTimes()
 
 	var calledCount int
 	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
@@ -1956,9 +1963,10 @@ func (s *serviceSuite) watcherSetupAssertionsForWatchObsolete(
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
 	).Return("secret_metadata", namespaceQuery)
 
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(
 			initialQ eventsource.NamespaceQuery,
+			mapper eventsource.Mapper,
 			secretFilter eventsource.FilterOption, filters ...eventsource.FilterOption,
 		) (watcher.Watcher[[]string], error) {
 			initialQ(nil, nil)
@@ -1971,9 +1979,73 @@ func (s *serviceSuite) watcherSetupAssertionsForWatchObsolete(
 			obsoleteRevisionFilter := filters[0]
 			c.Assert(obsoleteRevisionFilter.Namespace(), tc.Equals, "secret_revision_obsolete")
 			c.Assert(obsoleteRevisionFilter.ChangeMask(), tc.Equals, changestream.Changed)
-			return sourceWatcher, nil
+
+			ch := make(chan []string)
+			watcher := newStringWatcher(ctrl, ch)
+			ctx := c.Context()
+			go func() {
+				for {
+					select {
+					case changes, ok := <-sourceCh:
+						if !ok {
+							return
+						}
+						mapperedChanges, err := mapper(ctx, changes)
+						c.Assert(err, tc.ErrorIsNil)
+
+						var changedStrings []string
+						for _, change := range mapperedChanges {
+							changedStrings = append(changedStrings, change.Changed())
+						}
+						if len(changedStrings) == 0 {
+							continue
+						}
+						select {
+						case ch <- changedStrings:
+						case <-ctx.Done():
+						}
+					case <-ctx.Done():
+					}
+				}
+			}()
+			return watcher, nil
 		},
 	)
+}
+
+type changeEvent struct {
+	changed    string
+	namespace  string
+	changeType changestream.ChangeType
+}
+
+func newSecretChangeEvent(changed string) *changeEvent {
+	return &changeEvent{
+		changed:   changed,
+		namespace: "secret_metadata",
+	}
+}
+
+func newObsoleteRevisionChangeEvent(changed string) *changeEvent {
+	return &changeEvent{
+		changed:   changed,
+		namespace: "secret_revision_obsolete",
+	}
+}
+
+func (c *changeEvent) String() string {
+	return fmt.Sprintf("%s: %s", c.namespace, c.changed)
+}
+
+func (c *changeEvent) Changed() string {
+	return c.changed
+}
+func (c *changeEvent) Namespace() string {
+	return c.namespace
+}
+
+func (c *changeEvent) Type() changestream.ChangeType {
+	return c.changeType
 }
 
 func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *tc.C) {
@@ -1982,14 +2054,14 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *tc
 
 	mockWatcherFactory := NewMockWatcherFactory(ctrl)
 
-	sourceCh := make(chan []string)
+	sourceCh := make(chan []changestream.ChangeEvent, 10)
 	s.watcherSetupAssertionsForWatchObsolete(c, ctrl, mockWatcherFactory, sourceCh)
 
 	ownedURI := coresecrets.NewURI()
 	removedOwnedURI := coresecrets.NewURI()
 	notOwnedURI := coresecrets.NewURI()
 
-	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]string, error) {
+	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) (map[string]string, error) {
 		c.Assert(appOwners, tc.SameContents, domainsecret.ApplicationOwners([]string{"mysql"}))
 		c.Assert(unitOwners, tc.SameContents, domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}))
 		c.Assert(revisionUUIDs, tc.SameContents, []string{
@@ -1997,8 +2069,8 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *tc
 			"revision-uuid-2",
 			"revision-uuid-3",
 		})
-		return []string{
-			ownedURI.ID + "/1", // owned secret, will be sent.
+		return map[string]string{
+			"revision-uuid-1": ownedURI.ID + "/1",
 		}, nil
 	})
 
@@ -2058,33 +2130,33 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *tc
 	wC := watchertest.NewStringsWatcherC(c, w)
 
 	select {
-	case sourceCh <- []string{
+	case sourceCh <- []changestream.ChangeEvent{
 		// The initial event of the secretWatcher is sent.
-		ownedURI.ID,
-		removedOwnedURI.ID,
+		newSecretChangeEvent(ownedURI.ID),
+		newSecretChangeEvent(removedOwnedURI.ID),
 	}:
 	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending change events")
 	}
 
 	select {
-	case sourceCh <- []string{
-		"revision-uuid-1",
-		"revision-uuid-2",
-		"revision-uuid-3",
+	case sourceCh <- []changestream.ChangeEvent{
+		newObsoleteRevisionChangeEvent("revision-uuid-1"),
+		newObsoleteRevisionChangeEvent("revision-uuid-2"),
+		newObsoleteRevisionChangeEvent("revision-uuid-3"),
 	}:
 	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending change events")
 	}
 
 	select {
-	case sourceCh <- []string{
+	case sourceCh <- []changestream.ChangeEvent{
 		// Deletion events of the secretWatcher are sent.
-		removedOwnedURI.ID,
-		notOwnedURI.ID, // not owned by the given owners will be ignored.
+		newSecretChangeEvent(removedOwnedURI.ID),
+		newSecretChangeEvent(notOwnedURI.ID), // not owned by the given owners will be ignored.
 	}:
 	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending change events")
 	}
 
 	wC.AssertChange(
@@ -2100,17 +2172,17 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisions(c *tc.C) {
 
 	mockWatcherFactory := NewMockWatcherFactory(ctrl)
 
-	sourceCh := make(chan []string)
+	sourceCh := make(chan []changestream.ChangeEvent, 10)
 	s.watcherSetupAssertionsForWatchObsolete(c, ctrl, mockWatcherFactory, sourceCh)
 
 	ownedURI := coresecrets.NewURI()
 
-	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]string, error) {
+	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) (map[string]string, error) {
 		c.Assert(appOwners, tc.SameContents, domainsecret.ApplicationOwners([]string{"mysql"}))
 		c.Assert(unitOwners, tc.SameContents, domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}))
 		c.Assert(revisionUUIDs, tc.SameContents, []string{"revision-uuid-1"})
-		return []string{
-			ownedURI.ID + "/1",
+		return map[string]string{
+			"revision-uuid-1": ownedURI.ID + "/1",
 		}, nil
 	})
 
@@ -2145,20 +2217,20 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisions(c *tc.C) {
 	wC := watchertest.NewStringsWatcherC(c, w)
 
 	select {
-	case sourceCh <- []string{
+	case sourceCh <- []changestream.ChangeEvent{
 		// The initial event of the secretWatcher is sent.
-		ownedURI.ID,
+		newSecretChangeEvent(ownedURI.ID),
 	}:
 	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending change events")
 	}
 
 	select {
-	case sourceCh <- []string{
-		"revision-uuid-1",
+	case sourceCh <- []changestream.ChangeEvent{
+		newObsoleteRevisionChangeEvent("revision-uuid-1"),
 	}:
 	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending change events")
 	}
 
 	wC.AssertChange(
@@ -2173,7 +2245,7 @@ func (s *serviceSuite) TestWatchObsoleteSendRemovedURIs(c *tc.C) {
 
 	mockWatcherFactory := NewMockWatcherFactory(ctrl)
 
-	sourceCh := make(chan []string)
+	sourceCh := make(chan []changestream.ChangeEvent)
 	s.watcherSetupAssertionsForWatchObsolete(c, ctrl, mockWatcherFactory, sourceCh)
 
 	ownedURI := coresecrets.NewURI()
@@ -2238,22 +2310,22 @@ func (s *serviceSuite) TestWatchObsoleteSendRemovedURIs(c *tc.C) {
 	wC := watchertest.NewStringsWatcherC(c, w)
 
 	select {
-	case sourceCh <- []string{
+	case sourceCh <- []changestream.ChangeEvent{
 		// The initial event of the secretWatcher is sent.
-		ownedURI.ID,
+		newSecretChangeEvent(ownedURI.ID),
 	}:
 	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending change events")
 	}
 
 	select {
-	case sourceCh <- []string{
-		createdAfterWatcherStartURI.ID,
-		ownedURI.ID,
-		notOwnedURI.ID, // not owned by the given owners will be ignored.
+	case sourceCh <- []changestream.ChangeEvent{
+		newSecretChangeEvent(createdAfterWatcherStartURI.ID),
+		newSecretChangeEvent(ownedURI.ID),
+		newSecretChangeEvent(notOwnedURI.ID), // not owned by the given owners will be ignored.
 	}:
 	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending change events")
 	}
 
 	wC.AssertChange(

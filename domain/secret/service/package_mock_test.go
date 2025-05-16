@@ -842,14 +842,14 @@ func (c *MockStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall) Do
 }
 
 // GetRevisionIDsForObsolete mocks base method.
-func (m *MockState) GetRevisionIDsForObsolete(arg0 context.Context, arg1 secret.ApplicationOwners, arg2 secret.UnitOwners, arg3 ...string) ([]string, error) {
+func (m *MockState) GetRevisionIDsForObsolete(arg0 context.Context, arg1 secret.ApplicationOwners, arg2 secret.UnitOwners, arg3 ...string) (map[string]string, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1, arg2}
 	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetRevisionIDsForObsolete", varargs...)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -868,19 +868,19 @@ type MockStateGetRevisionIDsForObsoleteCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetRevisionIDsForObsoleteCall) Return(arg0 []string, arg1 error) *MockStateGetRevisionIDsForObsoleteCall {
+func (c *MockStateGetRevisionIDsForObsoleteCall) Return(arg0 map[string]string, arg1 error) *MockStateGetRevisionIDsForObsoleteCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetRevisionIDsForObsoleteCall) Do(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners, ...string) ([]string, error)) *MockStateGetRevisionIDsForObsoleteCall {
+func (c *MockStateGetRevisionIDsForObsoleteCall) Do(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners, ...string) (map[string]string, error)) *MockStateGetRevisionIDsForObsoleteCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetRevisionIDsForObsoleteCall) DoAndReturn(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners, ...string) ([]string, error)) *MockStateGetRevisionIDsForObsoleteCall {
+func (c *MockStateGetRevisionIDsForObsoleteCall) DoAndReturn(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners, ...string) (map[string]string, error)) *MockStateGetRevisionIDsForObsoleteCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2733,6 +2733,50 @@ func NewMockWatcherFactory(ctrl *gomock.Controller) *MockWatcherFactory {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
+}
+
+// NewNamespaceMapperWatcher mocks base method.
+func (m *MockWatcherFactory) NewNamespaceMapperWatcher(arg0 eventsource.NamespaceQuery, arg1 eventsource.Mapper, arg2 eventsource.FilterOption, arg3 ...eventsource.FilterOption) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "NewNamespaceMapperWatcher", varargs...)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewNamespaceMapperWatcher indicates an expected call of NewNamespaceMapperWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewNamespaceMapperWatcher(arg0, arg1, arg2 any, arg3 ...any) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNamespaceMapperWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNamespaceMapperWatcher), varargs...)
+	return &MockWatcherFactoryNewNamespaceMapperWatcherCall{Call: call}
+}
+
+// MockWatcherFactoryNewNamespaceMapperWatcherCall wrap *gomock.Call
+type MockWatcherFactoryNewNamespaceMapperWatcherCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) Do(f func(eventsource.NamespaceQuery, eventsource.Mapper, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[[]string], error)) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) DoAndReturn(f func(eventsource.NamespaceQuery, eventsource.Mapper, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[[]string], error)) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // NewNamespaceWatcher mocks base method.
