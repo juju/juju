@@ -122,16 +122,16 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 
-	s.createApplication(c, svc, "foo")
-	s.createApplication(c, svc, "bar")
+	s.createIAASApplication(c, svc, "foo")
+	s.createIAASApplication(c, svc, "bar")
 
 	var unitID1, unitID2, unitID3 string
 	setup := func(c *tc.C) {
 
 		ctx := c.Context()
-		err := svc.AddUnits(ctx, "foo", service.AddUnitArg{}, service.AddUnitArg{})
+		err := svc.AddIAASUnits(ctx, "foo", service.AddUnitArg{}, service.AddUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
-		err = svc.AddUnits(ctx, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
+		err = svc.AddIAASUnits(ctx, "bar", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -315,8 +315,8 @@ func (s *watcherSuite) TestWatchUnitLifeInitial(c *tc.C) {
 
 	var unitID1, unitID2 string
 	setup := func(c *tc.C) {
-		s.createApplication(c, svc, "foo", service.AddUnitArg{}, service.AddUnitArg{})
-		s.createApplication(c, svc, "bar", service.AddUnitArg{})
+		s.createIAASApplication(c, svc, "foo", service.AddUnitArg{}, service.AddUnitArg{})
+		s.createIAASApplication(c, svc, "bar", service.AddUnitArg{})
 
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/0").Scan(&unitID1); err != nil {
@@ -351,8 +351,8 @@ func (s *watcherSuite) TestWatchApplicationScale(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 
-	s.createApplication(c, svc, "foo")
-	s.createApplication(c, svc, "bar")
+	s.createCAASApplication(c, svc, "foo")
+	s.createCAASApplication(c, svc, "bar")
 
 	ctx := c.Context()
 	watcher, err := svc.WatchApplicationScale(ctx, "foo")
@@ -404,8 +404,8 @@ func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *tc.C) {
 
 	var id0, id1 coreapplication.ID
 	harness.AddTest(func(c *tc.C) {
-		id0 = s.createApplication(c, svc, "foo")
-		id1 = s.createApplication(c, svc, "bar")
+		id0 = s.createIAASApplication(c, svc, "foo")
+		id1 = s.createIAASApplication(c, svc, "bar")
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](id0.String(), id1.String()),
@@ -450,7 +450,7 @@ WHERE uuid=?`, id0.String())
 	// Add another application with a pending charm.
 	var id2 coreapplication.ID
 	harness.AddTest(func(c *tc.C) {
-		id2 = s.createApplication(c, svc, "baz")
+		id2 = s.createIAASApplication(c, svc, "baz")
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](id2.String()),
@@ -460,7 +460,7 @@ WHERE uuid=?`, id0.String())
 	// Add another application with an available charm.
 	// Available charms are not pending charms!
 	harness.AddTest(func(c *tc.C) {
-		id2 = s.createApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{})
+		id2 = s.createIAASApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{})
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -474,7 +474,7 @@ func (s *watcherSuite) TestWatchApplication(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appUUID := s.createApplication(c, svc, appName)
+	appUUID := s.createIAASApplication(c, svc, appName)
 
 	ctx := c.Context()
 	watcher, err := svc.WatchApplication(ctx, appName)
@@ -536,7 +536,7 @@ func (s *watcherSuite) TestWatchApplicationConfig(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appUUID := s.createApplication(c, svc, appName)
+	appUUID := s.createIAASApplication(c, svc, appName)
 
 	ctx := c.Context()
 	watcher, err := svc.WatchApplicationConfig(ctx, appName)
@@ -613,7 +613,7 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appUUID := s.createApplication(c, svc, appName)
+	appUUID := s.createIAASApplication(c, svc, appName)
 
 	ctx := c.Context()
 	watcher, err := svc.WatchApplicationConfigHash(ctx, appName)
@@ -692,7 +692,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	_ = s.createApplication(c, svc, appName, service.AddUnitArg{})
+	_ = s.createIAASApplication(c, svc, appName, service.AddUnitArg{})
 
 	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
@@ -714,7 +714,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createApplication(c, svc, appName, service.AddUnitArg{})
+	appID := s.createIAASApplication(c, svc, appName, service.AddUnitArg{})
 	// Create an ip address for the unit.
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -801,7 +801,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createApplication(c, svc, appName, service.AddUnitArg{})
+	appID := s.createIAASApplication(c, svc, appName, service.AddUnitArg{})
 
 	ctx := c.Context()
 
@@ -1033,7 +1033,7 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	appID := s.createApplication(c, svc, appName)
+	appID := s.createIAASApplication(c, svc, appName)
 
 	ctx := c.Context()
 	watcher, err := svc.WatchApplicationExposed(ctx, appName)
@@ -1130,7 +1130,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	appName := "foo"
-	s.createApplication(c, svc, appName, service.AddUnitArg{}, service.AddUnitArg{})
+	s.createIAASApplication(c, svc, appName, service.AddUnitArg{}, service.AddUnitArg{})
 
 	ctx := c.Context()
 
@@ -1399,13 +1399,13 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	)
 }
 
-func (s *watcherSuite) createApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
-	return s.createApplicationWithCharmAndStoragePath(c, svc, name, &stubCharm{}, "", units...)
+func (s *watcherSuite) createIAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
+	return s.createIAASApplicationWithCharmAndStoragePath(c, svc, name, &stubCharm{}, "", units...)
 }
 
-func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *tc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createIAASApplicationWithCharmAndStoragePath(c *tc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := c.Context()
-	appID, err := svc.CreateApplication(ctx, name, ch, corecharm.Origin{
+	appID, err := svc.CreateIAASApplication(ctx, name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
 			Channel:      "24.04",
@@ -1415,6 +1415,27 @@ func (s *watcherSuite) createApplicationWithCharmAndStoragePath(c *tc.C, svc *se
 	}, service.AddApplicationArgs{
 		ReferenceName:    name,
 		CharmStoragePath: storagePath,
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance:  charm.ProvenanceDownload,
+			DownloadURL: "http://example.com",
+		},
+	}, units...)
+	c.Assert(err, tc.ErrorIsNil)
+	return appID
+}
+
+func (s *watcherSuite) createCAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
+	ctx := c.Context()
+	appID, err := svc.CreateCAASApplication(ctx, name, &stubCharm{}, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Channel:      "24.04",
+			OS:           "ubuntu",
+			Architecture: "amd64",
+		},
+	}, service.AddApplicationArgs{
+		ReferenceName:    name,
+		CharmStoragePath: "",
 		DownloadInfo: &charm.DownloadInfo{
 			Provenance:  charm.ProvenanceDownload,
 			DownloadURL: "http://example.com",

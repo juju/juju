@@ -50,10 +50,6 @@ type serviceSuite struct {
 
 var _ = tc.Suite(&serviceSuite{})
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
@@ -673,7 +669,7 @@ func (s *serviceSuite) createSubordinateApplication(c *tc.C, name string, units 
 }
 
 func (s *serviceSuite) createApplicationWithCharm(c *tc.C, name string, ch internalcharm.Charm, units ...service.AddUnitArg) coreapplication.ID {
-	appID, err := s.svc.CreateApplication(c.Context(), name, ch, corecharm.Origin{
+	appID, err := s.svc.CreateCAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
 			Channel:      "24.04",
