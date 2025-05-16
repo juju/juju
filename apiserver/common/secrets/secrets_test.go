@@ -918,7 +918,6 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminFromJujuBackend(c *gc.C) {
 
 	// Data needed for mocks
 	uri := coresecrets.NewURI()
-	userTag := names.NewUserTag("foo")
 	// Secret that lives only in the Juju database, not a backend
 	revisionMetadata := &coresecrets.SecretRevisionMetadata{
 		Revision: 5,
@@ -936,7 +935,6 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminFromJujuBackend(c *gc.C) {
 
 	results, err := secrets.RemoveUserSecrets(
 		removeState, adminConfigGetter,
-		userTag,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
 				URI:       (*uri).String(),
@@ -1001,7 +999,6 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 
 	results, err := secrets.RemoveUserSecrets(
 		removeState, adminConfigGetter,
-		names.NewUserTag("foo"),
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
 				URI:       expectURI.String(),
@@ -1070,7 +1067,6 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 
 	results, err := secrets.RemoveUserSecrets(
 		removeState, adminConfigGetter,
-		names.NewUserTag("foo"),
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
 				URI: expectURI.String(),
@@ -1098,7 +1094,6 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminDuringBackendMigration(c *g
 
 	// Data needed for mocks
 	uri := coresecrets.NewURI()
-	userTag := names.NewUserTag("foo")
 	revisionMetadataBeforeMigration := []*coresecrets.SecretRevisionMetadata{
 		{
 			Revision: 5,
@@ -1190,7 +1185,6 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminDuringBackendMigration(c *g
 
 	results, err := secrets.RemoveUserSecrets(
 		removeState, adminConfigGetter,
-		userTag,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
 				URI: (*uri).String(),
@@ -1216,7 +1210,6 @@ func (s *secretsSuite) TestRemoveSecretNotFoundForModelAdmin(c *gc.C) {
 
 	// Data needed for mocks
 	uri := coresecrets.NewURI()
-	userTag := names.NewUserTag("foo")
 
 	// Secret with two revisions with arbitrary revision numbers/IDs
 	var revisionMetadata []*coresecrets.SecretRevisionMetadata
@@ -1231,7 +1224,9 @@ func (s *secretsSuite) TestRemoveSecretNotFoundForModelAdmin(c *gc.C) {
 		revisionIDs.Add(revisionID)
 	}
 
-	backendCfg := &provider.ModelBackendConfig{}
+	backendCfg := &provider.ModelBackendConfig{
+		ModelUUID: coretesting.ModelTag.Id(),
+	}
 	backend := mocks.NewMockSecretsBackend(ctrl)
 	// backend.DeleteContent returns NotFound to any revisions to simulate a backend that has no secret revision data.
 	// backend.DeleteContent should be called exactly once for each secret revision, and return NotFound for each to
@@ -1270,7 +1265,6 @@ func (s *secretsSuite) TestRemoveSecretNotFoundForModelAdmin(c *gc.C) {
 
 	results, err := secrets.RemoveUserSecrets(
 		removeState, adminConfigGetter,
-		userTag,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
 				URI: (*uri).String(),

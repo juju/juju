@@ -217,6 +217,14 @@ run_user_secrets() {
 
 	juju --show-log remove-secret $secret_uri
 	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'
+	until [[ -z $(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${secret_short_uri}"'-1")') ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: user secret was not deleted."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
 }
 
 run_secret_drain() {

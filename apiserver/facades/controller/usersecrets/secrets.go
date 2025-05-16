@@ -52,7 +52,7 @@ func (s *UserSecretsManager) WatchRevisionsToPrune() (params.StringsWatchResult,
 func (s *UserSecretsManager) DeleteRevisions(args params.DeleteSecretArgs) (params.ErrorResults, error) {
 	return commonsecrets.RemoveUserSecrets(
 		s.secretsState, s.backendConfigGetter,
-		s.authTag, args, s.modelUUID,
+		args, s.modelUUID,
 		func(uri *coresecrets.URI) error {
 			md, err := s.secretsState.GetSecret(uri)
 			if err != nil {
