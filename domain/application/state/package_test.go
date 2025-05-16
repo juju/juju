@@ -224,7 +224,7 @@ func (s *baseSuite) createApplication(c *tc.C, name string, l life.Life, units .
 	}
 	ctx := c.Context()
 
-	appID, err := state.CreateApplication(ctx, name, application.AddApplicationArg{
+	appID, err := state.CreateIAASApplication(ctx, name, application.AddApplicationArg{
 		Platform: platform,
 		Channel:  channel,
 		Charm: charm.Charm{
@@ -323,7 +323,7 @@ func (s *baseSuite) createScalingApplication(c *tc.C, name string, l life.Life, 
 	}
 	ctx := c.Context()
 
-	appID, err := state.CreateApplication(ctx, name, application.AddApplicationArg{
+	appID, err := state.CreateCAASApplication(ctx, name, application.AddApplicationArg{
 		Platform: platform,
 		Channel:  channel,
 		Charm: charm.Charm{

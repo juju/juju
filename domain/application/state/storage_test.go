@@ -78,7 +78,7 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 	}
 	c.Assert(err, tc.ErrorIsNil)
 
-	appUUID, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
+	appUUID, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
 		chStorage, addStorageArgs), nil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -167,7 +167,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnrecognisedStorage(c *
 	}}
 	ctx := c.Context()
 
-	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
+	_, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
 		chStorage, addStorageArgs), nil)
 	c.Assert(err, tc.ErrorMatches, `.*storage \["foo"\] is not supported`)
 }
@@ -181,7 +181,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStorageButCharmHasNone(
 	}}
 	ctx := c.Context()
 
-	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
+	_, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
 		[]charm.Storage{}, addStorageArgs), nil)
 	c.Assert(err, tc.ErrorMatches, `.*storage \["foo"\] is not supported`)
 }
@@ -203,7 +203,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnitsAndStorageInvalidC
 	}
 	ctx := c.Context()
 
-	_, err := s.state.CreateApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
+	_, err := s.state.CreateIAASApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
 		chStorage, addStorageArgs), []application.AddUnitArg{{}})
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidStorageCount)
 
@@ -747,7 +747,7 @@ func (s *caasStorageSuite) SetUpTest(c *tc.C) {
 // TestCreateApplicationWithUnitsAndStorage tests creation of an application with
 // units having storage.
 // It verifies that the required volumes, filesystems, and attachment records are crated.
-func (s *caasStorageSuite) TestCreateApplicationWithUnitsAndStorage(c *tc.C) {
+func (s *caasStorageSuite) TestCreateCAASApplicationWithUnitsAndStorage(c *tc.C) {
 	chStorage := []charm.Storage{{
 		Name:     "database",
 		Type:     "block",
@@ -784,7 +784,7 @@ func (s *caasStorageSuite) TestCreateApplicationWithUnitsAndStorage(c *tc.C) {
 	}
 	ctx := c.Context()
 
-	_, err := s.state.CreateApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
+	_, err := s.state.CreateCAASApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
 		chStorage, addStorageArgs), []application.AddUnitArg{{}})
 	c.Assert(err, tc.ErrorIsNil)
 
