@@ -49,6 +49,9 @@ import (
 // GetModelType returns the model type for the underlying model. If the model
 // does not exist then an error satisfying [modelerrors.NotFound] will be
 // returned.
+// Deprecated: This method will be removed, as there should be no need to
+// determine the model type from the state or service. That's an artifact of
+// the caller to call the correct methods.
 func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -67,6 +70,9 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 	return modelType, nil
 }
 
+// Deprecated: This method will be removed, as there should be no need to
+// determine the model type from the state or service. That's an artifact of
+// the caller to call the correct methods.
 func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.ModelType, error) {
 	var result modelInfo
 	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
