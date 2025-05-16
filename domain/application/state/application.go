@@ -97,7 +97,7 @@ func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.Mod
 func (st *State) CreateIAASApplication(
 	ctx context.Context,
 	name string,
-	args application.AddApplicationArg,
+	args application.AddIAASApplicationArg,
 	units []application.AddUnitArg,
 ) (coreapplication.ID, error) {
 	db, err := st.DB()
@@ -111,7 +111,7 @@ func (st *State) CreateIAASApplication(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.insertApplication(ctx, tx, name, appUUID, args); err != nil {
+		if err := st.insertApplication(ctx, tx, name, appUUID, args.BaseAddApplicationArg); err != nil {
 			return errors.Errorf("inserting IAAS application %q: %w", name, err)
 		}
 
@@ -137,7 +137,7 @@ func (st *State) CreateIAASApplication(
 func (st *State) CreateCAASApplication(
 	ctx context.Context,
 	name string,
-	args application.AddApplicationArg,
+	args application.AddCAASApplicationArg,
 	units []application.AddUnitArg,
 ) (coreapplication.ID, error) {
 	db, err := st.DB()
@@ -150,9 +150,23 @@ func (st *State) CreateCAASApplication(
 		return "", errors.Capture(err)
 	}
 
+	scaleInfo := applicationScale{
+		ApplicationID: appUUID,
+		Scale:         args.Scale,
+	}
+	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
+	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.insertApplication(ctx, tx, name, appUUID, args); err != nil {
+		if err := st.insertApplication(ctx, tx, name, appUUID, args.BaseAddApplicationArg); err != nil {
 			return errors.Errorf("inserting IAAS application %q: %w", name, err)
+		}
+
+		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
+			return errors.Errorf("inserting scale row for application %q: %w", name, err)
 		}
 
 		if len(units) == 0 {
@@ -174,7 +188,7 @@ func (st *State) insertApplication(
 	tx *sqlair.TX,
 	name string,
 	appUUID coreapplication.ID,
-	args application.AddApplicationArg,
+	args application.BaseAddApplicationArg,
 ) error {
 	charmID, err := corecharm.NewID()
 	if err != nil {
@@ -199,16 +213,6 @@ func (st *State) insertApplication(
 
 	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
 	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	scaleInfo := applicationScale{
-		ApplicationID: appUUID,
-		Scale:         args.Scale,
-	}
-	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
-	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -280,9 +284,6 @@ func (st *State) insertApplication(
 	if err := tx.Query(ctx, createPlatformStmt, platformInfo).Run(); err != nil {
 		return errors.Errorf("inserting platform row for application %q: %w", name, err)
 	}
-	if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
-		return errors.Errorf("inserting scale row for application %q: %w", name, err)
-	}
 	if err := st.createApplicationResources(
 		ctx, tx,
 		insertResourcesArgs{
@@ -337,7 +338,7 @@ func (st *State) insertApplication(
 func (st *State) insertIAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.AddApplicationArg,
+	args application.AddIAASApplicationArg,
 	units []application.AddUnitArg,
 ) error {
 	insertUnits := make([]application.InsertUnitArg, len(units))
@@ -371,7 +372,7 @@ func (st *State) insertIAASApplicationUnits(
 func (st *State) insertCAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.AddApplicationArg,
+	args application.AddCAASApplicationArg,
 	units []application.AddUnitArg,
 ) error {
 	insertUnits := make([]application.InsertUnitArg, len(units))
