@@ -48,7 +48,6 @@ type ModelConfigService interface {
 type FirewallerAPI struct {
 	*common.LifeGetter
 	*commonmodel.ModelConfigWatcher
-	*common.UnitsWatcher
 	*commonmodel.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	ControllerConfigAPI
@@ -106,11 +105,6 @@ func NewStateFirewallerAPI(
 		modelConfigService,
 		watcherRegistry,
 	)
-	// WatchUnits() is supported for machines.
-	unitsWatcher := common.NewUnitsWatcher(st,
-		resources,
-		accessMachine,
-	)
 	// WatchModelMachines() is allowed with unrestricted access.
 	machinesWatcher := commonmodel.NewModelMachinesWatcher(
 		st,
@@ -126,7 +120,6 @@ func NewStateFirewallerAPI(
 	return &FirewallerAPI{
 		LifeGetter:                               lifeGetter,
 		ModelConfigWatcher:                       modelConfigWatcher,
-		UnitsWatcher:                             unitsWatcher,
 		ModelMachinesWatcher:                     machinesWatcher,
 		InstanceIdGetter:                         instanceIdGetter,
 		ControllerConfigAPI:                      controllerConfigAPI,
