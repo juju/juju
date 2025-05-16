@@ -986,7 +986,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 	mockprovider.EXPECT().NewBackend(cfg).Return(backend, nil)
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
 	mockprovider.EXPECT().CleanupSecrets(
-		cfg, names.NewUserTag("foo"),
+		cfg, coretesting.ModelTag,
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
 
@@ -1055,7 +1055,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 	mockprovider.EXPECT().NewBackend(cfg).Return(backend, nil)
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
 	mockprovider.EXPECT().CleanupSecrets(
-		cfg, names.NewUserTag("foo"),
+		cfg, coretesting.ModelTag,
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
 
@@ -1158,11 +1158,11 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminDuringBackendMigration(c *g
 	mockprovider.EXPECT().NewBackend(backendAfterMigrationCfg).Return(backendAfterMigration, nil)
 	// Expect that we clean up secret revisions for both backends.
 	mockprovider.EXPECT().CleanupSecrets(
-		backendBeforeMigrationCfg, userTag,
+		backendBeforeMigrationCfg, coretesting.ModelTag,
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-5")},
 	).Return(nil)
 	mockprovider.EXPECT().CleanupSecrets(
-		backendAfterMigrationCfg, userTag,
+		backendAfterMigrationCfg, coretesting.ModelTag,
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-6")},
 	).Return(nil)
 

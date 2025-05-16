@@ -856,7 +856,8 @@ func removeSecretFromExternal(removeState SecretsRemoveState, adminConfigGetter 
 			return errors.Annotate(err, "getting secrets provider during provider cleanup")
 		}
 
-		if err := p.CleanupSecrets(backendCfg, authTag, secretRevisions); err != nil {
+		modelTag := names.NewModelTag(backendCfg.ModelUUID)
+		if err := p.CleanupSecrets(backendCfg, modelTag, secretRevisions); err != nil {
 			return errors.Annotate(err, "cleaning up secrets in provider")
 		}
 	}
