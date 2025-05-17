@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	// ProviderType defines the Azure provider.
-	ProviderType = "azure"
+	// providerType is the unique identifier that the azure provider gets
+	// registered with.
+	providerType = "azure"
 )
 
 // NewProvider instantiates and returns the Azure EnvironProvider using the
@@ -48,7 +49,7 @@ func init() {
 		panic(err)
 	}
 
-	environs.RegisterProvider(ProviderType, environProvider)
+	environs.RegisterProvider(providerType, environProvider)
 
 	// TODO(axw) register an image metadata data source that queries
 	// the Azure image registry, and introduce a way to disable the
