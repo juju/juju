@@ -3,7 +3,9 @@
 
 package state
 
-import coreobjectstore "github.com/juju/juju/core/objectstore"
+import (
+	coreobjectstore "github.com/juju/juju/core/objectstore"
+)
 
 // dbMetadata represents the database serialisable metadata for an object.
 type dbMetadata struct {
@@ -47,4 +49,18 @@ func decodeDbMetadata(m dbMetadata) coreobjectstore.Metadata {
 		Path:   m.Path,
 		Size:   m.Size,
 	}
+}
+
+type dbGetPhaseInfo struct {
+	// UUID is the uuid for the phase info.
+	UUID string `db:"uuid"`
+	// Phase is the phase of the object store.
+	Phase coreobjectstore.Phase `db:"phase"`
+}
+
+type dbSetPhaseInfo struct {
+	// UUID is the uuid for the phase info.
+	UUID string `db:"uuid"`
+	// PhaseTypeID is the phase of the object store.
+	PhaseTypeID int `db:"phase_type_id"`
 }

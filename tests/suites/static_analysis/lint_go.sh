@@ -48,6 +48,20 @@ run_juju_errors_imports() {
 	done
 }
 
+run_context_background() {
+	pkgs=("domain")
+
+	for pkg in "${pkgs[@]}"; do
+		dirs=$(find ${pkg} -mindepth 1 -maxdepth 10 -type d | sort -u)
+		files=$(find ${dirs} -type f -name "*_test.go")
+		for file in $files; do
+			grep "context.Background()" "$file" && (echo "Error: pkg $file contains context.Background()" && exit 1)
+		done
+	done
+
+	echo "done"
+}
+
 run_go() {
 	VER=$(golangci-lint --version | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2)
 	if [[ ${VER} != "1.64" ]] && [[ ${VER} != "v1.64" ]]; then
@@ -109,15 +123,7 @@ join() {
 }
 
 run_govulncheck() {
-	ignore=(
-		# false positive vulnerability in github.com/canonical/lxd. This is resolved in lxd-5.21.2.
-		# Anyway, it does not affect as we only use client-side lxc code, but the vulnerability is
-		# server-side.
-		# https://pkg.go.dev/vuln/GO-2024-3312
-		# https://pkg.go.dev/vuln/GO-2024-3313
-		"GO-2024-3312"
-		"GO-2024-3313"
-	)
+	ignore=()
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 
 	echo "Ignoring vulnerabilities: ${ignoreMatcher}"
@@ -145,6 +151,7 @@ test_static_analysis_go() {
 		run "run_juju_errors_imports"
 		run "run_api_imports"
 		run "run_domain_imports"
+		run "run_context_background"
 
 		run_linter "run_go"
 		run_linter "run_go_tidy"

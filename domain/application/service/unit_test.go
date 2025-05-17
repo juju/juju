@@ -891,7 +891,7 @@ func (s *unitServiceSuite) TestGetPublicAddresses(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
 	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
 
-	addrs, err := s.service.GetUnitPublicAddresses(context.Background(), unitName)
+	addrs, err := s.service.GetUnitPublicAddresses(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	// The two public addresses should be returned.
 	c.Check(addrs, tc.DeepEquals, unitAddresses[0:2])
@@ -944,7 +944,7 @@ func (s *unitServiceSuite) TestGetPublicAddressesCloudLocal(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
 	s.state.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), coreunit.UUID("foo")).Return(unitAddresses, nil)
 
-	addrs, err := s.service.GetUnitPublicAddresses(context.Background(), unitName)
+	addrs, err := s.service.GetUnitPublicAddresses(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	// The two cloud-local addresses should be returned because there are no
 	// public ones.
@@ -1110,7 +1110,7 @@ func (s *serviceSuite) TestGetUnitNetNodesNotFound(c *tc.C) {
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return("", applicationerrors.UnitNotFound)
 
-	_, err := s.service.GetUnitNetNodes(context.Background(), unitName)
+	_, err := s.service.GetUnitNetNodes(c.Context(), unitName)
 	c.Assert(err, tc.ErrorMatches, "unit not found")
 }
 
@@ -1124,7 +1124,7 @@ func (s *serviceSuite) TestGetUnitNetNodes(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
 	s.state.EXPECT().GetUnitNetNodes(gomock.Any(), coreunit.UUID("foo-uuid")).Return(netNodeUUIDs, nil)
 
-	netNodes, err := s.service.GetUnitNetNodes(context.Background(), unitName)
+	netNodes, err := s.service.GetUnitNetNodes(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(netNodes, tc.DeepEquals, netNodeUUIDs)
 }
