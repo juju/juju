@@ -8,6 +8,12 @@ import (
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 )
 
+const (
+	// providerType is the unique identifier that the lxd provider gets
+	// registered with.
+	providerType = lxdnames.ProviderType
+)
+
 func init() {
-	environs.RegisterProvider(lxdnames.ProviderType, NewProvider())
+	environs.RegisterProvider(providerType, NewProvider())
 }
