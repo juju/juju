@@ -109,6 +109,7 @@ type applicationDoc struct {
 	DesiredScale      int                           `bson:"scale"`
 	PasswordHash      string                        `bson:"passwordhash"`
 	ProvisioningState *ApplicationProvisioningState `bson:"provisioning-state"`
+	StorageID         string                        `bson:"storage-id"`
 
 	// Placement is the placement directive that should be used allocating units/pods.
 	Placement string `bson:"placement,omitempty"`
@@ -131,6 +132,10 @@ func newApplication(st *State, doc *applicationDoc) *Application {
 		doc: *doc,
 	}
 	return app
+}
+
+func (a *Application) StorageID() string {
+	return a.doc.StorageID
 }
 
 // IsRemote returns false for a local application.

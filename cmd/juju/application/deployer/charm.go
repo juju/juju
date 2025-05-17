@@ -50,6 +50,7 @@ type deployCharm struct {
 	baseFlag         corebase.Base
 	storage          map[string]storage.Constraints
 	trust            bool
+	storageID        string
 
 	validateCharmBaseWithName func(base corebase.Base, name string, imageStream string) error
 }
@@ -369,6 +370,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		Resources:        c.resources,
 		Storage:          c.storage,
 		Trust:            c.trust,
+		StorageID:        c.storageID,
 	})
 
 	for _, err := range errs {

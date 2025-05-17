@@ -93,6 +93,7 @@ type Application interface {
 	Charm() (charmscommon.Charm, bool, error)
 	ClearResources() error
 	CharmModifiedVersion() int
+	StorageID() string
 }
 
 type stateShim struct {
