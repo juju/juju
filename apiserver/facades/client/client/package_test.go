@@ -4,6 +4,7 @@
 package client_test
 
 import (
+	"os"
 	stdtesting "testing"
 
 	coretesting "github.com/juju/juju/internal/testing"
@@ -15,6 +16,9 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package client -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/client BlockDeviceService,NetworkService,ModelInfoService,RelationService,StatusService
 //go:generate go run go.uber.org/mock/mockgen -typed -package client -destination authorizer_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func TestMain(m *stdtesting.M) {
+	os.Exit(func() int {
+		defer coretesting.MgoTestMain()()
+		return m.Run()
+	}())
 }

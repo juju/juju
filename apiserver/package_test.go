@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"os"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -17,8 +18,11 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination provider_factory_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination tools_mock_test.go github.com/juju/juju/apiserver AgentBinaryStore,BlockChecker,ControllerConfigService
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func TestMain(m *stdtesting.M) {
+	os.Exit(func() int {
+		defer coretesting.MgoTestMain()()
+		return m.Run()
+	}())
 }
 
 type StubDBGetter struct{}

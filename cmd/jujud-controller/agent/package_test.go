@@ -21,10 +21,11 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/machine_mock.go github.com/juju/juju/cmd/jujud-controller/agent CommandRunner
 
-func TestPackage(t *stdtesting.T) {
-	// TODO(waigani) 2014-03-19 bug 1294458
-	// Refactor to use base suites
-	coretesting.MgoSSLTestPackage(t)
+func TestMain(m *stdtesting.M) {
+	os.Exit(func() int {
+		defer coretesting.MgoSSLTestMain()()
+		return m.Run()
+	}())
 }
 
 func readAuditLog(c *tc.C, logPath string) []auditlog.Record {

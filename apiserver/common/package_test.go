@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"fmt"
+	"os"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -27,8 +28,11 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/objectstore_mock.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade WatcherRegistry
 
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestMain(m *stdtesting.M) {
+	os.Exit(func() int {
+		defer testing.MgoTestMain()()
+		return m.Run()
+	}())
 }
 
 type entityWithError interface {

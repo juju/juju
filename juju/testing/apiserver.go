@@ -194,7 +194,7 @@ func (s *ApiServerSuite) SetUpSuite(c *tc.C) {
 
 func mongoInfo() mongo.MongoInfo {
 	if mgotesting.MgoServer.Addr() == "" {
-		panic("ApiServer tests must be run with MgoTestPackage")
+		panic("ApiServer tests must be run with MgoTestPackage/MgoTestMain")
 	}
 	mongoPort := strconv.Itoa(mgotesting.MgoServer.Port())
 	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
