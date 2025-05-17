@@ -6,6 +6,8 @@ package manual
 import "github.com/juju/juju/environs"
 
 const (
+	// providerType is the unique identifier that the manual provider gets
+	// registered with.
 	providerType = "manual"
 )
 
