@@ -149,7 +149,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
 			}),
 		},
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createCAASApplication(c, "foo", life.Alive, u)
 
 	err := s.state.UpdateCAASUnit(c.Context(), "foo/667", application.UpdateCAASUnitParams{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -206,7 +206,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *tc.C) {
 			}),
 		},
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createCAASApplication(c, "foo", life.Alive, u)
 
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), u.UnitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -246,7 +246,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
-	s.createScalingApplication(c, "foo", life.Alive, 1)
+	s.createCAASScalingApplication(c, "foo", life.Alive, 1)
 
 	p := application.RegisterCAASUnitArg{
 		UnitName:     "foo/666",
@@ -319,7 +319,7 @@ JOIN unit u ON u.uuid = cc.unit_uuid WHERE u.name = ?
 func (s *unitStateSuite) TestRegisterCAASUnitAlreadyExists(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 
-	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	_ = s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: unitName,
 	})
 
@@ -362,7 +362,7 @@ WHERE unit.name=?`,
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *tc.C) {
-	s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 
@@ -386,7 +386,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotALive(c *tc.C) {
-	s.createApplication(c, "foo", life.Dying, application.InsertUnitArg{
+	s.createCAASApplication(c, "foo", life.Dying, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 	p := application.RegisterCAASUnitArg{
@@ -404,7 +404,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotALive(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitExceedsScale(c *tc.C) {
-	appUUID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	appUUID := s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 
@@ -432,7 +432,7 @@ WHERE application_uuid = ?`, 1, 3, appUUID)
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleTarget(c *tc.C) {
-	appUUID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	appUUID := s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 
@@ -463,7 +463,7 @@ func (s *unitStateSuite) TestGetUnitLife(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 
 	unitLife, err := s.state.GetUnitLife(c.Context(), "foo/666")
 	c.Assert(err, tc.ErrorIsNil)
@@ -480,7 +480,7 @@ func (s *unitStateSuite) TestSetUnitLife(c *tc.C) {
 		UnitName: "foo/666",
 	}
 	ctx := c.Context()
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 
 	checkResult := func(want life.Life) {
 		var gotLife life.Life
@@ -550,7 +550,7 @@ func (s *unitStateSuite) TestDeleteUnit(c *tc.C) {
 	u2 := application.InsertUnitArg{
 		UnitName: "foo/667",
 	}
-	s.createApplication(c, "foo", life.Alive, u1, u2)
+	s.createIAASApplication(c, "foo", life.Alive, u1, u2)
 	var (
 		unitUUID    coreunit.UUID
 		netNodeUUID string
@@ -656,7 +656,7 @@ func (s *unitStateSuite) TestDeleteUnitLastUnitAppAlive(c *tc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u1)
+	s.createIAASApplication(c, "foo", life.Alive, u1)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id=2 WHERE name=?", u1.UnitName); err != nil {
 			return err
@@ -685,7 +685,7 @@ func (s *unitStateSuite) TestDeleteUnitLastUnit(c *tc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Dying, u1)
+	s.createIAASApplication(c, "foo", life.Dying, u1)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id=2 WHERE name=?", u1.UnitName); err != nil {
 			return err
@@ -714,7 +714,7 @@ func (s *unitStateSuite) TestGetUnitUUIDByName(c *tc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	_ = s.createApplication(c, "foo", life.Alive, u1)
+	_ = s.createIAASApplication(c, "foo", life.Alive, u1)
 
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), u1.UnitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -755,7 +755,7 @@ func (s *unitStateSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestAddUnitsApplicationNotAlive(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Dying)
+	appID := s.createIAASApplication(c, "foo", life.Dying)
 
 	_, err := s.state.AddIAASUnits(c.Context(), appID, application.AddUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
@@ -770,7 +770,7 @@ func (s *unitStateSuite) TestAddCAASUnits(c *tc.C) {
 }
 
 func (s *unitStateSuite) assertAddUnits(c *tc.C, modelType model.ModelType) {
-	appID := s.createApplication(c, "foo", life.Alive)
+	appID := s.createIAASApplication(c, "foo", life.Alive)
 
 	now := ptr(time.Now())
 	u := application.AddUnitArg{
@@ -831,7 +831,7 @@ func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *tc.C) {
 	u2 := application.InsertUnitArg{
 		UnitName: "foo/667",
 	}
-	s.createApplication(c, "foo", life.Alive, u1, u2)
+	s.createIAASApplication(c, "foo", life.Alive, u1, u2)
 
 	var unitID1, unitID2 string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -855,7 +855,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 
 	cc := application.UpdateCAASUnitParams{
 		ProviderID: ptr("another-id"),
@@ -878,7 +878,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesNoProviderID(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 
 	refreshAttributes, err := s.state.GetUnitRefreshAttributes(c.Context(), u.UnitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -892,7 +892,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesWithResolveMode(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), u.UnitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -915,7 +915,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesDeadLife(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", u.UnitName)
@@ -935,7 +935,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesDyingLife(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name = ?", u.UnitName)
@@ -955,7 +955,7 @@ func (s *unitStateSuite) TestSetConstraintFull(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 	var unitUUID coreunit.UUID
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
@@ -1011,7 +1011,7 @@ func (s *unitStateSuite) TestSetConstraintInvalidContainerType(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 	var unitUUID coreunit.UUID
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
@@ -1029,7 +1029,7 @@ func (s *unitStateSuite) TestSetConstraintInvalidSpace(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 	var unitUUID coreunit.UUID
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
@@ -1057,12 +1057,12 @@ func (s *unitStateSuite) TestGetAllUnitNamesNoUnits(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetAllUnitNames(c *tc.C) {
-	s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/666",
 	}, application.InsertUnitArg{
 		UnitName: "foo/667",
 	})
-	s.createApplication(c, "bar", life.Alive, application.InsertUnitArg{
+	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
 		UnitName: "bar/666",
 	})
 
@@ -1077,25 +1077,25 @@ func (s *unitStateSuite) TestGetUnitNamesForApplicationNotFound(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForApplicationDead(c *tc.C) {
-	appUUID := s.createApplication(c, "deadapp", life.Dead)
+	appUUID := s.createIAASApplication(c, "deadapp", life.Dead)
 	_, err := s.state.GetUnitNamesForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForApplicationNoUnits(c *tc.C) {
-	appUUID := s.createApplication(c, "foo", life.Alive)
+	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	names, err := s.state.GetUnitNamesForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(names, tc.DeepEquals, []coreunit.Name{})
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForApplication(c *tc.C) {
-	appUUID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	appUUID := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/666",
 	}, application.InsertUnitArg{
 		UnitName: "foo/667",
 	})
-	s.createApplication(c, "bar", life.Alive, application.InsertUnitArg{
+	s.createIAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
 		UnitName: "bar/666",
 	})
 
@@ -1127,7 +1127,7 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *tc.C) {
-	s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 		Placement: deployment.Placement{
 			Directive: "0",
@@ -1157,7 +1157,7 @@ func (s *unitStateSuite) TestGetUnitWorkloadVersion(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 
 	workloadVersion, err := s.state.GetUnitWorkloadVersion(c.Context(), u.UnitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1173,7 +1173,7 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersion(c *tc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, "foo", life.Alive, u)
+	s.createIAASApplication(c, "foo", life.Alive, u)
 
 	err := s.state.SetUnitWorkloadVersion(c.Context(), u.UnitName, "v1.0.0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1190,7 +1190,7 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionMultiple(c *tc.C) {
 	u2 := application.InsertUnitArg{
 		UnitName: "foo/667",
 	}
-	appID := s.createApplication(c, "foo", life.Alive, u1, u2)
+	appID := s.createIAASApplication(c, "foo", life.Alive, u1, u2)
 
 	s.assertApplicationWorkloadVersion(c, appID, "")
 
@@ -1217,7 +1217,7 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionMultiple(c *tc.C) {
 
 func (s *unitStateSuite) TestGetUnitMachineUUID(c *tc.C) {
 	unitName := coreunittesting.GenNewName(c, "foo/666")
-	appUUID := s.createApplication(c, "foo", life.Alive)
+	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	unitUUID := s.addUnit(c, unitName, appUUID)
 	_, machineUUID := s.addMachineToUnit(c, unitUUID)
 
@@ -1228,7 +1228,7 @@ func (s *unitStateSuite) TestGetUnitMachineUUID(c *tc.C) {
 
 func (s *unitStateSuite) TestGetUnitMachineUUIDNotAssigned(c *tc.C) {
 	unitName := coreunittesting.GenNewName(c, "foo/666")
-	appUUID := s.createApplication(c, "foo", life.Alive)
+	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	s.addUnit(c, unitName, appUUID)
 
 	_, err := s.state.GetUnitMachineUUID(c.Context(), unitName)
@@ -1244,7 +1244,7 @@ func (s *unitStateSuite) TestGetUnitMachineUUIDUnitNotFound(c *tc.C) {
 
 func (s *unitStateSuite) TestGetUnitMachineUUIDIsDead(c *tc.C) {
 	unitName := coreunittesting.GenNewName(c, "foo/666")
-	appUUID := s.createApplication(c, "foo", life.Alive)
+	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	s.addUnitWithLife(c, unitName, appUUID, life.Dead)
 
 	_, err := s.state.GetUnitMachineUUID(c.Context(), unitName)
@@ -1253,7 +1253,7 @@ func (s *unitStateSuite) TestGetUnitMachineUUIDIsDead(c *tc.C) {
 
 func (s *unitStateSuite) TestGetUnitMachineName(c *tc.C) {
 	unitName := coreunittesting.GenNewName(c, "foo/666")
-	appUUID := s.createApplication(c, "foo", life.Alive)
+	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	unitUUID := s.addUnit(c, unitName, appUUID)
 	machineName, _ := s.addMachineToUnit(c, unitUUID)
 
@@ -1264,7 +1264,7 @@ func (s *unitStateSuite) TestGetUnitMachineName(c *tc.C) {
 
 func (s *unitStateSuite) TestGetUnitMachineNameNotAssigned(c *tc.C) {
 	unitName := coreunittesting.GenNewName(c, "foo/666")
-	appUUID := s.createApplication(c, "foo", life.Alive)
+	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	s.addUnit(c, unitName, appUUID)
 
 	_, err := s.state.GetUnitMachineName(c.Context(), unitName)
@@ -1280,7 +1280,7 @@ func (s *unitStateSuite) TestGetUnitMachineNameUnitNotFound(c *tc.C) {
 
 func (s *unitStateSuite) TestGetUnitMachineNameIsDead(c *tc.C) {
 	unitName := coreunittesting.GenNewName(c, "foo/666")
-	appUUID := s.createApplication(c, "foo", life.Alive)
+	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	s.addUnitWithLife(c, unitName, appUUID, life.Dead)
 
 	_, err := s.state.GetUnitMachineName(c.Context(), unitName)
@@ -1303,7 +1303,7 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionNotFound(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
@@ -1391,7 +1391,7 @@ func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(c 
 }
 
 func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c *tc.C) {
-	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
@@ -1454,7 +1454,7 @@ func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesNotFound(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitAddresses(c *tc.C) {
-	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
@@ -1517,7 +1517,7 @@ func (s *unitStateSuite) TestGetUnitNetNodesNotFound(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *tc.C) {
-	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
@@ -1554,7 +1554,7 @@ func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
-	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
 		UnitName: "foo/0",
 	})
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
@@ -1742,20 +1742,19 @@ type unitStateSubordinateSuite struct {
 
 var _ = tc.Suite(&unitStateSubordinateSuite{})
 
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnit(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
-	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+	s.createIAASApplication(c, "principal", life.Alive, application.InsertUnitArg{
 		UnitName: pUnitName,
 	})
 
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
 	// Act:
-	sUnitName, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	sUnitName, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert
@@ -1765,32 +1764,30 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnit(c *tc.C) {
 	s.assertUnitMachinesMatch(c, pUnitName, sUnitName)
 }
 
-// TestAddSubordinateUnitSecondSubordinate tests that a second subordinate unit
+// TestAddIAASSubordinateUnitSecondSubordinate tests that a second subordinate unit
 // can be added to an app with no issues.
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitSecondSubordinate(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitSecondSubordinate(c *tc.C) {
 	// Arrange: add subordinate application.
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
 	// Arrange: add principal app and add a subordinate unit on it.
 	pUnitName1 := coreunittesting.GenNewName(c, "foo/666")
 	pUnitName2 := coreunittesting.GenNewName(c, "foo/667")
-	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+	s.createIAASApplication(c, "principal", life.Alive, application.InsertUnitArg{
 		UnitName: pUnitName1,
 	}, application.InsertUnitArg{
 		UnitName: pUnitName2,
 	})
-	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName1,
-		ModelType:         model.IAAS,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: Add a second subordinate unit
-	sUnitName2, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	sUnitName2, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName2,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert
@@ -1800,86 +1797,60 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitSecondSubordinate(c *t
 	s.assertUnitMachinesMatch(c, pUnitName2, sUnitName2)
 }
 
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitCAAS(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitTwiceToSameUnit(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
-	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
-		UnitName: pUnitName,
-	})
-
-	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
-
-	// Act:
-	sUnitName, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
-		SubordinateAppID:  sAppID,
-		PrincipalUnitName: pUnitName,
-		ModelType:         model.CAAS,
-	})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(sUnitName, tc.Equals, coreunittesting.GenNewName(c, "subordinate/0"))
-	s.assertUnitPrincipal(c, pUnitName, sUnitName)
-}
-
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitTwiceToSameUnit(c *tc.C) {
-	// Arrange:
-	pUnitName := coreunittesting.GenNewName(c, "foo/666")
-	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+	s.createIAASApplication(c, "principal", life.Alive, application.InsertUnitArg{
 		UnitName: pUnitName,
 	})
 
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
 	// Arrange: Add the first subordinate.
-	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: try adding a second subordinate to the same unit.
-	_, err = s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err = s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitAlreadyHasSubordinate)
 }
 
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitWithoutMachine(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitWithoutMachine(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
-	pAppUUID := s.createApplication(c, "principal", life.Alive)
+	pAppUUID := s.createIAASApplication(c, "principal", life.Alive)
 	s.addUnit(c, pUnitName, pAppUUID)
 
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
 	// Act:
-	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
 }
 
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitApplicationNotAlive(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitApplicationNotAlive(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
 
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Dying)
 
 	// Act:
-	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert
@@ -1900,7 +1871,7 @@ func (s *unitStateSubordinateSuite) TestIsSubordinateApplication(c *tc.C) {
 
 func (s *unitStateSubordinateSuite) TestIsSubordinateApplicationFalse(c *tc.C) {
 	// Arrange:
-	appID := s.createApplication(c, "notSubordinate", life.Alive)
+	appID := s.createIAASApplication(c, "notSubordinate", life.Alive)
 
 	// Act:
 	isSub, err := s.state.IsSubordinateApplication(c.Context(), appID)
@@ -1919,7 +1890,7 @@ func (s *unitStateSubordinateSuite) TestIsSubordinateApplicationNotFound(c *tc.C
 }
 
 func (s *unitStateSubordinateSuite) TestGetUnitPrincipal(c *tc.C) {
-	principalAppID := s.createApplication(c, "principal", life.Alive)
+	principalAppID := s.createIAASApplication(c, "principal", life.Alive)
 	subAppID := s.createSubordinateApplication(c, "sub", life.Alive)
 	principalName := coreunittesting.GenNewName(c, "principal/0")
 	subName := coreunittesting.GenNewName(c, "sub/0")
@@ -1934,7 +1905,7 @@ func (s *unitStateSubordinateSuite) TestGetUnitPrincipal(c *tc.C) {
 }
 
 func (s *unitStateSubordinateSuite) TestGetUnitPrincipalSubordinateNotPrincipal(c *tc.C) {
-	principalAppID := s.createApplication(c, "principal", life.Alive)
+	principalAppID := s.createIAASApplication(c, "principal", life.Alive)
 	subAppID := s.createSubordinateApplication(c, "sub", life.Alive)
 	principalName := coreunittesting.GenNewName(c, "principal/0")
 	subName := coreunittesting.GenNewName(c, "sub/0")
@@ -1955,7 +1926,7 @@ func (s *unitStateSubordinateSuite) TestGetUnitPrincipalNoUnitExists(c *tc.C) {
 }
 
 func (s *unitStateSubordinateSuite) TestGetUnitSubordinates(c *tc.C) {
-	principalAppID := s.createApplication(c, "principal", life.Alive)
+	principalAppID := s.createIAASApplication(c, "principal", life.Alive)
 	subAppID1 := s.createSubordinateApplication(c, "sub1", life.Alive)
 	subAppID2 := s.createSubordinateApplication(c, "sub2", life.Alive)
 	principalName := coreunittesting.GenNewName(c, "principal/0")
@@ -1976,7 +1947,7 @@ func (s *unitStateSubordinateSuite) TestGetUnitSubordinates(c *tc.C) {
 }
 
 func (s *unitStateSubordinateSuite) TestGetUnitSubordinatesEmpty(c *tc.C) {
-	principalAppID := s.createApplication(c, "principal", life.Alive)
+	principalAppID := s.createIAASApplication(c, "principal", life.Alive)
 	principalName := coreunittesting.GenNewName(c, "principal/0")
 	s.addUnit(c, principalName, principalAppID)
 
@@ -2043,16 +2014,18 @@ WHERE u2.name = ?
 func (s *unitStateSubordinateSuite) createSubordinateApplication(c *tc.C, name string, l life.Life) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	appID, err := state.CreateApplication(c.Context(), name, application.AddApplicationArg{
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name:        name,
-				Subordinate: true,
+	appID, err := state.CreateIAASApplication(c.Context(), name, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name:        name,
+					Subordinate: true,
+				},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: name,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
 			},
-			Manifest:      s.minimalManifest(c),
-			ReferenceName: name,
-			Source:        charm.CharmHubSource,
-			Revision:      42,
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)

@@ -95,7 +95,7 @@ func (s *baseSuite) addApplicationArgForResources(c *tc.C,
 	name string,
 	charmResources map[string]charm.Resource,
 	addResourcesArgs []application.AddApplicationResourceArg,
-) application.AddApplicationArg {
+) application.AddIAASApplicationArg {
 	platform := deployment.Platform{
 		Channel:      "666",
 		OSType:       deployment.Ubuntu,
@@ -109,25 +109,26 @@ func (s *baseSuite) addApplicationArgForResources(c *tc.C,
 
 	metadata := s.minimalMetadata(c, name)
 	metadata.Resources = charmResources
-	return application.AddApplicationArg{
-		Platform: platform,
-		Charm: charm.Charm{
-			Metadata:      metadata,
-			Manifest:      s.minimalManifest(c),
-			Source:        charm.CharmHubSource,
-			ReferenceName: name,
-			Revision:      42,
-			Architecture:  architecture.ARM64,
+	return application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Charm: charm.Charm{
+				Metadata:      metadata,
+				Manifest:      s.minimalManifest(c),
+				Source:        charm.CharmHubSource,
+				ReferenceName: name,
+				Revision:      42,
+				Architecture:  architecture.ARM64,
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident-1",
+				DownloadURL:        "http://example.com/charm",
+				DownloadSize:       666,
+			},
+			Channel:   channel,
+			Resources: addResourcesArgs,
 		},
-		CharmDownloadInfo: &charm.DownloadInfo{
-			Provenance:         charm.ProvenanceDownload,
-			CharmhubIdentifier: "ident-1",
-			DownloadURL:        "http://example.com/charm",
-			DownloadSize:       666,
-		},
-		Scale:     1,
-		Channel:   channel,
-		Resources: addResourcesArgs,
 	}
 }
 
@@ -150,10 +151,10 @@ INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
 	return uuid
 }
 
-func (s *baseSuite) addApplicationArgForStorage(c *tc.C,
+func (s *baseSuite) addIAASApplicationArgForStorage(c *tc.C,
 	name string,
 	charmStorage []charm.Storage,
-	addStorageArgs []application.ApplicationStorageArg) application.AddApplicationArg {
+	addStorageArgs []application.ApplicationStorageArg) application.AddIAASApplicationArg {
 	platform := deployment.Platform{
 		Channel:      "666",
 		OSType:       deployment.Ubuntu,
@@ -170,26 +171,27 @@ func (s *baseSuite) addApplicationArgForStorage(c *tc.C,
 	for _, stor := range charmStorage {
 		metadata.Storage[stor.Name] = stor
 	}
-	args := application.AddApplicationArg{
-		Platform: platform,
-		Charm: charm.Charm{
-			Metadata:      metadata,
-			Manifest:      s.minimalManifest(c),
-			Source:        charm.CharmHubSource,
-			ReferenceName: name,
-			Revision:      42,
-			Architecture:  architecture.ARM64,
+	args := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Charm: charm.Charm{
+				Metadata:      metadata,
+				Manifest:      s.minimalManifest(c),
+				Source:        charm.CharmHubSource,
+				ReferenceName: name,
+				Revision:      42,
+				Architecture:  architecture.ARM64,
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident-1",
+				DownloadURL:        "http://example.com/charm",
+				DownloadSize:       666,
+			},
+			Channel:         channel,
+			Storage:         addStorageArgs,
+			StoragePoolKind: make(map[string]storage.StorageKind),
 		},
-		CharmDownloadInfo: &charm.DownloadInfo{
-			Provenance:         charm.ProvenanceDownload,
-			CharmhubIdentifier: "ident-1",
-			DownloadURL:        "http://example.com/charm",
-			DownloadSize:       666,
-		},
-		Scale:           1,
-		Channel:         channel,
-		Storage:         addStorageArgs,
-		StoragePoolKind: make(map[string]storage.StorageKind),
 	}
 	registry := storage.ChainedProviderRegistry{
 		dummystorage.StorageProviders(),
@@ -209,7 +211,68 @@ func (s *baseSuite) addApplicationArgForStorage(c *tc.C,
 	return args
 }
 
-func (s *baseSuite) createApplication(c *tc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
+func (s *baseSuite) addCAASApplicationArgForStorage(c *tc.C,
+	name string,
+	charmStorage []charm.Storage,
+	addStorageArgs []application.ApplicationStorageArg) application.AddCAASApplicationArg {
+	platform := deployment.Platform{
+		Channel:      "666",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+
+	metadata := s.minimalMetadata(c, name)
+	metadata.Storage = make(map[string]charm.Storage)
+	for _, stor := range charmStorage {
+		metadata.Storage[stor.Name] = stor
+	}
+	args := application.AddCAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Charm: charm.Charm{
+				Metadata:      metadata,
+				Manifest:      s.minimalManifest(c),
+				Source:        charm.CharmHubSource,
+				ReferenceName: name,
+				Revision:      42,
+				Architecture:  architecture.ARM64,
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident-1",
+				DownloadURL:        "http://example.com/charm",
+				DownloadSize:       666,
+			},
+			Channel:         channel,
+			Storage:         addStorageArgs,
+			StoragePoolKind: make(map[string]storage.StorageKind),
+		},
+		Scale: 1,
+	}
+	registry := storage.ChainedProviderRegistry{
+		dummystorage.StorageProviders(),
+		provider.CommonStorageProviders(),
+	}
+	types, err := registry.StorageProviderTypes()
+	c.Assert(err, tc.ErrorIsNil)
+	for _, t := range types {
+		p, err := registry.StorageProvider(t)
+		c.Assert(err, tc.ErrorIsNil)
+		if p.Supports(storage.StorageKindFilesystem) {
+			args.StoragePoolKind[string(t)] = storage.StorageKindFilesystem
+		} else {
+			args.StoragePoolKind[string(t)] = storage.StorageKindBlock
+		}
+	}
+	return args
+}
+
+func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
@@ -224,57 +287,58 @@ func (s *baseSuite) createApplication(c *tc.C, name string, l life.Life, units .
 	}
 	ctx := c.Context()
 
-	appID, err := state.CreateApplication(ctx, name, application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: name,
-				Provides: map[string]charm.Relation{
-					"endpoint": {
-						Name:  "endpoint",
-						Role:  charm.RoleProvider,
-						Scope: charm.ScopeGlobal,
+	appID, err := state.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: name,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+						"misc": {
+							Name:  "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
 					},
-					"misc": {
-						Name:  "misc",
-						Role:  charm.RoleProvider,
-						Scope: charm.ScopeGlobal,
+					ExtraBindings: map[string]charm.ExtraBinding{
+						"extra": {
+							Name: "extra",
+						},
 					},
 				},
-				ExtraBindings: map[string]charm.ExtraBinding{
-					"extra": {
-						Name: "extra",
-					},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: name,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
+			Devices: map[string]devices.Constraints{
+				"dev0": {
+					Type:       devices.DeviceType("type0"),
+					Count:      42,
+					Attributes: map[string]string{"k0": "v0", "k1": "v1"},
 				},
-			},
-			Manifest:      s.minimalManifest(c),
-			ReferenceName: name,
-			Source:        charm.CharmHubSource,
-			Revision:      42,
-			Hash:          "hash",
-		},
-		CharmDownloadInfo: &charm.DownloadInfo{
-			Provenance:         charm.ProvenanceDownload,
-			CharmhubIdentifier: "ident",
-			DownloadURL:        "https://example.com",
-			DownloadSize:       42,
-		},
-		Scale: len(units),
-		Devices: map[string]devices.Constraints{
-			"dev0": {
-				Type:       devices.DeviceType("type0"),
-				Count:      42,
-				Attributes: map[string]string{"k0": "v0", "k1": "v1"},
-			},
-			"dev1": {
-				Type:       devices.DeviceType("type1"),
-				Count:      3,
-				Attributes: map[string]string{"k2": "v2"},
-			},
-			"dev2": {
-				Type:  devices.DeviceType("type2"),
-				Count: 1974,
+				"dev1": {
+					Type:       devices.DeviceType("type1"),
+					Count:      3,
+					Attributes: map[string]string{"k2": "v2"},
+				},
+				"dev2": {
+					Type:  devices.DeviceType("type2"),
+					Count: 1974,
+				},
 			},
 		},
 	}, nil)
@@ -308,7 +372,7 @@ func (s *baseSuite) createApplication(c *tc.C, name string, l life.Life, units .
 	return appID
 }
 
-func (s *baseSuite) createScalingApplication(c *tc.C, name string, l life.Life, scale int) coreapplication.ID {
+func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
@@ -323,36 +387,139 @@ func (s *baseSuite) createScalingApplication(c *tc.C, name string, l life.Life, 
 	}
 	ctx := c.Context()
 
-	appID, err := state.CreateApplication(ctx, name, application.AddApplicationArg{
-		Platform: platform,
-		Channel:  channel,
-		Charm: charm.Charm{
-			Metadata: charm.Metadata{
-				Name: name,
-				Provides: map[string]charm.Relation{
-					"endpoint": {
-						Name:  "endpoint",
-						Role:  charm.RoleProvider,
-						Scope: charm.ScopeGlobal,
+	appID, err := state.CreateCAASApplication(ctx, name, application.AddCAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: name,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+						"misc": {
+							Name:  "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
 					},
-					"misc": {
-						Name:  "misc",
-						Role:  charm.RoleProvider,
-						Scope: charm.ScopeGlobal,
+					ExtraBindings: map[string]charm.ExtraBinding{
+						"extra": {
+							Name: "extra",
+						},
 					},
 				},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: name,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
 			},
-			Manifest:      s.minimalManifest(c),
-			ReferenceName: name,
-			Source:        charm.CharmHubSource,
-			Revision:      42,
-			Hash:          "hash",
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
+			Devices: map[string]devices.Constraints{
+				"dev0": {
+					Type:       devices.DeviceType("type0"),
+					Count:      42,
+					Attributes: map[string]string{"k0": "v0", "k1": "v1"},
+				},
+				"dev1": {
+					Type:       devices.DeviceType("type1"),
+					Count:      3,
+					Attributes: map[string]string{"k2": "v2"},
+				},
+				"dev2": {
+					Type:  devices.DeviceType("type2"),
+					Count: 1974,
+				},
+			},
 		},
-		CharmDownloadInfo: &charm.DownloadInfo{
-			Provenance:         charm.ProvenanceDownload,
-			CharmhubIdentifier: "ident",
-			DownloadURL:        "https://example.com",
-			DownloadSize:       42,
+		Scale: len(units),
+	}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	modelType, err := state.GetModelType(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+
+	db, err := state.DB()
+	c.Assert(err, tc.ErrorIsNil)
+	for _, u := range units {
+		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			if modelType == coremodel.IAAS {
+				return state.insertIAASUnit(ctx, tx, appID, u)
+			}
+			return state.insertCAASUnit(ctx, tx, appID, u)
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE application_uuid = ?", l, appID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return appID
+}
+
+func (s *baseSuite) createCAASScalingApplication(c *tc.C, name string, l life.Life, scale int) coreapplication.ID {
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	platform := deployment.Platform{
+		Channel:      "22.04/stable",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track:  "track",
+		Risk:   "stable",
+		Branch: "branch",
+	}
+	ctx := c.Context()
+
+	appID, err := state.CreateCAASApplication(ctx, name, application.AddCAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: name,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+						"misc": {
+							Name:  "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+					},
+				},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: name,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
 		},
 		Scale: scale,
 	}, nil)
