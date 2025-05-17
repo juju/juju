@@ -3,13 +3,17 @@
 
 package charm
 
-import "github.com/juju/tc"
+import (
+	stdtesting "testing"
+
+	"github.com/juju/tc"
+)
 
 type removeRelationsSuite struct{}
 
-var (
-	_ = tc.Suite(&removeRelationsSuite{})
+func TestRemoveRelationsSuite(t *stdtesting.T) { tc.Run(t, &removeRelationsSuite{}) }
 
+var (
 	sampleRelations = [][]string{
 		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
 		{"kubernetes-master:etcd", "etcd:db"},

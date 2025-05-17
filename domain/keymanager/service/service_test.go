@@ -5,6 +5,7 @@ package service
 
 import (
 	"net/url"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -34,9 +35,9 @@ type serviceSuite struct {
 	modelUUID   model.UUID
 }
 
-var (
-	_ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
 
+var (
 	existingUserPublicKeys = []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe existing2",

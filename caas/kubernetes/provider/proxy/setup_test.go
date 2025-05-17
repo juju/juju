@@ -5,6 +5,7 @@ package proxy_test
 
 import (
 	"encoding/json"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -22,8 +23,9 @@ type setupSuite struct {
 	clock  *testclock.Clock
 }
 
+func TestSetupSuite(t *stdtesting.T) { tc.Run(t, &setupSuite{}) }
+
 var (
-	_             = tc.Suite(&setupSuite{})
 	testNamespace = "test"
 )
 

@@ -27,9 +27,9 @@ type RefreshSuite struct {
 	baseSuite
 }
 
-var (
-	_ = tc.Suite(&RefreshSuite{})
+func TestRefreshSuite(t *stdtesting.T) { tc.Run(t, &RefreshSuite{}) }
 
+var (
 	expRefreshFields = set.NewStrings(
 		"download", "id", "license", "name", "publisher", "resources",
 		"revision", "summary", "type", "version", "bases", "config-yaml",

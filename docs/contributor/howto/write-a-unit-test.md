@@ -78,7 +78,9 @@ do by passing a pointer to an instance of our suite to the `tc.Suite` function.
 ```go
 type magicSuite struct{}
 
-var _ = tc.Suite(&magicSuite{})
+func TestMagicSuite(t *testing.T) {
+  tc.Run(t, &magicSuite{})
+}
 ```
 
 ## Write the test

@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"context"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -33,20 +34,22 @@ type listCredentialsSuite struct {
 	testAPI            *mockAPI
 }
 
-var _ = tc.Suite(&listCredentialsSuite{
-	personalCloudsFunc: func() (map[string]jujucloud.Cloud, error) {
-		return map[string]jujucloud.Cloud{
-			"mycloud":      {},
-			"missingcloud": {},
-		}, nil
-	},
-	cloudByNameFunc: func(name string) (*jujucloud.Cloud, error) {
-		if name == "missingcloud" {
-			return nil, errors.NotValidf(name)
-		}
-		return &jujucloud.Cloud{Type: "test-provider"}, nil
-	},
-})
+func TestListCredentialsSuite(t *stdtesting.T) {
+	tc.Run(t, &listCredentialsSuite{
+		personalCloudsFunc: func() (map[string]jujucloud.Cloud, error) {
+			return map[string]jujucloud.Cloud{
+				"mycloud":      {},
+				"missingcloud": {},
+			}, nil
+		},
+		cloudByNameFunc: func(name string) (*jujucloud.Cloud, error) {
+			if name == "missingcloud" {
+				return nil, errors.NotValidf(name)
+			}
+			return &jujucloud.Cloud{Type: "test-provider"}, nil
+		},
+	})
+}
 
 func (s *listCredentialsSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)

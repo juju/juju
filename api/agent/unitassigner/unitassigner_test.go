@@ -6,6 +6,7 @@ package unitassigner
 import (
 	"context"
 	"sync"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -15,11 +16,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(testsuite{})
+func TestUnitAssignerSuite(t *stdtesting.T) {
+	tc.Run(t, &unitAssignerSuite{})
+}
 
-type testsuite struct{}
+type unitAssignerSuite struct{}
 
-func (testsuite) TestAssignUnits(c *tc.C) {
+func (unitAssignerSuite) TestAssignUnits(c *tc.C) {
 	f := &fakeAssignCaller{c: c, response: params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
@@ -39,7 +42,7 @@ func (testsuite) TestAssignUnits(c *tc.C) {
 	c.Assert(errs, tc.DeepEquals, []error{nil, nil})
 }
 
-func (testsuite) TestAssignUnitsNotFound(c *tc.C) {
+func (unitAssignerSuite) TestAssignUnitsNotFound(c *tc.C) {
 	f := &fakeAssignCaller{c: c, response: params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Code: params.CodeNotFound}},
@@ -59,7 +62,7 @@ func (testsuite) TestAssignUnitsNotFound(c *tc.C) {
 	c.Assert(errs[0], tc.ErrorIs, errors.NotFound)
 }
 
-func (testsuite) TestWatchUnitAssignment(c *tc.C) {
+func (unitAssignerSuite) TestWatchUnitAssignment(c *tc.C) {
 	f := &fakeWatchCaller{
 		c:        c,
 		response: params.StringsWatchResult{},

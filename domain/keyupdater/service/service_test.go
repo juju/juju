@@ -5,6 +5,7 @@ package service
 
 import (
 	"slices"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -24,9 +25,9 @@ type serviceSuite struct {
 	modelId model.UUID
 }
 
-var (
-	_ = tc.Suite(&serviceSuite{})
+func TestServiceSuite(t *stdtesting.T) { tc.Run(t, &serviceSuite{}) }
 
+var (
 	controllerKeys = []string{
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju-client-key",
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju-system-key",

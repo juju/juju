@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -21,10 +22,7 @@ type githubSuite struct {
 	client *MockClient
 }
 
-var (
-	_ = tc.Suite(&githubSuite{})
-)
-
+func TestGithubSuite(t *stdtesting.T) { tc.Run(t, &githubSuite{}) }
 func (s *githubSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = NewMockClient(ctrl)

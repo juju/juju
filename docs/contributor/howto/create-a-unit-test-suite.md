@@ -14,7 +14,9 @@ dataDir string
 
 }
 
-var _ = tc.Suite(&ToolsSuite{})
+func TestToolsSuite(t *stdtesting.T) {
+tc.Run(t, &ToolsSuite{})
+}
 
 ```
 

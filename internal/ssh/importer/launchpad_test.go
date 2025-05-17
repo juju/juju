@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -19,10 +20,7 @@ type launchpadSuite struct {
 	client *MockClient
 }
 
-var (
-	_ = tc.Suite(&launchpadSuite{})
-)
-
+func TestLaunchpadSuite(t *stdtesting.T) { tc.Run(t, &launchpadSuite{}) }
 func (s *launchpadSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = NewMockClient(ctrl)

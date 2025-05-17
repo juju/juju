@@ -177,7 +177,9 @@ type ToolsSuite struct {
 	dataDir string
 }
 
-var _ = tc.Suite(&ToolsSuite{})
+func TestToolsSuite(t *testing.T) {
+  tc.Run(t, &ToolsSuite{})
+}
 
 ```
 

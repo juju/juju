@@ -6,6 +6,7 @@ package unitassigner
 import (
 	"context"
 	"errors"
+	stdtesting "testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -16,7 +17,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = tc.Suite(testsuite{})
+func TestSuite(t *stdtesting.T) {
+	tc.Run(t, &testsuite{})
+}
 
 type testsuite struct{}
 

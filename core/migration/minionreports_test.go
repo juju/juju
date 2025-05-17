@@ -4,6 +4,8 @@
 package migration_test
 
 import (
+	stdtesting "testing"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/migration"
@@ -14,7 +16,9 @@ type MinionReportsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = tc.Suite(new(MinionReportsSuite))
+func TestMinionReportsSuite(t *stdtesting.T) {
+	tc.Run(t, new(MinionReportsSuite))
+}
 
 func (s *MinionReportsSuite) TestIsZero(c *tc.C) {
 	reports := migration.MinionReports{}
