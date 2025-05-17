@@ -11,12 +11,12 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-type firewallerSuite struct {
+type legacyFirewallerSuite struct {
 	testhelpers.IsolationSuite
 }
 
-func TestFirewallerSuite(t *stdtesting.T) { tc.Run(t, &firewallerSuite{}) }
-func (s *firewallerSuite) TestStub(c *tc.C) {
+func TestLegacyFirewallerSuite(t *stdtesting.T) { tc.Run(t, &legacyFirewallerSuite{}) }
+func (s *legacyFirewallerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 
  - Test that the firewaller API fails when the user is not a controller user.

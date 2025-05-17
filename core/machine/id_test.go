@@ -9,16 +9,17 @@ import (
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
 
-type MachineSuite struct {
-	testhelpers.IsolationSuite
+type MachineIDSuite struct {
 }
 
-func TestMachineSuite(t *stdtesting.T) { tc.Run(t, &MachineSuite{}) }
-func (*MachineSuite) TestUUIDValidate(c *tc.C) {
+func TestMachineIDSuite(t *stdtesting.T) {
+	tc.Run(t, &MachineIDSuite{})
+}
+
+func (*MachineIDSuite) TestUUIDValidate(c *tc.C) {
 	tests := []struct {
 		uuid string
 		err  error

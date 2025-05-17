@@ -300,13 +300,13 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *tc.C) {
 	// do we continue on to searching simplestreams.
 	c.Assert(err, tc.ErrorMatches, "AllMetadata failed")
 }
+
 func TestGetUrlSuite(t *stdtesting.T) { tc.Run(t, &getUrlSuite{}) }
 
 type getUrlSuite struct {
 	apiHostPortsGetter *mocks.MockAPIHostPortsForAgentsGetter
 }
 
-func TestGetUrlSuite(t *stdtesting.T) { tc.Run(t, &getUrlSuite{}) }
 func (s *getUrlSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

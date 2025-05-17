@@ -33,7 +33,6 @@ type MapperSuite struct {
 }
 
 func TestMapperSuite(t *stdtesting.T) { tc.Run(t, &MapperSuite{}) }
-func TestMapperSuite(t *stdtesting.T)        { tc.TestingT(t) }
 
 func (m *MapperSuite) SetUpTest(c *tc.C) {
 	m.ctrl = gomock.NewController(c)
