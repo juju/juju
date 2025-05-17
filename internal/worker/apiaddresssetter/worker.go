@@ -52,20 +52,11 @@ type ControllerNodeService interface {
 
 // ApplicationService is an interface for the application domain service.
 type ApplicationService interface {
-	// WatchNetNodeAddress watches for changes to the specified net nodes
-	// addresses.
-	// This notifies on any changes to the net nodes addresses. It is up to the
-	// caller to determine if the addresses they're interested in has changed.
-	WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...string) (watcher.NotifyWatcher, error)
-
-	// GetUnitNetNodes returns the net node UUIDs associated with the specified
-	// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
-	// the union of the net nodes of the cloud service (if any) and the net node
-	// of the unit.
-	//
-	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist
-	GetUnitNetNodes(ctx context.Context, unitName unit.Name) ([]string, error)
+	// WatchUnitAddresses watches for changes to the addresses of the specified
+	// unit.
+	// This notifies on any changes to the unit addresses and it is up to the
+	// caller to determine if the addresses they're interested in have changed.
+	WatchUnitAddresses(ctx context.Context, unitName unit.Name) (watcher.NotifyWatcher, error)
 
 	// GetUnitPublicAddresses returns all public addresses for the specified unit.
 	//
@@ -178,8 +169,7 @@ func (w *apiAddressSetterWorker) Wait() error {
 }
 
 func (w *apiAddressSetterWorker) loop() error {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
+	ctx := w.catacomb.Context(context.Background())
 
 	controllerNodeChanges, err := w.watchForControllerNodeChanges(ctx)
 	if err != nil {
@@ -227,10 +217,6 @@ func (w *apiAddressSetterWorker) loop() error {
 			w.config.Logger.Errorf(ctx, "cannot update api addresses: %v", err)
 		}
 	}
-}
-
-func (w *apiAddressSetterWorker) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
 // watchForControllerChanges starts a watcher for changes to controller nodes.
