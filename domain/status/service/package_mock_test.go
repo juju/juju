@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
+	model "github.com/juju/juju/core/model"
 	relation "github.com/juju/juju/core/relation"
 	unit "github.com/juju/juju/core/unit"
 	status "github.com/juju/juju/domain/status"
@@ -891,6 +892,107 @@ func (c *MockStateSetUnitWorkloadStatusCall) Do(f func(context.Context, unit.UUI
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.UUID, status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetUnitWorkloadStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockControllerState is a mock of ControllerState interface.
+type MockControllerState struct {
+	ctrl     *gomock.Controller
+	recorder *MockControllerStateMockRecorder
+}
+
+// MockControllerStateMockRecorder is the mock recorder for MockControllerState.
+type MockControllerStateMockRecorder struct {
+	mock *MockControllerState
+}
+
+// NewMockControllerState creates a new mock instance.
+func NewMockControllerState(ctrl *gomock.Controller) *MockControllerState {
+	mock := &MockControllerState{ctrl: ctrl}
+	mock.recorder = &MockControllerStateMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
+	return m.recorder
+}
+
+// GetModel mocks base method.
+func (m *MockControllerState) GetModel(arg0 context.Context, arg1 model.UUID) (model.Model, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModel", arg0, arg1)
+	ret0, _ := ret[0].(model.Model)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModel indicates an expected call of GetModel.
+func (mr *MockControllerStateMockRecorder) GetModel(arg0, arg1 any) *MockControllerStateGetModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModel", reflect.TypeOf((*MockControllerState)(nil).GetModel), arg0, arg1)
+	return &MockControllerStateGetModelCall{Call: call}
+}
+
+// MockControllerStateGetModelCall wrap *gomock.Call
+type MockControllerStateGetModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetModelCall) Return(arg0 model.Model, arg1 error) *MockControllerStateGetModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetModelCall) Do(f func(context.Context, model.UUID) (model.Model, error)) *MockControllerStateGetModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetModelCall) DoAndReturn(f func(context.Context, model.UUID) (model.Model, error)) *MockControllerStateGetModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetModelState mocks base method.
+func (m *MockControllerState) GetModelState(arg0 context.Context, arg1 model.UUID) (status.ModelState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelState", arg0, arg1)
+	ret0, _ := ret[0].(status.ModelState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelState indicates an expected call of GetModelState.
+func (mr *MockControllerStateMockRecorder) GetModelState(arg0, arg1 any) *MockControllerStateGetModelStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelState", reflect.TypeOf((*MockControllerState)(nil).GetModelState), arg0, arg1)
+	return &MockControllerStateGetModelStateCall{Call: call}
+}
+
+// MockControllerStateGetModelStateCall wrap *gomock.Call
+type MockControllerStateGetModelStateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetModelStateCall) Return(arg0 status.ModelState, arg1 error) *MockControllerStateGetModelStateCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetModelStateCall) Do(f func(context.Context, model.UUID) (status.ModelState, error)) *MockControllerStateGetModelStateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetModelStateCall) DoAndReturn(f func(context.Context, model.UUID) (status.ModelState, error)) *MockControllerStateGetModelStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

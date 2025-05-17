@@ -13,7 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
@@ -165,11 +165,24 @@ type State interface {
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
 }
 
+// ControllerState is the controller state required by this service. This is the
+// controller database, not the model state.
+type ControllerState interface {
+	// GetModelState returns the model state for the given model.
+	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
+	GetModelState(context.Context, coremodel.UUID) (status.ModelState, error)
+
+	// GetModel returns the model for the given UUID.
+	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
+	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
+}
+
 // Service provides the API for working with the statuses of applications and
 // units.
 type Service struct {
 	st                    State
-	modelUUID             model.UUID
+	controllerState       ControllerState
+	modelUUID             coremodel.UUID
 	statusHistory         StatusHistory
 	statusHistoryReaderFn StatusHistoryReaderFunc
 	logger                logger.Logger
@@ -179,7 +192,8 @@ type Service struct {
 // NewService returns a new service reference wrapping the input state.
 func NewService(
 	st State,
-	modelUUID model.UUID,
+	controllerState ControllerState,
+	modelUUID coremodel.UUID,
 	statusHistory StatusHistory,
 	statusHistoryReaderFn StatusHistoryReaderFunc,
 	clock clock.Clock,
@@ -187,6 +201,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		st:                    st,
+		controllerState:       controllerState,
 		modelUUID:             modelUUID,
 		statusHistory:         statusHistory,
 		statusHistoryReaderFn: statusHistoryReaderFn,

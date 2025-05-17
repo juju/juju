@@ -50,11 +50,15 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	backend := commonmodel.NewModelManagerBackend(stModel, c.statePool)
 	err = commonmodel.DestroyController(
 		ctx,
+		c.controllerModelUUID,
 		modelUUIDs,
 		backend,
 		c.blockCommandService,
 		c.modelInfoService,
 		c.modelService,
+		func(ctx context.Context, u model.UUID) (commonmodel.StatusService, error) {
+			return c.statusServiceGetter(ctx, u)
+		},
 		func(ctx context.Context, u model.UUID) (commonmodel.BlockCommandService, error) {
 			return c.blockCommandServiceGetter(ctx, u)
 		},
