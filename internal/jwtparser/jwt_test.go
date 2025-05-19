@@ -50,13 +50,13 @@ func (s *jwtParserSuite) TestCacheRegistration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *jwtParserSuite) TestCacheRegistrationFailureWithBadURL(c *gc.C) {
+func (s *jwtParserSuite) TestCacheRegistrationSucceedsWithBadURL(c *gc.C) {
 	ctx, done := context.WithCancel(context.Background())
 	defer done()
 	authenticator := NewParserWithHTTPClient(ctx, s.client)
 	err := authenticator.SetJWKSCache(context.Background(), "noexisturl")
-	// We want to make sure that we get an error for a bad url.
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(authenticator.refreshURL, gc.Equals, "noexisturl")
 }
 
 func (s *jwtParserSuite) TestParseJWT(c *gc.C) {

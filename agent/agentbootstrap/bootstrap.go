@@ -6,6 +6,7 @@ package agentbootstrap
 import (
 	stdcontext "context"
 	"fmt"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
@@ -98,6 +100,20 @@ func InitializeState(
 	if !ok {
 		return nil, errors.Errorf("state serving information not available")
 	}
+
+	// The JWKS refresh URL is a public key that we trust for federated
+	// auth. This is conventionally a JIMM controller. Check that JIMM
+	// is reachable to fail fast and validate the URL.
+	jwksRefreshURL := args.ControllerConfig.LoginTokenRefreshURL()
+	if jwksRefreshURL != "" {
+		ctx, cancelF := stdcontext.WithTimeout(stdcontext.TODO(), 30*time.Second)
+		defer cancelF()
+		_, err := jwk.Fetch(ctx, jwksRefreshURL)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to fetch jwks")
+		}
+	}
+
 	// N.B. no users are set up when we're initializing the state,
 	// so don't use any tag or password when opening it.
 	info, ok := c.MongoInfo()
