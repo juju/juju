@@ -303,6 +303,7 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	modelDomainServices.EXPECT().Network().Return(networkService)
 	modelDomainServices.EXPECT().Config().Return(s.modelConfigService).AnyTimes()
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
+	modelDomainServices.EXPECT().Status().Return(s.statusService).AnyTimes()
 
 	// Expect calls to functions of the model services.
 	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(domainstatus.ModelStatus{
