@@ -53,7 +53,10 @@ func (s *statusSuite) TestModelStatus(c *tc.C) {
 		Since:   now,
 	}, nil)
 
-	client := &Client{modelInfoService: s.modelInfoService}
+	client := &Client{
+		modelInfoService: s.modelInfoService,
+		statusService:    s.statusService,
+	}
 	statusInfo, err := client.modelStatus(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(statusInfo, tc.DeepEquals, params.ModelStatusInfo{
@@ -83,7 +86,10 @@ func (s *statusSuite) TestModelStatusModelNotFound(c *tc.C) {
 	}, nil)
 	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(domainstatus.ModelStatus{}, domainmodelerrors.NotFound)
 
-	client := &Client{modelInfoService: s.modelInfoService}
+	client := &Client{
+		modelInfoService: s.modelInfoService,
+		statusService:    s.statusService,
+	}
 	_, err := client.modelStatus(c.Context())
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

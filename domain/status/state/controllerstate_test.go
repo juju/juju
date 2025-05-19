@@ -11,8 +11,8 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	credentialstate "github.com/juju/juju/domain/credential/state"
-	"github.com/juju/juju/domain/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainstatus "github.com/juju/juju/domain/status"
 )
 
 type controllerStateSuite struct {
@@ -31,7 +31,7 @@ func (s *controllerStateSuite) TestGetModelState(c *tc.C) {
 
 	mSt, err := st.GetModelState(c.Context(), s.uuid)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(mSt, tc.DeepEquals, model.ModelState{
+	c.Check(mSt, tc.DeepEquals, domainstatus.ModelState{
 		Destroying:                   false,
 		Migrating:                    false,
 		HasInvalidCloudCredential:    false,
@@ -57,7 +57,7 @@ func (s *controllerStateSuite) TestGetModelStateInvalidCredentials(c *tc.C) {
 
 	mSt, err := st.GetModelState(c.Context(), s.uuid)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(mSt, tc.DeepEquals, model.ModelState{
+	c.Check(mSt, tc.DeepEquals, domainstatus.ModelState{
 		Destroying:                   false,
 		Migrating:                    false,
 		HasInvalidCloudCredential:    true,
@@ -80,7 +80,7 @@ UPDATE model SET life_id = 1 WHERE uuid = ?
 
 	mSt, err := st.GetModelState(c.Context(), s.uuid)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(mSt, tc.DeepEquals, model.ModelState{
+	c.Check(mSt, tc.DeepEquals, domainstatus.ModelState{
 		Destroying:                   true,
 		Migrating:                    false,
 		HasInvalidCloudCredential:    false,
