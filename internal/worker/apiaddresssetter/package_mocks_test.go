@@ -145,10 +145,10 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // GetUnitNetNodes mocks base method.
-func (m *MockApplicationService) GetUnitNetNodes(arg0 context.Context, arg1 unit.Name) ([]string, error) {
+func (m *MockApplicationService) GetUnitNetNodes(arg0 context.Context, arg1 unit.Name) ([]network.NetNodeUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitNetNodes", arg0, arg1)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].([]network.NetNodeUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -166,19 +166,19 @@ type MockApplicationServiceGetUnitNetNodesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetUnitNetNodesCall) Return(arg0 []string, arg1 error) *MockApplicationServiceGetUnitNetNodesCall {
+func (c *MockApplicationServiceGetUnitNetNodesCall) Return(arg0 []network.NetNodeUUID, arg1 error) *MockApplicationServiceGetUnitNetNodesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetUnitNetNodesCall) Do(f func(context.Context, unit.Name) ([]string, error)) *MockApplicationServiceGetUnitNetNodesCall {
+func (c *MockApplicationServiceGetUnitNetNodesCall) Do(f func(context.Context, unit.Name) ([]network.NetNodeUUID, error)) *MockApplicationServiceGetUnitNetNodesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetUnitNetNodesCall) DoAndReturn(f func(context.Context, unit.Name) ([]string, error)) *MockApplicationServiceGetUnitNetNodesCall {
+func (c *MockApplicationServiceGetUnitNetNodesCall) DoAndReturn(f func(context.Context, unit.Name) ([]network.NetNodeUUID, error)) *MockApplicationServiceGetUnitNetNodesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -223,7 +223,7 @@ func (c *MockApplicationServiceGetUnitPublicAddressesCall) DoAndReturn(f func(co
 }
 
 // WatchNetNodeAddress mocks base method.
-func (m *MockApplicationService) WatchNetNodeAddress(arg0 context.Context, arg1 ...string) (watcher.Watcher[struct{}], error) {
+func (m *MockApplicationService) WatchNetNodeAddress(arg0 context.Context, arg1 ...network.NetNodeUUID) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0}
 	for _, a := range arg1 {
@@ -255,13 +255,13 @@ func (c *MockApplicationServiceWatchNetNodeAddressCall) Return(arg0 watcher.Watc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceWatchNetNodeAddressCall) Do(f func(context.Context, ...string) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchNetNodeAddressCall {
+func (c *MockApplicationServiceWatchNetNodeAddressCall) Do(f func(context.Context, ...network.NetNodeUUID) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchNetNodeAddressCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceWatchNetNodeAddressCall) DoAndReturn(f func(context.Context, ...string) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchNetNodeAddressCall {
+func (c *MockApplicationServiceWatchNetNodeAddressCall) DoAndReturn(f func(context.Context, ...network.NetNodeUUID) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchNetNodeAddressCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

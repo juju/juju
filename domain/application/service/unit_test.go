@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type unitServiceSuite struct {
@@ -342,7 +342,7 @@ func (s *unitServiceSuite) TestGetUnitNamesOnMachineNotFound(c *tc.C) {
 func (s *unitServiceSuite) TestGetUnitNamesOnMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	netNodeUUID := uuid.MustNewUUID().String()
+	netNodeUUID := testing.GenNetNodeUUID(c)
 	s.state.EXPECT().GetMachineNetNodeUUIDFromName(gomock.Any(), machine.Name("0")).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetUnitNamesForNetNode(gomock.Any(), netNodeUUID).Return([]coreunit.Name{"foo/666", "bar/667"}, nil)
 
@@ -1119,7 +1119,7 @@ func (s *serviceSuite) TestGetUnitNetNodes(c *tc.C) {
 
 	unitName := coreunit.Name("foo/0")
 
-	netNodeUUIDs := []string{"foo-uuid", "bar-uuid"}
+	netNodeUUIDs := []network.NetNodeUUID{testing.GenNetNodeUUID(c), testing.GenNetNodeUUID(c)}
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
 	s.state.EXPECT().GetUnitNetNodes(gomock.Any(), coreunit.UUID("foo-uuid")).Return(netNodeUUIDs, nil)

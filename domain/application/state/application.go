@@ -911,7 +911,7 @@ AND    provider_id = $cloudService.provider_id`, serviceInfo)
 			if err != nil {
 				return errors.Errorf("creating cloud service for application %q: %w", applicationName, err)
 			}
-			serviceInfo.NetNodeUUID = netNodeUUID.String()
+			serviceInfo.NetNodeUUID = netNodeUUID
 			serviceInfo.UUID = cloudServiceUUID.String()
 		}
 
@@ -933,10 +933,14 @@ AND    provider_id = $cloudService.provider_id`, serviceInfo)
 // createCloudService creates a cloud service for the specified application and
 // its associated net node. It returns the net node UUID, the cloud service UUID
 // and an error if any.
-func (st *State) createCloudService(ctx context.Context, tx *sqlair.TX, serviceInfo cloudService) (uuid.UUID, uuid.UUID, error) {
-	netNodeUUID, err := uuid.NewUUID()
+func (st *State) createCloudService(
+	ctx context.Context,
+	tx *sqlair.TX,
+	serviceInfo cloudService,
+) (network.NetNodeUUID, uuid.UUID, error) {
+	netNodeUUID, err := network.NewNetNodeUUID()
 	if err != nil {
-		return uuid.UUID{}, uuid.UUID{}, errors.Capture(err)
+		return "", uuid.UUID{}, errors.Capture(err)
 	}
 	nodeDBUUID := dbUUID{UUID: netNodeUUID.String()}
 
@@ -944,28 +948,28 @@ func (st *State) createCloudService(ctx context.Context, tx *sqlair.TX, serviceI
 INSERT INTO net_node (uuid) VALUES ($dbUUID.uuid)
 `, nodeDBUUID)
 	if err != nil {
-		return uuid.UUID{}, uuid.UUID{}, errors.Capture(err)
+		return "", uuid.UUID{}, errors.Capture(err)
 	}
-	serviceInfo.NetNodeUUID = netNodeUUID.String()
+	serviceInfo.NetNodeUUID = netNodeUUID
 
 	if err := tx.Query(ctx, insertNetNodeStmt, nodeDBUUID).Run(); err != nil {
-		return uuid.UUID{}, uuid.UUID{}, errors.Errorf("inserting net node for cloud service application %q: %w", serviceInfo.ApplicationUUID, err)
+		return "", uuid.UUID{}, errors.Errorf("inserting net node for cloud service application %q: %w", serviceInfo.ApplicationUUID, err)
 	}
 
 	insertCloudServiceStmt, err := st.Prepare(`
 INSERT INTO k8s_service (*) VALUES ($cloudService.*)
 `, serviceInfo)
 	if err != nil {
-		return uuid.UUID{}, uuid.UUID{}, errors.Capture(err)
+		return "", uuid.UUID{}, errors.Capture(err)
 	}
 
 	cloudServiceUUID, err := uuid.NewUUID()
 	if err != nil {
-		return uuid.UUID{}, uuid.UUID{}, errors.Capture(err)
+		return "", uuid.UUID{}, errors.Capture(err)
 	}
 	serviceInfo.UUID = cloudServiceUUID.String()
 	if err := tx.Query(ctx, insertCloudServiceStmt, serviceInfo).Run(); err != nil {
-		return uuid.UUID{}, uuid.UUID{}, errors.Errorf("inserting cloud service for application %q: %w", serviceInfo.ApplicationUUID, err)
+		return "", uuid.UUID{}, errors.Errorf("inserting cloud service for application %q: %w", serviceInfo.ApplicationUUID, err)
 	}
 	return netNodeUUID, cloudServiceUUID, nil
 }
@@ -1015,7 +1019,7 @@ WHERE  nn.uuid = $cloudService.net_node_uuid
 	return nil
 }
 
-func (st *State) insertCloudServiceDevice(ctx context.Context, tx *sqlair.TX, applicationName string, netNodeUUID string) (uuid.UUID, error) {
+func (st *State) insertCloudServiceDevice(ctx context.Context, tx *sqlair.TX, applicationName string, netNodeUUID network.NetNodeUUID) (uuid.UUID, error) {
 	// For cloud services, the device is a placeholder without
 	// a MAC address and once inserted, not updated. It just exists
 	// to tie the address to the net node corresponding to the
@@ -1069,7 +1073,7 @@ WHERE device_uuid IN (
 	return nil
 }
 
-func (st *State) insertCloudServiceAddresses(ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, netNodeUUID string, addresses network.SpaceAddresses) error {
+func (st *State) insertCloudServiceAddresses(ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, netNodeUUID network.NetNodeUUID, addresses network.SpaceAddresses) error {
 	if len(addresses) == 0 {
 		return nil
 	}
@@ -1177,7 +1181,7 @@ WHERE a.name = $applicationName.name
 // InitialWatchStatementUnitAddressesHash returns the initial namespace query
 // for the unit addresses hash watcher as well as the tables to be watched
 // (ip_address and application_endpoint)
-func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID, netNodeUUID string) (string, string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID, netNodeUUID network.NetNodeUUID) (string, string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 
 		var (
@@ -1220,7 +1224,7 @@ func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.
 //
 // If the unit does not exist an error satisfying
 // [applicationerrors.UnitNotFound] will be returned.
-func (st *State) GetNetNodeUUIDByUnitName(ctx context.Context, name coreunit.Name) (string, error) {
+func (st *State) GetNetNodeUUIDByUnitName(ctx context.Context, name coreunit.Name) (network.NetNodeUUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1228,28 +1232,28 @@ func (st *State) GetNetNodeUUIDByUnitName(ctx context.Context, name coreunit.Nam
 
 	unitName := unitName{Name: name}
 	k8sServiceNetNodeStmt, err := st.Prepare(`
-SELECT k.net_node_uuid AS &dbUUID.uuid
+SELECT k.net_node_uuid AS &netNodeUUID.uuid
 FROM   k8s_service k
 JOIN   application a ON a.uuid = k.application_uuid
 JOIN   unit u ON u.application_uuid = a.uuid
 WHERE  u.name = $unitName.name
-`, unitName, dbUUID{})
+`, unitName, netNodeUUID{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 	unitNetNodeStmt, err := st.Prepare(`
-SELECT net_node_uuid AS &dbUUID.uuid
+SELECT net_node_uuid AS &netNodeUUID.uuid
 FROM   unit
 WHERE  name = $unitName.name
-`, unitName, dbUUID{})
+`, unitName, netNodeUUID{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	var netNodeUUID dbUUID
+	var nodeUUID netNodeUUID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// First try to get the net node UUID from the k8s service.
-		err := tx.Query(ctx, k8sServiceNetNodeStmt, unitName).Get(&netNodeUUID)
+		err := tx.Query(ctx, k8sServiceNetNodeStmt, unitName).Get(&nodeUUID)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		} else if err == nil {
@@ -1257,7 +1261,7 @@ WHERE  name = $unitName.name
 		}
 
 		// If nothing found, try to get the net node UUID from the unit.
-		err = tx.Query(ctx, unitNetNodeStmt, unitName).Get(&netNodeUUID)
+		err = tx.Query(ctx, unitNetNodeStmt, unitName).Get(&nodeUUID)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		} else if errors.Is(err, sqlair.ErrNoRows) {
@@ -1269,7 +1273,7 @@ WHERE  name = $unitName.name
 		return "", errors.Capture(err)
 	}
 
-	return netNodeUUID.UUID, nil
+	return nodeUUID.NetNodeUUID, nil
 }
 
 // GetAddressesHash returns the sha256 hash of the application unit and cloud
@@ -1281,7 +1285,7 @@ WHERE  name = $unitName.name
 // of interest for the unit is low.
 // A possible future improvement would be to accumulate the change events and
 // check whether the unit of interest has been affaceted, before hitting the db.
-func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.ID, netNodeUUID string) (string, error) {
+func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.ID, netNodeUUID network.NetNodeUUID) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1309,7 +1313,7 @@ func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.I
 	return st.hashAddressesAndEndpoints(spaceAddresses, endpointBindings)
 }
 
-func (st *State) getNetNodeSpaceAddresses(ctx context.Context, tx *sqlair.TX, netNode string) ([]spaceAddress, error) {
+func (st *State) getNetNodeSpaceAddresses(ctx context.Context, tx *sqlair.TX, netNode network.NetNodeUUID) ([]spaceAddress, error) {
 	var result []spaceAddress
 
 	netNodeUUID := netNodeUUID{NetNodeUUID: netNode}

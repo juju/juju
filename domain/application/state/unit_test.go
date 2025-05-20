@@ -20,6 +20,7 @@ import (
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	testing2 "github.com/juju/juju/core/network/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
@@ -1110,7 +1111,7 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNotFound(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
-	var netNode string
+	var netNode network.NetNodeUUID
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
@@ -1523,24 +1524,27 @@ func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *tc.C) {
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
+	unitNetNodeUUID := testing2.GenNetNodeUUID(c)
+	serviceNetNodeUUID := testing2.GenNetNodeUUID(c)
+
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
-		_, err := tx.ExecContext(ctx, insertNetNode0, "pod-net-node-uuid")
+		_, err := tx.ExecContext(ctx, insertNetNode0, unitNetNodeUUID)
 		if err != nil {
 			return err
 		}
 		insertNetNode1 := `INSERT INTO net_node (uuid) VALUES (?)`
-		_, err = tx.ExecContext(ctx, insertNetNode1, "svc-net-node-uuid")
+		_, err = tx.ExecContext(ctx, insertNetNode1, serviceNetNodeUUID)
 		if err != nil {
 			return err
 		}
 		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
-		_, err = tx.ExecContext(ctx, updateUnit, "pod-net-node-uuid", "foo/0")
+		_, err = tx.ExecContext(ctx, updateUnit, unitNetNodeUUID, "foo/0")
 		if err != nil {
 			return err
 		}
 		insertSvc := `INSERT INTO k8s_service (uuid, net_node_uuid, application_uuid, provider_id) VALUES (?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertSvc, "svc-uuid", "svc-net-node-uuid", appID, "provider-id")
+		_, err = tx.ExecContext(ctx, insertSvc, "svc-uuid", serviceNetNodeUUID, appID, "provider-id")
 		if err != nil {
 			return err
 		}
@@ -1550,7 +1554,7 @@ func (s *unitStateSuite) TestGetUnitNetNodesK8s(c *tc.C) {
 
 	netNodeUUID, err := s.state.GetUnitNetNodes(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(netNodeUUID, tc.SameContents, []string{"svc-net-node-uuid", "pod-net-node-uuid"})
+	c.Assert(netNodeUUID, tc.SameContents, []network.NetNodeUUID{serviceNetNodeUUID, unitNetNodeUUID})
 }
 
 func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
@@ -1577,7 +1581,7 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 
 	netNodeUUID, err := s.state.GetUnitNetNodes(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(netNodeUUID, tc.SameContents, []string{"machine-net-node-uuid"})
+	c.Assert(netNodeUUID, tc.SameContents, []network.NetNodeUUID{"machine-net-node-uuid"})
 }
 
 func (s *unitStateSuite) TestGetUnitAddressesNotFound(c *tc.C) {

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -1101,11 +1102,12 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	ctx := context.Background()
+	netNodeUUID := testing.GenNetNodeUUID(c)
 
 	// Insert a net node first.
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode0 := `INSERT INTO net_node (uuid) VALUES (?)`
-		_, err := tx.ExecContext(ctx, insertNetNode0, "net-node-uuid")
+		_, err := tx.ExecContext(ctx, insertNetNode0, netNodeUUID)
 		if err != nil {
 			return err
 		}
@@ -1113,7 +1115,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	watcher, err := svc.WatchNetNodeAddress(ctx, "net-node-uuid")
+	watcher, err := svc.WatchNetNodeAddress(ctx, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -1122,7 +1124,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	harness.AddTest(func(c *tc.C) {
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			insertLLD := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
-			_, err = tx.ExecContext(ctx, insertLLD, "lld0-uuid", "net-node-uuid", "lld0-name", 1500, "00:11:22:33:44:55", 0, 0)
+			_, err = tx.ExecContext(ctx, insertLLD, "lld0-uuid", netNodeUUID, "lld0-name", 1500, "00:11:22:33:44:55", 0, 0)
 			if err != nil {
 				return err
 			}
@@ -1137,7 +1139,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 				return err
 			}
 			insertIPAddress := `INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-			_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", "net-node-uuid", 0, 3, 1, 1, "subnet-uuid")
+			_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", netNodeUUID, 0, 3, 1, 1, "subnet-uuid")
 			if err != nil {
 				return err
 			}
@@ -1152,7 +1154,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	harness.AddTest(func(c *tc.C) {
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			updateIPAddress := `UPDATE ip_address SET address_value = ? WHERE net_node_uuid = ?`
-			_, err = tx.ExecContext(ctx, updateIPAddress, "10.0.0.255", "net-node-uuid")
+			_, err = tx.ExecContext(ctx, updateIPAddress, "10.0.0.255", netNodeUUID)
 			if err != nil {
 				return err
 			}
@@ -1167,7 +1169,7 @@ func (s *watcherSuite) TestWatchNetNodeAddress(c *tc.C) {
 	harness.AddTest(func(c *tc.C) {
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			updateIPAddress := `UPDATE ip_address SET scope_id = ? WHERE net_node_uuid = ?`
-			_, err = tx.ExecContext(ctx, updateIPAddress, 1, "net-node-uuid")
+			_, err = tx.ExecContext(ctx, updateIPAddress, 1, netNodeUUID)
 			if err != nil {
 				return err
 			}

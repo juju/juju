@@ -10,10 +10,18 @@ import (
 )
 
 // GenLinkLayerDeviceUUID can be used in testing for generating a link layer
-// device uuid that is checked for subsequent errors using the test suits go
-// check instance.
+// device uuid that is checked for subsequent errors using the test suites
+// tc instance.
 func GenLinkLayerDeviceUUID(c *tc.C) network.LinkLayerDeviceUUID {
 	uuid, err := network.NewLinkLayerDeviceUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	return uuid
+}
+
+// GenNetNodeUUID can be used in testing for generating a net node uuid
+// that is checked for subsequent errors using the test suites tc instance.
+func GenNetNodeUUID(c *tc.C) network.NetNodeUUID {
+	uuid, err := network.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }
