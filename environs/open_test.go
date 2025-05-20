@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -142,6 +143,16 @@ func (*OpenSuite) TestNew(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = e.ControllerInstances(context.NewEmptyCloudCallContext(), "uuid")
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
+}
+
+func (*OpenSuite) TestNewKubernetes(c *gc.C) {
+	env, err := environs.New(c.Context(), environs.OpenParams{
+		Cloud: environscloudspec.CloudSpec{
+			Type: k8sconstants.CAASProviderType,
+		},
+	}, environs.NoopCredentialInvalidator())
+	c.Assert(err, gc.ErrorMatches, "cloud environ provider provider.kubernetesEnvironProvider not valid")
+	c.Assert(env, gc.IsNil)
 }
 
 func (*OpenSuite) TestDestroy(c *gc.C) {
