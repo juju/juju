@@ -94,7 +94,7 @@ func stringLengthBetween(value string, minLength, maxLength uint) bool {
 // LinkLayerDeviceUUID represents a relation unique identifier.
 type LinkLayerDeviceUUID string
 
-// NewLinkLayerDeviceUUID is a convince function for generating a new
+// NewLinkLayerDeviceUUID is a convenience function for generating a new
 // link layer device uuid.
 func NewLinkLayerDeviceUUID() (LinkLayerDeviceUUID, error) {
 	id, err := uuid.NewUUID()

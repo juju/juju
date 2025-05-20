@@ -9,7 +9,7 @@ import (
 // NetNodeUUID represents a net node unique identifier.
 type NetNodeUUID string
 
-// NewNetNodeUUID is a convince function for generating a new
+// NewNetNodeUUID is a convenience function for generating a new
 // net node uuid.
 func NewNetNodeUUID() (NetNodeUUID, error) {
 	id, err := uuid.NewUUID()
