@@ -52,7 +52,6 @@ type Application interface {
 // the same names.
 type Bindings interface {
 	Map() map[string]string
-	MapWithSpaceNames(network.SpaceInfos) (map[string]string, error)
 }
 
 // Charm defines a subset of the functionality provided by the
@@ -94,7 +93,6 @@ type Unit interface {
 
 	AssignUnit() error
 	AssignWithPlacement(*instance.Placement, network.SpaceInfos) error
-	ContainerInfo() (state.CloudContainer, error)
 }
 
 type stateShim struct {

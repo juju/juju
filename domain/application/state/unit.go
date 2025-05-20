@@ -1939,8 +1939,8 @@ WHERE     n.uuid = $unitUUID.uuid
 			return errors.Capture(err)
 		}
 		err := tx.Query(ctx, queryUnitPublicAddressesStmt, ident).GetAll(&address)
-		if err != nil {
-			return errors.Errorf("querying public addresses for unit %q: %w", uuid, err)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying addresses for unit %q (and it's services): %w", uuid, err)
 		}
 		return nil
 	})
@@ -1953,7 +1953,7 @@ WHERE     n.uuid = $unitUUID.uuid
 // GetUnitAddresses returns the addresses of the specified unit.
 //
 // The following errors may be returned:
-// - [uniterrors.UnitNotFound] if the unit does not exist
+// - [applicationerrors.UnitNotFound] if the unit does not exist
 func (st *State) GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -1979,8 +1979,8 @@ WHERE     u.uuid = $unitUUID.uuid
 			return errors.Capture(err)
 		}
 		err := tx.Query(ctx, queryUnitPublicAddressesStmt, ident).GetAll(&address)
-		if err != nil {
-			return errors.Errorf("querying public addresses for unit %q: %w", uuid, err)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying addresses for unit %q: %w", uuid, err)
 		}
 		return nil
 	})
@@ -1988,6 +1988,67 @@ WHERE     u.uuid = $unitUUID.uuid
 		return nil, errors.Capture(err)
 	}
 	return encodeIpAddresses(address), nil
+}
+
+// GetUnitK8sPodInfo returns information about the k8s pod for the given unit.
+// If any of the requested pieces of data are not present yet, zero values will
+// be returned in their place.
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist
+// - [applicationerrors.UnitIsDead] if the unit is dead
+func (st *State) GetUnitK8sPodInfo(ctx context.Context, name coreunit.Name) (application.K8sPodInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return application.K8sPodInfo{}, errors.Capture(err)
+	}
+
+	unitName := unitName{Name: name}
+	infoQuery := `
+SELECT    k.provider_id AS &unitK8sPodInfo.provider_id,
+          ip.address_value AS &unitK8sPodInfo.address
+FROM      unit AS u
+LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid
+LEFT JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
+LEFT JOIN ip_address ip ON ip.device_uuid = lld.uuid
+WHERE     u.name = $unitName.name`
+	infoStmt, err := st.Prepare(infoQuery, unitK8sPodInfo{}, unitName)
+	if err != nil {
+		return application.K8sPodInfo{}, errors.Capture(err)
+	}
+
+	portsQuery := `
+SELECT &k8sPodPort.*
+FROM   unit AS u
+JOIN   k8s_pod_port AS kp ON kp.unit_uuid = u.uuid
+WHERE  u.name = $unitName.name`
+	portsStmt, err := st.Prepare(portsQuery, k8sPodPort{}, unitName)
+	if err != nil {
+		return application.K8sPodInfo{}, errors.Capture(err)
+	}
+
+	var info unitK8sPodInfo
+	var ports []k8sPodPort
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDeadByName(ctx, tx, name); err != nil {
+			return errors.Capture(err)
+		}
+
+		err := tx.Query(ctx, infoStmt, unitName).Get(&info)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, portsStmt, unitName).GetAll(&ports)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return application.K8sPodInfo{}, errors.Capture(err)
+	}
+	return encodeK8sPodInfo(info, ports), nil
 }
 
 // GetUnitNetNodesByName returns the net node UUIDs associated with the
@@ -2404,13 +2465,13 @@ ON CONFLICT(uuid) DO UPDATE SET
 func (st *State) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, portValues []string) error {
 	type ports []string
 
-	ccPort := cloudContainerPort{
+	ccPort := unitK8sPodPort{
 		UnitUUID: unitUUID,
 	}
 	deleteStmt, err := st.Prepare(`
 DELETE FROM k8s_pod_port
 WHERE port NOT IN ($ports[:])
-AND unit_uuid = $cloudContainerPort.unit_uuid;
+AND unit_uuid = $unitK8sPodPort.unit_uuid;
 `, ports{}, ccPort)
 	if err != nil {
 		return errors.Capture(err)
@@ -2418,7 +2479,7 @@ AND unit_uuid = $cloudContainerPort.unit_uuid;
 
 	upsertStmt, err := sqlair.Prepare(`
 INSERT INTO k8s_pod_port (*)
-VALUES ($cloudContainerPort.*)
+VALUES ($unitK8sPodPort.*)
 ON CONFLICT(unit_uuid, port)
 DO NOTHING
 `, ccPort)
@@ -2649,4 +2710,19 @@ func encodeResolveMode(mode sql.NullInt16) (string, error) {
 	default:
 		return "", errors.Errorf("unknown resolve mode %d", mode.Int16).Add(coreerrors.NotSupported)
 	}
+}
+
+func encodeK8sPodInfo(info unitK8sPodInfo, ports []k8sPodPort) application.K8sPodInfo {
+	ret := application.K8sPodInfo{}
+	if info.ProviderID.Valid {
+		ret.ProviderID = info.ProviderID.V
+	}
+	if info.Address.Valid {
+		ret.Address = info.Address.V
+	}
+	ret.Ports = make([]string, len(ports))
+	for i, p := range ports {
+		ret.Ports[i] = p.Port
+	}
+	return ret
 }

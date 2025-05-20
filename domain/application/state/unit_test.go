@@ -1451,6 +1451,18 @@ func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c *t
 	})
 }
 
+func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesNoAddresses(c *tc.C) {
+	_ = s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.DeepEquals, network.SpaceAddresses{})
+}
+
 func (s *unitStateSuite) TestGetUnitAndK8sServiceAddressesNotFound(c *tc.C) {
 	_, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), coreunit.UUID("foo"))
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -1512,6 +1524,86 @@ func (s *unitStateSuite) TestGetUnitAddresses(c *tc.C) {
 			},
 		},
 	})
+}
+
+func (s *unitStateSuite) TestGetUnitAddressesNoAddresses(c *tc.C) {
+	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	addr, err := s.state.GetUnitAddresses(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.DeepEquals, network.SpaceAddresses{})
+}
+
+func (s *unitStateSuite) TestGetUnitAddressesNotFound(c *tc.C) {
+	_, err := s.state.GetUnitAddresses(c.Context(), coreunit.UUID("foo"))
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
+	// Arrange:
+	s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/666",
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "some-id",
+			Ports:      ptr([]string{"666", "668"}),
+			Address: ptr(application.ContainerAddress{
+				Device: application.ContainerDevice{
+					Name:              "placeholder",
+					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
+					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
+				},
+				Value:       "10.6.6.6",
+				AddressType: ipaddress.AddressTypeIPv4,
+				ConfigType:  ipaddress.ConfigTypeDHCP,
+				Scope:       ipaddress.ScopeMachineLocal,
+				Origin:      ipaddress.OriginHost,
+			}),
+		},
+	})
+
+	// Act:
+	info, err := s.state.GetUnitK8sPodInfo(c.Context(), coreunit.Name("foo/666"))
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ProviderID, tc.Equals, network.Id("some-id"))
+	c.Check(info.Address, tc.Equals, "10.6.6.6")
+	c.Check(info.Ports, tc.DeepEquals, []string{"666", "668"})
+}
+
+func (s *unitStateSuite) TestGetUnitK8sPodInfoNoInfo(c *tc.C) {
+	// Arrange:
+	s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/666",
+	})
+
+	// Act:
+	info, err := s.state.GetUnitK8sPodInfo(c.Context(), coreunit.Name("foo/666"))
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ProviderID, tc.Equals, network.Id(""))
+	c.Check(info.Address, tc.Equals, "")
+	c.Check(info.Ports, tc.DeepEquals, []string{})
+}
+
+func (s *unitStateSuite) TestGetUnitK8sPodInfoNotFound(c *tc.C) {
+	_, err := s.state.GetUnitK8sPodInfo(c.Context(), coreunit.Name("foo/666"))
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitK8sPodInfoDead(c *tc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createCAASApplication(c, "foo", life.Dead, u)
+
+	_, err := s.state.GetUnitK8sPodInfo(c.Context(), coreunit.Name("foo/666"))
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
 
 func (s *unitStateSuite) TestGetUnitNetNodesNotFound(c *tc.C) {
@@ -1580,11 +1672,6 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 	netNodeUUID, err := s.state.GetUnitNetNodesByName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNodeUUID, tc.SameContents, []string{"machine-net-node-uuid"})
-}
-
-func (s *unitStateSuite) TestGetUnitAddressesNotFound(c *tc.C) {
-	_, err := s.state.GetUnitAddresses(c.Context(), coreunit.UUID("foo"))
-	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 type applicationSpace struct {

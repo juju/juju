@@ -181,9 +181,18 @@ type cloudContainerDevice struct {
 	VirtualPortTypeID int    `db:"virtual_port_type_id"`
 }
 
-type cloudContainerPort struct {
+type k8sPodPort struct {
+	Port string `db:"port"`
+}
+
+type unitK8sPodPort struct {
 	UnitUUID coreunit.UUID `db:"unit_uuid"`
 	Port     string        `db:"port"`
+}
+
+type unitK8sPodInfo struct {
+	ProviderID sql.Null[network.Id] `db:"provider_id"`
+	Address    sql.Null[string]     `db:"address"`
 }
 
 type ipAddress struct {
