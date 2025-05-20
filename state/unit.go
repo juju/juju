@@ -97,16 +97,6 @@ func newUnit(st *State, modelType ModelType, udoc *unitDoc) *Unit {
 	return unit
 }
 
-// ContainerInfo returns information about the containing hosting this unit.
-// This is only used for CAAS models.
-func (u *Unit) ContainerInfo() (CloudContainer, error) {
-	doc, err := u.cloudContainer()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &cloudContainer{doc: *doc, unitName: u.Name()}, nil
-}
-
 // ShouldBeAssigned returns whether the unit should be assigned to a machine.
 // IAAS models require units to be assigned.
 func (u *Unit) ShouldBeAssigned() bool {

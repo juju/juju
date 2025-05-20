@@ -2393,7 +2393,10 @@ func (api *APIBase) UnitsInfo(ctx context.Context, in params.Entities) (params.U
 		switch tag.(type) {
 		case names.ApplicationTag:
 			unitNames, err = api.applicationService.GetUnitNamesForApplication(ctx, tag.Id())
-			if err != nil {
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				results = append(results, params.UnitInfoResult{Error: apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Id())})
+				continue
+			} else if err != nil {
 				results = append(results, params.UnitInfoResult{Error: apiservererrors.ServerError(err)})
 				continue
 			}
@@ -2427,6 +2430,20 @@ func (api *APIBase) UnitsInfo(ctx context.Context, in params.Entities) (params.U
 
 // Builds a *params.UnitResult describing the specified unit.
 func (api *APIBase) unitResultForUnit(ctx context.Context, unitName coreunit.Name) (*params.UnitResult, error) {
+	unitLife, err := api.applicationService.GetUnitLife(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.NotFoundf("unit %s", unitName)
+	} else if err != nil {
+		return nil, err
+	}
+
+	workloadVersion, err := api.applicationService.GetUnitWorkloadVersion(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.NotFoundf("unit %s", unitName)
+	} else if err != nil {
+		return nil, err
+	}
+
 	charmLocator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, unitName.Application())
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %s", unitName.Application())
@@ -2436,18 +2453,6 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unitName coreunit.Nam
 	curl, err := apiservercharms.CharmURLFromLocator(charmLocator.Name, charmLocator)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
-	}
-
-	unitLife, err := api.applicationService.GetUnitLife(ctx, unitName)
-	if err != nil {
-		return nil, err
-	}
-
-	workloadVersion, err := api.applicationService.GetUnitWorkloadVersion(ctx, unitName)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return nil, errors.NotFoundf("unit %s", unitName)
-	} else if err != nil {
-		return nil, err
 	}
 
 	result := &params.UnitResult{
@@ -2465,23 +2470,16 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unitName coreunit.Nam
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil, errors.NotFoundf("unit %s", unitName)
 	} else if errors.Is(err, applicationerrors.UnitMachineNotAssigned) {
-		unit, err := api.backend.Unit(unitName.String())
-		if err != nil {
+		podInfo, err := api.applicationService.GetUnitK8sPodInfo(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return nil, errors.NotFoundf("unit %s", unitName)
+		} else if err != nil {
 			return nil, err
 		}
-		container, err := unit.ContainerInfo()
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return nil, err
-		}
-		if err == nil {
-			if addr := container.Address(); addr != nil {
-				result.Address = addr.Value
-			}
-			result.ProviderId = container.ProviderId()
-			if len(result.OpenedPorts) == 0 {
-				result.OpenedPorts = container.Ports()
-			}
-		}
+		result.ProviderId = podInfo.ProviderID.String()
+		result.Address = podInfo.Address
+		result.OpenedPorts = podInfo.Ports
+
 	} else if err != nil {
 		return nil, internalerrors.Errorf("getting unit machine name: %w", err)
 	} else {
