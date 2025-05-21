@@ -7,10 +7,12 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/juju/clock"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/status"
@@ -18,8 +20,10 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -174,6 +178,14 @@ type State interface {
 	GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (map[string]machine.Name, error)
 }
 
+// StatusHistory records status information into a generalized way.
+type StatusHistory interface {
+	// RecordStatus records the given status information.
+	// If the status data cannot be marshalled, it will not be recorded, instead
+	// the error will be logged under the data_error key.
+	RecordStatus(context.Context, statushistory.Namespace, status.StatusInfo) error
+}
+
 // Provider represents an underlying cloud provider.
 type Provider interface {
 	environs.BootstrapEnviron
@@ -183,12 +195,19 @@ type Provider interface {
 // Service provides the API for working with machines.
 type Service struct {
 	st State
+
+	statusHistory StatusHistory
+	clock         clock.Clock
+	logger        logger.Logger
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State) *Service {
+func NewService(st State, statusHistory StatusHistory, clock clock.Clock, logger logger.Logger) *Service {
 	return &Service{
-		st: st,
+		st:            st,
+		statusHistory: statusHistory,
+		clock:         clock,
+		logger:        logger,
 	}
 }
 
@@ -211,6 +230,9 @@ func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (
 	if err != nil {
 		return machineUUID, errors.Errorf("creating machine %q: %w", machineName, err)
 	}
+
+	s.recordMachineStatusHistory(ctx, machineName)
+
 	return machineUUID, nil
 }
 
@@ -235,7 +257,24 @@ func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, pare
 	if err != nil {
 		return machineUUID, errors.Errorf("creating machine %q with parent %q: %w", machineName, parentName, err)
 	}
+
+	s.recordMachineStatusHistory(ctx, machineName)
+
 	return machineUUID, nil
+}
+
+func (s *Service) recordMachineStatusHistory(ctx context.Context, machineName machine.Name) {
+	info := status.StatusInfo{
+		Status: status.Pending,
+		Since:  ptr(s.clock.Now()),
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineNamespace.WithID(machineName.String()), info); err != nil {
+		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+	}
+	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineInstanceNamespace.WithID(machineName.String()), info); err != nil {
+		s.logger.Infof(ctx, "failed recording instance status history: %w", err)
+	}
 }
 
 // createUUIDs generates a new UUID for the machine and the net-node.
@@ -320,7 +359,7 @@ func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Nam
 
 	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
 	if err != nil {
-		return status.StatusInfo{}, errors.Errorf("retrieving cloud instance status for machine %q: %w", machineName, err)
+		return status.StatusInfo{}, errors.Errorf("retrieving instance status for machine %q: %w", machineName, err)
 	}
 
 	return decodeInstanceStatus(instanceStatus)
@@ -329,22 +368,31 @@ func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Nam
 // SetInstanceStatus sets the cloud specific instance status for this machine.
 // It returns MachineNotFound if the machine does not exist. It returns
 // InvalidStatus if the given status is not a known status value.
-func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) error {
+func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, statusInfo status.StatusInfo) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !status.Status.KnownInstanceStatus() {
+	if err := machineName.Validate(); err != nil {
+		return errors.Errorf("validating machine name %q: %w", machineName, err)
+	}
+
+	if !statusInfo.Status.KnownInstanceStatus() {
 		return machineerrors.InvalidStatus
 	}
 
-	instanceStatus, err := encodeInstanceStatus(status)
+	instanceStatus, err := encodeInstanceStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
 	}
 
 	if err := s.st.SetInstanceStatus(ctx, machineName, instanceStatus); err != nil {
-		return errors.Errorf("setting cloud instance status for machine %q: %w", machineName, err)
+		return errors.Errorf("setting instance status for machine %q: %w", machineName, err)
 	}
+
+	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineInstanceNamespace.WithID(machineName.String()), statusInfo); err != nil {
+		s.logger.Infof(ctx, "failed recording instance status history: %w", err)
+	}
+
 	return nil
 }
 
@@ -373,15 +421,19 @@ func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name
 // SetMachineStatus sets the status of the specified machine. It returns
 // MachineNotFound if the machine does not exist. It returns InvalidStatus if
 // the given status is not a known status value.
-func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) error {
+func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, statusInfo status.StatusInfo) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !status.Status.KnownMachineStatus() {
+	if err := machineName.Validate(); err != nil {
+		return errors.Errorf("validating machine name %q: %w", machineName, err)
+	}
+
+	if !statusInfo.Status.KnownMachineStatus() {
 		return machineerrors.InvalidStatus
 	}
 
-	machineStatus, err := encodeMachineStatus(status)
+	machineStatus, err := encodeMachineStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding status for machine %q: %w", machineName, err)
 	}
@@ -389,6 +441,11 @@ func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name
 	if err := s.st.SetMachineStatus(ctx, machineName, machineStatus); err != nil {
 		return errors.Errorf("setting machine status for machine %q: %w", machineName, err)
 	}
+
+	if err := s.statusHistory.RecordStatus(ctx, domainstatus.MachineNamespace.WithID(machineName.String()), statusInfo); err != nil {
+		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+	}
+
 	return nil
 }
 
@@ -586,4 +643,8 @@ func (s *ProviderService) GetInstanceTypesFetcher(ctx context.Context) (environs
 		return nil, errors.Capture(err)
 	}
 	return provider, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
