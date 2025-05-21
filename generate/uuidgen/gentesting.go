@@ -4,25 +4,38 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"strings"
-	"text/template"
+
+	"github.com/juju/collections/transform"
 )
 
 // GenUUIDType represents metadata for generating UUID types in the context of
 // file generation and testing.
 type GenUUIDType struct {
-	TypeName    string
-	Description string
-	Package     string
+	UUIDType
+	Package string
 }
 
 // GenHeaderParams represents metadata for generating the header of the
 // generated file.
 type GenHeaderParams struct {
 	UUIDPackage string
+	mainparams  FileParams
+}
+
+// HeaderData implements [renderable]
+func (g GenHeaderParams) HeaderData() GenHeaderParams {
+	return g
+}
+
+// SubDatas implements [renderable]
+func (g GenHeaderParams) SubDatas() []GenUUIDType {
+	return transform.Slice(g.mainparams.types,
+		func(uuidType UUIDType) GenUUIDType {
+			return GenUUIDType{UUIDType: uuidType, Package: g.mainparams.Package}
+		})
 }
 
 // Template for the generated file header.
@@ -63,46 +76,9 @@ func generateTestGenFile(outputFile string, params FileParams) {
 	uuidPackage := findUUIDPackage()
 
 	outputFile = path.Join(path.Dir(outputFile), "testing", path.Base(outputFile))
-	// Create the output file
-	file, err := os.Create(outputFile)
-	if err != nil {
-		fmt.Printf("Error creating output file: %v\n", err)
-		os.Exit(1)
-	}
-	defer file.Close()
-
-	// Write the file header
-	headerTmpl, err := template.New("header").Parse(genHeaderTemplate)
-	if err != nil {
-		fmt.Printf("Error parsing header template: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err := headerTmpl.Execute(file, GenHeaderParams{UUIDPackage: uuidPackage}); err != nil {
-		fmt.Printf("Error executing header template: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Parse the type template once
-	typeTmpl, err := template.New("type").Parse(genMethodTemplate)
-	if err != nil {
-		fmt.Printf("Error parsing type template: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Write each type to the file
-	for _, uuidType := range params.Types {
-		if err := typeTmpl.Execute(file, GenUUIDType{
-			TypeName:    uuidType.TypeName,
-			Description: uuidType.Description,
-			Package:     params.Package,
-		}); err != nil {
-			fmt.Printf("Error executing type template for %s: %v\n", uuidType.TypeName, err)
-			os.Exit(1)
-		}
-	}
-
-	fmt.Printf("Generated %s with %d UUID types\n", outputFile, len(params.Types))
+	render := newRenderer[GenHeaderParams, GenUUIDType](genHeaderTemplate,
+		genMethodTemplate)
+	render(outputFile, GenHeaderParams{UUIDPackage: uuidPackage, mainparams: params})
 }
 
 // findUUIDPackage returns the name of the uuid package related to this helper.

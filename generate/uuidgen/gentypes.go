@@ -3,12 +3,6 @@
 
 package main
 
-import (
-	"fmt"
-	"os"
-	"text/template"
-)
-
 // UUIDType represents metadata for generating UUID types in the context of
 // file generation.
 type UUIDType struct {
@@ -16,10 +10,25 @@ type UUIDType struct {
 	Description string
 }
 
+// String implements [fmt.Stringer]
+func (u UUIDType) String() string {
+	return u.TypeName
+}
+
 // FileParams represents metadata for generating the file.
 type FileParams struct {
 	Package string
-	Types   []UUIDType
+	types   []UUIDType
+}
+
+// HeaderData implements [renderable]
+func (fp FileParams) HeaderData() FileParams {
+	return fp
+}
+
+// SubDatas implements [renderable]
+func (fp FileParams) SubDatas() []UUIDType {
+	return fp.types
 }
 
 // Template for the generated file header.
@@ -87,40 +96,7 @@ func (u {{.TypeName}}) Validate() error {
 // Note: The generated file will be created with the directory of generate
 // command as root.
 func generateTypeFile(outputFile string, params FileParams) {
-	// Create the output file
-	file, err := os.Create(outputFile)
-	if err != nil {
-		fmt.Printf("Error creating output file: %v\n", err)
-		os.Exit(1)
-	}
-	defer file.Close()
-
-	// Write the file header
-	headerTmpl, err := template.New("header").Parse(fileHeaderTemplate)
-	if err != nil {
-		fmt.Printf("Error parsing header template: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err := headerTmpl.Execute(file, params); err != nil {
-		fmt.Printf("Error executing header template: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Parse the type template once
-	typeTmpl, err := template.New("type").Parse(uuidTypeTemplate)
-	if err != nil {
-		fmt.Printf("Error parsing type template: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Write each type to the file
-	for _, uuidType := range params.Types {
-		if err := typeTmpl.Execute(file, uuidType); err != nil {
-			fmt.Printf("Error executing type template for %s: %v\n", uuidType.TypeName, err)
-			os.Exit(1)
-		}
-	}
-
-	fmt.Printf("Generated %s with %d UUID types\n", outputFile, len(params.Types))
+	renderer := newRenderer[FileParams, UUIDType](fileHeaderTemplate,
+		uuidTypeTemplate)
+	renderer(outputFile, params)
 }

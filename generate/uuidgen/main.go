@@ -33,9 +33,10 @@ func main() {
 
 	params := FileParams{
 		Package: packageName,
-		Types:   types,
+		types:   types,
 	}
 
 	generateTypeFile(outputFile, params)
 	generateTestGenFile(outputFile, params)
+	generateTestTypeFile(outputFile, params)
 }
