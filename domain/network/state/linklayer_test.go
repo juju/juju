@@ -104,6 +104,27 @@ type linkLayerImportSuite struct {
 
 var _ = tc.Suite(&linkLayerImportSuite{})
 
+func (s *linkLayerImportSuite) TestAllMachinesAndNetNodes(c *tc.C) {
+	// Arrange
+	netNodeUUID := s.addNetNode(c)
+	machineName := machine.Name("73")
+	s.addMachine(c, machineName, netNodeUUID)
+	netNodeUUID2 := s.addNetNode(c)
+	machineName2 := machine.Name("42")
+	s.addMachine(c, machineName2, netNodeUUID2)
+	expected := map[machine.Name]corenetwork.NetNodeUUID{
+		machineName:  netNodeUUID,
+		machineName2: netNodeUUID2,
+	}
+
+	// Act
+	obtained, err := s.state.AllMachinesAndNetNodes(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.DeepEquals, expected)
+}
+
 func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
 	// Arrange:
 	ctx := c.Context()
