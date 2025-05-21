@@ -15,7 +15,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -48,7 +47,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *tc.C) {
 		{
 			UUID:      id,
 			CharmUUID: charmID,
-			ModelType: model.IAAS,
 			Name:      "foo",
 			Life:      life.Alive,
 			CharmLocator: charm.CharmLocator{
@@ -82,7 +80,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *tc.C) {
 		want = append(want, application.ExportApplication{
 			UUID:      id,
 			CharmUUID: charmID,
-			ModelType: model.IAAS,
 			Name:      name,
 			Life:      life.Alive,
 			CharmLocator: charm.CharmLocator{
@@ -126,7 +123,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 		{
 			UUID:      id0,
 			CharmUUID: charmID0,
-			ModelType: model.IAAS,
 			Name:      "foo0",
 			Life:      life.Dying,
 			CharmLocator: charm.CharmLocator{
@@ -146,7 +142,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 		{
 			UUID:      id1,
 			CharmUUID: charmID1,
-			ModelType: model.IAAS,
 			Name:      "foo1",
 			Life:      life.Dead,
 			CharmLocator: charm.CharmLocator{
@@ -376,7 +371,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *tc
 		{
 			UUID:      id,
 			CharmUUID: charmID,
-			ModelType: model.IAAS,
 			Name:      "foo",
 			Life:      life.Alive,
 			CharmLocator: charm.CharmLocator{

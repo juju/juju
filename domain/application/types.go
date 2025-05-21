@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
@@ -359,7 +358,6 @@ type ExposedEndpoint struct {
 type ExportApplication struct {
 	UUID                 application.ID
 	Name                 string
-	ModelType            model.ModelType
 	CharmUUID            charm.ID
 	Life                 life.Life
 	Subordinate          bool
