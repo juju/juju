@@ -68,6 +68,27 @@ const (
 	DeviceTypeVXLAN
 )
 
+// MarshallDeviceType converts a link layer device type to a db link layer device type id.
+func MarshallDeviceType(deviceType network.LinkLayerDeviceType) DeviceType {
+	switch deviceType {
+	case network.UnknownDevice:
+		return DeviceTypeUnknown
+	case network.LoopbackDevice:
+		return DeviceTypeLoopback
+	case network.EthernetDevice:
+		return DeviceTypeEthernet
+	case network.VLAN8021QDevice:
+		return DeviceType8021q
+	case network.BondDevice:
+		return DeviceTypeBond
+	case network.BridgeDevice:
+		return DeviceTypeBridge
+	case network.VXLANDevice:
+		return DeviceTypeVXLAN
+	}
+	return DeviceTypeUnknown
+}
+
 // VirtualPortType represents the type of a link layer device port, as
 // recorded in the virtual_port_type lookup table.
 type VirtualPortType int
@@ -76,3 +97,14 @@ const (
 	NonVirtualPortType VirtualPortType = iota
 	OpenVswitchVirtualPortType
 )
+
+// MarshallVirtualPortType converts a virtual port type to a db virtual port type id.
+func MarshallVirtualPortType(portType network.VirtualPortType) VirtualPortType {
+	switch portType {
+	case network.NonVirtualPort:
+		return NonVirtualPortType
+	case network.OvsPort:
+		return OpenVswitchVirtualPortType
+	}
+	return NonVirtualPortType
+}

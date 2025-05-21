@@ -6,6 +6,7 @@ package state
 import (
 	"database/sql"
 
+	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
@@ -539,4 +540,32 @@ type machineInterfaceRow struct {
 	ScopeID           sql.NullInt64  `db:"scope_id"`
 	IsSecondary       sql.NullBool   `db:"is_secondary"`
 	IsShadow          sql.NullBool   `db:"is_shadow"`
+}
+
+type machineNameNetNode struct {
+	MachineName machine.Name            `db:"name"`
+	NetNodeUUID corenetwork.NetNodeUUID `db:"net_node_uuid"`
+}
+
+type linkLayerDevice struct {
+	UUID            corenetwork.LinkLayerDeviceUUID `db:"uuid"`
+	NetNodeUUID     corenetwork.NetNodeUUID         `db:"net_node_uuid"`
+	Name            string                          `db:"name"`
+	MTU             int64                           `db:"mtu"`
+	MAC             string                          `db:"mac_address"`
+	IsAutoStart     bool                            `db:"is_auto_start"`
+	IsEnabled       bool                            `db:"is_enabled"`
+	Type            network.DeviceType              `db:"device_type_id"`
+	VirtualPortType network.VirtualPortType         `db:"virtual_port_type_id"`
+	VLAN            int                             `db:"vlan_tag"`
+}
+
+type linkLayerDeviceParent struct {
+	DeviceUUID corenetwork.LinkLayerDeviceUUID `db:"device_uuid"`
+	ParentUUID corenetwork.LinkLayerDeviceUUID `db:"parent_uuid"`
+}
+
+type providerLinkLayerDevice struct {
+	ProviderID corenetwork.Id                  `db:"provider_id"`
+	DeviceUUID corenetwork.LinkLayerDeviceUUID `db:"device_uuid"`
 }
