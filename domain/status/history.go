@@ -17,4 +17,10 @@ var (
 
 	// UnitWorkloadNamespace is the namespace for unit workload status.
 	UnitWorkloadNamespace = statushistory.Namespace{Kind: status.KindWorkload}
+
+	// MachineNamespace is the namespace for machine status.
+	MachineNamespace = statushistory.Namespace{Kind: status.KindMachine}
+
+	// MachineInstanceNamespace is the namespace for instance status.
+	MachineInstanceNamespace = statushistory.Namespace{Kind: status.KindMachineInstance}
 )
