@@ -312,8 +312,14 @@ func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, erro
 	return !bootstrapped, nil
 }
 
-// PopulateControllerCharm is the function that is used to populate the
-// controller charm.
-func PopulateControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) error {
-	return bootstrap.PopulateControllerCharm(ctx, controllerCharmDeployer)
+// PopulateIAASControllerCharm is the function that is used to populate the
+// controller IAAS charm.
+func PopulateIAASControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) error {
+	return bootstrap.PopulateIAASControllerCharm(ctx, controllerCharmDeployer)
+}
+
+// PopulateCAASControllerCharm is the function that is used to populate the
+// controller CAAS charm.
+func PopulateCAASControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) error {
+	return bootstrap.PopulateCAASControllerCharm(ctx, controllerCharmDeployer)
 }

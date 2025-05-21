@@ -123,7 +123,7 @@ func (s *deployerCAASSuite) TestControllerCharmBase(c *tc.C) {
 	c.Assert(base, tc.DeepEquals, version.DefaultSupportedLTSBase())
 }
 
-func (s *deployerCAASSuite) TestCompleteProcess(c *tc.C) {
+func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
@@ -136,7 +136,7 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *tc.C) {
 	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	err := deployer.CompleteProcess(c.Context(), unitName)
+	err := deployer.CompleteCAASProcess(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 

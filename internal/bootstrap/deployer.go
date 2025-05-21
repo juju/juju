@@ -27,8 +27,8 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
@@ -75,10 +75,10 @@ type ControllerCharmDeployer interface {
 	DeployCharmhubCharm(context.Context, string, corebase.Base) (DeployCharmInfo, error)
 
 	// AddIAASControllerApplication adds the controller application.
-	AddIAASControllerApplication(context.Context, DeployCharmInfo, string) (coreunit.Name, error)
+	AddIAASControllerApplication(context.Context, DeployCharmInfo, string) error
 
 	// AddCAASControllerApplication adds the controller application.
-	AddCAASControllerApplication(context.Context, DeployCharmInfo, string) (coreunit.Name, error)
+	AddCAASControllerApplication(context.Context, DeployCharmInfo, string) error
 
 	// ControllerAddress returns the address of the controller that should be
 	// used.
@@ -92,8 +92,8 @@ type ControllerCharmDeployer interface {
 	// controller charm.
 	ControllerCharmArch() string
 
-	// CompleteProcess is called when the bootstrap process is complete.
-	CompleteProcess(context.Context, coreunit.Name) error
+	// CompleteCAASProcess is called when the bootstrap process is complete.
+	CompleteCAASProcess(context.Context) error
 }
 
 // Machine is the interface that is used to get information about a machine.
@@ -399,6 +399,27 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 	}, nil
 }
 
+// AddIAASControllerApplication adds the IAAS controller application.
+func (b *baseDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) error {
+	// These are abstract methods that are expected to be implemented by
+	// concrete types.
+	return errors.Errorf("can not add IAAS controller application").Add(coreerrors.NotImplemented)
+}
+
+// AddIAASControllerApplication adds the IAAS controller application.
+func (b *baseDeployer) AddCAASControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) error {
+	// These are abstract methods that are expected to be implemented by
+	// concrete types.
+	return errors.Errorf("can not add CAAS controller application").Add(coreerrors.NotImplemented)
+}
+
+// CompleteCAASProcess is called when the bootstrap process is complete.
+func (b *baseDeployer) CompleteCAASProcess(context.Context) error {
+	// These are abstract methods that are expected to be implemented by
+	// concrete types.
+	return errors.Errorf("can not complete CAAS process").Add(coreerrors.NotImplemented)
+}
+
 func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64) (string, string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -436,6 +457,25 @@ func (b *baseDeployer) createCharmSettings(controllerAddress string) (config.Con
 	return cfg, nil
 }
 
+func (b *baseDeployer) controllerDownloadInfo(schema string, info *corecharm.DownloadInfo) (*applicationcharm.DownloadInfo, error) {
+	// DownloadInfo is not required for local charms, so we only set it if
+	// it's not nil.
+	if schema == charm.Local.String() && info != nil {
+		return nil, errors.New("download info should not be set for local charms")
+	}
+
+	if info == nil {
+		return nil, nil
+	}
+
+	return &applicationcharm.DownloadInfo{
+		Provenance:         applicationcharm.ProvenanceBootstrap,
+		CharmhubIdentifier: info.CharmhubIdentifier,
+		DownloadURL:        info.DownloadURL,
+		DownloadSize:       info.DownloadSize,
+	}, nil
+
+}
 func ptr[T any](v T) *T {
 	return &v
 }

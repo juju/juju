@@ -142,6 +142,7 @@ func IAASAgentBinaryUploader(
 func CAASControllerCharmUploader(cfg ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 	return bootstrap.NewCAASDeployer(bootstrap.CAASDeployerConfig{
 		BaseDeployerConfig: makeBaseDeployerConfig(cfg),
+		ApplicationService: cfg.ApplicationService,
 		CloudServiceGetter: cfg.StateBackend,
 		UnitPassword:       cfg.UnitPassword,
 	})
@@ -152,6 +153,7 @@ func CAASControllerCharmUploader(cfg ControllerCharmDeployerConfig) (bootstrap.C
 func IAASControllerCharmUploader(cfg ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 	return bootstrap.NewIAASDeployer(bootstrap.IAASDeployerConfig{
 		BaseDeployerConfig: makeBaseDeployerConfig(cfg),
+		ApplicationService: cfg.ApplicationService,
 		MachineGetter:      cfg.StateBackend,
 	})
 }

@@ -299,7 +299,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		},
 	}
 	address := "10.0.0.1"
-	unit, err := deployer.AddIAASControllerApplication(c.Context(), DeployCharmInfo{
+	err = deployer.AddIAASControllerApplication(c.Context(), DeployCharmInfo{
 		URL:    charm.MustParseURL(curl),
 		Charm:  s.charm,
 		Origin: &origin,
@@ -312,7 +312,6 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		ObjectStoreUUID: "1234",
 	}, address)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(unit, tc.NotNil)
 }
 
 func (s *deployerSuite) ensureControllerCharm(c *tc.C, dataDir string) (string, int64) {

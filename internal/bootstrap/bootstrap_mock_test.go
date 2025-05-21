@@ -178,12 +178,11 @@ func (m *MockControllerCharmDeployer) EXPECT() *MockControllerCharmDeployerMockR
 }
 
 // AddCAASControllerApplication mocks base method.
-func (m *MockControllerCharmDeployer) AddCAASControllerApplication(arg0 context.Context, arg1 DeployCharmInfo, arg2 string) (unit.Name, error) {
+func (m *MockControllerCharmDeployer) AddCAASControllerApplication(arg0 context.Context, arg1 DeployCharmInfo, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddCAASControllerApplication", arg0, arg1, arg2)
-	ret0, _ := ret[0].(unit.Name)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // AddCAASControllerApplication indicates an expected call of AddCAASControllerApplication.
@@ -199,30 +198,29 @@ type MockControllerCharmDeployerAddCAASControllerApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) Return(arg0 unit.Name, arg1 error) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) Return(arg0 error) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) Do(f func(context.Context, DeployCharmInfo, string) (unit.Name, error)) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
+func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) Do(f func(context.Context, DeployCharmInfo, string) error) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) DoAndReturn(f func(context.Context, DeployCharmInfo, string) (unit.Name, error)) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
+func (c *MockControllerCharmDeployerAddCAASControllerApplicationCall) DoAndReturn(f func(context.Context, DeployCharmInfo, string) error) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddIAASControllerApplication mocks base method.
-func (m *MockControllerCharmDeployer) AddIAASControllerApplication(arg0 context.Context, arg1 DeployCharmInfo, arg2 string) (unit.Name, error) {
+func (m *MockControllerCharmDeployer) AddIAASControllerApplication(arg0 context.Context, arg1 DeployCharmInfo, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddIAASControllerApplication", arg0, arg1, arg2)
-	ret0, _ := ret[0].(unit.Name)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // AddIAASControllerApplication indicates an expected call of AddIAASControllerApplication.
@@ -238,57 +236,57 @@ type MockControllerCharmDeployerAddIAASControllerApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) Return(arg0 unit.Name, arg1 error) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) Do(f func(context.Context, DeployCharmInfo, string) (unit.Name, error)) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) DoAndReturn(f func(context.Context, DeployCharmInfo, string) (unit.Name, error)) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// CompleteProcess mocks base method.
-func (m *MockControllerCharmDeployer) CompleteProcess(arg0 context.Context, arg1 unit.Name) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompleteProcess", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CompleteProcess indicates an expected call of CompleteProcess.
-func (mr *MockControllerCharmDeployerMockRecorder) CompleteProcess(arg0, arg1 any) *MockControllerCharmDeployerCompleteProcessCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteProcess", reflect.TypeOf((*MockControllerCharmDeployer)(nil).CompleteProcess), arg0, arg1)
-	return &MockControllerCharmDeployerCompleteProcessCall{Call: call}
-}
-
-// MockControllerCharmDeployerCompleteProcessCall wrap *gomock.Call
-type MockControllerCharmDeployerCompleteProcessCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockControllerCharmDeployerCompleteProcessCall) Return(arg0 error) *MockControllerCharmDeployerCompleteProcessCall {
+func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) Return(arg0 error) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerCharmDeployerCompleteProcessCall) Do(f func(context.Context, unit.Name) error) *MockControllerCharmDeployerCompleteProcessCall {
+func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) Do(f func(context.Context, DeployCharmInfo, string) error) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerCharmDeployerCompleteProcessCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockControllerCharmDeployerCompleteProcessCall {
+func (c *MockControllerCharmDeployerAddIAASControllerApplicationCall) DoAndReturn(f func(context.Context, DeployCharmInfo, string) error) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CompleteCAASProcess mocks base method.
+func (m *MockControllerCharmDeployer) CompleteCAASProcess(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompleteCAASProcess", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CompleteCAASProcess indicates an expected call of CompleteCAASProcess.
+func (mr *MockControllerCharmDeployerMockRecorder) CompleteCAASProcess(arg0 any) *MockControllerCharmDeployerCompleteCAASProcessCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteCAASProcess", reflect.TypeOf((*MockControllerCharmDeployer)(nil).CompleteCAASProcess), arg0)
+	return &MockControllerCharmDeployerCompleteCAASProcessCall{Call: call}
+}
+
+// MockControllerCharmDeployerCompleteCAASProcessCall wrap *gomock.Call
+type MockControllerCharmDeployerCompleteCAASProcessCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerCharmDeployerCompleteCAASProcessCall) Return(arg0 error) *MockControllerCharmDeployerCompleteCAASProcessCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerCharmDeployerCompleteCAASProcessCall) Do(f func(context.Context) error) *MockControllerCharmDeployerCompleteCAASProcessCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerCharmDeployerCompleteCAASProcessCall) DoAndReturn(f func(context.Context) error) *MockControllerCharmDeployerCompleteCAASProcessCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

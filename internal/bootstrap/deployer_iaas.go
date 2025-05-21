@@ -12,12 +12,9 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -95,33 +92,23 @@ func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 }
 
 // AddIAASControllerApplication adds the IAAS controller application.
-func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) (coreunit.Name, error) {
+func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) error {
 	if err := info.Validate(); err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	origin := *info.Origin
 
 	cfg, err := b.createCharmSettings(controllerAddress)
 	if err != nil {
-		return "", errors.Errorf("creating charm settings: %w", err)
+		return errors.Errorf("creating charm settings: %w", err)
 	}
 
-	// DownloadInfo is not required for local charms, so we only set it if
-	// it's not nil.
-	if info.URL.Schema == charm.Local.String() && info.DownloadInfo != nil {
-		return "", errors.New("download info should not be set for local charms")
+	downloadInfo, err := b.controllerDownloadInfo(info.URL.Schema, info.DownloadInfo)
+	if err != nil {
+		return errors.Errorf("creating download info: %w", err)
 	}
 
-	var downloadInfo *applicationcharm.DownloadInfo
-	if info.DownloadInfo != nil {
-		downloadInfo = &applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceBootstrap,
-			CharmhubIdentifier: info.DownloadInfo.CharmhubIdentifier,
-			DownloadURL:        info.DownloadInfo.DownloadURL,
-			DownloadSize:       info.DownloadInfo.DownloadSize,
-		}
-	}
 	if _, err := b.applicationService.CreateIAASApplication(ctx,
 		bootstrap.ControllerApplicationName,
 		info.Charm,
@@ -142,20 +129,8 @@ func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info De
 		},
 		applicationservice.AddUnitArg{},
 	); err != nil {
-		return "", errors.Errorf("creating IAAS controller application: %w", err)
+		return errors.Errorf("creating IAAS controller application: %w", err)
 	}
 
-	// We can deduce that the unit name must be controller/0 since we're
-	// currently bootstrapping the controller, so this unit is the first unit
-	// to be created.
-	unitName, err := coreunit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
-	if err != nil {
-		return "", errors.Errorf("creating unit name %q: %w", bootstrap.ControllerApplicationName, err)
-	}
-	return unitName, nil
-}
-
-// CompleteProcess is called when the bootstrap process is complete.
-func (d *IAASDeployer) CompleteProcess(ctx context.Context, controllerUnit coreunit.Name) error {
 	return nil
 }
