@@ -360,19 +360,33 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *moc
 }
 
 func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) worker.Worker {
-	s.ensureMocks(c, ctrl)
+	s.modelFlushed = make(chan bool, 1)
+	s.machineFlushed = make(chan string, 1)
+	s.watchingMachine = make(chan names.MachineTag, 1)
 
 	flushMachineNotify := func(id string) {
-		s.machineFlushed <- id
+		select {
+		case s.machineFlushed <- id:
+		default:
+		}
 	}
 	flushModelNotify := func() {
-		s.modelFlushed <- true
+		select {
+		case s.modelFlushed <- true:
+		default:
+		}
 	}
 	watchMachineNotify := func(tag names.MachineTag) {
-		s.watchingMachine <- tag
+		select {
+		case s.watchingMachine <- tag:
+		default:
+		}
 	}
 	skipFlushModelNotify := func() {
-		s.skippedModelFlush <- true
+		select {
+		case s.skippedModelFlush <- true:
+		default:
+		}
 	}
 
 	cfg := firewaller.Config{
@@ -545,6 +559,8 @@ func (s *InstanceModeSuite) TestStartStop(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -557,6 +573,8 @@ func (s *InstanceModeSuite) TestStartStopWithoutModelFirewaller(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	s.withModelFirewaller = false
 	fw := s.newFirewaller(c, ctrl)
 
@@ -567,6 +585,8 @@ func (s *InstanceModeSuite) TestStartStopWithoutModelFirewaller(c *gc.C) {
 func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -581,6 +601,8 @@ func (s *InstanceModeSuite) TestShouldFlushModelWhenFlushingMachine(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.createWithMachine = false
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -596,6 +618,8 @@ func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *g
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	s.withModelFirewaller = false
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -608,6 +632,8 @@ func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *g
 func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -638,6 +664,8 @@ func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -685,6 +713,8 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -715,6 +745,8 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -838,6 +870,8 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -871,6 +905,8 @@ func (s *InstanceModeSuite) addMachineAndEnsureMocks(ctrl *gomock.Controller) *m
 func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -908,6 +944,8 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -947,6 +985,8 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -977,6 +1017,8 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -1036,6 +1078,8 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -1073,6 +1117,8 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.DirtyKill(c, fw)
@@ -1272,6 +1318,8 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	// Create the firewaller facade on the consuming model.
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -1324,6 +1372,8 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	// Create the firewaller facade on the consuming model.
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -1371,6 +1421,8 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	// Create the firewaller facade on the consuming model.
 	fw := s.newFirewaller(c, ctrl)
@@ -1448,6 +1500,8 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	// Create the firewaller facade on the consuming model.
 	fw := s.newFirewaller(c, ctrl)
@@ -1638,6 +1692,8 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	s.assertIngressCidrs(c, ctrl, []string{"10.0.0.4/16"}, []string{"10.0.0.4/16"})
 }
 
@@ -1666,6 +1722,8 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C
 func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	ingress := []string{
 		"192.0.1.254/31",
@@ -1704,6 +1762,8 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *gc.C) {
 func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -1796,6 +1856,8 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -1878,6 +1940,8 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -1948,6 +2012,8 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -2009,6 +2075,8 @@ func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	s.withIpv6 = false
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -2050,6 +2118,8 @@ func (s *GlobalModeSuite) TestStartStop(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -2061,6 +2131,8 @@ func (s *GlobalModeSuite) TestStartStop(c *gc.C) {
 func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -2146,6 +2218,8 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -2197,6 +2271,8 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.ensureMocks(c, ctrl)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
@@ -2238,6 +2314,8 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	// Start firewaller and open ports.
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -2311,6 +2389,8 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
 
 	s.withIpv6 = false
 	fw := s.newFirewaller(c, ctrl)
