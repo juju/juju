@@ -282,6 +282,44 @@ func (m *MockMigrationService) EXPECT() *MockMigrationServiceMockRecorder {
 	return m.recorder
 }
 
+// DeleteImportedLinkLayerDevices mocks base method.
+func (m *MockMigrationService) DeleteImportedLinkLayerDevices(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteImportedLinkLayerDevices", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteImportedLinkLayerDevices indicates an expected call of DeleteImportedLinkLayerDevices.
+func (mr *MockMigrationServiceMockRecorder) DeleteImportedLinkLayerDevices(arg0 any) *MockMigrationServiceDeleteImportedLinkLayerDevicesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteImportedLinkLayerDevices", reflect.TypeOf((*MockMigrationService)(nil).DeleteImportedLinkLayerDevices), arg0)
+	return &MockMigrationServiceDeleteImportedLinkLayerDevicesCall{Call: call}
+}
+
+// MockMigrationServiceDeleteImportedLinkLayerDevicesCall wrap *gomock.Call
+type MockMigrationServiceDeleteImportedLinkLayerDevicesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMigrationServiceDeleteImportedLinkLayerDevicesCall) Return(arg0 error) *MockMigrationServiceDeleteImportedLinkLayerDevicesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMigrationServiceDeleteImportedLinkLayerDevicesCall) Do(f func(context.Context) error) *MockMigrationServiceDeleteImportedLinkLayerDevicesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMigrationServiceDeleteImportedLinkLayerDevicesCall) DoAndReturn(f func(context.Context) error) *MockMigrationServiceDeleteImportedLinkLayerDevicesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ImportLinkLayerDevices mocks base method.
 func (m *MockMigrationService) ImportLinkLayerDevices(arg0 context.Context, arg1 []internal.ImportLinkLayerDevice) error {
 	m.ctrl.T.Helper()

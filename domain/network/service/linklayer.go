@@ -11,6 +11,12 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// DeleteImportedLinkLayerDevices is part of the [modelmigration.MigrationService]
+// interface.
+func (s *MigrationService) DeleteImportedLinkLayerDevices(ctx context.Context) error {
+	return s.st.DeleteImportedLinkLayerDevices(ctx)
+}
+
 // ImportLinkLayerDevices is part of the [modelmigration.MigrationService]
 // interface.
 func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []internal.ImportLinkLayerDevice) error {

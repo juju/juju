@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -14,6 +15,37 @@ import (
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
+
+// DeleteImportedLinkLayerDevices is part of the [service.LinkLayerDeviceState]
+// interface.
+func (st *State) DeleteImportedLinkLayerDevices(ctx context.Context) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	tables := []string{
+		"provider_link_layer_device",
+		"link_layer_device_parent",
+		"link_layer_device",
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		for _, table := range tables {
+			stmt, err := st.Prepare(fmt.Sprintf(`DELETE FROM %s`, table))
+			if err != nil {
+				return errors.Capture(err)
+			}
+
+			if err = tx.Query(ctx, stmt).Run(); err != nil {
+				return errors.Errorf("deleting table %q: %w", table, err)
+			}
+		}
+
+		return nil
+	})
+	return errors.Capture(err)
+}
 
 // ImportLinkLayerDevices is part of the [service.LinkLayerDeviceState]
 // interface.

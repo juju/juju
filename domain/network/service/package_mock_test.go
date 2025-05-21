@@ -200,6 +200,44 @@ func (c *MockStateAllSubnetsQueryCall) DoAndReturn(f func(context.Context, datab
 	return c
 }
 
+// DeleteImportedLinkLayerDevices mocks base method.
+func (m *MockState) DeleteImportedLinkLayerDevices(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteImportedLinkLayerDevices", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteImportedLinkLayerDevices indicates an expected call of DeleteImportedLinkLayerDevices.
+func (mr *MockStateMockRecorder) DeleteImportedLinkLayerDevices(arg0 any) *MockStateDeleteImportedLinkLayerDevicesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteImportedLinkLayerDevices", reflect.TypeOf((*MockState)(nil).DeleteImportedLinkLayerDevices), arg0)
+	return &MockStateDeleteImportedLinkLayerDevicesCall{Call: call}
+}
+
+// MockStateDeleteImportedLinkLayerDevicesCall wrap *gomock.Call
+type MockStateDeleteImportedLinkLayerDevicesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteImportedLinkLayerDevicesCall) Return(arg0 error) *MockStateDeleteImportedLinkLayerDevicesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteImportedLinkLayerDevicesCall) Do(f func(context.Context) error) *MockStateDeleteImportedLinkLayerDevicesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteImportedLinkLayerDevicesCall) DoAndReturn(f func(context.Context) error) *MockStateDeleteImportedLinkLayerDevicesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteSpace mocks base method.
 func (m *MockState) DeleteSpace(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()

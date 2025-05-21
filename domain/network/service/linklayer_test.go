@@ -73,6 +73,19 @@ func (s *linkLayerSuite) TestImportLinkLayerDevicesNoContent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *linkLayerSuite) TestDeleteImportedLinkLayerDevices(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	s.st.EXPECT().DeleteImportedLinkLayerDevices(gomock.Any()).Return(errors.New("boom"))
+
+	// Act
+	err := s.migrationService(c).DeleteImportedLinkLayerDevices(c.Context())
+
+	// Assert: the error from DeleteImportedLinkLayerDevices is passed
+	// through to the caller.
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 func (s *linkLayerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.st = NewMockState(ctrl)

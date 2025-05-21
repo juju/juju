@@ -194,3 +194,41 @@ func (s *importSuite) TestImportLinkLayerDevices(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *importSuite) TestRollbackLinkLayerDevices(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	model := description.NewModel(description.ModelArgs{})
+	dArgs := description.LinkLayerDeviceArgs{
+		Name:        "test-device",
+		MTU:         1500,
+		ProviderID:  "net-lxdbr0",
+		MachineID:   "77",
+		Type:        "ethernet",
+		MACAddress:  "00:16:3e:ad:4e:01",
+		IsAutoStart: true,
+		IsUp:        true,
+	}
+	model.AddLinkLayerDevice(dArgs)
+	s.migrationService.EXPECT().DeleteImportedLinkLayerDevices(gomock.Any()).Return(nil)
+
+	// Act
+	op := s.newImportOperation(c)
+	err := op.Rollback(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestRollbackLinkLayerDevicesNoData(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	model := description.NewModel(description.ModelArgs{})
+
+	// Act
+	op := s.newImportOperation(c)
+	err := op.Rollback(c.Context(), model)
+
+	// Assert: with no link layer device data, there is no failure.
+	c.Assert(err, tc.ErrorIsNil)
+}
