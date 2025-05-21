@@ -12,7 +12,7 @@ import (
 // ID represents a application unique identifier.
 type ID string
 
-// NewID is a convince function for generating a new application uuid.
+// NewID is a convenience function for generating a new application uuid.
 func NewID() (ID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {

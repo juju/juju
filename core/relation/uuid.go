@@ -12,7 +12,7 @@ import (
 // UUID represents a relation unique identifier.
 type UUID string
 
-// NewUUID is a convince function for generating a new relation uuid.
+// NewUUID is a convenience function for generating a new relation uuid.
 func NewUUID() (UUID, error) {
 	id, err := uuid.NewUUID()
 	if err != nil {
@@ -50,7 +50,7 @@ func (u UUID) Validate() error {
 // UnitUUID represents a relation unit unique identifier.
 type UnitUUID string
 
-// NewUnitUUID is a convince function for generating a new relation unit uuid.
+// NewUnitUUID is a convenience function for generating a new relation unit uuid.
 func NewUnitUUID() (UnitUUID, error) {
 	id, err := uuid.NewUUID()
 	if err != nil {

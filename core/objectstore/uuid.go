@@ -12,7 +12,7 @@ import (
 // UUID represents a object store unique identifier.
 type UUID string
 
-// NewUUID is a convince function for generating a new object store uuid.
+// NewUUID is a convenience function for generating a new object store uuid.
 func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {

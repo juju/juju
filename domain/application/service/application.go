@@ -266,11 +266,11 @@ type ApplicationState interface {
 	// InitialWatchStatementUnitAddressesHash returns the initial namespace query
 	// for the unit addresses hash watcher as well as the tables to be watched
 	// (ip_address and application_endpoint)
-	InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID, netNodeUUID string) (string, string, eventsource.NamespaceQuery)
+	InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID, netNodeUUID network.NetNodeUUID) (string, string, eventsource.NamespaceQuery)
 
 	// GetAddressesHash returns the sha256 hash of the application unit and cloud
 	// service (if any) addresses along with the associated endpoint bindings.
-	GetAddressesHash(ctx context.Context, appUUID coreapplication.ID, netNodeUUID string) (string, error)
+	GetAddressesHash(ctx context.Context, appUUID coreapplication.ID, netNodeUUID network.NetNodeUUID) (string, error)
 
 	// GetNetNodeUUIDByUnitName returns the net node UUID for the named unit or the
 	// cloud service associated with the unit's application. This method is meant
@@ -279,7 +279,7 @@ type ApplicationState interface {
 	//
 	// If the unit does not exist an error satisfying
 	// [applicationerrors.UnitNotFound] will be returned.
-	GetNetNodeUUIDByUnitName(ctx context.Context, name coreunit.Name) (string, error)
+	GetNetNodeUUIDByUnitName(ctx context.Context, name coreunit.Name) (network.NetNodeUUID, error)
 
 	// GetApplicationConstraints returns the application constraints for the
 	// specified application ID.

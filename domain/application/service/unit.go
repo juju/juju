@@ -138,7 +138,7 @@ type UnitState interface {
 	GetUnitNamesForApplication(context.Context, coreapplication.ID) ([]coreunit.Name, error)
 
 	// GetUnitNamesForNetNode returns a slice of the unit names for the given net node
-	GetUnitNamesForNetNode(context.Context, string) ([]coreunit.Name, error)
+	GetUnitNamesForNetNode(context.Context, network.NetNodeUUID) ([]coreunit.Name, error)
 
 	// AddSubordinateUnit adds a new unit to the subordinate application. On
 	// IAAS, the new unit will be colocated on machine with the principal unit.
@@ -148,7 +148,7 @@ type UnitState interface {
 	// GetMachineNetNodeUUIDFromName returns the net node UUID for the named
 	// machine. The following errors may be returned: -
 	// [applicationerrors.MachineNotFound] if the machine does not exist
-	GetMachineNetNodeUUIDFromName(context.Context, machine.Name) (string, error)
+	GetMachineNetNodeUUIDFromName(context.Context, machine.Name) (network.NetNodeUUID, error)
 
 	// SetUnitWorkloadVersion sets the workload version for the given unit.
 	SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error
@@ -167,7 +167,7 @@ type UnitState interface {
 	//
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
-	GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]string, error)
+	GetUnitNetNodes(ctx context.Context, uuid coreunit.UUID) ([]network.NetNodeUUID, error)
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -716,7 +716,7 @@ func (s *Service) GetUnitSubordinates(ctx context.Context, unitName coreunit.Nam
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
-func (s *Service) GetUnitNetNodes(ctx context.Context, unitName coreunit.Name) ([]string, error) {
+func (s *Service) GetUnitNetNodes(ctx context.Context, unitName coreunit.Name) ([]network.NetNodeUUID, error) {
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return nil, errors.Capture(err)

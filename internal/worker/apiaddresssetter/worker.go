@@ -56,7 +56,7 @@ type ApplicationService interface {
 	// addresses.
 	// This notifies on any changes to the net nodes addresses. It is up to the
 	// caller to determine if the addresses they're interested in has changed.
-	WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...string) (watcher.NotifyWatcher, error)
+	WatchNetNodeAddress(ctx context.Context, netNodeUUIDs ...network.NetNodeUUID) (watcher.NotifyWatcher, error)
 
 	// GetUnitNetNodes returns the net node UUIDs associated with the specified
 	// unit. The net nodes are selected in the same way as in GetUnitAddresses, i.e.
@@ -65,7 +65,7 @@ type ApplicationService interface {
 	//
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
-	GetUnitNetNodes(ctx context.Context, unitName unit.Name) ([]string, error)
+	GetUnitNetNodes(ctx context.Context, unitName unit.Name) ([]network.NetNodeUUID, error)
 
 	// GetUnitPublicAddresses returns all public addresses for the specified unit.
 	//
