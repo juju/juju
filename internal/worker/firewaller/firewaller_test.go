@@ -118,7 +118,7 @@ var _ worker.Worker = (*firewaller.Firewaller)(nil)
 
 func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 	if s.firewaller != nil {
-		return
+		panic("firewaller already created")
 	}
 	if s.clock == nil {
 		s.clock = testclock.NewDilatedWallClock(coretesting.ShortWait)
@@ -174,6 +174,25 @@ func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 
 		s.modelFwRulesCh <- struct{}{}
 	}
+
+	c.Cleanup(func() {
+		s.firewaller = nil
+		s.portService = nil
+		s.machineService = nil
+		s.applicationService = nil
+		s.envFirewaller = nil
+		s.envModelFirewaller = nil
+		s.envInstances = nil
+		s.crossmodelFirewaller = nil
+		s.remoteRelations = nil
+
+		s.machinesCh = nil
+		s.applicationsCh = nil
+		s.openedPortsCh = nil
+		s.remoteRelCh = nil
+		s.subnetsCh = nil
+		s.modelFwRulesCh = nil
+	})
 }
 
 // assertIngressRules retrieves the ingress rules from the provided instance
