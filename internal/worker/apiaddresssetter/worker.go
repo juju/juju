@@ -47,7 +47,7 @@ type ControllerNodeService interface {
 	//
 	// The following errors can be expected:
 	// - [controllernodeerrors.NotFound] if the controller node does not exist.
-	SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace network.SpaceInfo) error
+	SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace *network.SpaceInfo) error
 }
 
 // ApplicationService is an interface for the application domain service.
@@ -361,7 +361,7 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 			continue
 		}
 
-		if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, controllerID, hostPorts, *mgmtSpace); err != nil {
+		if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, controllerID, hostPorts, mgmtSpace); err != nil {
 			return errors.Capture(err)
 		}
 	}

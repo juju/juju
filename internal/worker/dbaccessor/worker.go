@@ -1015,6 +1015,9 @@ func (w *dbWorker) ensureNamespace(ctx context.Context, namespace string) error 
 // running in this case. Do not place a call to this method where that may
 // *not* be the case.
 func (w *dbWorker) nodeService() *service.Service {
-	return service.NewService(state.NewState(
-		database.NewTxnRunnerFactoryForNamespace(w.workerFromCache, database.ControllerNS)))
+	return service.NewService(
+		state.NewState(
+			database.NewTxnRunnerFactoryForNamespace(w.workerFromCache, database.ControllerNS)),
+		w.cfg.Logger.Child("controllernode"),
+	)
 }
