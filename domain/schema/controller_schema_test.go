@@ -265,6 +265,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_user_authentication_insert",
 		"trg_log_user_authentication_update",
 		"trg_log_user_authentication_delete",
+
+		"trg_log_object_store_drain_info_insert",
+		"trg_log_object_store_drain_info_update",
+		"trg_log_object_store_drain_info_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but
