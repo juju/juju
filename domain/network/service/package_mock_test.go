@@ -15,7 +15,9 @@ import (
 
 	database "github.com/juju/juju/core/database"
 	instance "github.com/juju/juju/core/instance"
+	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
+	internal "github.com/juju/juju/domain/network/internal"
 	environs "github.com/juju/juju/environs"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
@@ -116,6 +118,45 @@ func (c *MockStateAddSubnetCall) Do(f func(context.Context, network.SubnetInfo) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateAddSubnetCall) DoAndReturn(f func(context.Context, network.SubnetInfo) error) *MockStateAddSubnetCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AllMachinesAndNetNodes mocks base method.
+func (m *MockState) AllMachinesAndNetNodes(arg0 context.Context) (map[machine.Name]network.NetNodeUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllMachinesAndNetNodes", arg0)
+	ret0, _ := ret[0].(map[machine.Name]network.NetNodeUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllMachinesAndNetNodes indicates an expected call of AllMachinesAndNetNodes.
+func (mr *MockStateMockRecorder) AllMachinesAndNetNodes(arg0 any) *MockStateAllMachinesAndNetNodesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachinesAndNetNodes", reflect.TypeOf((*MockState)(nil).AllMachinesAndNetNodes), arg0)
+	return &MockStateAllMachinesAndNetNodesCall{Call: call}
+}
+
+// MockStateAllMachinesAndNetNodesCall wrap *gomock.Call
+type MockStateAllMachinesAndNetNodesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAllMachinesAndNetNodesCall) Return(arg0 map[machine.Name]network.NetNodeUUID, arg1 error) *MockStateAllMachinesAndNetNodesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAllMachinesAndNetNodesCall) Do(f func(context.Context) (map[machine.Name]network.NetNodeUUID, error)) *MockStateAllMachinesAndNetNodesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAllMachinesAndNetNodesCall) DoAndReturn(f func(context.Context) (map[machine.Name]network.NetNodeUUID, error)) *MockStateAllMachinesAndNetNodesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -470,6 +511,44 @@ func (c *MockStateGetSubnetsByCIDRCall) Do(f func(context.Context, ...string) (n
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetSubnetsByCIDRCall) DoAndReturn(f func(context.Context, ...string) (network.SubnetInfos, error)) *MockStateGetSubnetsByCIDRCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ImportLinkLayerDevices mocks base method.
+func (m *MockState) ImportLinkLayerDevices(arg0 context.Context, arg1 []internal.ImportLinkLayerDevice) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportLinkLayerDevices", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportLinkLayerDevices indicates an expected call of ImportLinkLayerDevices.
+func (mr *MockStateMockRecorder) ImportLinkLayerDevices(arg0, arg1 any) *MockStateImportLinkLayerDevicesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportLinkLayerDevices", reflect.TypeOf((*MockState)(nil).ImportLinkLayerDevices), arg0, arg1)
+	return &MockStateImportLinkLayerDevicesCall{Call: call}
+}
+
+// MockStateImportLinkLayerDevicesCall wrap *gomock.Call
+type MockStateImportLinkLayerDevicesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateImportLinkLayerDevicesCall) Return(arg0 error) *MockStateImportLinkLayerDevicesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateImportLinkLayerDevicesCall) Do(f func(context.Context, []internal.ImportLinkLayerDevice) error) *MockStateImportLinkLayerDevicesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateImportLinkLayerDevicesCall) DoAndReturn(f func(context.Context, []internal.ImportLinkLayerDevice) error) *MockStateImportLinkLayerDevicesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

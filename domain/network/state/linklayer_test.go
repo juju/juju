@@ -11,7 +11,10 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/machine"
+	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/network/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -57,7 +60,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`
 		}
 
 		if _, err = tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)",
-			subUUID, "10.0.0.0/24", network.AlphaSpaceId,
+			subUUID, "10.0.0.0/24", corenetwork.AlphaSpaceId,
 		); err != nil {
 			return err
 		}
@@ -93,4 +96,54 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	c.Check(r.DeviceName, tc.Equals, devName)
 	c.Check(r.AddressUUID.String, tc.Equals, addrUUID)
 	c.Check(r.SubnetUUID.String, tc.Equals, subUUID)
+}
+
+type linkLayerImportSuite struct {
+	linkLayerBaseSuite
+}
+
+var _ = tc.Suite(&linkLayerImportSuite{})
+
+func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
+	// Arrange:
+	ctx := c.Context()
+
+	// Arrange: prior imported items required for link layer devices.
+	netNodeUUID := s.addNetNode(c)
+	machineName := machine.Name("73")
+	s.addMachine(c, machineName, netNodeUUID)
+
+	// Arrange: data to be imported.
+	importData := []internal.ImportLinkLayerDevice{
+		{
+			NetNodeUUID:      netNodeUUID,
+			Name:             "test",
+			MTU:              ptr(int64(1500)),
+			Type:             network.DeviceTypeEthernet,
+			VirtualPortType:  network.NonVirtualPortType,
+			MachineID:        machineName,
+			ParentDeviceName: "parent",
+			ProviderID:       ptr(corenetwork.Id("one")),
+			MACAddress:       ptr("00:16:3e:ad:4e:01"),
+		},
+		{
+			NetNodeUUID:     netNodeUUID,
+			Name:            "parent",
+			MTU:             ptr(int64(1500)),
+			Type:            network.DeviceTypeEthernet,
+			VirtualPortType: network.NonVirtualPortType,
+			MachineID:       machineName,
+			ProviderID:      ptr(corenetwork.Id("two")),
+			MACAddress:      ptr("00:16:3e:ad:4e:88"),
+		},
+	}
+
+	// Act
+	err := s.state.ImportLinkLayerDevices(ctx, importData)
+
+	// Assert
+	c.Check(err, tc.ErrorIsNil)
+	s.checkRowCount(c, "link_layer_device", 2)
+	s.checkRowCount(c, "link_layer_device_parent", 1)
+	s.checkRowCount(c, "provider_link_layer_device", 2)
 }

@@ -1,3 +1,6 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package service
 
 import "github.com/juju/juju/core/logger"
@@ -19,12 +22,13 @@ func NewService(st State, logger logger.Logger) *Service {
 // MigrationService provides the API for model migration actions within
 // the network domain.
 type MigrationService struct {
-	st     State
+	st     LinkLayerDeviceState
 	logger logger.Logger
 }
 
 // NewMigrationService returns a new migration service reference wrapping
-// the input state.
+// the input state. These methods are specific to migration only and not
+// intended to be used outside of the domain.
 func NewMigrationService(st State, logger logger.Logger) *MigrationService {
 	return &MigrationService{
 		st:     st,
