@@ -54,7 +54,7 @@ func newRelationUnitsWatcher(unit names.UnitTag, relUUID corerelation.UUID, rela
 		Name: "relation-units-watcher",
 		Site: &w.catacomb,
 		Work: func() error {
-			return w.loop(w.catacomb.Context(nil))
+			return w.loop()
 		},
 	})
 }
@@ -109,8 +109,10 @@ func convertRelationUnitsChange(changes relation.RelationUnitsChange) params.Rel
 
 // loop manages the lifecycle of the relationUnitsWatcher, processes related
 // unit changes, and outputs them to a channel.
-func (w *relationUnitsWatcher) loop(ctx context.Context) error {
+func (w *relationUnitsWatcher) loop() error {
 	defer close(w.out)
+
+	ctx := w.catacomb.Context(context.Background())
 
 	domainWatcher, err := w.relation.WatchRelatedUnits(ctx, w.unitName, w.relationUUID)
 	if err != nil {

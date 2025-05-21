@@ -171,7 +171,12 @@ func DeployApplication(
 			return nil, errors.Trace(err)
 		}
 
-		_, err = applicationService.CreateApplication(
+		createApplication := applicationService.CreateIAASApplication
+		if modelType == coremodel.CAAS {
+			createApplication = applicationService.CreateCAASApplication
+		}
+
+		_, err = createApplication(
 			ctx,
 			args.ApplicationName,
 			args.Charm,
@@ -251,6 +256,11 @@ func (api *APIBase) addUnits(
 		return nil, err
 	}
 
+	createUnit := api.applicationService.AddIAASUnits
+	if api.modelType == coremodel.CAAS {
+		createUnit = api.applicationService.AddCAASUnits
+	}
+
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := unitAdder.AddUnit(state.AddUnitParams{
@@ -270,7 +280,7 @@ func (api *APIBase) addUnits(
 			Placement: unitPlacement,
 		}
 
-		if err := api.applicationService.AddUnits(ctx, appName, unitArg); err != nil {
+		if err := createUnit(ctx, appName, unitArg); err != nil {
 			return nil, internalerrors.Errorf("adding unit to application %q: %w", appName, err)
 		}
 		units[i] = unit

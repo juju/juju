@@ -46,7 +46,8 @@ type MachineService interface {
 
 // ApplicationService instances add units to an application in dqlite state.
 type ApplicationService interface {
-	AddUnits(
+	// AddIAASUnits adds units to the application with the given name.
+	AddIAASUnits(
 		ctx context.Context,
 		name string,
 		units ...applicationservice.AddUnitArg,
@@ -214,7 +215,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 				Placement: placement,
 			}
 		}
-		if err := api.applicationService.AddUnits(
+		if err := api.applicationService.AddIAASUnits(
 			ctx,
 			application.ControllerApplicationName,
 			addUnitArgs...,
