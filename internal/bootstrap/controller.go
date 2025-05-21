@@ -8,7 +8,10 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/environs/bootstrap"
 )
 
 const controllerCharmURL = "juju-controller"
@@ -21,16 +24,16 @@ const controllerCharmURL = "juju-controller"
 // If the errors is not found locally, we'll try to download it from
 // charm hub.
 // Once the charm is added, set up the controller application.
-func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeployer) error {
+func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeployer) (network.ProviderAddresses, error) {
 	controllerAddress, err := deployer.ControllerAddress(ctx)
 	if err != nil {
-		return errors.Annotatef(err, "getting controller address")
+		return nil, errors.Annotatef(err, "getting controller address")
 	}
 
 	arch := deployer.ControllerCharmArch()
 	base, err := deployer.ControllerCharmBase()
 	if err != nil {
-		return errors.Annotatef(err, "getting controller charm base")
+		return nil, errors.Annotatef(err, "getting controller charm base")
 	}
 
 	// When deploying a local charm, it is expected that the charm is located
@@ -38,7 +41,7 @@ func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 	// error indicating that the charm is not found.
 	deployInfo, err := deployer.DeployLocalCharm(ctx, arch, base)
 	if err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Annotatef(err, "deploying local controller charm")
+		return nil, errors.Annotatef(err, "deploying local controller charm")
 	}
 
 	// If the errors is not found locally, we'll try to download it from
@@ -46,19 +49,27 @@ func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 	if errors.Is(err, errors.NotFound) {
 		deployInfo, err = deployer.DeployCharmhubCharm(ctx, arch, base)
 		if err != nil {
-			return errors.Annotatef(err, "deploying charmhub controller charm")
+			return nil, errors.Annotatef(err, "deploying charmhub controller charm")
 		}
 	}
 
 	// Once the charm is added, set up the controller application.
-	controllerUnit, err := deployer.AddControllerApplication(ctx, deployInfo, controllerAddress)
-	if err != nil && !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
-		return errors.Annotatef(err, "adding controller application")
+	if err := deployer.AddControllerApplication(ctx, deployInfo, controllerAddress); err != nil && !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
+		return nil, errors.Annotatef(err, "adding controller application")
 	}
 
-	// Finally, complete the process.
-	if err := deployer.CompleteProcess(ctx, controllerUnit); err != nil {
-		return errors.Annotatef(err, "completing process")
+	// We can deduce that the unit name must be controller/0 since we're
+	// currently bootstrapping the controller, so this unit is the first unit
+	// to be created.
+	controllerUnitName, err := coreunit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
+	if err != nil {
+		return nil, errors.Errorf("creating unit name %q: %w", bootstrap.ControllerApplicationName, err)
 	}
-	return nil
+	// Finally, complete the process.
+	addrs, err := deployer.CompleteProcess(ctx, controllerUnitName)
+	if err != nil {
+		return nil, errors.Annotatef(err, "completing process")
+	}
+
+	return addrs, nil
 }

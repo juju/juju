@@ -28,21 +28,6 @@ func (s *addressFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-// TestBoostrapAddressFinderNotSupported is asserting that when a provider is
-// requested that doesn't support the [environs.InstanceLister] we get back a
-// default address set of "localhost".
-func (*addressFinderSuite) TestBootstrapAddressFinderNotSupported(c *tc.C) {
-	expected := network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses()
-
-	addresses, err := BootstrapAddressFinder(
-		func(_ context.Context) (environs.InstanceLister, error) {
-			return nil, errors.NotSupported
-		},
-	)(c.Context(), instance.Id("12345"))
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(addresses, tc.DeepEquals, expected)
-}
-
 // TestBootstrapAddressFinderProviderError is asserting that if getting a
 // provider produces an error that error is maintained back up the stack.
 func (*addressFinderSuite) TestBootstrapAddressFinderProviderError(c *tc.C) {

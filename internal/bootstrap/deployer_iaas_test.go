@@ -90,8 +90,9 @@ func (s *deployerIAASSuite) TestCompleteProcess(c *tc.C) {
 	// call any methods.
 
 	deployer := s.newDeployer(c)
-	err := deployer.CompleteProcess(c.Context(), coreunit.Name("controller/0"))
+	addrs, err := deployer.CompleteProcess(c.Context(), coreunit.Name("controller/0"))
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addrs, tc.IsNil)
 }
 
 func (s *deployerIAASSuite) newDeployer(c *tc.C) *IAASDeployer {

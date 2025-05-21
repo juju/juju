@@ -77,7 +77,7 @@ type ControllerCharmDeployer interface {
 	DeployCharmhubCharm(context.Context, string, corebase.Base) (DeployCharmInfo, error)
 
 	// AddControllerApplication adds the controller application.
-	AddControllerApplication(context.Context, DeployCharmInfo, string) (coreunit.Name, error)
+	AddControllerApplication(context.Context, DeployCharmInfo, string) error
 
 	// ControllerAddress returns the address of the controller that should be
 	// used.
@@ -92,7 +92,7 @@ type ControllerCharmDeployer interface {
 	ControllerCharmArch() string
 
 	// CompleteProcess is called when the bootstrap process is complete.
-	CompleteProcess(context.Context, coreunit.Name) error
+	CompleteProcess(context.Context, coreunit.Name) (network.ProviderAddresses, error)
 }
 
 // Machine is the interface that is used to get information about a machine.
@@ -402,9 +402,9 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 }
 
 // AddControllerApplication adds the controller application.
-func (b *baseDeployer) AddControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) (coreunit.Name, error) {
+func (b *baseDeployer) AddControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) error {
 	if err := info.Validate(); err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	origin := *info.Origin
@@ -426,7 +426,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 	// DownloadInfo is not required for local charms, so we only set it if
 	// it's not nil.
 	if info.URL.Schema == charm.Local.String() && info.DownloadInfo != nil {
-		return "", errors.New("download info should not be set for local charms")
+		return errors.New("download info should not be set for local charms")
 	}
 
 	var downloadInfo *applicationcharm.DownloadInfo
@@ -438,7 +438,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 			DownloadSize:       info.DownloadInfo.DownloadSize,
 		}
 	}
-	_, err := b.applicationService.CreateApplication(ctx,
+	if _, err := b.applicationService.CreateApplication(ctx,
 		bootstrap.ControllerApplicationName,
 		info.Charm,
 		origin,
@@ -456,19 +456,11 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 			},
 		},
 		applicationservice.AddUnitArg{},
-	)
-	if err != nil {
-		return "", errors.Errorf("creating controller application: %w", err)
+	); err != nil {
+		return errors.Errorf("creating controller application: %w", err)
 	}
 
-	// We can deduce that the unit name must be controller/0 since we're
-	// currently bootstrapping the controller, so this unit is the first unit
-	// to be created.
-	unitName, err := coreunit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
-	if err != nil {
-		return "", errors.Errorf("creating unit name %q: %w", bootstrap.ControllerApplicationName, err)
-	}
-	return unitName, nil
+	return nil
 }
 
 func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64) (string, string, error) {

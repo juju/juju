@@ -24,7 +24,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap AgentBinaryStore,ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CloudService,StorageService,ApplicationService,ModelConfigService,NetworkService,UserService,BakeryConfigService,KeyManagerService,MachineService,AgentPasswordService
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap AgentBinaryStore,ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CloudService,StorageService,ApplicationService,ModelConfigService,NetworkService,UserService,BakeryConfigService,KeyManagerService,MachineService,AgentPasswordService,ControllerNodeService
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination http_client_mock_test.go github.com/juju/juju/core/http HTTPClientGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServices
 
@@ -55,6 +55,7 @@ type baseSuite struct {
 	keyManagerService          *MockKeyManagerService
 	agentPasswordService       *MockAgentPasswordService
 	applicationService         *MockApplicationService
+	controllerNodeService      *MockControllerNodeService
 	modelConfigService         *MockModelConfigService
 	machineService             *MockMachineService
 	userService                *MockUserService
@@ -87,6 +88,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.storageService = NewMockStorageService(ctrl)
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.keyManagerService = NewMockKeyManagerService(ctrl)
