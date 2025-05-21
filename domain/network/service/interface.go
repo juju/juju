@@ -116,6 +116,10 @@ type LinkLayerDeviceState interface {
 	// net mode UUIDs in the model.
 	AllMachinesAndNetNodes(ctx context.Context) (map[machine.Name]network.NetNodeUUID, error)
 
+	// DeleteImportedLinkLayerDevices deletes all data added via the ImportLinkLayerDevices
+	// method.
+	DeleteImportedLinkLayerDevices(ctx context.Context) error
+
 	// ImportLinkLayerDevices adds link layer devices into the model as part
 	// of the migration import process.
 	ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error

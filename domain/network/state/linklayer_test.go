@@ -147,3 +147,49 @@ func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
 	s.checkRowCount(c, "link_layer_device_parent", 1)
 	s.checkRowCount(c, "provider_link_layer_device", 2)
 }
+
+func (s *linkLayerImportSuite) TestDeleteImportedRelations(c *tc.C) {
+	// Arrange:
+	ctx := c.Context()
+
+	// Arrange: prior imported items required for link layer devices.
+	netNodeUUID := s.addNetNode(c)
+	machineName := machine.Name("73")
+	s.addMachine(c, machineName, netNodeUUID)
+
+	// Arrange: import some data
+	importData := []internal.ImportLinkLayerDevice{
+		{
+			NetNodeUUID:      netNodeUUID,
+			Name:             "test",
+			MTU:              ptr(int64(1500)),
+			Type:             network.DeviceTypeEthernet,
+			VirtualPortType:  network.NonVirtualPortType,
+			MachineID:        machineName,
+			ParentDeviceName: "parent",
+			ProviderID:       ptr(corenetwork.Id("one")),
+			MACAddress:       ptr("00:16:3e:ad:4e:01"),
+		},
+		{
+			NetNodeUUID:     netNodeUUID,
+			Name:            "parent",
+			MTU:             ptr(int64(1500)),
+			Type:            network.DeviceTypeEthernet,
+			VirtualPortType: network.NonVirtualPortType,
+			MachineID:       machineName,
+			ProviderID:      ptr(corenetwork.Id("two")),
+			MACAddress:      ptr("00:16:3e:ad:4e:88"),
+		},
+	}
+	err := s.state.ImportLinkLayerDevices(ctx, importData)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	err = s.state.DeleteImportedLinkLayerDevices(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkRowCount(c, "link_layer_device", 0)
+	s.checkRowCount(c, "link_layer_device_parent", 0)
+	s.checkRowCount(c, "provider_link_layer_device", 0)
+}
