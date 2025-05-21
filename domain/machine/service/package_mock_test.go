@@ -17,11 +17,13 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
+	status "github.com/juju/juju/core/status"
 	life "github.com/juju/juju/domain/life"
 	machine0 "github.com/juju/juju/domain/machine"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	instances "github.com/juju/juju/environs/instances"
+	statushistory "github.com/juju/juju/internal/statushistory"
 	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -1433,6 +1435,67 @@ func (c *MockStateShouldRebootOrShutdownCall) Do(f func(context.Context, machine
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateShouldRebootOrShutdownCall) DoAndReturn(f func(context.Context, machine.UUID) (machine.RebootAction, error)) *MockStateShouldRebootOrShutdownCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockStatusHistory is a mock of StatusHistory interface.
+type MockStatusHistory struct {
+	ctrl     *gomock.Controller
+	recorder *MockStatusHistoryMockRecorder
+}
+
+// MockStatusHistoryMockRecorder is the mock recorder for MockStatusHistory.
+type MockStatusHistoryMockRecorder struct {
+	mock *MockStatusHistory
+}
+
+// NewMockStatusHistory creates a new mock instance.
+func NewMockStatusHistory(ctrl *gomock.Controller) *MockStatusHistory {
+	mock := &MockStatusHistory{ctrl: ctrl}
+	mock.recorder = &MockStatusHistoryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStatusHistory) EXPECT() *MockStatusHistoryMockRecorder {
+	return m.recorder
+}
+
+// RecordStatus mocks base method.
+func (m *MockStatusHistory) RecordStatus(arg0 context.Context, arg1 statushistory.Namespace, arg2 status.StatusInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordStatus indicates an expected call of RecordStatus.
+func (mr *MockStatusHistoryMockRecorder) RecordStatus(arg0, arg1, arg2 any) *MockStatusHistoryRecordStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordStatus", reflect.TypeOf((*MockStatusHistory)(nil).RecordStatus), arg0, arg1, arg2)
+	return &MockStatusHistoryRecordStatusCall{Call: call}
+}
+
+// MockStatusHistoryRecordStatusCall wrap *gomock.Call
+type MockStatusHistoryRecordStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusHistoryRecordStatusCall) Return(arg0 error) *MockStatusHistoryRecordStatusCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusHistoryRecordStatusCall) Do(f func(context.Context, statushistory.Namespace, status.StatusInfo) error) *MockStatusHistoryRecordStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusHistoryRecordStatusCall) DoAndReturn(f func(context.Context, statushistory.Namespace, status.StatusInfo) error) *MockStatusHistoryRecordStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
