@@ -241,91 +241,6 @@ func (s *serviceSuite) TestPutMetadataMissingSHA256(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingHash)
 }
 
-func (s *serviceSuite) TestSetDrainingPhase(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	currentPhase := objectstore.PhaseUnknown
-	newPhase := objectstore.PhaseDraining
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
-
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), currentPhase, nil)
-	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(nil)
-
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestSetDrainingPhaseNoInitial(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newPhase := objectstore.PhaseDraining
-
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return("", "", objectstoreerrors.ErrDrainingPhaseNotFound)
-	s.state.EXPECT().SetDrainingPhase(gomock.Any(), gomock.Any(), newPhase).Return(nil)
-
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestSetDrainingPhaseInvalid(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	phase := objectstore.Phase("invalid")
-
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), phase)
-	c.Assert(err, tc.ErrorMatches, "invalid phase \"invalid\"")
-}
-
-func (s *serviceSuite) TestSetDrainingPhaseError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	currentPhase := objectstore.PhaseUnknown
-	newPhase := objectstore.PhaseDraining
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
-
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), currentPhase, nil)
-	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(errors.Errorf("boom"))
-
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
-	c.Assert(err, tc.ErrorMatches, `.*boom`)
-}
-
-func (s *serviceSuite) TestGetDrainingPhase(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	phase := objectstore.PhaseDraining
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
-
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), phase, nil)
-
-	p, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(p, tc.Equals, phase)
-}
-
-func (s *serviceSuite) TestGetDrainingPhaseError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	phase := objectstore.PhaseDraining
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
-
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), phase, errors.Errorf("boom"))
-
-	_, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
-	c.Assert(err, tc.ErrorMatches, `.*boom`)
-}
-
-func (s *serviceSuite) TestRemoveMetadata(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	key := uuid.MustNewUUID().String()
-
-	s.state.EXPECT().RemoveMetadata(gomock.Any(), key).Return(nil)
-
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).RemoveMetadata(c.Context(), key)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 // Test watch returns a watcher that watches the specified path.
 func (s *serviceSuite) TestWatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -349,6 +264,121 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.state = NewMockState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
+
+	c.Cleanup(func() {
+		s.state = nil
+		s.watcherFactory = nil
+	})
+
+	return ctrl
+}
+
+type drainingServiceSuite struct {
+	testhelpers.IsolationSuite
+
+	state          *MockDrainingState
+	watcherFactory *MockWatcherFactory
+}
+
+func TestDrainingServiceSuite(t *testing.T) {
+	tc.Run(t, &drainingServiceSuite{})
+}
+
+func (s *drainingServiceSuite) TestSetDrainingPhase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentPhase := objectstore.PhaseUnknown
+	newPhase := objectstore.PhaseDraining
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
+	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), currentPhase, nil)
+	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) TestSetDrainingPhaseNoInitial(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newPhase := objectstore.PhaseDraining
+
+	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return("", "", objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().SetDrainingPhase(gomock.Any(), gomock.Any(), newPhase).Return(nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) TestSetDrainingPhaseInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	phase := objectstore.Phase("invalid")
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), phase)
+	c.Assert(err, tc.ErrorMatches, "invalid phase \"invalid\"")
+}
+
+func (s *drainingServiceSuite) TestSetDrainingPhaseError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentPhase := objectstore.PhaseUnknown
+	newPhase := objectstore.PhaseDraining
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
+	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), currentPhase, nil)
+	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(errors.Errorf("boom"))
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
+}
+
+func (s *drainingServiceSuite) TestGetDrainingPhase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	phase := objectstore.PhaseDraining
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
+	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), phase, nil)
+
+	p, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(p, tc.Equals, phase)
+}
+
+func (s *drainingServiceSuite) TestGetDrainingPhaseError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	phase := objectstore.PhaseDraining
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
+	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), phase, errors.Errorf("boom"))
+
+	_, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
+}
+
+func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	key := uuid.MustNewUUID().String()
+
+	s.state.EXPECT().RemoveMetadata(gomock.Any(), key).Return(nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).RemoveMetadata(c.Context(), key)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.state = NewMockDrainingState(ctrl)
+	s.watcherFactory = NewMockWatcherFactory(ctrl)
+
+	c.Cleanup(func() {
+		s.state = nil
+		s.watcherFactory = nil
+	})
 
 	return ctrl
 }
