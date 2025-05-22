@@ -6,7 +6,6 @@ package testing
 import (
 	"context"
 	"sync"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -24,8 +23,6 @@ import (
 	"github.com/juju/juju/state"
 	statewatcher "github.com/juju/juju/state/watcher"
 )
-
-func TestXXX[H StateSuite](t *stdtesting.T) { tc.Run(t, &StateSuite{}) }
 
 // StateSuite provides setup and teardown for tests that require a
 // state.State.
