@@ -226,7 +226,7 @@ type ApplicationService interface {
 
 	// GetApplicationAndCharmConfig returns the application and charm config for the
 	// specified application ID.
-	GetApplicationAndCharmConfig(ctx context.Context, appID coreapplication.ID) (applicationservice.ApplicationConfig, error)
+	GetApplicationAndCharmConfig(context.Context, coreapplication.ID) (applicationservice.ApplicationConfig, error)
 
 	// SetApplicationConstraints sets the application constraints for the
 	// specified application ID.
@@ -236,7 +236,13 @@ type ApplicationService interface {
 	// error is returned.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error
+	SetApplicationConstraints(context.Context, coreapplication.ID, constraints.Value) error
+
+	// UnsetApplicationConfigKeys removes the specified keys from the application
+	// config. If the key does not exist, it is ignored.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	UnsetApplicationConfigKeys(context.Context, coreapplication.ID, []string) error
 
 	// UpdateApplicationConfig updates the application config with the specified
 	// values. If the key does not exist, it is created. If the key already exists,
