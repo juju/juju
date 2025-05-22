@@ -20,12 +20,6 @@ import (
 	"github.com/juju/juju/juju/keys"
 )
 
-type liveTestData struct {
-	baseURL        string
-	requireSigned  bool
-	validCloudSpec simplestreams.CloudSpec
-}
-
 func TestSimplestreamsSuite(t *testing.T) {
 	cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{

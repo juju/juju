@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+
 // ChangeLogTriggersForModelMigrationMinionSync generates the triggers for the
 // model_migration_minion_sync table.
 func ChangeLogTriggersForModelMigrationMinionSync(columnName string, namespaceID int) func() schema.Patch {
@@ -88,3 +89,4 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+

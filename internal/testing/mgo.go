@@ -16,7 +16,7 @@ import (
 // The server will be configured without SSL enabled, which slows down
 // tests. For tests that care about security (which should be few), use
 // MgoSSLTestPackage.
-// DEPRECATED: use MgoTestMain
+// Deprecated: use MgoTestMain
 func MgoTestPackage(t *testing.T) {
 	mgotesting.MgoServer.EnableReplicaSet = true
 	// Tests tend to cause enough contention that the default lock request
@@ -52,7 +52,7 @@ func MgoTestMain() func() {
 // MgoSSLTestPackage should be called to register the tests for any package
 // that requires a secure (SSL) connection to a MongoDB server.
 //
-// DEPRECATED: use MgoSSLTestMain
+// Deprecated: use MgoSSLTestMain
 func MgoSSLTestPackage(t *testing.T) {
 	mgotesting.MgoServer.EnableReplicaSet = true
 	// Tests tend to cause enough contention that the default lock request

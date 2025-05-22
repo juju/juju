@@ -6,7 +6,6 @@ package tools_test
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,8 +15,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
@@ -31,43 +28,6 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 )
-
-var live = flag.Bool("live", false, "Include live simplestreams tests")
-
-var vendor = flag.String("vendor", "", "The vendor representing the source of the simplestream data")
-
-type liveTestData struct {
-	baseURL        string
-	requireSigned  bool
-	validCloudSpec simplestreams.CloudSpec
-}
-
-func getLiveURLs() (map[string]liveTestData, error) {
-	resolver := ec2.NewDefaultEndpointResolver()
-	ep, err := resolver.ResolveEndpoint("us-east-1", ec2.EndpointResolverOptions{})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return map[string]liveTestData{
-		"ec2": {
-			baseURL:       tools.DefaultBaseURL,
-			requireSigned: true,
-			validCloudSpec: simplestreams.CloudSpec{
-				Region:   "us-east-1",
-				Endpoint: ep.URL,
-			},
-		},
-		"canonistack": {
-			baseURL:       "https://swift.canonistack.canonical.com/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-tools",
-			requireSigned: false,
-			validCloudSpec: simplestreams.CloudSpec{
-				Region:   "lcy01",
-				Endpoint: "https://keystone.canonistack.canonical.com:443/v1.0/",
-			},
-		},
-	}, nil
-}
 
 func TestSimplestreamsSuite(t *testing.T) {
 	tc.Run(t, &simplestreamsSuite{
