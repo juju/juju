@@ -245,6 +245,42 @@ func (c *MockLoggerGetChildByNameCall) DoAndReturn(f func(string) logger.Logger)
 	return c
 }
 
+// Helper mocks base method.
+func (m *MockLogger) Helper() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Helper")
+}
+
+// Helper indicates an expected call of Helper.
+func (mr *MockLoggerMockRecorder) Helper() *MockLoggerHelperCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Helper", reflect.TypeOf((*MockLogger)(nil).Helper))
+	return &MockLoggerHelperCall{Call: call}
+}
+
+// MockLoggerHelperCall wrap *gomock.Call
+type MockLoggerHelperCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockLoggerHelperCall) Return() *MockLoggerHelperCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockLoggerHelperCall) Do(f func()) *MockLoggerHelperCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockLoggerHelperCall) DoAndReturn(f func()) *MockLoggerHelperCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Infof mocks base method.
 func (m *MockLogger) Infof(arg0 context.Context, arg1 string, arg2 ...any) {
 	m.ctrl.T.Helper()

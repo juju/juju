@@ -16,3 +16,6 @@ func (r RecordLog) Logf(msg string, args ...any) {
 func (r RecordLog) Context() context.Context {
 	return context.Background()
 }
+
+func (r RecordLog) Helper() {
+}
