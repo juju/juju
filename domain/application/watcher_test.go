@@ -868,7 +868,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
 	svc := s.setupService(c, factory)
 
-	s.createApplication(c, svc, "foo",
+	s.createIAASApplication(c, svc, "foo",
 		service.AddUnitArg{},
 		service.AddUnitArg{},
 		service.AddUnitArg{
@@ -909,7 +909,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *tc.C) {
-		s.createApplication(c, svc, "foo",
+		s.createIAASApplication(c, svc, "foo",
 			service.AddUnitArg{
 				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
 			},
@@ -969,7 +969,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *tc.C) {
-		s.createApplication(c, svc, "foo",
+		s.createIAASApplication(c, svc, "foo",
 			service.AddUnitArg{
 				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
 			},
@@ -983,20 +983,20 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 
 	var subordinateAppID coreapplication.ID
 	harness.AddTest(func(c *tc.C) {
-		subordinateAppID = s.createApplicationWithCharmAndStoragePath(c, svc, "bar", &stubCharm{subordinate: true}, "deadbeef")
+		subordinateAppID = s.createIAASApplicationWithCharmAndStoragePath(c, svc, "bar", &stubCharm{subordinate: true}, "deadbeef")
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		err := svc.AddSubordinateUnit(ctx, subordinateAppID, "foo/0")
+		err := svc.AddIAASSubordinateUnit(ctx, subordinateAppID, "foo/0")
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{"bar/0"}))
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		err := svc.AddSubordinateUnit(ctx, subordinateAppID, "foo/1")
+		err := svc.AddIAASSubordinateUnit(ctx, subordinateAppID, "foo/1")
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()

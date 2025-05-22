@@ -47,7 +47,7 @@ type providerServiceSuite struct {
 
 var _ = tc.Suite(&providerServiceSuite{})
 
-func (s *providerServiceSuite) TestCreateApplication(c *tc.C) {
+func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -197,7 +197,7 @@ func (s *providerServiceSuite) TestCreateApplication(c *tc.C) {
 	c.Check(receivedArgs, tc.DeepEquals, us)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -263,7 +263,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *tc.
 	c.Check(receivedArgs.Status, tc.DeepEquals, status)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -350,7 +350,7 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidApplicationName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "666", s.charm, corecharm.Origin{
@@ -363,7 +363,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidApplicationName(c
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidCharmName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidCharmName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -380,7 +380,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidCharmName(c *tc.C
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidReferenceName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidReferenceName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -405,7 +405,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidReferenceName(c *
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithNoCharmName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithNoCharmName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
@@ -416,7 +416,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoCharmName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithNoApplicationOrCharmName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
@@ -427,7 +427,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithNoMeta(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithNoMeta(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(nil).MinTimes(1)
@@ -438,7 +438,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoMeta(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmMetadataNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithNoArchitecture(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithNoArchitecture(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
@@ -492,7 +492,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllRe
 
 // TestCreateApplicationWithInvalidResourceBothTypes tests that resolved resources and
 // pending resources are mutually exclusive.
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourceBothTypes(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourceBothTypes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo", Resources: map[string]charmresource.Meta{
@@ -525,7 +525,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourceBothTypes
 		".*create application: cannot have both pending and resolved resources: invalid resource args")
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesMoreResolvedThanCharmResources(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesMoreResolvedThanCharmResources(c *tc.C) {
 	resources := ResolvedResources{
 		{
 			Name:     "not-in-charm",
@@ -533,10 +533,10 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesMoreReso
 			Revision: ptr(42),
 		},
 	}
-	s.testCreateApplicationWithInvalidResource(c, resources)
+	s.testCreateIAASApplicationWithInvalidResource(c, resources)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesUploadWithRevision(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesUploadWithRevision(c *tc.C) {
 	resources := ResolvedResources{
 		{
 			Name:     "Upload-revision",
@@ -544,30 +544,30 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesUploadWi
 			Revision: ptr(42),
 		},
 	}
-	s.testCreateApplicationWithInvalidResource(c, resources)
+	s.testCreateIAASApplicationWithInvalidResource(c, resources)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNoName(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesNoName(c *tc.C) {
 	resources := ResolvedResources{
 		{
 			Origin:   charmresource.OriginStore,
 			Revision: ptr(42),
 		},
 	}
-	s.testCreateApplicationWithInvalidResource(c, resources)
+	s.testCreateIAASApplicationWithInvalidResource(c, resources)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesInvalidOrigin(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesInvalidOrigin(c *tc.C) {
 	resources := ResolvedResources{
 		{
 			Name:   "invalid-origin",
 			Origin: 42,
 		},
 	}
-	s.testCreateApplicationWithInvalidResource(c, resources)
+	s.testCreateIAASApplicationWithInvalidResource(c, resources)
 }
 
-func (s *providerServiceSuite) testCreateApplicationWithInvalidResource(c *tc.C, resources ResolvedResources) {
+func (s *providerServiceSuite) testCreateIAASApplicationWithInvalidResource(c *tc.C, resources ResolvedResources) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
@@ -592,7 +592,7 @@ func (s *providerServiceSuite) testCreateApplicationWithInvalidResource(c *tc.C,
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationError(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -631,7 +631,7 @@ func (s *providerServiceSuite) TestCreateApplicationError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `creating IAAS application "foo": boom`)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -742,7 +742,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSource(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -858,7 +858,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -971,7 +971,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -1087,7 +1087,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithSharedStorageMissingDirectives(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorageMissingDirectives(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
@@ -1122,7 +1122,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithSharedStorageMissingDire
 	c.Assert(err, tc.ErrorMatches, `.*adding default storage directives: no storage directive specified for shared charm storage "data"`)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithStorageValidates(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageValidates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
@@ -1438,7 +1438,7 @@ func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *tc.C) {
+func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1481,7 +1481,7 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *tc.C) {
 	c.Check(received, tc.DeepEquals, u)
 }
 
-func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *tc.C) {
+func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1549,7 +1549,7 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *tc.C) {
 	c.Check(received, tc.DeepEquals, u)
 }
 
-func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *tc.C) {
+func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1610,7 +1610,7 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *tc.C) {
 	c.Check(received, tc.DeepEquals, u)
 }
 
-func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *tc.C) {
+func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1658,7 +1658,7 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *tc.C) {
 	c.Check(received, tc.DeepEquals, u)
 }
 
-func (s *providerServiceSuite) TestAddUnitsInvalidName(c *tc.C) {
+func (s *providerServiceSuite) TestAddIAASUnitsInvalidName(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1675,7 +1675,7 @@ func (s *providerServiceSuite) TestAddUnitsInvalidName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *providerServiceSuite) TestAddUnitsNoUnits(c *tc.C) {
+func (s *providerServiceSuite) TestAddIAASUnitsNoUnits(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1692,7 +1692,7 @@ func (s *providerServiceSuite) TestAddUnitsNoUnits(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
+func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -1713,7 +1713,7 @@ func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *providerServiceSuite) TestAddUnitsInvalidPlacement(c *tc.C) {
+func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil

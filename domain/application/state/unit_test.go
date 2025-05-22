@@ -1861,17 +1861,16 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitApplicationNotAliv
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
-func (s *unitStateSubordinateSuite) TestAddSubordinateUnitPrincialNotFound(c *tc.C) {
+func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitPrincipalNotFound(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
 
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
 	// Act:
-	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 
 	// Assert
@@ -1881,16 +1880,15 @@ func (s *unitStateSubordinateSuite) TestAddSubordinateUnitPrincialNotFound(c *tc
 func (s *unitStateSubordinateSuite) TestDeleteUnitDeletesASubordinate(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
-	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+	s.createIAASApplication(c, "principal", life.Alive, application.InsertUnitArg{
 		UnitName: pUnitName,
 	})
 
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
-	sUnitName, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	sUnitName, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1904,16 +1902,15 @@ func (s *unitStateSubordinateSuite) TestDeleteUnitDeletesASubordinate(c *tc.C) {
 func (s *unitStateSubordinateSuite) TestDeleteUnitDeleteUnitWithSubordinate(c *tc.C) {
 	// Arrange:
 	pUnitName := coreunittesting.GenNewName(c, "foo/666")
-	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+	s.createIAASApplication(c, "principal", life.Alive, application.InsertUnitArg{
 		UnitName: pUnitName,
 	})
 
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
-	_, err := s.state.AddSubordinateUnit(c.Context(), application.SubordinateUnitArg{
+	_, err := s.state.AddIAASSubordinateUnit(c.Context(), application.SubordinateUnitArg{
 		SubordinateAppID:  sAppID,
 		PrincipalUnitName: pUnitName,
-		ModelType:         model.IAAS,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
