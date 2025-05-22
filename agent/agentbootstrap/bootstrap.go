@@ -72,6 +72,17 @@ type bootstrapController interface {
 	SetMongoPassword(password string) error
 }
 
+// CheckJWKSReachable checks if the given JWKS URL is reachable.
+func CheckJWKSReachable(url string) error {
+	ctx, cancelF := stdcontext.WithTimeout(stdcontext.TODO(), 30*time.Second)
+	defer cancelF()
+	_, err := jwk.Fetch(ctx, url)
+	if err != nil {
+		return errors.Annotatef(err, "failed to fetch jwks")
+	}
+	return nil
+}
+
 // InitializeState should be called with the bootstrap machine's agent
 // configuration. It uses that information to create the controller, dial the
 // controller, and initialize it. It also generates a new password for the
@@ -99,19 +110,6 @@ func InitializeState(
 	servingInfo, ok := c.StateServingInfo()
 	if !ok {
 		return nil, errors.Errorf("state serving information not available")
-	}
-
-	// The JWKS refresh URL is a public key that we trust for federated
-	// auth. This is conventionally a JIMM controller. Check that JIMM
-	// is reachable to fail fast and validate the URL.
-	jwksRefreshURL := args.ControllerConfig.LoginTokenRefreshURL()
-	if jwksRefreshURL != "" {
-		ctx, cancelF := stdcontext.WithTimeout(stdcontext.TODO(), 30*time.Second)
-		defer cancelF()
-		_, err := jwk.Fetch(ctx, jwksRefreshURL)
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to fetch jwks")
-		}
 	}
 
 	// N.B. no users are set up when we're initializing the state,

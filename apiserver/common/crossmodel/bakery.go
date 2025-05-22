@@ -186,19 +186,19 @@ type externalPublicKeyLocator struct {
 // ThirdPartyInfo implements bakery.PublicKeyLocator.
 // It first checks the local store for the public key, and if not found,
 // it fetches the public key from the access endpoint and caches it.
-func (f *externalPublicKeyLocator) ThirdPartyInfo(ctx context.Context, loc string) (bakery.ThirdPartyInfo, error) {
+func (e *externalPublicKeyLocator) ThirdPartyInfo(ctx context.Context, loc string) (bakery.ThirdPartyInfo, error) {
 	var info bakery.ThirdPartyInfo
-	info, err := f.ThirdPartyStore.ThirdPartyInfo(ctx, f.accessEndpoint)
+	info, err := e.ThirdPartyStore.ThirdPartyInfo(ctx, e.accessEndpoint)
 	if err == nil {
 		return info, nil
 	}
 	client := &http.Client{Transport: DefaultTransport}
-	info, err = httpbakery.ThirdPartyInfoForLocation(ctx, client, f.accessEndpoint)
-	logger.Tracef("got third party info %#v from %q", info, f.accessEndpoint)
+	info, err = httpbakery.ThirdPartyInfoForLocation(ctx, client, e.accessEndpoint)
+	logger.Tracef("got third party info %#v from %q", info, e.accessEndpoint)
 	if err != nil {
 		return info, errors.Trace(err)
 	}
-	f.ThirdPartyStore.AddInfo(f.accessEndpoint, info)
+	e.ThirdPartyStore.AddInfo(e.accessEndpoint, info)
 	return info, nil
 }
 

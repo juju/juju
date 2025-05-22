@@ -176,6 +176,26 @@ func (s *BootstrapSuite) getSystemState(c *gc.C) (*state.State, func()) {
 	return systemState, func() { pool.Close() }
 }
 
+func (s *BootstrapSuite) TestCheckJWKSReachable(c *gc.C) {
+	jwksURL := "fake-url"
+
+	called := false
+	s.PatchValue(&checkJWKSReachable, func(s string) error {
+		called = true
+		c.Check(s, gc.Equals, jwksURL)
+		return nil
+	})
+
+	s.bootstrapParams.ControllerConfig[controller.LoginTokenRefreshURL] = jwksURL
+	s.writeBootstrapParamsFile(c)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
 func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
 	if coreos.HostOS() != ostype.Ubuntu {
 		c.Skip("controller charm only supported on Ubuntu")
