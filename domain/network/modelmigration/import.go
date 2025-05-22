@@ -9,14 +9,13 @@ import (
 	"github.com/juju/description/v9"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/domain/network/service"
 	"github.com/juju/juju/domain/network/state"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -176,24 +175,27 @@ func (i *importOperation) importLinkLayerDevices(ctx context.Context, modelLLD [
 	if len(modelLLD) == 0 {
 		return nil
 	}
-	data := i.transformLinkLayerDevices(modelLLD)
+	data, err := i.transformLinkLayerDevices(modelLLD)
+	if err != nil {
+		return err
+	}
 	if err := i.migrationService.ImportLinkLayerDevices(ctx, data); err != nil {
 		return errors.Errorf("importing link layer devices: %w", err)
 	}
 	return nil
 }
 
-func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkLayerDevice) []internal.ImportLinkLayerDevice {
+func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkLayerDevice) ([]internal.ImportLinkLayerDevice, error) {
 	data := make([]internal.ImportLinkLayerDevice, len(modelLLD))
 
 	for i, lld := range modelLLD {
 		var (
 			mac        *string
 			mtu        *int64
-			providerID *corenetwork.Id
+			providerID *string
 		)
 		if lld.ProviderID() != "" {
-			providerID = ptr(corenetwork.Id(lld.ProviderID()))
+			providerID = ptr(lld.ProviderID())
 		}
 		if lld.MTU() > 0 {
 			mtu = ptr(int64(lld.MTU()))
@@ -201,23 +203,26 @@ func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkL
 		if lld.MACAddress() != "" {
 			mac = ptr(lld.MACAddress())
 		}
-		lldType := corenetwork.LinkLayerDeviceType(lld.Type())
-		vpType := corenetwork.VirtualPortType(lld.VirtualPortType())
+		lldUUID, err := uuid.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf("creating UUID for link layer device %q", lld.Name())
+		}
 		data[i] = internal.ImportLinkLayerDevice{
+			UUID:             lldUUID.String(),
 			Name:             lld.Name(),
-			MachineID:        machine.Name(lld.MachineID()),
+			MachineID:        lld.MachineID(),
 			MTU:              mtu,
 			MACAddress:       mac,
 			ProviderID:       providerID,
-			Type:             network.MarshallDeviceType(lldType),
-			VirtualPortType:  network.MarshallVirtualPortType(vpType),
+			Type:             corenetwork.LinkLayerDeviceType(lld.Type()),
+			VirtualPortType:  corenetwork.VirtualPortType(lld.VirtualPortType()),
 			IsAutoStart:      lld.IsAutoStart(),
 			IsEnabled:        lld.IsUp(),
 			ParentDeviceName: lld.ParentName(),
 		}
 	}
 
-	return data
+	return data, nil
 }
 
 // ptr returns a reference to a copied value of type T.

@@ -4,34 +4,34 @@
 package service
 
 import (
+	"testing"
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type linkLayerSuite struct {
 	st *MockState
 }
 
-var _ = tc.Suite(&linkLayerSuite{})
+func TestLinkLayerSuite(t *testing.T) {
+	tc.Run(t, &linkLayerSuite{})
+}
 
 func (s *linkLayerSuite) TestImportLinkLayerDevices(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	netNodeUUID := testing.GenNetNodeUUID(c)
-	nameMap := map[machine.Name]network.NetNodeUUID{
+	netNodeUUID := uuid.MustNewUUID().String()
+	nameMap := map[string]string{
 		"88": netNodeUUID,
 	}
 	args := []internal.ImportLinkLayerDevice{
-		{
-			MachineID: machine.Name("88"),
-		},
+		{MachineID: "88"},
 	}
 	expectedArgs := args
 	expectedArgs[0].NetNodeUUID = netNodeUUID
@@ -51,7 +51,7 @@ func (s *linkLayerSuite) TestImportLinkLayerDevicesMachines(c *tc.C) {
 	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nil, errors.New("boom"))
 	args := []internal.ImportLinkLayerDevice{
 		{
-			MachineID: machine.Name("88"),
+			MachineID: "88",
 		},
 	}
 

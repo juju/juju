@@ -15,7 +15,6 @@ import (
 
 	database "github.com/juju/juju/core/database"
 	instance "github.com/juju/juju/core/instance"
-	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
 	internal "github.com/juju/juju/domain/network/internal"
 	environs "github.com/juju/juju/environs"
@@ -123,10 +122,10 @@ func (c *MockStateAddSubnetCall) DoAndReturn(f func(context.Context, network.Sub
 }
 
 // AllMachinesAndNetNodes mocks base method.
-func (m *MockState) AllMachinesAndNetNodes(arg0 context.Context) (map[machine.Name]network.NetNodeUUID, error) {
+func (m *MockState) AllMachinesAndNetNodes(arg0 context.Context) (map[string]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllMachinesAndNetNodes", arg0)
-	ret0, _ := ret[0].(map[machine.Name]network.NetNodeUUID)
+	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -144,19 +143,19 @@ type MockStateAllMachinesAndNetNodesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateAllMachinesAndNetNodesCall) Return(arg0 map[machine.Name]network.NetNodeUUID, arg1 error) *MockStateAllMachinesAndNetNodesCall {
+func (c *MockStateAllMachinesAndNetNodesCall) Return(arg0 map[string]string, arg1 error) *MockStateAllMachinesAndNetNodesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAllMachinesAndNetNodesCall) Do(f func(context.Context) (map[machine.Name]network.NetNodeUUID, error)) *MockStateAllMachinesAndNetNodesCall {
+func (c *MockStateAllMachinesAndNetNodesCall) Do(f func(context.Context) (map[string]string, error)) *MockStateAllMachinesAndNetNodesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAllMachinesAndNetNodesCall) DoAndReturn(f func(context.Context) (map[machine.Name]network.NetNodeUUID, error)) *MockStateAllMachinesAndNetNodesCall {
+func (c *MockStateAllMachinesAndNetNodesCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockStateAllMachinesAndNetNodesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
