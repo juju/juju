@@ -1,4 +1,4 @@
-(how-to-guides)=
+(contributor-how-to-guides)=
 # How-to guides
 
 How-to guides for Juju developers

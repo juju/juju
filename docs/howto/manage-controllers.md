@@ -473,8 +473,7 @@ scrape_configs:
 ```{caution}
 The procedure documented below is currently supported only for machine (non-Kubernetes) controllers.
 ```
-
-
+(create-a-controller-backup)=
 ### Create a controller backup
 
 To create a backup of a controller configuration / metadata, use the `create-backup` followed by the `-m` flag and the name of the target controller model. For example, assuming a controller called `localhost-controller`, and the standard controller model name (`controller`), we will do: 
@@ -573,6 +572,7 @@ This file will have been downloaded to a temporary location (in our case, `/home
 > See more: {ref}`command-juju-download-backup`
 
 
+(restore-a-controller-from-a-backup)=
 ### Restore a controller from a backup
 
 To restore a controller from a backup, you can use the [stand-alone `juju-restore` tool](https://github.com/juju/juju-restore).
@@ -671,22 +671,36 @@ juju upgrade-controller --agent-version 3.0.2
 
 It is not possible to upgrade a controller's minor or major version.
 
- Instead, you should 
-- use a client upgraded to the desired version to bootstrap a new controller of that version;
-- recreate your old controller's configuration (settings, users, clouds, and models -- for machine clouds you can use the `juju create-backup` command and the standalone `juju-restore` tool) in the new controller;
-- migrate your models from the old controller to the new (`juju migrate`) and upgrade them to match the new controller's version;
-- help your users connect to the new controller (run `juju change-user-password`, then send them the new registration string). 
+ Instead, you should:
+1. Use a client upgraded to the desired version to bootstrap a new controller of that version.
 
-```{important}
+> See more: {ref}`upgrade-juju`, {ref}`bootstrap-a-controller`
 
-See `upgrade-your-deployment for a full demo!
+2. Recreate your old controller's configuration (settings, users, clouds, and models) in the new controller (on machine clouds, through our dedicated tools for backup and restore).
+
+> See more: {ref}`back-up-a-controller` (see esp. {ref}`create-a-controller-backup` and {ref}`restore-a-controller-from-a-backup`) 
+
+3. Migrate your models from the old controller to the new, then upgrade them to match the new controller's version.
+
+> See more: {ref}`migrate-a-model`, {ref}`upgrade-a-model`
+
+4. Help your users connect to the new controller by changing their password and then sending them the new controller registration string.
+
+> See more: {ref}`manage-a-users-login-details`
+
+<!--
+> See more: 
+> - {ref}`upgrade-juju`
+> - {ref}`bootstrap-a-controller`, {ref}`back-up-a-controller` (see esp. {ref}`create-a-controller-backup` and {ref}`restore-a-controller-from-a-backup`)
+> - {ref}`migrate-a-model`, {ref}`upgrade-a-model`
+> - {ref}`manage-a-users-login-details`
+-->
+
+```{tip}
+
+See {ref}`upgrade-your-juju-components-minor-or-major-version` for a full example workflow!
 
 ```
-
-> See more: 
-> - {ref}`back-up-a-controller`
-> - {ref}`migrate-a-model`
-> - {ref}`manage-a-users-login-details`
 
 ## Remove a controller
 
