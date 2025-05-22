@@ -204,6 +204,7 @@ func (s *ModelServices) Machine() *machineservice.WatchableService {
 		s.modelWatcherFactory("machine"),
 		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
 		domain.NewStatusHistory(logger, s.clock),
+		s.clock,
 		logger,
 	)
 }

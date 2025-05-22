@@ -349,6 +349,61 @@ func (s *statusHistorySuite) TestMatches(c *tc.C) {
 			},
 			expected: false,
 		},
+		{
+			record: statushistory.HistoryRecord{
+				Kind: status.KindMachine,
+				Tag:  "foo",
+			},
+			request: StatusHistoryRequest{
+				Kind: status.KindMachine,
+				Tag:  "foo",
+			},
+			expected: true,
+		},
+		{
+			record: statushistory.HistoryRecord{
+				Kind: status.KindMachine,
+				Tag:  "foo",
+			},
+			request: StatusHistoryRequest{
+				Kind: status.KindMachine,
+				Tag:  "bar",
+			},
+			expected: false,
+		},
+		{
+			record: statushistory.HistoryRecord{
+				Kind: status.KindMachineInstance,
+				Tag:  "foo",
+			},
+			request: StatusHistoryRequest{
+				Kind: status.KindMachineInstance,
+				Tag:  "foo",
+			},
+			expected: true,
+		},
+		{
+			record: statushistory.HistoryRecord{
+				Kind: status.KindMachineInstance,
+				Tag:  "foo",
+			},
+			request: StatusHistoryRequest{
+				Kind: status.KindMachineInstance,
+				Tag:  "bar",
+			},
+			expected: false,
+		},
+		{
+			record: statushistory.HistoryRecord{
+				Kind: status.KindMachineInstance,
+				Tag:  "foo",
+			},
+			request: StatusHistoryRequest{
+				Kind: status.KindMachine,
+				Tag:  "foo",
+			},
+			expected: false,
+		},
 	}
 
 	for i, test := range tests {
