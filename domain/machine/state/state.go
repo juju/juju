@@ -118,6 +118,17 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 		return errors.Capture(err)
 	}
 
+	now := st.clock.Now()
+
+	instanceStatusInfo, err := encodeCloudInstanceStatus(domainmachine.InstanceStatusPending)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	machineStatusInfo, err := encodeMachineStatus(domainmachine.MachineStatusPending)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine uuid. If the machine already exists, return a
 		// MachineAlreadyExists error.
@@ -136,6 +147,24 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 		// Run query to create machine row.
 		if err := tx.Query(ctx, createMachineStmt, createParams).Run(); err != nil {
 			return errors.Errorf("creating machine row for machine %q: %w", mName, err)
+		}
+		// Ensure we always have an instance as well, otherwise we can't have
+		// an associated status.
+		if err := st.insertMachineInstance(ctx, tx, args.machineUUID); err != nil {
+			return errors.Errorf("inserting machine instance for machine %q: %w", mName, err)
+		}
+
+		if err := st.insertMachineStatus(ctx, tx, mName, setStatusInfo{
+			StatusID: machineStatusInfo,
+			Updated:  ptr(now),
+		}); err != nil {
+			return errors.Errorf("inserting machine status for machine %q: %w", mName, err)
+		}
+		if err := st.insertMachineInstanceStatus(ctx, tx, mName, setStatusInfo{
+			StatusID: instanceStatusInfo,
+			Updated:  ptr(now),
+		}); err != nil {
+			return errors.Errorf("inserting machine instance status for machine %q: %w", mName, err)
 		}
 
 		// If the parent name is empty, we don't need to associate a parent
@@ -247,6 +276,11 @@ func (st *State) DeleteMachine(ctx context.Context, mName machine.Name) error {
 	if err != nil {
 		return errors.Capture(err)
 	}
+	deleteMachineInstance := `DELETE FROM machine_cloud_instance WHERE machine_uuid = $machineUUID.uuid`
+	deleteMachineInstanceStmt, err := st.Prepare(deleteMachineInstance, machineUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	// Prepare query for deleting net node row.
 	deleteNode := `
@@ -259,8 +293,13 @@ DELETE FROM net_node WHERE uuid IN
 	}
 
 	// Prepare query for deleting status and status data for the machine.
-	deleteStatus := `DELETE FROM machine_status WHERE machine_uuid = $machineUUID.uuid`
-	deleteStatusStmt, err := st.Prepare(deleteStatus, machineUUIDParam)
+	deleteMachineStatus := `DELETE FROM machine_status WHERE machine_uuid = $machineUUID.uuid`
+	deleteMachineStatusStmt, err := st.Prepare(deleteMachineStatus, machineUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteMachineInstanceStatus := `DELETE FROM machine_cloud_instance_status WHERE machine_uuid = $machineUUID.uuid`
+	deleteMachineInstanceStatusStmt, err := st.Prepare(deleteMachineInstanceStatus, machineUUIDParam)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -279,13 +318,19 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Errorf("deleting block devices for machine %q: %w", mName, err)
 		}
 
-		// Remove the status for the machine. No need to return error if no
+		// Remove the statuses for the machine. No need to return error if no
 		// status is set for the machine while deleting.
-		if err := tx.Query(ctx, deleteStatusStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if err := tx.Query(ctx, deleteMachineStatusStmt, machineUUIDParam).Run(); err != nil {
 			return errors.Errorf("deleting status for machine %q: %w", mName, err)
 		}
+		if err := tx.Query(ctx, deleteMachineInstanceStatusStmt, machineUUIDParam).Run(); err != nil {
+			return errors.Errorf("deleting status for machine instance %q: %w", mName, err)
+		}
 
-		// Remove the machine.
+		// Remove the machine and instance rows.
+		if err := tx.Query(ctx, deleteMachineInstanceStmt, machineUUIDParam).Run(); err != nil {
+			return errors.Errorf("deleting machine %q: %w", mName, err)
+		}
 		if err := tx.Query(ctx, deleteMachineStmt, machineNameParam).Run(); err != nil {
 			return errors.Errorf("deleting machine %q: %w", mName, err)
 		}
@@ -551,58 +596,15 @@ func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newSt
 	}
 
 	// Prepare the new status to be set.
-	status := setMachineStatus{
+	status := setStatusInfo{
 		StatusID: statusID,
 		Message:  newStatus.Message,
 		Data:     newStatus.Data,
 		Updated:  newStatus.Since,
 	}
 
-	// Prepare query for machine uuid
-	nameIdent := machineName{Name: mName}
-
-	var mUUID machineUUID
-	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name;`
-	queryMachineStmt, err := st.Prepare(queryMachine, nameIdent, mUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare query for setting machine status
-	statusQuery := `
-INSERT INTO machine_status (*)
-VALUES ($setMachineStatus.*)
-  ON CONFLICT (machine_uuid)
-  DO UPDATE SET
-  	status_id = excluded.status_id,
-	message = excluded.message,
-	updated_at = excluded.updated_at,
-	data = excluded.data;
-`
-	statusQueryStmt, err := st.Prepare(statusQuery, status)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Query for the machine uuid.
-		err := tx.Query(ctx, queryMachineStmt, nameIdent).Get(&mUUID)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
-		} else if err != nil {
-			return errors.Errorf("querying uuid for machine %q: %w", mName, err)
-		}
-
-		// Set the machine uuid in the status struct.
-		status.MachineUUID = mUUID.UUID
-
-		// Query for setting the machine status.
-		err = tx.Query(ctx, statusQueryStmt, status).Run()
-		if err != nil {
-			return errors.Errorf("setting machine status for machine %q: %w", mName, err)
-		}
-
-		return nil
+		return st.insertMachineStatus(ctx, tx, mName, status)
 	})
 }
 
@@ -1011,10 +1013,9 @@ ORDER BY array_index ASC`, lxdProfileQuery)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var instanceData instanceData
 		err := tx.Query(ctx, isProvisionedStmt, instanceDataQuery).Get(&instanceData)
-		if errors.Is(err, sqlair.ErrNoRows) {
+		if errors.Is(err, sqlair.ErrNoRows) || instanceData.InstanceID == "" {
 			return errors.Errorf("machine %q: %w", mUUID, machineerrors.NotProvisioned)
-		}
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("checking machine cloud instance for machine %q: %w", mUUID, err)
 		}
 		err = tx.Query(ctx, queryStmt, lxdProfileQuery).GetAll(&result)
@@ -1103,12 +1104,12 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 		// Check if the machine is provisioned
 		var instanceData instanceData
 		err = tx.Query(ctx, isProvisionedStmt, instanceDataQuery).Get(&instanceData)
-		if errors.Is(err, sqlair.ErrNoRows) {
+		if errors.Is(err, sqlair.ErrNoRows) || instanceData.InstanceID == "" {
 			return errors.Errorf("machine %q: %w", mUUID, machineerrors.NotProvisioned)
-		}
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("checking machine cloud instance for machine %q: %w", mUUID, err)
 		}
+
 		// Retrieve the existing profiles to check if the input is the exactly
 		// the same as the existing ones and in that case no insert is needed.
 		var existingProfiles []lxdProfile
@@ -1223,4 +1224,56 @@ func (*State) InitialWatchModelMachinesStatement() (string, string) {
 // for the machines.
 func (*State) InitialWatchStatement() (string, string) {
 	return "machine", "SELECT name FROM machine"
+}
+
+func (st *State) insertMachineStatus(ctx context.Context, tx *sqlair.TX, mName machine.Name, status setStatusInfo) error {
+	nameIdent := machineName{Name: mName}
+
+	var mUUID machineUUID
+	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name;`
+	queryMachineStmt, err := st.Prepare(queryMachine, nameIdent, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Prepare query for setting machine status
+	statusQuery := `
+INSERT INTO machine_status (*)
+VALUES ($setMachineStatus.*)
+  ON CONFLICT (machine_uuid)
+  DO UPDATE SET
+  	status_id = excluded.status_id,
+	message = excluded.message,
+	updated_at = excluded.updated_at,
+	data = excluded.data;
+`
+	statusQueryStmt, err := st.Prepare(statusQuery, setMachineStatus{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Query for the machine uuid.
+	if err := tx.Query(ctx, queryMachineStmt, nameIdent).Get(&mUUID); errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
+	} else if err != nil {
+		return errors.Errorf("querying uuid for machine %q: %w", mName, err)
+	}
+
+	// Query for setting the machine status.
+	err = tx.Query(ctx, statusQueryStmt, setMachineStatus{
+		MachineUUID: mUUID.UUID,
+		StatusID:    status.StatusID,
+		Message:     status.Message,
+		Data:        status.Data,
+		Updated:     status.Updated,
+	}).Run()
+	if err != nil {
+		return errors.Errorf("setting machine status for machine %q: %w", mName, err)
+	}
+
+	return nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

@@ -20,7 +20,7 @@ CREATE TABLE machine (
     REFERENCES life (id)
 );
 
-CREATE UNIQUE INDEX idx_name
+CREATE UNIQUE INDEX idx_machine_name
 ON machine (name);
 
 CREATE UNIQUE INDEX idx_machine_net_node
