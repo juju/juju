@@ -99,7 +99,6 @@ func (s *sshServerSuite) newServerWorkerConfig(
 		Listener:                 listener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		JWTParser:                s.jwtParser,
 		ProxyFactory:             s.proxyFactory,
@@ -146,12 +145,6 @@ func (s *sshServerSuite) TestValidate(c *gc.C) {
 	// Test no JumpHostKey.
 	cfg = s.newServerWorkerConfig(nil, func(cfg *ServerWorkerConfig) {
 		cfg.JumpHostKey = ""
-	})
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	// Test no NewSSHServerListener.
-	cfg = s.newServerWorkerConfig(nil, func(cfg *ServerWorkerConfig) {
-		cfg.NewSSHServerListener = nil
 	})
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 

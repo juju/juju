@@ -4,9 +4,11 @@
 package state
 
 import (
+	"fmt"
 	"runtime/debug"
 	"strings"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -68,6 +70,8 @@ func (r *multiModelRunner) RunTransaction(tx *jujutxn.Transaction) error {
 	return r.rawRunner.RunTransaction(tx)
 }
 
+var txnOpLogger = logger.Child("txn.op")
+
 // Run is part of the jujutxn.Runner interface. Operations returned by
 // the given "transactions" function that affect multi-model
 // collections will be modified to ensure correct interaction with
@@ -83,6 +87,12 @@ func (r *multiModelRunner) Run(transactions jujutxn.TransactionSource) error {
 		newOps, err := r.updateOps(ops)
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+
+		if txnOpLogger.IsTraceEnabled() {
+			txnOpLogger.Tracef(string(debug.Stack()))
+			txnOpLogger.Tracef(
+				strings.Join(transform.Slice(ops, func(op txn.Op) string { return fmt.Sprintf("%#v", op) }), "\n"))
 		}
 		return newOps, nil
 	})

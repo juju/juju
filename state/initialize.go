@@ -419,7 +419,10 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 		return nil, modelStatusDoc, errors.Trace(err)
 	}
 	// Some values require marshalling before storage.
-	modelCfg = config.CoerceForStorage(modelCfg)
+	modelCfg, err = config.CoerceForStorage(modelCfg)
+	if err != nil {
+		return nil, modelStatusDoc, errors.Trace(err)
+	}
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(modelUUID),
