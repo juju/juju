@@ -1998,6 +1998,44 @@ func (c *MockApplicationServiceSetApplicationScaleCall) DoAndReturn(f func(conte
 	return c
 }
 
+// UnsetApplicationConfigKeys mocks base method.
+func (m *MockApplicationService) UnsetApplicationConfigKeys(arg0 context.Context, arg1 application.ID, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnsetApplicationConfigKeys", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UnsetApplicationConfigKeys indicates an expected call of UnsetApplicationConfigKeys.
+func (mr *MockApplicationServiceMockRecorder) UnsetApplicationConfigKeys(arg0, arg1, arg2 any) *MockApplicationServiceUnsetApplicationConfigKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsetApplicationConfigKeys", reflect.TypeOf((*MockApplicationService)(nil).UnsetApplicationConfigKeys), arg0, arg1, arg2)
+	return &MockApplicationServiceUnsetApplicationConfigKeysCall{Call: call}
+}
+
+// MockApplicationServiceUnsetApplicationConfigKeysCall wrap *gomock.Call
+type MockApplicationServiceUnsetApplicationConfigKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceUnsetApplicationConfigKeysCall) Return(arg0 error) *MockApplicationServiceUnsetApplicationConfigKeysCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceUnsetApplicationConfigKeysCall) Do(f func(context.Context, application.ID, []string) error) *MockApplicationServiceUnsetApplicationConfigKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceUnsetApplicationConfigKeysCall) DoAndReturn(f func(context.Context, application.ID, []string) error) *MockApplicationServiceUnsetApplicationConfigKeysCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UnsetExposeSettings mocks base method.
 func (m *MockApplicationService) UnsetExposeSettings(arg0 context.Context, arg1 string, arg2 set.Strings) error {
 	m.ctrl.T.Helper()
